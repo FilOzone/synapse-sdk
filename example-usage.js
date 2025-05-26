@@ -1,219 +1,134 @@
 /**
- * Example usage of the Synapse SDK with environment-specific adapters
+ * Example usage of the Synapse SDK
  * 
- * This file demonstrates how to use the SDK with the adapters in both
- * Node.js and browser environments.
+ * This file demonstrates how to use the SDK for binary blob storage
+ * with PDP verification and optional CDN services.
  */
 
-// -----------------------------------------------------------------------------
-// Node.js environment example
-// -----------------------------------------------------------------------------
-
-// Node.js specific import example
 const { Synapse } = require('synapse-sdk')
-const { NodeAdapters } = require('synapse-sdk-node')
 
-// Initialize Synapse
-const synapse = new Synapse({
-  rpcUrl: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1',
-  privateKey: process.env.PRIVATE_KEY
-})
+async function main() {
+  // Initialize Synapse with your private key
+  const synapse = new Synapse({
+    privateKey: process.env.PRIVATE_KEY || '0x...', // Your private key
+    withCDN: true, // Enable CDN for faster retrievals (optional)
+    // rpcAPI: 'https://api.node.glif.io/rpc/v1', // Optional: custom RPC endpoint
+    // subgraphAPI: '...', // Optional: custom subgraph endpoint
+    // serviceContract: '0x...', // Optional: custom service contract
+  })
 
-// Create storage service
-const storage = synapse.createStorage({
-  duration: 90,
-  replicas: 3,
-  retrievalCheck: 2
-})
-
-// Upload a file using the Node.js adapter
-async function uploadFile(filePath) {
-  // Convert the file path to a ContentSource
-  const content = await NodeAdapters.fileToContent(filePath)
+  // Step 1: Check and manage balance
+  console.log('Checking balance...')
+  let balance = await synapse.balance()
+  console.log(`Current balance: ${balance} USDFC`)
   
-  // Upload the content
-  const cid = await storage.upload(content, {
-    wrapWithDirectory: true
+  // Deposit if balance is low
+  if (balance < 50) {
+    console.log(`Balance too low, depositing ${50 - balance} USDFC...`)
+    balance = await synapse.deposit(50 - balance)
+    console.log(`Deposit successful, new balance: ${balance} USDFC`)
+  }
+
+  // Step 2: Create a storage service instance
+  console.log('\nCreating storage service...')
+  const storage = await synapse.createStorage({
+    // proofSetId: '...', // Optional: use existing proof set
+    // storageProvider: 'f01234' // Optional: preferred storage provider
   })
   
-  console.log(`Uploaded ${filePath} with CID: ${cid}`)
-  return cid
+  console.log(`Using proof set ID: ${storage.proofSetId}`)
+  console.log(`Using storage provider: ${storage.storageProvider}`)
+
+  // Step 3: Upload binary data
+  console.log('\nUploading data...')
+  
+  // Example: create some binary data
+  const data = new TextEncoder().encode('Hello, Filecoin Synapse!')
+  
+  // Start upload
+  const uploadTask = storage.upload(data)
+  
+  // Track upload progress
+  const commp = await uploadTask.commp()
+  console.log(`Generated CommP: ${commp}`)
+  
+  const sp = await uploadTask.store()
+  console.log(`Stored data with provider: ${sp}`)
+  
+  const txHash = await uploadTask.done()
+  console.log(`Blob committed on chain: ${txHash}`)
+  console.log(`Data is being proven in proof set: ${storage.proofSetId}`)
+
+  // Step 4: Download data
+  console.log('\nDownloading data...')
+  
+  // Download with default settings (uses CDN if enabled, verifies by default)
+  const downloadedData = await storage.download(commp)
+  
+  // Convert back to string to verify
+  const decoder = new TextDecoder()
+  const downloadedText = decoder.decode(downloadedData)
+  console.log(`Downloaded: "${downloadedText}"`)
+  console.log(`Download successful: ${downloadedText === text}`)
+  
+  // Example: Download without CDN (direct from SP)
+  console.log('\nDownloading directly from SP (no CDN)...')
+  const directData = await storage.download(commp, { withCDN: false })
+  console.log(`Direct download successful: ${decoder.decode(directData) === text}`)
+  
+  // Example: Download without verification (faster but less secure)
+  console.log('\nDownloading without verification...')
+  const unverifiedData = await storage.download(commp, { noVerify: true })
+  console.log(`Unverified download successful: ${decoder.decode(unverifiedData) === text}`)
+
+  // Step 5: Settle payments
+  console.log('\nSettling payments...')
+  const { settledAmount, epoch } = await storage.settlePayments()
+  console.log(`Settled payment rail for epoch ${epoch}`)
+  console.log(`Settlement cost: ${settledAmount} USDFC`)
+
+  // Step 6: Delete data (optional)
+  console.log('\nDeleting data...')
+  await storage.delete(commp)
+  console.log(`Deleted blob with CommP ${commp} from proof set ${storage.proofSetId}`)
+
+  // Step 7: Withdraw funds (optional)
+  console.log('\nWithdrawing funds...')
+  const withdrawAmount = 10
+  const newBalance = await synapse.withdraw(withdrawAmount)
+  console.log(`Withdrawn ${withdrawAmount} USDFC, new balance: ${newBalance} USDFC`)
 }
 
-// Upload a directory using the Node.js adapter
-async function uploadDirectory(dirPath) {
-  // Convert the directory path to a DirectorySource
-  const directory = await NodeAdapters.directoryToDirectory(dirPath)
-  
-  // Upload the directory
-  const cid = await storage.uploadDirectory(directory)
-  
-  console.log(`Uploaded directory ${dirPath} with CID: ${cid}`)
-  return cid
-}
-
-// Download a file using the Node.js adapter
-async function downloadFile(cid, outputPath) {
-  // Download the content
-  const content = await storage.download(cid)
-  
-  // Write the content to a file
-  await NodeAdapters.contentToFile(content, outputPath)
-  
-  console.log(`Downloaded ${cid} to ${outputPath}`)
-}
-
-// Download a directory using the Node.js adapter
-async function downloadDirectory(cid, outputDir) {
-  // Download the directory
-  const directory = await storage.downloadDirectory(cid)
-  
-  // Write the directory to the filesystem
-  await NodeAdapters.directoryToFileSystem(directory, outputDir)
-  
-  console.log(`Downloaded directory ${cid} to ${outputDir}`)
-}
-
-// -----------------------------------------------------------------------------
-// Browser environment example
-// -----------------------------------------------------------------------------
-
-// This would be in a separate file or using a bundler that handles different
-// environments
-
-// Browser-specific import example (using ES modules)
-import { Synapse } from 'synapse-sdk'
-import { BrowserAdapters } from 'synapse-sdk-browser'
-
-// Initialize Synapse (browser version)
-const synapseWeb = new Synapse({
-  rpcUrl: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1',
-  privateKey: localStorage.getItem('privateKey')
-})
-
-// Create storage service
-const storageWeb = synapseWeb.createStorage({
-  duration: 90,
-  replicas: 3,
-  retrievalCheck: 2
-})
-
-// Upload a file from input element
-async function handleFileUpload(event) {
-  const file = event.target.files[0]
-  if (!file) return
-  
-  // Convert the File object to a ContentSource
-  const content = BrowserAdapters.fileToContent(file)
-  
-  // Show progress
-  setStatus(`Uploading ${file.name}...`)
-  
-  try {
-    // Upload the content
-    const cid = await storageWeb.upload(content)
-    setStatus(`Uploaded ${file.name} with CID: ${cid}`)
-    setCid(cid)
-  } catch (error) {
-    setStatus(`Upload failed: ${error.message}`)
-  }
-}
-
-// Upload a directory using the File System Access API
-async function handleDirectoryUpload() {
-  try {
-    // Request directory access
-    const dirHandle = await window.showDirectoryPicker()
-    
-    // Convert the directory handle to a DirectorySource
-    const directory = await BrowserAdapters.directoryHandleToDirectory(dirHandle)
-    
-    // Show progress
-    setStatus(`Uploading directory ${directory.metadata.name}...`)
-    
-    // Upload the directory
-    const cid = await storageWeb.uploadDirectory(directory)
-    
-    setStatus(`Uploaded directory with CID: ${cid}`)
-    setCid(cid)
-  } catch (error) {
-    setStatus(`Directory upload failed: ${error.message}`)
-  }
-}
-
-// Download a file in the browser
-async function handleDownload(cid) {
-  try {
-    setStatus(`Downloading ${cid}...`)
-    
-    // Download the content
-    const content = await storageWeb.download(cid)
-    
-    // Trigger download in the browser
-    await BrowserAdapters.contentToDownload(content)
-    
-    setStatus(`Downloaded ${content.metadata.name}`)
-  } catch (error) {
-    setStatus(`Download failed: ${error.message}`)
-  }
-}
-
-// -----------------------------------------------------------------------------
-// Web application example setup (browser)
-// -----------------------------------------------------------------------------
-
-// Example HTML for browser usage
-/*
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Synapse SDK Demo</title>
-</head>
-<body>
-    <h1>Synapse SDK Browser Demo</h1>
-    
-    <div>
-        <h2>Upload</h2>
-        <input type="file" id="fileInput">
-        <button id="directoryBtn">Select Directory</button>
-    </div>
-    
-    <div>
-        <h2>Download</h2>
-        <input type="text" id="cidInput" placeholder="Enter CID to download">
-        <button id="downloadBtn">Download</button>
-    </div>
-    
-    <div id="status"></div>
-    
-    <script type="module" src="example-browser.js"></script>
-</body>
-</html>
-*/
-
-// Browser event handling (would be in the browser JS file)
-document.addEventListener('DOMContentLoaded', () => {
-  const fileInput = document.getElementById('fileInput')
-  const directoryBtn = document.getElementById('directoryBtn')
-  const downloadBtn = document.getElementById('downloadBtn')
-  const cidInput = document.getElementById('cidInput')
-  
-  fileInput.addEventListener('change', handleFileUpload)
-  directoryBtn.addEventListener('click', handleDirectoryUpload)
-  downloadBtn.addEventListener('click', () => {
-    const cid = cidInput.value.trim()
-    if (cid) {
-      handleDownload(cid)
-    }
+// Advanced example: Upload larger binary data
+async function uploadLargeData() {
+  const synapse = new Synapse({
+    privateKey: process.env.PRIVATE_KEY,
+    withCDN: true
   })
-})
-
-// Helper functions for browser example
-function setStatus(message) {
-  document.getElementById('status').textContent = message
+  
+  const storage = await synapse.createStorage()
+  
+  // Create 1MB of random data
+  const largeData = new Uint8Array(1024 * 1024)
+  for (let i = 0; i < largeData.length; i++) {
+    largeData[i] = Math.floor(Math.random() * 256)
+  }
+  
+  console.log('Uploading 1MB of data...')
+  const uploadTask = storage.upload(largeData)
+  
+  const commp = await uploadTask.commp()
+  console.log(`CommP for 1MB data: ${commp}`)
+  
+  await uploadTask.done()
+  console.log('Large upload complete!')
+  
+  return commp
 }
 
-function setCid(cid) {
-  document.getElementById('cidInput').value = cid
+// Run the example
+if (require.main === module) {
+  main().catch(console.error)
 }
+
+module.exports = { main, uploadLargeData }

@@ -4,28 +4,29 @@ This document serves as context for LLM agent sessions working with the Synapse 
 
 ## Overview
 
-The Synapse SDK (synapse.js) provides a JavaScript interface to Filecoin Synapse. Synapse is a smart-contract based marketplace for services in the Filecoin ecosystem, with a primary focus on storage services.
+The Synapse SDK provides a JavaScript/TypeScript interface to Filecoin Synapse. Synapse is a smart-contract based marketplace for services in the Filecoin ecosystem, with a primary focus on storage services.
 
-Synapse.js allows users to interact with Filecoin services using HTTP or WebSocket connections.
+The SDK enables users to store and retrieve binary data on Filecoin with cryptographic verification and optional CDN services.
 
 ## Key Components
 
-1. **Synapse**: The main entry point for the SDK, handling blockchain interactions, wallet management, payment operations, and service creation.
+1. **Synapse**: The main entry point for the SDK, handling wallet management, payment operations (deposit/withdraw/balance), and storage service creation.
 
-2. **Services**:
-   - **Storage Service**: Built on PDP (Proof of Data Possession), enabling data storage with verifiability and availability guarantees.
-   - Future services may include PoRep-based archiving and other Filecoin ecosystem services.
+2. **StorageService**: 
+   - Built on PDP (Proof of Data Possession) for cryptographic storage verification
+   - Handles binary blob uploads and downloads
+   - Manages payment settlements with storage providers
+   - Supports optional CDN service for improved retrieval performance
 
-3. **Content Abstractions**:
-   - **ContentSource**: Represents a file or content blob with metadata
-   - **DirectorySource**: Represents a directory structure containing multiple files/directories
-   - These abstractions allow the SDK to be environment-agnostic
+3. **UploadTask**:
+   - Tracks multi-stage upload process
+   - Provides progress milestones: CommP generation, storage provider confirmation, chain commitment
 
 4. **Protocols & Contracts**:
    - **PDP Verifier**: The main contract that holds proof sets and verifies proofs
    - **SimplePDPService**: Manages proving periods and fault reporting
    - **Verifier Contracts**: Verify that services are being properly offered
-   - **SLA Contracts**: Define market terms of agreements between clients and service providers
+   - **Payment Rails**: Handle incremental payments between clients and storage providers
 
 ## PDP Workflow
 
@@ -36,92 +37,103 @@ Synapse.js allows users to interact with Filecoin services using HTTP or WebSock
 
 ## Architecture
 
-The SDK follows a modular design with:
-- A core `Synapse` class for blockchain interactions and payment operations
-- Factory methods for creating service-specific modules
-- Service classes that encapsulate specific functionality like storage
-- Environment-agnostic content abstractions with adapter patterns
-- Optional adapter libraries for different environments
+The SDK follows a simple, focused design:
+- A core `Synapse` class for wallet management and payment operations
+- Factory method `createStorage()` for creating storage service instances
+- `StorageService` class that handles binary blob storage operations
+- `UploadTask` for tracking multi-stage upload progress
+- Simple binary data interface (Uint8Array/ArrayBuffer)
 
 ## Usage Pattern
 
 ```typescript
 // Initialize Synapse instance
 const synapse = new Synapse({
-  rpcUrl: "wss://wss.node.glif.io/apigw/lotus/rpc/v1",
   privateKey: "0x...", // For signing transactions
+  withCDN: true, // Optional: enable CDN retrievals
+  rpcAPI: "https://api.node.glif.io/rpc/v1", // Optional
 })
+
+// Check and manage balance
+let balance = await synapse.balance()
+if (balance < 50) {
+  balance = await synapse.deposit(50 - balance)
+}
 
 // Create a storage service instance
-const storage = synapse.createStorage({
-  duration: 90, // days
-  replicas: 3,
-  retrievalCheck: 2
+const storage = await synapse.createStorage({
+  proofSetId: "...", // Optional: use existing proof set
+  storageProvider: "f01234" // Optional: preferred SP
 })
 
-// Node.js example - using an adapter
-const { NodeAdapters } = require('synapse-sdk-node')
-const content = await NodeAdapters.fileToContent('/path/to/file.txt')
-const cid = await storage.upload(content)
+// Upload binary data
+const data = new Uint8Array([...]) // Your binary blob
+const uploadTask = storage.upload(data)
 
-// Browser example - using an adapter
-import { BrowserAdapters } from 'synapse-sdk-browser'
-const fileInput = document.getElementById('fileInput')
-const file = fileInput.files[0]
-const content = BrowserAdapters.fileToContent(file)
-const cid = await storage.upload(content)
+// Track upload progress
+const commp = await uploadTask.commp()
+const sp = await uploadTask.store()
+const txHash = await uploadTask.done()
 
-// Universal example - raw bytes
-const bytes = new Uint8Array([...])
-const cid = await storage.uploadBytes(bytes, 'filename.txt')
+// Download data
+const downloadedData = await storage.download(commp, {
+  noVerify: false, // Verify against CommP
+  withCDN: true // Use CDN if available
+})
 
-// Downloading content
-const content = await storage.download(cid)
-// In Node.js
-await NodeAdapters.contentToFile(content, '/path/to/save.txt')
-// In browser
-await BrowserAdapters.contentToDownload(content)
+// Settle payments
+const { settledAmount, epoch } = await storage.settlePayments()
 
-// Payments
-await synapse.paymentDeposit(amount)
-await synapse.paymentWithdraw(amount)
+// Delete data
+await storage.delete(commp)
+
+// Withdraw funds
+await synapse.withdraw(10)
 ```
 
 ## Design Decisions
 
 1. **Core API Design**:
-   - Constructor pattern with options objects for clean initialization
-   - Factory methods for creating service instances (`synapse.createStorage()`)
-   - Payment methods directly on the Synapse instance with a `payment` prefix
+   - Simple constructor pattern with options object
+   - Factory method `createStorage()` for service instances
+   - Direct payment methods on Synapse instance: `deposit()`, `withdraw()`, `balance()`
+   - No "payment" prefix for cleaner API
 
-2. **Environment Agnosticism**:
-   - Core SDK has no dependencies on environment-specific APIs (Node.js/Browser)
-   - Content and directory abstractions provide a unified interface
-   - Adapter pattern for connecting to environment-specific file handling
+2. **Binary-First Approach**:
+   - Focus on binary blobs (Uint8Array/ArrayBuffer) only
+   - No file or directory abstractions
+   - Use CommP (Piece CID) as the primary identifier
+   - Client-side CommP calculation for verification
 
-3. **UnixFS Support**:
-   - Content abstractions designed to preserve metadata needed for UnixFS
-   - Directory structures maintained for proper IPFS packing
-   - Support for both single files and directory trees
+3. **CDN Integration**:
+   - Optional CDN service configured at SDK initialization
+   - Per-download override capability
+   - Trust-based model with option to verify
 
 4. **Storage Service Design**:
-   - Clean separation between content handling and storage operations
-   - Upload methods accept abstract content sources
-   - Download methods return abstract content sources
-   - Status checking methods for different aspects (availability, retrievability)
+   - Asynchronous upload tracking via UploadTask
+   - Simple binary upload/download methods
+   - Payment settlement per storage provider
+   - Delete capability for data management
 
 5. **TypeScript Styling**:
    - No semicolons (following modern JavaScript style)
-   - Compact type definitions
+   - Clear type definitions for all options
    - Comprehensive exports for all public interfaces
 
 ## Implementation Notes
 
-The SDK is designed to work in both Node.js and browser environments, with adapters handling environment-specific functionality. The core SDK itself remains environment-agnostic through the content abstractions.
+The SDK is designed for Milestone 1 of the Filecoin Synapse project:
+- Works with 2-3 known storage providers (hardcoded initially)
+- Limited binary blob size
+- Full piece retrievals only (no byte ranges)
+- Optional CDN service for improved retrieval performance
+- Pay-for-what-you-store payment model
 
-Adapter implementations (not part of core) provide:
-- Node.js: Filesystem interactions, stream support
-- Browser: File/Blob API, download triggers, File System Access API
-- Universal: Web streams, network requests, memory operations
+Future enhancements may include:
+- Dynamic storage provider discovery
+- Byte range retrievals
+- PoRep-based archival storage
+- Advanced SLA configurations
 
-This document will be updated as the SDK design evolves.
+This document will be updated as the SDK implementation progresses.
