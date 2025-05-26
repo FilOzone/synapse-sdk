@@ -8,6 +8,13 @@ The Synapse SDK provides a JavaScript/TypeScript interface to Filecoin Synapse. 
 
 The SDK enables users to store and retrieve binary data on Filecoin with cryptographic verification and optional CDN services.
 
+## Current Status
+
+- **Project Type**: TypeScript ES Module project
+- **Target**: ES2022 with NodeNext module resolution
+- **Build Output**: `dist/` directory
+- **Development Stage**: Mock implementation complete
+
 ## Key Components
 
 1. **Synapse**: The main entry point for the SDK, handling wallet management, payment operations (deposit/withdraw/balance), and storage service creation.
@@ -27,6 +34,23 @@ The SDK enables users to store and retrieve binary data on Filecoin with cryptog
    - **SimplePDPService**: Manages proving periods and fault reporting
    - **Verifier Contracts**: Verify that services are being properly offered
    - **Payment Rails**: Handle incremental payments between clients and storage providers
+
+## TypeScript Structure
+
+### Type System
+- **Interfaces**: All main components (`Synapse`, `StorageService`, `UploadTask`) are defined as interfaces in `src/types.ts`
+- **CommP Type**: Constrained CID type with fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded hasher (0x1012)
+- **ES Modules**: Project uses native ES modules with `.js` extensions
+
+### Mock Implementations
+- **MockSynapse**: Implements `Synapse` interface with simulated balance management
+- **MockStorageService**: Implements `StorageService` with in-memory data storage
+- **MockUploadTask**: Implements `UploadTask` with hardcoded CommP: `baga6ea4seaqjtovkwk4myyzj56eztkh5pzsk5upksan6f5outesy62bsvl4dsha`
+
+### Development Tools
+- **ESLint**: Configured for no semicolons, single quotes, proper indentation
+- **TypeScript**: Strict mode enabled, source maps, declaration files
+- **Build Scripts**: `npm run build`, `npm run watch`, `npm run lint`, `npm run example`
 
 ## PDP Workflow
 
@@ -129,6 +153,28 @@ The SDK is designed for Milestone 1 of the Filecoin Synapse project:
 - Full piece retrievals only (no byte ranges)
 - Optional CDN service for improved retrieval performance
 - Pay-for-what-you-store payment model
+
+### Current Implementation Status
+- ✅ TypeScript project structure with ES modules
+- ✅ Type definitions for all interfaces
+- ✅ Mock implementations for testing
+- ✅ Working example code
+- ✅ CommP utilities with proper type constraints
+- ✅ ESLint configuration (no semicolons)
+- ⏳ Real implementation pending
+- ⏳ Tests pending
+- ⏳ Documentation website pending
+
+### File Structure
+```
+src/
+├── index.ts          # Main entry point, re-exports all public APIs
+├── types.ts          # TypeScript interfaces and type definitions
+├── synapse.ts        # MockSynapse implementation
+├── storage-service.ts # MockStorageService implementation
+├── upload-task.ts    # MockUploadTask implementation
+└── commp.ts          # CommP utilities and validation
+```
 
 Future enhancements may include:
 - Dynamic storage provider discovery

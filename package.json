@@ -1,0 +1,41 @@
+{
+  "name": "synapse-sdk",
+  "version": "0.0.0",
+  "description": "A JavaScript interface to Filecoin Synapse",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "example": "npm run build && node example-usage.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "web3"
+  ],
+  "author": "Rod Vagg <rod@vagg.org>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk#readme",
+  "dependencies": {
+    "multiformats": "^13.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@typescript-eslint/eslint-plugin": "^8.32.1",
+    "@typescript-eslint/parser": "^8.32.1",
+    "eslint": "^9.27.0",
+    "typescript": "^5.8.3"
+  }
+}

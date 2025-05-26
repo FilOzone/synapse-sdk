@@ -5,7 +5,7 @@
  * with PDP verification and optional CDN services.
  */
 
-const { Synapse } = require('synapse-sdk')
+import { Synapse } from './dist/index.js'
 
 async function main() {
   // Initialize Synapse with your private key
@@ -66,6 +66,7 @@ async function main() {
   const downloadedData = await storage.download(commp)
   
   // Convert back to string to verify
+  const text = 'Hello, Filecoin Synapse!'
   const decoder = new TextDecoder()
   const downloadedText = decoder.decode(downloadedData)
   console.log(`Downloaded: "${downloadedText}"`)
@@ -127,8 +128,6 @@ async function uploadLargeData() {
 }
 
 // Run the example
-if (require.main === module) {
-  main().catch(console.error)
-}
+main().catch(console.error)
 
-module.exports = { main, uploadLargeData }
+export { main, uploadLargeData }

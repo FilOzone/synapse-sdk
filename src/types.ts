@@ -9,17 +9,17 @@
 import type { CID } from 'multiformats/cid'
 
 // Type definitions for common values
-type PrivateKey = string
-type Address = string
-type TokenAmount = string | number | bigint
-type ProofSetId = string
-type StorageProvider = string
+export type PrivateKey = string
+export type Address = string
+export type TokenAmount = string | number | bigint
+export type ProofSetId = string
+export type StorageProvider = string
 
 /**
  * CommP - A constrained CID type for Piece Commitments
  * Uses fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded hasher (0x1012)
  */
-type CommP = CID & {
+export type CommP = CID & {
   readonly code: 0xf101 // fil-commitment-unsealed
   readonly multihash: { code: 0x1012 } // sha2-256-trunc254-padded
 }
@@ -27,7 +27,7 @@ type CommP = CID & {
 /**
  * Options for initializing the Synapse instance
  */
-interface SynapseOptions {
+export interface SynapseOptions {
   /** Private key for signing transactions */
   privateKey: PrivateKey
   /** Whether to use CDN for retrievals (default: false) */
@@ -43,7 +43,7 @@ interface SynapseOptions {
 /**
  * Storage service options
  */
-interface StorageOptions {
+export interface StorageOptions {
   /** Existing proof set ID to use (optional) */
   proofSetId?: ProofSetId
   /** Preferred storage provider (optional) */
@@ -53,7 +53,7 @@ interface StorageOptions {
 /**
  * Upload task tracking
  */
-interface UploadTask {
+export interface UploadTask {
   /** Get the CommP (Piece CID) once calculated */
   commp(): Promise<CommP>
   /** Get the storage provider once data is stored */
@@ -65,7 +65,7 @@ interface UploadTask {
 /**
  * Download options
  */
-interface DownloadOptions {
+export interface DownloadOptions {
   /** Skip verification of downloaded data against CommP (default: false) */
   noVerify?: boolean
   /** Force use of CDN or direct SP retrieval (overrides instance setting) */
@@ -75,7 +75,7 @@ interface DownloadOptions {
 /**
  * Payment settlement result
  */
-interface SettlementResult {
+export interface SettlementResult {
   /** Amount settled in USDFC */
   settledAmount: TokenAmount
   /** Epoch at which settlement occurred */
@@ -83,9 +83,9 @@ interface SettlementResult {
 }
 
 /**
- * Storage service class
+ * Storage service interface
  */
-declare class StorageService {
+export interface StorageService {
   /** The proof set ID being used */
   readonly proofSetId: ProofSetId
   /** The storage provider being used */
@@ -111,11 +111,9 @@ declare class StorageService {
 }
 
 /**
- * Main Synapse class
+ * Main Synapse interface
  */
-declare class Synapse {
-  constructor(options: SynapseOptions)
-
+export interface Synapse {
   /** Get current USDFC balance available for storage operations */
   balance(): Promise<TokenAmount>
 
@@ -127,20 +125,6 @@ declare class Synapse {
 
   /** Create a storage service instance */
   createStorage(options?: StorageOptions): Promise<StorageService>
-}
-
-export {
-  Synapse,
-  StorageService,
-  UploadTask,
-  SynapseOptions,
-  StorageOptions,
-  DownloadOptions,
-  SettlementResult,
-  CommP,
-  TokenAmount,
-  ProofSetId,
-  StorageProvider
 }
 
 // Re-export CID type from multiformats for convenience
