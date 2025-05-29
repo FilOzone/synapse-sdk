@@ -8,8 +8,12 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint": "ts-standard",
+    "lint:fix": "ts-standard --fix",
+    "test": "npm run lint && npm run build && npm run test:node && npm run test:browser",
+    "test:node": "mocha 'dist/test/**/*.js'",
+    "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.js",
+    "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
     "example": "npm run build && node example-usage.js"
@@ -29,13 +33,17 @@
   },
   "homepage": "https://github.com/FilOzone/synapse-sdk#readme",
   "dependencies": {
+    "ethers": "^6.14.3",
     "multiformats": "^13.3.6"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
-    "@typescript-eslint/eslint-plugin": "^8.32.1",
-    "@typescript-eslint/parser": "^8.32.1",
-    "eslint": "^9.27.0",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.23",
+    "chai": "^5.2.0",
+    "mocha": "^11.5.0",
+    "polendina": "^3.2.10",
+    "ts-standard": "^12.0.2",
     "typescript": "^5.8.3"
   }
 }

@@ -1,32 +1,64 @@
 /**
  * Example usage of the Synapse SDK
- * 
+ *
  * This file demonstrates how to use the SDK for binary blob storage
  * with PDP verification and optional CDN services.
  */
 
-import { Synapse } from './dist/index.js'
+import { Synapse, RPC_URLS } from './dist/index.js'
 
-async function main() {
+async function main () {
   // Initialize Synapse with your private key
-  const synapse = new Synapse({
-    privateKey: process.env.PRIVATE_KEY || '0x...', // Your private key
+  const synapse = await Synapse.create({
+    // This is a test private key - DO NOT use in production!
+    privateKey: process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
     withCDN: true, // Enable CDN for faster retrievals (optional)
-    // rpcAPI: 'https://api.node.glif.io/rpc/v1', // Optional: custom RPC endpoint
-    // subgraphAPI: '...', // Optional: custom subgraph endpoint
-    // serviceContract: '0x...', // Optional: custom service contract
+    rpcURL: RPC_URLS.calibration.http // Use recommended calibration testnet endpoint
+    // Other RPC options:
+    // rpcURL: RPC_URLS.calibration.websocket  // WebSocket for real-time updates
+    // rpcURL: RPC_URLS.mainnet.http          // Mainnet HTTP
+    // rpcURL: RPC_URLS.mainnet.websocket     // Mainnet WebSocket
+    // rpcURL: 'http://192.168.1.5:2235/rpc/v1' // Custom local RPC
   })
 
-  // Step 1: Check and manage balance
-  console.log('Checking balance...')
-  let balance = await synapse.balance()
-  console.log(`Current balance: ${balance} USDFC`)
-  
-  // Deposit if balance is low
-  if (balance < 50) {
-    console.log(`Balance too low, depositing ${50 - balance} USDFC...`)
-    balance = await synapse.deposit(50 - balance)
-    console.log(`Deposit successful, new balance: ${balance} USDFC`)
+  // Helper function to format bigint amounts to human-readable format
+  function formatAmount (amount, token = 'FIL') {
+    const decimals = synapse.decimals(token)
+    const divisor = 10n ** BigInt(decimals)
+    const wholePart = amount / divisor
+    const fractionalPart = amount % divisor
+    // Convert fractional part to string with padding
+    const fractionalStr = fractionalPart.toString().padStart(decimals, '0')
+    // Remove trailing zeros from fractional part
+    const trimmedFractional = fractionalStr.replace(/0+$/, '')
+    return trimmedFractional ? `${wholePart}.${trimmedFractional}` : wholePart.toString()
+  }
+
+  // Step 1: Check wallet balance on chain
+  console.log('Checking wallet balance on chain...')
+  const walletBalance = await synapse.walletBalance()
+  console.log(`Wallet balance: ${formatAmount(walletBalance, 'FIL')} FIL`)
+
+  // Step 1.5: Check USDFC balance
+  console.log('\nChecking USDFC balance on chain...')
+  const usdcBalance = await synapse.walletBalance(Synapse.USDFC)
+  console.log(`USDFC balance: ${formatAmount(usdcBalance, 'USDFC')} USDFC`)
+
+  // Step 2: Check and manage Synapse balance
+  console.log('\nChecking Synapse balance...')
+  let balance = await synapse.balance(Synapse.USDFC)
+  console.log(`Current balance: ${formatAmount(balance, 'USDFC')} USDFC`)
+
+  // Deposit if balance is low (5 USDFC in smallest unit)
+  const minBalanceUnit = 5n * (10n ** 18n) // 5 USDFC in smallest unit
+  if (balance < minBalanceUnit) {
+    const depositAmount = minBalanceUnit - balance
+    console.log(`Balance too low, depositing ${formatAmount(depositAmount, 'USDFC')} USDFC...`)
+    const txHash = await synapse.deposit(depositAmount, Synapse.USDFC)
+    console.log(`Deposit successful, transaction: ${txHash}`)
+    // Check balance after deposit
+    balance = await synapse.balance(Synapse.USDFC)
+    console.log(`New balance: ${formatAmount(balance, 'USDFC')} USDFC`)
   }
 
   // Step 2: Create a storage service instance
@@ -35,48 +67,48 @@ async function main() {
     // proofSetId: '...', // Optional: use existing proof set
     // storageProvider: 'f01234' // Optional: preferred storage provider
   })
-  
+
   console.log(`Using proof set ID: ${storage.proofSetId}`)
   console.log(`Using storage provider: ${storage.storageProvider}`)
 
   // Step 3: Upload binary data
   console.log('\nUploading data...')
-  
+
   // Example: create some binary data
   const data = new TextEncoder().encode('Hello, Filecoin Synapse!')
-  
+
   // Start upload
   const uploadTask = storage.upload(data)
-  
+
   // Track upload progress
   const commp = await uploadTask.commp()
   console.log(`Generated CommP: ${commp}`)
-  
+
   const sp = await uploadTask.store()
   console.log(`Stored data with provider: ${sp}`)
-  
+
   const txHash = await uploadTask.done()
   console.log(`Blob committed on chain: ${txHash}`)
   console.log(`Data is being proven in proof set: ${storage.proofSetId}`)
 
   // Step 4: Download data
   console.log('\nDownloading data...')
-  
+
   // Download with default settings (uses CDN if enabled, verifies by default)
   const downloadedData = await storage.download(commp)
-  
+
   // Convert back to string to verify
   const text = 'Hello, Filecoin Synapse!'
   const decoder = new TextDecoder()
   const downloadedText = decoder.decode(downloadedData)
   console.log(`Downloaded: "${downloadedText}"`)
   console.log(`Download successful: ${downloadedText === text}`)
-  
+
   // Example: Download without CDN (direct from SP)
   console.log('\nDownloading directly from SP (no CDN)...')
   const directData = await storage.download(commp, { withCDN: false })
   console.log(`Direct download successful: ${decoder.decode(directData) === text}`)
-  
+
   // Example: Download without verification (faster but less secure)
   console.log('\nDownloading without verification...')
   const unverifiedData = await storage.download(commp, { noVerify: true })
@@ -86,7 +118,7 @@ async function main() {
   console.log('\nSettling payments...')
   const { settledAmount, epoch } = await storage.settlePayments()
   console.log(`Settled payment rail for epoch ${epoch}`)
-  console.log(`Settlement cost: ${settledAmount} USDFC`)
+  console.log(`Settlement cost: ${formatAmount(settledAmount, 'USDFC')} USDFC`)
 
   // Step 6: Delete data (optional)
   console.log('\nDeleting data...')
@@ -95,39 +127,41 @@ async function main() {
 
   // Step 7: Withdraw funds (optional)
   console.log('\nWithdrawing funds...')
-  const withdrawAmount = 10
-  const newBalance = await synapse.withdraw(withdrawAmount)
-  console.log(`Withdrawn ${withdrawAmount} USDFC, new balance: ${newBalance} USDFC`)
+  const withdrawAmount = 1n * (10n ** 18n) // 1 USDFC in smallest unit
+  const withdrawTxHash = await synapse.withdraw(withdrawAmount, Synapse.USDFC)
+  console.log(`Withdrawn ${formatAmount(withdrawAmount, 'USDFC')} USDFC, transaction: ${withdrawTxHash}`)
+  // Check balance after withdrawal
+  const finalBalance = await synapse.balance(Synapse.USDFC)
+  console.log(`Final balance: ${formatAmount(finalBalance, 'USDFC')} USDFC`)
 }
 
 // Advanced example: Upload larger binary data
-async function uploadLargeData() {
-  const synapse = new Synapse({
+async function uploadLargeData () {
+  const synapse = await Synapse.create({
     privateKey: process.env.PRIVATE_KEY,
+    rpcURL: RPC_URLS.mainnet.websocket, // Use WebSocket for better performance
     withCDN: true
   })
-  
+
   const storage = await synapse.createStorage()
-  
+
   // Create 1MB of random data
   const largeData = new Uint8Array(1024 * 1024)
   for (let i = 0; i < largeData.length; i++) {
     largeData[i] = Math.floor(Math.random() * 256)
   }
-  
+
   console.log('Uploading 1MB of data...')
   const uploadTask = storage.upload(largeData)
-  
+
   const commp = await uploadTask.commp()
   console.log(`CommP for 1MB data: ${commp}`)
-  
+
   await uploadTask.done()
   console.log('Large upload complete!')
-  
+
   return commp
 }
 
 // Run the example
-main().catch(console.error)
-
-export { main, uploadLargeData }
+main()

@@ -7,13 +7,19 @@
  */
 
 import type { CID } from 'multiformats/cid'
+import type { ethers } from 'ethers'
 
 // Type definitions for common values
 export type PrivateKey = string
 export type Address = string
-export type TokenAmount = string | number | bigint
+export type TokenAmount = number | bigint
 export type ProofSetId = string
 export type StorageProvider = string
+
+/**
+ * Token identifier for balance queries
+ */
+export type TokenIdentifier = 'USDFC' | string
 
 /**
  * CommP - A constrained CID type for Piece Commitments
@@ -26,18 +32,24 @@ export type CommP = CID & {
 
 /**
  * Options for initializing the Synapse instance
+ * Must provide one of:
+ * 1. privateKey + rpcURL (for server environments)
+ * 2. provider (for browser environments - user handles MetaMask coupling)
+ * 3. signer (legacy interface - for backward compatibility)
  */
 export interface SynapseOptions {
-  /** Private key for signing transactions */
-  privateKey: PrivateKey
+  /** Private key for signing transactions (requires rpcURL) */
+  privateKey?: PrivateKey
+  /** RPC URL for Filecoin node (required with privateKey) */
+  rpcURL?: string
+  /** Ethers Provider instance (handles both reads and transactions) */
+  provider?: ethers.Provider
+  /** Ethers Signer instance (legacy - for backward compatibility) */
+  signer?: ethers.Signer
+  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
+  disableNonceManager?: boolean
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** RPC API endpoint (optional, defaults to Filecoin mainnet with Glif nodes) */
-  rpcAPI?: string
-  /** Subgraph API endpoint (optional) */
-  subgraphAPI?: string
-  /** Service contract address (optional) */
-  serviceContract?: Address
 }
 
 /**
@@ -55,11 +67,11 @@ export interface StorageOptions {
  */
 export interface UploadTask {
   /** Get the CommP (Piece CID) once calculated */
-  commp(): Promise<CommP>
+  commp: () => Promise<CommP>
   /** Get the storage provider once data is stored */
-  store(): Promise<StorageProvider>
+  store: () => Promise<StorageProvider>
   /** Wait for the entire upload process to complete, returns transaction hash */
-  done(): Promise<string>
+  done: () => Promise<string>
 }
 
 /**
@@ -76,8 +88,8 @@ export interface DownloadOptions {
  * Payment settlement result
  */
 export interface SettlementResult {
-  /** Amount settled in USDFC */
-  settledAmount: TokenAmount
+  /** Amount settled in USDFC (in smallest unit, not human readable) */
+  settledAmount: bigint
   /** Epoch at which settlement occurred */
   epoch: number
 }
@@ -92,22 +104,22 @@ export interface StorageService {
   readonly storageProvider: StorageProvider
 
   /** Upload a binary blob and return an upload task */
-  upload(data: Uint8Array | ArrayBuffer): UploadTask
+  upload: (data: Uint8Array | ArrayBuffer) => UploadTask
 
   /**
    * Download a blob by CommP
    * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
    */
-  download(commp: CommP | string, options?: DownloadOptions): Promise<Uint8Array>
+  download: (commp: CommP | string, options?: DownloadOptions) => Promise<Uint8Array>
 
   /**
    * Delete a blob from storage
    * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
    */
-  delete(commp: CommP | string): Promise<void>
+  delete: (commp: CommP | string) => Promise<void>
 
   /** Settle payments up to current epoch */
-  settlePayments(): Promise<SettlementResult>
+  settlePayments: () => Promise<SettlementResult>
 }
 
 /**
@@ -115,16 +127,22 @@ export interface StorageService {
  */
 export interface Synapse {
   /** Get current USDFC balance available for storage operations */
-  balance(): Promise<TokenAmount>
+  balance: (token?: TokenIdentifier) => Promise<bigint>
 
-  /** Deposit USDFC for storage operations */
-  deposit(amount: TokenAmount): Promise<TokenAmount>
+  /** Get the token balance of the wallet (FIL or USDFC). Defaults to FIL if no token specified. */
+  walletBalance: (() => Promise<bigint>) & ((token: TokenIdentifier) => Promise<bigint>)
 
-  /** Withdraw USDFC from the system */
-  withdraw(amount: TokenAmount): Promise<TokenAmount>
+  /** Get the number of decimals for a token (always 18 for FIL and USDFC) */
+  decimals: (token?: TokenIdentifier) => number
+
+  /** Deposit USDFC for storage operations, returns transaction hash */
+  deposit: (amount: TokenAmount, token?: TokenIdentifier) => Promise<string>
+
+  /** Withdraw USDFC from the system, returns transaction hash */
+  withdraw: (amount: TokenAmount, token?: TokenIdentifier) => Promise<string>
 
   /** Create a storage service instance */
-  createStorage(options?: StorageOptions): Promise<StorageService>
+  createStorage: (options?: StorageOptions) => Promise<StorageService>
 }
 
 // Re-export CID type from multiformats for convenience
