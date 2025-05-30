@@ -49,6 +49,21 @@ const data = await storage.download(commp)
 console.log(new TextDecoder().decode(data)) // "Hello World"
 ```
 
+### Using CommP Utilities Standalone
+
+```javascript
+import { calculate, asCommP } from 'synapse-sdk/commp'
+
+// Calculate CommP without Synapse instance
+const data = new Uint8Array([1, 2, 3, 4])
+const commp = calculate(data)
+console.log(`CommP: ${commp.toString()}`)
+
+// Validate CommP strings
+const valid = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
+console.log(`Valid: ${valid !== null}`)
+```
+
 ### With MetaMask
 
 ```javascript
@@ -229,14 +244,39 @@ interface UploadTask {
 ### Type Definitions
 
 #### CommP (Piece Commitment)
-CommP is a special type of CID (Content Identifier) used in Filecoin for piece commitments.
+CommP is a special type of CID used in Filecoin's Proof of Data Possession (PDP) system. It represents a cryptographic commitment to stored data that enables efficient verification without accessing the full data.
 
 ```typescript
-// Constrained CID type with specific codec and hash
+// Constrained CID type with Filecoin-specific codec and hasher
 type CommP = CID & {
-  readonly code: 0xf101           // fil-commitment-unsealed
-  readonly multihash: { code: 0x1012 }  // sha2-256-trunc254-padded
+  readonly code: 0xf101                // fil-commitment-unsealed codec
+  readonly multihash: { code: 0x1012 } // sha2-256-trunc254-padded hasher
 }
+```
+
+### CommP Utilities
+
+The SDK provides standalone utilities for working with CommP values that can be used without instantiating a Synapse instance:
+
+```javascript
+import { calculate, asCommP } from 'synapse-sdk/commp'
+
+// Calculate CommP for binary data
+const data = new Uint8Array([1, 2, 3, 4, 5])
+const commp = calculate(data)
+console.log(commp.toString()) // baga6ea4seaq...
+
+// Validate and parse CommP strings
+const parsed = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
+if (parsed) {
+  console.log('Valid CommP:', parsed.toString())
+} else {
+  console.log('Invalid CommP string')
+}
+
+// Also works with CID objects
+const cid = CID.parse('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
+const validated = asCommP(cid) // Returns CommP type or null if invalid
 ```
 
 #### Network Detection

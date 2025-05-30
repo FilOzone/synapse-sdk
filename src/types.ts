@@ -6,7 +6,7 @@
  * and optional CDN retrieval services.
  */
 
-import type { CID } from 'multiformats/cid'
+import { LegacyPieceLink } from '@web3-storage/data-segment'
 import type { ethers } from 'ethers'
 
 // Type definitions for common values
@@ -23,12 +23,15 @@ export type TokenIdentifier = 'USDFC' | string
 
 /**
  * CommP - A constrained CID type for Piece Commitments
- * Uses fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded hasher (0x1012)
+ * This is implemented as a Link type which is made concrete by a CID. A CommP
+ * uses the fil-commitment-unsealed codec (0xf101) and
+ * sha2-256-trunc254-padded multihash function (0x1012). This will eventually be
+ * replaced by a CommPv2 which uses the raw codec (0x55) and the
+ * fr32-sha256-trunc254-padbintree multihash function (0x1011), which is a
+ * specialised form of sha2-256-trunc254-padded multihash that also encodes the
+ * content length and the height of the merkle tree.
  */
-export type CommP = CID & {
-  readonly code: 0xf101 // fil-commitment-unsealed
-  readonly multihash: { code: 0x1012 } // sha2-256-trunc254-padded
-}
+export type CommP = LegacyPieceLink
 
 /**
  * Options for initializing the Synapse instance
@@ -146,6 +149,3 @@ export interface Synapse {
   /** Create a storage service instance */
   createStorage: (options?: StorageOptions) => Promise<StorageService>
 }
-
-// Re-export CID type from multiformats for convenience
-export type { CID } from 'multiformats/cid'

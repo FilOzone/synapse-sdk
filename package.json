@@ -5,6 +5,16 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./commp": {
+      "import": "./dist/commp.js",
+      "types": "./dist/commp.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
@@ -33,6 +43,7 @@
   },
   "homepage": "https://github.com/FilOzone/synapse-sdk#readme",
   "dependencies": {
+    "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.14.3",
     "multiformats": "^13.3.6"
   },

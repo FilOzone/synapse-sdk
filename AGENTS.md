@@ -104,6 +104,16 @@ const content = await storage.download(commp)
 // Payments (amounts in smallest unit as bigint)
 await synapse.deposit(100n * 10n**18n) // 100 USDFC
 await synapse.withdraw(50n * 10n**18n)  // 50 USDFC
+
+// Using CommP utilities without Synapse instance
+import { calculate, asCommP } from 'synapse-sdk/commp'
+
+// Calculate CommP for data
+const data = new Uint8Array([1, 2, 3, 4])
+const commP = calculate(data)
+
+// Validate and parse CommP strings
+const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
 ```
 
 ## Design Decisions
@@ -119,18 +129,25 @@ await synapse.withdraw(50n * 10n**18n)  // 50 USDFC
    - Content and directory abstractions provide a unified interface
    - Adapter pattern for connecting to environment-specific file handling
 
-3. **UnixFS Support**:
+3. **CommP Utilities**:
+   - Available as a separate import path: `synapse-sdk/commp`
+   - `calculate()` function computes CommP (Piece Commitment) for binary data
+   - `asCommP()` validates and parses CommP strings or CIDs
+   - No need to instantiate Synapse class for these utilities
+   - Uses @web3-storage/data-segment for efficient CommP calculation
+
+4. **UnixFS Support**:
    - Content abstractions designed to preserve metadata needed for UnixFS
    - Directory structures maintained for proper IPFS packing
    - Support for both single files and directory trees
 
-4. **Storage Service Design**:
+5. **Storage Service Design**:
    - Asynchronous upload tracking via UploadTask
    - Simple binary upload/download methods
    - Payment settlement per storage provider
    - Delete capability for data management
 
-5. **TypeScript Styling**:
+6. **TypeScript Styling**:
    - No semicolons (following modern JavaScript style)
    - Compact type definitions
    - Comprehensive exports for all public interfaces
