@@ -24,13 +24,13 @@ import { Synapse, RPC_URLS } from 'synapse-sdk'
 // Using recommended RPC endpoints
 const synapse = await Synapse.create({
   privateKey: '0x...',  // Your private key
-  rpcURL: RPC_URLS.mainnet.http  // or RPC_URLS.mainnet.websocket for real-time updates
+  rpcURL: RPC_URLS.mainnet.websocket  // or .http for HTTP
 })
 
 // Check balances
-const filBalance = await synapse.walletBalance()
-const usdcBalance = await synapse.walletBalance(Synapse.USDFC)
-const paymentsBalance = await synapse.balance(Synapse.USDFC)
+const filBalance = await synapse.walletBalance()                    // FIL in your wallet
+const usdcBalance = await synapse.walletBalance(Synapse.USDFC)      // USDFC in your wallet
+const paymentsBalance = await synapse.balance(Synapse.USDFC)        // USDFC in Synapse payments contract (for spending on services)
 
 // Deposit if needed (amounts in smallest token size - bigint)
 if (paymentsBalance < 10n * 10n**18n) {
@@ -111,7 +111,7 @@ const balance = await synapse.walletBalance('USDFC')
 ```
 
 ##### `balance(token?: string): Promise<bigint>`
-Returns the USDFC balance available in the payments contract for storage operations.
+Returns your balance in the Synapse payments contract - this is the USDFC you've deposited for spending on storage and other services. Different from `walletBalance()` which shows tokens in your wallet.
 
 ```javascript
 // Check payments contract balance (defaults to USDFC)
@@ -121,7 +121,7 @@ const balance = await synapse.balance(Synapse.USDFC)
 ```
 
 ##### `deposit(amount: number | bigint, token?: string): Promise<string>`
-Deposits USDFC to the payments contract for storage operations. Returns transaction hash.
+Deposits USDFC from your wallet to the Synapse payments contract. This moves tokens from `walletBalance()` to `balance()` for spending on services. Returns transaction hash.
 
 ```javascript
 // Deposit 100 USDFC (amounts in smallest units)
@@ -131,7 +131,7 @@ const txHash = await synapse.deposit(100n * 10n**18n, Synapse.USDFC)
 ```
 
 ##### `withdraw(amount: number | bigint, token?: string): Promise<string>`
-Withdraws USDFC from the payments contract back to wallet. Returns transaction hash.
+Withdraws USDFC from the Synapse payments contract back to your wallet. This moves tokens from `balance()` to `walletBalance()`. Returns transaction hash.
 
 ```javascript
 // Withdraw 50 USDFC (amounts in smallest units)
@@ -251,16 +251,16 @@ The SDK supports both HTTP/HTTPS and WebSocket connections:
 ```javascript
 import { Synapse, RPC_URLS } from 'synapse-sdk'
 
+// WebSocket endpoints (recommended for better performance)
+const wsSynapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: RPC_URLS.mainnet.websocket  // 'wss://wss.node.glif.io/apigw/lotus/rpc/v1'
+})
+
 // HTTP/HTTPS endpoints
 const httpSynapse = await Synapse.create({
   privateKey: '0x...',
   rpcURL: RPC_URLS.mainnet.http  // 'https://api.node.glif.io/rpc/v1'
-})
-
-// WebSocket endpoints (for real-time updates)
-const wsSynapse = await Synapse.create({
-  privateKey: '0x...',
-  rpcURL: RPC_URLS.mainnet.websocket  // 'wss://wss.node.glif.io/apigw/lotus/rpc/v1'
 })
 
 // Calibration testnet
@@ -272,14 +272,14 @@ const calibrationSynapse = await Synapse.create({
 
 ### Filecoin Mainnet
 - Chain ID: 314
-- HTTP RPC: https://api.node.glif.io/rpc/v1
 - WebSocket RPC: wss://wss.node.glif.io/apigw/lotus/rpc/v1
+- HTTP RPC: https://api.node.glif.io/rpc/v1
 - USDFC Contract: `0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`
 
 ### Filecoin Calibration Testnet
 - Chain ID: 314159
-- HTTP RPC: https://api.calibration.node.glif.io/rpc/v1
 - WebSocket RPC: wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1
+- HTTP RPC: https://api.calibration.node.glif.io/rpc/v1
 - USDFC Contract: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`
 
 ## Browser Integration
@@ -342,9 +342,9 @@ try {
 
 ```javascript
 const [filBalance, usdcBalance, synapseBalance] = await Promise.all([
-  synapse.walletBalance(),
-  synapse.walletBalance(Synapse.USDFC),
-  synapse.balance()
+  synapse.walletBalance(),                    // FIL in wallet
+  synapse.walletBalance(Synapse.USDFC),       // USDFC in wallet
+  synapse.balance()                           // USDFC in Synapse payments contract (for services)
 ])
 ```
 
