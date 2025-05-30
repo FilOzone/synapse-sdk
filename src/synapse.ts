@@ -56,7 +56,14 @@ export class Synapse implements ISynapse {
       if (options.rpcURL.startsWith('ws://') || options.rpcURL.startsWith('wss://')) {
         provider = new ethers.WebSocketProvider(options.rpcURL)
       } else {
-        provider = new ethers.JsonRpcProvider(options.rpcURL)
+        // For HTTP/HTTPS URLs, check if authorization is provided
+        if (options.authorization != null) {
+          const fetchRequest = new ethers.FetchRequest(options.rpcURL)
+          fetchRequest.setHeader('Authorization', options.authorization)
+          provider = new ethers.JsonRpcProvider(fetchRequest)
+        } else {
+          provider = new ethers.JsonRpcProvider(options.rpcURL)
+        }
       }
 
       // Create wallet from private key

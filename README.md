@@ -79,6 +79,7 @@ interface SynapseOptions {
   
   // Network Configuration (required when using privateKey)
   rpcURL?: string              // RPC endpoint URL (supports http://, https://, ws://, wss://)
+  authorization?: string        // Authorization header value (e.g., 'Bearer TOKEN')
   
   // Advanced Configuration
   disableNonceManager?: boolean // Disable automatic nonce management (default: false)
@@ -269,6 +270,25 @@ const calibrationSynapse = await Synapse.create({
   rpcURL: RPC_URLS.calibration.websocket
 })
 ```
+
+### GLIF Authorization
+
+The GLIF free tier is limited to 100 requests per minute, which may not be sufficient for applications making frequent SDK calls. You can use GLIF authorization tokens to increase your rate limits:
+
+```javascript
+import { Synapse } from 'synapse-sdk'
+
+// Using GLIF authorization with private key
+const synapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: 'https://api.node.glif.io/rpc/v1',
+  authorization: 'Bearer YOUR_GLIF_TOKEN'
+})
+
+// The authorization header will be automatically added to all RPC requests
+```
+
+Note: Authorization headers are only supported for HTTP/HTTPS endpoints. WebSocket connections do not support authorization headers.
 
 ### Filecoin Mainnet
 - Chain ID: 314

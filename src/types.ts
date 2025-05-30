@@ -42,6 +42,8 @@ export interface SynapseOptions {
   privateKey?: PrivateKey
   /** RPC URL for Filecoin node (required with privateKey) */
   rpcURL?: string
+  /** Authorization header value for API authentication (e.g., Bearer token) */
+  authorization?: string
   /** Ethers Provider instance (handles both reads and transactions) */
   provider?: ethers.Provider
   /** Ethers Signer instance (legacy - for backward compatibility) */
