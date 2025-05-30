@@ -135,33 +135,5 @@ async function main () {
   console.log(`Final balance: ${formatAmount(finalBalance, 'USDFC')} USDFC`)
 }
 
-// Advanced example: Upload larger binary data
-async function uploadLargeData () {
-  const synapse = await Synapse.create({
-    privateKey: process.env.PRIVATE_KEY,
-    rpcURL: RPC_URLS.mainnet.websocket, // Use WebSocket for better performance
-    withCDN: true
-  })
-
-  const storage = await synapse.createStorage()
-
-  // Create 1MB of random data
-  const largeData = new Uint8Array(1024 * 1024)
-  for (let i = 0; i < largeData.length; i++) {
-    largeData[i] = Math.floor(Math.random() * 256)
-  }
-
-  console.log('Uploading 1MB of data...')
-  const uploadTask = storage.upload(largeData)
-
-  const commp = await uploadTask.commp()
-  console.log(`CommP for 1MB data: ${commp}`)
-
-  await uploadTask.done()
-  console.log('Large upload complete!')
-
-  return commp
-}
-
 // Run the example
 main()

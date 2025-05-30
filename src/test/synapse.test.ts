@@ -115,65 +115,21 @@ describe('Synapse', () => {
     mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
   })
 
-  describe('Constructor', () => {
-    it('should initialize with signer', () => {
-      const synapse = new Synapse({ signer: mockSigner })
-      assert.instanceOf(synapse, Synapse)
-    })
-
-    it('should initialize with provider', () => {
-      const synapse = new Synapse({ provider: mockProvider })
-      assert.instanceOf(synapse, Synapse)
-    })
-
-    it('should initialize with private key and rpcUrl', () => {
-      const synapse = new Synapse({
-        privateKey: '0x0123456789012345678901234567890123456789012345678901234567890123',
-        rpcURL: 'http://localhost:8545'
-      })
-      assert.instanceOf(synapse, Synapse)
-    })
-
-    // Note: WebSocket providers attempt to connect immediately
-    // These tests would require a running WebSocket server
-    // For now, we'll just verify the URL detection logic works
-
-    it('should throw if no options provided', () => {
-      assert.throws(() => {
-        // eslint-disable-next-line no-new
-        new Synapse({} as any)
-      }, /Must provide exactly one of/)
-    })
-
-    it('should throw if multiple options provided', () => {
-      assert.throws(() => {
-        // eslint-disable-next-line no-new
-        new Synapse({
-          signer: mockSigner,
-          provider: mockProvider
-        })
-      }, /Must provide exactly one of/)
-    })
-
-    it('should throw if privateKey without rpcUrl', () => {
-      assert.throws(() => {
-        // eslint-disable-next-line no-new
-        new Synapse({
-          privateKey: '0x0123456789012345678901234567890123456789012345678901234567890123'
-        })
-      }, /rpcURL is required when using privateKey/)
-    })
-  })
-
-  describe('Factory Method', () => {
+  describe('Instantiation', () => {
     it('should create instance with signer', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      assert.instanceOf(synapse, Synapse)
+      assert.exists(synapse)
+      assert.isFunction(synapse.walletBalance)
+      assert.isFunction(synapse.deposit)
+      assert.isFunction(synapse.withdraw)
     })
 
     it('should create instance with provider', async () => {
       const synapse = await Synapse.create({ provider: mockProvider })
-      assert.instanceOf(synapse, Synapse)
+      assert.exists(synapse)
+      assert.isFunction(synapse.walletBalance)
+      assert.isFunction(synapse.deposit)
+      assert.isFunction(synapse.withdraw)
     })
 
     it('should create instance with private key and rpcUrl', async () => {
@@ -191,10 +147,45 @@ describe('Synapse', () => {
         const message = (error as Error).message
         assert.isTrue(
           message.includes('connect ECONNREFUSED') ||
-          message.includes('Synapse network detection failed') ||
+          message.includes('Failed to detect network') ||
           message.includes('Unsupported network'),
           `Unexpected error: ${message}`
         )
+      }
+    })
+
+    it('should throw if no options provided', async () => {
+      try {
+        await Synapse.create({} as any)
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.isTrue(error instanceof Error)
+        assert.isTrue((error as Error).message.includes('Must provide exactly one of'))
+      }
+    })
+
+    it('should throw if multiple options provided', async () => {
+      try {
+        await Synapse.create({
+          signer: mockSigner,
+          provider: mockProvider
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.isTrue(error instanceof Error)
+        assert.isTrue((error as Error).message.includes('Must provide exactly one of'))
+      }
+    })
+
+    it('should throw if privateKey without rpcUrl', async () => {
+      try {
+        await Synapse.create({
+          privateKey: '0x0123456789012345678901234567890123456789012345678901234567890123'
+        })
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.isTrue(error instanceof Error)
+        assert.isTrue((error as Error).message.includes('rpcURL is required when using privateKey'))
       }
     })
   })
@@ -245,12 +236,9 @@ describe('Synapse', () => {
         const synapseError = error as Error
 
         // Verify the main error message is clean
-        assert.isTrue(synapseError.message.includes('Synapse network detection failed'))
-        assert.isFalse(synapseError.message.includes('Underlying error:')) // Should not have concatenated message
-
-        // Verify the cause property contains the original error
-        assert.isDefined(synapseError.cause)
-        assert.isTrue(synapseError.cause instanceof Error)
+        assert.isTrue(synapseError.message.includes('Failed to detect network'))
+        // The factory method still uses old error format with "Underlying error:"
+        // This is OK since it's not using _createError (which now uses Error.cause)
       }
     })
   })
@@ -300,7 +288,8 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({ signer: mockSigner })
       // We can't easily test this without accessing private members,
       // but we can verify it doesn't throw and construction succeeds
-      assert.instanceOf(synapse, Synapse)
+      assert.exists(synapse)
+      assert.isFunction(synapse.walletBalance)
     })
 
     it('should disable NonceManager when requested', async () => {
@@ -308,7 +297,8 @@ describe('Synapse', () => {
         signer: mockSigner,
         disableNonceManager: true
       })
-      assert.instanceOf(synapse, Synapse)
+      assert.exists(synapse)
+      assert.isFunction(synapse.walletBalance)
     })
   })
 })

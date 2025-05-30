@@ -20,142 +20,123 @@ import {
 } from './constants.js'
 
 export class Synapse implements ISynapse {
-  private readonly _options: SynapseOptions
   private readonly _provider: ethers.Provider
-  private _signer: ethers.Signer | null = null
-  private _network: 'mainnet' | 'calibration' | null = null
-  private readonly _networkPromise: Promise<void>
+  private readonly _signer: ethers.Signer
+  private readonly _network: 'mainnet' | 'calibration'
+  private readonly _disableNonceManager: boolean
 
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
 
-  /**
-   * Helper to create descriptive errors with context
-   */
-  private _createError (operation: string, details: string, originalError?: unknown): Error {
-    const baseMessage = `Synapse ${operation} failed: ${details}`
-
-    if (originalError != null) {
-      return new Error(baseMessage, { cause: originalError })
-    }
-
-    return new Error(baseMessage)
-  }
-
   // Static constant for USDFC token identifier
   static readonly USDFC = 'USDFC' as const
 
   /**
-   * Create a new Synapse instance with async initialization
-   * This is the preferred way to create a Synapse instance
+   * Create a new Synapse instance with async initialization.
    * @param options - Configuration options for Synapse
    * @returns A fully initialized Synapse instance
    */
   static async create (options: SynapseOptions): Promise<Synapse> {
-    const synapse = new Synapse(options)
-    // Wait for all async initialization to complete
-    await synapse._networkPromise
-    return synapse
-  }
-
-  constructor (options: SynapseOptions) {
-    // Count how many options are provided
+    // Validate options
     const providedOptions = [options.privateKey, options.provider, options.signer].filter(Boolean).length
-
     if (providedOptions !== 1) {
       throw new Error('Must provide exactly one of: privateKey, provider, or signer')
     }
-
     if (options.privateKey != null && options.rpcURL == null) {
       throw new Error('rpcURL is required when using privateKey')
     }
 
-    this._options = options
+    // Initialize provider and signer
+    let provider: ethers.Provider
+    let signer: ethers.Signer
 
     if (options.privateKey != null && options.rpcURL != null) {
-      // Server environment: create provider and wallet from private key
-      // Check if rpcURL is a WebSocket URL
-      const rpcURL = options.rpcURL
-      if (rpcURL.startsWith('ws://') || rpcURL.startsWith('wss://')) {
-        this._provider = new ethers.WebSocketProvider(rpcURL)
+      // Create provider from RPC URL
+      if (options.rpcURL.startsWith('ws://') || options.rpcURL.startsWith('wss://')) {
+        provider = new ethers.WebSocketProvider(options.rpcURL)
       } else {
-        this._provider = new ethers.JsonRpcProvider(rpcURL)
+        provider = new ethers.JsonRpcProvider(options.rpcURL)
       }
-      const wallet = new ethers.Wallet(options.privateKey, this._provider)
+
+      // Create wallet from private key
+      const wallet = new ethers.Wallet(options.privateKey, provider)
 
       // Apply NonceManager if not disabled
       if (options.disableNonceManager !== true) {
-        this._signer = new ethers.NonceManager(wallet)
+        signer = new ethers.NonceManager(wallet)
       } else {
-        this._signer = wallet
+        signer = wallet
       }
     } else if (options.provider != null) {
-      // Browser environment: use provided provider
-      this._provider = options.provider
-      // Signer will be initialized during async initialization
+      provider = options.provider
+
+      // Get signer from provider
+      if ('getSigner' in provider && typeof provider.getSigner === 'function') {
+        const providerSigner = await (provider as any).getSigner()
+
+        // Apply NonceManager if not disabled
+        if (options.disableNonceManager !== true) {
+          signer = new ethers.NonceManager(providerSigner)
+        } else {
+          signer = providerSigner
+        }
+      } else {
+        throw new Error('Provider must support getSigner() method')
+      }
     } else if (options.signer != null) {
-      // Legacy interface: use signer and its provider
-      this._signer = options.signer
-      if (options.signer.provider != null) {
-        this._provider = options.signer.provider
+      signer = options.signer
+
+      if (signer.provider != null) {
+        provider = signer.provider
       } else {
         throw new Error('Signer must have a provider attached')
       }
 
-      // Use NonceManager by default unless explicitly disabled
+      // Apply NonceManager if not disabled
       if (options.disableNonceManager !== true) {
-        this._signer = new ethers.NonceManager(this._signer)
+        signer = new ethers.NonceManager(signer)
       }
     } else {
       throw new Error('Invalid configuration')
     }
 
-    // Initialize async operations
-    this._networkPromise = this._initialize()
-  }
+    // Detect network
+    let network: 'mainnet' | 'calibration'
+    try {
+      const ethersNetwork = await provider.getNetwork()
+      const chainId = Number(ethersNetwork.chainId)
 
-  /**
-   * Perform all async initialization
-   */
-  private async _initialize (): Promise<void> {
-    await Promise.all([
-      this._detectNetwork(), // Detect network from chain ID
-      this._initializeSigner() // Initialize signer if using provider
-    ])
-  }
-
-  /**
-   * Initialize signer from provider if needed
-   */
-  private async _initializeSigner (): Promise<void> {
-    if (this._signer == null && this._options.provider != null) {
-      // Initialize signer from provider for browser environment
-      if ('getSigner' in this._provider && typeof this._provider.getSigner === 'function') {
-        const signer = await (this._provider as any).getSigner()
-
-        // Apply NonceManager if not disabled
-        if (this._options.disableNonceManager !== true) {
-          this._signer = new ethers.NonceManager(signer)
-        } else {
-          this._signer = signer
-        }
+      if (chainId === CHAIN_IDS.mainnet) {
+        network = 'mainnet'
+      } else if (chainId === CHAIN_IDS.calibration) {
+        network = 'calibration'
       } else {
-        throw new Error('Provider must support getSigner() method')
+        throw new Error(
+          `Unsupported network with chain ID ${chainId}. Synapse SDK only supports Filecoin mainnet (${CHAIN_IDS.mainnet}) and calibration (${CHAIN_IDS.calibration}) networks.`
+        )
       }
-    }
-  }
-
-  /**
-   * Get the signer, throwing if not initialized
-   */
-  private _getSigner (): ethers.Signer {
-    if (this._signer == null) {
+    } catch (error) {
       throw new Error(
-        'Signer not initialized. This should not happen after network detection and initialization.'
+        `Failed to detect network from provider. Please ensure your RPC endpoint is accessible and responds to network queries. ${
+          error instanceof Error ? `Underlying error: ${error.message}` : ''
+        }`
       )
     }
-    return this._signer
+
+    return new Synapse(provider, signer, network, options.disableNonceManager === true)
+  }
+
+  private constructor (
+    provider: ethers.Provider,
+    signer: ethers.Signer,
+    network: 'mainnet' | 'calibration',
+    disableNonceManager: boolean
+  ) {
+    this._provider = provider
+    this._signer = signer
+    this._network = network
+    this._disableNonceManager = disableNonceManager
   }
 
   /**
@@ -163,14 +144,11 @@ export class Synapse implements ISynapse {
    */
   private _getUsdfcContract (): ethers.Contract {
     if (this._usdfcContract == null) {
-      // Network is guaranteed to be set when this is called after await _networkPromise
-      const network = this._network as 'mainnet' | 'calibration'
-      const usdfcAddress = USDFC_ADDRESSES[network]
+      const usdfcAddress = USDFC_ADDRESSES[this._network]
       if (usdfcAddress == null) {
-        throw new Error(`USDFC contract not deployed on ${network} network`)
+        throw new Error(`USDFC contract not deployed on ${this._network} network`)
       }
-      const signer = this._getSigner()
-      this._usdfcContract = new ethers.Contract(usdfcAddress, ERC20_ABI, signer)
+      this._usdfcContract = new ethers.Contract(usdfcAddress, ERC20_ABI, this._signer)
     }
     return this._usdfcContract
   }
@@ -180,43 +158,13 @@ export class Synapse implements ISynapse {
    */
   private _getPaymentsContract (): ethers.Contract {
     if (this._paymentsContract == null) {
-      // Network is guaranteed to be set when this is called after await _networkPromise
-      const network = this._network as 'mainnet' | 'calibration'
-      const paymentsAddress = PAYMENTS_ADDRESSES[network]
+      const paymentsAddress = PAYMENTS_ADDRESSES[this._network]
       if (paymentsAddress == null) {
-        throw new Error(`Payments contract not deployed on ${network} network`)
+        throw new Error(`Payments contract not deployed on ${this._network} network`)
       }
-      const signer = this._getSigner()
-      this._paymentsContract = new ethers.Contract(paymentsAddress, PAYMENTS_ABI, signer)
+      this._paymentsContract = new ethers.Contract(paymentsAddress, PAYMENTS_ABI, this._signer)
     }
     return this._paymentsContract
-  }
-
-  private async _detectNetwork (): Promise<void> {
-    // Try to get network info from provider
-    let network: ethers.Network
-    try {
-      network = await this._provider.getNetwork()
-    } catch (error) {
-      throw this._createError(
-        'network detection',
-        'Failed to detect network from provider. Please ensure your RPC endpoint is accessible and responds to network queries.',
-        error
-      )
-    }
-
-    // Validate the network is supported
-    const chainId = Number(network.chainId)
-    if (chainId === CHAIN_IDS.mainnet) {
-      this._network = 'mainnet'
-    } else if (chainId === CHAIN_IDS.calibration) {
-      this._network = 'calibration'
-    } else {
-      throw this._createError(
-        'network detection',
-        `Unsupported network with chain ID ${chainId}. Synapse SDK only supports Filecoin mainnet (${CHAIN_IDS.mainnet}) and calibration (${CHAIN_IDS.calibration}) networks.`
-      )
-    }
   }
 
   async balance (token: TokenIdentifier = Synapse.USDFC): Promise<bigint> {
@@ -228,19 +176,9 @@ export class Synapse implements ISynapse {
       )
     }
 
-    // Ensure network is detected
-    await this._networkPromise
+    const signerAddress = await this._signer.getAddress()
 
-    if (this._network == null) {
-      throw this._createError('balance', 'Network detection failed')
-    }
-
-    // Get contract addresses for current network
     const usdfcAddress = USDFC_ADDRESSES[this._network]
-
-    // Get signer address
-    const signerAddress = await this._getSigner().getAddress()
-
     const paymentsContract = this._getPaymentsContract()
 
     let accountInfo: any[]
@@ -266,19 +204,11 @@ export class Synapse implements ISynapse {
   }
 
   async walletBalance (token?: TokenIdentifier): Promise<bigint> {
-    // Ensure network is detected before proceeding
-    await this._networkPromise
-
     // If no token specified or FIL is requested, return native wallet balance
     if (token == null || token === 'FIL') {
       try {
-        // Get the signer's address
-        const address = await this._getSigner().getAddress()
-
-        // Get the actual balance from the blockchain
+        const address = await this._signer.getAddress()
         const balance = await this._provider.getBalance(address)
-
-        // Return balance as bigint (in smallest unit)
         return balance
       } catch (error) {
         throw this._createError(
@@ -292,14 +222,9 @@ export class Synapse implements ISynapse {
     // Handle ERC20 token balance
     if (token === 'USDFC' || token === Synapse.USDFC) {
       try {
-        // Get the signer's address
-        const address = await this._getSigner().getAddress()
-
+        const address = await this._signer.getAddress()
         const usdfcContract = this._getUsdfcContract()
-
         const balance = await usdfcContract.balanceOf(address)
-
-        // Return balance as bigint (in smallest unit)
         return balance
       } catch (error) {
         throw this._createError(
@@ -329,22 +254,13 @@ export class Synapse implements ISynapse {
     }
 
     const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
-
     if (depositAmountBigint <= 0n) {
       throw this._createError('deposit', 'Invalid amount')
     }
 
-    await this._networkPromise
-
-    if (this._network == null) {
-      throw this._createError('deposit', 'Network detection failed')
-    }
+    const signerAddress = await this._signer.getAddress()
 
     const usdfcAddress = USDFC_ADDRESSES[this._network]
-
-    const signer = this._getSigner()
-    const signerAddress = await signer.getAddress()
-
     const usdfcContract = this._getUsdfcContract()
     const paymentsContract = this._getPaymentsContract()
 
@@ -370,7 +286,7 @@ export class Synapse implements ISynapse {
     if (currentAllowance < depositAmountBigint) {
       // Only set explicit nonce if NonceManager is disabled
       const txOptions: any = {}
-      if (this._options.disableNonceManager === true) {
+      if (this._disableNonceManager) {
         const approvalNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
         txOptions.nonce = approvalNonce
       }
@@ -391,7 +307,7 @@ export class Synapse implements ISynapse {
 
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
-    if (this._options.disableNonceManager === true) {
+    if (this._disableNonceManager) {
       const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
       txOptions.nonce = currentNonce
     }
@@ -419,17 +335,9 @@ export class Synapse implements ISynapse {
       throw this._createError('withdraw', 'Invalid amount')
     }
 
-    await this._networkPromise
-
-    if (this._network == null) {
-      throw this._createError('withdraw', 'Network detection failed')
-    }
+    const signerAddress = await this._signer.getAddress()
 
     const usdfcAddress = USDFC_ADDRESSES[this._network]
-
-    const signer = this._getSigner()
-    const signerAddress = await signer.getAddress()
-
     const paymentsContract = this._getPaymentsContract()
 
     // Check balance
@@ -451,7 +359,7 @@ export class Synapse implements ISynapse {
 
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
-    if (this._options.disableNonceManager === true) {
+    if (this._disableNonceManager) {
       const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
       txOptions.nonce = currentNonce
     }
@@ -482,6 +390,19 @@ export class Synapse implements ISynapse {
     console.log('[MockSynapse] Storage service ready for operations')
 
     return new MockStorageService(proofSetId, storageProvider)
+  }
+
+  /**
+   * Helper to create descriptive errors with context
+   */
+  private _createError (operation: string, details: string, originalError?: unknown): Error {
+    const baseMessage = `Synapse ${operation} failed: ${details}`
+
+    if (originalError != null) {
+      return new Error(baseMessage, { cause: originalError })
+    }
+
+    return new Error(baseMessage)
   }
 }
 
