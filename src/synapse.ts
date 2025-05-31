@@ -3,12 +3,14 @@
  */
 
 import { ethers } from 'ethers'
-import type {
-  Synapse as ISynapse,
-  SynapseOptions,
-  StorageOptions,
-  TokenAmount,
-  TokenIdentifier
+import {
+  Operation,
+  type Synapse as ISynapse,
+  type SynapseOptions,
+  type StorageOptions,
+  type TokenAmount,
+  type TokenIdentifier,
+  type AuthSignature
 } from './types.js'
 import { MockStorageService } from './storage-service.js'
 import {
@@ -16,7 +18,8 @@ import {
   CHAIN_IDS,
   ERC20_ABI,
   PAYMENTS_ADDRESSES,
-  PAYMENTS_ABI
+  PAYMENTS_ABI,
+  SERVICE_CONTRACT_ADDRESSES
 } from './constants.js'
 
 export class Synapse implements ISynapse {
@@ -397,6 +400,69 @@ export class Synapse implements ISynapse {
     console.log('[MockSynapse] Storage service ready for operations')
 
     return new MockStorageService(proofSetId, storageProvider)
+  }
+
+  /**
+   * Sign operation data for authentication
+   * @param operation - The operation type
+   * @param data - Array of data to be ABI encoded and signed
+   * @returns Signature components
+   */
+  async signOperation (operation: Operation, data: any[]): Promise<AuthSignature> {
+    // Get service contract address
+    const serviceContractAddress = SERVICE_CONTRACT_ADDRESSES[this._network]
+    if (serviceContractAddress === '') {
+      throw this._createError(
+        'signOperation',
+        `Service contract not deployed on ${this._network} network`
+      )
+    }
+
+    // Prepare data for ABI encoding - operation comes after service contract address
+    const encodingData = [serviceContractAddress, operation, ...data]
+
+    // ABI encode the data
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
+    const types = this._getTypesForOperation(operation, data.length)
+    const encodedData = abiCoder.encode(types, encodingData)
+
+    // Hash the encoded data
+    const messageHash = ethers.keccak256(encodedData)
+
+    // Sign the hash
+    const signature = await this._signer.signMessage(ethers.getBytes(messageHash))
+
+    // Split signature into components
+    const sig = ethers.Signature.from(signature)
+
+    return {
+      signature,
+      v: sig.v,
+      r: sig.r,
+      s: sig.s,
+      signedData: encodedData
+    }
+  }
+
+  /**
+   * Get ABI types for encoding based on operation
+   */
+  private _getTypesForOperation (operation: Operation, dataLength: number): string[] {
+    const baseTypes = ['address', 'uint8'] // serviceContractAddr, opEnum
+
+    switch (operation) {
+      case Operation.CreateProofSet:
+        return [...baseTypes, 'uint256'] // clientDataSetId
+      case Operation.AddRoots:
+        // proofSetId, firstRootId, rootData[]
+        return [...baseTypes, 'uint256', 'uint256', 'tuple(tuple(bytes),uint256)[]']
+      case Operation.ScheduleRemovals:
+        return [...baseTypes, 'uint256', 'uint256[]'] // proofSetId, rootIds[]
+      case Operation.DeleteProofSet:
+        return [...baseTypes, 'uint256'] // proofSetId
+      default:
+        throw this._createError('signOperation', `Unknown operation: ${operation as number}`)
+    }
   }
 
   /**
