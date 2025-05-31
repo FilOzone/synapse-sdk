@@ -62,3 +62,12 @@ export const RPC_URLS = {
     websocket: 'wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1'
   }
 } as const
+
+/**
+ * Service contract addresses (for authentication)
+ * TODO: Get actual addresses from deployment
+ */
+export const SERVICE_CONTRACT_ADDRESSES = {
+  mainnet: '', // TODO: Get actual mainnet address
+  calibration: '' // TODO: Get actual calibration address
+} as const

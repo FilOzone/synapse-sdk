@@ -148,4 +148,43 @@ export interface Synapse {
 
   /** Create a storage service instance */
   createStorage: (options?: StorageOptions) => Promise<StorageService>
+
+  /** Sign operation data for authentication */
+  signOperation: (operation: Operation, data: any[]) => Promise<AuthSignature>
+}
+
+/**
+ * Authentication operation types for Synapse
+ */
+export enum Operation {
+  CreateProofSet = 0,
+  AddRoots = 1,
+  ScheduleRemovals = 2,
+  DeleteProofSet = 3
+}
+
+/**
+ * Signature data for authenticated operations
+ */
+export interface AuthSignature {
+  /** The full signature string (0x-prefixed) */
+  signature: string
+  /** Recovery parameter */
+  v: number
+  /** R component of signature */
+  r: string
+  /** S component of signature */
+  s: string
+  /** The ABI-encoded data that was signed (for verification) */
+  signedData: string
+}
+
+/**
+ * Root data for adding to proof sets
+ */
+export interface RootData {
+  /** The CommP CID */
+  cid: CommP | string
+  /** The raw (unpadded) size of the original data in bytes */
+  rawSize: number
 }
