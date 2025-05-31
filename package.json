@@ -1,5 +1,5 @@
 {
-  "name": "synapse-sdk",
+  "name": "@filoz/synapse-sdk",
   "version": "0.0.0",
   "description": "A JavaScript interface to Filecoin Synapse",
   "type": "module",

@@ -106,7 +106,7 @@ await synapse.deposit(100n * 10n**18n) // 100 USDFC
 await synapse.withdraw(50n * 10n**18n)  // 50 USDFC
 
 // Using CommP utilities without Synapse instance
-import { calculate, asCommP } from 'synapse-sdk/commp'
+import { calculate, asCommP } from '@filoz/synapse-sdk/commp'
 
 // Calculate CommP for data
 const data = new Uint8Array([1, 2, 3, 4])
@@ -130,7 +130,7 @@ const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4y
    - Adapter pattern for connecting to environment-specific file handling
 
 3. **CommP Utilities**:
-   - Available as a separate import path: `synapse-sdk/commp`
+   - Available as a separate import path: `@filoz/synapse-sdk/commp`
    - `calculate()` function computes CommP (Piece Commitment) for binary data
    - `asCommP()` validates and parses CommP strings or CIDs
    - No need to instantiate Synapse class for these utilities

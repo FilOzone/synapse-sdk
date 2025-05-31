@@ -9,7 +9,7 @@ The Synapse SDK provides a simple interface for storing and retrieving binary da
 ## Installation
 
 ```bash
-npm install synapse-sdk ethers
+npm install @filoz/synapse-sdk ethers
 ```
 
 Note: `ethers` v6 is a peer dependency and must be installed separately.
@@ -19,7 +19,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 ### With Private Key
 
 ```javascript
-import { Synapse, RPC_URLS } from 'synapse-sdk'
+import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
 
 // Using recommended RPC endpoints
 const synapse = await Synapse.create({
@@ -52,7 +52,7 @@ console.log(new TextDecoder().decode(data)) // "Hello World"
 ### Using CommP Utilities Standalone
 
 ```javascript
-import { calculate, asCommP } from 'synapse-sdk/commp'
+import { calculate, asCommP } from '@filoz/synapse-sdk/commp'
 
 // Calculate CommP without Synapse instance
 const data = new Uint8Array([1, 2, 3, 4])
@@ -67,7 +67,7 @@ console.log(`Valid: ${valid !== null}`)
 ### With MetaMask
 
 ```javascript
-import { Synapse } from 'synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { ethers } from 'ethers'
 
 // Connect to MetaMask
@@ -259,7 +259,7 @@ type CommP = CID & {
 The SDK provides standalone utilities for working with CommP values that can be used without instantiating a Synapse instance:
 
 ```javascript
-import { calculate, asCommP } from 'synapse-sdk/commp'
+import { calculate, asCommP } from '@filoz/synapse-sdk/commp'
 
 // Calculate CommP for binary data
 const data = new Uint8Array([1, 2, 3, 4, 5])
@@ -290,7 +290,7 @@ The SDK automatically detects the network based on chain ID:
 The SDK supports both HTTP/HTTPS and WebSocket connections:
 
 ```javascript
-import { Synapse, RPC_URLS } from 'synapse-sdk'
+import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
 
 // WebSocket endpoints (recommended for better performance)
 const wsSynapse = await Synapse.create({
@@ -316,7 +316,7 @@ const calibrationSynapse = await Synapse.create({
 The GLIF free tier is limited to 100 requests per minute, which may not be sufficient for applications making frequent SDK calls. You can use GLIF authorization tokens to increase your rate limits:
 
 ```javascript
-import { Synapse } from 'synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 
 // Using GLIF authorization with private key
 const synapse = await Synapse.create({
