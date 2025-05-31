@@ -132,7 +132,8 @@ describe('Synapse', () => {
       assert.isFunction(synapse.withdraw)
     })
 
-    it('should create instance with private key and rpcUrl', async () => {
+    it('should create instance with private key and rpcUrl', async function () {
+      this.timeout(10000)
       // This test would normally fail because it tries to connect to a real RPC
       // For testing purposes, we'll test the constructor behavior instead
       try {
@@ -223,7 +224,8 @@ describe('Synapse', () => {
   })
 
   describe('Error handling', () => {
-    it('should use Error cause property for better error chaining', async () => {
+    it('should use Error cause property for better error chaining', async function () {
+      this.timeout(10000)
       // Test with a failing RPC connection to verify error cause chaining
       try {
         await Synapse.create({
