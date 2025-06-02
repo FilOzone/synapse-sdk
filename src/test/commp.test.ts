@@ -6,7 +6,7 @@
 
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import { asCommP, calculate } from '../commp.js'
+import { asCommP, calculate, createCommPStream } from '../commp/index.js'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroCommpFixture = `
@@ -102,6 +102,79 @@ describe('CommP utilities', () => {
         assert.isNotNull(result)
         assert.strictEqual(result.toString(), expected.toString())
       })
+    })
+  })
+
+  describe('createCommPStream', () => {
+    it('should calculate same CommP as calculate() function', async () => {
+      const testData = new Uint8Array(4096).fill(1)
+
+      // Calculate using regular function
+      const expectedCommP = calculate(testData)
+
+      // Calculate using stream
+      const { stream, getCommP } = createCommPStream()
+
+      // Create a readable stream from our test data
+      const readable = new ReadableStream({
+        start (controller) {
+          controller.enqueue(testData)
+          controller.close()
+        }
+      })
+
+      // Pipe through CommP stream and consume
+      const reader = readable.pipeThrough(stream).getReader()
+      while (true) {
+        const { done } = await reader.read()
+        if (done) break
+      }
+
+      const streamCommP = getCommP()
+      assert.isNotNull(streamCommP)
+      assert.strictEqual(streamCommP?.toString(), expectedCommP.toString())
+    })
+
+    it('should handle chunked data correctly', async () => {
+      const chunk1 = new Uint8Array([1, 2, 3, 4])
+      const chunk2 = new Uint8Array([5, 6, 7, 8])
+      const chunk3 = new Uint8Array(1024).fill(1)
+      const fullData = new Uint8Array([...chunk1, ...chunk2, ...chunk3])
+
+      // Calculate expected CommP
+      const expectedCommP = calculate(fullData)
+
+      // Calculate using stream with chunks
+      const { stream, getCommP } = createCommPStream()
+
+      const readable = new ReadableStream({
+        start (controller) {
+          controller.enqueue(chunk1)
+          controller.enqueue(chunk2)
+          controller.enqueue(chunk3)
+          controller.close()
+        }
+      })
+
+      const reader = readable.pipeThrough(stream).getReader()
+      while (true) {
+        const { done } = await reader.read()
+        if (done) break
+      }
+
+      const streamCommP = getCommP()
+      assert.isNotNull(streamCommP)
+      assert.strictEqual(streamCommP?.toString(), expectedCommP.toString())
+    })
+
+    it('should return null before stream is finished', () => {
+      const { getCommP } = createCommPStream()
+
+      // Should be null before any data
+      assert.isNull(getCommP())
+
+      // Note: We can't easily test the "during streaming" state without
+      // more complex async coordination, so we keep this test simple
     })
   })
 })

@@ -6,10 +6,11 @@
  * and optional CDN retrieval services.
  */
 
-import { LegacyPieceLink } from '@web3-storage/data-segment'
+import { CommP } from './commp/index.js'
 import type { ethers } from 'ethers'
 
 // Type definitions for common values
+export { CommP }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
@@ -20,18 +21,6 @@ export type StorageProvider = string
  * Token identifier for balance queries
  */
 export type TokenIdentifier = 'USDFC' | string
-
-/**
- * CommP - A constrained CID type for Piece Commitments
- * This is implemented as a Link type which is made concrete by a CID. A CommP
- * uses the fil-commitment-unsealed codec (0xf101) and
- * sha2-256-trunc254-padded multihash function (0x1012). This will eventually be
- * replaced by a CommPv2 which uses the raw codec (0x55) and the
- * fr32-sha256-trunc254-padbintree multihash function (0x1011), which is a
- * specialised form of sha2-256-trunc254-padded multihash that also encodes the
- * content length and the height of the merkle tree.
- */
-export type CommP = LegacyPieceLink
 
 /**
  * Options for initializing the Synapse instance

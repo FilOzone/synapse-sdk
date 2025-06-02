@@ -7,7 +7,7 @@
 
 import type { StorageService, CommP, DownloadOptions, SettlementResult, ProofSetId, StorageProvider } from './types.js'
 import { MockUploadTask } from './upload-task.js'
-import { asCommP } from './commp.js'
+import { asCommP } from './commp/index.js'
 
 export class MockStorageService implements StorageService {
   readonly proofSetId: ProofSetId

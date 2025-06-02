@@ -6,12 +6,24 @@
 
 import { CID } from 'multiformats/cid'
 import * as Digest from 'multiformats/hashes/digest'
+import { LegacyPieceLink, PieceDigest } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
-import type { CommP } from './types.js'
 
 // Filecoin-specific constants
 export const FIL_COMMITMENT_UNSEALED = 0xf101
 export const SHA2_256_TRUNC254_PADDED = 0x1012
+
+/**
+ * CommP - A constrained CID type for Piece Commitments
+ * This is implemented as a Link type which is made concrete by a CID. A CommP
+ * uses the fil-commitment-unsealed codec (0xf101) and
+ * sha2-256-trunc254-padded multihash function (0x1012). This will eventually be
+ * replaced by a CommPv2 which uses the raw codec (0x55) and the
+ * fr32-sha256-trunc254-padbintree multihash function (0x1011), which is a
+ * specialised form of sha2-256-trunc254-padded multihash that also encodes the
+ * content length and the height of the merkle tree.
+ */
+export type CommP = LegacyPieceLink
 
 /**
  * Parse a CommP string into a CID and validate it
@@ -70,6 +82,23 @@ export function asCommP (commpInput: CommP | CID | string): CommP | null {
 }
 
 /**
+ * Convert a CommPv2 multihash digest to a CommPv1 CID
+ * @param digest - The CommPv2 digest from the hasher
+ * @returns The legacy CommPv1 CID
+ */
+function commPv2ToCommPv1 (digest: PieceDigest): CommP {
+  // CommPv2 is `uvarint padding | uint8 height | 32 byte root data`
+  // For now we are operating with CommPv1 which just uses the 32 byte digest at
+  // the end, so we'll down-convert since @web3-storage/data-segment is designed
+  // to work with CommPv2.
+  const legacyDigest = Digest.create(
+    SHA2_256_TRUNC254_PADDED,
+    digest.bytes.subarray(digest.bytes.length - Hasher.Digest.ROOT_SIZE)
+  )
+  return CID.create(1, FIL_COMMITMENT_UNSEALED, legacyDigest)
+}
+
+/**
  * Calculate the CommP (Piece Commitment) for a given data blob
  * @param data - The binary data to calculate the CommP for
  * @returns The calculated CommP CID
@@ -85,13 +114,43 @@ export function calculate (data: Uint8Array): CommP {
     hasher.write(data.subarray(i, i + chunkSize))
   }
   const digest = hasher.digest()
-  // CommPv2 is `uvarint padding | uint8 height | 32 byte root data`
-  // For now we are operating with CommPv1 which just uses the 32 byte digest at
-  // the end, so we'll down-convert since @web3-storage/data-segment is designed
-  // to work with CommPv2.
-  const legacyDigest = Digest.create(
-    SHA2_256_TRUNC254_PADDED,
-    digest.bytes.subarray(digest.bytes.length - Hasher.Digest.ROOT_SIZE)
-  )
-  return CID.create(1, FIL_COMMITMENT_UNSEALED, legacyDigest)
+  return commPv2ToCommPv1(digest)
+}
+
+/**
+ * Create a TransformStream that calculates CommP while streaming data through it
+ * This allows calculating CommP without buffering the entire data in memory
+ *
+ * @returns An object with the TransformStream and a getCommP function to retrieve the result
+ */
+export function createCommPStream (): { stream: TransformStream<Uint8Array, Uint8Array>, getCommP: () => CommP | null } {
+  const hasher = Hasher.create()
+  let finished = false
+  let commp: CommP | null = null
+
+  const stream = new TransformStream<Uint8Array, Uint8Array>({
+    transform (chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
+      // Write chunk to hasher
+      hasher.write(chunk)
+      // Pass chunk through unchanged
+      controller.enqueue(chunk)
+    },
+
+    flush () {
+      // Calculate final CommP when stream ends
+      const digest = hasher.digest()
+      commp = commPv2ToCommPv1(digest)
+      finished = true
+    }
+  })
+
+  return {
+    stream,
+    getCommP: () => {
+      if (!finished) {
+        return null
+      }
+      return commp
+    }
+  }
 }

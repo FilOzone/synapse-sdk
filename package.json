@@ -11,8 +11,12 @@
       "types": "./dist/index.d.ts"
     },
     "./commp": {
-      "import": "./dist/commp.js",
-      "types": "./dist/commp.d.ts"
+      "import": "./dist/commp/index.js",
+      "types": "./dist/commp/index.d.ts"
+    },
+    "./pdp": {
+      "import": "./dist/pdp/index.js",
+      "types": "./dist/pdp/index.d.ts"
     }
   },
   "scripts": {
@@ -26,8 +30,7 @@
     "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.js",
     "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build",
-    "example": "npm run build && node example-usage.js"
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "repository": {
     "type": "git",

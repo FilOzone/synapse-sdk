@@ -116,6 +116,16 @@ const commP = calculate(data)
 const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
 ```
 
+## Design Philosophy
+
+The Synapse SDK follows a dual-track design philosophy:
+
+1. **Simple Golden Path**: The main `Synapse` class provides a coherent, high-level API that makes sensible default choices and abstracts away complexity. This is ideal for most users who want to quickly integrate Filecoin storage capabilities.
+
+2. **Composable Components**: All individual components are exported and can be used independently by advanced users or developers who need fine-grained control over specific parts of the process.
+
+This approach ensures the SDK is both beginner-friendly and powerful enough for advanced use cases.
+
 ## Design Decisions
 
 1. **Core API Design**:
@@ -123,6 +133,7 @@ const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4y
    - Factory methods for creating service instances (`synapse.createStorage()`)
    - Payment methods directly on the Synapse instance (`deposit`, `withdraw`, `balance`)
    - Strict network validation - only supports Filecoin mainnet and calibration
+   - All components can be imported and used independently
 
 2. **Environment Agnosticism**:
    - Core SDK has no dependencies on environment-specific APIs (Node.js/Browser)
@@ -133,8 +144,10 @@ const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4y
    - Available as a separate import path: `@filoz/synapse-sdk/commp`
    - `calculate()` function computes CommP (Piece Commitment) for binary data
    - `asCommP()` validates and parses CommP strings or CIDs
+   - `createCommPStream()` creates a WebStreams TransformStream for streaming CommP calculation
    - No need to instantiate Synapse class for these utilities
    - Uses @web3-storage/data-segment for efficient CommP calculation
+   - Streaming support allows CommP calculation without buffering entire data in memory
 
 4. **UnixFS Support**:
    - Content abstractions designed to preserve metadata needed for UnixFS
@@ -188,18 +201,17 @@ Adapter implementations (not part of core) provide:
 src/
 ├── index.ts          # Main entry point, re-exports all public APIs
 ├── types.ts          # TypeScript interfaces and type definitions
-├── synapse.ts        # MockSynapse implementation with ethers integration
+├── synapse.ts        # Synapse implementation with ethers integration
 ├── storage-service.ts # MockStorageService implementation
 ├── upload-task.ts    # MockUploadTask implementation
-├── commp.ts          # CommP utilities and validation
-└── constants.ts      # Network addresses, ABIs, and constants
-
-examples/
-├── example-usage.js        # Basic usage example with private key
-├── example-metamask.js     # Browser wallet integration examples
-├── example-metamask.html   # Standalone HTML demo
-├── example-metamask-sdk.html # Full SDK HTML demo
-└── EXAMPLES.md             # Documentation for running browser examples
+├── constants.ts      # Network addresses, ABIs, and constants
+├── commp/            # CommP (Piece Commitment) utilities
+│   ├── index.ts      # Re-exports CommP functions
+│   └── commp.ts      # CommP calculation and validation
+└── pdp/              # PDP (Proof of Data Possession) services
+    ├── index.ts      # Re-exports PDP services
+    ├── pdp-upload-service.ts   # PDPUploadService for uploading to PDP servers
+    └── pdp-download-service.ts # PDPDownloadService for retrieving from storage providers
 ```
 
 ### Key Features
@@ -229,5 +241,49 @@ examples/
 - **Sequential Transaction Processing**: Ensures transactions are sent with correct, sequential nonces
 - **Disable Option**: Can be disabled with `disableNonceManager: true` option if manual nonce management is preferred
 - **MetaMask Compatibility**: Works seamlessly with MetaMask and other browser wallets
+
+### PDP Service Integration
+
+The SDK includes PDP service classes for uploading data to PDP servers and downloading from storage providers:
+
+#### PDPUploadService Features
+- **Simple Two-Step Upload Process**:
+  1. POST to `/pdp/piece` with CommP and size to create upload
+  2. PUT to `/pdp/piece/upload/{UUID}` with binary data
+- **No Authentication Required**: Uses null authentication (no JWT tokens needed)
+- **Browser-Compatible**: Uses standard fetch API and multiformats utilities
+- **CommP-Based**: All uploads require pre-calculated CommP for data verification
+
+#### PDPDownloadService Features
+- **Direct Piece Retrieval**: Downloads pieces directly from storage providers
+- **CommP Verification**: Automatically verifies downloaded data matches requested CommP
+- **Simple API**: Single method `downloadPiece(commp)` returns verified data
+- **Error Handling**: Throws if download fails or CommP verification fails
+
+#### Usage Patterns
+```typescript
+import { PDPUploadService, PDPDownloadService } from '@filoz/synapse-sdk/pdp'
+import { calculate } from '@filoz/synapse-sdk/commp'
+
+// Upload example
+const data = new Uint8Array([1, 2, 3, 4])
+const commp = calculate(data)
+const uploadService = new PDPUploadService('https://pdp.example.com')
+await uploadService.upload(data, commp)
+
+// Download example
+const downloadService = new PDPDownloadService('https://sp.example.com/retrieve')
+const downloadedData = await downloadService.downloadPiece(commp)
+// Data is automatically verified to match the CommP
+```
+
+#### Implementation Notes
+- Upload: Location header parsing expects format: `/pdp/piece/upload/{UUID}` (not anchored to start)
+- Upload: Service handles both new uploads (201) and existing pieces (200)
+- Download: Appends `/piece/{commp}` to retrieval URL
+- Both services use `toHex` from multiformats/bytes for browser compatibility (no Buffer)
+- Download: Uses streaming CommP verification via `createCommPStream()` TransformStream
+- Download: Calculates CommP while downloading, avoiding double memory usage
+- WebStreams API used throughout for browser/Node.js compatibility
 
 This document will be updated as the SDK implementation progresses.
