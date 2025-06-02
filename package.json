@@ -17,10 +17,16 @@
     "./pdp": {
       "import": "./dist/pdp/index.js",
       "types": "./dist/pdp/index.d.ts"
+    },
+    "./browser": {
+      "import": "./dist/browser/synapse-sdk.esm.js",
+      "require": "./dist/browser/synapse-sdk.min.js",
+      "script": "./dist/browser/synapse-sdk.min.js"
     }
   },
   "scripts": {
     "build": "tsc",
+    "build:browser": "npm run build && webpack --config webpack.config.cjs && webpack --config webpack.config.esm.cjs",
     "watch": "tsc -w",
     "lint": "ts-standard",
     "lint:fix": "ts-standard --fix",
@@ -30,7 +36,7 @@
     "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.js",
     "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build && npm run build:browser"
   },
   "repository": {
     "type": "git",
@@ -66,7 +72,9 @@
     "mocha": "^11.5.0",
     "polendina": "^3.2.10",
     "ts-standard": "^12.0.2",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^5.1.4"
   },
   "release": {
     "branches": [

@@ -192,7 +192,8 @@ Adapter implementations (not part of core) provide:
 - ✅ Contract instance caching for efficiency
 - ✅ Browser examples with HTML demos
 - ✅ Comprehensive API documentation in README
-- ✅ Test suite with 29 passing tests
+- ✅ Test suite
+- ✅ Browser bundle generation via webpack (UMD and ESM format)
 - 🚧 Mock storage service (real implementation pending)
 - ⏳ Documentation website pending
 
@@ -213,6 +214,19 @@ src/
     ├── pdp-upload-service.ts   # PDPUploadService for uploading to PDP servers
     └── pdp-download-service.ts # PDPDownloadService for retrieving from storage providers
 ```
+
+### Build Process
+
+#### Browser Bundling
+- **Webpack Configuration**: Builds UMD bundles for browser distribution
+- **Entry Point**: `src/browser-entry.ts` re-exports all SDK components
+- **Build Commands**:
+  - `npm run build` - Builds TypeScript and browser bundles
+  - `npm run build:browser` - Builds only browser bundles
+  - `npm run watch` - Watches TypeScript files for changes
+  - `npm run watch:browser` - Watches and rebuilds browser bundles
+- **Output**: Browser bundles in `dist/browser/` directory
+- **NPM Package**: Entire `dist/` directory is published including browser bundles
 
 ### Key Features
 
@@ -280,10 +294,20 @@ const downloadedData = await downloadService.downloadPiece(commp)
 #### Implementation Notes
 - Upload: Location header parsing expects format: `/pdp/piece/upload/{UUID}` (not anchored to start)
 - Upload: Service handles both new uploads (201) and existing pieces (200)
+- Upload: CORS requirements: Server must include `Access-Control-Expose-Headers: Location`
 - Download: Appends `/piece/{commp}` to retrieval URL
 - Both services use `toHex` from multiformats/bytes for browser compatibility (no Buffer)
 - Download: Uses streaming CommP verification via `createCommPStream()` TransformStream
 - Download: Calculates CommP while downloading, avoiding double memory usage
 - WebStreams API used throughout for browser/Node.js compatibility
+
+### Browser Distribution
+
+The SDK is distributed with browser-ready bundles:
+- **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
+- **Minified Bundle**: `dist/browser/synapse-sdk.min.js` - Production-optimized
+- **Entry Point**: `dist/browser-entry.js` - Flattens all exports for browser use
+- **External Dependencies**: ethers.js must be loaded separately
+- **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
 This document will be updated as the SDK implementation progresses.

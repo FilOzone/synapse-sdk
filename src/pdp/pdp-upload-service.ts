@@ -91,7 +91,7 @@ export class PDPUploadService {
     // Extract upload ID from Location header
     const location = response.headers.get('Location')
     if (location == null) {
-      throw new Error('Server did not provide Location header in response')
+      throw new Error('Server did not provide Location header in response (may be restricted by CORS policy)')
     }
 
     // Validate the location format and extract UUID
