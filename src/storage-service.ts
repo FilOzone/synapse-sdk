@@ -102,7 +102,7 @@ export class MockStorageService implements StorageService {
     await new Promise(resolve => setTimeout(resolve, 1000))
 
     const result = {
-      settledAmount: 50000000000000000n, // Mock amount: 0.05 USDFC in smallest unit (18 decimals)
+      settledAmount: 50000000000000000n, // Mock amount: 0.05 USDFC in base units (1×10⁻¹⁸)
       epoch: Math.floor(Date.now() / 30000) // Mock epoch
     }
 

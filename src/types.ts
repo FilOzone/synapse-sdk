@@ -82,7 +82,7 @@ export interface DownloadOptions {
  * Payment settlement result
  */
 export interface SettlementResult {
-  /** Amount settled in USDFC (in smallest unit, not human readable) */
+  /** Amount settled in USDFC base units */
   settledAmount: bigint
   /** Epoch at which settlement occurred */
   epoch: number

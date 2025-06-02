@@ -81,7 +81,7 @@ const synapse = await Synapse.create({
   privateKey: "0x...", // For signing transactions
 })
 
-// Check balances (all return bigint in smallest unit)
+// Check balances (all return bigint in base units)
 const filBalance = await synapse.walletBalance() // FIL balance
 const usdcBalance = await synapse.walletBalance(Synapse.USDFC) // USDFC token balance
 const paymentsBalance = await synapse.balance() // USDFC in payments contract
@@ -101,7 +101,7 @@ const txHash = await uploadTask.done()
 // Download content
 const content = await storage.download(commp)
 
-// Payments (amounts in smallest unit as bigint)
+// Payments (amounts in base units as bigint)
 await synapse.deposit(100n * 10n**18n) // 100 USDFC
 await synapse.withdraw(50n * 10n**18n)  // 50 USDFC
 
