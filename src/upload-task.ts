@@ -13,10 +13,12 @@ export class MockUploadTask implements UploadTask {
   private _commp?: CommP
   private _sp?: StorageProvider
   private _txHash?: string
+  private readonly _withCDN: boolean
 
-  constructor (data: Uint8Array | ArrayBuffer) {
+  constructor (data: Uint8Array | ArrayBuffer, withCDN: boolean) {
     this._data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    console.log('[MockSynapse] UploadTask created with', this._data.length, 'bytes')
+    this._withCDN = withCDN
+    console.log('[MockSynapse] UploadTask created with', this._data.length, 'bytes (withCDN=', this._withCDN, ')')
   }
 
   async commp (): Promise<CommP> {

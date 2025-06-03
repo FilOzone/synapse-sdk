@@ -24,6 +24,7 @@ export class Synapse implements ISynapse {
   private readonly _signer: ethers.Signer
   private readonly _network: 'mainnet' | 'calibration'
   private readonly _disableNonceManager: boolean
+  private readonly _withCDN: boolean
 
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
@@ -131,19 +132,21 @@ export class Synapse implements ISynapse {
       )
     }
 
-    return new Synapse(provider, signer, network, options.disableNonceManager === true)
+    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true)
   }
 
   private constructor (
     provider: ethers.Provider,
     signer: ethers.Signer,
     network: 'mainnet' | 'calibration',
-    disableNonceManager: boolean
+    disableNonceManager: boolean,
+    withCDN: boolean
   ) {
     this._provider = provider
     this._signer = signer
     this._network = network
     this._disableNonceManager = disableNonceManager
+    this._withCDN = withCDN
   }
 
   /**
@@ -396,7 +399,7 @@ export class Synapse implements ISynapse {
     )
     console.log('[MockSynapse] Storage service ready for operations')
 
-    return new MockStorageService(proofSetId, storageProvider)
+    return new MockStorageService(proofSetId, storageProvider, await this._signer.getAddress(), this._withCDN)
   }
 
   /**

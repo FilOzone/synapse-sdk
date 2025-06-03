@@ -112,6 +112,7 @@ interface SynapseOptions {
 
   // Advanced Configuration
   disableNonceManager?: boolean // Disable automatic nonce management
+  withCDN?: boolean             // Enable CDN for retrievals
 }
 ```
 

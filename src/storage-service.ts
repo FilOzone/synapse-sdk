@@ -13,16 +13,20 @@ export class MockStorageService implements StorageService {
   readonly proofSetId: ProofSetId
   readonly storageProvider: StorageProvider
   private readonly _storedData: Map<string, Uint8Array> = new Map()
+  private readonly _signerAddress: string
+  private readonly _withCDN: boolean
 
-  constructor (proofSetId: ProofSetId, storageProvider: StorageProvider) {
+  constructor (proofSetId: ProofSetId, storageProvider: StorageProvider, signerAddress: string, withCDN: boolean) {
     this.proofSetId = proofSetId
     this.storageProvider = storageProvider
+    this._signerAddress = signerAddress
+    this._withCDN = withCDN
   }
 
   upload (data: Uint8Array | ArrayBuffer): MockUploadTask {
     console.log('[MockSynapse] StorageService.upload() called')
     console.log('[MockSynapse] Data size:', data instanceof ArrayBuffer ? data.byteLength : data.length, 'bytes')
-    const uploadTask = new MockUploadTask(data)
+    const uploadTask = new MockUploadTask(data, this._withCDN)
 
     // Store data for later retrieval (in mock)
     const storeData = async (): Promise<void> => {
@@ -46,6 +50,12 @@ export class MockStorageService implements StorageService {
     console.log('[MockSynapse] StorageService.download() called')
     console.log('[MockSynapse] CommP:', commpString)
     console.log('[MockSynapse] Download options:', options)
+
+    if (options?.withCDN !== false && (this._withCDN || options?.withCDN)) {
+      console.log('[MockSynapse] Using CDN for download (withCDN=true)')
+      const res = await fetch(`https://${this._signerAddress}.calibration.filcdn.io/${commpString}`)
+      return new Uint8Array(await res.arrayBuffer())
+    }
 
     // Simulate network delay
     console.log('[MockSynapse] Simulating download network delay (300ms)...')
