@@ -89,6 +89,38 @@ export interface SettlementResult {
 }
 
 /**
+ * Approved storage provider information
+ */
+export interface ApprovedProvider {
+  /** Provider ID in the registry */
+  id: number
+  /** Ethereum address of the provider */
+  owner: Address
+  /** URL for PDP (Proof of Data Possession) service */
+  pdpUrl: string
+  /** URL for piece retrieval service */
+  pieceRetrievalUrl: string
+  /** Timestamp when provider registered */
+  registeredAt: Date
+  /** Timestamp when provider was approved */
+  approvedAt: Date
+}
+
+/**
+ * Pending storage provider information
+ */
+export interface PendingProvider {
+  /** Ethereum address of the provider */
+  owner: Address
+  /** URL for PDP (Proof of Data Possession) service */
+  pdpUrl: string
+  /** URL for piece retrieval service */
+  pieceRetrievalUrl: string
+  /** Timestamp when provider registered */
+  registeredAt: Date
+}
+
+/**
  * Storage service interface
  */
 export interface StorageService {
@@ -137,4 +169,19 @@ export interface Synapse {
 
   /** Create a storage service instance */
   createStorage: (options?: StorageOptions) => Promise<StorageService>
+
+  /** Get an approved storage provider by ID */
+  getStorageProvider: (providerId: number) => Promise<ApprovedProvider | null>
+
+  /** Get an approved storage provider by address */
+  getStorageProviderByAddress: (address: Address) => Promise<ApprovedProvider | null>
+
+  /** Check if a provider is approved */
+  isProviderApproved: (address: Address) => Promise<boolean>
+
+  /** Get a pending provider registration */
+  getPendingProvider: (address: Address) => Promise<PendingProvider | null>
+
+  /** Get all approved storage providers (may be limited by blockchain query constraints) */
+  listStorageProviders: () => Promise<ApprovedProvider[]>
 }

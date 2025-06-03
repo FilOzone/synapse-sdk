@@ -8,7 +8,10 @@ import type {
   SynapseOptions,
   StorageOptions,
   TokenAmount,
-  TokenIdentifier
+  TokenIdentifier,
+  ApprovedProvider,
+  PendingProvider,
+  Address
 } from './types.js'
 import { MockStorageService } from './storage-service.js'
 import {
@@ -16,7 +19,9 @@ import {
   CHAIN_IDS,
   ERC20_ABI,
   PAYMENTS_ADDRESSES,
-  PAYMENTS_ABI
+  PAYMENTS_ABI,
+  PDP_SERVICE_CONTRACT_ADDRESSES,
+  PDP_SERVICE_ABI
 } from './constants.js'
 
 export class Synapse implements ISynapse {
@@ -28,6 +33,7 @@ export class Synapse implements ISynapse {
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
+  private _pdpServiceContract: ethers.Contract | null = null
 
   // Static constant for USDFC token identifier
   static readonly USDFC = 'USDFC' as const
@@ -397,6 +403,150 @@ export class Synapse implements ISynapse {
     console.log('[MockSynapse] Storage service ready for operations')
 
     return new MockStorageService(proofSetId, storageProvider)
+  }
+
+  /**
+   * Get an approved storage provider by ID
+   */
+  async getStorageProvider (providerId: number): Promise<ApprovedProvider | null> {
+    const pdpServiceContract = this._getPdpServiceContract()
+
+    try {
+      const providerData = await pdpServiceContract.getApprovedProvider(providerId)
+
+      // Check if provider exists (owner address would be zero address if not)
+      if (providerData.owner === '0x0000000000000000000000000000000000000000') {
+        return null
+      }
+
+      return {
+        id: providerId,
+        owner: providerData.owner,
+        pdpUrl: providerData.pdpUrl,
+        pieceRetrievalUrl: providerData.pieceRetrievalUrl,
+        registeredAt: new Date(Number(providerData.registeredAt) * 1000),
+        approvedAt: new Date(Number(providerData.approvedAt) * 1000)
+      }
+    } catch (error) {
+      throw this._createError('getStorageProvider', 'Failed to fetch provider info', error)
+    }
+  }
+
+  /**
+   * Get an approved storage provider by address
+   */
+  async getStorageProviderByAddress (address: Address): Promise<ApprovedProvider | null> {
+    const pdpServiceContract = this._getPdpServiceContract()
+
+    try {
+      // First check if provider is approved
+      const isApproved: boolean = await pdpServiceContract.isProviderApproved(address)
+      if (!isApproved) {
+        return null
+      }
+
+      // Get provider ID
+      const providerId = await pdpServiceContract.getProviderIdByAddress(address)
+      if (providerId === 0n) {
+        return null
+      }
+
+      // Fetch full provider info
+      return await this.getStorageProvider(Number(providerId))
+    } catch (error) {
+      throw this._createError('getStorageProviderByAddress', 'Failed to fetch provider info', error)
+    }
+  }
+
+  /**
+   * Check if a provider is approved
+   */
+  async isProviderApproved (address: Address): Promise<boolean> {
+    const pdpServiceContract = this._getPdpServiceContract()
+
+    try {
+      return await pdpServiceContract.isProviderApproved(address)
+    } catch (error) {
+      throw this._createError('isProviderApproved', 'Failed to check provider status', error)
+    }
+  }
+
+  /**
+   * Get a pending provider registration
+   */
+  async getPendingProvider (address: Address): Promise<PendingProvider | null> {
+    const pdpServiceContract = this._getPdpServiceContract()
+
+    try {
+      const providerData = await pdpServiceContract.getPendingProvider(address)
+
+      // Check if provider exists (registeredAt would be 0 if not)
+      if (providerData.registeredAt === 0n) {
+        return null
+      }
+
+      return {
+        owner: address,
+        pdpUrl: providerData.pdpUrl,
+        pieceRetrievalUrl: providerData.pieceRetrievalUrl,
+        registeredAt: new Date(Number(providerData.registeredAt) * 1000)
+      }
+    } catch (error) {
+      throw this._createError('getPendingProvider', 'Failed to fetch pending provider info', error)
+    }
+  }
+
+  /**
+   * Get all approved storage providers
+   * Note: This uses event logs to find all approved providers, which may be limited by blockchain query constraints
+   */
+  async listStorageProviders (): Promise<ApprovedProvider[]> {
+    const pdpServiceContract = this._getPdpServiceContract()
+
+    try {
+      // Query ProviderApproved events to get all provider IDs
+      const filter = pdpServiceContract.filters.ProviderApproved()
+      const events = await pdpServiceContract.queryFilter(filter)
+
+      // Extract unique provider IDs from events
+      const providerIds = new Set<number>()
+      for (const event of events) {
+        // Type guard to check if event is EventLog (has args)
+        if ('args' in event && event.args?.providerId != null) {
+          providerIds.add(Number(event.args.providerId))
+        }
+      }
+
+      // Fetch provider info for each ID
+      const providers: ApprovedProvider[] = []
+      for (const providerId of providerIds) {
+        const provider = await this.getStorageProvider(providerId)
+        if (provider != null) {
+          providers.push(provider)
+        }
+      }
+
+      // Sort by approval date (newest first)
+      providers.sort((a, b) => b.approvedAt.getTime() - a.approvedAt.getTime())
+
+      return providers
+    } catch (error) {
+      throw this._createError('listStorageProviders', 'Failed to list providers', error)
+    }
+  }
+
+  /**
+   * Get PDP service contract instance (cached)
+   */
+  private _getPdpServiceContract (): ethers.Contract {
+    if (this._pdpServiceContract == null) {
+      const address = PDP_SERVICE_CONTRACT_ADDRESSES[this._network]
+      if (address === '') {
+        throw this._createError('_getPdpServiceContract', `PDP service contract not deployed on ${this._network}`)
+      }
+      this._pdpServiceContract = new ethers.Contract(address, PDP_SERVICE_ABI, this._provider)
+    }
+    return this._pdpServiceContract
   }
 
   /**

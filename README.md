@@ -79,6 +79,12 @@ await uploadTask.done()
 // Download data
 const data = await storage.download(commp)
 console.log(new TextDecoder().decode(data)) // "Hello World"
+
+// Query storage provider registry
+const providers = await synapse.listStorageProviders()
+for (const provider of providers) {
+  console.log(`Provider ${provider.id}: ${provider.pdpUrl}`)
+}
 ```
 
 ### With MetaMask
@@ -117,13 +123,23 @@ interface SynapseOptions {
 
 #### Synapse Methods
 
+**Wallet & Token Operations**
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance(token?)` - Get balance in payments contract
 - `decimals(token?)` - Get token decimals (always 18)
 - `deposit(amount, token?)` - Deposit funds to payments contract
 - `withdraw(amount, token?)` - Withdraw funds from payments contract
+
+**Storage Operations**
 - `createStorage(options?)` - Create a storage service instance
 - `signOperation(operation, data)` - Sign data for on-chain authentication
+
+**Storage Provider Registry**
+- `listStorageProviders()` - Get all approved storage providers
+- `getStorageProvider(providerId)` - Get provider by ID
+- `getStorageProviderByAddress(address)` - Get provider by address
+- `isProviderApproved(address)` - Check if provider is approved
+- `getPendingProvider(address)` - Get pending provider registration
 
 ---
 

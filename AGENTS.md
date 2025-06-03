@@ -194,6 +194,9 @@ Adapter implementations (not part of core) provide:
 - ✅ Comprehensive API documentation in README
 - ✅ Test suite
 - ✅ Browser bundle generation via webpack (UMD and ESM format)
+- ✅ PDP service implementation with upload/download capabilities
+- ✅ USDFC token permit support (EIP-2612) for gasless approvals
+- ✅ PDP service contract integration
 - 🚧 Mock storage service (real implementation pending)
 - ⏳ Documentation website pending
 
@@ -227,6 +230,37 @@ src/
   - `npm run watch:browser` - Watches and rebuilds browser bundles
 - **Output**: Browser bundles in `dist/browser/` directory
 - **NPM Package**: Entire `dist/` directory is published including browser bundles
+
+### Storage Provider Registry
+
+The SDK exposes the SimplePDPServiceWithPayments contract's storage provider registry:
+
+#### Registry Structure
+- **Two-Step Process**: Providers register first, then must be approved by contract owner
+- **Approved Providers**: Have ID, owner address, PDP URL, retrieval URL, and timestamps
+- **Pending Providers**: Awaiting approval with registration info
+
+#### SDK Methods
+```typescript
+// List all approved providers
+const providers = await synapse.listStorageProviders()
+
+// Get specific provider
+const provider = await synapse.getStorageProvider(1)
+const providerByAddr = await synapse.getStorageProviderByAddress('0x...')
+
+// Check approval status
+const isApproved = await synapse.isProviderApproved('0x...')
+
+// Get pending registration
+const pending = await synapse.getPendingProvider('0x...')
+```
+
+#### Implementation Details
+- Uses event logs to enumerate providers (may be limited by blockchain constraints)
+- Caches service contract instance for efficiency
+- Returns null for non-existent providers
+- Timestamps converted from Unix seconds to JavaScript Date objects
 
 ### Key Features
 
@@ -300,6 +334,48 @@ const downloadedData = await downloadService.downloadPiece(commp)
 - Download: Uses streaming CommP verification via `createCommPStream()` TransformStream
 - Download: Calculates CommP while downloading, avoiding double memory usage
 - WebStreams API used throughout for browser/Node.js compatibility
+
+### Contract Architecture
+
+#### SimplePDPServiceWithPayments
+The main service contract that orchestrates deals between clients and storage providers:
+- **Proxy Pattern**: Deployed as upgradeable proxy contracts
+- **Payment Integration**: Integrates with fws-payments contract for token handling
+- **PDP Integration**: Uses PDPVerifier contract for storage proof verification
+- **Deal Flow**:
+  1. Storage provider submits offer with pricing and duration
+  2. Client accepts offer, creating proof set in PDPVerifier
+  3. Provider stores data and submits periodic proofs
+  4. Payments are released based on proof submissions
+
+#### Contract Addresses
+- **PDP Service Contract (Calibration)**: `0x2B76E983d30553E7717547230670D4F4F4d813aC`
+- **PDP Verifier (Calibration)**: `0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC`
+- **Payments Contract (Calibration)**: `0x0E690D3e60B0576D01352AB03b258115eb84A047`
+- **USDFC Token (Calibration)**: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`
+
+#### Constants Structure
+```typescript
+// Contract ABIs
+export const PDP_SERVICE_ABI = [...] // SimplePDPServiceWithPayments ABI
+export const PAYMENTS_ABI = [...]
+export const ERC20_ABI = [...]
+
+// Contract addresses
+export const PDP_SERVICE_CONTRACT_ADDRESSES = {
+  mainnet: '',
+  calibration: '0x2B76E983d30553E7717547230670D4F4F4d813aC'
+}
+export const PDP_VERIFIER_ADDRESSES = {
+  mainnet: '',
+  calibration: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
+}
+```
+
+#### Token Standards
+- **USDFC**: Implements EIP-2612 (Permit) via OpenZeppelin's ERC20PermitUpgradeable
+- **Gasless Approvals**: Use permit() function for signature-based approvals
+- **Note**: EIP-3009 (Transfer with Authorization) is NOT implemented
 
 ### Browser Distribution
 
