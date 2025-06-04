@@ -320,6 +320,188 @@ const deleteProofSetSig = await authHelper.signDeleteProofSet(clientDataSetId)
 
 The AuthHelper can be obtained from a Synapse instance via `synapse.getPDPAuthHelper()` for convenience.
 
+## PDP Architecture and Contract Integration
+
+### **System Architecture Overview**
+
+The PDP (Proof of Data Possession) system follows a layered architecture with clear separation between protocol, service, and client concerns:
+
+```
+Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contract
+     ↓              ↓                       ↓                    ↓
+ Auth Signatures  HTTP API              Core Protocol       Business Logic
+```
+
+### **Core Components and Their Roles**
+
+#### **1. PDPVerifier Contract (Core Protocol)**
+- **Purpose**: The neutral, protocol-level contract that manages proof sets and verification
+- **Responsibilities**:
+  - Creates and manages proof sets on-chain
+  - Handles adding/removing roots from proof sets
+  - Performs cryptographic proof verification
+  - Emits events and calls listener contracts
+- **Address**: Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
+- **Client Interaction**: Indirect (through Curio API)
+
+#### **2. SimplePDPServiceWithPayments Contract (Service Layer)**
+- **Purpose**: The business logic layer that handles payments, authentication, and service management
+- **Responsibilities**:
+  - Validates client authentication signatures
+  - Manages payment rails between clients and storage providers
+  - Handles service-specific metadata and configuration
+  - Receives callbacks from PDPVerifier via `PDPListener` interface
+- **Address**: Supplied by client as `recordKeeper` parameter
+- **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
+
+#### **3. Curio Storage Provider (Service Node)**
+- **Purpose**: HTTP API layer that orchestrates blockchain interactions and storage operations
+- **Responsibilities**:
+  - Exposes REST API for PDP operations
+  - Manages Ethereum transaction submission
+  - Handles piece storage and retrieval
+  - Provides authentication and authorization
+- **Address**: HTTP endpoint (e.g., `https://curio.provider.com`)
+- **Client Interaction**: Direct HTTP API calls
+
+#### **4. Client SDK (Application Layer)**
+- **Purpose**: Developer-friendly interface for interacting with the PDP system
+- **Responsibilities**:
+  - Generates cryptographic auth signatures
+  - Provides high-level API abstractions
+  - Handles CommP calculations and validation
+  - Manages wallet and payment operations
+
+### **Contract Interaction Flow**
+
+#### **Proof Set Creation Workflow**
+```typescript
+// 1. Client generates auth signature targeting SimplePDPServiceWithPayments
+const authHelper = new AuthHelper(SIMPLE_PDP_SERVICE_ADDRESS, signer)
+const authSig = await authHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
+
+// 2. Client calls Curio API
+POST /pdp/proof-sets
+{
+  "recordKeeper": "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f", // SimplePDPServiceWithPayments
+  "extraData": "0x..." // Encoded auth signature + metadata
+}
+
+// 3. Curio calls PDPVerifier.createProofSet()
+PDPVerifier.createProofSet(recordKeeper, extraData)
+
+// 4. PDPVerifier calls SimplePDPServiceWithPayments.proofSetCreated()
+recordKeeper.proofSetCreated(proofSetId, creator, extraData)
+
+// 5. SimplePDPServiceWithPayments validates signature and sets up payments
+```
+
+#### **Adding Roots Workflow**
+```typescript
+// 1. Client generates auth signature for AddRoots operation
+const authSig = await authHelper.signAddRoots(clientDataSetId, firstRootId, rootDataArray)
+
+// 2. Client calls Curio API
+POST /pdp/proof-sets/{proofSetId}/roots
+{
+  "roots": [
+    {
+      "rootCid": "baga6ea4seaq...",
+      "subroots": [{"subrootCid": "baga6ea4seaq..."}]
+    }
+  ],
+  "extraData": "0x..." // Encoded auth signature
+}
+
+// 3. Curio validates pieces exist and calls PDPVerifier.addRoots()
+PDPVerifier.addRoots(proofSetId, rootDataArray, extraData)
+
+// 4. PDPVerifier calls SimplePDPServiceWithPayments.rootsAdded()
+recordKeeper.rootsAdded(proofSetId, firstAdded, rootData, extraData)
+```
+
+### **Key API Endpoints**
+
+#### **Curio PDP API** (`/pdp/...`)
+- `POST /pdp/proof-sets` - Create new proof set
+- `GET /pdp/proof-sets/created/{txHash}` - Check proof set creation status
+- `GET /pdp/proof-sets/{proofSetId}` - Get proof set details
+- `POST /pdp/proof-sets/{proofSetId}/roots` - Add roots to proof set
+- `DELETE /pdp/proof-sets/{proofSetId}/roots/{rootId}` - Schedule root removal
+- `POST /pdp/piece` - Create piece upload session
+- `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
+- `GET /pdp/piece/` - Find existing pieces
+
+#### **Authentication Requirements**
+All Curio API calls require JWT authentication with ECDSA-signed tokens containing service identity.
+
+### **Address Management**
+
+#### **What Clients Need**
+- ✅ **SimplePDPServiceWithPayments Address**: For auth signatures and as `recordKeeper` parameter
+- ✅ **Curio HTTP Endpoint**: For API calls
+- ❌ **PDPVerifier Address**: Curio already knows this (hardcoded)
+
+#### **Contract Address Sources**
+```typescript
+// Service contract addresses (client must know)
+const SIMPLE_PDP_SERVICE_MAINNET = "0x..." // Deploy-specific
+const SIMPLE_PDP_SERVICE_CALIBRATION = "0x..." // Deploy-specific
+
+// Core protocol addresses (Curio knows these)
+// PDPVerifier: contract.ContractAddresses().PDPVerifier
+// Payments: Available in SimplePDPServiceWithPayments
+```
+
+### **Data Flow Patterns**
+
+#### **Piece Storage Flow**
+1. **Client** calculates CommP and uploads to **Curio**
+2. **Curio** stores piece and creates `pdp_piecerefs` record
+3. **Client** references stored pieces when adding roots to proof sets
+4. **Curio** validates piece ownership and calls **PDPVerifier**
+
+#### **Authentication Flow**
+1. **Client** signs operation data with private key targeting **SimplePDPServiceWithPayments**
+2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
+3. **PDPVerifier** passes `extraData` to **SimplePDPServiceWithPayments** callback
+4. **SimplePDPServiceWithPayments** validates signature and processes business logic
+
+#### **Payment Flow**
+1. **SimplePDPServiceWithPayments** creates payment rails during proof set creation
+2. Payments flow from client to storage provider based on storage size and time
+3. **SimplePDPServiceWithPayments** acts as arbiter for fault-based payment adjustments
+
+### **Critical Implementation Notes**
+
+#### **Signature Target Contract**
+```typescript
+// CORRECT: Sign for the service contract, not the verifier
+const authHelper = new AuthHelper(SIMPLE_PDP_SERVICE_ADDRESS, signer)
+
+// WRONG: Don't sign for PDPVerifier
+// const authHelper = new AuthHelper(PDP_VERIFIER_ADDRESS, signer)
+```
+
+#### **Contract Address Flow**
+```typescript
+// Client perspective:
+// 1. Know SimplePDPServiceWithPayments address (for signatures)
+// 2. Know Curio endpoint (for HTTP calls)
+// 3. PDPVerifier address handled by Curio
+
+const response = await fetch(`${CURIO_ENDPOINT}/pdp/proof-sets`, {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${jwtToken}` },
+  body: JSON.stringify({
+    recordKeeper: SIMPLE_PDP_SERVICE_ADDRESS, // Your service contract
+    extraData: encodedAuthSignature
+  })
+})
+```
+
+This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, SimplePDPServiceWithPayments manages business logic and payments, and Curio provides the operational HTTP interface for clients.
+
 ### PDP Service Integration
 
 The SDK includes PDP service classes for uploading data to PDP servers and downloading from storage providers:
