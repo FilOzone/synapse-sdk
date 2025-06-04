@@ -52,8 +52,8 @@ const FIXTURES = {
       rootSizes: [1024, 2048]
     },
     scheduleRemovals: {
-      signature: '0x637540b0c46cced57f3125cc8aa73cf14f1057046183497960552948416d016a6c6addded575081b35c8384dbcc8d926b350aa15892821a4537ed0519a3ee10a1c',
-      digest: '0x220d18fb34542fa95d1d13b8cb0e69c83f251631039d82573928a0d659389651',
+      signature: '0x22c6669700d387f17f82098cfe09163eb6a11c21ce2befe2fcd832a63544572a2fa9ce673b448a0f4dec1dbb6da2f53baaa412be09ad71c501aca47bcd43cd4b1c',
+      digest: '0x43f04e097c15cd3d0ce855797c63857e886e8b0745aea9379cf2fb07bea10235',
       clientDataSetId: 12345,
       rootIds: [1, 3, 5]
     },

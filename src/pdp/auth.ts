@@ -34,7 +34,7 @@ const EIP712_TYPES = {
   ],
   ScheduleRemovals: [
     { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'rootIdsHash', type: 'bytes32' }
+    { name: 'rootIds', type: 'uint256[]' }
   ],
   DeleteProofSet: [
     { name: 'clientDataSetId', type: 'uint256' }
@@ -421,14 +421,6 @@ export class PDPAuthHelper {
     clientDataSetId: number | bigint,
     rootIds: Array<number | bigint>
   ): Promise<AuthSignature> {
-    // Contract expects a hash of the rootIds array using encodePacked
-    // For abi.encodePacked with uint256[], we concatenate each uint256 as 32 bytes
-    const rootIdsBigInt = rootIds.map(id => BigInt(id))
-    const packedData = ethers.concat(
-      rootIdsBigInt.map(id => ethers.toBeHex(id, 32))
-    )
-    const rootIdsHash = ethers.keccak256(packedData)
-
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
@@ -436,9 +428,10 @@ export class PDPAuthHelper {
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
+      // Convert rootIds to strings for MetaMask display
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        rootIdsHash
+        rootIds: rootIds.map(id => id.toString()) // Convert to strings for MetaMask
       }
 
       signature = await this.signWithMetaMask(
@@ -446,10 +439,10 @@ export class PDPAuthHelper {
         value
       )
     } else {
-      // Use standard ethers.js signing
+      // Use standard ethers.js signing with BigInt values
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIdsHash
+        rootIds: rootIds.map(id => BigInt(id))
       }
 
       signature = await this.signer.signTypedData(
@@ -467,7 +460,7 @@ export class PDPAuthHelper {
       { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
       {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIdsHash
+        rootIds: rootIds.map(id => BigInt(id))
       }
     )
 
