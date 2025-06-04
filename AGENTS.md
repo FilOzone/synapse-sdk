@@ -374,4 +374,44 @@ The SDK is distributed with browser-ready bundles:
 - **External Dependencies**: ethers.js must be loaded separately
 - **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
+## Development Environment and External Repositories
+
+In development environments, the following related repositories may be available locally for reference and testing. **Local Repository Naming Convention**: Repositories should be cloned with the format `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) to avoid naming conflicts and clearly identify the source organization.
+
+### Key Repositories
+- **filecoin-project/curio**: [https://github.com/filecoin-project/curio](https://github.com/filecoin-project/curio)
+  - **Local Path**: `filecoin-project-curio/`
+  - Filecoin storage provider implementation
+  - **Key Files**: 
+    - `pdp/handlers.go` - Core PDP request handlers
+    - `pdp/handlers_upload.go` - Upload-specific PDP handlers
+    - `cmd/pdptool/main.go` - Example client interactions and usage patterns
+  - Contains storage workflows and proving logic for the PDP directory
+
+- **FilOzone/pdp**: [https://github.com/FilOzone/pdp](https://github.com/FilOzone/pdp)
+  - **Local Path**: `FilOzone-pdp/`
+  - **Key Contract**: `src/PDPVerifier.sol` - Core PDP verification contract
+  - Contains the `RootData` struct and proof verification logic
+  - Defines the `Cids.Cid` structure used in signature encoding
+
+- **FilOzone/filecoin-services**: [https://github.com/FilOzone/filecoin-services](https://github.com/FilOzone/filecoin-services)
+  - **Local Path**: `FilOzone-filecoin-services/`
+  - **Key Contract**: `service_contracts/src/SimplePDPServiceWithPayments.sol`
+  - Implements PDP service operations with payment integration
+  - Contains signature verification functions for auth operations
+  - Houses the Forge test fixtures for cross-boundary signature testing
+
+- **FilOzone/fws-payments**: [https://github.com/FilOzone/fws-payments](https://github.com/FilOzone/fws-payments)
+  - **Local Path**: `FilOzone-fws-payments/`
+  - **Key Contract**: `src/Payments.sol` - Payment processing contract
+  - Handles token deposits, withdrawals, and balance management
+  - Integrates with USDFC token contract
+
+### Usage Notes
+- **Local Development**: If repositories are available locally with the `{org}-{repo}` naming convention, files can be accessed directly for debugging and testing
+- **Remote Access**: Contract files can also be viewed via GitHub URLs when local copies aren't available
+- **Cross-Repository Testing**: Signature compatibility tests reference contracts from these repositories
+- **Contract Dependencies**: Understanding these contracts is essential for proper SDK integration
+- **Path Expectations**: When using local development environment, expect repositories at paths like `./filecoin-project-curio/` and `./FilOzone-pdp/` cloned to the same directory as the SDK project. This allows for easy import and testing of contract interactions but they should not be checked in if they exist.
+
 This document will be updated as the SDK implementation progresses.
