@@ -421,6 +421,9 @@ export class PDPAuthHelper {
     clientDataSetId: number | bigint,
     rootIds: Array<number | bigint>
   ): Promise<AuthSignature> {
+    // Convert rootIds to BigInt array for proper encoding
+    const rootIdsBigInt = rootIds.map(id => BigInt(id))
+
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
@@ -428,10 +431,9 @@ export class PDPAuthHelper {
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
-      // Convert rootIds to strings for MetaMask display
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        rootIds: rootIds.map(id => id.toString()) // Convert to strings for MetaMask
+        rootIds: rootIdsBigInt.map(id => id.toString()) // Convert to string array for display
       }
 
       signature = await this.signWithMetaMask(
@@ -442,7 +444,7 @@ export class PDPAuthHelper {
       // Use standard ethers.js signing with BigInt values
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIds: rootIds.map(id => BigInt(id))
+        rootIds: rootIdsBigInt
       }
 
       signature = await this.signer.signTypedData(
@@ -460,7 +462,7 @@ export class PDPAuthHelper {
       { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
       {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIds: rootIds.map(id => BigInt(id))
+        rootIds: rootIdsBigInt
       }
     )
 
@@ -540,6 +542,14 @@ export class PDPAuthHelper {
       s: sig.s,
       signedData
     }
+  }
+
+  /**
+   * Get the address of the signer
+   * @returns Promise resolving to the signer's Ethereum address
+   */
+  async getSignerAddress (): Promise<string> {
+    return await this.signer.getAddress()
   }
 }
 
