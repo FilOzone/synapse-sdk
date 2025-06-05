@@ -33,36 +33,32 @@ This document serves as context for LLM agent sessions working with the Synapse 
 2. **Core API Design**:
    - Factory method pattern (`Synapse.create()`) for proper async initialization
    - Factory methods for creating service instances (`synapse.createStorage()`)
-   - Payment methods directly on the Synapse instance (`deposit`, `withdraw`, `balance`)
+   - Payment methods accessed via `synapse.payments.*` (separate `SynapsePayments` class)
    - Strict network validation - only supports Filecoin mainnet and calibration
 
 ### File Structure
 ```
 src/
 ├── browser-entry.ts
-├── commp                       # CommP utilities for Piece Commitment calculations
-│   ├── commp.ts                # CommP calculation and validation utilities
-│   └── index.ts                # Re-exports
-├── constants.ts                # Network addresses, ABIs, and constants
-├── index.ts                    # Main entry point, re-exports all public APIs
-├── pdp                         # PDP services and utilities
+├── commp/                      # CommP utilities for Piece Commitment calculations
+├── payments/                   # Payment functionality
+│   └── payments.ts             # SynapsePayments class
+├── pdp/                        # PDP services and utilities
 │   ├── auth.ts                 # AuthHelper for signing PDP operations
-│   ├── index.ts                # Re-exports
-│   ├── pdp-download-service.ts # PDPDownloadService for downloading pieces
-│   ├── pdp-upload-service.ts   # PDPUploadService for uploading pieces
-│   ├── storage-provider.ts     # StorageProviderTool - a stand-alone utility for SP-specific contract interactions
-│   └── tool.ts                 # PDPTool - general-purpose utilities for PDP operations
+│   ├── download-service.ts     # PDPDownloadService for downloading pieces
+│   ├── upload-service.ts       # PDPUploadService for uploading pieces
+│   ├── storage-provider.ts     # StorageProviderTool - SP-specific contract interactions
+│   └── tool.ts                 # PDPTool - general-purpose utilities
+├── utils/                      # Shared utilities
+│   ├── constants.ts            # All constants, ABIs, addresses
+│   └── errors.ts               # Error creation utilities
 ├── storage-service.ts          # MockStorageService implementation
-├── synapse.ts                  # Synapse class implementation with ethers integration
-├── test
-│   ├── commp.test.ts
-│   ├── pdp-auth.test.ts
-│   ├── pdp-download-service.test.ts
-│   ├── pdp-upload-service.test.ts
-│   ├── storage-provider.test.ts
-│   └── synapse.test.ts
-├── types.ts                    # TypeScript interfaces and type definitions
-└── upload-task.ts              # MockUploadTask implementation
+├── synapse.ts                  # Main Synapse class
+├── test/                       # Test files
+│   ├── payments.test.ts        # Payment functionality tests
+│   ├── test-utils.ts           # Shared test utilities
+│   └── ...                     # Other test files
+└── types.ts                    # TypeScript interfaces
 ```
 
 ### Key Features
@@ -76,9 +72,10 @@ src/
 - **Nonce Management**: Uses NonceManager by default to handle transaction nonces automatically
 
 #### Token Integration
-- **USDFC Addresses**: Hardcoded for mainnet (`0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`) and calibration testnet (`0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`)
-- **Balance Checking**: `walletBalance()` for native FIL, `walletBalance(Synapse.USDFC)` for USDFC tokens (both return bigint)
+- **USDFC Addresses**: In `CONTRACT_ADDRESSES.USDFC` - mainnet (`0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`) and calibration (`0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`)
+- **Balance Checking**: `synapse.payments.walletBalance()` for FIL, `synapse.payments.walletBalance(TOKENS.USDFC)` for USDFC (both return bigint)
 - **BigInt Support**: All token amounts use bigint to avoid floating point precision issues
+- **Constants Organization**: All addresses in `CONTRACT_ADDRESSES`, all ABIs in `CONTRACT_ABIS`, tokens in `TOKENS`
 
 #### Browser Distribution
 - **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags

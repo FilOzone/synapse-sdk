@@ -5,7 +5,7 @@
  * with PDP verification and optional CDN services.
  */
 
-import { Synapse, RPC_URLS } from './dist/index.js'
+import { Synapse, RPC_URLS, TOKENS } from './dist/index.js'
 
 async function main () {
   // Initialize Synapse with your private key
@@ -23,7 +23,7 @@ async function main () {
 
   // Helper function to format bigint amounts to human-readable format
   function formatAmount (amount, token = 'FIL') {
-    const decimals = synapse.decimals(token)
+    const decimals = synapse.payments.decimals(token)
     const divisor = 10n ** BigInt(decimals)
     const wholePart = amount / divisor
     const fractionalPart = amount % divisor
@@ -36,17 +36,17 @@ async function main () {
 
   // Step 1: Check wallet balance on chain
   console.log('Checking wallet balance on chain...')
-  const walletBalance = await synapse.walletBalance()
+  const walletBalance = await synapse.payments.walletBalance()
   console.log(`Wallet balance: ${formatAmount(walletBalance, 'FIL')} FIL`)
 
   // Step 1.5: Check USDFC balance
   console.log('\nChecking USDFC balance on chain...')
-  const usdcBalance = await synapse.walletBalance(Synapse.USDFC)
+  const usdcBalance = await synapse.payments.walletBalance(TOKENS.USDFC)
   console.log(`USDFC balance: ${formatAmount(usdcBalance, 'USDFC')} USDFC`)
 
   // Step 2: Check and manage Synapse balance
   console.log('\nChecking Synapse balance...')
-  let balance = await synapse.balance(Synapse.USDFC)
+  let balance = await synapse.payments.balance(TOKENS.USDFC)
   console.log(`Current balance: ${formatAmount(balance, 'USDFC')} USDFC`)
 
   // Deposit if balance is low (5 USDFC in smallest unit)
@@ -54,10 +54,10 @@ async function main () {
   if (balance < minBalanceUnit) {
     const depositAmount = minBalanceUnit - balance
     console.log(`Balance too low, depositing ${formatAmount(depositAmount, 'USDFC')} USDFC...`)
-    const txHash = await synapse.deposit(depositAmount, Synapse.USDFC)
+    const txHash = await synapse.payments.deposit(depositAmount, TOKENS.USDFC)
     console.log(`Deposit successful, transaction: ${txHash}`)
     // Check balance after deposit
-    balance = await synapse.balance(Synapse.USDFC)
+    balance = await synapse.payments.balance(TOKENS.USDFC)
     console.log(`New balance: ${formatAmount(balance, 'USDFC')} USDFC`)
   }
 
@@ -128,10 +128,10 @@ async function main () {
   // Step 7: Withdraw funds (optional)
   console.log('\nWithdrawing funds...')
   const withdrawAmount = 1n * (10n ** 18n) // 1 USDFC in smallest unit
-  const withdrawTxHash = await synapse.withdraw(withdrawAmount, Synapse.USDFC)
+  const withdrawTxHash = await synapse.payments.withdraw(withdrawAmount, TOKENS.USDFC)
   console.log(`Withdrawn ${formatAmount(withdrawAmount, 'USDFC')} USDFC, transaction: ${withdrawTxHash}`)
   // Check balance after withdrawal
-  const finalBalance = await synapse.balance(Synapse.USDFC)
+  const finalBalance = await synapse.payments.balance(TOKENS.USDFC)
   console.log(`Final balance: ${formatAmount(finalBalance, 'USDFC')} USDFC`)
 }
 

@@ -26,7 +26,7 @@ export type TokenIdentifier = 'USDFC' | string
  * Must provide one of:
  * 1. privateKey + rpcURL (for server environments)
  * 2. provider (for browser environments - user handles MetaMask coupling)
- * 3. signer (legacy interface - for backward compatibility)
+ * 3. signer (for direct ethers.js integration)
  */
 export interface SynapseOptions {
   /** Private key for signing transactions (requires rpcURL) */
@@ -37,7 +37,7 @@ export interface SynapseOptions {
   authorization?: string
   /** Ethers Provider instance (handles both reads and transactions) */
   provider?: ethers.Provider
-  /** Ethers Signer instance (legacy - for backward compatibility) */
+  /** Ethers Signer instance (for direct ethers.js integration) */
   signer?: ethers.Signer
   /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
   disableNonceManager?: boolean

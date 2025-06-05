@@ -7,104 +7,8 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { Synapse } from '../synapse.js'
-
-// Create a mock signer using object literal with type assertion
-function createMockSigner (address: string = '0x1234567890123456789012345678901234567890', provider?: ethers.Provider): ethers.Signer {
-  return {
-    provider: provider ?? null,
-    async getAddress () { return address },
-    async signTransaction () { return '0xsignedtransaction' },
-    async signMessage () { return '0xsignedmessage' },
-    async signTypedData () { return '0xsignedtypeddata' },
-    connect (newProvider: ethers.Provider) { return createMockSigner(address, newProvider) }
-  } as unknown as ethers.Signer
-}
-
-// Mock provider that simulates basic blockchain interactions
-class MockProvider extends ethers.AbstractProvider {
-  private readonly _network: ethers.Network
-  private readonly _mockSigner: ethers.Signer
-
-  constructor (chainId: number = 314159) {
-    super()
-    this._network = new ethers.Network('test', chainId)
-    this._mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', this as any)
-  }
-
-  async getNetwork (): Promise<ethers.Network> {
-    return this._network
-  }
-
-  async getSigner (): Promise<ethers.Signer> {
-    return this._mockSigner
-  }
-
-  async getBalance (address: string): Promise<bigint> {
-    // Mock FIL balance: 100 FIL
-    return ethers.parseEther('100')
-  }
-
-  async getTransactionCount (address: string, blockTag?: string): Promise<number> {
-    return 0
-  }
-
-  async call (transaction: ethers.TransactionRequest): Promise<string> {
-    // Mock contract calls
-    if (transaction.data?.includes('70a08231') === true) {
-      // balanceOf call - return 1000 USDFC (18 decimals)
-      return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
-    }
-    if (transaction.data?.includes('313ce567') === true) {
-      // decimals call - return 18
-      return ethers.zeroPadValue(ethers.toBeHex(18), 32)
-    }
-    return '0x'
-  }
-
-  async broadcastTransaction (signedTx: string): Promise<ethers.TransactionResponse> {
-    throw new Error('Not implemented in mock')
-  }
-
-  async getBlock (blockHashOrBlockTag: string | number): Promise<ethers.Block | null> {
-    throw new Error('Not implemented in mock')
-  }
-
-  async getTransaction (hash: string): Promise<ethers.TransactionResponse | null> {
-    throw new Error('Not implemented in mock')
-  }
-
-  async getTransactionReceipt (hash: string): Promise<ethers.TransactionReceipt | null> {
-    throw new Error('Not implemented in mock')
-  }
-
-  async getLogs (filter: ethers.Filter): Promise<ethers.Log[]> {
-    return []
-  }
-
-  async resolveName (name: string): Promise<string | null> {
-    return null
-  }
-
-  async lookupAddress (address: string): Promise<string | null> {
-    return null
-  }
-
-  async waitForTransaction (hash: string, confirmations?: number, timeout?: number): Promise<ethers.TransactionReceipt | null> {
-    throw new Error('Not implemented in mock')
-  }
-
-  async estimateGas (transaction: ethers.TransactionRequest): Promise<bigint> {
-    return 21000n
-  }
-
-  async getFeeData (): Promise<ethers.FeeData> {
-    return new ethers.FeeData(ethers.parseUnits('1', 'gwei'), ethers.parseUnits('1', 'gwei'), ethers.parseUnits('1', 'gwei'))
-  }
-
-  async _perform (req: ethers.PerformActionRequest): Promise<any> {
-    throw new Error('Not implemented in mock')
-  }
-}
+import { SynapsePayments } from '../payments/index.js'
+import { MockProvider, createMockSigner } from './test-utils.js'
 
 describe('Synapse', () => {
   let mockProvider: MockProvider
@@ -119,17 +23,15 @@ describe('Synapse', () => {
     it('should create instance with signer', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
       assert.exists(synapse)
-      assert.isFunction(synapse.walletBalance)
-      assert.isFunction(synapse.deposit)
-      assert.isFunction(synapse.withdraw)
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof SynapsePayments)
     })
 
     it('should create instance with provider', async () => {
       const synapse = await Synapse.create({ provider: mockProvider })
       assert.exists(synapse)
-      assert.isFunction(synapse.walletBalance)
-      assert.isFunction(synapse.deposit)
-      assert.isFunction(synapse.withdraw)
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof SynapsePayments)
     })
 
     it('should create instance with private key and rpcUrl', async function () {
@@ -245,43 +147,74 @@ describe('Synapse', () => {
     })
   })
 
-  describe('walletBalance', () => {
-    it('should return FIL balance', async () => {
+  describe('Payments integration', () => {
+    it('should provide access to payments instance', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const balance = await synapse.walletBalance()
-      assert.strictEqual(balance, ethers.parseEther('100'))
-    })
-
-    it('should return USDFC balance', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const balance = await synapse.walletBalance(Synapse.USDFC)
-      assert.strictEqual(balance, ethers.parseUnits('1000', 18))
-    })
-
-    it('should handle FIL token explicitly', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const balance = await synapse.walletBalance('FIL')
-      assert.strictEqual(balance, ethers.parseEther('100'))
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof SynapsePayments)
     })
   })
 
-  describe('decimals', () => {
-    it('should return 18 for FIL', async () => {
+  describe('createStorage', () => {
+    it('should create storage service', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const decimals = synapse.decimals('FIL')
-      assert.strictEqual(decimals, 18)
+      const storage = await synapse.createStorage()
+      assert.exists(storage)
+      assert.exists(storage.proofSetId)
+      assert.exists(storage.storageProvider)
+      assert.isFunction(storage.upload)
+      assert.isFunction(storage.download)
+      assert.isFunction(storage.delete)
     })
 
-    it('should return 18 for USDFC', async () => {
+    it('should use provided options', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const decimals = synapse.decimals('USDFC')
-      assert.strictEqual(decimals, 18)
+      const storage = await synapse.createStorage({
+        proofSetId: 'custom-proof-set',
+        storageProvider: 'f0custom'
+      })
+      assert.strictEqual(storage.proofSetId, 'custom-proof-set')
+      assert.strictEqual(storage.storageProvider, 'f0custom')
     })
 
-    it('should return 18 for default token', async () => {
+    it('should respect withCDN option', async () => {
+      const synapse = await Synapse.create({ signer: mockSigner, withCDN: true })
+      const storage = await synapse.createStorage()
+      assert.exists(storage)
+      // The MockStorageService should be created with withCDN
+    })
+  })
+
+  describe('getPDPAuthHelper', () => {
+    it('should return PDPAuthHelper instance', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const decimals = synapse.decimals()
-      assert.strictEqual(decimals, 18)
+      const authHelper = synapse.getPDPAuthHelper()
+      assert.exists(authHelper)
+      assert.isFunction(authHelper.signCreateProofSet)
+      assert.isFunction(authHelper.signAddRoots)
+      assert.isFunction(authHelper.signScheduleRemovals)
+      assert.isFunction(authHelper.signDeleteProofSet)
+    })
+
+    it('should cache PDPAuthHelper instance', async () => {
+      const synapse = await Synapse.create({ signer: mockSigner })
+      const authHelper1 = synapse.getPDPAuthHelper()
+      const authHelper2 = synapse.getPDPAuthHelper()
+      assert.strictEqual(authHelper1, authHelper2)
+    })
+
+    it('should throw for network without PDP service contract', async () => {
+      // Create a mock Synapse instance with mainnet (no PDP service contract address)
+      const mainnetProvider = new MockProvider(314) // mainnet chain ID
+      const synapse = await Synapse.create({ provider: mainnetProvider })
+
+      try {
+        synapse.getPDPAuthHelper()
+        assert.fail('Should have thrown')
+      } catch (error) {
+        assert.isTrue(error instanceof Error)
+        assert.isTrue((error as Error).message.includes('PDP service contract not deployed'))
+      }
     })
   })
 
@@ -291,7 +224,7 @@ describe('Synapse', () => {
       // We can't easily test this without accessing private members,
       // but we can verify it doesn't throw and construction succeeds
       assert.exists(synapse)
-      assert.isFunction(synapse.walletBalance)
+      assert.exists(synapse.payments)
     })
 
     it('should disable NonceManager when requested', async () => {
@@ -300,7 +233,7 @@ describe('Synapse', () => {
         disableNonceManager: true
       })
       assert.exists(synapse)
-      assert.isFunction(synapse.walletBalance)
+      assert.exists(synapse.payments)
     })
   })
 })

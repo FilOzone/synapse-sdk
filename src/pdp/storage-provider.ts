@@ -1,4 +1,5 @@
 import { type Signer, Contract, type ContractTransactionResponse } from 'ethers'
+import { CONTRACT_ABIS } from '../utils/index.js'
 
 /**
  * Information about an approved storage provider
@@ -21,26 +22,6 @@ export interface PendingProviderInfo {
 }
 
 /**
- * ABI for SimplePDPServiceWithPayments service provider functions
- */
-const SERVICE_PROVIDER_ABI = [
-  // Write functions
-  'function registerServiceProvider(string pdpUrl, string pieceRetrievalUrl) external',
-  'function approveServiceProvider(address provider) external',
-  'function rejectServiceProvider(address provider) external',
-  'function removeServiceProvider(uint256 providerId) external',
-
-  // Read functions
-  'function isProviderApproved(address provider) external view returns (bool)',
-  'function getProviderIdByAddress(address provider) external view returns (uint256)',
-  'function getApprovedProvider(uint256 providerId) external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt))',
-  'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
-  'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
-  'function nextServiceProviderId() external view returns (uint256)',
-  'function owner() external view returns (address)'
-]
-
-/**
  * Tool for interacting with SimplePDPServiceWithPayments contract for storage provider operations
  *
  * This class is intended to be stand-alone, and is not intended for general use. Its functionality
@@ -58,7 +39,7 @@ export class StorageProviderTool {
    */
   constructor (contractAddress: string, signer: Signer) {
     this.signer = signer
-    this.contract = new Contract(contractAddress, SERVICE_PROVIDER_ABI, signer)
+    this.contract = new Contract(contractAddress, CONTRACT_ABIS.PDP_SERVICE, signer)
   }
 
   /**

@@ -55,7 +55,7 @@ The `Synapse` class provides a complete, easy-to-use interface for interacting w
 ### Quick Start
 
 ```javascript
-import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
+import { Synapse, RPC_URLS, TOKENS } from '@filoz/synapse-sdk'
 
 // Initialize with private key
 const synapse = await Synapse.create({
@@ -64,12 +64,12 @@ const synapse = await Synapse.create({
 })
 
 // Check balances
-const filBalance = await synapse.walletBalance()                    // FIL in wallet
-const usdcBalance = await synapse.walletBalance(Synapse.USDFC)      // USDFC in wallet
-const paymentsBalance = await synapse.balance(Synapse.USDFC)        // USDFC in payments contract
+const filBalance = await synapse.payments.walletBalance()                    // FIL in wallet
+const usdcBalance = await synapse.payments.walletBalance(TOKENS.USDFC)      // USDFC in wallet
+const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // USDFC in payments contract
 
 // Deposit funds for storage operations
-await synapse.deposit(10n * 10n**18n, Synapse.USDFC)
+await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
 
 // Create storage service and upload data
 const storage = await synapse.createStorage()
@@ -93,7 +93,7 @@ const provider = new ethers.BrowserProvider(window.ethereum)
 const synapse = await Synapse.create({ provider })
 
 // Same API as above
-const balance = await synapse.walletBalance()
+const balance = await synapse.payments.walletBalance()
 ```
 
 ### API Reference
@@ -119,13 +119,17 @@ interface SynapseOptions {
 
 #### Synapse Methods
 
+- `payments` - Access payment-related functionality (see below)
+- `createStorage(options?)` - Create a storage service instance
+- `getPDPAuthHelper()` - Get auth helper for signing PDP operations
+
+#### Synapse.payments Methods
+
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance(token?)` - Get balance in payments contract
 - `decimals(token?)` - Get token decimals (always 18)
 - `deposit(amount, token?)` - Deposit funds to payments contract
 - `withdraw(amount, token?)` - Withdraw funds from payments contract
-- `createStorage(options?)` - Create a storage service instance
-- `getPDPAuthHelper()` - Get auth helper for signing PDP operations
 
 ---
 
@@ -357,7 +361,7 @@ All SDK methods use descriptive error messages with proper error chaining:
 
 ```javascript
 try {
-  await synapse.deposit(amount)
+  await synapse.payments.deposit(amount)
 } catch (error) {
   console.error(error.message)  // Clear error description
   console.error(error.cause)     // Underlying error if any
