@@ -1,262 +1,71 @@
-# Synapse SDK Context File
+# Synapse SDK AI Context File
 
 This document serves as context for LLM agent sessions working with the Synapse SDK. It will be updated as development progresses.
 
 ## Overview
+- Synapse SDK: JavaScript/TypeScript interface to Filecoin Synapse, a smart-contract marketplace for Filecoin services (focus: storage).
+- Supports HTTP and WebSocket connections for interacting with Filecoin services.
 
-The Synapse SDK provides a JavaScript/TypeScript interface to Filecoin Synapse. Synapse is a smart-contract based marketplace for services in the Filecoin ecosystem, with a primary focus on storage services.
+### Design Philosophy
+- Simple Golden Path: Main `Synapse` class offers high-level API, sensible defaults, abstracts complexity.
+- Composable Components: All components exported for advanced/independent use.
 
-Synapse.js allows users to interact with Filecoin services using HTTP or WebSocket connections.
+## Source Structure
 
-## Current Status
-
-- **Project Type**: TypeScript ES Module project
-- **Target**: ES2022 with NodeNext module resolution
-- **Build Output**: `dist/` directory
-- **Development Stage**: Production-ready blockchain integration with mock storage
-- **Code Quality**: Clean, refactored architecture with proper error handling
-
-## Key Components
-
-1. **Synapse**: The main entry point for the SDK, handling blockchain interactions, wallet management, payment operations, and service creation. Features strict network validation (mainnet/calibration only).
-
-2. **StorageService**:
-   - Built on PDP (Proof of Data Possession) for cryptographic storage verification
-   - Handles binary blob uploads and downloads
-   - Manages payment settlements with storage providers
-   - Supports optional CDN service for improved retrieval performance
-
-3. **UploadTask**:
-   - Tracks multi-stage upload process
-   - Provides progress milestones: CommP generation, storage provider confirmation, chain commitment
-
-4. **Protocols & Contracts**:
-   - **PDP Verifier**: The main contract that holds proof sets and verifies proofs
-   - **SimplePDPService**: Manages proving periods and fault reporting
-   - **Verifier Contracts**: Verify that services are being properly offered
-   - **Payment Rails**: Handle incremental payments between clients and storage providers
-
-## TypeScript Structure
-
-### Type System
-- **Type Organization**:
-  - `src/types.ts` contains type aliases, option objects, and data structures (no large interfaces)
-  - Concrete classes (`Synapse`, `StorageService`, etc.) define their own types through their implementations
-  - No "IFoo" interface pattern - classes serve as their own type definitions
-- **Key Types in types.ts**:
-  - Simple aliases: `Address`, `TokenAmount`, `ProofSetId`, etc.
-  - Option objects: `SynapseOptions`, `StorageOptions`, `DownloadOptions`
-  - Data structures: `AuthSignature`, `RootData`, `SettlementResult`
-  - Interface `StorageService` defines the contract for storage implementations
-- **CommP Type**: Constrained CID type with fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded hasher (0x1012)
-- **TokenAmount**: Supports `number | bigint` for precise token amounts (no strings to avoid floating point issues)
-- **ES Modules**: Project uses native ES modules with `.js` extensions
-
-### Implementation Strategy
-- **Synapse Class**: Production blockchain integration with real wallet/token operations
-- **MockStorageService**: Mock storage operations for development (real implementation pending)
-- **MockUploadTask**: Mock upload tracking for development
-- **Error Handling**: Uses Error.cause property for proper error chaining
-- **Contract Caching**: Efficient contract instance caching to reduce object creation
+### Key Components
+- `Synapse`: Main SDK entry; manages blockchain, wallet, payments, service creation; strict network validation (mainnet/calibration).
+- `StorageService`: Uses PDP for cryptographic storage verification; handles blob uploads/downloads, payment settlements, optional CDN.
 
 ### Development Tools
-- **ts-standard**: TypeScript Standard Style linter for consistent formatting
-- **TypeScript**: Strict mode enabled, source maps, declaration files
-- **Build Scripts**:
-  - `npm run build` - Builds TypeScript to JavaScript
-  - `npm run build:browser` - Builds both TypeScript and browser bundles (runs webpack twice to produce `dist/browser/synapse-sdk.esm.js` and `dist/browser/synapse-sdk.min.js`)
-  - `npm run lint` - Runs ts-standard linter
-  - `npm run lint:fix` - Runs ts-standard linter with auto-fix
-- **Testing**:
-  - Mocha test framework with `/* globals */` declaration rather than implicit imports
-  - The Chai library for assertions using the `{ assert }` import
-
-## PDP Workflow
-
-1. Clients and providers establish a proof set for data storage verification
-2. Providers add data roots to the proof set and submit periodic proofs
-3. The system verifies these proofs using randomized challenges based on chain randomness
-4. Faults are reported when proofs fail or are not submitted
-
-## Architecture
-
-The SDK follows a simple, focused design:
-- A core `Synapse` class for wallet management and payment operations
-- Factory method `createStorage()` for creating storage service instances
-- `StorageService` class that handles binary blob storage operations
-- `UploadTask` for tracking multi-stage upload progress
-- Simple binary data interface (Uint8Array/ArrayBuffer)
-
-## Usage Pattern
-
-```typescript
-// Initialize Synapse instance (factory method for async initialization)
-const synapse = await Synapse.create({
-  rpcURL: "wss://wss.node.glif.io/apigw/lotus/rpc/v1", // WebSocket for real-time
-  privateKey: "0x...", // For signing transactions
-})
-
-// Check balances (all return bigint in base units)
-const filBalance = await synapse.walletBalance() // FIL balance
-const usdcBalance = await synapse.walletBalance(Synapse.USDFC) // USDFC token balance
-const paymentsBalance = await synapse.balance() // USDFC in payments contract
-
-// Create a storage service instance
-const storage = await synapse.createStorage({
-  proofSetId: 'optional-existing-id',
-  storageProvider: 'f01234'
-})
-
-// Upload binary data
-const bytes = new Uint8Array([1, 2, 3])
-const uploadTask = storage.upload(bytes)
-const commp = await uploadTask.commp()
-const txHash = await uploadTask.done()
-
-// Download content
-const content = await storage.download(commp)
-
-// Payments (amounts in base units as bigint)
-await synapse.deposit(100n * 10n**18n) // 100 USDFC
-await synapse.withdraw(50n * 10n**18n)  // 50 USDFC
-
-// Using CommP utilities without Synapse instance
-import { calculate, asCommP } from '@filoz/synapse-sdk/commp'
-
-// Calculate CommP for data
-const data = new Uint8Array([1, 2, 3, 4])
-const commP = calculate(data)
-
-// Validate and parse CommP strings
-const validCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
-```
-
-## Design Philosophy
-
-The Synapse SDK follows a dual-track design philosophy:
-
-1. **Simple Golden Path**: The main `Synapse` class provides a coherent, high-level API that makes sensible default choices and abstracts away complexity. This is ideal for most users who want to quickly integrate Filecoin storage capabilities.
-
-2. **Composable Components**: All individual components are exported and can be used independently by advanced users or developers who need fine-grained control over specific parts of the process.
-
-This approach ensures the SDK is both beginner-friendly and powerful enough for advanced use cases.
+- **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
+- **ts-standard**: TypeScript Standard Style linter for consistent formatting, no semicolons, prefer to run `npm run lint:fix` for lint+fix
+- **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
+- **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
 
 ## Design Decisions
 
-1. **Core API Design**:
+1. **VERY IMPORTANT: Environment Agnosticism**:
+   - Core SDK has no dependencies on environment-specific APIs (Node.js/Browser)
+   - AVOID `Buffer` and other Node.js-specific types unless writing Node.js-specific code
+     - `toHex` is available from the 'multiformats/bytes' import for browser compatibility (no Buffer)
+   - PREFER web standard APIs like `fetch` and WebStreams
+
+2. **Core API Design**:
    - Factory method pattern (`Synapse.create()`) for proper async initialization
    - Factory methods for creating service instances (`synapse.createStorage()`)
    - Payment methods directly on the Synapse instance (`deposit`, `withdraw`, `balance`)
    - Strict network validation - only supports Filecoin mainnet and calibration
-   - All components can be imported and used independently
-
-2. **Environment Agnosticism**:
-   - Core SDK has no dependencies on environment-specific APIs (Node.js/Browser)
-   - Content and directory abstractions provide a unified interface
-   - Adapter pattern for connecting to environment-specific file handling
-
-3. **CommP Utilities**:
-   - Available as a separate import path: `@filoz/synapse-sdk/commp`
-   - `calculate()` function computes CommP (Piece Commitment) for binary data
-   - `asCommP()` validates and parses CommP strings or CIDs
-   - `createCommPStream()` creates a WebStreams TransformStream for streaming CommP calculation
-   - No need to instantiate Synapse class for these utilities
-   - Uses @web3-storage/data-segment for efficient CommP calculation
-   - Streaming support allows CommP calculation without buffering entire data in memory
-
-4. **UnixFS Support**:
-   - Content abstractions designed to preserve metadata needed for UnixFS
-   - Directory structures maintained for proper IPFS packing
-   - Support for both single files and directory trees
-
-5. **Storage Service Design**:
-   - Asynchronous upload tracking via UploadTask
-   - Simple binary upload/download methods
-   - Payment settlement per storage provider
-   - Delete capability for data management
-
-6. **TypeScript Styling**:
-   - No semicolons (following modern JavaScript style)
-   - Compact type definitions
-   - Comprehensive exports for all public interfaces
-
-## Implementation Notes
-
-The SDK is designed to work in both Node.js and browser environments, with adapters handling environment-specific functionality. The core SDK itself remains environment-agnostic through the content abstractions.
-
-Adapter implementations (not part of core) provide:
-- Node.js: Filesystem interactions, stream support
-- Browser: File/Blob API, download triggers, File System Access API
-- Universal: Web streams, network requests, memory operations
-
-### Current Implementation Status
-- ✅ TypeScript project structure with ES modules
-- ✅ Type definitions for all interfaces
-- ✅ Production-ready Synapse class with real blockchain integration
-- ✅ Working example code with factory method pattern
-- ✅ CommP utilities with proper validation (`asCommP`, `isCommP`)
-- ✅ ts-standard linting for consistent code style
-- ✅ Ethers v6 integration for blockchain interactions
-- ✅ NonceManager integration for automatic nonce management
-- ✅ Native FIL balance checking via `walletBalance()`
-- ✅ ERC20 token balance checking via `walletBalance(Synapse.USDFC)`
-- ✅ Support for private keys, browser providers, and external signers
-- ✅ WebSocket and HTTP RPC support with recommended endpoints
-- ✅ Strict network validation (mainnet/calibration only)
-- ✅ Error handling with Error.cause chaining
-- ✅ Contract instance caching for efficiency
-- ✅ Browser examples with HTML demos
-- ✅ Comprehensive API documentation in README
-- ✅ Test suite with cross-boundary signature compatibility testing
-- ✅ Auth signature generation compatible with Solidity contracts
-- ✅ Browser bundle generation via webpack (UMD and ESM format)
-- 🚧 Mock storage service (real implementation pending)
-- ⏳ Documentation website pending
 
 ### File Structure
 ```
 src/
-├── index.ts          # Main entry point, re-exports all public APIs
-├── types.ts          # TypeScript interfaces and type definitions
-├── synapse.ts        # Synapse implementation with ethers integration
-├── storage-service.ts # MockStorageService implementation
-├── upload-task.ts    # MockUploadTask implementation
-├── constants.ts      # Network addresses, ABIs, and constants
-├── auth.ts           # AuthHelper for signing PDP operations with contract compatibility
-├── commp/            # CommP (Piece Commitment) utilities
-│   ├── index.ts      # Re-exports CommP functions
-│   └── commp.ts      # CommP calculation and validation
-├── pdp/              # PDP (Proof of Data Possession) services
-│   ├── index.ts      # Re-exports PDP services
-│   ├── pdp-upload-service.ts   # PDPUploadService for uploading to PDP servers
-│   └── pdp-download-service.ts # PDPDownloadService for retrieving from storage providers
-└── test/             # Test suite
-    ├── auth.test.ts  # Auth signature compatibility tests vs Solidity contracts
-    ├── commp.test.ts # CommP utilities tests
-    ├── synapse.test.ts # Synapse class tests
-    └── pdp.test.ts   # PDP service tests
+├── browser-entry.ts
+├── commp                       # CommP utilities for Piece Commitment calculations
+│   ├── commp.ts                # CommP calculation and validation utilities
+│   └── index.ts                # Re-exports
+├── constants.ts                # Network addresses, ABIs, and constants
+├── index.ts                    # Main entry point, re-exports all public APIs
+├── pdp                         # PDP services and utilities
+│   ├── auth.ts                 # AuthHelper for signing PDP operations
+│   ├── index.ts                # Re-exports
+│   ├── pdp-download-service.ts # PDPDownloadService for downloading pieces
+│   ├── pdp-upload-service.ts   # PDPUploadService for uploading pieces
+│   ├── storage-provider.ts     # StorageProviderTool - a stand-alone utility for SP-specific contract interactions
+│   └── tool.ts                 # PDPTool - general-purpose utilities for PDP operations
+├── storage-service.ts          # MockStorageService implementation
+├── synapse.ts                  # Synapse class implementation with ethers integration
+├── test
+│   ├── commp.test.ts
+│   ├── pdp-auth.test.ts
+│   ├── pdp-download-service.test.ts
+│   ├── pdp-upload-service.test.ts
+│   ├── storage-provider.test.ts
+│   └── synapse.test.ts
+├── types.ts                    # TypeScript interfaces and type definitions
+└── upload-task.ts              # MockUploadTask implementation
 ```
 
-### Build Process
-
-#### Browser Bundling
-- **Webpack Configuration**: Builds UMD bundles for browser distribution
-- **Entry Point**: `src/browser-entry.ts` re-exports all SDK components
-- **Build Commands**:
-  - `npm run build` - Builds TypeScript and browser bundles
-  - `npm run build:browser` - Builds only browser bundles
-  - `npm run watch` - Watches TypeScript files for changes
-  - `npm run watch:browser` - Watches and rebuilds browser bundles
-- **Output**: Browser bundles in `dist/browser/` directory
-- **NPM Package**: Entire `dist/` directory is published including browser bundles
-
 ### Key Features
-
-#### Code Quality
-- **ts-standard**: Enforces TypeScript Standard Style for consistent formatting
-- **Explicit Null Checks**: All conditional checks use explicit `== null` / `!= null` comparisons
-- **Nullish Coalescing**: Uses `??` operator instead of `||` for safer default value assignment
-- **Modern TypeScript**: Takes advantage of TypeScript strict mode and modern language features
 
 #### Wallet Integration
 - **Private Key Support**: Simple initialization with `privateKey` + `rpcUrl` options
@@ -264,19 +73,19 @@ src/
 - **External Signer Support**: Compatible with MetaMask, WalletConnect, hardware wallets via `signer` option
 - **Ethers v6 Signer Abstraction**: Works with any ethers-compatible signer
 - **Validation**: Ensures exactly one of `privateKey`, `provider`, or `signer` is provided
+- **Nonce Management**: Uses NonceManager by default to handle transaction nonces automatically
 
 #### Token Integration
 - **USDFC Addresses**: Hardcoded for mainnet (`0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`) and calibration testnet (`0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`)
 - **Balance Checking**: `walletBalance()` for native FIL, `walletBalance(Synapse.USDFC)` for USDFC tokens (both return bigint)
-- **Network Detection**: Automatically detects mainnet vs calibration based on chain ID (314 for mainnet, 314159 for calibration)
-- **Strict Validation**: Throws error for unsupported networks
 - **BigInt Support**: All token amounts use bigint to avoid floating point precision issues
 
-#### NonceManager Integration
-- **Automatic Nonce Management**: NonceManager is enabled by default to prevent nonce conflicts
-- **Sequential Transaction Processing**: Ensures transactions are sent with correct, sequential nonces
-- **Disable Option**: Can be disabled with `disableNonceManager: true` option if manual nonce management is preferred
-- **MetaMask Compatibility**: Works seamlessly with MetaMask and other browser wallets
+#### Browser Distribution
+- **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
+- **Minified Bundle**: `dist/browser/synapse-sdk.min.js` - Production-optimized
+- **Entry Point**: `dist/browser-entry.js` - Flattens all exports for browser use
+- **External Dependencies**: ethers.js must be loaded separately (https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js can be used)
+- **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
 ## CommPv2 Format and 32-Byte Digests
 
@@ -304,40 +113,15 @@ uvarint padding | uint8 height | 32 byte root data
 - The SDK must extract the correct 32-byte portion from CommPv2 for contract compatibility
 - Misunderstanding this structure leads to signature verification failures
 
-## Authentication Signature Compatibility
+### CommP Utilities
+- Available as a separate import path: `@filoz/synapse-sdk/commp` / `src/commp`
+- `calculate()`
+- `asCommP()`
+- `createCommPStream()` creates a WebStreams TransformStream for streaming CommP calculation without buffering
 
-The SDK implements EIP-712 typed signatures for PDP operations, compatible with Solidity contract verification and MetaMask.
+## Contract Architecture and Integration
 
-### Signature Operations
-1. **CreateProofSet**: Creates a new proof set for a client dataset
-2. **AddRoots**: Adds CommP roots to an existing proof set
-3. **ScheduleRemovals**: Schedules removal of specific roots
-4. **DeleteProofSet**: Deletes an entire proof set
-
-### Implementation Details
-
-All signatures use standard EIP-712 encoding via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys).
-
-**Key Structure**: `Cids.Cid` in Solidity is a `struct { bytes data; }` containing the 32-byte CommP digest extracted from the CID.
-
-### PDPAuthHelper Usage
-```typescript
-import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
-
-const authHelper = new PDPAuthHelper(contractAddress, signer, chainId)
-
-// All operations return { signature, v, r, s, signedData }
-const createProofSetSig = await authHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
-const addRootsSig = await authHelper.signAddRoots(clientDataSetId, firstRootId, rootDataArray)
-const scheduleRemovalsSig = await authHelper.signScheduleRemovals(clientDataSetId, rootIds)
-const deleteProofSetSig = await authHelper.signDeleteProofSet(clientDataSetId)
-```
-
-The AuthHelper can be obtained from a Synapse instance via `synapse.getPDPAuthHelper()` for convenience.
-
-## PDP Architecture and Contract Integration
-
-### **System Architecture Overview**
+### System Architecture Overview
 
 The PDP (Proof of Data Possession) system follows a layered architecture with clear separation between protocol, service, and client concerns:
 
@@ -347,29 +131,60 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
  Auth Signatures  HTTP API              Core Protocol       Business Logic
 ```
 
-### **Core Components and Their Roles**
+### Core Contracts and Their Roles
 
-#### **1. PDPVerifier Contract (Core Protocol)**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     SimplePDPServiceWithPayments                 │
+│  • Client auth (EIP-712 signatures)                              │
+│  • Provider management (whitelist)                               │
+│  • Integrates Payments contract                                  │
+│  • Implements PDPListener callbacks                              │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ Inherits & Integrates
+┌────────────────────────┴────────────┬───────────────────────────┐
+│          PDPVerifier                │       Payments             │
+│  • Core protocol logic              │  • Token deposits/withdraws│
+│  • Proof verification               │  • Balance management      │
+│  • Neutral (no business logic)      │  • Rail settlements        │
+│  • Calls recordKeeper callbacks     │  • Generic payment system  │
+└─────────────────────────────────────┴───────────────────────────┘
+```
+
+#### 1. PDPVerifier Contract (`FilOzone-pdp/src/PDPVerifier.sol`)
 - **Purpose**: The neutral, protocol-level contract that manages proof sets and verification
 - **Responsibilities**:
   - Creates and manages proof sets on-chain
   - Handles adding/removing roots from proof sets
   - Performs cryptographic proof verification
   - Emits events and calls listener contracts
+- **Key Functions**: `createProofSet()`, `addRoots()`, `proveRoots()`
 - **Address**: Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
 - **Client Interaction**: Indirect (through Curio API)
 
-#### **2. SimplePDPServiceWithPayments Contract (Service Layer)**
+#### 2. SimplePDPService (`FilOzone-pdp/src/SimplePDPService.sol`)
+- Basic service implementation without payments
+- Tracks proving periods and faults
+- Reference implementation showing PDPListener interface
+
+#### 3. SimplePDPServiceWithPayments (`FilOzone-filecoin-services/service_contracts/src/SimplePDPServiceWithPayments.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management
 - **Responsibilities**:
-  - Validates client authentication signatures
-  - Manages payment rails between clients and storage providers
-  - Handles service-specific metadata and configuration
+  - Validates client authentication signatures (EIP-712)
+  - Manages storage provider whitelist via `registerServiceProvider()`
+  - Creates payment rails on proof set creation
   - Receives callbacks from PDPVerifier via `PDPListener` interface
 - **Address**: Supplied by client as `recordKeeper` parameter
 - **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
+- **Inheritance**: Inherits SimplePDPService, integrates Payments contract
 
-#### **3. Curio Storage Provider (Service Node)**
+#### 4. Payments Contract (`FilOzone-fws-payments/src/Payments.sol`)
+- Generic payment infrastructure for any service
+- Handles USDFC token deposits/withdrawals
+- Manages payment rails between parties
+- Supports operator approvals for account management
+
+#### 5. Curio Storage Provider (Service Node)
 - **Purpose**: HTTP API layer that orchestrates blockchain interactions and storage operations
 - **Responsibilities**:
   - Exposes REST API for PDP operations
@@ -378,8 +193,9 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
   - Provides authentication and authorization
 - **Address**: HTTP endpoint (e.g., `https://curio.provider.com`)
 - **Client Interaction**: Direct HTTP API calls
+- **Code Location**: `pdp/handlers.go` and `pdp/handlers_upload.go` in Curio codebase (may be `./filecoin-project-curio/`)
 
-#### **4. Client SDK (Application Layer)**
+#### 6. Client SDK (Application Layer)
 - **Purpose**: Developer-friendly interface for interacting with the PDP system
 - **Responsibilities**:
   - Generates cryptographic auth signatures
@@ -387,57 +203,60 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
   - Handles CommP calculations and validation
   - Manages wallet and payment operations
 
-### **Contract Interaction Flow**
+### Contract Interaction Flow
 
-#### **Proof Set Creation Workflow**
-```typescript
-// 1. Client generates auth signature targeting SimplePDPServiceWithPayments
-const authHelper = new AuthHelper(SIMPLE_PDP_SERVICE_ADDRESS, signer)
-const authSig = await authHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
+1. **Client Operations Flow**:
+   - Client signs operation with SimplePDPServiceWithPayments address
+   - Calls Curio API with signature
+   - Curio calls PDPVerifier with signature as extraData
+   - PDPVerifier calls SimplePDPServiceWithPayments callback
+   - Service contract validates signature and executes business logic
 
-// 2. Client calls Curio API
-POST /pdp/proof-sets
-{
-  "recordKeeper": "0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f", // SimplePDPServiceWithPayments
-  "extraData": "0x..." // Encoded auth signature + metadata
-}
+2. **Critical Data Structures**:
+   ```solidity
+   struct RootData {
+     Cids.Cid cid;      // 32-byte CommP digest
+     uint64 rawSize;    // Original data size
+   }
+   ```
 
-// 3. Curio calls PDPVerifier.createProofSet()
-PDPVerifier.createProofSet(recordKeeper, extraData)
+3. **Authentication Schema**:
+   - All client operations use EIP-712 typed signatures
+   - Domain separator uses SimplePDPServiceWithPayments address
+   - Operations: CreateProofSet, AddRoots, ScheduleRemovals, DeleteProofSet
+   - Clients sign for SimplePDPService, NOT PDPVerifier
 
-// 4. PDPVerifier calls SimplePDPServiceWithPayments.proofSetCreated()
-recordKeeper.proofSetCreated(proofSetId, creator, extraData)
+### Data Flow Patterns
 
-// 5. SimplePDPServiceWithPayments validates signature and sets up payments
-```
+#### Piece Storage Flow
+1. **Client** calculates CommP and uploads to **Curio**
+2. **Curio** stores piece and creates `pdp_piecerefs` record
+3. **Client** references stored pieces when adding roots to proof sets
+4. **Curio** validates piece ownership and calls **PDPVerifier**
 
-#### **Adding Roots Workflow**
-```typescript
-// 1. Client generates auth signature for AddRoots operation
-const authSig = await authHelper.signAddRoots(clientDataSetId, firstRootId, rootDataArray)
+#### Authentication Flow
+1. **Client** signs operation data with private key targeting **SimplePDPServiceWithPayments**
+2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
+3. **PDPVerifier** passes `extraData` to **SimplePDPServiceWithPayments** callback
+4. **SimplePDPServiceWithPayments** validates signature and processes business logic
 
-// 2. Client calls Curio API
-POST /pdp/proof-sets/{proofSetId}/roots
-{
-  "roots": [
-    {
-      "rootCid": "baga6ea4seaq...",
-      "subroots": [{"subrootCid": "baga6ea4seaq..."}]
-    }
-  ],
-  "extraData": "0x..." // Encoded auth signature
-}
+#### Payment Flow
+1. **SimplePDPServiceWithPayments** creates payment rails during proof set creation
+2. Payments flow from client to storage provider based on storage size and time
+3. **SimplePDPServiceWithPayments** acts as arbiter for fault-based payment adjustments
 
-// 3. Curio validates pieces exist and calls PDPVerifier.addRoots()
-PDPVerifier.addRoots(proofSetId, rootDataArray, extraData)
+### PDP Overview
 
-// 4. PDPVerifier calls SimplePDPServiceWithPayments.rootsAdded()
-recordKeeper.rootsAdded(proofSetId, firstAdded, rootData, extraData)
-```
+PDP is one of the paid on-chain services offered by Synapse, future services may be included in the future.
 
-### **Key API Endpoints**
+1. Clients and providers establish a proof set for data storage verification
+2. Providers add data roots (identified by CommP) to the proof set at the request of clients, and submit periodic proofs
+3. The system verifies these proofs using randomized challenges based on chain randomness
+4. Faults are reported when proofs fail or are not submitted
 
-#### **Curio PDP API** (`/pdp/...`)
+All interactions with PDP contracts from clients via a PDP server (typically running Curio) use standard signed EIP-712 encoding of authentication blobs via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys). The AuthHelper that performs this can be obtained from a Synapse instance via `synapse.getPDPAuthHelper()` for convenience but is also available as a standalone object.
+
+### Curio PDP API Endpoints
 - `POST /pdp/proof-sets` - Create new proof set
 - `GET /pdp/proof-sets/created/{txHash}` - Check proof set creation status
 - `GET /pdp/proof-sets/{proofSetId}` - Get proof set details
@@ -447,168 +266,14 @@ recordKeeper.rootsAdded(proofSetId, firstAdded, rootData, extraData)
 - `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
 - `GET /pdp/piece/` - Find existing pieces
 
-#### **Authentication Requirements**
-All Curio API calls require JWT authentication with ECDSA-signed tokens containing service identity.
-
-### **Address Management**
-
-#### **What Clients Need**
-- ✅ **SimplePDPServiceWithPayments Address**: For auth signatures and as `recordKeeper` parameter
-- ✅ **Curio HTTP Endpoint**: For API calls
-- ❌ **PDPVerifier Address**: Curio already knows this (hardcoded)
-
-#### **Contract Address Sources**
-```typescript
-// Service contract addresses (client must know)
-const SIMPLE_PDP_SERVICE_MAINNET = "0x..." // Deploy-specific
-const SIMPLE_PDP_SERVICE_CALIBRATION = "0x..." // Deploy-specific
-
-// Core protocol addresses (Curio knows these)
-// PDPVerifier: contract.ContractAddresses().PDPVerifier
-// Payments: Available in SimplePDPServiceWithPayments
-```
-
-### **Data Flow Patterns**
-
-#### **Piece Storage Flow**
-1. **Client** calculates CommP and uploads to **Curio**
-2. **Curio** stores piece and creates `pdp_piecerefs` record
-3. **Client** references stored pieces when adding roots to proof sets
-4. **Curio** validates piece ownership and calls **PDPVerifier**
-
-#### **Authentication Flow**
-1. **Client** signs operation data with private key targeting **SimplePDPServiceWithPayments**
-2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
-3. **PDPVerifier** passes `extraData` to **SimplePDPServiceWithPayments** callback
-4. **SimplePDPServiceWithPayments** validates signature and processes business logic
-
-#### **Payment Flow**
-1. **SimplePDPServiceWithPayments** creates payment rails during proof set creation
-2. Payments flow from client to storage provider based on storage size and time
-3. **SimplePDPServiceWithPayments** acts as arbiter for fault-based payment adjustments
-
-### **Critical Implementation Notes**
-
-#### **Signature Target Contract**
-```typescript
-// CORRECT: Sign for the service contract, not the verifier
-const authHelper = new AuthHelper(SIMPLE_PDP_SERVICE_ADDRESS, signer)
-
-// WRONG: Don't sign for PDPVerifier
-// const authHelper = new AuthHelper(PDP_VERIFIER_ADDRESS, signer)
-```
-
-#### **Contract Address Flow**
-```typescript
-// Client perspective:
-// 1. Know SimplePDPServiceWithPayments address (for signatures)
-// 2. Know Curio endpoint (for HTTP calls)
-// 3. PDPVerifier address handled by Curio
-
-const response = await fetch(`${CURIO_ENDPOINT}/pdp/proof-sets`, {
-  method: 'POST',
-  headers: { 'Authorization': `Bearer ${jwtToken}` },
-  body: JSON.stringify({
-    recordKeeper: SIMPLE_PDP_SERVICE_ADDRESS, // Your service contract
-    extraData: encodedAuthSignature
-  })
-})
-```
-
 This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, SimplePDPServiceWithPayments manages business logic and payments, and Curio provides the operational HTTP interface for clients.
-
-### PDP Service Integration
-
-The SDK includes PDP service classes for uploading data to PDP servers and downloading from storage providers:
-
-#### PDPUploadService Features
-- **Simple Two-Step Upload Process**:
-  1. POST to `/pdp/piece` with CommP and size to create upload
-  2. PUT to `/pdp/piece/upload/{UUID}` with binary data
-- **No Authentication Required**: Uses null authentication (no JWT tokens needed)
-- **Browser-Compatible**: Uses standard fetch API and multiformats utilities
-- **CommP-Based**: All uploads require pre-calculated CommP for data verification
-
-#### PDPDownloadService Features
-- **Direct Piece Retrieval**: Downloads pieces directly from storage providers
-- **CommP Verification**: Automatically verifies downloaded data matches requested CommP
-- **Simple API**: Single method `downloadPiece(commp)` returns verified data
-- **Error Handling**: Throws if download fails or CommP verification fails
-
-#### Usage Patterns
-```typescript
-import { PDPUploadService, PDPDownloadService } from '@filoz/synapse-sdk/pdp'
-import { calculate } from '@filoz/synapse-sdk/commp'
-
-// Upload example
-const data = new Uint8Array([1, 2, 3, 4])
-const commp = calculate(data)
-const uploadService = new PDPUploadService('https://pdp.example.com')
-await uploadService.upload(data, commp)
-
-// Download example
-const downloadService = new PDPDownloadService('https://sp.example.com/retrieve')
-const downloadedData = await downloadService.downloadPiece(commp)
-// Data is automatically verified to match the CommP
-```
-
-#### Implementation Notes
-- Upload: Location header parsing expects format: `/pdp/piece/upload/{UUID}` (not anchored to start)
-- Upload: Service handles both new uploads (201) and existing pieces (200)
-- Upload: CORS requirements: Server must include `Access-Control-Expose-Headers: Location`
-- Download: Appends `/piece/{commp}` to retrieval URL
-- Both services use `toHex` from multiformats/bytes for browser compatibility (no Buffer)
-- Download: Uses streaming CommP verification via `createCommPStream()` TransformStream
-- Download: Calculates CommP while downloading, avoiding double memory usage
-- WebStreams API used throughout for browser/Node.js compatibility
-
-### Browser Distribution
-
-The SDK is distributed with browser-ready bundles:
-- **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
-- **Minified Bundle**: `dist/browser/synapse-sdk.min.js` - Production-optimized
-- **Entry Point**: `dist/browser-entry.js` - Flattens all exports for browser use
-- **External Dependencies**: ethers.js must be loaded separately
-- **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
 ## Development Environment and External Repositories
 
 In development environments, the following related repositories may be available locally for reference and testing. **Local Repository Naming Convention**: Repositories should be cloned with the format `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) to avoid naming conflicts and clearly identify the source organization.
 
-### Key Repositories
-- **filecoin-project/curio**: [https://github.com/filecoin-project/curio](https://github.com/filecoin-project/curio)
-  - **Local Path**: `filecoin-project-curio/`
-  - Filecoin storage provider implementation
-  - **Key Files**:
-    - `pdp/handlers.go` - Core PDP request handlers
-    - `pdp/handlers_upload.go` - Upload-specific PDP handlers
-    - `cmd/pdptool/main.go` - Example client interactions and usage patterns
-  - Contains storage workflows and proving logic for the PDP directory
-
-- **FilOzone/pdp**: [https://github.com/FilOzone/pdp](https://github.com/FilOzone/pdp)
-  - **Local Path**: `FilOzone-pdp/`
-  - **Key Contract**: `src/PDPVerifier.sol` - Core PDP verification contract
-  - Contains the `RootData` struct and proof verification logic
-  - Defines the `Cids.Cid` structure used in signature encoding
-
-- **FilOzone/filecoin-services**: [https://github.com/FilOzone/filecoin-services](https://github.com/FilOzone/filecoin-services)
-  - **Local Path**: `FilOzone-filecoin-services/`
-  - **Key Contract**: `service_contracts/src/SimplePDPServiceWithPayments.sol`
-  - Implements PDP service operations with payment integration
-  - Contains signature verification functions for auth operations
-  - Houses the Forge test fixtures for cross-boundary signature testing
-
-- **FilOzone/fws-payments**: [https://github.com/FilOzone/fws-payments](https://github.com/FilOzone/fws-payments)
-  - **Local Path**: `FilOzone-fws-payments/`
-  - **Key Contract**: `src/Payments.sol` - Payment processing contract
-  - Handles token deposits, withdrawals, and balance management
-  - Integrates with USDFC token contract
-
 ### Usage Notes
-- **Local Development**: If repositories are available locally with the `{org}-{repo}` naming convention, files can be accessed directly for debugging and testing
+- **Local Development**: If repositories are available locally with the `{org}-{repo}` naming convention, files can be accessed directly for debugging and testing. When using local development environment, expect repositories at paths like `./filecoin-project-curio/` and `./FilOzone-pdp/` cloned to the same directory as the SDK project. This allows for easy import and testing of contract interactions but they should not be checked in if they exist.
 - **Remote Access**: Contract files can also be viewed via GitHub URLs when local copies aren't available
-- **Cross-Repository Testing**: Signature compatibility tests reference contracts from these repositories
-- **Contract Dependencies**: Understanding these contracts is essential for proper SDK integration
-- **Path Expectations**: When using local development environment, expect repositories at paths like `./filecoin-project-curio/` and `./FilOzone-pdp/` cloned to the same directory as the SDK project. This allows for easy import and testing of contract interactions but they should not be checked in if they exist.
 
-This document will be updated as the SDK implementation progresses.
+This document should be kept updated and curated as the SDK implementation progresses.
