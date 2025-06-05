@@ -99,7 +99,7 @@ export class SynapsePayments {
 
   async walletBalance (token?: TokenIdentifier): Promise<bigint> {
     // If no token specified or FIL is requested, return native wallet balance
-    if (token == null || token === 'FIL') {
+    if (token == null || token === TOKENS.FIL) {
       try {
         const address = await this._signer.getAddress()
         const balance = await this._provider.getBalance(address)
@@ -115,7 +115,7 @@ export class SynapsePayments {
     }
 
     // Handle ERC20 token balance
-    if (token === 'USDFC' || token === SynapsePayments.USDFC) {
+    if (token === SynapsePayments.USDFC) {
       try {
         const address = await this._signer.getAddress()
         const usdfcContract = this._getUsdfcContract()
@@ -146,7 +146,7 @@ export class SynapsePayments {
 
   async deposit (amount: TokenAmount, token: TokenIdentifier = SynapsePayments.USDFC): Promise<string> {
     // Only support USDFC for now
-    if (token !== 'USDFC' && token !== SynapsePayments.USDFC) {
+    if (token !== SynapsePayments.USDFC) {
       throw createError('SynapsePayments', 'deposit', `Unsupported token: ${token}`)
     }
 
@@ -223,7 +223,7 @@ export class SynapsePayments {
 
   async withdraw (amount: TokenAmount, token: TokenIdentifier = SynapsePayments.USDFC): Promise<string> {
     // Only support USDFC for now
-    if (token !== 'USDFC' && token !== SynapsePayments.USDFC) {
+    if (token !== SynapsePayments.USDFC) {
       throw createError('SynapsePayments', 'withdraw', `Unsupported token: ${token}`)
     }
 
