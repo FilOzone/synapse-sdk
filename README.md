@@ -30,6 +30,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 * [Using Individual Components](#using-individual-components)
   * [CommP Utilities](#commp-utilities)
   * [PDP Auth Helper](#pdp-auth-helper)
+  * [PDP Tool](#pdp-tool)
   * [PDP Upload Service](#pdp-upload-service)
   * [PDP Download Service](#pdp-download-service)
   * [Storage Service (Mock)](#storage-service-mock)
@@ -258,6 +259,57 @@ const deleteProofSetSig = await authHelper.signDeleteProofSet(
 
 // All signatures return { signature, v, r, s, signedData }
 ```
+
+### PDP Tool
+
+High-level interface for interacting with PDP servers for proof set operations.
+
+```javascript
+import { PDPTool } from '@filoz/synapse-sdk/pdp'
+
+// Create PDPTool instance
+const pdpTool = new PDPTool('https://pdp.example.com', authHelper)
+
+// Create a new proof set
+const { txHash, statusUrl } = await pdpTool.createProofSet(
+  clientDataSetId,      // number
+  payeeAddress,         // string
+  withCDN,             // boolean
+  recordKeeperAddress  // string (Pandora contract)
+)
+
+// Check proof set creation status
+const status = await pdpTool.getProofSetCreationStatus(txHash)
+console.log('Proof set created:', status.proofsetCreated)
+console.log('Proof set ID:', status.proofSetId)
+
+// Add roots to proof set
+const rootData = [
+  {
+    cid: 'baga6ea4seaq...',  // CommP CID (string or CommP object)
+    rawSize: 1024 * 1024    // Raw size in bytes
+  }
+]
+const result = await pdpTool.addRoots(
+  proofSetId,          // number
+  clientDataSetId,     // number
+  nextRootId,          // number - ID for the first root being added
+  rootData             // Array of RootData
+)
+console.log(result.message) // Server response message
+```
+
+#### PDPTool API
+
+- **Constructor**: `new PDPTool(apiEndpoint, pdpAuthHelper)`
+  - `apiEndpoint`: Base URL of the PDP API
+  - `pdpAuthHelper`: PDPAuthHelper instance for signing operations
+- **Methods**:
+  - `createProofSet(clientDataSetId, payee, withCDN, recordKeeper)`: Create a new proof set
+  - `getProofSetCreationStatus(txHash)`: Check creation status by transaction hash
+  - `addRoots(proofSetId, clientDataSetId, nextRootId, rootData[])`: Add roots to proof set
+  - `getApiEndpoint()`: Get the API endpoint
+  - `getPDPAuthHelper()`: Get the PDPAuthHelper instance
 
 ### PDP Upload Service
 

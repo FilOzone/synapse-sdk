@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { CommP } from '../types.js'
+import type { RootData } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 /**
@@ -36,22 +36,15 @@ export interface ProofSetCreationStatusResponse {
 }
 
 /**
- * Root entry for adding to proof sets
+ * Response from adding roots to a proof set
  */
-export interface AddRootEntry {
-  /** The root CID for the data being added */
-  rootCid: CommP | string
-  /** Array of subroot (piece) CIDs that make up this root */
-  subroots: SubrootEntry[]
+export interface AddRootsResponse {
+  /** Success message from the server */
+  message: string
 }
 
-/**
- * Subroot entry within a root
- */
-export interface SubrootEntry {
-  /** The piece CID for this subroot */
-  subrootCid: CommP | string
-}
+// Note: We use RootData from types.ts for the public API
+// The subroot structure is internal implementation detail
 
 /**
  * PDPTool provides methods for interacting with PDP servers
@@ -171,88 +164,65 @@ export class PDPTool {
    * Add roots to an existing proof set
    * @param proofSetId - The ID of the proof set to add roots to
    * @param clientDataSetId - The client's dataset ID used when creating the proof set
-   * @param rootEntries - Array of root entries to add. Both rootCid and subrootCid accept CommP objects or string CIDs
-   * @param metadata - Optional metadata for the roots
+   * @param nextRootId - The ID to assign to the first root being added
+   * @param rootDataArray - Array of root data containing CommP CIDs and raw sizes
    * @returns Promise that resolves when the roots are added (201 Created)
-   * @throws Error if any CID is invalid or if roots have no subroots
+   * @throws Error if any CID is invalid
    *
    * @example
    * ```typescript
-   * const rootEntries = [{
-   *   rootCid: 'baga6ea4seaq...', // String CID
-   *   subroots: [
-   *     { subrootCid: commPObject }, // CommP object
-   *     { subrootCid: 'baga6ea4seaq...' } // String CID
-   *   ]
+   * const rootData = [{
+   *   cid: 'baga6ea4seaq...', // CommP CID
+   *   rawSize: 1024 * 1024   // Size in bytes
    * }]
-   * await pdpTool.addRoots(proofSetId, clientDataSetId, rootEntries)
+   * await pdpTool.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
    * ```
    */
   async addRoots (
     proofSetId: number,
     clientDataSetId: number,
-    rootEntries: AddRootEntry[],
-    metadata?: string
-  ): Promise<void> {
-    if (rootEntries.length === 0) {
-      throw new Error('At least one root entry must be provided')
+    nextRootId: number,
+    rootDataArray: RootData[]
+  ): Promise<AddRootsResponse> {
+    if (rootDataArray.length === 0) {
+      throw new Error('At least one root must be provided')
     }
 
-    // Convert AddRootEntry to RootData for signature
-    const rootDataForSignature = []
-    for (const entry of rootEntries) {
-      if (entry.subroots.length === 0) {
-        throw new Error('Each root must have at least one subroot')
+    // Validate all CommPs
+    for (const rootData of rootDataArray) {
+      const commP = asCommP(rootData.cid)
+      if (commP == null) {
+        throw new Error(`Invalid CommP: ${String(rootData.cid)}`)
       }
-
-      // Validate root CommP
-      const rootCommP = asCommP(entry.rootCid)
-      if (rootCommP == null) {
-        throw new Error(`Invalid root CommP: ${String(entry.rootCid)}`)
-      }
-
-      // Validate subroot CommPs
-      for (const subroot of entry.subroots) {
-        const subrootCommP = asCommP(subroot.subrootCid)
-        if (subrootCommP == null) {
-          throw new Error(`Invalid subroot CommP: ${String(subroot.subrootCid)}`)
-        }
-      }
-
-      // For signature purposes, we need to calculate the total raw size
-      // Since we don't have the raw sizes here, we'll need to fetch them from the server
-      // For now, we'll use a placeholder approach - the server will validate the rootCid anyway
-      rootDataForSignature.push({
-        cid: entry.rootCid, // PDPAuthHelper.signAddRoots accepts CommP | string
-        rawSize: 0 // The server will calculate this from the subroots
-      })
     }
 
     // Generate the EIP-712 signature for adding roots
-    // Note: firstAdded is not used in the HTTP API, only in direct contract calls
-    // The server determines the next root ID automatically
     const authData = await this.pdpAuthHelper.signAddRoots(
       clientDataSetId,
-      0, // firstAdded - not used by HTTP API but required by signature
-      rootDataForSignature
+      nextRootId,
+      rootDataArray // Pass RootData[] directly to auth helper
     )
 
     // Prepare the extra data for the contract call
     // This needs to match what the Pandora contract expects for addRoots
     const extraData = this._encodeAddRootsExtraData({
       signature: authData.signature,
-      metadata: metadata ?? ''
+      metadata: '' // Always use empty metadata
     })
 
     // Prepare request body matching the Curio handler expectation
-    // Convert CommP objects to strings for JSON serialization
+    // Each root has itself as its only subroot (internal implementation detail)
     const requestBody = {
-      roots: rootEntries.map(entry => ({
-        rootCid: typeof entry.rootCid === 'string' ? entry.rootCid : entry.rootCid.toString(),
-        subroots: entry.subroots.map(subroot => ({
-          subrootCid: typeof subroot.subrootCid === 'string' ? subroot.subrootCid : subroot.subrootCid.toString()
-        }))
-      })),
+      roots: rootDataArray.map(rootData => {
+        // Convert to string for JSON serialization
+        const cidString = typeof rootData.cid === 'string' ? rootData.cid : rootData.cid.toString()
+        return {
+          rootCid: cidString,
+          subroots: [{
+            subrootCid: cidString // Root is its own subroot
+          }]
+        }
+      }),
       extraData: `0x${extraData}`
     }
 
@@ -271,6 +241,10 @@ export class PDPTool {
     }
 
     // Success - roots have been added
+    const responseText = await response.text()
+    return {
+      message: responseText !== '' ? responseText : `Roots added to proof set ID ${proofSetId} successfully`
+    }
   }
 
   /**

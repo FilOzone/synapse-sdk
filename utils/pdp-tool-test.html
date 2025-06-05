@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDP Tool Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #444;
+            border-bottom: 2px solid #007cba;
+            padding-bottom: 10px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 80px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #005a8b;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .network-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .network-option {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .network-option.selected {
+            border-color: #007cba;
+            background-color: #e7f3ff;
+        }
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        .root-entry {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .root-entry h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .add-root-btn, .remove-root-btn {
+            background-color: #28a745;
+            font-size: 14px;
+            padding: 5px 10px;
+        }
+        .remove-root-btn {
+            background-color: #dc3545;
+        }
+        .add-root-btn:hover {
+            background-color: #218838;
+        }
+        .remove-root-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDP Tool Test Interface</h1>
+        
+        <div class="form-group">
+            <label>Network:</label>
+            <div class="network-selector">
+                <div class="network-option selected" data-network="calibration">
+                    <strong>Calibration Testnet</strong><br>
+                    <small>Chain ID: 314159</small>
+                </div>
+                <div class="network-option" data-network="mainnet">
+                    <strong>Mainnet</strong><br>
+                    <small>Chain ID: 314</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Wallet Connection:</label>
+            <button id="connectWalletBtn">Connect MetaMask</button>
+            <div id="walletStatus" class="help-text">Click to connect your MetaMask wallet for signing</div>
+        </div>
+
+        <div class="form-group">
+            <label for="pdpEndpoint">PDP Endpoint:</label>
+            <input type="text" id="pdpEndpoint" value="http://192.168.1.5:4702" />
+            <div class="help-text">The URL of the PDP server to send the request to</div>
+        </div>
+
+        <div class="form-group">
+            <label for="recordKeeper">Record Keeper Contract:</label>
+            <input type="text" id="recordKeeper" value="0xD2669f81d5Af503a8C86b9FBF9b80d4572c13c04" />
+            <div class="help-text">Address of the SimplePDPServiceWithPayments contract</div>
+        </div>
+
+        <!-- CREATE PROOF SET SECTION -->
+        <div class="section">
+            <h2>Create Proof Set</h2>
+
+            <div class="form-group">
+                <label for="payee">Storage Provider Address:</label>
+                <input type="text" id="payee" value="0x78bF4d833fC2ba1Abd42Bc772edbC788EC76A28F" />
+                <div class="help-text">Address of the storage provider that will receive payments</div>
+            </div>
+
+            <div class="form-group">
+                <label for="clientDataSetId">Client Dataset ID:</label>
+                <input type="number" id="clientDataSetId" value="0" />
+                <div class="help-text">Unique identifier for your dataset (usually 0 for first dataset)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="withCDN">Enable CDN:</label>
+                <select id="withCDN">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+                <div class="help-text">Whether to enable CDN services for faster retrieval</div>
+            </div>
+
+            <div class="form-group">
+                <button id="createProofSetBtn" disabled>Create Proof Set</button>
+                <button id="checkStatusBtn" disabled>Check Status</button>
+            </div>
+        </div>
+
+        <!-- ADD ROOTS SECTION -->
+        <div class="section">
+            <h2>Add Roots to Proof Set</h2>
+
+            <div class="form-group">
+                <label for="addRootsProofSetId">Proof Set ID:</label>
+                <input type="number" id="addRootsProofSetId" value="" />
+                <div class="help-text">ID of the existing proof set to add roots to</div>
+            </div>
+
+            <div class="form-group">
+                <label for="addRootsClientDataSetId">Client Dataset ID:</label>
+                <input type="number" id="addRootsClientDataSetId" value="0" />
+                <div class="help-text">Unique identifier for your dataset (should match the proof set)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="nextRootId">Next Root ID:</label>
+                <input type="number" id="nextRootId" value="0" />
+                <div class="help-text">The next root ID for this proof set (usually starts at 0)</div>
+            </div>
+
+            <div class="form-group">
+                <label>Root Data Entries:</label>
+                <div class="help-text">Add the root CIDs and their raw data sizes to include in the proof set</div>
+                <div id="rootEntries">
+                    <div class="root-entry">
+                        <h4>Root Entry 1</h4>
+                        <div style="margin-bottom: 10px;">
+                            <label>Root CID:</label>
+                            <input type="text" class="root-cid" placeholder="baga6ea4seaqj..." />
+                        </div>
+                        <div style="margin-bottom: 10px;">
+                            <label>Raw Size (bytes):</label>
+                            <input type="number" class="root-size" placeholder="1048576" />
+                        </div>
+                        <button type="button" class="remove-root-btn" onclick="removeRootEntry(this)">Remove</button>
+                    </div>
+                </div>
+                <button type="button" class="add-root-btn" onclick="addRootEntry()">Add Another Root</button>
+            </div>
+
+            <div class="form-group">
+                <button id="addRootsBtn" disabled>Add Roots</button>
+            </div>
+        </div>
+
+        <div id="status" class="status info" style="display: none;"></div>
+    </div>
+
+    <!-- Load ethers from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    
+    <!-- Load Synapse SDK browser bundle -->
+    <script src="../dist/browser/synapse-sdk.min.js"></script>
+
+    <script>
+        // The SDK is now available as window.SynapseSDK
+        const { PDPAuthHelper, PDPTool } = window.SynapseSDK;
+        
+        // Contract addresses for different networks
+        const CONTRACT_ADDRESSES = {
+            mainnet: {
+                pdpService: '0x1234567890123456789012345678901234567890' // Replace with actual mainnet address
+            },
+            calibration: {
+                pdpService: '0xD2669f81d5Af503a8C86b9FBF9b80d4572c13c04' // Your deployed contract
+            }
+        }
+
+        let currentNetwork = 'calibration'
+        let currentTxHash = null
+        let connectedSigner = null
+        let connectedAddress = null
+        let rootEntryCounter = 1
+
+        // Network selection
+        document.querySelectorAll('.network-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.network-option').forEach(o => o.classList.remove('selected'))
+                option.classList.add('selected')
+                currentNetwork = option.dataset.network
+                updateContractAddress()
+            })
+        })
+
+        function updateContractAddress() {
+            const recordKeeperInput = document.getElementById('recordKeeper')
+            recordKeeperInput.value = CONTRACT_ADDRESSES[currentNetwork].pdpService
+        }
+
+        // Root entry management
+        function addRootEntry() {
+            rootEntryCounter++
+            const rootEntries = document.getElementById('rootEntries')
+            const newEntry = document.createElement('div')
+            newEntry.className = 'root-entry'
+            newEntry.innerHTML = `
+                <h4>Root Entry ${rootEntryCounter}</h4>
+                <div style="margin-bottom: 10px;">
+                    <label>Root CID:</label>
+                    <input type="text" class="root-cid" placeholder="baga6ea4seaqj..." />
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>Raw Size (bytes):</label>
+                    <input type="number" class="root-size" placeholder="1048576" />
+                </div>
+                <button type="button" class="remove-root-btn" onclick="removeRootEntry(this)">Remove</button>
+            `
+            rootEntries.appendChild(newEntry)
+        }
+
+        function removeRootEntry(button) {
+            const rootEntries = document.getElementById('rootEntries')
+            if (rootEntries.children.length > 1) {
+                button.parentElement.remove()
+            } else {
+                showStatus('Cannot remove the last root entry. At least one root entry is required.', 'error')
+            }
+        }
+
+        // MetaMask connection functionality
+        async function connectMetaMask() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask is not installed. Please install MetaMask browser extension.')
+                }
+
+                showStatus('Connecting to MetaMask...', 'info')
+                
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+                
+                if (accounts.length === 0) {
+                    throw new Error('No accounts found. Please unlock MetaMask.')
+                }
+
+                // Create ethers provider and signer
+                const provider = new ethers.BrowserProvider(window.ethereum)
+                connectedSigner = await provider.getSigner()
+                connectedAddress = accounts[0]
+
+                // Check network
+                const network = await provider.getNetwork()
+                const expectedChainId = currentNetwork === 'mainnet' ? 314 : 314159
+                
+                if (Number(network.chainId) !== expectedChainId) {
+                    showStatus(`Wrong network! Please switch to ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Testnet'} (Chain ID: ${expectedChainId})`, 'error')
+                    return
+                }
+
+                // Update UI
+                document.getElementById('connectWalletBtn').textContent = 'Connected'
+                document.getElementById('connectWalletBtn').disabled = true
+                document.getElementById('walletStatus').textContent = `Connected: ${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)} on ${currentNetwork === 'mainnet' ? 'Mainnet' : 'Calibration'}`
+                document.getElementById('createProofSetBtn').disabled = false
+                document.getElementById('addRootsBtn').disabled = false
+
+                showStatus(`Successfully connected to MetaMask!
+Address: ${connectedAddress}
+Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Testnet'} (${network.chainId})`, 'success')
+
+            } catch (error) {
+                console.error('MetaMask connection error:', error)
+                showStatus(`Failed to connect to MetaMask: ${error.message}`, 'error')
+                
+                // Reset connection state
+                connectedSigner = null
+                connectedAddress = null
+                document.getElementById('connectWalletBtn').textContent = 'Connect MetaMask'
+                document.getElementById('connectWalletBtn').disabled = false
+                document.getElementById('walletStatus').textContent = 'Click to connect your MetaMask wallet for signing'
+                document.getElementById('createProofSetBtn').disabled = true
+                document.getElementById('addRootsBtn').disabled = true
+            }
+        }
+
+        // Network change handler
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', () => {
+                // Reload page on network change to reset connection
+                window.location.reload()
+            })
+
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    // User disconnected
+                    connectedSigner = null
+                    connectedAddress = null
+                    document.getElementById('connectWalletBtn').textContent = 'Connect MetaMask'
+                    document.getElementById('connectWalletBtn').disabled = false
+                    document.getElementById('walletStatus').textContent = 'Click to connect your MetaMask wallet for signing'
+                    document.getElementById('createProofSetBtn').disabled = true
+                    document.getElementById('addRootsBtn').disabled = true
+                    showStatus('MetaMask disconnected', 'info')
+                } else {
+                    // Account changed, reconnect
+                    connectMetaMask()
+                }
+            })
+        }
+
+        document.getElementById('connectWalletBtn').addEventListener('click', connectMetaMask)
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status')
+            statusDiv.textContent = message
+            statusDiv.className = `status ${type}`
+            statusDiv.style.display = 'block'
+        }
+
+        function validateInputs() {
+            const pdpEndpoint = document.getElementById('pdpEndpoint').value
+            const recordKeeper = document.getElementById('recordKeeper').value
+
+            if (!connectedSigner) {
+                throw new Error('Please connect your MetaMask wallet first')
+            }
+
+            if (!pdpEndpoint || !pdpEndpoint.startsWith('http')) {
+                throw new Error('Please enter a valid PDP endpoint URL')
+            }
+
+            if (!recordKeeper || !ethers.isAddress(recordKeeper)) {
+                throw new Error('Please enter a valid record keeper contract address')
+            }
+
+            return { pdpEndpoint, recordKeeper }
+        }
+
+        function validateCreateProofSetInputs() {
+            const { pdpEndpoint, recordKeeper } = validateInputs()
+            const payee = document.getElementById('payee').value
+
+            if (!payee || !ethers.isAddress(payee)) {
+                throw new Error('Please enter a valid storage provider address')
+            }
+
+            return { pdpEndpoint, recordKeeper, payee }
+        }
+
+        function validateAddRootsInputs() {
+            const { pdpEndpoint, recordKeeper } = validateInputs()
+            
+            const proofSetId = parseInt(document.getElementById('addRootsProofSetId').value)
+            const clientDataSetId = parseInt(document.getElementById('addRootsClientDataSetId').value)
+            const nextRootId = parseInt(document.getElementById('nextRootId').value)
+
+            if (isNaN(proofSetId) || proofSetId < 0) {
+                throw new Error('Please enter a valid proof set ID')
+            }
+
+            if (isNaN(clientDataSetId) || clientDataSetId < 0) {
+                throw new Error('Please enter a valid client dataset ID')
+            }
+
+            if (isNaN(nextRootId) || nextRootId < 0) {
+                throw new Error('Please enter a valid next root ID')
+            }
+
+            // Validate root entries
+            const rootEntries = document.querySelectorAll('.root-entry')
+            const rootDataArray = []
+
+            for (let i = 0; i < rootEntries.length; i++) {
+                const entry = rootEntries[i]
+                const cidInput = entry.querySelector('.root-cid')
+                const sizeInput = entry.querySelector('.root-size')
+                
+                const cid = cidInput.value.trim()
+                const rawSize = parseInt(sizeInput.value)
+
+                if (!cid) {
+                    throw new Error(`Root entry ${i + 1}: Please enter a root CID`)
+                }
+
+                if (isNaN(rawSize) || rawSize <= 0) {
+                    throw new Error(`Root entry ${i + 1}: Please enter a valid raw size (positive number)`)
+                }
+
+                rootDataArray.push({
+                    cid: cid,
+                    rawSize: rawSize
+                })
+            }
+
+            if (rootDataArray.length === 0) {
+                throw new Error('Please add at least one root entry')
+            }
+
+            return { pdpEndpoint, recordKeeper, proofSetId, clientDataSetId, nextRootId, rootDataArray }
+        }
+
+        // Create Proof Set functionality
+        document.getElementById('createProofSetBtn').addEventListener('click', async () => {
+            try {
+                showStatus('Validating inputs...', 'info')
+                
+                const { pdpEndpoint, recordKeeper, payee } = validateCreateProofSetInputs()
+                const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value)
+                const withCDN = document.getElementById('withCDN').value === 'true'
+                
+                console.log('Creating proof set with:', {
+                    clientDataSetId,
+                    withCDN,
+                    payee,
+                    recordKeeper
+                })
+
+                showStatus('Creating PDP auth helper and tool...', 'info')
+                
+                // Create auth helper and PDP tool using connected MetaMask signer
+                const chainId = currentNetwork === 'mainnet' ? 314 : 314159
+                const authHelper = new PDPAuthHelper(recordKeeper, connectedSigner, chainId)
+                const pdpTool = new PDPTool(pdpEndpoint, authHelper)
+
+                showStatus('Signing and sending proof set creation...', 'info')
+
+                // Create proof set using the SDK's PDPTool
+                console.log('Calling pdpTool.createProofSet...')
+                const result = await pdpTool.createProofSet(clientDataSetId, payee, withCDN, recordKeeper)
+                console.log('createProofSet result:', result)
+                
+                currentTxHash = result.txHash
+                document.getElementById('checkStatusBtn').disabled = false
+                
+                showStatus(`Proof set creation submitted successfully!
+Transaction Hash: ${result.txHash}
+Status URL: ${result.statusUrl}
+
+You can now check the status to see when it's confirmed on-chain.`, 'success')
+
+            } catch (error) {
+                console.error('Error creating proof set:', error)
+                showStatus(`Error: ${error.message}`, 'error')
+            }
+        })
+
+        // Add Roots functionality
+        document.getElementById('addRootsBtn').addEventListener('click', async () => {
+            try {
+                showStatus('Validating inputs...', 'info')
+                
+                const { pdpEndpoint, recordKeeper, proofSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
+                
+                console.log('Adding roots with:', {
+                    proofSetId,
+                    clientDataSetId,
+                    nextRootId,
+                    rootDataArray
+                })
+
+                showStatus('Creating PDP auth helper and tool...', 'info')
+                
+                // Create auth helper and PDP tool using connected MetaMask signer
+                const chainId = currentNetwork === 'mainnet' ? 314 : 314159
+                const authHelper = new PDPAuthHelper(recordKeeper, connectedSigner, chainId)
+                const pdpTool = new PDPTool(pdpEndpoint, authHelper)
+
+                showStatus('Signing and sending add roots request...', 'info')
+
+                // Add roots using the SDK's PDPTool
+                console.log('Calling pdpTool.addRoots with:', {
+                    proofSetId,
+                    clientDataSetId,
+                    nextRootId,
+                    rootDataArray
+                })
+                const result = await pdpTool.addRoots(proofSetId, clientDataSetId, nextRootId, rootDataArray)
+                console.log('addRoots result:', result)
+                
+                showStatus(`Roots added successfully!
+${result.message}
+
+Roots added to proof set ID: ${proofSetId}
+Total roots added: ${rootDataArray.length}
+Next root ID: ${nextRootId}`, 'success')
+
+            } catch (error) {
+                console.error('Error adding roots:', error)
+                showStatus(`Error: ${error.message}`, 'error')
+            }
+        })
+
+        // Check Status functionality
+        document.getElementById('checkStatusBtn').addEventListener('click', async () => {
+            if (!currentTxHash) {
+                showStatus('No transaction hash available. Create a proof set first.', 'error')
+                return
+            }
+
+            try {
+                showStatus('Checking proof set creation status...', 'info')
+                
+                const { pdpEndpoint } = validateInputs()
+                
+                // We don't need the full auth setup just to check status
+                const dummyWallet = ethers.Wallet.createRandom()
+                const authHelper = new PDPAuthHelper('0x0000000000000000000000000000000000000000', dummyWallet, 314159)
+                const pdpTool = new PDPTool(pdpEndpoint, authHelper)
+
+                const status = await pdpTool.getProofSetCreationStatus(currentTxHash)
+                
+                const statusMessage = `Proof Set Creation Status:
+Transaction Hash: ${status.createMessageHash}
+Transaction Status: ${status.txStatus}
+Proof Set Created: ${status.proofsetCreated}
+Success: ${status.ok === null ? 'Pending' : status.ok}
+Service: ${status.service}
+${status.proofSetId ? `Proof Set ID: ${status.proofSetId}` : ''}`
+
+                const statusType = status.ok === false ? 'error' : status.proofsetCreated ? 'success' : 'info'
+                showStatus(statusMessage, statusType)
+
+                // Auto-populate proof set ID for add roots if creation succeeded
+                if (status.proofsetCreated && status.proofSetId) {
+                    document.getElementById('addRootsProofSetId').value = status.proofSetId
+                }
+
+            } catch (error) {
+                console.error('Error checking status:', error)
+                showStatus(`Error checking status: ${error.message}`, 'error')
+            }
+        })
+
+        // Initial message
+        showStatus('Enter your details above and click "Create Proof Set" or "Add Roots" to begin.', 'info')
+    </script>
+</body>
+</html>

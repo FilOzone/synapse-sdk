@@ -9,7 +9,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPTool, PDPAuthHelper } from '../pdp/index.js'
-import type { AddRootEntry } from '../pdp/index.js'
+import type { RootData } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Mock server for testing
@@ -129,63 +129,56 @@ describe('PDPTool', () => {
     it('should validate input parameters', async () => {
       // Test empty root entries
       try {
-        await pdpTool.addRoots(1, 0, [])
+        await pdpTool.addRoots(1, 0, 0, [])
         assert.fail('Should have thrown error for empty root entries')
       } catch (error) {
-        assert.include((error as Error).message, 'At least one root entry must be provided')
+        assert.include((error as Error).message, 'At least one root must be provided')
       }
 
-      // Test root entry with no subroots
-      const invalidRootEntry: AddRootEntry = {
-        rootCid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
-        subroots: []
+      // Test with invalid raw size - mock server rejection
+      const invalidRawSize: RootData = {
+        cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+        rawSize: -1
       }
 
-      try {
-        await pdpTool.addRoots(1, 0, [invalidRootEntry])
-        assert.fail('Should have thrown error for root entry with no subroots')
-      } catch (error) {
-        assert.include((error as Error).message, 'Each root must have at least one subroot')
-      }
-
-      // Test invalid root CommP
-      const invalidRootCommP: AddRootEntry = {
-        rootCid: 'invalid-commp-string',
-        subroots: [
-          { subrootCid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy' }
-        ]
+      // Mock fetch to return error for negative size
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 400,
+          statusText: 'Bad Request',
+          text: async () => 'Invalid raw size'
+        } as any
       }
 
       try {
-        await pdpTool.addRoots(1, 0, [invalidRootCommP])
-        assert.fail('Should have thrown error for invalid root CommP')
+        await pdpTool.addRoots(1, 0, 0, [invalidRawSize])
+        assert.fail('Should have thrown error for invalid raw size')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid root CommP')
+        assert.include((error as Error).message, 'Failed to add roots to proof set')
+      } finally {
+        global.fetch = originalFetch
       }
 
-      // Test invalid subroot CommP
-      const invalidSubrootCommP: AddRootEntry = {
-        rootCid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
-        subroots: [
-          { subrootCid: 'invalid-subroot-commp' }
-        ]
+      // Test invalid CommP
+      const invalidCommP: RootData = {
+        cid: 'invalid-commp-string',
+        rawSize: 1024
       }
 
       try {
-        await pdpTool.addRoots(1, 0, [invalidSubrootCommP])
-        assert.fail('Should have thrown error for invalid subroot CommP')
+        await pdpTool.addRoots(1, 0, 0, [invalidCommP])
+        assert.fail('Should have thrown error for invalid CommP')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid subroot CommP')
+        assert.include((error as Error).message, 'Invalid CommP')
       }
     })
 
     it('should handle successful root addition', async () => {
-      const validRootEntries: AddRootEntry[] = [
+      const validRootData: RootData[] = [
         {
-          rootCid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
-          subroots: [
-            { subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy' }
-          ]
+          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          rawSize: 1024 * 1024 // 1 MiB
         }
       ]
 
@@ -200,30 +193,31 @@ describe('PDPTool', () => {
         assert.isDefined(body.roots)
         assert.isDefined(body.extraData)
         assert.strictEqual(body.roots.length, 1)
-        assert.strictEqual(body.roots[0].rootCid, validRootEntries[0].rootCid)
+        assert.strictEqual(body.roots[0].rootCid, validRootData[0].cid)
         assert.strictEqual(body.roots[0].subroots.length, 1)
-        assert.strictEqual(body.roots[0].subroots[0].subrootCid, validRootEntries[0].subroots[0].subrootCid)
+        assert.strictEqual(body.roots[0].subroots[0].subrootCid, validRootData[0].cid) // Root is its own subroot
 
         return {
-          status: 201
+          status: 201,
+          text: async () => 'Roots added successfully'
         } as any
       }
 
       try {
         // Should not throw
-        await pdpTool.addRoots(1, 0, validRootEntries, 'test metadata')
+        const result = await pdpTool.addRoots(1, 0, 0, validRootData)
+        assert.isDefined(result)
+        assert.isDefined(result.message)
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle server errors appropriately', async () => {
-      const validRootEntries: AddRootEntry[] = [
+      const validRootData: RootData[] = [
         {
-          rootCid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
-          subroots: [
-            { subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy' }
-          ]
+          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          rawSize: 1024 * 1024
         }
       ]
 
@@ -238,7 +232,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.addRoots(1, 0, validRootEntries)
+        await pdpTool.addRoots(1, 0, 0, validRootData)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.include((error as Error).message, 'Failed to add roots to proof set: 400 Bad Request - Invalid root CID')
@@ -247,7 +241,7 @@ describe('PDPTool', () => {
       }
     })
 
-    it('should handle multiple roots with multiple subroots', async () => {
+    it('should handle multiple roots', async () => {
       // Mix of string and CommP object inputs
       const commP1 = asCommP('baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy')
       const commP2 = asCommP('baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy')
@@ -258,19 +252,14 @@ describe('PDPTool', () => {
         throw new Error('Failed to parse test CommPs')
       }
 
-      const multipleRootEntries: AddRootEntry[] = [
+      const multipleRootData: RootData[] = [
         {
-          rootCid: commP1, // Use CommP object
-          subroots: [
-            { subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy' }, // String
-            { subrootCid: commP1 } // CommP object
-          ]
+          cid: commP1, // Use CommP object
+          rawSize: 1024 * 1024
         },
         {
-          rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy', // String
-          subroots: [
-            { subrootCid: commP1 } // CommP object
-          ]
+          cid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy', // String
+          rawSize: 2048 * 1024
         }
       ]
 
@@ -280,16 +269,21 @@ describe('PDPTool', () => {
         const body = JSON.parse(init?.body as string)
 
         assert.strictEqual(body.roots.length, 2)
-        assert.strictEqual(body.roots[0].subroots.length, 2)
+        assert.strictEqual(body.roots[0].subroots.length, 1) // Each root has itself as its only subroot
         assert.strictEqual(body.roots[1].subroots.length, 1)
+        assert.strictEqual(body.roots[0].rootCid, body.roots[0].subroots[0].subrootCid)
+        assert.strictEqual(body.roots[1].rootCid, body.roots[1].subroots[0].subrootCid)
 
         return {
-          status: 201
+          status: 201,
+          text: async () => 'Multiple roots added successfully'
         } as any
       }
 
       try {
-        await pdpTool.addRoots(1, 0, multipleRootEntries)
+        const result = await pdpTool.addRoots(1, 0, 0, multipleRootData)
+        assert.isDefined(result)
+        assert.isDefined(result.message)
       } finally {
         global.fetch = originalFetch
       }
