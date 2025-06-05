@@ -312,11 +312,6 @@ export class PDPAuthHelper {
         throw new Error(`Invalid CommP: ${String(root.cid)}`)
       }
 
-      const digest = commP.multihash.digest
-      if (digest.length !== 32) {
-        throw new Error(`Expected 32-byte digest, got ${digest.length} bytes`)
-      }
-
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedRootData.push({
         root: {
