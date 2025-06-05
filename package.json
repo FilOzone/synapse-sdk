@@ -33,7 +33,7 @@
     "test": "npm run lint && npm run build && npm run test:node && npm run test:browser",
     "test:ci": "npm run test",
     "test:node": "mocha 'dist/test/**/*.js'",
-    "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.js",
+    "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.test.js",
     "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build && npm run build:browser"
