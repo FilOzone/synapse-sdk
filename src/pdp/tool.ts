@@ -4,6 +4,8 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
+import type { CommP } from '../types.js'
+import { asCommP } from '../commp/index.js'
 
 /**
  * Response from creating a proof set
@@ -31,6 +33,24 @@ export interface ProofSetCreationStatusResponse {
   ok: boolean | null
   /** On-chain proof set ID (only available after creation) */
   proofSetId?: number
+}
+
+/**
+ * Root entry for adding to proof sets
+ */
+export interface AddRootEntry {
+  /** The root CID for the data being added */
+  rootCid: CommP | string
+  /** Array of subroot (piece) CIDs that make up this root */
+  subroots: SubrootEntry[]
+}
+
+/**
+ * Subroot entry within a root
+ */
+export interface SubrootEntry {
+  /** The piece CID for this subroot */
+  subrootCid: CommP | string
 }
 
 /**
@@ -92,7 +112,6 @@ export class PDPTool {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
-        // No Authorization header needed (null authentication as per handlers.go)
       },
       body: JSON.stringify(requestBody)
     })
@@ -133,7 +152,6 @@ export class PDPTool {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
-        // No Authorization header needed (null authentication)
       }
     })
 
@@ -147,6 +165,112 @@ export class PDPTool {
     }
 
     return await response.json() as ProofSetCreationStatusResponse
+  }
+
+  /**
+   * Add roots to an existing proof set
+   * @param proofSetId - The ID of the proof set to add roots to
+   * @param clientDataSetId - The client's dataset ID used when creating the proof set
+   * @param rootEntries - Array of root entries to add. Both rootCid and subrootCid accept CommP objects or string CIDs
+   * @param metadata - Optional metadata for the roots
+   * @returns Promise that resolves when the roots are added (201 Created)
+   * @throws Error if any CID is invalid or if roots have no subroots
+   *
+   * @example
+   * ```typescript
+   * const rootEntries = [{
+   *   rootCid: 'baga6ea4seaq...', // String CID
+   *   subroots: [
+   *     { subrootCid: commPObject }, // CommP object
+   *     { subrootCid: 'baga6ea4seaq...' } // String CID
+   *   ]
+   * }]
+   * await pdpTool.addRoots(proofSetId, clientDataSetId, rootEntries)
+   * ```
+   */
+  async addRoots (
+    proofSetId: number,
+    clientDataSetId: number,
+    rootEntries: AddRootEntry[],
+    metadata?: string
+  ): Promise<void> {
+    if (rootEntries.length === 0) {
+      throw new Error('At least one root entry must be provided')
+    }
+
+    // Convert AddRootEntry to RootData for signature
+    const rootDataForSignature = []
+    for (const entry of rootEntries) {
+      if (entry.subroots.length === 0) {
+        throw new Error('Each root must have at least one subroot')
+      }
+
+      // Validate root CommP
+      const rootCommP = asCommP(entry.rootCid)
+      if (rootCommP == null) {
+        throw new Error(`Invalid root CommP: ${String(entry.rootCid)}`)
+      }
+
+      // Validate subroot CommPs
+      for (const subroot of entry.subroots) {
+        const subrootCommP = asCommP(subroot.subrootCid)
+        if (subrootCommP == null) {
+          throw new Error(`Invalid subroot CommP: ${String(subroot.subrootCid)}`)
+        }
+      }
+
+      // For signature purposes, we need to calculate the total raw size
+      // Since we don't have the raw sizes here, we'll need to fetch them from the server
+      // For now, we'll use a placeholder approach - the server will validate the rootCid anyway
+      rootDataForSignature.push({
+        cid: entry.rootCid, // PDPAuthHelper.signAddRoots accepts CommP | string
+        rawSize: 0 // The server will calculate this from the subroots
+      })
+    }
+
+    // Generate the EIP-712 signature for adding roots
+    // Note: firstAdded is not used in the HTTP API, only in direct contract calls
+    // The server determines the next root ID automatically
+    const authData = await this.pdpAuthHelper.signAddRoots(
+      clientDataSetId,
+      0, // firstAdded - not used by HTTP API but required by signature
+      rootDataForSignature
+    )
+
+    // Prepare the extra data for the contract call
+    // This needs to match what the Pandora contract expects for addRoots
+    const extraData = this._encodeAddRootsExtraData({
+      signature: authData.signature,
+      metadata: metadata ?? ''
+    })
+
+    // Prepare request body matching the Curio handler expectation
+    // Convert CommP objects to strings for JSON serialization
+    const requestBody = {
+      roots: rootEntries.map(entry => ({
+        rootCid: typeof entry.rootCid === 'string' ? entry.rootCid : entry.rootCid.toString(),
+        subroots: entry.subroots.map(subroot => ({
+          subrootCid: typeof subroot.subrootCid === 'string' ? subroot.subrootCid : subroot.subrootCid.toString()
+        }))
+      })),
+      extraData: `0x${extraData}`
+    }
+
+    // Make the POST request to add roots to the proof set
+    const response = await fetch(`${this.apiEndpoint}/pdp/proof-sets/${proofSetId}/roots`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    if (response.status !== 201) {
+      const errorText = await response.text()
+      throw new Error(`Failed to add roots to proof set: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    // Success - roots have been added
   }
 
   /**
@@ -188,6 +312,28 @@ export class PDPTool {
     const encoded = abiCoder.encode(
       ['string', 'address', 'bool', 'bytes'],
       [data.metadata, data.payer, data.withCDN, signature]
+    )
+
+    // Return hex string without 0x prefix (since we add it in the calling code)
+    return encoded.slice(2)
+  }
+
+  /**
+   * Encode AddRoots extraData for the addRoots operation
+   * Based on the Curio handler, this should be (bytes signature, string metadata)
+   */
+  private _encodeAddRootsExtraData (data: {
+    signature: string
+    metadata: string
+  }): string {
+    // Ensure signature has 0x prefix
+    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
+
+    // ABI encode as (bytes signature, string metadata)
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
+    const encoded = abiCoder.encode(
+      ['bytes', 'string'],
+      [signature, data.metadata]
     )
 
     // Return hex string without 0x prefix (since we add it in the calling code)
