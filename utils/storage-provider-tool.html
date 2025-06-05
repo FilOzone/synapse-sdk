@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Provider Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+    <script src="../dist/browser/synapse-sdk.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #666;
+            margin-top: 30px;
+        }
+        .auth-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="password"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        #output {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .provider-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .provider-info h4 {
+            margin-top: 0;
+            color: #333;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 2px solid white;
+            position: relative;
+            top: 2px;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Storage Provider Tool</h1>
+        
+        <div class="status info">
+            <div class="input-group">
+                <label for="contractAddressInput">Contract Address:</label>
+                <input type="text" id="contractAddressInput" value="0xbB94727BC196eF7457417c09956437A3dd08790A" placeholder="0x...">
+                <button onclick="updateContractAddress()" style="margin-top: 5px;">Update Contract</button>
+            </div>
+            <strong>Network:</strong> Filecoin Calibration Testnet
+        </div>
+
+        <div class="auth-section">
+            <h2>Authentication</h2>
+            <div class="input-group">
+                <label for="authMethod">Authentication Method:</label>
+                <select id="authMethod" onchange="toggleAuthMethod()">
+                    <option value="metamask">MetaMask</option>
+                    <option value="privateKey">Private Key</option>
+                </select>
+            </div>
+            
+            <div id="metamaskAuth">
+                <button onclick="connectMetaMask()">Connect MetaMask</button>
+            </div>
+            
+            <div id="privateKeyAuth" style="display: none;">
+                <div class="input-group">
+                    <label for="privateKey">Private Key (with or without 0x prefix):</label>
+                    <input type="password" id="privateKey" placeholder="Enter your private key">
+                </div>
+                <button onclick="connectPrivateKey()">Connect with Private Key</button>
+            </div>
+            
+            <div id="connectionStatus" class="status info" style="display: none;"></div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('register')">Register Provider</div>
+            <div class="tab" onclick="showTab('manage')">Manage Providers</div>
+            <div class="tab" onclick="showTab('query')">Query Providers</div>
+        </div>
+
+        <div id="registerTab" class="tab-content active">
+            <h2>Register as Storage Provider</h2>
+            <p>Storage providers use this to register their service URLs.</p>
+            
+            <div class="input-group">
+                <label for="pdpUrl">PDP API URL:</label>
+                <input type="text" id="pdpUrl" placeholder="https://pdp.example.com" value="http://192.168.1.5:4702">
+            </div>
+            
+            <div class="input-group">
+                <label for="retrievalUrl">Piece Retrieval URL:</label>
+                <input type="text" id="retrievalUrl" placeholder="https://retrieve.example.com" value="http://192.168.1.5:4702">
+            </div>
+            
+            <button onclick="registerProvider()">Register Provider</button>
+        </div>
+
+        <div id="manageTab" class="tab-content">
+            <h2>Manage Providers (Owner Only)</h2>
+            <p>Only the contract owner can approve, reject, or remove providers.</p>
+            
+            <div class="input-group">
+                <label for="providerAddress">Provider Address:</label>
+                <input type="text" id="providerAddress" placeholder="0x...">
+            </div>
+            
+            <div class="action-buttons">
+                <button onclick="approveProvider()">Approve Provider</button>
+                <button onclick="rejectProvider()">Reject Provider</button>
+            </div>
+            
+            <div class="input-group" style="margin-top: 20px;">
+                <label for="providerId">Provider ID (for removal):</label>
+                <input type="text" id="providerId" placeholder="1">
+            </div>
+            
+            <button onclick="removeProvider()">Remove Provider</button>
+        </div>
+
+        <div id="queryTab" class="tab-content">
+            <h2>Query Provider Information</h2>
+            
+            <div class="action-buttons">
+                <button onclick="checkOwner()">Check Contract Owner</button>
+                <button onclick="checkIfOwner()">Am I Owner?</button>
+                <button onclick="getNextProviderId()">Get Next Provider ID</button>
+                <button onclick="getAllProviders()">List All Approved Providers</button>
+            </div>
+            
+            <div class="input-group" style="margin-top: 20px;">
+                <label for="queryAddress">Provider Address to Query:</label>
+                <input type="text" id="queryAddress" placeholder="0x...">
+            </div>
+            
+            <div class="action-buttons">
+                <button onclick="checkApproval()">Check if Approved</button>
+                <button onclick="getProviderId()">Get Provider ID</button>
+                <button onclick="getPendingInfo()">Get Pending Info</button>
+            </div>
+            
+            <div class="input-group" style="margin-top: 20px;">
+                <label for="queryId">Provider ID to Query:</label>
+                <input type="text" id="queryId" placeholder="1">
+            </div>
+            
+            <button onclick="getProviderById()">Get Provider by ID</button>
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const { StorageProviderTool } = window.SynapseSDK;
+        
+        let tool = null;
+        let provider = null;
+        let signer = null;
+        
+        let CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value;
+        const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+        
+        function toggleAuthMethod() {
+            const method = document.getElementById('authMethod').value;
+            document.getElementById('metamaskAuth').style.display = method === 'metamask' ? 'block' : 'none';
+            document.getElementById('privateKeyAuth').style.display = method === 'privateKey' ? 'block' : 'none';
+        }
+        
+        function updateContractAddress() {
+            const newAddress = document.getElementById('contractAddressInput').value.trim();
+            if (!newAddress || !newAddress.startsWith('0x') || newAddress.length !== 42) {
+                log('Please enter a valid contract address', 'error');
+                return;
+            }
+            
+            CONTRACT_ADDRESS = newAddress;
+            tool = null; // Reset tool instance
+            log(`Contract address updated to: ${CONTRACT_ADDRESS}`, 'success');
+            log('Please reconnect your wallet to use the new contract', 'info');
+        }
+        
+        async function connectMetaMask() {
+            if (typeof window.ethereum === 'undefined') {
+                log('Please install MetaMask!', 'error');
+                return;
+            }
+            
+            try {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
+                tool = new StorageProviderTool(CONTRACT_ADDRESS, signer);
+                
+                const address = await signer.getAddress();
+                document.getElementById('connectionStatus').style.display = 'block';
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}`;
+                document.getElementById('connectionStatus').className = 'status success';
+                
+                log(`Connected to MetaMask: ${address}`, 'success');
+            } catch (error) {
+                log(`Failed to connect: ${error.message}`, 'error');
+            }
+        }
+        
+        async function connectPrivateKey() {
+            const privateKey = document.getElementById('privateKey').value.trim();
+            if (!privateKey) {
+                log('Please enter a private key', 'error');
+                return;
+            }
+            
+            try {
+                provider = new ethers.JsonRpcProvider(RPC_URL);
+                signer = new ethers.Wallet(privateKey, provider);
+                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
+                tool = new StorageProviderTool(CONTRACT_ADDRESS, signer);
+                
+                const address = await signer.getAddress();
+                document.getElementById('connectionStatus').style.display = 'block';
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}`;
+                document.getElementById('connectionStatus').className = 'status success';
+                
+                log(`Connected with private key: ${address}`, 'success');
+            } catch (error) {
+                log(`Failed to connect: ${error.message}`, 'error');
+            }
+        }
+        
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        async function registerProvider() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const pdpUrl = document.getElementById('pdpUrl').value;
+            const retrievalUrl = document.getElementById('retrievalUrl').value;
+            
+            if (!pdpUrl || !retrievalUrl) {
+                log('Please enter both URLs', 'error');
+                return;
+            }
+            
+            try {
+                log('Registering storage provider...', 'info');
+                const tx = await tool.register(pdpUrl, retrievalUrl);
+                log(`Transaction sent: ${tx.hash}`, 'info');
+                
+                const receipt = await tx.wait();
+                log(`Registration successful! Gas used: ${receipt.gasUsed}`, 'success');
+                log('Your registration is now pending. Contact the contract owner for approval.', 'info');
+            } catch (error) {
+                log(`Registration failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function approveProvider() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const providerAddress = document.getElementById('providerAddress').value;
+            
+            if (!providerAddress) {
+                log('Please enter provider address', 'error');
+                return;
+            }
+            
+            try {
+                // Check if we're the owner
+                const isOwner = await tool.isOwner();
+                if (!isOwner) {
+                    log('Only the contract owner can approve providers', 'error');
+                    return;
+                }
+                
+                log('Approving provider...', 'info');
+                const tx = await tool.approve(providerAddress);
+                log(`Transaction sent: ${tx.hash}`, 'info');
+                
+                const receipt = await tx.wait();
+                log(`Provider approved! Gas used: ${receipt.gasUsed}`, 'success');
+            } catch (error) {
+                log(`Approval failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function rejectProvider() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const providerAddress = document.getElementById('providerAddress').value;
+            
+            if (!providerAddress) {
+                log('Please enter provider address', 'error');
+                return;
+            }
+            
+            try {
+                // Check if we're the owner
+                const isOwner = await tool.isOwner();
+                if (!isOwner) {
+                    log('Only the contract owner can reject providers', 'error');
+                    return;
+                }
+                
+                log('Rejecting provider...', 'info');
+                const tx = await tool.reject(providerAddress);
+                log(`Transaction sent: ${tx.hash}`, 'info');
+                
+                const receipt = await tx.wait();
+                log(`Provider rejected! Gas used: ${receipt.gasUsed}`, 'success');
+            } catch (error) {
+                log(`Rejection failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function removeProvider() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const providerId = document.getElementById('providerId').value;
+            
+            if (!providerId) {
+                log('Please enter provider ID', 'error');
+                return;
+            }
+            
+            try {
+                // Check if we're the owner
+                const isOwner = await tool.isOwner();
+                if (!isOwner) {
+                    log('Only the contract owner can remove providers', 'error');
+                    return;
+                }
+                
+                log('Removing provider...', 'info');
+                const tx = await tool.remove(BigInt(providerId));
+                log(`Transaction sent: ${tx.hash}`, 'info');
+                
+                const receipt = await tx.wait();
+                log(`Provider removed! Gas used: ${receipt.gasUsed}`, 'success');
+            } catch (error) {
+                log(`Removal failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkOwner() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            try {
+                const owner = await tool.getOwner();
+                log(`Contract Owner: ${owner}`, 'info');
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkIfOwner() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            try {
+                const isOwner = await tool.isOwner();
+                const signerAddress = await tool.getSignerAddress();
+                log(`Your address: ${signerAddress}`, 'info');
+                log(`Are you the owner? ${isOwner ? 'YES' : 'NO'}`, isOwner ? 'success' : 'warning');
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getNextProviderId() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            try {
+                const nextId = await tool.getNextProviderId();
+                log(`Next Provider ID: ${nextId}`, 'info');
+                log(`This means there are ${nextId - 1n} provider slots (some may be removed)`, 'info');
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkApproval() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            
+            try {
+                const isApproved = await tool.isApproved(address);
+                log(`Address: ${address}`, 'info');
+                log(`Is Approved: ${isApproved ? 'YES' : 'NO'}`, isApproved ? 'success' : 'warning');
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getProviderId() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            
+            try {
+                const id = await tool.getProviderIdByAddress(address);
+                log(`Address: ${address}`, 'info');
+                log(`Provider ID: ${id}`, id > 0n ? 'success' : 'warning');
+                if (id === 0n) {
+                    log('ID 0 means the provider is not approved', 'info');
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getPendingInfo() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            
+            try {
+                const pending = await tool.getPendingProvider(address);
+                log(`Address: ${address}`, 'info');
+                
+                if (pending.registeredAt > 0n) {
+                    log('Pending Registration Found:', 'success');
+                    log(`PDP URL: ${pending.pdpUrl}`, 'info');
+                    log(`Retrieval URL: ${pending.pieceRetrievalUrl}`, 'info');
+                    log(`Registered at block: ${pending.registeredAt}`, 'info');
+                } else {
+                    log('No pending registration found', 'warning');
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getProviderById() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            const id = document.getElementById('queryId').value;
+            
+            if (!id) {
+                log('Please enter provider ID', 'error');
+                return;
+            }
+            
+            try {
+                const provider = await tool.getApprovedProvider(BigInt(id));
+                
+                const div = document.createElement('div');
+                div.className = 'provider-info';
+                div.innerHTML = `
+                    <h4>Provider #${id}</h4>
+                    <strong>Owner:</strong> ${provider.owner}<br>
+                    <strong>PDP URL:</strong> ${provider.pdpUrl}<br>
+                    <strong>Retrieval URL:</strong> ${provider.pieceRetrievalUrl}<br>
+                    <strong>Registered Block:</strong> ${provider.registeredAt}<br>
+                    <strong>Approved Block:</strong> ${provider.approvedAt}
+                `;
+                document.getElementById('output').appendChild(div);
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function getAllProviders() {
+            if (!tool) {
+                log('Please connect wallet first', 'error');
+                return;
+            }
+            
+            clearOutput();
+            try {
+                log('Fetching all approved providers...', 'info');
+                const providers = await tool.getAllApprovedProviders();
+                
+                if (providers.length === 0) {
+                    log('No approved providers found', 'warning');
+                    return;
+                }
+                
+                log(`Found ${providers.length} approved providers:`, 'success');
+                
+                providers.forEach(({ id, info }) => {
+                    const div = document.createElement('div');
+                    div.className = 'provider-info';
+                    div.innerHTML = `
+                        <h4>Provider #${id}</h4>
+                        <strong>Owner:</strong> ${info.owner}<br>
+                        <strong>PDP URL:</strong> ${info.pdpUrl}<br>
+                        <strong>Retrieval URL:</strong> ${info.pieceRetrievalUrl}<br>
+                        <strong>Registered Block:</strong> ${info.registeredAt}<br>
+                        <strong>Approved Block:</strong> ${info.approvedAt}
+                    `;
+                    document.getElementById('output').appendChild(div);
+                });
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

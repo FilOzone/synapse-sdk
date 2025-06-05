@@ -20,7 +20,7 @@ Synapse.js allows users to interact with Filecoin services using HTTP or WebSock
 
 1. **Synapse**: The main entry point for the SDK, handling blockchain interactions, wallet management, payment operations, and service creation. Features strict network validation (mainnet/calibration only).
 
-2. **StorageService**: 
+2. **StorageService**:
    - Built on PDP (Proof of Data Possession) for cryptographic storage verification
    - Handles binary blob uploads and downloads
    - Manages payment settlements with storage providers
@@ -39,7 +39,15 @@ Synapse.js allows users to interact with Filecoin services using HTTP or WebSock
 ## TypeScript Structure
 
 ### Type System
-- **Interfaces**: All main components (`Synapse`, `StorageService`, `UploadTask`) are defined as interfaces in `src/types.ts`
+- **Type Organization**:
+  - `src/types.ts` contains type aliases, option objects, and data structures (no large interfaces)
+  - Concrete classes (`Synapse`, `StorageService`, etc.) define their own types through their implementations
+  - No "IFoo" interface pattern - classes serve as their own type definitions
+- **Key Types in types.ts**:
+  - Simple aliases: `Address`, `TokenAmount`, `ProofSetId`, etc.
+  - Option objects: `SynapseOptions`, `StorageOptions`, `DownloadOptions`
+  - Data structures: `AuthSignature`, `RootData`, `SettlementResult`
+  - Interface `StorageService` defines the contract for storage implementations
 - **CommP Type**: Constrained CID type with fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded hasher (0x1012)
 - **TokenAmount**: Supports `number | bigint` for precise token amounts (no strings to avoid floating point issues)
 - **ES Modules**: Project uses native ES modules with `.js` extensions
@@ -54,7 +62,14 @@ Synapse.js allows users to interact with Filecoin services using HTTP or WebSock
 ### Development Tools
 - **ts-standard**: TypeScript Standard Style linter for consistent formatting
 - **TypeScript**: Strict mode enabled, source maps, declaration files
-- **Build Scripts**: `npm run build`, `npm run watch`, `npm run lint`, `npm run example`
+- **Build Scripts**:
+  - `npm run build` - Builds TypeScript to JavaScript
+  - `npm run build:browser` - Builds both TypeScript and browser bundles (runs webpack twice to produce `dist/browser/synapse-sdk.esm.js` and `dist/browser/synapse-sdk.min.js`)
+  - `npm run lint` - Runs ts-standard linter
+  - `npm run lint:fix` - Runs ts-standard linter with auto-fix
+- **Testing**:
+  - Mocha test framework with `/* globals */` declaration rather than implicit imports
+  - The Chai library for assertions using the `{ assert }` import
 
 ## PDP Workflow
 
@@ -564,7 +579,7 @@ In development environments, the following related repositories may be available
 - **filecoin-project/curio**: [https://github.com/filecoin-project/curio](https://github.com/filecoin-project/curio)
   - **Local Path**: `filecoin-project-curio/`
   - Filecoin storage provider implementation
-  - **Key Files**: 
+  - **Key Files**:
     - `pdp/handlers.go` - Core PDP request handlers
     - `pdp/handlers_upload.go` - Upload-specific PDP handlers
     - `cmd/pdptool/main.go` - Example client interactions and usage patterns

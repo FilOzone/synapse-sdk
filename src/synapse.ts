@@ -4,9 +4,9 @@
 
 import { ethers } from 'ethers'
 import {
-  type Synapse as ISynapse,
   type SynapseOptions,
   type StorageOptions,
+  type StorageService,
   type TokenAmount,
   type TokenIdentifier
 } from './types.js'
@@ -21,7 +21,7 @@ import {
 } from './constants.js'
 import { PDPAuthHelper } from './pdp/index.js'
 
-export class Synapse implements ISynapse {
+export class Synapse {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
   private readonly _network: 'mainnet' | 'calibration'
@@ -383,7 +383,7 @@ export class Synapse implements ISynapse {
     return withdrawTx.hash
   }
 
-  async createStorage (options?: StorageOptions): Promise<MockStorageService> {
+  async createStorage (options?: StorageOptions): Promise<StorageService> {
     console.log('[MockSynapse] Creating storage service...')
     console.log('[MockSynapse] Options:', options)
 

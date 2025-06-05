@@ -1,17 +1,15 @@
 /**
- * Synapse SDK TypeScript Definition
- * A JavaScript interface to Filecoin Synapse
+ * Synapse SDK Type Definitions
  *
- * Focused on storage of binary blobs with PDP (Proof of Data Possession)
- * and optional CDN retrieval services.
+ * This file contains type aliases, option objects, and data structures
+ * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
 import type { ethers } from 'ethers'
-import { CommP } from './commp/index.js'
-import { PDPAuthHelper } from './pdp/index.js'
+import type { CommP } from './commp/index.js'
 
-// Type definitions for common values
-export { CommP }
+// Re-export CommP type
+export type { CommP }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
@@ -115,32 +113,6 @@ export interface StorageService {
 
   /** Settle payments up to current epoch */
   settlePayments: () => Promise<SettlementResult>
-}
-
-/**
- * Main Synapse interface
- */
-export interface Synapse {
-  /** Get current USDFC balance available for storage operations */
-  balance: (token?: TokenIdentifier) => Promise<bigint>
-
-  /** Get the token balance of the wallet (FIL or USDFC). Defaults to FIL if no token specified. */
-  walletBalance: (() => Promise<bigint>) & ((token: TokenIdentifier) => Promise<bigint>)
-
-  /** Get the number of decimals for a token (always 18 for FIL and USDFC) */
-  decimals: (token?: TokenIdentifier) => number
-
-  /** Deposit USDFC for storage operations, returns transaction hash */
-  deposit: (amount: TokenAmount, token?: TokenIdentifier) => Promise<string>
-
-  /** Withdraw USDFC from the system, returns transaction hash */
-  withdraw: (amount: TokenAmount, token?: TokenIdentifier) => Promise<string>
-
-  /** Create a storage service instance */
-  createStorage: (options?: StorageOptions) => Promise<StorageService>
-
-  /** Get PDPAuthHelper instance for signing operations */
-  getPDPAuthHelper: () => PDPAuthHelper
 }
 
 /**

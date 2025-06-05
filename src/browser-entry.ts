@@ -9,8 +9,10 @@ import * as commpExports from './commp/index.js'
 import * as pdpExports from './pdp/index.js'
 
 // Create a flat default export with all exports for UMD builds
-export default {
+const allExports = {
   ...SynapseSDKExports,
   ...commpExports,
   ...pdpExports
 }
+
+export default allExports
