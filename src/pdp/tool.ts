@@ -60,7 +60,7 @@ export class PDPTool {
    * @param clientDataSetId - Unique ID for the client's dataset
    * @param payee - Address that will receive payments (storage provider)
    * @param withCDN - Whether to enable CDN services
-   * @param recordKeeper - Address of the SimplePDPServiceWithPayments contract
+   * @param recordKeeper - Address of the Pandora contract
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createProofSet (
@@ -73,7 +73,7 @@ export class PDPTool {
     const authData = await this.pdpAuthHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
 
     // Prepare the extra data for the contract call
-    // This needs to match the ProofSetCreateData struct in SimplePDPServiceWithPayments.sol
+    // This needs to match the ProofSetCreateData struct in Pandora contract
     const extraData = this._encodeProofSetCreateData({
       metadata: '', // Empty metadata for now
       payer: await this.pdpAuthHelper.getSignerAddress(),
@@ -165,7 +165,7 @@ export class PDPTool {
 
   /**
    * Encode ProofSetCreateData for extraData field
-   * This matches the Solidity struct ProofSetCreateData in SimplePDPServiceWithPayments.sol
+   * This matches the Solidity struct ProofSetCreateData in Pandora contract
    */
   private _encodeProofSetCreateData (data: {
     metadata: string

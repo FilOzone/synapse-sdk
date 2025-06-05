@@ -1,10 +1,10 @@
 # StorageProviderTool Documentation
 
-The `StorageProviderTool` provides a TypeScript/JavaScript interface for interacting with the SimplePDPServiceWithPayments contract's storage provider registry functions.
+The `StorageProviderTool` provides a TypeScript/JavaScript interface for interacting with the Pandora contract's storage provider registry functions.
 
 ## Overview
 
-Storage providers must register with the SimplePDPServiceWithPayments contract before they can participate in the PDP system. The registration process involves:
+Storage providers must register with the Pandora contract before they can participate in the PDP system. The registration process involves:
 
 1. **Storage Provider** registers their service URLs
 2. **Contract Owner** approves the registration

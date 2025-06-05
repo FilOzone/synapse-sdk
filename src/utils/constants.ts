@@ -46,9 +46,9 @@ export const CONTRACT_ABIS = {
   ] as const,
 
   /**
-   * SimplePDPServiceWithPayments ABI - includes both PDP functions and service provider management
+   * Pandora ABI - includes both PDP functions and service provider management
    */
-  PDP_SERVICE: [
+  PANDORA_SERVICE: [
     // Write functions
     'function registerServiceProvider(string pdpUrl, string pieceRetrievalUrl) external',
     'function approveServiceProvider(address provider) external',
@@ -101,9 +101,9 @@ export const CONTRACT_ADDRESSES = {
   } as const,
 
   /**
-   * PDP service contract addresses (SimplePDPServiceWithPayments)
+   * Pandora service contract addresses
    */
-  PDP_SERVICE: {
+  PANDORA_SERVICE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
   } as const

@@ -77,7 +77,7 @@ export class PDPAuthHelper {
 
     // EIP-712 domain
     this.domain = {
-      name: 'SimplePDPServiceWithPayments',
+      name: 'PandoraService',
       version: '1',
       chainId: Number(chainId),
       verifyingContract: serviceContractAddress

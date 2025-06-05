@@ -192,7 +192,7 @@ export class Synapse {
    */
   getPDPAuthHelper (): PDPAuthHelper {
     if (this._pdpAuthHelper == null) {
-      const pdpServiceContractAddress = CONTRACT_ADDRESSES.PDP_SERVICE[this._network]
+      const pdpServiceContractAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[this._network]
       if (pdpServiceContractAddress === '') {
         throw createError(
           'Synapse',

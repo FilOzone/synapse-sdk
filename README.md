@@ -72,7 +72,7 @@ const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // U
 await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
 
 // Approve service contract for creating payment rails (if needed)
-const serviceAddress = '0x...' // SimplePDPServiceWithPayments address
+const serviceAddress = '0x...' // Pandora address
 await synapse.payments.approveService(
   serviceAddress,
   ethers.parseUnits('10', 18),    // 10 USDFC per epoch rate allowance
@@ -127,7 +127,7 @@ if (currentAllowance < requiredAmount) {
 await synapse.payments.deposit(requiredAmount, TOKENS.USDFC)
 
 // Service operator approvals (required before creating proof sets)
-const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4' // SimplePDPServiceWithPayments
+const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4' // Pandora
 
 // Approve service to create payment rails on your behalf
 await synapse.payments.approveService(

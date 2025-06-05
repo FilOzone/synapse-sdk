@@ -132,7 +132,7 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     SimplePDPServiceWithPayments                 │
+│                     Pandora                                      │
 │  • Client auth (EIP-712 signatures)                              │
 │  • Provider management (whitelist)                               │
 │  • Integrates Payments contract                                  │
@@ -164,8 +164,8 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 - Tracks proving periods and faults
 - Reference implementation showing PDPListener interface
 
-#### 3. SimplePDPServiceWithPayments (`FilOzone-filecoin-services/service_contracts/src/SimplePDPServiceWithPayments.sol`)
-- **Purpose**: The business logic layer that handles payments, authentication, and service management
+#### 3. Pandora (`FilOzone-filecoin-services/service_contracts/src/Pandora.sol`)
+- **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
   - Manages storage provider whitelist via `registerServiceProvider()`
@@ -204,10 +204,10 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 ### Contract Interaction Flow
 
 1. **Client Operations Flow**:
-   - Client signs operation with SimplePDPServiceWithPayments address
+   - Client signs operation with Pandora address
    - Calls Curio API with signature
    - Curio calls PDPVerifier with signature as extraData
-   - PDPVerifier calls SimplePDPServiceWithPayments callback
+   - PDPVerifier calls Pandora callback
    - Service contract validates signature and executes business logic
 
 2. **Critical Data Structures**:
@@ -220,9 +220,9 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 
 3. **Authentication Schema**:
    - All client operations use EIP-712 typed signatures
-   - Domain separator uses SimplePDPServiceWithPayments address
+   - Domain separator uses Pandora address
    - Operations: CreateProofSet, AddRoots, ScheduleRemovals, DeleteProofSet
-   - Clients sign for SimplePDPService, NOT PDPVerifier
+   - Clients sign for Pandora, NOT PDPVerifier
    - Service contract must have operator approval in Payments contract before creating rails
 
 ### Data Flow Patterns
@@ -234,15 +234,15 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 4. **Curio** validates piece ownership and calls **PDPVerifier**
 
 #### Authentication Flow
-1. **Client** signs operation data with private key targeting **SimplePDPServiceWithPayments**
+1. **Client** signs operation data with private key targeting **Pandora**
 2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
-3. **PDPVerifier** passes `extraData` to **SimplePDPServiceWithPayments** callback
-4. **SimplePDPServiceWithPayments** validates signature and processes business logic
+3. **PDPVerifier** passes `extraData` to **Pandora** callback
+4. **Pandora** validates signature and processes business logic
 
 #### Payment Flow
-1. **SimplePDPServiceWithPayments** creates payment rails during proof set creation
+1. **Pandora** creates payment rails during proof set creation
 2. Payments flow from client to storage provider based on storage size and time
-3. **SimplePDPServiceWithPayments** acts as arbiter for fault-based payment adjustments
+3. **Pandora** acts as arbiter for fault-based payment adjustments
 
 ### PDP Overview
 
@@ -265,7 +265,7 @@ All interactions with PDP contracts from clients via a PDP server (typically run
 - `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
 - `GET /pdp/piece/` - Find existing pieces
 
-This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, SimplePDPServiceWithPayments manages business logic and payments, and Curio provides the operational HTTP interface for clients.
+This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Pandora manages business logic and payments, and Curio provides the operational HTTP interface for clients.
 
 ## Development Environment and External Repositories
 

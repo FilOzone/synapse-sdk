@@ -22,7 +22,7 @@ export interface PendingProviderInfo {
 }
 
 /**
- * Tool for interacting with SimplePDPServiceWithPayments contract for storage provider operations
+ * Tool for interacting with Pandora contract for storage provider operations
  *
  * This class is intended to be stand-alone, and is not intended for general use. Its functionality
  * is applicable to either storage providers offering PDP services, or contract owners managing
@@ -34,12 +34,12 @@ export class StorageProviderTool {
 
   /**
    * Create a new StorageProviderTool instance
-   * @param contractAddress - Address of the SimplePDPServiceWithPayments contract
+   * @param contractAddress - Address of the Pandora contract
    * @param signer - Ethers signer for transactions
    */
   constructor (contractAddress: string, signer: Signer) {
     this.signer = signer
-    this.contract = new Contract(contractAddress, CONTRACT_ABIS.PDP_SERVICE, signer)
+    this.contract = new Contract(contractAddress, CONTRACT_ABIS.PANDORA_SERVICE, signer)
   }
 
   /**
