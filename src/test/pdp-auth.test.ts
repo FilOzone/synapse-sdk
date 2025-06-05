@@ -41,15 +41,15 @@ const FIXTURES = {
       withCDN: true
     },
     addRoots: {
-      signature: '0x4d873bfc7e03792bf262434673d3f58cebaa5ecd1d81ff4d1974e3ef382e7ac40192c2973f7ec7895cfb0963b330dfa236c4c15093d3c136e321587d77c926f31b',
-      digest: '0xeca924d5b1f71837d58bf8dd8c11a71a042d35e4804e8d1fbff282c5daa5cc2a',
+      signature: '0x0d4df872fd94796a2883f5c307d4d8402ded8ad47b9800b91a781735461a629562962255f9e14927cab71c60224fdf3f79f24799efac0aa4692d06362af5f87a1c',
+      digest: '0xf17b431d935267844219010cf340decd8d7e631fdc7f7a6d1d4b6a7f1c1c6430',
       clientDataSetId: 12345,
       firstAdded: 1,
       rootDigests: [
         '0xfc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
         '0xa9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f'
       ],
-      rootSizes: [1024, 2048]
+      rootSizes: [2032, 4064]
     },
     scheduleRemovals: {
       signature: '0xe092fd8b6110a4914c0be071d14c1a2c838eb61bf3cb3661e9650da241a22e2d583b7c707eace2f80c9879e123906e02ca5a1eb66d162eaa13d1b7fd19d6db341c',
