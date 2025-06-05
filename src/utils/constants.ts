@@ -62,7 +62,12 @@ export const CONTRACT_ABIS = {
     'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
     'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
     'function nextServiceProviderId() external view returns (uint256)',
-    'function owner() external view returns (address)'
+    'function owner() external view returns (address)',
+
+    // Public mappings that are automatically exposed
+    'function approvedProvidersMap(address) external view returns (bool)',
+    'function providerToId(address) external view returns (uint256)',
+    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])'
   ] as const
 } as const
 
