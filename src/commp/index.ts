@@ -5,5 +5,6 @@ export {
   CommP,
   asCommP,
   calculate,
-  createCommPStream
+  createCommPStream,
+  toZeroPaddedSize
 } from './commp.js'

@@ -6,7 +6,7 @@
 
 import { CID } from 'multiformats/cid'
 import * as Digest from 'multiformats/hashes/digest'
-import { LegacyPieceLink, PieceDigest } from '@web3-storage/data-segment'
+import { LegacyPieceLink, PieceDigest, Fr32 } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 
 // Filecoin-specific constants
@@ -24,6 +24,18 @@ export const SHA2_256_TRUNC254_PADDED = 0x1012
  * content length and the height of the merkle tree.
  */
 export type CommP = LegacyPieceLink
+
+/**
+ * Determine the additional bytes of zeroed padding to append to the
+ * end of a resource of `size` length in order to fit within a pow2 piece while
+ * leaving enough room for Fr32 padding (2 bits per 254).
+ *
+ * @param {number} payloadSize - The size of the payload.
+ * @returns {number}
+ */
+export function toZeroPaddedSize (payloadSize: number): number {
+  return Fr32.toZeroPaddedSize(payloadSize)
+}
 
 /**
  * Parse a CommP string into a CID and validate it
