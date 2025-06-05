@@ -14,6 +14,12 @@ export function createMockSigner (address: string = '0x1234567890123456789012345
     async signTypedData () { return '0xsignedtypeddata' },
     connect (newProvider: any) {
       return createMockSigner(address, newProvider)
+    },
+    async sendTransaction (transaction: any) {
+      if (provider != null) {
+        return provider.sendTransaction(transaction)
+      }
+      throw new Error('No provider for sendTransaction')
     }
   }
   return signer as unknown as ethers.Signer
@@ -54,6 +60,18 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
           [funds, lockedFunds, frozen]
         )
       }
+      // Mock operatorApprovals response
+      if (data.includes('e3d4c69e') === true) {
+        const isApproved = false
+        const rateAllowance = 0n
+        const rateUsed = 0n
+        const lockupAllowance = 0n
+        const lockupUsed = 0n
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['bool', 'uint256', 'uint256', 'uint256', 'uint256'],
+          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed]
+        )
+      }
       return '0x'
     },
     getBlockNumber: async () => 1000000,
@@ -77,7 +95,23 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
       throw new Error('Not implemented in mock')
     },
     getTransactionReceipt: async (hash: string) => {
-      throw new Error('Not implemented in mock')
+      return {
+        hash,
+        from: '0x1234567890123456789012345678901234567890',
+        to: null,
+        contractAddress: null,
+        index: 0,
+        root: '',
+        gasUsed: 50000n,
+        gasPrice: 1000000000n,
+        cumulativeGasUsed: 50000n,
+        effectiveGasPrice: 1000000000n,
+        logsBloom: '',
+        blockHash: '',
+        blockNumber: 1000000,
+        logs: [],
+        status: 1
+      }
     },
     waitForTransaction: async (hash: string, confirmations?: number, timeout?: number) => {
       throw new Error('Not implemented in mock')

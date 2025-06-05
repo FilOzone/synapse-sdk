@@ -71,6 +71,15 @@ const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // U
 // Deposit funds for storage operations
 await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
 
+// Approve service contract for creating payment rails (if needed)
+const serviceAddress = '0x...' // SimplePDPServiceWithPayments address
+await synapse.payments.approveService(
+  serviceAddress,
+  ethers.parseUnits('10', 18),    // 10 USDFC per epoch rate allowance
+  ethers.parseUnits('1000', 18),  // 1000 USDFC lockup allowance
+  30                               // 30 epochs max lockup period
+)
+
 // Create storage service and upload data
 const storage = await synapse.createStorage()
 const uploadTask = storage.upload(new TextEncoder().encode('Hello World'))
@@ -94,6 +103,47 @@ const synapse = await Synapse.create({ provider })
 
 // Same API as above
 const balance = await synapse.payments.walletBalance()
+```
+
+### Advanced Payment Control
+
+For users who need fine-grained control over token approvals:
+
+```javascript
+import { Synapse, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+
+const synapse = await Synapse.create({ provider })
+
+// Check current allowance
+const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[network]
+const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC, paymentsContract)
+
+// Approve only if needed
+if (currentAllowance < requiredAmount) {
+  await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
+}
+
+// Now deposit (won't trigger approval since we already approved)
+await synapse.payments.deposit(requiredAmount, TOKENS.USDFC)
+
+// Service operator approvals (required before creating proof sets)
+const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4' // SimplePDPServiceWithPayments
+
+// Approve service to create payment rails on your behalf
+await synapse.payments.approveService(
+  serviceAddress,
+  '10',   // 10 USDFC per epoch rate allowance
+  '1000'  // 1000 USDFC lockup allowance
+)
+
+// Check service approval status
+const serviceStatus = await synapse.payments.serviceApproval(serviceAddress)
+console.log('Service approved:', serviceStatus.isApproved)
+console.log('Rate allowance:', serviceStatus.rateAllowance)
+console.log('Rate used:', serviceStatus.rateUsed)
+
+// Revoke service if needed
+await synapse.payments.revokeService(serviceAddress)
 ```
 
 ### API Reference
@@ -125,11 +175,21 @@ interface SynapseOptions {
 
 #### Synapse.payments Methods
 
+**Balance Operations:**
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance(token?)` - Get balance in payments contract
 - `decimals(token?)` - Get token decimals (always 18)
-- `deposit(amount, token?)` - Deposit funds to payments contract
+
+**Token Operations:**
+- `deposit(amount, token?)` - Deposit funds to payments contract (handles approval automatically)
 - `withdraw(amount, token?)` - Withdraw funds from payments contract
+- `approve(token, spender, amount)` - Approve token spending (for manual control)
+- `allowance(token, spender)` - Check current token allowance
+
+**Service Approvals:**
+- `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator
+- `revokeService(service, token?)` - Revoke service operator approval
+- `serviceApproval(service, token?)` - Check service approval status and allowances
 
 ---
 

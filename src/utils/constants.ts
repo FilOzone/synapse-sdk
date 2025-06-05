@@ -41,8 +41,8 @@ export const CONTRACT_ABIS = {
     'function deposit(address token, address to, uint256 amount)',
     'function withdraw(address token, uint256 amount)',
     'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockedFunds, bool frozen)',
-    'function setOperatorApproval(address token, address operator, uint256 allowance)',
-    'function operatorApprovals(address token, address client, address operator) view returns (uint256)'
+    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance)',
+    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed)'
   ] as const,
 
   /**

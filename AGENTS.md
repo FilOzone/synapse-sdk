@@ -180,6 +180,7 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 - Handles USDFC token deposits/withdrawals
 - Manages payment rails between parties
 - Supports operator approvals for account management
+- Currently deployed version (commit ef3d4ac) is at `0x0E690D3e60B0576D01352AB03b258115eb84A047`
 
 #### 5. Curio Storage Provider (Service Node)
 - **Purpose**: HTTP API layer that orchestrates blockchain interactions and storage operations
@@ -222,6 +223,7 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
    - Domain separator uses SimplePDPServiceWithPayments address
    - Operations: CreateProofSet, AddRoots, ScheduleRemovals, DeleteProofSet
    - Clients sign for SimplePDPService, NOT PDPVerifier
+   - Service contract must have operator approval in Payments contract before creating rails
 
 ### Data Flow Patterns
 

@@ -90,6 +90,96 @@ describe('SynapsePayments', () => {
     })
   })
 
+  describe('Token operations', () => {
+    it('should check allowance for USDFC', async () => {
+      const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+      const allowance = await payments.allowance(SynapsePayments.USDFC, paymentsAddress)
+      assert.equal(allowance.toString(), '0')
+    })
+
+    it('should approve token spending', async () => {
+      const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+      const amount = ethers.parseUnits('100', 18)
+      const txHash = await payments.approve(SynapsePayments.USDFC, paymentsAddress, amount)
+      assert.exists(txHash)
+      assert.typeOf(txHash, 'string')
+    })
+
+    it('should throw for unsupported token in allowance', async () => {
+      try {
+        await payments.allowance('FIL' as any, '0x123')
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'not supported')
+      }
+    })
+
+    it('should throw for unsupported token in approve', async () => {
+      try {
+        await payments.approve('FIL' as any, '0x123', 100n)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'not supported')
+      }
+    })
+  })
+
+  describe('Service approvals', () => {
+    const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
+
+    it('should approve service as operator', async () => {
+      const rateAllowance = ethers.parseUnits('10', 18) // 10 USDFC per epoch
+      const lockupAllowance = ethers.parseUnits('1000', 18) // 1000 USDFC lockup
+
+      const txHash = await payments.approveService(
+        serviceAddress,
+        rateAllowance,
+        lockupAllowance
+      )
+      assert.exists(txHash)
+      assert.typeOf(txHash, 'string')
+    })
+
+    it('should revoke service operator approval', async () => {
+      const txHash = await payments.revokeService(serviceAddress)
+      assert.exists(txHash)
+      assert.typeOf(txHash, 'string')
+    })
+
+    it('should check service approval status', async () => {
+      const approval = await payments.serviceApproval(serviceAddress)
+      assert.exists(approval)
+      assert.exists(approval.isApproved)
+      assert.exists(approval.rateAllowance)
+      assert.exists(approval.rateUsed)
+      assert.exists(approval.lockupAllowance)
+      assert.exists(approval.lockupUsed)
+    })
+
+    it('should throw for unsupported token in service operations', async () => {
+      try {
+        await payments.approveService(serviceAddress, 100n, 1000n, 'FIL' as any)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'not supported')
+      }
+
+      try {
+        await payments.revokeService(serviceAddress, 'FIL' as any)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'not supported')
+      }
+
+      try {
+        await payments.serviceApproval(serviceAddress, 'FIL' as any)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'not supported')
+      }
+    })
+  })
+
   describe('Error handling', () => {
     it('should throw errors from payment operations', async () => {
       // Create a provider that throws an error for contract calls
