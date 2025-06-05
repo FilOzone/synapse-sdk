@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { type AuthSignature, type RootData } from '../types.js'
-import { asCommP } from '../commp/index.js'
+import { asCommP, toZeroPaddedSize } from '../commp/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -320,9 +320,9 @@ export class PDPAuthHelper {
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedRootData.push({
         root: {
-          data: digest // This will be a Uint8Array
+          data: commP.bytes // This will be a Uint8Array
         },
-        rawSize: BigInt(root.rawSize)
+        rawSize: BigInt(toZeroPaddedSize(root.rawSize))
       })
     }
 
