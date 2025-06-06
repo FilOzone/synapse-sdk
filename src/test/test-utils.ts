@@ -36,9 +36,32 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
     },
     getBalance: async (address: string) => ethers.parseEther('100'),
     getTransactionCount: async (address: string, blockTag?: string) => 0,
+    getBlock: async (blockHashOrBlockTag: any) => {
+      return {
+        number: 1000000,
+        timestamp: Math.floor(Date.now() / 1000),
+        hash: '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
+      }
+    },
     call: async (transaction: any) => {
       const data = transaction.data
+      const to = transaction.to?.toLowerCase()
       if (data == null) return '0x'
+
+      // Mock getServicePrice response for Pandora contract - function selector: 0x7bca0328
+      // Check both the function selector and that it's to the Pandora contract address
+      if (data?.startsWith('0x7bca0328') === true &&
+          (to === '0x394feca6bcb84502d93c0c5c03c620ba8897e8f4' || // calibration address
+           to === '0xbfdc4454c2b573079c6c5ea1ddef6b8defc03dd5')) { // might be used in some tests
+        // Return mock pricing data: 2 USDFC per TiB per month, USDFC address, 86400 epochs per month
+        const pricePerTiBPerMonth = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
+        const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' // Mock USDFC address
+        const epochsPerMonth = 86400n
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['uint256', 'address', 'uint256'],
+          [pricePerTiBPerMonth, tokenAddress, epochsPerMonth]
+        )
+      }
       if (data.includes('70a08231') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
       }
@@ -51,13 +74,54 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
       if (data.includes('095ea7b3') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(1), 32)
       }
+      // Mock accounts response with 4 fields (fixed bug)
       if (data.includes('ad74b775') === true) {
         const funds = ethers.parseUnits('500', 18)
-        const lockedFunds = 0n
-        const frozen = false
+        const lockupCurrent = 0n
+        const lockupRate = 0n
+        const lockupLastSettledAt = 1000000 // Current epoch (block number)
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['uint256', 'uint256', 'bool'],
-          [funds, lockedFunds, frozen]
+          ['uint256', 'uint256', 'uint256', 'uint256'],
+          [funds, lockupCurrent, lockupRate, lockupLastSettledAt]
+        )
+      }
+      // Mock getRailsByPayer response - function selector: 0x89c6a46f
+      if (data.includes('89c6a46f') === true) {
+        // Return array of rail IDs
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['uint256[]'],
+          [[1n, 2n]]
+        )
+      }
+      // Mock getRailsByPayee response - function selector: 0x7a8fa2f1
+      if (data.includes('7a8fa2f1') === true) {
+        // Return array of rail IDs
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['uint256[]'],
+          [[3n, 4n]]
+        )
+      }
+      // Mock getRail response - function selector: 0x0e64d1e0
+      if (data.includes('0e64d1e0') === true) {
+        const rail = {
+          token: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
+          from: '0x1234567890123456789012345678901234567890',
+          to: '0x78bF4d833fC2ba1Abd42Bc772edbC788EC76A28F',
+          operator: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
+          arbiter: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
+          paymentRate: ethers.parseUnits('0.001', 18), // 0.001 USDFC per epoch
+          paymentRateNew: ethers.parseUnits('0.001', 18),
+          rateChangeEpoch: 0n,
+          lockupFixed: 0n,
+          lockupPeriod: 28800n, // 10 days
+          settledUpTo: 1000000,
+          endEpoch: 0n, // Active rail
+          commissionRateBps: 100n // 1%
+        }
+        // The getRail function returns a struct, encode all fields in order
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['address', 'address', 'address', 'address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+          [rail.token, rail.from, rail.to, rail.operator, rail.arbiter, rail.paymentRate, rail.paymentRateNew, rail.rateChangeEpoch, rail.lockupFixed, rail.lockupPeriod, rail.settledUpTo, rail.endEpoch, rail.commissionRateBps]
         )
       }
       // Mock operatorApprovals response
@@ -86,9 +150,6 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
     resolveName: async (name: string) => null,
     lookupAddress: async (address: string) => null,
     broadcastTransaction: async (signedTx: string) => {
-      throw new Error('Not implemented in mock')
-    },
-    getBlock: async (blockHashOrBlockTag: any) => {
       throw new Error('Not implemented in mock')
     },
     getTransaction: async (hash: string) => {

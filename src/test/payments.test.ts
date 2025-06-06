@@ -18,7 +18,9 @@ describe('SynapsePayments', () => {
   beforeEach(() => {
     mockProvider = createMockProvider()
     mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
-    payments = new SynapsePayments(mockProvider, mockSigner, 'calibration', false)
+    // Use a mock Pandora address for testing
+    const mockPandoraAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+    payments = new SynapsePayments(mockProvider, mockSigner, 'calibration', false, mockPandoraAddress)
   })
 
   describe('Instantiation', () => {
@@ -197,7 +199,8 @@ describe('SynapsePayments', () => {
         throw new Error('Transaction failed')
       }
 
-      const errorPayments = new SynapsePayments(errorProvider, errorSigner, 'calibration', false)
+      const mockPandoraAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+      const errorPayments = new SynapsePayments(errorProvider, errorSigner, 'calibration', false, mockPandoraAddress)
 
       try {
         // Try deposit which uses sendTransaction

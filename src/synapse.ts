@@ -17,6 +17,7 @@ export class Synapse {
   private readonly _signer: ethers.Signer
   private readonly _network: 'mainnet' | 'calibration'
   private readonly _withCDN: boolean
+  private readonly _pandoraAddress: string
   private readonly _payments: SynapsePayments
 
   // Cached helper instances
@@ -121,7 +122,17 @@ export class Synapse {
       )
     }
 
-    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true)
+    // Get Pandora address - either from options or from network defaults
+    const pandoraAddress = options.pandoraAddress ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
+    if (pandoraAddress == null || pandoraAddress === '') {
+      throw createError(
+        'Synapse',
+        'create',
+        `Pandora service contract not deployed on ${network} network and no custom address provided`
+      )
+    }
+
+    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true, pandoraAddress)
   }
 
   private constructor (
@@ -129,12 +140,14 @@ export class Synapse {
     signer: ethers.Signer,
     network: 'mainnet' | 'calibration',
     disableNonceManager: boolean,
-    withCDN: boolean
+    withCDN: boolean,
+    pandoraAddress: string
   ) {
     this._signer = signer
     this._network = network
     this._withCDN = withCDN
-    this._payments = new SynapsePayments(provider, signer, network, disableNonceManager)
+    this._pandoraAddress = pandoraAddress
+    this._payments = new SynapsePayments(provider, signer, network, disableNonceManager, pandoraAddress)
   }
 
   /**
@@ -192,17 +205,9 @@ export class Synapse {
    */
   getPDPAuthHelper (): PDPAuthHelper {
     if (this._pdpAuthHelper == null) {
-      const pdpServiceContractAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[this._network]
-      if (pdpServiceContractAddress === '') {
-        throw createError(
-          'Synapse',
-          'getPDPAuthHelper',
-          `PDP service contract not deployed on ${this._network} network`
-        )
-      }
-
+      // Get chain ID for auth helper
       const chainId = BigInt(CHAIN_IDS[this._network])
-      this._pdpAuthHelper = new PDPAuthHelper(pdpServiceContractAddress, this._signer, chainId)
+      this._pdpAuthHelper = new PDPAuthHelper(this._pandoraAddress, this._signer, chainId)
     }
 
     return this._pdpAuthHelper

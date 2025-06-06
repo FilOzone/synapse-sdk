@@ -43,6 +43,8 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+  /** Override Pandora service contract address (defaults to network's default) */
+  pandoraAddress?: string
 }
 
 /**

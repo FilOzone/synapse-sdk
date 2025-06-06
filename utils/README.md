@@ -139,6 +139,51 @@ Browser-based interface for storage provider management operations.
 4. Approve providers (if you're the contract owner)
 5. Monitor provider status
 
+### payment-apis-demo.html
+
+Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
+
+**Features:**
+- Full account balance and information display
+- Storage cost calculator with CDN/non-CDN pricing
+- Automatic funding analysis for storage requirements
+- Service allowance management
+- Interactive storage readiness checker
+
+**Key Capabilities:**
+1. **Account Management:**
+   - View USDFC balances (wallet and payments contract)
+   - Check account details including lockup information
+   - Monitor available funds vs total funds
+
+2. **Storage Cost Analysis:**
+   - Calculate costs for any data size (bytes to TiB)
+   - Compare CDN vs non-CDN pricing
+   - Get per-epoch, per-day, and per-month breakdowns
+   - Real-time pricing from Pandora contract
+
+3. **Funding Analysis:**
+   - Automatic check if you have enough funds for storage
+   - Validates service operator allowances
+   - Explains rate vs lockup allowances
+   - Provides specific action items if requirements aren't met
+
+4. **Service Allowances:**
+   - Check current allowances for any service
+   - Calculate required allowances for new storage
+   - Prepare for storage uploads with pre-flight checks
+
+**Use Cases:**
+- Understanding payment requirements before storing data
+- Testing payment flows in development
+- Debugging allowance and balance issues
+- Educational tool for learning about Filecoin storage economics
+
+**Understanding the Payment System:**
+- **Balance**: USDFC deposited in the Payments contract for storage costs
+- **Rate Allowance**: Maximum per-epoch payment rate a service can set
+- **Lockup Allowance**: Security deposit (10 days of storage) locked during rail creation
+
 ## Development Notes
 
 ### File Serving Requirements

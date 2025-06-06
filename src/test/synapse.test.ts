@@ -117,9 +117,12 @@ describe('Synapse', () => {
       assert.exists(synapse)
     })
 
-    it('should accept mainnet', async () => {
+    it('should accept mainnet with custom pandora address', async () => {
       const mainnetProvider = createMockProvider(314)
-      const synapse = await Synapse.create({ provider: mainnetProvider })
+      const synapse = await Synapse.create({
+        provider: mainnetProvider,
+        pandoraAddress: '0x1234567890123456789012345678901234567890' // Custom address for mainnet
+      })
       assert.exists(synapse)
     })
   })
@@ -193,17 +196,15 @@ describe('Synapse', () => {
       assert.strictEqual(authHelper1, authHelper2)
     })
 
-    it('should throw for network without PDP service contract', async () => {
-      // Create a mock Synapse instance with mainnet (no PDP service contract address)
+    it('should work with custom pandora address for mainnet', async () => {
+      // Create a mock Synapse instance with mainnet with custom address
       const mainnetProvider = createMockProvider(314) // mainnet chain ID
-      const synapse = await Synapse.create({ provider: mainnetProvider })
-
-      try {
-        synapse.getPDPAuthHelper()
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'PDP service contract not deployed on mainnet')
-      }
+      const synapse = await Synapse.create({
+        provider: mainnetProvider,
+        pandoraAddress: '0x1234567890123456789012345678901234567890'
+      })
+      const authHelper = synapse.getPDPAuthHelper()
+      assert.exists(authHelper)
     })
   })
 })

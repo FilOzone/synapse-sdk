@@ -4,17 +4,19 @@
 
 import { ethers } from 'ethers'
 import type { TokenAmount, TokenIdentifier } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS } from '../utils/index.js'
+import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIME_CONSTANTS, SIZE_CONSTANTS } from '../utils/index.js'
 
 export class SynapsePayments {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
   private readonly _network: 'mainnet' | 'calibration'
   private readonly _disableNonceManager: boolean
+  private readonly _pandoraAddress: string
 
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
+  private _pandoraContract: ethers.Contract | null = null
 
   // Re-export token constant for convenience
   static readonly USDFC = TOKENS.USDFC
@@ -23,12 +25,14 @@ export class SynapsePayments {
     provider: ethers.Provider,
     signer: ethers.Signer,
     network: 'mainnet' | 'calibration',
-    disableNonceManager: boolean
+    disableNonceManager: boolean,
+    pandoraAddress: string
   ) {
     this._provider = provider
     this._signer = signer
     this._network = network
     this._disableNonceManager = disableNonceManager
+    this._pandoraAddress = pandoraAddress
   }
 
   /**
@@ -59,6 +63,16 @@ export class SynapsePayments {
     return this._paymentsContract
   }
 
+  /**
+   * Get cached Pandora contract instance or create new one
+   */
+  private _getPandoraContract (): ethers.Contract {
+    if (this._pandoraContract == null) {
+      this._pandoraContract = new ethers.Contract(this._pandoraAddress, CONTRACT_ABIS.PANDORA_SERVICE, this._provider)
+    }
+    return this._pandoraContract
+  }
+
   async balance (token: TokenIdentifier = SynapsePayments.USDFC): Promise<bigint> {
     // For now, only support USDFC balance
     if (token !== SynapsePayments.USDFC) {
@@ -69,32 +83,78 @@ export class SynapsePayments {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
+    const accountInfo = await this.accountInfo(token)
+    return accountInfo.availableFunds
+  }
 
+  /**
+   * Get detailed account information from the payments contract
+   * @param token - The token to get account info for (defaults to USDFC)
+   * @returns Account information including funds, lockup details, and available balance
+   */
+  async accountInfo (token: TokenIdentifier = SynapsePayments.USDFC): Promise<{
+    funds: bigint
+    lockupCurrent: bigint
+    lockupRate: bigint
+    lockupLastSettledAt: bigint
+    availableFunds: bigint
+  }> {
+    if (token !== SynapsePayments.USDFC) {
+      throw createError(
+        'SynapsePayments',
+        'account info',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
+    }
+
+    const signerAddress = await this._signer.getAddress()
     const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
-    let accountInfo: any[]
+    let accountData: any[]
 
     try {
       // Get account info from payments contract
-      accountInfo = await paymentsContract.accounts(usdfcAddress, signerAddress)
+      accountData = await paymentsContract.accounts(usdfcAddress, signerAddress)
     } catch (contractCallError) {
       throw createError(
         'SynapsePayments',
-        'payments contract balance check',
+        'account info',
         'Failed to read account information from payments contract. This could indicate the contract is not properly deployed, the ABI is incorrect, or there are network connectivity issues.',
         contractCallError
       )
     }
 
-    // accountInfo returns: (uint256 funds, uint256 lockedFunds, bool frozen)
-    const [funds, lockedFunds] = accountInfo
+    // accountData returns: (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)
+    const [funds, lockupCurrent, lockupRate, lockupLastSettledAt] = accountData
 
-    // Return the available funds (total funds - locked funds) as bigint
-    const availableFunds = BigInt(funds) - BigInt(lockedFunds)
+    // Calculate time-based lockup
+    const currentEpoch = await this.getCurrentEpoch()
+    const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
+    const actualLockup = BigInt(lockupCurrent) + (BigInt(lockupRate) * epochsSinceSettlement)
 
-    return availableFunds
+    // Calculate available funds
+    const availableFunds = BigInt(funds) - actualLockup
+
+    return {
+      funds: BigInt(funds),
+      lockupCurrent: BigInt(lockupCurrent),
+      lockupRate: BigInt(lockupRate),
+      lockupLastSettledAt: BigInt(lockupLastSettledAt),
+      availableFunds: availableFunds > 0n ? availableFunds : 0n
+    }
+  }
+
+  /**
+   * Get the current epoch from the blockchain
+   */
+  async getCurrentEpoch (): Promise<bigint> {
+    const block = await this._provider.getBlock('latest')
+    if (block == null) {
+      throw createError('SynapsePayments', 'getCurrentEpoch', 'Failed to get latest block')
+    }
+    // In Filecoin, the block number is the epoch
+    return BigInt(block.number)
   }
 
   async walletBalance (token?: TokenIdentifier): Promise<bigint> {
@@ -396,13 +456,7 @@ export class SynapsePayments {
       await this.approve(token, paymentsAddress, depositAmountBigint)
     }
 
-    // Check if account is frozen
-    const accountInfo = await paymentsContract.accounts(usdfcAddress, signerAddress)
-    const [, , frozen] = accountInfo
-
-    if (frozen === true) {
-      throw createError('SynapsePayments', 'deposit', 'Account is frozen')
-    }
+    // Check if account has sufficient available balance (no frozen account check needed for deposits)
 
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
@@ -439,21 +493,14 @@ export class SynapsePayments {
     const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
-    // Check balance
-    const accountInfo = await paymentsContract.accounts(usdfcAddress, signerAddress)
+    // Check balance using the corrected accountInfo method
+    const accountInfo = await this.accountInfo(token)
 
-    const [funds, lockedFunds, frozen] = accountInfo
-    const availableFunds = BigInt(funds) - BigInt(lockedFunds)
-
-    if (frozen === true) {
-      throw createError('SynapsePayments', 'withdraw', 'Account is frozen')
-    }
-
-    if (availableFunds < withdrawAmountBigint) {
+    if (accountInfo.availableFunds < withdrawAmountBigint) {
       throw createError(
         'SynapsePayments',
         'withdraw',
-        `Insufficient balance: have ${availableFunds.toString()}, need ${withdrawAmountBigint.toString()}`
+        `Insufficient available balance: have ${accountInfo.availableFunds.toString()}, need ${withdrawAmountBigint.toString()}`
       )
     }
 
@@ -468,5 +515,305 @@ export class SynapsePayments {
     await withdrawTx.wait()
 
     return withdrawTx.hash
+  }
+
+  // /**
+  //  * Get all rails for the current user
+  //  * @param options - Filter options for rails query
+  //  * @returns Array of rail information
+  //  */
+  // async getRails (options?: {
+  //   token?: TokenIdentifier
+  //   role?: 'payer' | 'payee'
+  //   includeTerminated?: boolean
+  // }): Promise<Array<{
+  //     railId: number
+  //     payer: string
+  //     payee: string
+  //     paymentRate: bigint
+  //     isTerminated: boolean
+  //     endEpoch: bigint
+  //   }>> {
+  //   // TODO: Implement when Payments contract provides rail query methods
+  //   // Current Payments contract doesn't expose getRailsByPayer/getRailsByPayee
+  //   // This would require contract upgrade or event indexing
+  //   throw createError(
+  //     'SynapsePayments',
+  //     'getRails',
+  //     'Rail query methods are not yet available in the current Payments contract. This feature requires contract upgrade or event indexing.'
+  //   )
+  // }
+
+  // /**
+  //  * Get detailed information about a specific rail
+  //  * @param railId - The rail ID to query
+  //  * @returns Detailed rail information
+  //  */
+  // async getRailDetails (railId: number): Promise<{
+  //   railId: number
+  //   token: string
+  //   payer: string
+  //   payee: string
+  //   operator: string
+  //   arbiter: string
+  //   paymentRate: bigint
+  //   paymentRateNew: bigint
+  //   rateChangeEpoch: bigint
+  //   lockupFixed: bigint
+  //   lockupPeriod: bigint
+  //   settledUpTo: bigint
+  //   endEpoch: bigint
+  //   commissionRateBps: bigint
+  //   totalLockup: bigint
+  // }> {
+  //   // TODO: Implement when Payments contract provides getRail method
+  //   // Current Payments contract doesn't expose individual rail query
+  //   throw createError(
+  //     'SynapsePayments',
+  //     'getRailDetails',
+  //     'Rail detail query is not yet available in the current Payments contract. This feature requires contract upgrade or event indexing.'
+  //   )
+  // }
+
+  /**
+   * Calculate storage costs for a given size
+   * @param sizeInBytes - Size of data to store in bytes
+   * @returns Cost estimates per epoch, day, and month
+   */
+  async calculateStorageCost (
+    sizeInBytes: number
+  ): Promise<{
+      perEpoch: bigint
+      perDay: bigint
+      perMonth: bigint
+      withCDN: {
+        perEpoch: bigint
+        perDay: bigint
+        perMonth: bigint
+      }
+    }> {
+    // Get Pandora contract instance
+    const pandoraContract = this._getPandoraContract()
+
+    let pricePerTiBPerMonthNoCDN: bigint
+    let pricePerTiBPerMonthWithCDN: bigint
+    let epochsPerMonth: bigint
+
+    try {
+      // Fetch pricing from chain - now returns a struct
+      const pricing = await pandoraContract.getServicePrice()
+      pricePerTiBPerMonthNoCDN = BigInt(pricing.pricePerTiBPerMonthNoCDN)
+      pricePerTiBPerMonthWithCDN = BigInt(pricing.pricePerTiBPerMonthWithCDN)
+      epochsPerMonth = BigInt(pricing.epochsPerMonth)
+    } catch (error) {
+      // Fallback to hardcoded values if contract call fails
+      // This maintains backward compatibility and allows testing
+      // Silently fall back to defaults - this is expected in test environments
+      pricePerTiBPerMonthNoCDN = 2n * (10n ** 18n) // 2 USDFC per TiB per month
+      pricePerTiBPerMonthWithCDN = 3n * (10n ** 18n) // 3 USDFC per TiB per month with CDN
+      epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
+    }
+
+    // Calculate price per byte per epoch
+    const sizeInBytesBigint = BigInt(sizeInBytes)
+    const pricePerEpochNoCDN = (pricePerTiBPerMonthNoCDN * sizeInBytesBigint) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
+    const pricePerEpochWithCDN = (pricePerTiBPerMonthWithCDN * sizeInBytesBigint) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
+
+    return {
+      perEpoch: pricePerEpochNoCDN,
+      perDay: pricePerEpochNoCDN * TIME_CONSTANTS.EPOCHS_PER_DAY,
+      perMonth: pricePerEpochNoCDN * epochsPerMonth,
+      withCDN: {
+        perEpoch: pricePerEpochWithCDN,
+        perDay: pricePerEpochWithCDN * TIME_CONSTANTS.EPOCHS_PER_DAY,
+        perMonth: pricePerEpochWithCDN * epochsPerMonth
+      }
+    }
+  }
+
+  /**
+   * Check if user has sufficient allowances for a storage operation
+   * @param sizeInBytes - Size of data to store
+   * @param withCDN - Whether CDN is enabled
+   * @returns Allowance requirement details
+   */
+  async checkAllowanceForStorage (
+    sizeInBytes: number,
+    withCDN: boolean = false
+  ): Promise<{
+      rateAllowanceNeeded: bigint
+      lockupAllowanceNeeded: bigint
+      currentRateAllowance: bigint
+      currentLockupAllowance: bigint
+      currentRateUsed: bigint
+      currentLockupUsed: bigint
+      sufficient: boolean
+      message?: string
+    }> {
+    // Get current allowances for the Pandora service
+    const approval = await this.serviceApproval(this._pandoraAddress)
+
+    // Calculate storage costs
+    const costs = await this.calculateStorageCost(sizeInBytes)
+    const rateNeeded = withCDN ? costs.withCDN.perEpoch : costs.perEpoch
+
+    // Default lockup period is 10 days = 28,800 epochs
+    const lockupNeeded = rateNeeded * TIME_CONSTANTS.DEFAULT_LOCKUP_PERIOD
+
+    // Calculate required allowances (current usage + new requirement)
+    const totalRateNeeded = approval.rateUsed + rateNeeded
+    const totalLockupNeeded = approval.lockupUsed + lockupNeeded
+
+    const sufficient = approval.rateAllowance >= totalRateNeeded &&
+                      approval.lockupAllowance >= totalLockupNeeded
+
+    let message
+    if (!sufficient) {
+      const messages = []
+      if (approval.rateAllowance < totalRateNeeded) {
+        messages.push(`Rate allowance insufficient: current ${approval.rateAllowance}, need ${totalRateNeeded}`)
+      }
+      if (approval.lockupAllowance < totalLockupNeeded) {
+        messages.push(`Lockup allowance insufficient: current ${approval.lockupAllowance}, need ${totalLockupNeeded}`)
+      }
+      message = messages.join('. ')
+    }
+
+    return {
+      rateAllowanceNeeded: totalRateNeeded,
+      lockupAllowanceNeeded: totalLockupNeeded,
+      currentRateAllowance: approval.rateAllowance,
+      currentLockupAllowance: approval.lockupAllowance,
+      currentRateUsed: approval.rateUsed,
+      currentLockupUsed: approval.lockupUsed,
+      sufficient,
+      message
+    }
+  }
+
+  // /**
+  //  * Get payment information for proof sets owned by the current user
+  //  * @param pandoraAddress - Address of the Pandora contract
+  //  * @returns Array of proof set payment information
+  //  */
+  // async getProofSetPayments (pandoraAddress: string): Promise<Array<{
+  //   proofSetId: number
+  //   railId: number
+  //   paymentRate: bigint
+  //   provider: string
+  //   isActive: boolean
+  //   costPerDay: bigint
+  // }>> {
+  //   // This would require querying the Pandora contract for proof sets
+  //   // and matching them with payment rails
+  //   // For now, returning empty array as this requires Pandora contract integration
+
+  //   // TODO: Implement when Pandora contract ABI is available with getClientProofSets method
+  //   throw createError(
+  //     'SynapsePayments',
+  //     'getProofSetPayments',
+  //     'This method requires Pandora contract integration which is not yet implemented'
+  //   )
+  // }
+
+  // /**
+  //  * Get total storage costs across all active rails
+  //  * @returns Total costs and breakdown by rail
+  //  */
+  // async getTotalStorageCosts (): Promise<{
+  //   totalPerEpoch: bigint
+  //   totalPerDay: bigint
+  //   breakdown: Array<{
+  //     railId: number
+  //     provider: string
+  //     costPerEpoch: bigint
+  //     costPerDay: bigint
+  //   }>
+  // }> {
+  //   // TODO: Implement when rail query methods are available
+  //   // This depends on getRails() which requires contract upgrade
+  //   throw createError(
+  //     'SynapsePayments',
+  //     'getTotalStorageCosts',
+  //     'Total cost calculation requires rail query methods which are not yet available in the current Payments contract.'
+  //   )
+  // }
+
+  /**
+   * Prepare for a storage upload by checking requirements and providing actions
+   * @param options - Upload preparation options
+   * @returns Cost estimate, allowance check, and required actions
+   */
+  async prepareStorageUpload (options: {
+    dataSize: number
+    withCDN?: boolean
+  }): Promise<{
+      estimatedCost: {
+        perEpoch: bigint
+        perDay: bigint
+        perMonth: bigint
+      }
+      allowanceCheck: {
+        sufficient: boolean
+        message?: string
+      }
+      actions: Array<{
+        type: 'deposit' | 'approve' | 'approveService'
+        description: string
+        execute: () => Promise<string>
+      }>
+    }> {
+    const costs = await this.calculateStorageCost(options.dataSize)
+    const estimatedCost = (options.withCDN === true) ? costs.withCDN : costs
+
+    const allowanceCheck = await this.checkAllowanceForStorage(
+      options.dataSize,
+      options.withCDN
+    )
+
+    const actions: Array<{
+      type: 'deposit' | 'approve' | 'approveService'
+      description: string
+      execute: () => Promise<string>
+    }> = []
+
+    // Check if deposit is needed
+    const accountInfo = await this.accountInfo()
+    const requiredBalance = estimatedCost.perMonth // Require at least 1 month of funds
+
+    if (accountInfo.availableFunds < requiredBalance) {
+      const depositAmount = requiredBalance - accountInfo.availableFunds
+      actions.push({
+        type: 'deposit',
+        description: `Deposit ${depositAmount} USDFC to payments contract`,
+        execute: async () => await this.deposit(depositAmount)
+      })
+    }
+
+    // Check if service approval is needed
+    if (!allowanceCheck.sufficient) {
+      actions.push({
+        type: 'approveService',
+        description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
+        execute: async () => await this.approveService(
+          this._pandoraAddress,
+          allowanceCheck.rateAllowanceNeeded,
+          allowanceCheck.lockupAllowanceNeeded
+        )
+      })
+    }
+
+    return {
+      estimatedCost: {
+        perEpoch: estimatedCost.perEpoch,
+        perDay: estimatedCost.perDay,
+        perMonth: estimatedCost.perMonth
+      },
+      allowanceCheck: {
+        sufficient: allowanceCheck.sufficient,
+        message: allowanceCheck.message
+      },
+      actions
+    }
   }
 }

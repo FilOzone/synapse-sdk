@@ -40,7 +40,7 @@ export const CONTRACT_ABIS = {
   PAYMENTS: [
     'function deposit(address token, address to, uint256 amount)',
     'function withdraw(address token, uint256 amount)',
-    'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockedFunds, bool frozen)',
+    'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
     'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance)',
     'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed)'
   ] as const,
@@ -63,12 +63,58 @@ export const CONTRACT_ABIS = {
     'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
     'function nextServiceProviderId() external view returns (uint256)',
     'function owner() external view returns (address)',
+    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth) pricing)',
 
     // Public mappings that are automatically exposed
     'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
     'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])'
   ] as const
+} as const
+
+/**
+ * Time and size constants
+ */
+export const TIME_CONSTANTS = {
+  /**
+   * Number of epochs in a day (24 hours * 60 minutes * 2 epochs per minute)
+   */
+  EPOCHS_PER_DAY: 2880n,
+
+  /**
+   * Number of epochs in a month (30 days)
+   */
+  EPOCHS_PER_MONTH: 86400n, // 30 * 2880
+
+  /**
+   * Default lockup period in epochs (10 days)
+   */
+  DEFAULT_LOCKUP_PERIOD: 28800n // 10 * 2880
+} as const
+
+/**
+ * Data size constants
+ */
+export const SIZE_CONSTANTS = {
+  /**
+   * Bytes in 1 KiB
+   */
+  KiB: 1024n,
+
+  /**
+   * Bytes in 1 MiB
+   */
+  MiB: 1024n * 1024n,
+
+  /**
+   * Bytes in 1 GiB
+   */
+  GiB: 1024n * 1024n * 1024n,
+
+  /**
+   * Bytes in 1 TiB
+   */
+  TiB: 1024n * 1024n * 1024n * 1024n
 } as const
 
 /**
@@ -110,6 +156,6 @@ export const CONTRACT_ADDRESSES = {
    */
   PANDORA_SERVICE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
+    calibration: '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
   } as const
 } as const

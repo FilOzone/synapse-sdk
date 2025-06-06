@@ -18,7 +18,8 @@ This document serves as context for LLM agent sessions working with the Synapse 
 
 ### Development Tools
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
-- **ts-standard**: TypeScript Standard Style linter for consistent formatting, no semicolons, prefer to run `npm run lint:fix` for lint+fix
+- **ts-standard**: TypeScript Standard Style linter for consistent formatting, no semicolons, prefer to run `npm run lint:fix` for lint+fix,
+  - **BEWARE** of common TS code, these rules will cause problems so you should either `lint:fix` regularly or avoid code that produces these: strict-boolean-expressions, no-trailing-spaces, return-await, no-unused-vars, indent
 - **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
 - **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
 
@@ -156,7 +157,9 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
   - Performs cryptographic proof verification
   - Emits events and calls listener contracts
 - **Key Functions**: `createProofSet()`, `addRoots()`, `proveRoots()`
-- **Address**: Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
+- **Address**:
+  - Calibration: `0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC`
+  - Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
 - **Client Interaction**: Indirect (through Curio API)
 
 #### 2. SimplePDPService (`FilOzone-pdp/src/SimplePDPService.sol`)
@@ -164,14 +167,17 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 - Tracks proving periods and faults
 - Reference implementation showing PDPListener interface
 
-#### 3. Pandora (`FilOzone-filecoin-services/service_contracts/src/Pandora.sol`)
+#### 3. Pandora (`FilOzone-filecoin-services/service_contracts/src/PandoraService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
   - Manages storage provider whitelist via `registerServiceProvider()`
   - Creates payment rails on proof set creation
   - Receives callbacks from PDPVerifier via `PDPListener` interface
-- **Address**: Supplied by client as `recordKeeper` parameter
+  - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
+- **Address**:
+  - Calibration: `0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F` (proxy)
+  - Implementation: `0xc0B03abC741cBB9636DaC40b65c8686956138285`
 - **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
 - **Inheritance**: Inherits SimplePDPService, integrates Payments contract
 
@@ -180,7 +186,7 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
 - Handles USDFC token deposits/withdrawals
 - Manages payment rails between parties
 - Supports operator approvals for account management
-- Currently deployed version (commit ef3d4ac) is at `0x0E690D3e60B0576D01352AB03b258115eb84A047`
+- Currently deployed version is at `0x0E690D3e60B0576D01352AB03b258115eb84A047` on calibration
 
 #### 5. Curio Storage Provider (Service Node)
 - **Purpose**: HTTP API layer that orchestrates blockchain interactions and storage operations
@@ -274,5 +280,25 @@ In development environments, the following related repositories may be available
 ### Usage Notes
 - **Local Development**: If repositories are available locally with the `{org}-{repo}` naming convention, files can be accessed directly for debugging and testing. When using local development environment, expect repositories at paths like `./filecoin-project-curio/` and `./FilOzone-pdp/` cloned to the same directory as the SDK project. This allows for easy import and testing of contract interactions but they should not be checked in if they exist.
 - **Remote Access**: Contract files can also be viewed via GitHub URLs when local copies aren't available
+
+### Blockchain Interaction Tools
+
+#### Using `cast` with Filecoin
+- `cast` (Foundry tool) may be available for blockchain queries if needed
+- **Critical**: Filecoin's `eth_call` only accepts 2 parameters: `[{to, data}, blockTag]`
+- **DO NOT** use cast's default behavior which sends 3 parameters (includes state override)
+- Workaround: Use `cast calldata` to generate hex, then make direct RPC calls:
+  ```bash
+  # Generate calldata
+  cast calldata "functionName(address,uint256)" 0xaddr 123
+
+  # Make RPC call with curl (2 params only)
+  curl -X POST $RPC_URL -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x...","data":"0x..."},"latest"],"id":1}'
+  ```
+- Decode results: `cast --to-dec 0xhexvalue` for individual values
+- Common RPC endpoints:
+  - Calibration: `https://api.calibration.node.glif.io/rpc/v1`
+  - Mainnet: `https://api.node.glif.io/rpc/v1`
 
 This document should be kept updated and curated as the SDK implementation progresses.

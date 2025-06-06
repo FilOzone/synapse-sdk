@@ -72,13 +72,29 @@ const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // U
 // Deposit funds for storage operations
 await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
 
-// Approve service contract for creating payment rails (if needed)
-const serviceAddress = '0x...' // Pandora address
+// Check storage costs before uploading
+const sizeInGB = 10
+const sizeInBytes = sizeInGB * 1024 * 1024 * 1024
+const costs = await synapse.payments.calculateStorageCost(sizeInBytes)
+console.log(`Storage cost: ${costs.perMonth} per month`)
+
+// Prepare for storage (checks balance and allowances)
+const prep = await synapse.payments.prepareStorageUpload({
+  dataSize: sizeInBytes,
+  withCDN: false
+})
+
+// Execute any required actions
+for (const action of prep.actions) {
+  console.log(`Required: ${action.description}`)
+  await action.execute()
+}
+
+// Or manually approve service for creating payment rails
 await synapse.payments.approveService(
   serviceAddress,
   ethers.parseUnits('10', 18),    // 10 USDFC per epoch rate allowance
-  ethers.parseUnits('1000', 18),  // 1000 USDFC lockup allowance
-  30                               // 30 epochs max lockup period
+  ethers.parseUnits('1000', 18)   // 1000 USDFC lockup allowance
 )
 
 // Create storage service and upload data
@@ -165,6 +181,7 @@ interface SynapseOptions {
   // Advanced Configuration
   disableNonceManager?: boolean // Disable automatic nonce management
   withCDN?: boolean             // Enable CDN for retrievals
+  pandoraAddress?: string       // Override Pandora service contract address
 }
 ```
 
@@ -178,7 +195,9 @@ interface SynapseOptions {
 
 **Balance Operations:**
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
-- `balance(token?)` - Get balance in payments contract
+- `balance(token?)` - Get available balance in payments contract (accounting for lockups)
+- `accountInfo(token?)` - Get detailed account info including funds, lockup details, and available balance
+- `getCurrentEpoch()` - Get the current Filecoin epoch number
 - `decimals(token?)` - Get token decimals (always 18)
 
 **Token Operations:**
@@ -191,6 +210,11 @@ interface SynapseOptions {
 - `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator
 - `revokeService(service, token?)` - Revoke service operator approval
 - `serviceApproval(service, token?)` - Check service approval status and allowances
+
+**Storage Cost Analysis:**
+- `calculateStorageCost(sizeInBytes)` - Calculate storage costs (with CDN and non-CDN pricing)
+- `checkAllowanceForStorage(sizeInBytes, withCDN?)` - Check if allowances are sufficient for storage
+- `prepareStorageUpload(options)` - Pre-flight check that returns required actions before storage upload
 
 ---
 
