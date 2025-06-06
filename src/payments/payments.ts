@@ -595,24 +595,11 @@ export class SynapsePayments {
     // Get Pandora contract instance
     const pandoraContract = this._getPandoraContract()
 
-    let pricePerTiBPerMonthNoCDN: bigint
-    let pricePerTiBPerMonthWithCDN: bigint
-    let epochsPerMonth: bigint
-
-    try {
-      // Fetch pricing from chain - now returns a struct
-      const pricing = await pandoraContract.getServicePrice()
-      pricePerTiBPerMonthNoCDN = BigInt(pricing.pricePerTiBPerMonthNoCDN)
-      pricePerTiBPerMonthWithCDN = BigInt(pricing.pricePerTiBPerMonthWithCDN)
-      epochsPerMonth = BigInt(pricing.epochsPerMonth)
-    } catch (error) {
-      // Fallback to hardcoded values if contract call fails
-      // This maintains backward compatibility and allows testing
-      // Silently fall back to defaults - this is expected in test environments
-      pricePerTiBPerMonthNoCDN = 2n * (10n ** 18n) // 2 USDFC per TiB per month
-      pricePerTiBPerMonthWithCDN = 3n * (10n ** 18n) // 3 USDFC per TiB per month with CDN
-      epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-    }
+    // Fetch pricing from chain - now returns a struct
+    const pricing = await pandoraContract.getServicePrice()
+    const pricePerTiBPerMonthNoCDN = BigInt(pricing.pricePerTiBPerMonthNoCDN)
+    const pricePerTiBPerMonthWithCDN = BigInt(pricing.pricePerTiBPerMonthWithCDN)
+    const epochsPerMonth = BigInt(pricing.epochsPerMonth)
 
     // Calculate price per byte per epoch
     const sizeInBytesBigint = BigInt(sizeInBytes)

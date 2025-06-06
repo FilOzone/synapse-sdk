@@ -85,6 +85,17 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
           [funds, lockupCurrent, lockupRate, lockupLastSettledAt]
         )
       }
+      // Mock getServicePrice response - function selector: 0x5482bdf9
+      if (data.includes('5482bdf9') === true) {
+        const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18) // 2 USDFC per TiB per month
+        const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18) // 3 USDFC per TiB per month with CDN
+        const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' // USDFC on calibration
+        const epochsPerMonth = 86400n
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(uint256,uint256,address,uint256)'],
+          [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
+        )
+      }
       // Mock getRailsByPayer response - function selector: 0x89c6a46f
       if (data.includes('89c6a46f') === true) {
         // Return array of rail IDs
