@@ -152,7 +152,7 @@
 <body>
     <div class="container">
         <h1>PDP Tool Test Interface</h1>
-        
+
         <div class="form-group">
             <label>Network:</label>
             <div class="network-selector">
@@ -180,9 +180,9 @@
         </div>
 
         <div class="form-group">
-            <label for="recordKeeper">Record Keeper Contract:</label>
-            <input type="text" id="recordKeeper" value="0xD2669f81d5Af503a8C86b9FBF9b80d4572c13c04" />
-            <div class="help-text">Address of the SimplePDPServiceWithPayments contract</div>
+            <label for="pandoraAddress">Pandora Contract:</label>
+            <input type="text" id="pandoraAddress" value="0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5" />
+            <div class="help-text">Address of the Pandora service contract</div>
         </div>
 
         <!-- CREATE PROOF SET SECTION -->
@@ -197,8 +197,11 @@
 
             <div class="form-group">
                 <label for="clientDataSetId">Client Dataset ID:</label>
-                <input type="number" id="clientDataSetId" value="0" />
-                <div class="help-text">Unique identifier for your dataset (usually 0 for first dataset)</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="clientDataSetId" value="0" style="flex: 1;" />
+                    <button type="button" id="autoFillClientDataSetId" class="add-root-btn" disabled>Auto-fill</button>
+                </div>
+                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get next available ID)</div>
             </div>
 
             <div class="form-group">
@@ -213,6 +216,7 @@
             <div class="form-group">
                 <button id="createProofSetBtn" disabled>Create Proof Set</button>
                 <button id="checkStatusBtn" disabled>Check Status</button>
+                <button id="autoMonitorBtn" disabled style="background-color: #28a745;">Auto-Monitor</button>
             </div>
         </div>
 
@@ -221,21 +225,30 @@
             <h2>Add Roots to Proof Set</h2>
 
             <div class="form-group">
-                <label for="addRootsProofSetId">Proof Set ID:</label>
-                <input type="number" id="addRootsProofSetId" value="" />
-                <div class="help-text">ID of the existing proof set to add roots to</div>
+                <label for="pdpVerifierProofSetId">Proof Set ID:</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="pdpVerifierProofSetId" value="" style="flex: 1;" />
+                    <button type="button" id="discoverProofSets" class="add-root-btn" disabled>Discover</button>
+                </div>
+                <div class="help-text">Proof set ID to add roots to (click Discover to see your proof sets)</div>
             </div>
+
+            <!-- Hidden field for internal rail ID tracking -->
+            <input type="hidden" id="addRootsProofSetId" value="" />
 
             <div class="form-group">
                 <label for="addRootsClientDataSetId">Client Dataset ID:</label>
-                <input type="number" id="addRootsClientDataSetId" value="0" />
-                <div class="help-text">Unique identifier for your dataset (should match the proof set)</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="addRootsClientDataSetId" value="0" style="flex: 1;" />
+                    <button type="button" id="autoFillAddRootsInfo" class="add-root-btn" disabled>Auto-fill</button>
+                </div>
+                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from proof set)</div>
             </div>
 
             <div class="form-group">
                 <label for="nextRootId">Next Root ID:</label>
                 <input type="number" id="nextRootId" value="0" />
-                <div class="help-text">The next root ID for this proof set (usually starts at 0)</div>
+                <div class="help-text">The next root ID for this proof set (auto-filled when you select a proof set)</div>
             </div>
 
             <div class="form-group">
@@ -268,21 +281,21 @@
 
     <!-- Load ethers from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
-    
+
     <!-- Load Synapse SDK browser bundle -->
     <script src="../dist/browser/synapse-sdk.min.js"></script>
 
     <script>
         // The SDK is now available as window.SynapseSDK
-        const { PDPAuthHelper, PDPTool } = window.SynapseSDK;
-        
+        const { PDPAuthHelper, PDPTool, PDPService } = window.SynapseSDK;
+
         // Contract addresses for different networks
         const CONTRACT_ADDRESSES = {
             mainnet: {
                 pdpService: '0x1234567890123456789012345678901234567890' // Replace with actual mainnet address
             },
             calibration: {
-                pdpService: '0xD2669f81d5Af503a8C86b9FBF9b80d4572c13c04' // Your deployed contract
+                pdpService: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5' // Your deployed contract with proof sets
             }
         }
 
@@ -291,6 +304,7 @@
         let connectedSigner = null
         let connectedAddress = null
         let rootEntryCounter = 1
+        let pdpService = null
 
         // Network selection
         document.querySelectorAll('.network-option').forEach(option => {
@@ -303,8 +317,8 @@
         })
 
         function updateContractAddress() {
-            const recordKeeperInput = document.getElementById('recordKeeper')
-            recordKeeperInput.value = CONTRACT_ADDRESSES[currentNetwork].pdpService
+            const pandoraInput = document.getElementById('pandoraAddress')
+            pandoraInput.value = CONTRACT_ADDRESSES[currentNetwork].pdpService
         }
 
         // Root entry management
@@ -345,10 +359,10 @@
                 }
 
                 showStatus('Connecting to MetaMask...', 'info')
-                
+
                 // Request account access
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-                
+
                 if (accounts.length === 0) {
                     throw new Error('No accounts found. Please unlock MetaMask.')
                 }
@@ -361,7 +375,7 @@
                 // Check network
                 const network = await provider.getNetwork()
                 const expectedChainId = currentNetwork === 'mainnet' ? 314 : 314159
-                
+
                 if (Number(network.chainId) !== expectedChainId) {
                     showStatus(`Wrong network! Please switch to ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Testnet'} (Chain ID: ${expectedChainId})`, 'error')
                     return
@@ -373,6 +387,13 @@
                 document.getElementById('walletStatus').textContent = `Connected: ${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)} on ${currentNetwork === 'mainnet' ? 'Mainnet' : 'Calibration'}`
                 document.getElementById('createProofSetBtn').disabled = false
                 document.getElementById('addRootsBtn').disabled = false
+                document.getElementById('autoFillClientDataSetId').disabled = false
+                document.getElementById('discoverProofSets').disabled = false
+                document.getElementById('autoFillAddRootsInfo').disabled = false
+
+                // Create PDPService instance
+                const pandoraAddress = document.getElementById('pandoraAddress').value
+                pdpService = new PDPService(provider, pandoraAddress)
 
                 showStatus(`Successfully connected to MetaMask!
 Address: ${connectedAddress}
@@ -381,7 +402,7 @@ Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Test
             } catch (error) {
                 console.error('MetaMask connection error:', error)
                 showStatus(`Failed to connect to MetaMask: ${error.message}`, 'error')
-                
+
                 // Reset connection state
                 connectedSigner = null
                 connectedAddress = null
@@ -429,7 +450,7 @@ Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Test
 
         function validateInputs() {
             const pdpEndpoint = document.getElementById('pdpEndpoint').value
-            const recordKeeper = document.getElementById('recordKeeper').value
+            const pandoraAddress = document.getElementById('pandoraAddress').value
 
             if (!connectedSigner) {
                 throw new Error('Please connect your MetaMask wallet first')
@@ -439,33 +460,38 @@ Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Test
                 throw new Error('Please enter a valid PDP endpoint URL')
             }
 
-            if (!recordKeeper || !ethers.isAddress(recordKeeper)) {
-                throw new Error('Please enter a valid record keeper contract address')
+            if (!pandoraAddress || !ethers.isAddress(pandoraAddress)) {
+                throw new Error('Please enter a valid Pandora contract address')
             }
 
-            return { pdpEndpoint, recordKeeper }
+            return { pdpEndpoint, pandoraAddress }
         }
 
         function validateCreateProofSetInputs() {
-            const { pdpEndpoint, recordKeeper } = validateInputs()
+            const { pdpEndpoint, pandoraAddress } = validateInputs()
             const payee = document.getElementById('payee').value
 
             if (!payee || !ethers.isAddress(payee)) {
                 throw new Error('Please enter a valid storage provider address')
             }
 
-            return { pdpEndpoint, recordKeeper, payee }
+            return { pdpEndpoint, pandoraAddress, payee }
         }
 
         function validateAddRootsInputs() {
-            const { pdpEndpoint, recordKeeper } = validateInputs()
-            
-            const proofSetId = parseInt(document.getElementById('addRootsProofSetId').value)
+            const { pdpEndpoint, pandoraAddress } = validateInputs()
+
+            const railId = parseInt(document.getElementById('addRootsProofSetId').value)
+            const pdpVerifierProofSetId = parseInt(document.getElementById('pdpVerifierProofSetId').value)
             const clientDataSetId = parseInt(document.getElementById('addRootsClientDataSetId').value)
             const nextRootId = parseInt(document.getElementById('nextRootId').value)
 
-            if (isNaN(proofSetId) || proofSetId < 0) {
-                throw new Error('Please enter a valid proof set ID')
+            if (isNaN(railId) || railId < 0) {
+                throw new Error('Please enter a valid Pandora rail ID')
+            }
+
+            if (isNaN(pdpVerifierProofSetId) || pdpVerifierProofSetId < 0) {
+                throw new Error('Please enter a valid proof set ID (use Discover to auto-fill)')
             }
 
             if (isNaN(clientDataSetId) || clientDataSetId < 0) {
@@ -484,7 +510,7 @@ Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Test
                 const entry = rootEntries[i]
                 const cidInput = entry.querySelector('.root-cid')
                 const sizeInput = entry.querySelector('.root-size')
-                
+
                 const cid = cidInput.value.trim()
                 const rawSize = parseInt(sizeInput.value)
 
@@ -506,47 +532,51 @@ Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Test
                 throw new Error('Please add at least one root entry')
             }
 
-            return { pdpEndpoint, recordKeeper, proofSetId, clientDataSetId, nextRootId, rootDataArray }
+            return { pdpEndpoint, pandoraAddress, railId, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray }
         }
 
         // Create Proof Set functionality
         document.getElementById('createProofSetBtn').addEventListener('click', async () => {
             try {
                 showStatus('Validating inputs...', 'info')
-                
-                const { pdpEndpoint, recordKeeper, payee } = validateCreateProofSetInputs()
+
+                const { pdpEndpoint, pandoraAddress, payee } = validateCreateProofSetInputs()
                 const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value)
                 const withCDN = document.getElementById('withCDN').value === 'true'
-                
+
                 console.log('Creating proof set with:', {
                     clientDataSetId,
                     withCDN,
                     payee,
-                    recordKeeper
+                    pandoraAddress
                 })
 
                 showStatus('Creating PDP auth helper and tool...', 'info')
-                
+
                 // Create auth helper and PDP tool using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(recordKeeper, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
                 const pdpTool = new PDPTool(pdpEndpoint, authHelper)
 
                 showStatus('Signing and sending proof set creation...', 'info')
 
                 // Create proof set using the SDK's PDPTool
                 console.log('Calling pdpTool.createProofSet...')
-                const result = await pdpTool.createProofSet(clientDataSetId, payee, withCDN, recordKeeper)
+                const result = await pdpTool.createProofSet(clientDataSetId, payee, withCDN, pandoraAddress)
                 console.log('createProofSet result:', result)
-                
+
                 currentTxHash = result.txHash
                 document.getElementById('checkStatusBtn').disabled = false
-                
+                document.getElementById('autoMonitorBtn').disabled = false
+
                 showStatus(`Proof set creation submitted successfully!
 Transaction Hash: ${result.txHash}
 Status URL: ${result.statusUrl}
 
-You can now check the status to see when it's confirmed on-chain.`, 'success')
+Starting automatic monitoring...`, 'success')
+
+                // Automatically start monitoring the transaction
+                startStatusPolling()
 
             } catch (error) {
                 console.error('Error creating proof set:', error)
@@ -558,41 +588,36 @@ You can now check the status to see when it's confirmed on-chain.`, 'success')
         document.getElementById('addRootsBtn').addEventListener('click', async () => {
             try {
                 showStatus('Validating inputs...', 'info')
-                
-                const { pdpEndpoint, recordKeeper, proofSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
-                
+
+                const { pdpEndpoint, pandoraAddress, railId, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
+
                 console.log('Adding roots with:', {
-                    proofSetId,
+                    proofSetId: pdpVerifierProofSetId,
                     clientDataSetId,
                     nextRootId,
                     rootDataArray
                 })
 
                 showStatus('Creating PDP auth helper and tool...', 'info')
-                
+
                 // Create auth helper and PDP tool using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(recordKeeper, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
                 const pdpTool = new PDPTool(pdpEndpoint, authHelper)
 
                 showStatus('Signing and sending add roots request...', 'info')
 
-                // Add roots using the SDK's PDPTool
-                console.log('Calling pdpTool.addRoots with:', {
-                    proofSetId,
-                    clientDataSetId,
-                    nextRootId,
-                    rootDataArray
-                })
-                const result = await pdpTool.addRoots(proofSetId, clientDataSetId, nextRootId, rootDataArray)
+                // Add roots using the SDK's PDPTool (uses PDPVerifier proof set ID)
+                console.log('Calling pdpTool.addRoots with proof set ID:', pdpVerifierProofSetId)
+                const result = await pdpTool.addRoots(pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray)
                 console.log('addRoots result:', result)
-                
+
                 showStatus(`Roots added successfully!
 ${result.message}
 
-Roots added to proof set ID: ${proofSetId}
+Proof Set ID: ${pdpVerifierProofSetId}
 Total roots added: ${rootDataArray.length}
-Next root ID: ${nextRootId}`, 'success')
+Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
             } catch (error) {
                 console.error('Error adding roots:', error)
@@ -600,7 +625,7 @@ Next root ID: ${nextRootId}`, 'success')
             }
         })
 
-        // Check Status functionality
+        // Check Status functionality with comprehensive checking
         document.getElementById('checkStatusBtn').addEventListener('click', async () => {
             if (!currentTxHash) {
                 showStatus('No transaction hash available. Create a proof set first.', 'error')
@@ -608,36 +633,309 @@ Next root ID: ${nextRootId}`, 'success')
             }
 
             try {
-                showStatus('Checking proof set creation status...', 'info')
-                
-                const { pdpEndpoint } = validateInputs()
-                
+                showStatus('Checking comprehensive proof set creation status...', 'info')
+
+                const { pdpEndpoint, pandoraAddress } = validateInputs()
+
                 // We don't need the full auth setup just to check status
                 const dummyWallet = ethers.Wallet.createRandom()
                 const authHelper = new PDPAuthHelper('0x0000000000000000000000000000000000000000', dummyWallet, 314159)
                 const pdpTool = new PDPTool(pdpEndpoint, authHelper)
 
-                const status = await pdpTool.getProofSetCreationStatus(currentTxHash)
-                
-                const statusMessage = `Proof Set Creation Status:
-Transaction Hash: ${status.createMessageHash}
-Transaction Status: ${status.txStatus}
-Proof Set Created: ${status.proofsetCreated}
-Success: ${status.ok === null ? 'Pending' : status.ok}
-Service: ${status.service}
-${status.proofSetId ? `Proof Set ID: ${status.proofSetId}` : ''}`
+                // Get comprehensive status combining PDP server and chain verification
+                const provider = new ethers.JsonRpcProvider(
+                    currentNetwork === 'mainnet'
+                        ? 'https://api.node.glif.io/rpc/v1'
+                        : 'https://api.calibration.node.glif.io/rpc/v1'
+                )
 
-                const statusType = status.ok === false ? 'error' : status.proofsetCreated ? 'success' : 'info'
+                const comprehensiveStatus = await pdpTool.getComprehensiveProofSetStatus(
+                    currentTxHash,
+                    pandoraAddress,
+                    provider
+                )
+
+                // Build detailed status message
+                let statusMessage = `🔍 Comprehensive Proof Set Status:\n\n`
+
+                // Overall status (most important)
+                statusMessage += `📊 Overall Status: ${comprehensiveStatus.overall.summary}\n`
+                if (comprehensiveStatus.overall.nextAction) {
+                    statusMessage += `💡 Next Action: ${comprehensiveStatus.overall.nextAction}\n`
+                }
+                statusMessage += `\n`
+
+                // Chain verification details
+                const chain = comprehensiveStatus.chainVerification
+                statusMessage += `⛓️ On-Chain Verification:\n`
+                statusMessage += `  • Transaction Mined: ${chain.transactionMined ? '✅' : '⏳'}\n`
+                if (chain.transactionMined) {
+                    statusMessage += `  • Transaction Success: ${chain.transactionSuccess ? '✅' : '❌'}\n`
+                    statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
+                    statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
+                }
+                if (chain.proofSetId != null) {
+                    statusMessage += `  • Proof Set ID: ${chain.proofSetId}\n`
+                    statusMessage += `  • Proof Set Live: ${chain.proofSetLive ? '✅' : '❌'}\n`
+                }
+                if (chain.error) {
+                    statusMessage += `  • Error: ${chain.error}\n`
+                }
+                statusMessage += `\n`
+
+                // PDP server status details (if available)
+                if (comprehensiveStatus.curioStatus) {
+                    const pdpServer = comprehensiveStatus.curioStatus
+                    statusMessage += `🖥️ PDP Server Status:\n`
+                    statusMessage += `  • Service: ${pdpServer.service}\n`
+                    statusMessage += `  • TX Status: ${pdpServer.txStatus}\n`
+                    statusMessage += `  • Success: ${pdpServer.ok === null ? 'Pending' : (pdpServer.ok ? '✅' : '❌')}\n`
+                    statusMessage += `  • Proof Set Created: ${pdpServer.proofsetCreated ? '✅' : '❌'}\n`
+                    if (pdpServer.proofSetId) {
+                        statusMessage += `  • Server Proof Set ID: ${pdpServer.proofSetId}\n`
+                    }
+                } else {
+                    statusMessage += `🖥️ PDP Server Status: Not available (using chain verification only)\n`
+                }
+
+                // Determine status type based on overall assessment
+                const statusType = comprehensiveStatus.overall.hasIssues
+                    ? (comprehensiveStatus.overall.isComplete ? 'error' : 'info')
+                    : (comprehensiveStatus.overall.isComplete ? 'success' : 'info')
+
                 showStatus(statusMessage, statusType)
 
                 // Auto-populate proof set ID for add roots if creation succeeded
-                if (status.proofsetCreated && status.proofSetId) {
-                    document.getElementById('addRootsProofSetId').value = status.proofSetId
+                if (chain.proofSetLive && chain.proofSetId != null) {
+                    document.getElementById('addRootsProofSetId').value = chain.proofSetId
+                    showStatus(statusMessage + `\n✨ Auto-populated proof set ID ${chain.proofSetId} for adding roots!`, statusType)
                 }
 
             } catch (error) {
-                console.error('Error checking status:', error)
+                console.error('Error checking comprehensive status:', error)
                 showStatus(`Error checking status: ${error.message}`, 'error')
+            }
+        })
+
+        // Auto-polling status checker for active transactions
+        let statusPollingInterval = null
+
+        function startStatusPolling() {
+            if (!currentTxHash || statusPollingInterval) return
+
+            showStatus('Starting automatic status monitoring...', 'info')
+            updateMonitoringUI(true)
+
+            statusPollingInterval = setInterval(async () => {
+                try {
+                    const { pdpEndpoint, pandoraAddress } = validateInputs()
+                    const dummyWallet = ethers.Wallet.createRandom()
+                    const authHelper = new PDPAuthHelper('0x0000000000000000000000000000000000000000', dummyWallet, 314159)
+                    const pdpTool = new PDPTool(pdpEndpoint, authHelper)
+
+                    const provider = new ethers.JsonRpcProvider(
+                        currentNetwork === 'mainnet'
+                            ? 'https://api.node.glif.io/rpc/v1'
+                            : 'https://api.calibration.node.glif.io/rpc/v1'
+                    )
+
+                    const status = await pdpTool.getComprehensiveProofSetStatus(
+                        currentTxHash,
+                        pandoraAddress,
+                        provider
+                    )
+
+                    // Update UI with current status
+                    const shortStatus = `🔄 Auto-monitoring: ${status.overall.summary}`
+                    const statusElement = document.getElementById('status')
+                    if (statusElement.textContent.includes('Auto-monitoring')) {
+                        statusElement.textContent = shortStatus
+                    }
+
+                    // Stop polling if complete
+                    if (status.overall.isComplete) {
+                        stopStatusPolling()
+
+                        // Trigger full status display
+                        document.getElementById('checkStatusBtn').click()
+                    }
+
+                } catch (error) {
+                    console.error('Auto-polling error:', error)
+                    // Don't stop polling on errors - network might be temporary
+                }
+            }, 3000) // Poll every 3 seconds
+        }
+
+        function stopStatusPolling() {
+            if (statusPollingInterval) {
+                clearInterval(statusPollingInterval)
+                statusPollingInterval = null
+                updateMonitoringUI(false)
+            }
+        }
+
+        function updateMonitoringUI(isMonitoring) {
+            const autoMonitorBtn = document.getElementById('autoMonitorBtn')
+            if (isMonitoring) {
+                autoMonitorBtn.textContent = 'Stop Monitoring'
+                autoMonitorBtn.style.backgroundColor = '#dc3545' // Red
+            } else {
+                autoMonitorBtn.textContent = 'Auto-Monitor'
+                autoMonitorBtn.style.backgroundColor = '#28a745' // Green
+            }
+        }
+
+        // Auto-monitor button handler
+        document.getElementById('autoMonitorBtn').addEventListener('click', () => {
+            if (statusPollingInterval) {
+                // Currently monitoring - stop it
+                stopStatusPolling()
+                showStatus('Stopped automatic monitoring', 'info')
+            } else {
+                // Not monitoring - start it
+                if (!currentTxHash) {
+                    showStatus('No transaction to monitor. Create a proof set first.', 'error')
+                    return
+                }
+                startStatusPolling()
+                updateMonitoringUI(true)
+            }
+        })
+
+        // Discovery button handlers
+        document.getElementById('autoFillClientDataSetId').addEventListener('click', async () => {
+            try {
+                if (!pdpService || !connectedAddress) {
+                    showStatus('Please connect your wallet first', 'error')
+                    return
+                }
+
+                showStatus('Getting next available client dataset ID...', 'info')
+                const nextId = await pdpService.getNextClientDataSetId(connectedAddress)
+                document.getElementById('clientDataSetId').value = nextId
+                showStatus(`Next client dataset ID: ${nextId}`, 'success')
+            } catch (error) {
+                console.error('Error getting next client dataset ID:', error)
+                showStatus(`Error: ${error.message}`, 'error')
+            }
+        })
+
+        document.getElementById('discoverProofSets').addEventListener('click', async () => {
+            try {
+                if (!pdpService || !connectedAddress) {
+                    showStatus('Please connect your wallet first', 'error')
+                    return
+                }
+
+                showStatus('Discovering your proof sets with detailed information...', 'info')
+                const proofSetsWithDetails = await pdpService.getClientProofSetsWithDetails(connectedAddress)
+                const managedProofSets = await pdpService.getManagedProofSets(connectedAddress)
+
+                if (proofSetsWithDetails.length === 0) {
+                    showStatus('No proof sets found for your address in this Pandora contract', 'info')
+                    return
+                }
+
+                // Get unmanaged proof sets (those from other Pandora contracts)
+                const unmanagedProofSets = proofSetsWithDetails.filter(ps => !ps.isManaged)
+
+                let message = `Found ${proofSetsWithDetails.length} proof set(s) total:\n\n`
+
+                if (managedProofSets.length > 0) {
+                    message += `✅ YOUR PROOF SETS (${managedProofSets.length}):\n\n`
+                    managedProofSets.forEach((ps, index) => {
+                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                        message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'}\n`
+                        message += `   Current Roots: ${ps.currentRootCount}\n`
+                        message += `   Next Root ID: ${ps.nextRootId}\n`
+                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n`
+                        message += `   Commission: ${ps.commissionBps / 100}%\n\n`
+                    })
+                }
+
+                if (unmanagedProofSets.length > 0) {
+                    message += `⚠️ OTHER PROOF SETS (${unmanagedProofSets.length}):\n\n`
+                    unmanagedProofSets.forEach((ps, index) => {
+                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                        message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'} - Cannot manage from this interface\n`
+                        message += `   Current Roots: ${ps.currentRootCount}\n`
+                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n\n`
+                    })
+                }
+
+                if (managedProofSets.length > 0) {
+                    message += '✨ Auto-selected the first managed proof set for adding roots.'
+                } else {
+                    message += '❌ No proof sets managed by this Pandora contract. You cannot add roots from this interface.'
+                }
+
+                showStatus(message, managedProofSets.length > 0 ? 'success' : 'info')
+
+                // Auto-populate the first MANAGED proof set if found
+                if (managedProofSets.length > 0) {
+                    const firstManaged = managedProofSets[0]
+                    // Store rail ID internally for API calls
+                    document.getElementById('addRootsProofSetId').value = firstManaged.railId
+                    // Show PDPVerifier proof set ID to user
+                    document.getElementById('pdpVerifierProofSetId').value = firstManaged.pdpVerifierProofSetId
+                    document.getElementById('addRootsClientDataSetId').value = firstManaged.clientDataSetId
+                    document.getElementById('nextRootId').value = firstManaged.nextRootId
+                } else {
+                    // Clear the fields if no managed proof sets
+                    document.getElementById('addRootsProofSetId').value = ''
+                    document.getElementById('pdpVerifierProofSetId').value = ''
+                    document.getElementById('addRootsClientDataSetId').value = ''
+                    document.getElementById('nextRootId').value = ''
+                }
+            } catch (error) {
+                console.error('Error discovering proof sets:', error)
+                showStatus(`Error: ${error.message}`, 'error')
+            }
+        })
+
+        document.getElementById('autoFillAddRootsInfo').addEventListener('click', async () => {
+            try {
+                if (!pdpService) {
+                    showStatus('Please connect your wallet first', 'error')
+                    return
+                }
+
+                const railId = parseInt(document.getElementById('addRootsProofSetId').value)
+                if (isNaN(railId) || railId < 0) {
+                    showStatus('Please enter a valid Pandora rail ID first', 'error')
+                    return
+                }
+
+                showStatus('Getting add roots information...', 'info')
+                const addRootsInfo = await pdpService.getAddRootsInfo(railId)
+
+                // Also get the PDPVerifier proof set ID
+                const pandoraContract = new ethers.Contract(
+                    document.getElementById('pandoraAddress').value,
+                    window.SynapseSDK.CONTRACT_ABIS.PANDORA_SERVICE,
+                    new ethers.JsonRpcProvider(
+                        currentNetwork === 'mainnet'
+                            ? 'https://api.node.glif.io/rpc/v1'
+                            : 'https://api.calibration.node.glif.io/rpc/v1'
+                    )
+                )
+                const pdpVerifierProofSetId = await pandoraContract.railToProofSet(railId)
+
+                document.getElementById('pdpVerifierProofSetId').value = Number(pdpVerifierProofSetId)
+                document.getElementById('addRootsClientDataSetId').value = addRootsInfo.clientDataSetId
+                document.getElementById('nextRootId').value = addRootsInfo.nextRootId
+
+                showStatus(`Auto-filled:
+Proof Set ID: ${Number(pdpVerifierProofSetId)}
+Client Dataset ID: ${addRootsInfo.clientDataSetId}
+Next Root ID: ${addRootsInfo.nextRootId}
+Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
+            } catch (error) {
+                console.error('Error getting add roots info:', error)
+                showStatus(`Error: ${error.message}`, 'error')
             }
         })
 

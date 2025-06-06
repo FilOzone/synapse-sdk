@@ -31,6 +31,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [CommP Utilities](#commp-utilities)
   * [PDP Auth Helper](#pdp-auth-helper)
   * [PDP Tool](#pdp-tool)
+  * [PDP Service](#pdp-service)
   * [PDP Upload Service](#pdp-upload-service)
   * [PDP Download Service](#pdp-download-service)
   * [Storage Service (Mock)](#storage-service-mock)
@@ -331,9 +332,84 @@ console.log(result.message) // Server response message
 - **Methods**:
   - `createProofSet(clientDataSetId, payee, withCDN, recordKeeper)`: Create a new proof set
   - `getProofSetCreationStatus(txHash)`: Check creation status by transaction hash
+  - `getComprehensiveProofSetStatus(txHash, pandoraAddress, provider)`: Get comprehensive status combining PDP server and chain verification
+  - `waitForProofSetCreationWithStatus(txHash, pandoraAddress, provider, onStatusUpdate?, timeoutMs?, pollIntervalMs?)`: Wait for proof set creation with status updates
   - `addRoots(proofSetId, clientDataSetId, nextRootId, rootData[])`: Add roots to proof set
   - `getApiEndpoint()`: Get the API endpoint
   - `getPDPAuthHelper()`: Get the PDPAuthHelper instance
+
+### PDP Service
+
+Query and manage proof sets without payment operations. Useful for discovering proof sets, checking their status, and getting information needed for adding roots.
+
+```javascript
+import { PDPService } from '@filoz/synapse-sdk/pdp'
+import { ethers } from 'ethers'
+
+// Create PDP Service instance
+const provider = new ethers.JsonRpcProvider(RPC_URLS.calibration.http)
+const pdpService = new PDPService(provider, pandoraAddress)
+
+// Get all proof sets for a client
+const proofSets = await pdpService.getClientProofSets(clientAddress)
+console.log(`Client has ${proofSets.length} proof sets`)
+
+// Get enhanced proof set details with management status
+const detailedProofSets = await pdpService.getClientProofSetsWithDetails(clientAddress)
+for (const ps of detailedProofSets) {
+  console.log(`Proof Set ID: ${ps.pdpVerifierProofSetId}`)
+  console.log(`  Rail ID: ${ps.railId}`)
+  console.log(`  Is Managed by this Pandora: ${ps.isManaged}`)
+  console.log(`  Is Live: ${ps.isLive}`)
+  console.log(`  Current Roots: ${ps.currentRootCount}`)
+  console.log(`  Next Root ID: ${ps.nextRootId}`)
+}
+
+// Get only proof sets managed by the current Pandora contract
+const managedProofSets = await pdpService.getManagedProofSets(clientAddress)
+console.log(`Found ${managedProofSets.length} managed proof sets`)
+
+// Get information needed to add roots to a proof set
+const addRootsInfo = await pdpService.getAddRootsInfo(railId)
+console.log(`Next Root ID: ${addRootsInfo.nextRootId}`)
+console.log(`Client Dataset ID: ${addRootsInfo.clientDataSetId}`)
+
+// Get next client dataset ID for creating new proof sets
+const nextDatasetId = await pdpService.getNextClientDataSetId(clientAddress)
+console.log(`Next dataset ID will be: ${nextDatasetId}`)
+
+// Find recent proof set creations
+const recentCreations = await pdpService.findRecentProofSetCreations(clientAddress)
+for (const creation of recentCreations) {
+  console.log(`Proof Set ${creation.proofSetId} created in tx ${creation.txHash}`)
+}
+
+// Verify and wait for proof set creation
+const verification = await pdpService.verifyProofSetCreation(txHash)
+if (verification.proofSetLive) {
+  console.log(`Proof set ${verification.proofSetId} is live!`)
+}
+
+// Wait for proof set to be created and live on-chain
+const result = await pdpService.waitForProofSetCreation(txHash)
+console.log(`Proof set ${result.proofSetId} is now live`)
+```
+
+#### PDPService API
+
+- **Constructor**: `new PDPService(provider, pandoraAddress)`
+  - `provider`: Ethers provider instance
+  - `pandoraAddress`: Address of the Pandora service contract
+- **Methods**:
+  - `getClientProofSets(clientAddress)`: Get all proof sets for a client
+  - `getClientProofSetsWithDetails(clientAddress, onlyManaged?)`: Get proof sets with enhanced details and management status
+  - `getManagedProofSets(clientAddress)`: Get only proof sets managed by this Pandora contract
+  - `getAddRootsInfo(railId)`: Get information needed to add roots (next root ID, client dataset ID)
+  - `getNextClientDataSetId(clientAddress)`: Get the next dataset ID that will be assigned
+  - `findRecentProofSetCreations(clientAddress, fromBlock?)`: Find recent proof set creation events
+  - `verifyProofSetCreation(txHash)`: Verify a proof set creation transaction
+  - `waitForProofSetCreation(txHash, timeoutMs?, pollIntervalMs?)`: Wait for proof set to be created and live
+  - `getPandoraAddress()`: Get the Pandora contract address
 
 ### PDP Upload Service
 

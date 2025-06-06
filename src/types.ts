@@ -147,7 +147,7 @@ export interface RootData {
  * Proof set information returned from Pandora contract
  */
 export interface ProofSetInfo {
-  /** ID of the payment rail */
+  /** Pandora payment rail ID (different from PDPVerifier proof set ID) */
   railId: number
   /** Address paying for storage */
   payer: string
@@ -159,8 +159,24 @@ export interface ProofSetInfo {
   metadata: string
   /** Array of metadata for each root */
   rootMetadata: string[]
-  /** Client's dataset ID */
+  /** Client's sequential dataset ID within this Pandora contract */
   clientDataSetId: number
   /** Whether the proof set is using CDN */
   withCDN: boolean
+}
+
+/**
+ * Enhanced proof set information with chain details and clear ID separation
+ */
+export interface EnhancedProofSetInfo extends ProofSetInfo {
+  /** PDPVerifier global proof set ID (what Curio uses internally) */
+  pdpVerifierProofSetId: number
+  /** Next root ID to use when adding roots */
+  nextRootId: number
+  /** Current number of roots in the proof set */
+  currentRootCount: number
+  /** Whether the proof set is live on-chain */
+  isLive: boolean
+  /** Whether this proof set is managed by the current Pandora contract */
+  isManaged: boolean
 }

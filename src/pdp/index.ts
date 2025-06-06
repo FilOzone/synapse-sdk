@@ -7,3 +7,4 @@ export type { CreateProofSetResponse, ProofSetCreationStatusResponse, AddRootsRe
 export { StorageProviderTool } from './storage-provider.js'
 export type { ApprovedProviderInfo, PendingProviderInfo } from './storage-provider.js'
 export { PDPService } from './service.js'
+export type { ProofSetCreationInfo, AddRootsInfo } from './service.js'

@@ -5,7 +5,9 @@
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
 import type { RootData } from '../types.js'
+import type { ProofSetCreationVerification } from './service.js'
 import { asCommP } from '../commp/index.js'
+import { PDPService } from './service.js'
 
 /**
  * Response from creating a proof set
@@ -41,6 +43,27 @@ export interface ProofSetCreationStatusResponse {
 export interface AddRootsResponse {
   /** Success message from the server */
   message: string
+}
+
+/**
+ * Comprehensive proof set creation status combining PDP server and chain verification
+ */
+export interface ComprehensiveProofSetStatus {
+  /** Status from PDP server (if available) */
+  curioStatus?: ProofSetCreationStatusResponse
+  /** Chain verification result */
+  chainVerification: ProofSetCreationVerification
+  /** Overall status assessment */
+  overall: {
+    /** Whether proof set creation is complete and verified */
+    isComplete: boolean
+    /** Whether there are any issues detected */
+    hasIssues: boolean
+    /** Human-readable status summary */
+    summary: string
+    /** Recommended next action */
+    nextAction?: string
+  }
 }
 
 // Note: We use RootData from types.ts for the public API
@@ -158,6 +181,154 @@ export class PDPTool {
     }
 
     return await response.json() as ProofSetCreationStatusResponse
+  }
+
+  /**
+   * Get comprehensive proof set creation status combining PDP server and chain verification
+   * This provides the most complete picture of proof set creation status
+   * @param txHash - Transaction hash from createProofSet
+   * @param pandoraAddress - Pandora contract address for chain verification
+   * @param provider - Ethers provider for chain queries
+   * @returns Promise that resolves with comprehensive status information
+   */
+  async getComprehensiveProofSetStatus (
+    txHash: string,
+    pandoraAddress: string,
+    provider: ethers.Provider
+  ): Promise<ComprehensiveProofSetStatus> {
+    // Get chain verification first (this is most reliable)
+    const pdpService = new PDPService(provider, pandoraAddress)
+    const chainVerification = await pdpService.verifyProofSetCreation(txHash)
+
+    // Try to get PDP server status (may fail if server is unavailable)
+    let pdpServerStatus: ProofSetCreationStatusResponse | undefined
+    try {
+      pdpServerStatus = await this.getProofSetCreationStatus(txHash)
+    } catch (error) {
+      // PDP server status is optional - chain verification is primary
+      console.warn('Could not get PDP server status:', error)
+    }
+
+    // Analyze overall status
+    const overall = this._analyzeOverallStatus(chainVerification, pdpServerStatus)
+
+    return {
+      curioStatus: pdpServerStatus,
+      chainVerification,
+      overall
+    }
+  }
+
+  /**
+   * Wait for proof set creation to complete with comprehensive status updates
+   * @param txHash - Transaction hash from createProofSet
+   * @param pandoraAddress - Pandora contract address for chain verification
+   * @param provider - Ethers provider for chain queries
+   * @param onStatusUpdate - Callback for status updates during polling
+   * @param timeoutMs - Maximum time to wait in milliseconds (default: 5 minutes)
+   * @param pollIntervalMs - How often to check in milliseconds (default: 3 seconds)
+   * @returns Promise that resolves when proof set is confirmed
+   */
+  async waitForProofSetCreationWithStatus (
+    txHash: string,
+    pandoraAddress: string,
+    provider: ethers.Provider,
+    onStatusUpdate?: (status: ComprehensiveProofSetStatus) => void,
+    timeoutMs: number = 300000,
+    pollIntervalMs: number = 3000
+  ): Promise<ComprehensiveProofSetStatus> {
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < timeoutMs) {
+      const status = await this.getComprehensiveProofSetStatus(txHash, pandoraAddress, provider)
+
+      // Call status update callback if provided
+      if (onStatusUpdate != null) {
+        onStatusUpdate(status)
+      }
+
+      // Return if complete (either success or failure)
+      if (status.overall.isComplete) {
+        return status
+      }
+
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
+    }
+
+    // Timeout - get final status
+    const finalStatus = await this.getComprehensiveProofSetStatus(txHash, pandoraAddress, provider)
+    finalStatus.overall.summary += ' (Timeout reached)'
+    finalStatus.overall.hasIssues = true
+
+    return finalStatus
+  }
+
+  /**
+   * Analyze overall status from chain and PDP server data
+   */
+  private _analyzeOverallStatus (
+    chain: ProofSetCreationVerification,
+    pdpServer?: ProofSetCreationStatusResponse
+  ): ComprehensiveProofSetStatus['overall'] {
+    // Transaction not yet mined
+    if (!chain.transactionMined) {
+      return {
+        isComplete: false,
+        hasIssues: false,
+        summary: 'Transaction pending - waiting for confirmation on-chain',
+        nextAction: 'Wait for transaction to be mined (this may take 30s-2min on Filecoin)'
+      }
+    }
+
+    // Transaction failed
+    if (chain.transactionMined && !chain.transactionSuccess) {
+      return {
+        isComplete: true,
+        hasIssues: true,
+        summary: `Transaction failed: ${chain.error ?? 'Unknown error'}`,
+        nextAction: 'Check transaction details and retry proof set creation'
+      }
+    }
+
+    // Transaction succeeded but no proof set ID found
+    if (chain.transactionSuccess && chain.proofSetId == null) {
+      return {
+        isComplete: true,
+        hasIssues: true,
+        summary: `Transaction succeeded but no proof set was created: ${chain.error ?? 'ProofSetCreated event not found'}`,
+        nextAction: 'Check transaction logs or contact support'
+      }
+    }
+
+    // Transaction succeeded, proof set created, but not live
+    if (chain.transactionSuccess && chain.proofSetId != null && !chain.proofSetLive) {
+      return {
+        isComplete: false,
+        hasIssues: true,
+        summary: `Proof set ${chain.proofSetId} was created but is not live on-chain`,
+        nextAction: 'Wait a few more seconds or check proof set status manually'
+      }
+    }
+
+    // Full success!
+    if (chain.transactionSuccess && chain.proofSetId != null && chain.proofSetLive) {
+      const blockInfo = chain.blockNumber != null ? ` (block ${chain.blockNumber})` : ''
+      return {
+        isComplete: true,
+        hasIssues: false,
+        summary: `Proof set ${chain.proofSetId} successfully created and is live${blockInfo}`,
+        nextAction: 'You can now add roots to this proof set'
+      }
+    }
+
+    // Shouldn't reach here, but handle unknown state
+    return {
+      isComplete: false,
+      hasIssues: true,
+      summary: 'Unknown status - unable to determine proof set creation state',
+      nextAction: 'Try checking status again or contact support'
+    }
   }
 
   /**

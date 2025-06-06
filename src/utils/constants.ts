@@ -71,7 +71,28 @@ export const CONTRACT_ABIS = {
     'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
 
     // Proof set functions
-    'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])'
+    'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])',
+
+    // Client dataset ID counter
+    'function clientDataSetIDs(address client) external view returns (uint256)',
+
+    // Mapping from rail ID to PDPVerifier proof set ID
+    'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
+
+    // Get proof set info by rail ID
+    'function proofSetInfo(uint256 railId) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN))'
+  ] as const,
+
+  /**
+   * PDPVerifier contract ABI - core PDP verification functions
+   */
+  PDP_VERIFIER: [
+    'function getNextRootId(uint256 setId) public view returns (uint256)',
+    'function proofSetLive(uint256 setId) public view returns (bool)',
+    'function getProofSetLeafCount(uint256 setId) public view returns (uint256)',
+    'function getProofSetOwner(uint256 setId) public view returns (address owner, address proposedOwner)',
+    'function getProofSetListener(uint256 setId) public view returns (address)',
+    'event ProofSetCreated(uint256 indexed setId, address indexed owner)'
   ] as const
 } as const
 
@@ -160,5 +181,13 @@ export const CONTRACT_ADDRESSES = {
   PANDORA_SERVICE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
+  } as const,
+
+  /**
+   * PDPVerifier contract addresses
+   */
+  PDP_VERIFIER: {
+    mainnet: '', // TODO: Get actual mainnet address from deployment
+    calibration: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
   } as const
 } as const
