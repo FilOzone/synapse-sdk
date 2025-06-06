@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proof Sets Viewer - Synapse SDK</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #1976D2;
+        }
+        .error {
+            color: #f44336;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #4CAF50;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: inline-block;
+            width: 180px;
+            font-weight: bold;
+        }
+        .input-group input {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 400px;
+            font-family: monospace;
+        }
+        .proof-sets-container {
+            margin-top: 20px;
+        }
+        .proof-set {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .proof-set.not-managed {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        .proof-set h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .proof-set-detail {
+            margin: 5px 0;
+        }
+        .proof-set-detail label {
+            font-weight: bold;
+            display: inline-block;
+            width: 200px;
+        }
+        .proof-set-detail .value {
+            font-family: monospace;
+            color: #666;
+        }
+        .metadata-list {
+            margin-left: 200px;
+            padding: 5px;
+            background: #e9ecef;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .no-proof-sets {
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+        .loading {
+            color: #666;
+            padding: 20px;
+            text-align: center;
+        }
+        .address-display {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-badge.live {
+            background: #4CAF50;
+            color: white;
+        }
+        .status-badge.not-live {
+            background: #f44336;
+            color: white;
+        }
+        .status-badge.managed {
+            background: #2196F3;
+            color: white;
+        }
+        .status-badge.not-managed {
+            background: #ff9800;
+            color: white;
+        }
+        .roots-section {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        .root-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .expandable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .expandable:hover {
+            background: #e8e8e8;
+        }
+        .root-details {
+            display: none;
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .root-details.expanded {
+            display: block;
+        }
+        .proof-set-id {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2196F3;
+            font-family: monospace;
+        }
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Proof Sets Viewer</h1>
+    
+    <div class="status">
+        <strong>Status:</strong> <span id="status">Not connected</span><br>
+        <strong>Wallet:</strong> <span id="wallet">None</span><br>
+        <strong>Network:</strong> <span id="network">None</span>
+    </div>
+
+    <div class="section">
+        <h2>Connection</h2>
+        <button id="connectBtn">Connect MetaMask</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>View Proof Sets</h2>
+        <div class="input-group">
+            <label>Pandora Contract:</label>
+            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5" style="width: 500px;">
+        </div>
+        <div class="input-group">
+            <label>Client Address:</label>
+            <input type="text" id="clientAddressInput" placeholder="0x... (leave empty for connected wallet)">
+        </div>
+        <button id="reconnectBtn" disabled>Reconnect with Selected Pandora</button>
+        <button id="getProofSetsBtn" disabled>Get Proof Sets</button>
+        <button id="getMyProofSetsBtn" disabled>Get My Proof Sets</button>
+        
+        <div id="proofSetsSummary" style="margin-top: 20px;"></div>
+        <div id="proofSetsResult" class="proof-sets-container"></div>
+    </div>
+
+    <!-- Load ethers.js first -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+    <!-- Load Synapse SDK browser bundle -->
+    <script src="../dist/browser/synapse-sdk.min.js"></script>
+    
+    <script>
+        let synapse = null;
+        let pdpService = null;
+        let connectedAddress = null;
+        let provider = null;
+
+        // Show result in a div
+        function showResult(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            if (isError) {
+                element.innerHTML = `<div class="error">${content}</div>`;
+            } else {
+                element.innerHTML = content;
+            }
+        }
+
+        // Update status
+        function updateStatus(message, wallet = null, network = null) {
+            document.getElementById('status').textContent = message;
+            if (wallet) document.getElementById('wallet').textContent = wallet;
+            if (network) document.getElementById('network').textContent = network;
+        }
+
+        // Enable buttons
+        function enableButtons() {
+            document.querySelectorAll('button:not(#connectBtn)').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        // Format address
+        function formatAddress(address) {
+            return `<span class="address-display">${address}</span>`;
+        }
+
+        // Get root details for a proof set
+        async function getRootDetails(proofSetId) {
+            try {
+                // This is a placeholder - in reality, you'd need to query PDPVerifier events
+                // or have a backend service that indexes root data
+                // For now, we'll show what info we have
+                const rootCount = await getNextRootId(proofSetId);
+                return {
+                    count: rootCount,
+                    details: `${rootCount} root(s) added to this proof set`
+                };
+            } catch (error) {
+                console.error('Error getting root details:', error);
+                return { count: 0, details: 'Unable to fetch root details' };
+            }
+        }
+
+        // Get next root ID (which is the count of roots)
+        async function getNextRootId(proofSetId) {
+            try {
+                const network = await provider.getNetwork();
+                const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
+                const pdpVerifierAddress = SynapseSDK.CONTRACT_ADDRESSES.PDP_VERIFIER[networkName];
+                
+                const pdpVerifier = new ethers.Contract(
+                    pdpVerifierAddress,
+                    ['function getNextRootId(uint256) view returns (uint256)'],
+                    provider
+                );
+                
+                const nextRootId = await pdpVerifier.getNextRootId(proofSetId);
+                return Number(nextRootId);
+            } catch (error) {
+                console.error('Error getting next root ID:', error);
+                return 0;
+            }
+        }
+
+        // Display enhanced proof sets
+        async function displayEnhancedProofSets(proofSets, clientAddress) {
+            if (proofSets.length === 0) {
+                return `<div class="no-proof-sets">No proof sets found for ${formatAddress(clientAddress)}</div>`;
+            }
+
+            // Calculate summary statistics
+            const totalProofSets = proofSets.length;
+            const managedProofSets = proofSets.filter(ps => ps.isManaged).length;
+            const liveProofSets = proofSets.filter(ps => ps.isLive).length;
+            const totalRoots = proofSets.reduce((sum, ps) => sum + ps.currentRootCount, 0);
+
+            let summaryHtml = `
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <h4>Total Proof Sets</h4>
+                        <div class="value">${totalProofSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Managed by This Pandora</h4>
+                        <div class="value">${managedProofSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Live Proof Sets</h4>
+                        <div class="value">${liveProofSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Total Roots</h4>
+                        <div class="value">${totalRoots}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('proofSetsSummary').innerHTML = summaryHtml;
+
+            let html = `<h3>Proof Sets for ${formatAddress(clientAddress)}</h3>`;
+            
+            for (let index = 0; index < proofSets.length; index++) {
+                const proofSet = proofSets[index];
+                const commissionPercent = (proofSet.commissionBps / 100).toFixed(2);
+                
+                // Determine proof set class based on management status
+                const proofSetClass = proofSet.isManaged ? 'proof-set' : 'proof-set not-managed';
+                
+                html += `
+                    <div class="${proofSetClass}">
+                        <h3>
+                            Proof Set ID: <span class="proof-set-id">${proofSet.pdpVerifierProofSetId}</span>
+                            <span class="status-badge ${proofSet.isLive ? 'live' : 'not-live'}">${proofSet.isLive ? 'LIVE' : 'NOT LIVE'}</span>
+                            <span class="status-badge ${proofSet.isManaged ? 'managed' : 'not-managed'}">${proofSet.isManaged ? 'MANAGED' : 'UNMANAGED'}</span>
+                        </h3>
+                        
+                        <div class="proof-set-detail">
+                            <label>Client Dataset ID:</label>
+                            <span class="value">${proofSet.clientDataSetId}</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>Pandora Rail ID:</label>
+                            <span class="value">${proofSet.railId} (internal)</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>Client (Payer):</label>
+                            <span class="value">${formatAddress(proofSet.payer)}</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>Storage Provider:</label>
+                            <span class="value">${formatAddress(proofSet.payee)}</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>Commission:</label>
+                            <span class="value">${commissionPercent}% (${proofSet.commissionBps} bps)</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>CDN Enabled:</label>
+                            <span class="value">${proofSet.withCDN ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="proof-set-detail">
+                            <label>Metadata:</label>
+                            <span class="value">${proofSet.metadata || '(empty)'}</span>
+                        </div>
+                        
+                        <div class="roots-section">
+                            <h4>Roots Information</h4>
+                            <div class="proof-set-detail">
+                                <label>Current Root Count:</label>
+                                <span class="value">${proofSet.currentRootCount}</span>
+                            </div>
+                            <div class="proof-set-detail">
+                                <label>Next Root ID:</label>
+                                <span class="value">${proofSet.nextRootId}</span>
+                            </div>
+                            ${proofSet.currentRootCount > 0 ? `
+                                <div class="proof-set-detail">
+                                    <label>Root Metadata:</label>
+                                    ${proofSet.rootMetadata && proofSet.rootMetadata.length > 0 
+                                        ? `<div class="metadata-list">${proofSet.rootMetadata.map((m, i) => `Root ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
+                                        : '<span class="value">(no metadata stored)</span>'
+                                    }
+                                </div>
+                            ` : `
+                                <div class="proof-set-detail">
+                                    <span class="value" style="color: #666; font-style: italic;">No roots added yet</span>
+                                </div>
+                            `}
+                        </div>
+                        
+                        ${!proofSet.isManaged ? `
+                            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px;">
+                                <strong>Note:</strong> This proof set is not managed by the current Pandora contract. 
+                                You cannot add roots or modify it from this interface.
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+
+        // Connect to MetaMask
+        async function connectWithPandora(pandoraAddress) {
+            try {
+                if (!window.ethereum) {
+                    throw new Error('MetaMask not found! Please install MetaMask.');
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                // Create ethers provider from MetaMask
+                provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                connectedAddress = await signer.getAddress();
+                
+                // Get network
+                const network = await provider.getNetwork();
+                const networkName = network.chainId === 314159n ? 'calibration' : 
+                                   network.chainId === 314n ? 'mainnet' : 
+                                   `unknown (${network.chainId})`;
+
+                // Check if we're on a supported network
+                if (network.chainId !== 314159n && network.chainId !== 314n) {
+                    throw new Error(`Please switch to Filecoin Calibration testnet (chainId: 314159) or Mainnet (chainId: 314)`);
+                }
+                
+                // Create Synapse instance
+                synapse = await SynapseSDK.Synapse.create({
+                    signer,
+                    pandoraAddress: pandoraAddress || undefined
+                });
+                
+                // Create PDPService instance separately
+                pdpService = new SynapseSDK.PDPService(provider, pandoraAddress || SynapseSDK.CONTRACT_ADDRESSES.PANDORA_SERVICE[networkName]);
+                
+                console.log('Using Pandora address:', pandoraAddress || 'default');
+
+                updateStatus('Connected', connectedAddress, networkName);
+                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Pandora: ${pandoraAddress || 'SDK default'}</div>`);
+                
+                enableButtons();
+            } catch (error) {
+                showResult('connectionResult', error.message, true);
+                updateStatus('Connection failed');
+            }
+        }
+
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
+            await connectWithPandora(pandoraAddress);
+        });
+
+        // Reconnect with selected Pandora
+        document.getElementById('reconnectBtn').addEventListener('click', async () => {
+            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
+            await connectWithPandora(pandoraAddress);
+        });
+
+        // Get proof sets for specified address
+        document.getElementById('getProofSetsBtn').addEventListener('click', async () => {
+            try {
+                const clientAddress = document.getElementById('clientAddressInput').value.trim();
+                if (!clientAddress) {
+                    throw new Error('Please enter a client address');
+                }
+
+                showResult('proofSetsResult', '<div class="loading">Loading proof sets...</div>');
+                document.getElementById('proofSetsSummary').innerHTML = '';
+                
+                console.log('Getting enhanced proof sets for:', clientAddress);
+                console.log('PDPService instance:', pdpService);
+                
+                // Use the enhanced method to get more details
+                const proofSets = await pdpService.getClientProofSetsWithDetails(clientAddress);
+                console.log('Enhanced proof sets result:', proofSets);
+                
+                const html = await displayEnhancedProofSets(proofSets, clientAddress);
+                showResult('proofSetsResult', html);
+                
+            } catch (error) {
+                console.error('Error getting proof sets:', error);
+                showResult('proofSetsResult', error.message, true);
+                document.getElementById('proofSetsSummary').innerHTML = '';
+            }
+        });
+
+        // Get proof sets for connected wallet
+        document.getElementById('getMyProofSetsBtn').addEventListener('click', async () => {
+            try {
+                if (!connectedAddress) {
+                    throw new Error('No wallet connected');
+                }
+
+                showResult('proofSetsResult', '<div class="loading">Loading your proof sets...</div>');
+                document.getElementById('proofSetsSummary').innerHTML = '';
+                
+                console.log('Getting enhanced proof sets for connected wallet:', connectedAddress);
+                console.log('PDPService instance:', pdpService);
+                
+                // Use the enhanced method to get more details
+                const proofSets = await pdpService.getClientProofSetsWithDetails(connectedAddress);
+                console.log('Enhanced proof sets result:', proofSets);
+                
+                const html = await displayEnhancedProofSets(proofSets, connectedAddress);
+                showResult('proofSetsResult', html);
+                
+            } catch (error) {
+                console.error('Error getting proof sets:', error);
+                showResult('proofSetsResult', error.message, true);
+                document.getElementById('proofSetsSummary').innerHTML = '';
+            }
+        });
+
+    </script>
+</body>
+</html>
