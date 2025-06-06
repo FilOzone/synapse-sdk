@@ -4,10 +4,12 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { RootData } from '../types.js'
+import type { RootData, CommP } from '../types.js'
 import type { ProofSetCreationVerification } from './service.js'
 import { asCommP } from '../commp/index.js'
 import { PDPService } from './service.js'
+import { MULTIHASH_CODES } from '../utils/index.js'
+import { toHex } from 'multiformats/bytes'
 
 /**
  * Response from creating a proof set
@@ -43,6 +45,14 @@ export interface ProofSetCreationStatusResponse {
 export interface AddRootsResponse {
   /** Success message from the server */
   message: string
+}
+
+/**
+ * Response from finding a piece by CID
+ */
+export interface FindPieceResponse {
+  /** The piece CID that was found */
+  piece_cid: string
 }
 
 /**
@@ -196,18 +206,18 @@ export class PDPTool {
     pandoraAddress: string,
     provider: ethers.Provider
   ): Promise<ComprehensiveProofSetStatus> {
-    // Get chain verification first (this is most reliable)
+    // Run both operations in parallel for better performance
     const pdpService = new PDPService(provider, pandoraAddress)
-    const chainVerification = await pdpService.verifyProofSetCreation(txHash)
 
-    // Try to get PDP server status (may fail if server is unavailable)
-    let pdpServerStatus: ProofSetCreationStatusResponse | undefined
-    try {
-      pdpServerStatus = await this.getProofSetCreationStatus(txHash)
-    } catch (error) {
-      // PDP server status is optional - chain verification is primary
-      console.warn('Could not get PDP server status:', error)
-    }
+    const [chainVerification, pdpServerStatus] = await Promise.all([
+      // Chain verification (most reliable)
+      pdpService.verifyProofSetCreation(txHash),
+      // PDP server status (optional - may fail)
+      this.getProofSetCreationStatus(txHash).catch(() => {
+        // PDP server status is optional - chain verification is primary
+        return undefined
+      })
+    ])
 
     // Analyze overall status
     const overall = this._analyzeOverallStatus(chainVerification, pdpServerStatus)
@@ -416,6 +426,65 @@ export class PDPTool {
     return {
       message: responseText !== '' ? responseText : `Roots added to proof set ID ${proofSetId} successfully`
     }
+  }
+
+  /**
+   * Find a piece by its CommP CID
+   * This queries the PDP server to check if a piece exists in storage.
+   * Note: The piece must be marked as long_term=true and complete=true in the server's database.
+   * @param commP - The CommP CID (as string or CommP object)
+   * @param size - The original file size in bytes
+   * @returns Promise that resolves with the piece CID if found
+   * @throws Error if the piece is not found or request fails
+   *
+   * @example
+   * ```typescript
+   * const result = await pdpTool.findPiece(
+   *   'baga6ea4seaqep2m4ptxrymf45xjlcwsypylrtycjotrm4ucissrr5xjlvlptafa',
+   *   16110964
+   * )
+   * console.log('Found piece:', result.piece_cid)
+   * ```
+   */
+  async findPiece (commP: string | CommP, size: number): Promise<FindPieceResponse> {
+    // Parse and validate the CommP
+    const parsedCommP = asCommP(commP)
+    if (parsedCommP == null) {
+      throw new Error(`Invalid CommP: ${String(commP)}`)
+    }
+
+    // Extract the hash bytes from the CommP multihash
+    const hashBytes = parsedCommP.multihash.digest
+    const hashHex = toHex(hashBytes)
+
+    // Build query parameters matching the Curio handler expectations
+    const params = new URLSearchParams({
+      name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
+      hash: hashHex,
+      size: size.toString()
+    })
+
+    // Make the GET request to find the piece
+    const response = await fetch(`${this.apiEndpoint}/pdp/piece?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        // Add authorization header if needed
+        // The Curio handler expects JWT auth, but for now we'll try without
+      }
+    })
+
+    if (response.status === 404) {
+      throw new Error(`Piece not found: ${parsedCommP.toString()}`)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    // Parse and return the response
+    const result = await response.json() as FindPieceResponse
+    return result
   }
 
   /**

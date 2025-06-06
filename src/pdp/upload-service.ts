@@ -4,6 +4,7 @@
 
 import { toHex } from 'multiformats/bytes'
 import type { CommP } from '../types.js'
+import { MULTIHASH_CODES } from '../utils/index.js'
 
 /**
  * PDPUploadService handles communication with a remote PDP server for data uploads
@@ -57,7 +58,7 @@ export class PDPUploadService {
     const hashHex = toHex(hashBytes)
 
     const checkData = {
-      name: 'sha2-256-trunc254-padded', // This is the hash type for CommP
+      name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
       hash: hashHex,
       size: byteLength
     }

@@ -335,6 +335,7 @@ console.log(result.message) // Server response message
   - `getComprehensiveProofSetStatus(txHash, pandoraAddress, provider)`: Get comprehensive status combining PDP server and chain verification
   - `waitForProofSetCreationWithStatus(txHash, pandoraAddress, provider, onStatusUpdate?, timeoutMs?, pollIntervalMs?)`: Wait for proof set creation with status updates
   - `addRoots(proofSetId, clientDataSetId, nextRootId, rootData[])`: Add roots to proof set
+  - `findPiece(commP, size)`: Check if a piece exists on the PDP server
   - `getApiEndpoint()`: Get the API endpoint
   - `getPDPAuthHelper()`: Get the PDPAuthHelper instance
 

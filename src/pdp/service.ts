@@ -170,81 +170,73 @@ export class PDPService {
   async getClientProofSetsWithDetails (clientAddress: string, onlyManaged: boolean = false): Promise<EnhancedProofSetInfo[]> {
     const proofSets = await this.getClientProofSets(clientAddress)
     const pdpVerifier = await this._getPDPVerifierContract()
+    const pandoraContract = this._getPandoraContract()
 
-    const enhancedProofSets = []
-
-    for (const proofSet of proofSets) {
+    // Process all proof sets in parallel
+    const enhancedProofSetsPromises = proofSets.map(async (proofSet) => {
       try {
         // Get the actual PDPVerifier proof set ID from the rail ID
-        const pandoraContract = this._getPandoraContract()
         const pdpVerifierProofSetId = await pandoraContract.railToProofSet(proofSet.railId)
 
         // If railToProofSet returns 0, this rail doesn't exist in this Pandora contract
         if (Number(pdpVerifierProofSetId) === 0) {
-          // Skip unmanaged proof sets if onlyManaged is true
-          if (onlyManaged) {
-            continue
-          }
-
-          enhancedProofSets.push({
-            ...proofSet,
-            pdpVerifierProofSetId: 0,
-            nextRootId: 0,
-            currentRootCount: 0,
-            isLive: false,
-            isManaged: false
-          })
-          continue
+          return onlyManaged
+            ? null // Will be filtered out
+            : {
+                ...proofSet,
+                pdpVerifierProofSetId: 0,
+                nextRootId: 0,
+                currentRootCount: 0,
+                isLive: false,
+                isManaged: false
+              }
         }
 
-        // Get additional chain information using the PDPVerifier proof set ID
-        const isLive = await pdpVerifier.proofSetLive(pdpVerifierProofSetId)
-        const nextRootId = isLive === true ? await pdpVerifier.getNextRootId(pdpVerifierProofSetId) : 0
+        // Parallelize independent calls
+        const [isLive, listenerResult] = await Promise.all([
+          pdpVerifier.proofSetLive(pdpVerifierProofSetId),
+          pdpVerifier.getProofSetListener(pdpVerifierProofSetId).catch(() => null)
+        ])
 
         // Check if this proof set is managed by our Pandora contract
-        let isManaged = false
-        try {
-          const listener = await pdpVerifier.getProofSetListener(pdpVerifierProofSetId)
-          isManaged = listener.toLowerCase() === this._pandoraAddress.toLowerCase()
-        } catch (e) {
-          // Could not get listener - proof set might not exist or have other issues
-          isManaged = false
-        }
+        const isManaged = listenerResult != null && listenerResult.toLowerCase() === this._pandoraAddress.toLowerCase()
 
         // Skip unmanaged proof sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
-          continue
+          return null // Will be filtered out
         }
 
-        enhancedProofSets.push({
+        // Get next root ID only if the proof set is live
+        const nextRootId = isLive === true ? await pdpVerifier.getNextRootId(pdpVerifierProofSetId) : 0
+
+        return {
           ...proofSet,
           pdpVerifierProofSetId: Number(pdpVerifierProofSetId),
           nextRootId: Number(nextRootId),
           currentRootCount: Number(nextRootId),
           isLive,
           isManaged
-        })
+        }
       } catch (error) {
         // Error getting details for this proof set
-
-        // Skip problematic proof sets if onlyManaged is true
-        if (onlyManaged) {
-          continue
-        }
-
-        // If we can't get details for a proof set, include it but mark as problematic
-        enhancedProofSets.push({
-          ...proofSet,
-          pdpVerifierProofSetId: 0,
-          nextRootId: 0,
-          currentRootCount: 0,
-          isLive: false,
-          isManaged: false
-        })
+        return onlyManaged
+          ? null // Will be filtered out
+          : {
+              ...proofSet,
+              pdpVerifierProofSetId: 0,
+              nextRootId: 0,
+              currentRootCount: 0,
+              isLive: false,
+              isManaged: false
+            }
       }
-    }
+    })
 
-    return enhancedProofSets
+    // Wait for all promises to resolve
+    const results = await Promise.all(enhancedProofSetsPromises)
+
+    // Filter out null values (from skipped proof sets when onlyManaged is true)
+    return results.filter((result): result is EnhancedProofSetInfo => result !== null)
   }
 
   /**
@@ -269,23 +261,24 @@ export class PDPService {
       // Get the actual PDPVerifier proof set ID from the rail ID
       const pdpVerifierProofSetId = await pandoraContract.railToProofSet(railId)
 
+      // Parallelize all independent calls
+      const [isLive, nextRootId, listener, proofSetInfo] = await Promise.all([
+        pdpVerifier.proofSetLive(pdpVerifierProofSetId),
+        pdpVerifier.getNextRootId(pdpVerifierProofSetId),
+        pdpVerifier.getProofSetListener(pdpVerifierProofSetId),
+        pandoraContract.proofSetInfo(railId)
+      ])
+
       // Check if proof set exists and is live
-      const isLive = await pdpVerifier.proofSetLive(pdpVerifierProofSetId)
       if (isLive === false) {
         throw new Error(`Proof set with rail ID ${railId} (PDPVerifier ID ${String(pdpVerifierProofSetId)}) does not exist or is not live`)
       }
 
-      // Get the next root ID (this is the count of roots currently in the proof set)
-      const nextRootId = await pdpVerifier.getNextRootId(pdpVerifierProofSetId)
-
       // Verify this proof set is managed by our Pandora contract
-      const listener = await pdpVerifier.getProofSetListener(pdpVerifierProofSetId)
       if (listener.toLowerCase() !== this._pandoraAddress.toLowerCase()) {
         throw new Error(`Proof set with rail ID ${railId} (PDPVerifier ID ${String(pdpVerifierProofSetId)}) is not managed by this Pandora contract (${this._pandoraAddress}), managed by ${String(listener)}`)
       }
 
-      // Get client dataset ID from the proof set info stored in Pandora
-      const proofSetInfo = await pandoraContract.proofSetInfo(railId)
       const clientDataSetId = Number(proofSetInfo.clientDataSetId)
 
       return {
@@ -337,36 +330,46 @@ export class PDPService {
       const filter = pdpVerifier.filters.ProofSetCreated()
       const events = await pdpVerifier.queryFilter(filter, searchFromBlock, currentBlock)
 
-      const creations: ProofSetCreationInfo[] = []
+      // Get client proof sets once (instead of multiple times in the loop)
+      const clientProofSets = await this.getClientProofSets(clientAddress)
+      const clientRailIds = new Set(clientProofSets.map(ps => ps.railId))
 
-      for (const event of events) {
+      // Process all events in parallel
+      const creationPromises = events.map(async (event) => {
         // Type guard to check if event has args property (EventLog vs Log)
-        if ('args' in event && event.args != null) {
-          const proofSetId = Number(event.args.setId)
-
-          // Check if this proof set is managed by our Pandora contract
-          try {
-            const listener = await pdpVerifier.getProofSetListener(proofSetId)
-            if (listener.toLowerCase() === this._pandoraAddress.toLowerCase()) {
-              // Check if this client owns this proof set
-              const clientProofSets = await this.getClientProofSets(clientAddress)
-              const matchingProofSet = clientProofSets.find(ps => ps.railId === proofSetId)
-
-              if (matchingProofSet != null) {
-                creations.push({
-                  proofSetId,
-                  txHash: event.transactionHash,
-                  blockNumber: event.blockNumber,
-                  client: clientAddress
-                })
-              }
-            }
-          } catch (e) {
-            // Skip proof sets we can't access
-            continue
-          }
+        if (!('args' in event) || event.args == null) {
+          return null
         }
-      }
+
+        const proofSetId = Number(event.args.setId)
+
+        try {
+          // Check if this proof set is managed by our Pandora contract
+          const listener = await pdpVerifier.getProofSetListener(proofSetId)
+          if (listener.toLowerCase() !== this._pandoraAddress.toLowerCase()) {
+            return null
+          }
+
+          // Check if this client owns this proof set (using pre-fetched data)
+          if (!clientRailIds.has(proofSetId)) {
+            return null
+          }
+
+          return {
+            proofSetId,
+            txHash: event.transactionHash,
+            blockNumber: event.blockNumber,
+            client: clientAddress
+          }
+        } catch (e) {
+          // Skip proof sets we can't access
+          return null
+        }
+      })
+
+      // Wait for all promises and filter out nulls
+      const results = await Promise.all(creationPromises)
+      const creations = results.filter((result): result is ProofSetCreationInfo => result !== null)
 
       // Sort by block number (newest first)
       return creations.sort((a, b) => b.blockNumber - a.blockNumber)

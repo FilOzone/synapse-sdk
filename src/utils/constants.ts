@@ -191,3 +191,13 @@ export const CONTRACT_ADDRESSES = {
     calibration: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
   } as const
 } as const
+
+/**
+ * Multihash constants
+ */
+export const MULTIHASH_CODES = {
+  /**
+   * SHA2-256 truncated to 254 bits with padding - used for Filecoin CommP
+   */
+  SHA2_256_TRUNC254_PADDED: 'sha2-256-trunc254-padded'
+} as const

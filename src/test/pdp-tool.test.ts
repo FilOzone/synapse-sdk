@@ -345,6 +345,278 @@ describe('PDPTool', () => {
     })
   })
 
+  describe('getComprehensiveProofSetStatus', () => {
+    it('should combine PDP server and chain verification status', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
+
+      // Mock provider with transaction receipt
+      const mockProvider = {
+        getTransactionReceipt: async (txHash: string) => {
+          assert.strictEqual(txHash, mockTxHash)
+          return {
+            status: 1,
+            blockNumber: 12345,
+            gasUsed: 100000n,
+            logs: [{
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('ProofSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32), // proof set ID 123
+                ethers.zeroPadValue('0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 32) // owner
+              ],
+              data: '0x' // Empty data for indexed parameters
+            }]
+          }
+        },
+        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any,
+        call: async () => '0x0000000000000000000000000000000000000000000000000000000000000001' // proofSetLive = true
+      } as any
+
+      // Mock fetch for PDP server status
+      const originalFetch = global.fetch
+      global.fetch = async () => ({
+        status: 200,
+        json: async () => ({
+          createMessageHash: mockTxHash,
+          proofsetCreated: true,
+          service: 'test-service',
+          txStatus: 'confirmed',
+          ok: true,
+          proofSetId: 123
+        })
+      } as any)
+
+      try {
+        const result = await pdpTool.getComprehensiveProofSetStatus(mockTxHash, mockPandoraAddress, mockProvider)
+
+        assert.exists(result.curioStatus)
+        assert.exists(result.chainVerification)
+        assert.exists(result.overall)
+
+        assert.isTrue(result.overall.isComplete)
+        assert.isFalse(result.overall.hasIssues)
+        assert.include(result.overall.summary, 'successfully created')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle PDP server failure gracefully', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
+
+      // Mock provider
+      const mockProvider = {
+        getTransactionReceipt: async () => null, // Not mined yet
+        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any
+      } as any
+
+      // Mock fetch to fail
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        throw new Error('Network error')
+      }
+
+      try {
+        const result = await pdpTool.getComprehensiveProofSetStatus(mockTxHash, mockPandoraAddress, mockProvider)
+
+        assert.isUndefined(result.curioStatus) // Should be undefined when PDP server fails
+        assert.exists(result.chainVerification)
+        assert.isFalse(result.overall.isComplete)
+        assert.include(result.overall.summary, 'pending')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
+  describe('waitForProofSetCreationWithStatus', () => {
+    it('should wait for proof set to become live', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
+
+      let callCount = 0
+      const mockProvider = {
+        getTransactionReceipt: async () => {
+          callCount++
+          if (callCount === 1) {
+            return null // Not mined on first call
+          }
+          return {
+            status: 1,
+            blockNumber: 12345,
+            gasUsed: 100000n,
+            logs: [{
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('ProofSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32),
+                ethers.zeroPadValue('0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 32)
+              ],
+              data: '0x'
+            }]
+          }
+        },
+        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any,
+        call: async () => '0x0000000000000000000000000000000000000000000000000000000000000001' // proofSetLive = true
+      } as any
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async () => ({ status: 404 } as any) // PDP server doesn't have it yet
+
+      let statusUpdateCount = 0
+      const onStatusUpdate = (): void => {
+        statusUpdateCount++
+      }
+
+      try {
+        const result = await pdpTool.waitForProofSetCreationWithStatus(
+          mockTxHash,
+          mockPandoraAddress,
+          mockProvider,
+          onStatusUpdate,
+          5000, // 5 second timeout
+          100 // 100ms poll interval
+        )
+
+        assert.isTrue(result.overall.isComplete)
+        assert.isTrue(statusUpdateCount > 0) // Should have called status update
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should timeout if proof set takes too long', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
+
+      const mockProvider = {
+        getTransactionReceipt: async () => null, // Never mines
+        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any
+      } as any
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async () => ({ status: 404 } as any)
+
+      try {
+        const result = await pdpTool.waitForProofSetCreationWithStatus(
+          mockTxHash,
+          mockPandoraAddress,
+          mockProvider,
+          undefined,
+          500, // 500ms timeout
+          100 // 100ms poll interval
+        )
+
+        assert.isFalse(result.overall.isComplete)
+        assert.isTrue(result.overall.hasIssues)
+        assert.include(result.overall.summary, 'Timeout reached')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
+  describe('findPiece', () => {
+    it('should find a piece successfully', async () => {
+      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockSize = 1048576 // 1 MiB
+      const mockResponse = {
+        piece_cid: mockCommP
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        assert.include(url, '/pdp/piece?')
+        assert.include(url, 'name=sha2-256-trunc254-padded')
+        assert.include(url, 'size=1048576')
+        assert.strictEqual(init?.method, 'GET')
+
+        return {
+          status: 200,
+          ok: true,
+          json: async () => mockResponse
+        } as any
+      }
+
+      try {
+        const result = await pdpTool.findPiece(mockCommP, mockSize)
+        assert.strictEqual(result.piece_cid, mockCommP)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle piece not found', async () => {
+      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockSize = 1048576
+
+      // Mock fetch to return 404
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 404,
+          ok: false,
+          text: async () => 'Requested resource not found'
+        } as any
+      }
+
+      try {
+        await pdpTool.findPiece(mockCommP, mockSize)
+        assert.fail('Should have thrown error for not found')
+      } catch (error: any) {
+        assert.include(error.message, 'Piece not found')
+        assert.include(error.message, mockCommP)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should validate CommP input', async () => {
+      const invalidCommP = 'invalid-commp-string'
+      const mockSize = 1048576
+
+      try {
+        await pdpTool.findPiece(invalidCommP, mockSize)
+        assert.fail('Should have thrown error for invalid CommP')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid CommP')
+      }
+    })
+
+    it('should handle server errors', async () => {
+      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockSize = 1048576
+
+      // Mock fetch to return server error
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 500,
+          ok: false,
+          statusText: 'Internal Server Error',
+          text: async () => 'Database error'
+        } as any
+      }
+
+      try {
+        await pdpTool.findPiece(mockCommP, mockSize)
+        assert.fail('Should have thrown error for server error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to find piece')
+        assert.include(error.message, '500')
+        assert.include(error.message, 'Database error')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
   describe('getters', () => {
     it('should return API endpoint', () => {
       assert.strictEqual(pdpTool.getApiEndpoint(), serverUrl)
