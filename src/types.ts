@@ -142,3 +142,25 @@ export interface RootData {
   /** The raw (unpadded) size of the original data in bytes */
   rawSize: number
 }
+
+/**
+ * Proof set information returned from Pandora contract
+ */
+export interface ProofSetInfo {
+  /** ID of the payment rail */
+  railId: number
+  /** Address paying for storage */
+  payer: string
+  /** SP's beneficiary address */
+  payee: string
+  /** Commission rate in basis points */
+  commissionBps: number
+  /** General metadata for the proof set */
+  metadata: string
+  /** Array of metadata for each root */
+  rootMetadata: string[]
+  /** Client's dataset ID */
+  clientDataSetId: number
+  /** Whether the proof set is using CDN */
+  withCDN: boolean
+}

@@ -68,7 +68,10 @@ export const CONTRACT_ABIS = {
     // Public mappings that are automatically exposed
     'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])'
+    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
+
+    // Proof set functions
+    'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])'
   ] as const
 } as const
 
