@@ -156,6 +156,6 @@ export const CONTRACT_ADDRESSES = {
    */
   PANDORA_SERVICE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+    calibration: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
   } as const
 } as const
