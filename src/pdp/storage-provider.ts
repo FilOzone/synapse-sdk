@@ -185,12 +185,4 @@ export class StorageProviderTool {
 
     return providers
   }
-
-  /**
-   * Get the contract address
-   * @returns Contract address
-   */
-  getContractAddress (): string {
-    return this.contract.target as string
-  }
 }

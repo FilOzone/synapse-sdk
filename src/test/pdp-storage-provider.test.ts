@@ -20,7 +20,7 @@ describe('StorageProviderTool', () => {
     const contractAddress = '0xbB94727BC196eF7457417c09956437A3dd08790A'
     const tool = new StorageProviderTool(contractAddress, mockSigner)
 
-    assert.strictEqual(tool.getContractAddress(), contractAddress)
+    assert.exists(tool)
   })
 
   it('should have all expected methods', () => {
@@ -48,7 +48,6 @@ describe('StorageProviderTool', () => {
     assert(typeof tool.getSignerAddress === 'function')
     assert(typeof tool.isOwner === 'function')
     assert(typeof tool.getAllApprovedProviders === 'function')
-    assert(typeof tool.getContractAddress === 'function')
   })
 
   it('should handle getSignerAddress', async () => {

@@ -379,11 +379,6 @@ console.log(`Client Dataset ID: ${addRootsInfo.clientDataSetId}`)
 const nextDatasetId = await pdpService.getNextClientDataSetId(clientAddress)
 console.log(`Next dataset ID will be: ${nextDatasetId}`)
 
-// Find recent proof set creations
-const recentCreations = await pdpService.findRecentProofSetCreations(clientAddress)
-for (const creation of recentCreations) {
-  console.log(`Proof Set ${creation.proofSetId} created in tx ${creation.txHash}`)
-}
 
 // Verify and wait for proof set creation
 const verification = await pdpService.verifyProofSetCreation(txHash)
@@ -407,10 +402,8 @@ console.log(`Proof set ${result.proofSetId} is now live`)
   - `getManagedProofSets(clientAddress)`: Get only proof sets managed by this Pandora contract
   - `getAddRootsInfo(railId)`: Get information needed to add roots (next root ID, client dataset ID)
   - `getNextClientDataSetId(clientAddress)`: Get the next dataset ID that will be assigned
-  - `findRecentProofSetCreations(clientAddress, fromBlock?)`: Find recent proof set creation events
   - `verifyProofSetCreation(txHash)`: Verify a proof set creation transaction
   - `waitForProofSetCreation(txHash, timeoutMs?, pollIntervalMs?)`: Wait for proof set to be created and live
-  - `getPandoraAddress()`: Get the Pandora contract address
 
 ### PDP Upload Service
 

@@ -22,20 +22,6 @@ import type { ProofSetInfo, EnhancedProofSetInfo } from '../types.js'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/index.js'
 
 /**
- * Information about a proof set creation event
- */
-export interface ProofSetCreationInfo {
-  /** The proof set ID that was created */
-  proofSetId: number
-  /** Transaction hash that created the proof set */
-  txHash: string
-  /** Block number where it was created */
-  blockNumber: number
-  /** The client address that created it */
-  client: string
-}
-
-/**
  * Helper information for adding roots to a proof set
  */
 export interface AddRootsInfo {
@@ -218,17 +204,8 @@ export class PDPService {
           isManaged
         }
       } catch (error) {
-        // Error getting details for this proof set
-        return onlyManaged
-          ? null // Will be filtered out
-          : {
-              ...proofSet,
-              pdpVerifierProofSetId: 0,
-              nextRootId: 0,
-              currentRootCount: 0,
-              isLive: false,
-              isManaged: false
-            }
+        // Re-throw the error to let the caller handle it
+        throw new Error(`Failed to get details for proof set with rail ID ${proofSet.railId}: ${error instanceof Error ? error.message : String(error)}`)
       }
     })
 
@@ -309,72 +286,6 @@ export class PDPService {
       return Number(currentCounter)
     } catch (error) {
       throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
-   * Find recent proof set creations for a client by searching events
-   * @param clientAddress - The client's wallet address
-   * @param fromBlock - Block number to search from (default: recent blocks)
-   * @returns Array of proof set creation information
-   */
-  async findRecentProofSetCreations (clientAddress: string, fromBlock?: number): Promise<ProofSetCreationInfo[]> {
-    try {
-      const pdpVerifier = await this._getPDPVerifierContract()
-      const currentBlock = await this._provider.getBlockNumber()
-
-      // Default to searching the last 10,000 blocks (roughly 5 hours on Filecoin)
-      const searchFromBlock = fromBlock ?? Math.max(0, currentBlock - 10000)
-
-      // Get ProofSetCreated events
-      const filter = pdpVerifier.filters.ProofSetCreated()
-      const events = await pdpVerifier.queryFilter(filter, searchFromBlock, currentBlock)
-
-      // Get client proof sets once (instead of multiple times in the loop)
-      const clientProofSets = await this.getClientProofSets(clientAddress)
-      const clientRailIds = new Set(clientProofSets.map(ps => ps.railId))
-
-      // Process all events in parallel
-      const creationPromises = events.map(async (event) => {
-        // Type guard to check if event has args property (EventLog vs Log)
-        if (!('args' in event) || event.args == null) {
-          return null
-        }
-
-        const proofSetId = Number(event.args.setId)
-
-        try {
-          // Check if this proof set is managed by our Pandora contract
-          const listener = await pdpVerifier.getProofSetListener(proofSetId)
-          if (listener.toLowerCase() !== this._pandoraAddress.toLowerCase()) {
-            return null
-          }
-
-          // Check if this client owns this proof set (using pre-fetched data)
-          if (!clientRailIds.has(proofSetId)) {
-            return null
-          }
-
-          return {
-            proofSetId,
-            txHash: event.transactionHash,
-            blockNumber: event.blockNumber,
-            client: clientAddress
-          }
-        } catch (e) {
-          // Skip proof sets we can't access
-          return null
-        }
-      })
-
-      // Wait for all promises and filter out nulls
-      const results = await Promise.all(creationPromises)
-      const creations = results.filter((result): result is ProofSetCreationInfo => result !== null)
-
-      // Sort by block number (newest first)
-      return creations.sort((a, b) => b.blockNumber - a.blockNumber)
-    } catch (error) {
-      throw new Error(`Failed to find recent proof set creations: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -519,12 +430,5 @@ export class PDPService {
     } catch (error) {
       throw new Error(`Failed to extract proof set ID from receipt: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }
-
-  /**
-   * Get the Pandora contract address this service is configured for
-   */
-  getPandoraAddress (): string {
-    return this._pandoraAddress
   }
 }

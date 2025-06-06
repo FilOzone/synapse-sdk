@@ -287,6 +287,40 @@ describe('PDPService', () => {
       assert.equal(managedProofSets[0].railId, 48)
       assert.isTrue(managedProofSets[0].isManaged)
     })
+
+    it('should throw error when contract calls fail', async () => {
+      // Mock getClientProofSets to return a proof set
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+
+        // getClientProofSets - return 1 proof set
+        if (data?.startsWith('0x4234653a') === true) {
+          const proofSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false]
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
+            [[proofSet]]
+          )
+        }
+
+        // railToProofSet - throw error
+        if (data?.startsWith('0x76704486') === true) {
+          throw new Error('Contract call failed')
+        }
+
+        // Default return for any other calls
+        return '0x' + '0'.repeat(64)
+      }
+
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
+
+      try {
+        await pdpService.getClientProofSetsWithDetails(clientAddress)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to get details for proof set with rail ID 48')
+        assert.include(error.message, 'Contract call failed')
+      }
+    })
   })
 
   describe('getManagedProofSets', () => {
@@ -589,12 +623,6 @@ describe('PDPService', () => {
       }
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
-    })
-  })
-
-  describe('getPandoraAddress', () => {
-    it('should return the configured Pandora address', () => {
-      assert.equal(pdpService.getPandoraAddress(), mockPandoraAddress)
     })
   })
 })
