@@ -26,7 +26,7 @@
  */
 
 import { ethers } from 'ethers'
-import type { ProofSetInfo, EnhancedProofSetInfo } from '../types.js'
+import type { ProofSetInfo, EnhancedProofSetInfo, ApprovedProviderInfo } from '../types.js'
 import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 import { PDPVerifier } from '../pdp/verifier.js'
 import type { PDPServer, ProofSetCreationStatusResponse } from '../pdp/server.js'
@@ -63,22 +63,6 @@ export interface ProofSetCreationVerification {
   gasUsed?: bigint
   /** Any error message if verification failed */
   error?: string
-}
-
-/**
- * Information about an approved storage provider
- */
-export interface ApprovedProviderInfo {
-  /** Provider's wallet address */
-  owner: string
-  /** PDP server URL */
-  pdpUrl: string
-  /** Piece retrieval URL */
-  pieceRetrievalUrl: string
-  /** Timestamp when registered */
-  registeredAt: number
-  /** Timestamp when approved */
-  approvedAt: number
 }
 
 /**
