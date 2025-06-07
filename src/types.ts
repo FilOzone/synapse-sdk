@@ -95,34 +95,6 @@ export interface SettlementResult {
 }
 
 /**
- * Storage service interface
- */
-export interface StorageService {
-  /** The proof set ID being used */
-  readonly proofSetId: ProofSetId
-  /** The storage provider being used */
-  readonly storageProvider: StorageProvider
-
-  /** Upload a binary blob and return an upload task */
-  upload: (data: Uint8Array | ArrayBuffer) => UploadTask
-
-  /**
-   * Download a blob by CommP
-   * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
-   */
-  download: (commp: CommP | string, options?: DownloadOptions) => Promise<Uint8Array>
-
-  /**
-   * Delete a blob from storage
-   * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
-   */
-  delete: (commp: CommP | string) => Promise<void>
-
-  /** Settle payments up to current epoch */
-  settlePayments: () => Promise<SettlementResult>
-}
-
-/**
  * Signature data for authenticated operations
  */
 export interface AuthSignature {
