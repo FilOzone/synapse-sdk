@@ -6,18 +6,19 @@ import { ethers } from 'ethers'
 import {
   type SynapseOptions,
   type StorageOptions,
-  type StorageService,
   type FilecoinNetworkType
 } from './types.js'
 import { MockStorageService } from './storage-service.js'
 import { PaymentsService } from './payments/index.js'
-import { CHAIN_IDS } from './utils/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
   private readonly _network: FilecoinNetworkType
   private readonly _withCDN: boolean
   private readonly _payments: PaymentsService
+  private readonly _provider: ethers.Provider
+  private readonly _pandoraAddress: string
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -118,7 +119,14 @@ export class Synapse {
       )
     }
 
-    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true)
+    return new Synapse(
+      provider,
+      signer,
+      network,
+      options.disableNonceManager === true,
+      options.withCDN === true,
+      options.pandoraAddress
+    )
   }
 
   private constructor (
@@ -126,12 +134,20 @@ export class Synapse {
     signer: ethers.Signer,
     network: FilecoinNetworkType,
     disableNonceManager: boolean,
-    withCDN: boolean
+    withCDN: boolean,
+    pandoraAddressOverride?: string
   ) {
+    this._provider = provider
     this._signer = signer
     this._network = network
     this._withCDN = withCDN
     this._payments = new PaymentsService(provider, signer, network, disableNonceManager)
+
+    // Set Pandora address (use override or default for network)
+    this._pandoraAddress = pandoraAddressOverride ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
+    if (this._pandoraAddress === '' || this._pandoraAddress === undefined) {
+      throw new Error(`No Pandora service address configured for network: ${network}`)
+    }
   }
 
   /**
@@ -142,7 +158,52 @@ export class Synapse {
     return this._payments
   }
 
-  async createStorage (options?: StorageOptions): Promise<StorageService> {
+  /**
+   * Get the signer instance
+   * @internal
+   * @returns The ethers Signer instance
+   */
+  getSigner (): ethers.Signer {
+    return this._signer
+  }
+
+  /**
+   * Get the chain ID as bigint
+   * @internal
+   * @returns The chain ID
+   */
+  getChainId (): bigint {
+    return BigInt(CHAIN_IDS[this._network])
+  }
+
+  /**
+   * Get the provider instance
+   * @internal
+   * @returns The ethers Provider instance
+   */
+  getProvider (): ethers.Provider {
+    return this._provider
+  }
+
+  /**
+   * Get the network name
+   * @internal
+   * @returns The network name
+   */
+  getNetwork (): FilecoinNetworkType {
+    return this._network
+  }
+
+  /**
+   * Get the Pandora service address
+   * @internal
+   * @returns The Pandora service address
+   */
+  getPandoraAddress (): string {
+    return this._pandoraAddress
+  }
+
+  async createStorage (options?: StorageOptions): Promise<MockStorageService> {
     console.log('[MockSynapse] Creating storage service...')
     console.log('[MockSynapse] Options:', options)
 

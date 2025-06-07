@@ -5,11 +5,11 @@
  * implement the real StorageService!
  */
 
-import type { StorageService, CommP, DownloadOptions, SettlementResult, ProofSetId, StorageProvider } from './types.js'
+import type { CommP, DownloadOptions, SettlementResult, ProofSetId, StorageProvider } from './types.js'
 import { MockUploadTask } from './upload-task.js'
 import { asCommP } from './commp/index.js'
 
-export class MockStorageService implements StorageService {
+export class MockStorageService {
   readonly proofSetId: ProofSetId
   readonly storageProvider: StorageProvider
   private readonly _storedData: Map<string, Uint8Array> = new Map()

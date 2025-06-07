@@ -95,34 +95,6 @@ export interface SettlementResult {
 }
 
 /**
- * Storage service interface
- */
-export interface StorageService {
-  /** The proof set ID being used */
-  readonly proofSetId: ProofSetId
-  /** The storage provider being used */
-  readonly storageProvider: StorageProvider
-
-  /** Upload a binary blob and return an upload task */
-  upload: (data: Uint8Array | ArrayBuffer) => UploadTask
-
-  /**
-   * Download a blob by CommP
-   * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
-   */
-  download: (commp: CommP | string, options?: DownloadOptions) => Promise<Uint8Array>
-
-  /**
-   * Delete a blob from storage
-   * @param commp - CommP as a CID object or string. Will be validated to ensure correct codec/hash
-   */
-  delete: (commp: CommP | string) => Promise<void>
-
-  /** Settle payments up to current epoch */
-  settlePayments: () => Promise<SettlementResult>
-}
-
-/**
  * Signature data for authenticated operations
  */
 export interface AuthSignature {
@@ -184,4 +156,89 @@ export interface EnhancedProofSetInfo extends ProofSetInfo {
   isLive: boolean
   /** Whether this proof set is managed by the current Pandora contract */
   isManaged: boolean
+}
+
+/**
+ * Information about an approved storage provider
+ */
+export interface ApprovedProviderInfo {
+  /** Provider's wallet address */
+  owner: string
+  /** PDP server URL */
+  pdpUrl: string
+  /** Piece retrieval URL */
+  pieceRetrievalUrl: string
+  /** Timestamp when registered */
+  registeredAt: number
+  /** Timestamp when approved */
+  approvedAt: number
+}
+
+/**
+ * Storage service implementation options
+ */
+export interface StorageServiceOptions {
+  /** Specific provider ID to use (optional) */
+  providerId?: number
+  /** Whether to enable CDN services */
+  withCDN?: boolean
+}
+
+/**
+ * Preflight information for storage uploads
+ */
+export interface PreflightInfo {
+  /** Estimated storage costs */
+  estimatedCost: {
+    perEpoch: bigint
+    perDay: bigint
+    perMonth: bigint
+  }
+  /** Allowance check results */
+  allowanceCheck: {
+    sufficient: boolean
+    message?: string
+  }
+  /** Selected storage provider */
+  selectedProvider: ApprovedProviderInfo
+  /** Selected proof set ID */
+  selectedProofSetId: number
+}
+
+/**
+ * Upload progress callbacks
+ */
+export interface UploadCallbacks {
+  /** Called after provider and proof set selection */
+  onSetup?: (status: SetupStatus) => void
+  /** Called if a new proof set was created */
+  onProofSetCreated?: (id: number, txn: string) => void
+  /** Called when upload to storage provider completes */
+  onUploadComplete?: (commp: string) => void
+  /** Called when root is added to proof set */
+  onRootAdded?: () => void
+}
+
+/**
+ * Setup status information
+ */
+export interface SetupStatus {
+  /** Selected storage provider */
+  provider: ApprovedProviderInfo
+  /** Selected proof set ID (if existing) */
+  proofSetId?: number
+  /** Whether a new proof set needs to be created */
+  needsNewProofSet: boolean
+}
+
+/**
+ * Upload result information
+ */
+export interface UploadResult {
+  /** CommP of the uploaded data */
+  commp: string
+  /** Size of the original data */
+  size: number
+  /** Root ID in the proof set */
+  rootId?: number
 }
