@@ -1,10 +1,11 @@
-// Export PDP services
-export { PDPUploadService } from './upload-service.js'
-export { PDPDownloadService } from './download-service.js'
+// Export PDP components
 export { PDPAuthHelper } from './auth.js'
-export { PDPTool } from './tool.js'
-export type { CreateProofSetResponse, ProofSetCreationStatusResponse, AddRootsResponse, FindPieceResponse } from './tool.js'
-export { StorageProviderTool } from './storage-provider.js'
-export type { ApprovedProviderInfo, PendingProviderInfo } from './storage-provider.js'
-export { PDPService } from './service.js'
-export type { AddRootsInfo } from './service.js'
+export { PDPVerifier } from './verifier.js'
+export { PDPServer } from './server.js'
+export type {
+  AddRootsResponse,
+  CreateProofSetResponse,
+  FindPieceResponse,
+  ProofSetCreationStatusResponse,
+  UploadResponse
+} from './server.js'

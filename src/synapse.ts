@@ -6,22 +6,18 @@ import { ethers } from 'ethers'
 import {
   type SynapseOptions,
   type StorageOptions,
-  type StorageService
+  type StorageService,
+  type FilecoinNetworkType
 } from './types.js'
 import { MockStorageService } from './storage-service.js'
-import { PDPAuthHelper } from './pdp/index.js'
-import { SynapsePayments } from './payments/index.js'
-import { createError, CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
+import { PaymentsService } from './payments/index.js'
+import { CHAIN_IDS } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
-  private readonly _network: 'mainnet' | 'calibration'
+  private readonly _network: FilecoinNetworkType
   private readonly _withCDN: boolean
-  private readonly _pandoraAddress: string
-  private readonly _payments: SynapsePayments
-
-  // Cached helper instances
-  private _pdpAuthHelper: PDPAuthHelper | null = null
+  private readonly _payments: PaymentsService
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -100,7 +96,7 @@ export class Synapse {
     }
 
     // Detect network
-    let network: 'mainnet' | 'calibration'
+    let network: FilecoinNetworkType
     try {
       const ethersNetwork = await provider.getNetwork()
       const chainId = Number(ethersNetwork.chainId)
@@ -122,39 +118,27 @@ export class Synapse {
       )
     }
 
-    // Get Pandora address - either from options or from network defaults
-    const pandoraAddress = options.pandoraAddress ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
-    if (pandoraAddress == null || pandoraAddress === '') {
-      throw createError(
-        'Synapse',
-        'create',
-        `Pandora service contract not deployed on ${network} network and no custom address provided`
-      )
-    }
-
-    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true, pandoraAddress)
+    return new Synapse(provider, signer, network, options.disableNonceManager === true, options.withCDN === true)
   }
 
   private constructor (
     provider: ethers.Provider,
     signer: ethers.Signer,
-    network: 'mainnet' | 'calibration',
+    network: FilecoinNetworkType,
     disableNonceManager: boolean,
-    withCDN: boolean,
-    pandoraAddress: string
+    withCDN: boolean
   ) {
     this._signer = signer
     this._network = network
     this._withCDN = withCDN
-    this._pandoraAddress = pandoraAddress
-    this._payments = new SynapsePayments(provider, signer, network, disableNonceManager, pandoraAddress)
+    this._payments = new PaymentsService(provider, signer, network, disableNonceManager)
   }
 
   /**
    * Get the payments instance for payment operations
-   * @returns The SynapsePayments instance
+   * @returns The PaymentsService instance
    */
-  get payments (): SynapsePayments {
+  get payments (): PaymentsService {
     return this._payments
   }
 
@@ -178,39 +162,6 @@ export class Synapse {
     console.log('[MockSynapse] Storage service ready for operations')
 
     return new MockStorageService(proofSetId, storageProvider, await this._signer.getAddress(), this._withCDN)
-  }
-
-  /**
-   * Get auth helper instance for signing PDP operations
-   *
-   * The PDPAuthHelper provides methods to sign various PDP operations like creating
-   * proof sets, adding roots, scheduling removals, and deleting proof sets.
-   * The instance is cached for performance.
-   *
-   * @returns PDPAuthHelper instance for signing operations
-   * @example
-   * ```typescript
-   * const synapse = await Synapse.create({ privateKey, rpcURL })
-   *
-   * // Get auth helper for default network contract
-   * const auth = synapse.getPDPAuthHelper()
-   *
-   * // Sign a proof set creation
-   * const signature = await auth.signCreateProofSet(
-   *   clientDataSetId,
-   *   payeeAddress,
-   *   withCDN
-   * )
-   * ```
-   */
-  getPDPAuthHelper (): PDPAuthHelper {
-    if (this._pdpAuthHelper == null) {
-      // Get chain ID for auth helper
-      const chainId = BigInt(CHAIN_IDS[this._network])
-      this._pdpAuthHelper = new PDPAuthHelper(this._pandoraAddress, this._signer, chainId)
-    }
-
-    return this._pdpAuthHelper
   }
 }
 

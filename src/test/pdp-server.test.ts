@@ -1,16 +1,16 @@
 /* globals describe it beforeEach afterEach */
 
 /**
- * PDPTool tests
+ * PDPServer tests
  *
- * Tests the PDPTool class for creating proof sets and adding roots via HTTP API
+ * Tests the PDPServer class for creating proof sets and adding roots via HTTP API
  */
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PDPTool, PDPAuthHelper } from '../pdp/index.js'
+import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
 import type { RootData } from '../types.js'
-import { asCommP } from '../commp/index.js'
+import { asCommP, calculate as calculateCommP } from '../commp/index.js'
 
 // Mock server for testing
 class MockPDPServer {
@@ -34,8 +34,8 @@ class MockPDPServer {
   }
 }
 
-describe('PDPTool', () => {
-  let pdpTool: PDPTool
+describe('PDPServer', () => {
+  let pdpServer: PDPServer
   let authHelper: PDPAuthHelper
   let mockServer: MockPDPServer
   let serverUrl: string
@@ -53,8 +53,8 @@ describe('PDPTool', () => {
     mockServer = new MockPDPServer()
     serverUrl = await mockServer.start(0) // Use random port
 
-    // Create PDPTool instance
-    pdpTool = new PDPTool(serverUrl, authHelper)
+    // Create PDPServer instance
+    pdpServer = new PDPServer(authHelper, serverUrl + '/pdp', serverUrl)
   })
 
   afterEach(async () => {
@@ -62,21 +62,28 @@ describe('PDPTool', () => {
   })
 
   describe('constructor', () => {
-    it('should create PDPTool with valid API endpoint', () => {
-      const tool = new PDPTool('https://example.com', authHelper)
-      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com')
+    it('should create PDPServer with valid API endpoint', () => {
+      const tool = new PDPServer(authHelper, 'https://example.com/pdp', 'https://example.com')
+      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com/pdp')
     })
 
     it('should remove trailing slash from API endpoint', () => {
-      const tool = new PDPTool('https://example.com/', authHelper)
-      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com')
+      const tool = new PDPServer(authHelper, 'https://example.com/pdp/', 'https://example.com/')
+      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com/pdp')
     })
 
     it('should throw error for empty API endpoint', () => {
       assert.throws(() => {
         // eslint-disable-next-line no-new
-        new PDPTool('', authHelper)
+        new PDPServer(authHelper, '', 'https://example.com')
       }, 'PDP API endpoint is required')
+    })
+
+    it('should throw error for empty retrieval endpoint', () => {
+      assert.throws(() => {
+        // eslint-disable-next-line no-new
+        new PDPServer(authHelper, 'https://example.com/pdp', '')
+      }, 'PDP retrieval endpoint is required')
     })
   })
 
@@ -110,7 +117,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        const result = await pdpTool.createProofSet(
+        const result = await pdpServer.createProofSet(
           0, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
           false, // withCDN
@@ -129,7 +136,7 @@ describe('PDPTool', () => {
     it('should validate input parameters', async () => {
       // Test empty root entries
       try {
-        await pdpTool.addRoots(1, 0, 0, [])
+        await pdpServer.addRoots(1, 0, 0, [])
         assert.fail('Should have thrown error for empty root entries')
       } catch (error) {
         assert.include((error as Error).message, 'At least one root must be provided')
@@ -152,7 +159,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.addRoots(1, 0, 0, [invalidRawSize])
+        await pdpServer.addRoots(1, 0, 0, [invalidRawSize])
         assert.fail('Should have thrown error for invalid raw size')
       } catch (error) {
         assert.include((error as Error).message, 'Failed to add roots to proof set')
@@ -167,7 +174,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.addRoots(1, 0, 0, [invalidCommP])
+        await pdpServer.addRoots(1, 0, 0, [invalidCommP])
         assert.fail('Should have thrown error for invalid CommP')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid CommP')
@@ -205,7 +212,7 @@ describe('PDPTool', () => {
 
       try {
         // Should not throw
-        const result = await pdpTool.addRoots(1, 0, 0, validRootData)
+        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -232,7 +239,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.addRoots(1, 0, 0, validRootData)
+        await pdpServer.addRoots(1, 0, 0, validRootData)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.include((error as Error).message, 'Failed to add roots to proof set: 400 Bad Request - Invalid root CID')
@@ -281,7 +288,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        const result = await pdpTool.addRoots(1, 0, 0, multipleRootData)
+        const result = await pdpServer.addRoots(1, 0, 0, multipleRootData)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -316,7 +323,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        const result = await pdpTool.getProofSetCreationStatus(mockTxHash)
+        const result = await pdpServer.getProofSetCreationStatus(mockTxHash)
         assert.deepStrictEqual(result, mockResponse)
       } finally {
         global.fetch = originalFetch
@@ -335,185 +342,10 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.getProofSetCreationStatus(mockTxHash)
+        await pdpServer.getProofSetCreationStatus(mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
         assert.include((error as Error).message, `Proof set creation not found for transaction hash: ${mockTxHash}`)
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-  })
-
-  describe('getComprehensiveProofSetStatus', () => {
-    it('should combine PDP server and chain verification status', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
-
-      // Mock provider with transaction receipt
-      const mockProvider = {
-        getTransactionReceipt: async (txHash: string) => {
-          assert.strictEqual(txHash, mockTxHash)
-          return {
-            status: 1,
-            blockNumber: 12345,
-            gasUsed: 100000n,
-            logs: [{
-              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-              topics: [
-                ethers.id('ProofSetCreated(uint256,address)'),
-                ethers.zeroPadValue('0x7b', 32), // proof set ID 123
-                ethers.zeroPadValue('0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 32) // owner
-              ],
-              data: '0x' // Empty data for indexed parameters
-            }]
-          }
-        },
-        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any,
-        call: async () => '0x0000000000000000000000000000000000000000000000000000000000000001' // proofSetLive = true
-      } as any
-
-      // Mock fetch for PDP server status
-      const originalFetch = global.fetch
-      global.fetch = async () => ({
-        status: 200,
-        json: async () => ({
-          createMessageHash: mockTxHash,
-          proofsetCreated: true,
-          service: 'test-service',
-          txStatus: 'confirmed',
-          ok: true,
-          proofSetId: 123
-        })
-      } as any)
-
-      try {
-        const result = await pdpTool.getComprehensiveProofSetStatus(mockTxHash, mockPandoraAddress, mockProvider)
-
-        assert.exists(result.curioStatus)
-        assert.exists(result.chainVerification)
-        assert.exists(result.overall)
-
-        assert.isTrue(result.overall.isComplete)
-        assert.isFalse(result.overall.hasIssues)
-        assert.include(result.overall.summary, 'successfully created')
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-
-    it('should handle PDP server failure gracefully', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
-
-      // Mock provider
-      const mockProvider = {
-        getTransactionReceipt: async () => null, // Not mined yet
-        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any
-      } as any
-
-      // Mock fetch to fail
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        throw new Error('Network error')
-      }
-
-      try {
-        const result = await pdpTool.getComprehensiveProofSetStatus(mockTxHash, mockPandoraAddress, mockProvider)
-
-        assert.isUndefined(result.curioStatus) // Should be undefined when PDP server fails
-        assert.exists(result.chainVerification)
-        assert.isFalse(result.overall.isComplete)
-        assert.include(result.overall.summary, 'pending')
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-  })
-
-  describe('waitForProofSetCreationWithStatus', () => {
-    it('should wait for proof set to become live', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
-
-      let callCount = 0
-      const mockProvider = {
-        getTransactionReceipt: async () => {
-          callCount++
-          if (callCount === 1) {
-            return null // Not mined on first call
-          }
-          return {
-            status: 1,
-            blockNumber: 12345,
-            gasUsed: 100000n,
-            logs: [{
-              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-              topics: [
-                ethers.id('ProofSetCreated(uint256,address)'),
-                ethers.zeroPadValue('0x7b', 32),
-                ethers.zeroPadValue('0x70997970C51812dc3A010C7d01b50e0d17dc79C8', 32)
-              ],
-              data: '0x'
-            }]
-          }
-        },
-        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any,
-        call: async () => '0x0000000000000000000000000000000000000000000000000000000000000001' // proofSetLive = true
-      } as any
-
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async () => ({ status: 404 } as any) // PDP server doesn't have it yet
-
-      let statusUpdateCount = 0
-      const onStatusUpdate = (): void => {
-        statusUpdateCount++
-      }
-
-      try {
-        const result = await pdpTool.waitForProofSetCreationWithStatus(
-          mockTxHash,
-          mockPandoraAddress,
-          mockProvider,
-          onStatusUpdate,
-          5000, // 5 second timeout
-          100 // 100ms poll interval
-        )
-
-        assert.isTrue(result.overall.isComplete)
-        assert.isTrue(statusUpdateCount > 0) // Should have called status update
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-
-    it('should timeout if proof set takes too long', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockPandoraAddress = '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
-
-      const mockProvider = {
-        getTransactionReceipt: async () => null, // Never mines
-        getNetwork: async () => ({ chainId: 314159n, name: 'calibration' }) as any
-      } as any
-
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async () => ({ status: 404 } as any)
-
-      try {
-        const result = await pdpTool.waitForProofSetCreationWithStatus(
-          mockTxHash,
-          mockPandoraAddress,
-          mockProvider,
-          undefined,
-          500, // 500ms timeout
-          100 // 100ms poll interval
-        )
-
-        assert.isFalse(result.overall.isComplete)
-        assert.isTrue(result.overall.hasIssues)
-        assert.include(result.overall.summary, 'Timeout reached')
       } finally {
         global.fetch = originalFetch
       }
@@ -545,7 +377,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        const result = await pdpTool.findPiece(mockCommP, mockSize)
+        const result = await pdpServer.findPiece(mockCommP, mockSize)
         assert.strictEqual(result.piece_cid, mockCommP)
       } finally {
         global.fetch = originalFetch
@@ -567,7 +399,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockCommP, mockSize)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
@@ -582,7 +414,7 @@ describe('PDPTool', () => {
       const mockSize = 1048576
 
       try {
-        await pdpTool.findPiece(invalidCommP, mockSize)
+        await pdpServer.findPiece(invalidCommP, mockSize)
         assert.fail('Should have thrown error for invalid CommP')
       } catch (error: any) {
         assert.include(error.message, 'Invalid CommP')
@@ -605,7 +437,7 @@ describe('PDPTool', () => {
       }
 
       try {
-        await pdpTool.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockCommP, mockSize)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to find piece')
@@ -619,11 +451,286 @@ describe('PDPTool', () => {
 
   describe('getters', () => {
     it('should return API endpoint', () => {
-      assert.strictEqual(pdpTool.getApiEndpoint(), serverUrl)
+      assert.strictEqual(pdpServer.getApiEndpoint(), serverUrl + '/pdp')
     })
 
     it('should return PDPAuthHelper instance', () => {
-      assert.strictEqual(pdpTool.getPDPAuthHelper(), authHelper)
+      assert.strictEqual(pdpServer.getAuthHelper(), authHelper)
+    })
+  })
+
+  describe('uploadPiece', () => {
+    it('should successfully upload data', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const mockUuid = 'test-uuid-123'
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (url: any, options: any) => {
+        const urlStr = url.toString()
+
+        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          // Create upload session
+          return {
+            ok: true,
+            json: async () => ({ upload_uuid: mockUuid })
+          } as any
+        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
+          // Upload data
+          return { ok: true } as any
+        }
+
+        throw new Error(`Unexpected request: ${String(urlStr)}`)
+      }
+
+      try {
+        const result = await pdpServer.uploadPiece(testData, 'test.dat')
+        assert.exists(result.commP)
+        assert.equal(result.size, 5)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle ArrayBuffer input', async () => {
+      const buffer = new ArrayBuffer(5)
+      const view = new Uint8Array(buffer)
+      view.set([1, 2, 3, 4, 5])
+      const mockUuid = 'test-uuid-456'
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (url: any, options: any) => {
+        const urlStr = url.toString()
+
+        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          return {
+            ok: true,
+            json: async () => ({ upload_uuid: mockUuid })
+          } as any
+        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
+          return { ok: true } as any
+        }
+
+        throw new Error(`Unexpected request: ${String(urlStr)}`)
+      }
+
+      try {
+        const result = await pdpServer.uploadPiece(buffer)
+        assert.exists(result.commP)
+        assert.equal(result.size, 5)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle existing piece (200 response)', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const mockUuid = 'test-uuid-789'
+
+      // Mock fetch to return 200 instead of 201 for create
+      const originalFetch = global.fetch
+      global.fetch = async (url: any, options: any) => {
+        const urlStr = url.toString()
+
+        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          // Return 200 OK instead of 201 Created (piece already exists)
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ upload_uuid: mockUuid })
+          } as any
+        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
+          return { ok: true } as any
+        }
+
+        throw new Error(`Unexpected request: ${String(urlStr)}`)
+      }
+
+      try {
+        // Should not throw - existing piece is OK
+        const result = await pdpServer.uploadPiece(testData)
+        assert.exists(result.commP)
+        assert.equal(result.size, 5)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw on create upload session error', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+
+      // Mock fetch to return error on create
+      const originalFetch = global.fetch
+      global.fetch = async (url: any, options: any) => {
+        const urlStr = url.toString()
+
+        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          return {
+            ok: false,
+            status: 500,
+            statusText: 'Internal Server Error',
+            text: async () => 'Database error'
+          } as any
+        }
+
+        throw new Error(`Unexpected request: ${String(urlStr)}`)
+      }
+
+      try {
+        await pdpServer.uploadPiece(testData)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to create upload session')
+        assert.include(error.message, '500')
+        assert.include(error.message, 'Database error')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
+  describe('downloadPiece', () => {
+    it('should successfully download and verify piece', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
+      const testCommP = calculateCommP(testData).toString()
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+        // Verify correct URL format
+        assert.isTrue(url.endsWith(`/piece/${testCommP}`))
+
+        // Return test data as response
+        return new Response(testData, {
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream' }
+        })
+      }
+
+      try {
+        const result = await pdpServer.downloadPiece(testCommP)
+        assert.deepEqual(result, testData)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw on download failure', async () => {
+      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          ok: false,
+          status: 404,
+          statusText: 'Not Found'
+        } as any
+      }
+
+      try {
+        await pdpServer.downloadPiece(mockCommP)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to download piece')
+        assert.include(error.message, '404')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should reject invalid CommP', async () => {
+      try {
+        await pdpServer.downloadPiece('invalid-commp-string')
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid CommP')
+      }
+    })
+
+    it('should throw on CommP verification failure', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
+      const testCommP = calculateCommP(testData).toString()
+      const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
+
+      // Mock fetch to return wrong data
+      const originalFetch = global.fetch
+      global.fetch = async (): Promise<Response> => {
+        return new Response(wrongData, {
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream' }
+        })
+      }
+
+      try {
+        await pdpServer.downloadPiece(testCommP)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'CommP verification failed')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle null response body', async () => {
+      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+
+      // Mock fetch to return response with null body
+      const originalFetch = global.fetch
+      global.fetch = async (): Promise<Response> => {
+        const response = new Response(null, { status: 200 })
+        Object.defineProperty(response, 'body', { value: null })
+        return response
+      }
+
+      try {
+        await pdpServer.downloadPiece(mockCommP)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Response body is null')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should correctly stream and verify chunked data', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
+      const testCommP = calculateCommP(testData).toString()
+
+      // Mock fetch that returns data in chunks
+      const originalFetch = global.fetch
+      global.fetch = async (): Promise<Response> => {
+        // Split test data into chunks
+        const chunk1 = testData.slice(0, 4)
+        const chunk2 = testData.slice(4)
+
+        // Create readable stream that emits chunks
+        const stream = new ReadableStream({
+          async start (controller) {
+            controller.enqueue(chunk1)
+            // Small delay to simulate network
+            await new Promise(resolve => setTimeout(resolve, 10))
+            controller.enqueue(chunk2)
+            controller.close()
+          }
+        })
+
+        return new Response(stream, {
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream' }
+        })
+      }
+
+      try {
+        const result = await pdpServer.downloadPiece(testCommP)
+        // Verify we got all the data correctly reassembled
+        assert.deepEqual(result, testData)
+      } finally {
+        global.fetch = originalFetch
+      }
     })
   })
 })

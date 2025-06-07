@@ -101,13 +101,24 @@
     <div class="status">
         <strong>Status:</strong> <span id="status">Not connected</span><br>
         <strong>Wallet:</strong> <span id="wallet">None</span><br>
-        <strong>Network:</strong> <span id="network">None</span>
+        <strong>Network:</strong> <span id="network">None</span><br>
+        <strong>Pandora Contract:</strong> <span id="pandora">Not configured</span>
     </div>
 
     <div class="section">
         <h2>Connection</h2>
         <button id="connectBtn">Connect MetaMask</button>
         <div id="connectionResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Pandora Contract Configuration</h2>
+        <div class="input-group">
+            <label>Pandora Address:</label>
+            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="">
+            <button id="updatePandoraBtn" disabled>Update Pandora Address</button>
+        </div>
+        <div id="pandoraStatus" class="warning">Storage cost functions require Pandora contract to be configured</div>
     </div>
 
     <div class="section">
@@ -146,11 +157,8 @@
 
 
     <div class="section">
-        <h2>Service Allowance Checker</h2>
-        <div class="input-group">
-            <label>Service Address:</label>
-            <input type="text" id="serviceAddressInput" placeholder="0x..." value="0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5">
-        </div>
+        <h2>Storage Allowance Checker</h2>
+        <p style="font-size: 14px; color: #666;">Checks allowances for the Pandora contract shown above</p>
         <div class="input-group">
             <label>Data Size:</label>
             <input type="number" id="allowanceDataSizeInput" value="10" min="0" step="any">
@@ -180,6 +188,8 @@
     <script>
         let synapse = null;
         let payments = null;
+        let pandoraService = null;
+        let pandoraAddress = null;
 
         // Format bigint for display
         function formatBigInt(value, decimals = 18) {
@@ -255,8 +265,36 @@
                 });
 
                 payments = synapse.payments;
+                
+                // Initialize PandoraService with appropriate address based on network
+                const pandoraAddress = network.chainId === 314159n 
+                    ? '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'  // calibration
+                    : ''; // TODO: mainnet address
+                    
+                if (pandoraAddress) {
+                    pandoraService = new SynapseSDK.PandoraService(provider, pandoraAddress);
+                    window.pandoraAddress = pandoraAddress; // Store for later use
+                    window.provider = provider; // Store provider for later use
+                    
+                    // Set the address in the input field
+                    document.getElementById('pandoraAddressInput').value = pandoraAddress;
+                    
+                    // Update status
+                    document.getElementById('pandoraStatus').innerHTML = 
+                        '<span style="color: #4CAF50;">✓ Pandora configured at ' + pandoraAddress + '</span>';
+                    document.getElementById('pandoraStatus').className = 'success';
+                } else {
+                    document.getElementById('pandoraStatus').innerHTML = 
+                        '<span style="color: #f44336;">✗ No Pandora address for ' + networkName + ' network</span>';
+                    document.getElementById('pandoraStatus').className = 'error';
+                }
 
                 updateStatus('Connected', address, networkName);
+                if (pandoraAddress) {
+                    document.getElementById('pandora').textContent = pandoraAddress;
+                } else {
+                    document.getElementById('pandora').textContent = 'Not available for ' + networkName;
+                }
                 showResult('connectionResult', { 
                     connected: true, 
                     address, 
@@ -267,6 +305,47 @@
             } catch (error) {
                 showResult('connectionResult', error.message, true);
                 updateStatus('Connection failed');
+            }
+        });
+
+        // Update Pandora address
+        document.getElementById('updatePandoraBtn').addEventListener('click', async () => {
+            try {
+                const newAddress = document.getElementById('pandoraAddressInput').value.trim();
+                
+                // Basic validation
+                if (!newAddress) {
+                    throw new Error('Please enter a Pandora contract address');
+                }
+                
+                if (!newAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+                    throw new Error('Invalid Ethereum address format');
+                }
+                
+                if (!window.provider) {
+                    throw new Error('Not connected to network');
+                }
+                
+                // Create new PandoraService instance
+                pandoraService = new SynapseSDK.PandoraService(window.provider, newAddress);
+                window.pandoraAddress = newAddress;
+                
+                // Update status displays
+                document.getElementById('pandora').textContent = newAddress;
+                document.getElementById('pandoraStatus').innerHTML = 
+                    '<span style="color: #4CAF50;">✓ Pandora configured at ' + newAddress + '</span>';
+                document.getElementById('pandoraStatus').className = 'success';
+                
+                showResult('connectionResult', { 
+                    pandoraUpdated: true,
+                    address: newAddress,
+                    message: 'Pandora service updated successfully'
+                });
+            } catch (error) {
+                document.getElementById('pandoraStatus').innerHTML = 
+                    '<span style="color: #f44336;">✗ Error: ' + error.message + '</span>';
+                document.getElementById('pandoraStatus').className = 'error';
+                showResult('connectionResult', error.message, true);
             }
         });
 
@@ -342,7 +421,10 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                const costs = await payments.calculateStorageCost(sizeBytes);
+                if (!pandoraService) {
+                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                }
+                const costs = await pandoraService.calculateStorageCost(sizeBytes);
                 const selectedCost = withCDN ? costs.withCDN : costs;
                 
                 showResult('costResult', {
@@ -373,8 +455,8 @@
                     // Get account info
                     const accountInfo = await payments.accountInfo();
                     
-                    // Check allowances (uses the configured Pandora address automatically)
-                    const allowanceCheck = await payments.checkAllowanceForStorage(sizeBytes, withCDN);
+                    // Check allowances
+                    const allowanceCheck = await pandoraService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
                     
                     // Calculate the required funds
                     const requiredBalance = selectedCost.perMonth; // At least 1 month of storage
@@ -458,7 +540,9 @@
         // Check allowance
         document.getElementById('checkAllowanceBtn').addEventListener('click', async () => {
             try {
-                const service = document.getElementById('serviceAddressInput').value;
+                if (!pandoraService) {
+                    throw new Error('PandoraService not initialized. Please configure Pandora address first.');
+                }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
                 const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
                 const sizeBytes = Math.floor(sizeValue * unitMultiplier);
@@ -476,10 +560,13 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                const check = await payments.checkAllowanceForStorage(sizeBytes, withCDN);
+                if (!pandoraService) {
+                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                }
+                const check = await pandoraService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
                 
                 showResult('allowanceResult', {
-                    service,
+                    service: window.pandoraAddress || 'Unknown',
                     size: sizeDisplay,
                     withCDN,
                     sufficient: check.sufficient,
@@ -505,7 +592,9 @@
         // Prepare storage upload
         document.getElementById('prepareUploadBtn').addEventListener('click', async () => {
             try {
-                const service = document.getElementById('serviceAddressInput').value;
+                if (!pandoraService) {
+                    throw new Error('PandoraService not initialized. Please configure Pandora address first.');
+                }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
                 const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
                 const sizeBytes = Math.floor(sizeValue * unitMultiplier);
@@ -523,10 +612,13 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                const prep = await payments.prepareStorageUpload({
+                if (!pandoraService) {
+                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                }
+                const prep = await pandoraService.prepareStorageUpload({
                     dataSize: sizeBytes,
                     withCDN
-                });
+                }, payments);
                 
                 showResult('allowanceResult', {
                     size: sizeDisplay,

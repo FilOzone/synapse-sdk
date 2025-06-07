@@ -1,1 +1,1 @@
-export { SynapsePayments } from './payments.js'
+export { PaymentsService } from './service.js'

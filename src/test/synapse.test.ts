@@ -7,7 +7,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { Synapse } from '../synapse.js'
-import { SynapsePayments } from '../payments/index.js'
+import { PaymentsService } from '../payments/index.js'
 import { createMockProvider, createMockSigner } from './test-utils.js'
 
 describe('Synapse', () => {
@@ -24,14 +24,14 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({ signer: mockSigner })
       assert.exists(synapse)
       assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof SynapsePayments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
     it('should create instance with provider', async () => {
       const synapse = await Synapse.create({ provider: mockProvider })
       assert.exists(synapse)
       assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof SynapsePayments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
     it.skip('should create instance with private key', async () => {
@@ -160,7 +160,7 @@ describe('Synapse', () => {
 
       // Should be able to access payments
       assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof SynapsePayments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
 
       // Should have all payment methods available
       assert.isFunction(synapse.payments.walletBalance)
@@ -173,38 +173,6 @@ describe('Synapse', () => {
       const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(synapse), 'payments')
       assert.exists(descriptor?.get)
       assert.notExists(descriptor?.set)
-    })
-  })
-
-  describe('getPDPAuthHelper', () => {
-    it('should return PDPAuthHelper instance', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const authHelper = synapse.getPDPAuthHelper()
-
-      assert.exists(authHelper)
-      assert.isFunction(authHelper.signCreateProofSet)
-      assert.isFunction(authHelper.signAddRoots)
-      assert.isFunction(authHelper.signScheduleRemovals)
-      assert.isFunction(authHelper.signDeleteProofSet)
-    })
-
-    it('should cache PDPAuthHelper instance', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const authHelper1 = synapse.getPDPAuthHelper()
-      const authHelper2 = synapse.getPDPAuthHelper()
-
-      assert.strictEqual(authHelper1, authHelper2)
-    })
-
-    it('should work with custom pandora address for mainnet', async () => {
-      // Create a mock Synapse instance with mainnet with custom address
-      const mainnetProvider = createMockProvider(314) // mainnet chain ID
-      const synapse = await Synapse.create({
-        provider: mainnetProvider,
-        pandoraAddress: '0x1234567890123456789012345678901234567890'
-      })
-      const authHelper = synapse.getPDPAuthHelper()
-      assert.exists(authHelper)
     })
   })
 })

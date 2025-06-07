@@ -18,6 +18,14 @@
       "import": "./dist/pdp/index.js",
       "types": "./dist/pdp/index.d.ts"
     },
+    "./payments": {
+      "import": "./dist/payments/index.js",
+      "types": "./dist/payments/index.d.ts"
+    },
+    "./pandora": {
+      "import": "./dist/pandora/index.js",
+      "types": "./dist/pandora/index.d.ts"
+    },
     "./browser": {
       "import": "./dist/browser/synapse-sdk.esm.js",
       "require": "./dist/browser/synapse-sdk.min.js",
@@ -28,12 +36,12 @@
     "build": "tsc",
     "build:browser": "npm run build && webpack --config webpack.config.cjs && webpack --config webpack.config.esm.cjs",
     "watch": "tsc -w",
-    "lint": "ts-standard src/",
-    "lint:fix": "ts-standard src/ --fix",
+    "lint": "ts-standard src/ utils/",
+    "lint:fix": "ts-standard src/ utils/ --fix",
     "test": "npm run lint && npm run build && npm run test:node && npm run test:browser",
     "test:ci": "npm run test",
     "test:node": "mocha 'dist/test/**/*.js'",
-    "test:browser": "polendina --page --worker --serviceworker --cleanup dist/test/**/*.test.js",
+    "test:browser": "polendina --page --cleanup dist/test/**/*.test.js",
     "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build && npm run build:browser"

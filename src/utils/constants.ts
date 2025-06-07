@@ -2,6 +2,8 @@
  * Constants for the Synapse SDK
  */
 
+import type { FilecoinNetworkType } from '../types.js'
+
 /**
  * Token identifiers
  */
@@ -13,7 +15,7 @@ export const TOKENS = {
 /**
  * Network chain IDs
  */
-export const CHAIN_IDS = {
+export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
   mainnet: 314,
   calibration: 314159
 } as const
@@ -79,8 +81,12 @@ export const CONTRACT_ABIS = {
     // Mapping from rail ID to PDPVerifier proof set ID
     'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
 
-    // Get proof set info by rail ID
-    'function proofSetInfo(uint256 railId) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN))'
+    // Get proof set info by ID
+    // See https://github.com/FilOzone/filecoin-services/pull/42
+    'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)'
+    // Was, one of:
+    // 'function proofSetInfo(uint256 proofSetId) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)'
+    // 'function proofSetInfo(uint256 proofSetId) external view returns (uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, uint256 clientDataSetId, bool withCDN)'
   ] as const,
 
   /**
@@ -90,7 +96,7 @@ export const CONTRACT_ABIS = {
     'function getNextRootId(uint256 setId) public view returns (uint256)',
     'function proofSetLive(uint256 setId) public view returns (bool)',
     'function getProofSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getProofSetOwner(uint256 setId) public view returns (address owner, address proposedOwner)',
+    'function getProofSetOwner(uint256 setId) public view returns (address, address)',
     'function getProofSetListener(uint256 setId) public view returns (address)',
     'event ProofSetCreated(uint256 indexed setId, address indexed owner)'
   ] as const
@@ -144,7 +150,7 @@ export const SIZE_CONSTANTS = {
 /**
  * Recommended RPC endpoints for Filecoin networks
  */
-export const RPC_URLS = {
+export const RPC_URLS: Record<FilecoinNetworkType, { http: string, websocket: string }> = {
   mainnet: {
     http: 'https://api.node.glif.io/rpc/v1',
     websocket: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1'
@@ -165,7 +171,7 @@ export const CONTRACT_ADDRESSES = {
   USDFC: {
     mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
     calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
-  } as const,
+  } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
    * Payments contract addresses
@@ -173,15 +179,15 @@ export const CONTRACT_ADDRESSES = {
   PAYMENTS: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0x0E690D3e60B0576D01352AB03b258115eb84A047'
-  } as const,
+  } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
    * Pandora service contract addresses
    */
   PANDORA_SERVICE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5'
-  } as const,
+    calibration: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
+  } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
    * PDPVerifier contract addresses
@@ -189,7 +195,7 @@ export const CONTRACT_ADDRESSES = {
   PDP_VERIFIER: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-  } as const
+  } as const satisfies Record<FilecoinNetworkType, string>
 } as const
 
 /**

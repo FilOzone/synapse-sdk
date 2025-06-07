@@ -6,7 +6,7 @@ A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-cont
 
 The Synapse SDK is designed with flexibility in mind:
 
-- **🚀 Simple Golden Path**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
+- **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
 - **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
 
 Whether you're building a quick prototype or a complex application with specific requirements, the SDK adapts to your needs.
@@ -23,18 +23,16 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 * [Overview](#overview)
 * [Installation](#installation)
-* [Using the Golden Path API](#using-the-golden-path-api)
+* [Recommended Usage](#recommended-usage)
   * [Quick Start](#quick-start)
   * [With MetaMask](#with-metamask)
+  * [Advanced Payment Control](#advanced-payment-control)
   * [API Reference](#api-reference)
 * [Using Individual Components](#using-individual-components)
+  * [Payments Service](#payments-service)
+  * [Pandora Service](#pandora-service)
+  * [PDP Components](#pdp-components)
   * [CommP Utilities](#commp-utilities)
-  * [PDP Auth Helper](#pdp-auth-helper)
-  * [PDP Tool](#pdp-tool)
-  * [PDP Service](#pdp-service)
-  * [PDP Upload Service](#pdp-upload-service)
-  * [PDP Download Service](#pdp-download-service)
-  * [Storage Service (Mock)](#storage-service-mock)
 * [Network Configuration](#network-configuration)
   * [RPC Endpoints](#rpc-endpoints)
   * [GLIF Authorization](#glif-authorization)
@@ -50,7 +48,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ---
 
-## Using the Golden Path API
+## Recommended Usage
 
 The `Synapse` class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
 
@@ -66,30 +64,12 @@ const synapse = await Synapse.create({
 })
 
 // Check balances
-const filBalance = await synapse.payments.walletBalance()                    // FIL in wallet
+const filBalance = await synapse.payments.walletBalance()                   // FIL in wallet
 const usdcBalance = await synapse.payments.walletBalance(TOKENS.USDFC)      // USDFC in wallet
 const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // USDFC in payments contract
 
 // Deposit funds for storage operations
 await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
-
-// Check storage costs before uploading
-const sizeInGB = 10
-const sizeInBytes = sizeInGB * 1024 * 1024 * 1024
-const costs = await synapse.payments.calculateStorageCost(sizeInBytes)
-console.log(`Storage cost: ${costs.perMonth} per month`)
-
-// Prepare for storage (checks balance and allowances)
-const prep = await synapse.payments.prepareStorageUpload({
-  dataSize: sizeInBytes,
-  withCDN: false
-})
-
-// Execute any required actions
-for (const action of prep.actions) {
-  console.log(`Required: ${action.description}`)
-  await action.execute()
-}
 
 // Or manually approve service for creating payment rails
 await synapse.payments.approveService(
@@ -190,7 +170,6 @@ interface SynapseOptions {
 
 - `payments` - Access payment-related functionality (see below)
 - `createStorage(options?)` - Create a storage service instance
-- `getPDPAuthHelper()` - Get auth helper for signing PDP operations
 
 #### Synapse.payments Methods
 
@@ -212,16 +191,187 @@ interface SynapseOptions {
 - `revokeService(service, token?)` - Revoke service operator approval
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
-**Storage Cost Analysis:**
-- `calculateStorageCost(sizeInBytes)` - Calculate storage costs (with CDN and non-CDN pricing)
-- `checkAllowanceForStorage(sizeInBytes, withCDN?)` - Check if allowances are sufficient for storage
-- `prepareStorageUpload(options)` - Pre-flight check that returns required actions before storage upload
-
 ---
 
 ## Using Individual Components
 
-All components can be imported and used independently for advanced use cases.
+All components can be imported and used independently for advanced use cases. The SDK is organized to match the external service structure:
+
+### Payments Service
+
+Direct interface to the Payments contract for token operations and operator approvals.
+
+```javascript
+import { PaymentsService } from '@filoz/synapse-sdk/payments'
+import { ethers } from 'ethers'
+
+const provider = new ethers.JsonRpcProvider(rpcUrl)
+const signer = await provider.getSigner()
+const paymentsService = new PaymentsService(provider, paymentsAddress, signer)
+
+// Deposit USDFC to payments contract
+await paymentsService.deposit(tokenAddress, recipientAddress, amount)
+
+// Check account info
+const info = await paymentsService.accountInfo(tokenAddress, accountAddress)
+console.log('Available funds:', info.availableFunds)
+
+// Approve service as operator
+await paymentsService.setOperatorApproval(
+  tokenAddress,
+  operatorAddress,
+  true,                    // approved
+  rateAllowance,          // per-epoch rate allowance
+  lockupAllowance         // total lockup allowance
+)
+```
+
+### Pandora Service
+
+Interact with the Pandora contract for proof set management, storage provider operations, and storage cost calculations.
+
+```javascript
+import { PandoraService } from '@filoz/synapse-sdk/pandora'
+
+const pandoraService = new PandoraService(provider, pandoraAddress)
+
+// Storage cost calculations
+const costs = await pandoraService.calculateStorageCost(sizeInBytes)
+console.log(`Storage cost: ${costs.perMonth} per month`)
+
+// Check allowances for storage
+const check = await pandoraService.checkAllowanceForStorage(
+  sizeInBytes,
+  withCDN,
+  paymentsService  // Pass PaymentsService instance
+)
+
+// Prepare storage upload
+const prep = await pandoraService.prepareStorageUpload({
+  dataSize: sizeInBytes,
+  withCDN: false
+}, paymentsService)
+
+// Get client proof sets with enhanced details
+const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress)
+for (const ps of proofSets) {
+  console.log(`Rail ID: ${ps.railId}, PDP Verifier ID: ${ps.pdpVerifierProofSetId}`)
+  console.log(`Is Live: ${ps.isLive}, Is Managed: ${ps.isManaged}`)
+  console.log(`Next Root ID: ${ps.nextRootId}`)
+}
+
+// Get only proof sets managed by this Pandora instance
+const managedSets = await pandoraService.getManagedProofSets(clientAddress)
+
+// Verify proof set creation
+const verification = await pandoraService.verifyProofSetCreation(txHash)
+if (verification.proofSetLive) {
+  console.log(`Proof set ${verification.proofSetId} is live!`)
+}
+
+// Storage provider operations
+const isApproved = await pandoraService.isProviderApproved(providerAddress)
+const providers = await pandoraService.getAllApprovedProviders()
+```
+
+### PDP Components
+
+The PDP (Proof of Data Possession) system has three main components:
+
+#### PDP Verifier
+
+Low-level interface to the PDPVerifier contract for protocol operations.
+
+```javascript
+import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
+
+const pdpVerifier = new PDPVerifier(provider)
+
+// Check if proof set is live
+const isLive = await pdpVerifier.proofSetLive(proofSetId)
+
+// Get proof set details
+const nextRootId = await pdpVerifier.getNextRootId(proofSetId)
+const listener = await pdpVerifier.getProofSetListener(proofSetId)
+const leafCount = await pdpVerifier.getProofSetLeafCount(proofSetId)
+
+// Extract proof set ID from transaction receipt
+const proofSetId = await pdpVerifier.extractProofSetIdFromReceipt(receipt)
+```
+
+#### PDP Server
+
+Consolidated interface for all PDP server (Curio) HTTP operations including proof sets, uploads, and downloads.
+
+```javascript
+import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
+
+// Create server instance with auth helper
+const authHelper = new PDPAuthHelper(pandoraAddress, signer)
+const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https://pdp.provider.com')
+
+// Create a proof set
+const { txHash, statusUrl } = await pdpServer.createProofSet(
+  storageProvider,     // string (address)
+  clientDataSetId,     // number
+  withCDN              // boolean (optional)
+)
+
+// Check creation status
+const status = await pdpServer.getProofSetCreationStatus(txHash)
+console.log(`Status: ${status.txStatus}, Proof Set ID: ${status.proofSetId}`)
+
+// Add roots to proof set
+await pdpServer.addRoots(
+  proofSetId,         // number
+  roots,              // Array of { cid: string | CommP, rawSize: number }
+  currentRootId,      // number (starting root ID)
+  clientDataSetId     // number
+)
+
+// Upload a piece
+const { commP, size } = await pdpServer.uploadPiece(data, 'my-file.dat')
+
+// Find existing piece
+const piece = await pdpServer.findPiece(commP, size)
+console.log(`Piece found: ${piece.uuid}`)
+
+// Download a piece
+const data = await pdpServer.downloadPiece(commP, size, retrievalUrl)
+
+// Get comprehensive status (combines server and chain info)
+const fullStatus = await pdpServer.getComprehensiveProofSetStatus(
+  txHash,
+  provider,
+  pandoraAddress
+)
+```
+
+#### PDP Auth Helper
+
+Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other browser wallets.
+
+```javascript
+import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
+
+// Create auth helper directly
+const authHelper = new PDPAuthHelper(pandoraAddress, signer, chainId)
+
+// Sign operations
+const createProofSetSig = await authHelper.signCreateProofSet(
+  clientDataSetId,    // number
+  payeeAddress,       // string
+  withCDN             // boolean
+)
+
+const addRootsSig = await authHelper.signAddRoots(
+  clientDataSetId,    // number
+  firstRootId,        // number
+  rootDataArray       // Array of { cid: string | CommP, rawSize: number }
+)
+
+// All signatures return { signature, v, r, s, signedData }
+```
 
 ### CommP Utilities
 
@@ -245,240 +395,6 @@ if (commp !== null) {
 const { stream, getCommP } = createCommPStream()
 // Pipe data through stream, then call getCommP() for result
 ```
-
-### PDP Auth Helper
-
-Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other browser wallets.
-
-```javascript
-import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
-
-// Create auth helper directly
-const authHelper = new PDPAuthHelper(contractAddress, signer, chainId)
-
-// Or get from Synapse instance (uses network's default contract)
-const synapse = await Synapse.create({ privateKey, rpcURL })
-const authHelper = synapse.getPDPAuthHelper()
-
-// Sign operations
-const createProofSetSig = await authHelper.signCreateProofSet(
-  clientDataSetId,    // number
-  payeeAddress,       // string
-  withCDN            // boolean
-)
-
-const addRootsSig = await authHelper.signAddRoots(
-  clientDataSetId,    // number
-  firstRootId,        // number
-  rootDataArray       // Array of { cid: string | CommP, rawSize: number }
-)
-
-const scheduleRemovalsSig = await authHelper.signScheduleRemovals(
-  clientDataSetId,    // number
-  rootIds             // Array of numbers
-)
-
-const deleteProofSetSig = await authHelper.signDeleteProofSet(
-  clientDataSetId     // number
-)
-
-// All signatures return { signature, v, r, s, signedData }
-```
-
-### PDP Tool
-
-High-level interface for interacting with PDP servers for proof set operations.
-
-```javascript
-import { PDPTool } from '@filoz/synapse-sdk/pdp'
-
-// Create PDPTool instance
-const pdpTool = new PDPTool('https://pdp.example.com', authHelper)
-
-// Create a new proof set
-const { txHash, statusUrl } = await pdpTool.createProofSet(
-  clientDataSetId,      // number
-  payeeAddress,         // string
-  withCDN,             // boolean
-  recordKeeperAddress  // string (Pandora contract)
-)
-
-// Check proof set creation status
-const status = await pdpTool.getProofSetCreationStatus(txHash)
-console.log('Proof set created:', status.proofsetCreated)
-console.log('Proof set ID:', status.proofSetId)
-
-// Add roots to proof set
-const rootData = [
-  {
-    cid: 'baga6ea4seaq...',  // CommP CID (string or CommP object)
-    rawSize: 1024 * 1024    // Raw size in bytes
-  }
-]
-const result = await pdpTool.addRoots(
-  proofSetId,          // number
-  clientDataSetId,     // number
-  nextRootId,          // number - ID for the first root being added
-  rootData             // Array of RootData
-)
-console.log(result.message) // Server response message
-```
-
-#### PDPTool API
-
-- **Constructor**: `new PDPTool(apiEndpoint, pdpAuthHelper)`
-  - `apiEndpoint`: Base URL of the PDP API
-  - `pdpAuthHelper`: PDPAuthHelper instance for signing operations
-- **Methods**:
-  - `createProofSet(clientDataSetId, payee, withCDN, recordKeeper)`: Create a new proof set
-  - `getProofSetCreationStatus(txHash)`: Check creation status by transaction hash
-  - `getComprehensiveProofSetStatus(txHash, pandoraAddress, provider)`: Get comprehensive status combining PDP server and chain verification
-  - `waitForProofSetCreationWithStatus(txHash, pandoraAddress, provider, onStatusUpdate?, timeoutMs?, pollIntervalMs?)`: Wait for proof set creation with status updates
-  - `addRoots(proofSetId, clientDataSetId, nextRootId, rootData[])`: Add roots to proof set
-  - `findPiece(commP, size)`: Check if a piece exists on the PDP server
-  - `getApiEndpoint()`: Get the API endpoint
-  - `getPDPAuthHelper()`: Get the PDPAuthHelper instance
-
-### PDP Service
-
-Query and manage proof sets without payment operations. Useful for discovering proof sets, checking their status, and getting information needed for adding roots.
-
-```javascript
-import { PDPService } from '@filoz/synapse-sdk/pdp'
-import { ethers } from 'ethers'
-
-// Create PDP Service instance
-const provider = new ethers.JsonRpcProvider(RPC_URLS.calibration.http)
-const pdpService = new PDPService(provider, pandoraAddress)
-
-// Get all proof sets for a client
-const proofSets = await pdpService.getClientProofSets(clientAddress)
-console.log(`Client has ${proofSets.length} proof sets`)
-
-// Get enhanced proof set details with management status
-const detailedProofSets = await pdpService.getClientProofSetsWithDetails(clientAddress)
-for (const ps of detailedProofSets) {
-  console.log(`Proof Set ID: ${ps.pdpVerifierProofSetId}`)
-  console.log(`  Rail ID: ${ps.railId}`)
-  console.log(`  Is Managed by this Pandora: ${ps.isManaged}`)
-  console.log(`  Is Live: ${ps.isLive}`)
-  console.log(`  Current Roots: ${ps.currentRootCount}`)
-  console.log(`  Next Root ID: ${ps.nextRootId}`)
-}
-
-// Get only proof sets managed by the current Pandora contract
-const managedProofSets = await pdpService.getManagedProofSets(clientAddress)
-console.log(`Found ${managedProofSets.length} managed proof sets`)
-
-// Get information needed to add roots to a proof set
-const addRootsInfo = await pdpService.getAddRootsInfo(railId)
-console.log(`Next Root ID: ${addRootsInfo.nextRootId}`)
-console.log(`Client Dataset ID: ${addRootsInfo.clientDataSetId}`)
-
-// Get next client dataset ID for creating new proof sets
-const nextDatasetId = await pdpService.getNextClientDataSetId(clientAddress)
-console.log(`Next dataset ID will be: ${nextDatasetId}`)
-
-
-// Verify and wait for proof set creation
-const verification = await pdpService.verifyProofSetCreation(txHash)
-if (verification.proofSetLive) {
-  console.log(`Proof set ${verification.proofSetId} is live!`)
-}
-
-// Wait for proof set to be created and live on-chain
-const result = await pdpService.waitForProofSetCreation(txHash)
-console.log(`Proof set ${result.proofSetId} is now live`)
-```
-
-#### PDPService API
-
-- **Constructor**: `new PDPService(provider, pandoraAddress)`
-  - `provider`: Ethers provider instance
-  - `pandoraAddress`: Address of the Pandora service contract
-- **Methods**:
-  - `getClientProofSets(clientAddress)`: Get all proof sets for a client
-  - `getClientProofSetsWithDetails(clientAddress, onlyManaged?)`: Get proof sets with enhanced details and management status
-  - `getManagedProofSets(clientAddress)`: Get only proof sets managed by this Pandora contract
-  - `getAddRootsInfo(railId)`: Get information needed to add roots (next root ID, client dataset ID)
-  - `getNextClientDataSetId(clientAddress)`: Get the next dataset ID that will be assigned
-  - `verifyProofSetCreation(txHash)`: Verify a proof set creation transaction
-  - `waitForProofSetCreation(txHash, timeoutMs?, pollIntervalMs?)`: Wait for proof set to be created and live
-
-### PDP Upload Service
-
-Upload data directly to a PDP (Proof of Data Possession) server.
-
-```javascript
-import { PDPUploadService } from '@filoz/synapse-sdk/pdp'
-import { calculate } from '@filoz/synapse-sdk/commp'
-
-// Create upload service
-const uploadService = new PDPUploadService('https://pdp.example.com')
-
-// Upload data
-const data = new Uint8Array([1, 2, 3, 4, 5])
-const commp = calculate(data)
-await uploadService.upload(data, commp)
-```
-
-#### PDPUploadService API
-
-- **Constructor**: `new PDPUploadService(apiEndpoint, serviceName?)`
-  - `apiEndpoint`: Base URL of the PDP API
-  - `serviceName`: Optional service name (defaults to 'public')
-- **Methods**:
-  - `upload(data, commp)`: Upload data with its CommP
-  - `getApiEndpoint()`: Get the API endpoint
-  - `getServiceName()`: Get the service name
-
-### PDP Download Service
-
-Download and verify data from storage providers.
-
-```javascript
-import { PDPDownloadService } from '@filoz/synapse-sdk/pdp'
-
-// Create download service
-const downloadService = new PDPDownloadService('https://sp.example.com/retrieve')
-
-// Download and verify data
-const commp = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
-const data = await downloadService.downloadPiece(commp)
-// Data is automatically verified against CommP
-```
-
-#### PDPDownloadService API
-
-- **Constructor**: `new PDPDownloadService(retrievalUrl)`
-  - `retrievalUrl`: Base URL for the storage provider's retrieval endpoint
-- **Methods**:
-  - `downloadPiece(commp)`: Download and verify a piece by CommP
-  - `getRetrievalUrl()`: Get the retrieval URL
-
-### Storage Service (Mock)
-
-The storage service interface for future implementations.
-
-```javascript
-import { MockStorageService } from '@filoz/synapse-sdk'
-
-// Create storage service directly (usually created via Synapse.createStorage())
-const storage = new MockStorageService('proofSetId', 'f01234')
-
-// Upload data
-const uploadTask = storage.upload(data)
-const commp = await uploadTask.commp()
-await uploadTask.done()
-
-// Download data
-const retrieved = await storage.download(commp)
-
-// Other operations
-await storage.delete(commp)
-await storage.settlePayments()
-```
-
 ---
 
 ## Network Configuration

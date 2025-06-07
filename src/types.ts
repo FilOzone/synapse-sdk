@@ -17,6 +17,11 @@ export type ProofSetId = string
 export type StorageProvider = string
 
 /**
+ * Supported Filecoin network types
+ */
+export type FilecoinNetworkType = 'mainnet' | 'calibration'
+
+/**
  * Token identifier for balance queries
  */
 export type TokenIdentifier = 'USDFC' | string
@@ -169,7 +174,7 @@ export interface ProofSetInfo {
  * Enhanced proof set information with chain details and clear ID separation
  */
 export interface EnhancedProofSetInfo extends ProofSetInfo {
-  /** PDPVerifier global proof set ID (what Curio uses internally) */
+  /** PDPVerifier global proof set ID */
   pdpVerifierProofSetId: number
   /** Next root ID to use when adding roots */
   nextRootId: number

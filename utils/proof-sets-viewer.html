@@ -239,7 +239,8 @@
         <h2>View Proof Sets</h2>
         <div class="input-group">
             <label>Pandora Contract:</label>
-            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5" style="width: 500px;">
+            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="" style="width: 500px;">
+            <div style="margin-top: 5px; color: #666; font-size: 12px;">Leave empty to use network default</div>
         </div>
         <div class="input-group">
             <label>Client Address:</label>
@@ -259,8 +260,11 @@
     <script src="../dist/browser/synapse-sdk.min.js"></script>
     
     <script>
+        // Get the SDK components from the global window object
+        const { Synapse, PandoraService, CONTRACT_ADDRESSES } = window.SynapseSDK;
+        
         let synapse = null;
-        let pdpService = null;
+        let pandoraService = null;
         let connectedAddress = null;
         let provider = null;
 
@@ -315,7 +319,7 @@
             try {
                 const network = await provider.getNetwork();
                 const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
-                const pdpVerifierAddress = SynapseSDK.CONTRACT_ADDRESSES.PDP_VERIFIER[networkName];
+                const pdpVerifierAddress = CONTRACT_ADDRESSES.PDP_VERIFIER[networkName];
                 
                 const pdpVerifier = new ethers.Contract(
                     pdpVerifierAddress,
@@ -478,13 +482,13 @@
                 }
                 
                 // Create Synapse instance
-                synapse = await SynapseSDK.Synapse.create({
+                synapse = await Synapse.create({
                     signer,
                     pandoraAddress: pandoraAddress || undefined
                 });
                 
-                // Create PDPService instance separately
-                pdpService = new SynapseSDK.PDPService(provider, pandoraAddress || SynapseSDK.CONTRACT_ADDRESSES.PANDORA_SERVICE[networkName]);
+                // Create PandoraService instance separately
+                pandoraService = new PandoraService(provider, pandoraAddress || CONTRACT_ADDRESSES.PANDORA_SERVICE[networkName]);
                 
                 console.log('Using Pandora address:', pandoraAddress || 'default');
 
@@ -521,10 +525,10 @@
                 document.getElementById('proofSetsSummary').innerHTML = '';
                 
                 console.log('Getting enhanced proof sets for:', clientAddress);
-                console.log('PDPService instance:', pdpService);
+                console.log('PandoraService instance:', pandoraService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pdpService.getClientProofSetsWithDetails(clientAddress);
+                const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress);
                 console.log('Enhanced proof sets result:', proofSets);
                 
                 const html = await displayEnhancedProofSets(proofSets, clientAddress);
@@ -548,10 +552,10 @@
                 document.getElementById('proofSetsSummary').innerHTML = '';
                 
                 console.log('Getting enhanced proof sets for connected wallet:', connectedAddress);
-                console.log('PDPService instance:', pdpService);
+                console.log('PandoraService instance:', pandoraService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pdpService.getClientProofSetsWithDetails(connectedAddress);
+                const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress);
                 console.log('Enhanced proof sets result:', proofSets);
                 
                 const html = await displayEnhancedProofSets(proofSets, connectedAddress);
