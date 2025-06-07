@@ -13,8 +13,10 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ## Source Structure
 
 ### Key Components
-- `Synapse`: Main SDK entry; manages blockchain, wallet, payments, service creation; strict network validation (mainnet/calibration).
-- `StorageService`: Uses PDP for cryptographic storage verification; handles blob uploads/downloads, payment settlements, optional CDN.
+- `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
+- `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
+- `PandoraService`: Coordinates storage operations - calculates costs, checks allowances, manages proof sets; depends on Payments and PDPVerifier.
+- `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
 
 ### Development Tools
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
@@ -33,32 +35,32 @@ This document serves as context for LLM agent sessions working with the Synapse 
 
 2. **Core API Design**:
    - Factory method pattern (`Synapse.create()`) for proper async initialization
-   - Factory methods for creating service instances (`synapse.createStorage()`)
-   - Payment methods accessed via `synapse.payments.*` (separate `SynapsePayments` class)
+   - Minimal Synapse class: only `payments` property and `createStorage()` method
+   - Payment methods via `synapse.payments.*` (PaymentsService)
+   - Storage costs/allowances via PandoraService (separate instantiation)
    - Strict network validation - only supports Filecoin mainnet and calibration
 
 ### File Structure
 ```
 src/
-├── browser-entry.ts
-├── commp/                      # CommP utilities for Piece Commitment calculations
-├── payments/                   # Payment functionality
-│   └── payments.ts             # SynapsePayments class
-├── pdp/                        # PDP services and utilities
-│   ├── auth.ts                 # AuthHelper for signing PDP operations
-│   ├── download-service.ts     # PDPDownloadService for downloading pieces
-│   ├── upload-service.ts       # PDPUploadService for uploading pieces
-│   ├── storage-provider.ts     # StorageProviderTool - SP-specific contract interactions
-│   └── tool.ts                 # PDPTool - general-purpose utilities
+├── browser-entry.ts            # Browser bundle entry point
+├── commp/                      # CommP utilities (Piece Commitment calculations)
+├── payments/                   # Payment contract interactions
+│   └── service.ts              # PaymentsService (formerly SynapsePayments)
+├── pandora/                    # Pandora contract interactions (storage coordination)
+│   └── service.ts              # PandoraService - storage costs, allowances, proof sets
+├── pdp/                        # PDP protocol implementations
+│   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
+│   ├── server.ts               # PDPServer - Curio HTTP API client
+│   ├── verifier.ts             # PDPVerifier - contract interactions
+│   ├── download-service.ts     # PDPDownloadService - piece downloads
+│   ├── upload-service.ts       # PDPUploadService - piece uploads
+│   └── storage-provider.ts     # StorageProviderTool - SP operations
 ├── utils/                      # Shared utilities
-│   ├── constants.ts            # All constants, ABIs, addresses
+│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS
 │   └── errors.ts               # Error creation utilities
-├── storage-service.ts          # MockStorageService implementation
-├── synapse.ts                  # Main Synapse class
-├── test/                       # Test files
-│   ├── payments.test.ts        # Payment functionality tests
-│   ├── test-utils.ts           # Shared test utilities
-│   └── ...                     # Other test files
+├── storage-service.ts          # MockStorageService (temporary implementation)
+├── synapse.ts                  # Main Synapse class (minimal interface)
 └── types.ts                    # TypeScript interfaces
 ```
 
@@ -121,12 +123,20 @@ uvarint padding | uint8 height | 32 byte root data
 
 ### System Architecture Overview
 
-The PDP (Proof of Data Possession) system follows a layered architecture with clear separation between protocol, service, and client concerns:
+The PDP (Proof of Data Possession) system follows a layered architecture with clear separation of concerns:
 
 ```
 Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contract
      ↓              ↓                       ↓                    ↓
  Auth Signatures  HTTP API              Core Protocol       Business Logic
+
+SDK Component Hierarchy:
+Synapse (minimal interface)
+   └── PaymentsService (pure payments)
+
+PandoraService (storage coordination)
+   ├── Depends on PaymentsService
+   └── Depends on PDPVerifier
 ```
 
 ### Core Contracts and Their Roles
@@ -176,8 +186,7 @@ Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contr
   - Receives callbacks from PDPVerifier via `PDPListener` interface
   - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
 - **Address**:
-  - Calibration: `0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F` (proxy)
-  - Implementation: `0xc0B03abC741cBB9636DaC40b65c8686956138285`
+  - Calibration: `0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5`
 - **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
 - **Inheritance**: Inherits SimplePDPService, integrates Payments contract
 
@@ -259,7 +268,7 @@ PDP is one of the paid on-chain services offered by Synapse, future services may
 3. The system verifies these proofs using randomized challenges based on chain randomness
 4. Faults are reported when proofs fail or are not submitted
 
-All interactions with PDP contracts from clients via a PDP server (typically running Curio) use standard signed EIP-712 encoding of authentication blobs via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys). The AuthHelper that performs this can be obtained from a Synapse instance via `synapse.getPDPAuthHelper()` for convenience but is also available as a standalone object.
+All interactions with PDP contracts from clients via a PDP server (typically running Curio) use standard signed EIP-712 encoding of authentication blobs via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys). Use PDPAuthHelper directly for signing operations.
 
 ### Curio PDP API Endpoints
 - `POST /pdp/proof-sets` - Create new proof set
