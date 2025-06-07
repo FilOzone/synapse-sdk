@@ -95,6 +95,10 @@
       [
         "@semantic-release/commit-analyzer",
         {
+          "type": "refactor",
+          "release": "patch"
+        },
+        {
           "preset": "conventionalcommits",
           "releaseRules": [
             {
