@@ -21,9 +21,9 @@ import type {
   CommP
 } from '../types.js'
 import type { Synapse } from '../synapse.js'
+import type { PandoraService } from '../pandora/service.js'
 import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
-import { PandoraService } from '../pandora/service.js'
 import { createError } from '../utils/index.js'
 import { SIZE_CONSTANTS } from '../utils/constants.js'
 
@@ -47,6 +47,7 @@ export class StorageService {
 
   constructor (
     synapse: Synapse,
+    pandoraService: PandoraService,
     provider: ApprovedProviderInfo,
     proofSetId: number,
     options: StorageServiceOptions
@@ -56,6 +57,7 @@ export class StorageService {
     this._proofSetId = proofSetId
     this._withCDN = options.withCDN ?? false
     this._signer = synapse.getSigner()
+    this._pandoraService = pandoraService
 
     // Set public properties
     this.proofSetId = proofSetId.toString()
@@ -63,9 +65,6 @@ export class StorageService {
 
     // Get Pandora address from Synapse (which already handles override)
     this._pandoraAddress = synapse.getPandoraAddress()
-
-    // Create our own PandoraService instance
-    this._pandoraService = new PandoraService(synapse.getProvider(), this._pandoraAddress)
 
     // Create PDPAuthHelper for signing operations
     const authHelper = new PDPAuthHelper(
@@ -88,11 +87,9 @@ export class StorageService {
    */
   static async create (
     synapse: Synapse,
+    pandoraService: PandoraService,
     options: StorageServiceOptions
   ): Promise<StorageService> {
-    // Create a temporary PandoraService just for provider selection
-    const pandoraAddress = synapse.getPandoraAddress()
-    const pandoraService = new PandoraService(synapse.getProvider(), pandoraAddress)
     const signer = synapse.getSigner()
 
     // Step 1: Select storage provider
@@ -160,13 +157,14 @@ export class StorageService {
     // Step 2: Select or create proof set
     const proofSetId = await StorageService.selectOrCreateProofSet(
       synapse,
+      pandoraService,
       provider,
       options.withCDN ?? false,
       options.callbacks
     )
 
     // Step 3: Create and return service instance
-    return new StorageService(synapse, provider, proofSetId, options)
+    return new StorageService(synapse, pandoraService, provider, proofSetId, options)
   }
 
   /**
@@ -174,12 +172,11 @@ export class StorageService {
    */
   private static async selectOrCreateProofSet (
     synapse: Synapse,
+    pandoraService: PandoraService,
     provider: ApprovedProviderInfo,
     withCDN: boolean,
     callbacks?: StorageCreationCallbacks
   ): Promise<number> {
-    const pandoraAddress = synapse.getPandoraAddress()
-    const pandoraService = new PandoraService(synapse.getProvider(), pandoraAddress)
     const signer = synapse.getSigner()
     const signerAddress = await signer.getAddress()
 
@@ -231,6 +228,9 @@ export class StorageService {
 
     // Get next client dataset ID
     const nextDatasetId = await pandoraService.getNextClientDataSetId(signerAddress)
+
+    // Get pandora address from synapse
+    const pandoraAddress = synapse.getPandoraAddress()
 
     // Create PDPAuthHelper for signing
     const authHelper = new PDPAuthHelper(

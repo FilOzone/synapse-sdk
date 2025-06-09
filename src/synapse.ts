@@ -5,12 +5,13 @@
 import { ethers } from 'ethers'
 import {
   type SynapseOptions,
-  type StorageOptions,
+  type StorageServiceOptions,
   type FilecoinNetworkType
 } from './types.js'
-import { MockStorageService } from './storage-service.js'
+import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
+import { PandoraService } from './pandora/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES, createError } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
@@ -203,26 +204,33 @@ export class Synapse {
     return this._pandoraAddress
   }
 
-  async createStorage (options?: StorageOptions): Promise<MockStorageService> {
-    console.log('[MockSynapse] Creating storage service...')
-    console.log('[MockSynapse] Options:', options)
+  /**
+   * Create a storage service instance for interacting with PDP storage
+   * @param options - Configuration options for the storage service
+   * @returns A fully initialized StorageService instance
+   */
+  async createStorage (options?: StorageServiceOptions): Promise<StorageService> {
+    try {
+      // Merge instance-level CDN preference with provided options
+      const mergedOptions: StorageServiceOptions = {
+        ...options,
+        withCDN: options?.withCDN ?? this._withCDN
+      }
 
-    // Simulate network delay
-    console.log('[MockSynapse] Simulating network delay (500ms)...')
-    await new Promise((resolve) => setTimeout(resolve, 500))
+      // Create PandoraService instance
+      const pandoraService = new PandoraService(this._provider, this._pandoraAddress)
 
-    // Generate mock proof set ID if not provided
-    const proofSetId = options?.proofSetId ?? 'ps_' + Math.random().toString(36).substring(2, 15)
-
-    // Use provided SP or default mock
-    const storageProvider = options?.storageProvider ?? 'f01234'
-
-    console.log(
-      `[MockSynapse] Storage service created with proofSetId: ${proofSetId}, SP: ${storageProvider}`
-    )
-    console.log('[MockSynapse] Storage service ready for operations')
-
-    return new MockStorageService(proofSetId, storageProvider, await this._signer.getAddress(), this._withCDN)
+      // Create the storage service with proper initialization
+      const storageService = await StorageService.create(this, pandoraService, mergedOptions)
+      return storageService
+    } catch (error) {
+      throw createError(
+        'Synapse',
+        'createStorage',
+        'Failed to create storage service',
+        error
+      )
+    }
   }
 }
 

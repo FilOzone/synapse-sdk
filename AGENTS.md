@@ -16,6 +16,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 - `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
 - `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
 - `PandoraService`: Coordinates storage operations - calculates costs, checks allowances, manages proof sets; depends on Payments and PDPVerifier.
+- `StorageService`: Storage implementation with upload/download.
 - `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
 
 ### Development Tools
