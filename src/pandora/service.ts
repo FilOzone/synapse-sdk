@@ -550,11 +550,11 @@ export class PandoraService {
   }
 
   /**
-   * Check if user has sufficient allowances for a storage operation
+   * Check if user has sufficient allowances for a storage operation and calculate costs
    * @param sizeInBytes - Size of data to store
    * @param withCDN - Whether CDN is enabled
    * @param paymentsService - PaymentsService instance to check allowances
-   * @returns Allowance requirement details
+   * @returns Allowance requirement details and storage costs
    */
   async checkAllowanceForStorage (
     sizeInBytes: number,
@@ -569,13 +569,19 @@ export class PandoraService {
       currentLockupUsed: bigint
       sufficient: boolean
       message?: string
+      costs: {
+        perEpoch: bigint
+        perDay: bigint
+        perMonth: bigint
+      }
     }> {
     // Get current allowances for this Pandora service
     const approval = await paymentsService.serviceApproval(this._pandoraAddress, TOKENS.USDFC)
 
     // Calculate storage costs
     const costs = await this.calculateStorageCost(sizeInBytes)
-    const rateNeeded = withCDN ? costs.withCDN.perEpoch : costs.perEpoch
+    const selectedCosts = withCDN ? costs.withCDN : costs
+    const rateNeeded = selectedCosts.perEpoch
 
     // Default lockup period is 10 days = 28,800 epochs
     const lockupNeeded = rateNeeded * TIME_CONSTANTS.DEFAULT_LOCKUP_PERIOD
@@ -607,7 +613,12 @@ export class PandoraService {
       currentRateUsed: approval.rateUsed,
       currentLockupUsed: approval.lockupUsed,
       sufficient,
-      message
+      message,
+      costs: {
+        perEpoch: selectedCosts.perEpoch,
+        perDay: selectedCosts.perDay,
+        perMonth: selectedCosts.perMonth
+      }
     }
   }
 

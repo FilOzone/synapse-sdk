@@ -934,6 +934,15 @@ describe('PandoraService', () => {
         assert.exists(check.currentLockupAllowance)
         assert.exists(check.sufficient)
 
+        // Check for new costs field
+        assert.exists(check.costs)
+        assert.exists(check.costs.perEpoch)
+        assert.exists(check.costs.perDay)
+        assert.exists(check.costs.perMonth)
+        assert.isAbove(Number(check.costs.perEpoch), 0)
+        assert.isAbove(Number(check.costs.perDay), 0)
+        assert.isAbove(Number(check.costs.perMonth), 0)
+
         // With no current allowances, should not be sufficient
         assert.isFalse(check.sufficient)
         assert.exists(check.message)
@@ -979,6 +988,12 @@ describe('PandoraService', () => {
 
         assert.isTrue(check.sufficient)
         assert.isUndefined(check.message)
+
+        // Verify costs are included
+        assert.exists(check.costs)
+        assert.exists(check.costs.perEpoch)
+        assert.exists(check.costs.perDay)
+        assert.exists(check.costs.perMonth)
       })
     })
 

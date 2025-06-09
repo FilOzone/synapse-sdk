@@ -251,8 +251,27 @@ export class StorageService {
    * Run preflight checks for an upload
    */
   async preflightUpload (size: number): Promise<PreflightInfo> {
-    // TODO: Implement in Step 5
-    throw new Error('Preflight upload not yet implemented')
+    // Check allowances and get costs in a single call
+    const allowanceCheck = await this._pandoraService.checkAllowanceForStorage(
+      size,
+      this._withCDN,
+      this._synapse.payments
+    )
+
+    // Return preflight info
+    return {
+      estimatedCost: {
+        perEpoch: allowanceCheck.costs.perEpoch,
+        perDay: allowanceCheck.costs.perDay,
+        perMonth: allowanceCheck.costs.perMonth
+      },
+      allowanceCheck: {
+        sufficient: allowanceCheck.sufficient,
+        message: allowanceCheck.message
+      },
+      selectedProvider: this._provider,
+      selectedProofSetId: this._proofSetId
+    }
   }
 
   /**
