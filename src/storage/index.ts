@@ -1,2 +1,2 @@
 // Export storage components
-export { StorageService } from './storage-service.js'
+export { StorageService } from './service.js'

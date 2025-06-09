@@ -56,8 +56,10 @@ src/
 │   ├── download-service.ts     # PDPDownloadService - piece downloads
 │   ├── upload-service.ts       # PDPUploadService - piece uploads
 │   └── storage-provider.ts     # StorageProviderTool - SP operations
+├── storage/                    # Storage service implementation
+│   └── service.ts              # StorageService - real PDP storage implementation
 ├── utils/                      # Shared utilities
-│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS
+│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS
 │   └── errors.ts               # Error creation utilities
 ├── storage-service.ts          # MockStorageService (temporary implementation)
 ├── synapse.ts                  # Main Synapse class (minimal interface)

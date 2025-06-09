@@ -1,8 +1,9 @@
 /* globals describe it */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { StorageService } from '../storage/storage-service.js'
-import type { Synapse, ApprovedProviderInfo } from '../types.js'
+import { StorageService } from '../storage/service.js'
+import type { ApprovedProviderInfo } from '../types.js'
+import type { Synapse } from '../synapse.js'
 
 // Mock Synapse instance
 const mockSynapse = {
@@ -36,7 +37,7 @@ describe('StorageService', () => {
       const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: false })
 
       // Mock the PandoraService method - now returns costs too
-      const mockCheckAllowance = async () => ({
+      const mockCheckAllowance = async (): Promise<any> => ({
         rateAllowanceNeeded: BigInt(100),
         lockupAllowanceNeeded: BigInt(2880000),
         currentRateAllowance: BigInt(1000000),
@@ -53,8 +54,9 @@ describe('StorageService', () => {
       })
 
       // Replace method temporarily
-      const originalCheck = service._pandoraService.checkAllowanceForStorage
-      service._pandoraService.checkAllowanceForStorage = mockCheckAllowance
+      const serviceAny = service as any
+      const originalCheck = serviceAny._pandoraService.checkAllowanceForStorage
+      serviceAny._pandoraService.checkAllowanceForStorage = mockCheckAllowance
 
       try {
         const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
@@ -68,7 +70,7 @@ describe('StorageService', () => {
         assert.equal(preflight.selectedProofSetId, 123)
       } finally {
         // Restore original method
-        service._pandoraService.checkAllowanceForStorage = originalCheck
+        serviceAny._pandoraService.checkAllowanceForStorage = originalCheck
       }
     })
 
@@ -76,7 +78,7 @@ describe('StorageService', () => {
       const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: true })
 
       // Mock the PandoraService method - returns CDN costs
-      const mockCheckAllowance = async () => ({
+      const mockCheckAllowance = async (): Promise<any> => ({
         rateAllowanceNeeded: BigInt(200),
         lockupAllowanceNeeded: BigInt(5760000),
         currentRateAllowance: BigInt(1000000),
@@ -93,8 +95,9 @@ describe('StorageService', () => {
       })
 
       // Replace method temporarily
-      const originalCheck = service._pandoraService.checkAllowanceForStorage
-      service._pandoraService.checkAllowanceForStorage = mockCheckAllowance
+      const serviceAny = service as any
+      const originalCheck = serviceAny._pandoraService.checkAllowanceForStorage
+      serviceAny._pandoraService.checkAllowanceForStorage = mockCheckAllowance
 
       try {
         const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
@@ -106,7 +109,7 @@ describe('StorageService', () => {
         assert.isTrue(preflight.allowanceCheck.sufficient)
       } finally {
         // Restore original method
-        service._pandoraService.checkAllowanceForStorage = originalCheck
+        serviceAny._pandoraService.checkAllowanceForStorage = originalCheck
       }
     })
 
@@ -114,7 +117,7 @@ describe('StorageService', () => {
       const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: false })
 
       // Mock the PandoraService method - returns insufficient allowances
-      const mockCheckAllowance = async () => ({
+      const mockCheckAllowance = async (): Promise<any> => ({
         rateAllowanceNeeded: BigInt(2000000),
         lockupAllowanceNeeded: BigInt(20000000),
         currentRateAllowance: BigInt(1000000),
@@ -131,8 +134,9 @@ describe('StorageService', () => {
       })
 
       // Replace method temporarily
-      const originalCheck = service._pandoraService.checkAllowanceForStorage
-      service._pandoraService.checkAllowanceForStorage = mockCheckAllowance
+      const serviceAny = service as any
+      const originalCheck = serviceAny._pandoraService.checkAllowanceForStorage
+      serviceAny._pandoraService.checkAllowanceForStorage = mockCheckAllowance
 
       try {
         const preflight = await service.preflightUpload(100 * 1024 * 1024) // 100 MiB
@@ -142,7 +146,7 @@ describe('StorageService', () => {
         assert.include(preflight.allowanceCheck.message, 'Lockup allowance insufficient')
       } finally {
         // Restore original method
-        service._pandoraService.checkAllowanceForStorage = originalCheck
+        serviceAny._pandoraService.checkAllowanceForStorage = originalCheck
       }
     })
   })

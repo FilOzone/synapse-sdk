@@ -144,7 +144,13 @@ export const SIZE_CONSTANTS = {
   /**
    * Bytes in 1 TiB
    */
-  TiB: 1024n * 1024n * 1024n * 1024n
+  TiB: 1024n * 1024n * 1024n * 1024n,
+
+  /**
+   * Maximum upload size (200 MiB)
+   * Current limitation for PDP uploads
+   */
+  MAX_UPLOAD_SIZE: 200 * 1024 * 1024
 } as const
 
 /**

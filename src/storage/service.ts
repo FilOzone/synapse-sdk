@@ -13,11 +13,12 @@ import type { ethers } from 'ethers'
 import type {
   StorageServiceOptions,
   ApprovedProviderInfo,
-  UploadTask,
   DownloadOptions,
   SettlementResult,
   PreflightInfo,
   UploadCallbacks,
+  UploadResult,
+  RootData,
   CommP
 } from '../types.js'
 import type { Synapse } from '../synapse.js'
@@ -25,6 +26,11 @@ import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
 import { PandoraService } from '../pandora/service.js'
 import { createError } from '../utils/index.js'
+import { SIZE_CONSTANTS } from '../utils/constants.js'
+
+// Polling configuration for piece parking
+const PIECE_PARKING_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+const PIECE_POLL_INTERVAL_MS = 5000 // 5 seconds
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -277,9 +283,113 @@ export class StorageService {
   /**
    * Upload data to the storage provider
    */
-  upload (data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): UploadTask {
-    // TODO: Implement in Step 6
-    throw new Error('Upload not yet implemented')
+  async upload (data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): Promise<UploadResult> {
+    // Validation Phase: Check data size
+    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+    const sizeBytes = dataBytes.length
+
+    if (sizeBytes > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+      throw createError(
+        'StorageService',
+        'upload',
+        `Data size (${sizeBytes} bytes) exceeds maximum allowed size (${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes)`
+      )
+    }
+
+    // Setup Phase: Notify caller about setup
+    if (callbacks?.onSetup != null) {
+      callbacks.onSetup({
+        provider: this._provider,
+        proofSetId: this._proofSetId,
+        needsNewProofSet: false // Proof set already created in constructor
+      })
+    }
+
+    // Upload Phase: Upload data to storage provider
+    let uploadResult: { commP: string, size: number }
+    try {
+      uploadResult = await this._pdpServer.uploadPiece(dataBytes)
+    } catch (error) {
+      throw createError(
+        'StorageService',
+        'uploadPiece',
+        'Failed to upload piece to storage provider',
+        error
+      )
+    }
+
+    // Poll for piece to be "parked" (ready)
+    const maxWaitTime = PIECE_PARKING_TIMEOUT_MS
+    const pollInterval = PIECE_POLL_INTERVAL_MS
+    const startTime = Date.now()
+    let pieceReady = false
+
+    while (Date.now() - startTime < maxWaitTime) {
+      try {
+        await this._pdpServer.findPiece(uploadResult.commP, uploadResult.size)
+        pieceReady = true
+        break
+      } catch {
+        // Piece not ready yet, wait and retry if we haven't exceeded timeout
+        if (Date.now() - startTime + pollInterval < maxWaitTime) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval))
+        }
+      }
+    }
+
+    if (!pieceReady) {
+      throw createError(
+        'StorageService',
+        'findPiece',
+        'Timeout waiting for piece to be parked on storage provider'
+      )
+    }
+
+    // Notify upload complete
+    if (callbacks?.onUploadComplete != null) {
+      callbacks.onUploadComplete(uploadResult.commP)
+    }
+
+    // Add Root Phase: Add the piece to the proof set
+    try {
+      // Get add roots info to ensure we have the correct nextRootId
+      const addRootsInfo = await this._pandoraService.getAddRootsInfo(
+        this._proofSetId
+      )
+
+      // Create root data array
+      const rootDataArray: RootData[] = [{
+        cid: uploadResult.commP,
+        rawSize: uploadResult.size
+      }]
+
+      // Add roots to the proof set
+      await this._pdpServer.addRoots(
+        this._proofSetId, // PDPVerifier proof set ID
+        addRootsInfo.clientDataSetId, // Client's dataset ID
+        addRootsInfo.nextRootId, // Must match chain state
+        rootDataArray
+      )
+
+      // Notify root added
+      if (callbacks?.onRootAdded != null) {
+        callbacks.onRootAdded()
+      }
+
+      // Return upload result
+      return {
+        commp: uploadResult.commP,
+        size: uploadResult.size,
+        rootId: addRootsInfo.nextRootId // The root ID that was used
+      }
+    } catch (error) {
+      throw createError(
+        'StorageService',
+        'addRoots',
+        'Failed to add root to proof set',
+        error
+      )
+    }
   }
 
   /**
