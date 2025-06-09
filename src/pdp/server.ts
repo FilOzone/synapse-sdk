@@ -19,7 +19,7 @@
  * const { txHash } = await pdpServer.createProofSet(storageProvider, clientDataSetId)
  *
  * // Upload a piece
- * const { commP, size } = await pdpServer.uploadPiece(data, 'my-piece.dat')
+ * const { commP, size } = await pdpServer.uploadPiece(data)
  *
  * // Download a piece
  * const data = await pdpServer.downloadPiece(commP, size)
@@ -342,10 +342,9 @@ export class PDPServer {
   /**
    * Upload a piece to the PDP server
    * @param data - The data to upload
-   * @param name - Optional name for the piece
    * @returns Upload response with CommP and size
    */
-  async uploadPiece (data: Uint8Array | ArrayBuffer, name: string = 'piece.dat'): Promise<UploadResponse> {
+  async uploadPiece (data: Uint8Array | ArrayBuffer): Promise<UploadResponse> {
     // Convert ArrayBuffer to Uint8Array if needed
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 

@@ -150,7 +150,13 @@ export const SIZE_CONSTANTS = {
    * Maximum upload size (200 MiB)
    * Current limitation for PDP uploads
    */
-  MAX_UPLOAD_SIZE: 200 * 1024 * 1024
+  MAX_UPLOAD_SIZE: 200 * 1024 * 1024,
+
+  /**
+   * Minimum upload size (65 bytes)
+   * CommP calculation requires at least 65 bytes
+   */
+  MIN_UPLOAD_SIZE: 65
 } as const
 
 /**

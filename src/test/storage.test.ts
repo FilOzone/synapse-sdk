@@ -414,7 +414,7 @@ describe('StorageService', () => {
     it('should download and verify a piece', async () => {
       const mockPandoraService = {} as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock the PDPServer downloadPiece method
@@ -460,7 +460,7 @@ describe('StorageService', () => {
     it('should accept empty download options', async () => {
       const mockPandoraService = {} as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock the PDPServer downloadPiece method
@@ -485,6 +485,23 @@ describe('StorageService', () => {
   })
 
   describe('upload', () => {
+    it('should enforce 65 byte minimum size limit', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Create data that is below the minimum
+      const undersizedData = new Uint8Array(64) // 64 bytes (1 byte under minimum)
+
+      try {
+        await service.upload(undersizedData)
+        assert.fail('Should have thrown size limit error')
+      } catch (error: any) {
+        assert.include(error.message, 'below minimum allowed size')
+        assert.include(error.message, '64 bytes')
+        assert.include(error.message, '65 bytes')
+      }
+    })
+
     it('should enforce 200 MiB size limit', async () => {
       const mockPandoraService = {} as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
@@ -500,6 +517,44 @@ describe('StorageService', () => {
         assert.include(error.message, '220200960') // 210 * 1024 * 1024
         assert.include(error.message, '209715200') // 200 * 1024 * 1024
       }
+    })
+
+    it('should accept data at exactly 65 bytes', async () => {
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Create data at exactly the minimum
+      const minSizeData = new Uint8Array(65) // 65 bytes
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      // Mock uploadPiece
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
+        assert.equal(data.length, 65)
+        return { commP: testCommP, size: data.length }
+      }
+
+      // Mock findPiece
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return { message: 'success' }
+      }
+
+      const result = await service.upload(minSizeData)
+      assert.equal(result.commp, testCommP)
+      assert.equal(result.size, 65)
     })
 
     it('should accept data up to 200 MiB', async () => {
@@ -554,7 +609,8 @@ describe('StorageService', () => {
       } as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
 
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      // Create data that meets minimum size (65 bytes)
+      const testData = new Uint8Array(65).fill(42) // 65 bytes of value 42
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       let uploadCompleteCallbackFired = false
@@ -648,7 +704,7 @@ describe('StorageService', () => {
       const mockPandoraService = {} as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
 
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock the required services
@@ -688,7 +744,7 @@ describe('StorageService', () => {
     it('should handle upload piece failure', async () => {
       const mockPandoraService = {} as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
 
       // Mock uploadPiece to fail
       const serviceAny = service as any
@@ -713,7 +769,7 @@ describe('StorageService', () => {
         })
       } as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock the required services
@@ -750,7 +806,7 @@ describe('StorageService', () => {
         }
       } as any
       const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock the required services

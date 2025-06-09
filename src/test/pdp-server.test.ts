@@ -503,7 +503,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.uploadPiece(testData, 'test.dat')
+        const result = await pdpServer.uploadPiece(testData)
         assert.exists(result.commP)
         assert.equal(result.size, 5)
       } finally {

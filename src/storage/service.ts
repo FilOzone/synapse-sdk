@@ -355,7 +355,22 @@ export class StorageService {
     const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
     const sizeBytes = dataBytes.length
 
+    if (sizeBytes < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
+      // This restriction is imposed by CommP calculation, which requires at least 65 bytes
+      throw createError(
+        'StorageService',
+        'upload',
+        `Data size (${sizeBytes} bytes) is below minimum allowed size (${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes).`
+      )
+    }
+
     if (sizeBytes > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+      // This restriction is ~arbitrary for now, but there is a hard limit on PDP uploads in Curio
+      // of 254 MiB, see: https://github.com/filecoin-project/curio/blob/3ddc785218f4e237f0c073bac9af0b77d0f7125c/pdp/handlers_upload.go#L38
+      // We can increase this in future, arbitrarily, but we first need to:
+      //  - Handle streaming input.
+      //  - Chunking input at size 254 MiB and make a separate piece per each chunk
+      //  - Combine the pieces using "subpieces" and an aggregate CommP in our AddRoots call
       throw createError(
         'StorageService',
         'upload',
@@ -402,6 +417,14 @@ export class StorageService {
         'Timeout waiting for piece to be parked on storage provider'
       )
     }
+
+    // Wait another 60 seconds to ensure piece is fully parked
+    // TODO: Figure out why this is needed on Curio, findPiece is returning the
+    // piece but we get errors like:
+    //   Failed to validate subroots: subroot CID baga6ea4seaqmptmairnm4y3xhtwt2szvgxoxhzkixmktcuyuu34wi2wl5ipgoli not found or does not belong to service public
+    // Ideally it should be immediate if Curio finds it in its list of parked
+    // pieces.
+    await new Promise(resolve => setTimeout(resolve, 60000))
 
     // Notify upload complete
     if (callbacks?.onUploadComplete != null) {
