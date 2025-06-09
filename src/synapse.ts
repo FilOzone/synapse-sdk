@@ -178,24 +178,6 @@ export class Synapse {
   }
 
   /**
-   * Get the provider instance
-   * @internal
-   * @returns The ethers Provider instance
-   */
-  getProvider (): ethers.Provider {
-    return this._provider
-  }
-
-  /**
-   * Get the network name
-   * @internal
-   * @returns The network name
-   */
-  getNetwork (): FilecoinNetworkType {
-    return this._network
-  }
-
-  /**
    * Get the Pandora service address
    * @internal
    * @returns The Pandora service address
