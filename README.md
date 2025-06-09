@@ -207,22 +207,20 @@ import { ethers } from 'ethers'
 
 const provider = new ethers.JsonRpcProvider(rpcUrl)
 const signer = await provider.getSigner()
-const paymentsService = new PaymentsService(provider, paymentsAddress, signer)
+const paymentsService = new PaymentsService(provider, signer, 'calibration', false)
 
 // Deposit USDFC to payments contract
-await paymentsService.deposit(tokenAddress, recipientAddress, amount)
+await paymentsService.deposit(amount) // amount in base uints
 
 // Check account info
-const info = await paymentsService.accountInfo(tokenAddress, accountAddress)
+const info = await paymentsService.accountInfo() // Uses USDFC by default
 console.log('Available funds:', info.availableFunds)
 
 // Approve service as operator
-await paymentsService.setOperatorApproval(
-  tokenAddress,
-  operatorAddress,
-  true,                    // approved
-  rateAllowance,          // per-epoch rate allowance
-  lockupAllowance         // total lockup allowance
+await paymentsService.approveService(
+  serviceAddress,         // e.g., Pandora contract address
+  rateAllowance,         // per-epoch rate allowance in base units
+  lockupAllowance        // total lockup allowance in base units
 )
 ```
 
@@ -307,14 +305,15 @@ Consolidated interface for all PDP server (Curio) HTTP operations including proo
 import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create server instance with auth helper
-const authHelper = new PDPAuthHelper(pandoraAddress, signer)
+const authHelper = new PDPAuthHelper(pandoraAddress, signer, chainId)
 const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https://pdp.provider.com')
 
 // Create a proof set
 const { txHash, statusUrl } = await pdpServer.createProofSet(
-  storageProvider,     // string (address)
   clientDataSetId,     // number
-  withCDN              // boolean (optional)
+  payee,               // string (storage provider address)
+  withCDN,             // boolean
+  recordKeeper         // string (Pandora contract address)
 )
 
 // Check creation status
@@ -323,10 +322,10 @@ console.log(`Status: ${status.txStatus}, Proof Set ID: ${status.proofSetId}`)
 
 // Add roots to proof set
 await pdpServer.addRoots(
-  proofSetId,         // number
-  roots,              // Array of { cid: string | CommP, rawSize: number }
-  currentRootId,      // number (starting root ID)
-  clientDataSetId     // number
+  proofSetId,         // number (PDPVerifier proof set ID)
+  clientDataSetId,    // number
+  nextRootId,         // number (must match chain state)
+  rootDataArray       // Array of { cid: string | CommP, rawSize: number }
 )
 
 // Upload a piece
@@ -337,14 +336,10 @@ const piece = await pdpServer.findPiece(commP, size)
 console.log(`Piece found: ${piece.uuid}`)
 
 // Download a piece
-const data = await pdpServer.downloadPiece(commP, size, retrievalUrl)
+const data = await pdpServer.downloadPiece(commP)
 
-// Get comprehensive status (combines server and chain info)
-const fullStatus = await pdpServer.getComprehensiveProofSetStatus(
-  txHash,
-  provider,
-  pandoraAddress
-)
+// Get proof set details
+const proofSet = await pdpServer.getProofSet(proofSetId)
 ```
 
 #### PDP Auth Helper
