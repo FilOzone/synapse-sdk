@@ -5,7 +5,7 @@
  * implement the real StorageService!
  */
 
-import type { CommP, DownloadOptions, SettlementResult, ProofSetId, StorageProvider } from './types.js'
+import type { CommP, DownloadOptions, ProofSetId, StorageProvider } from './types.js'
 import { MockUploadTask } from './upload-task.js'
 import { asCommP } from './commp/index.js'
 
@@ -83,40 +83,5 @@ export class MockStorageService {
     // Return a copy of the data
     console.log('[MockSynapse] Returning data copy')
     return new Uint8Array(data)
-  }
-
-  async delete (commp: CommP | string): Promise<void> {
-    const normalizedCommP = asCommP(commp)
-    if (normalizedCommP == null) {
-      throw new Error('Invalid CommP provided')
-    }
-    const commpString = normalizedCommP.toString()
-    console.log('[MockSynapse] StorageService.delete() called')
-    console.log('[MockSynapse] CommP:', commpString)
-
-    // Simulate network delay
-    console.log('[MockSynapse] Simulating delete network delay (500ms)...')
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Remove from mock storage
-    console.log('[MockSynapse] Removing data from mock storage...')
-    this._storedData.delete(commpString)
-    console.log('[MockSynapse] Data deleted successfully')
-  }
-
-  async settlePayments (): Promise<SettlementResult> {
-    console.log('[MockSynapse] StorageService.settlePayments() called')
-
-    // Simulate network delay
-    console.log('[MockSynapse] Simulating settlement processing delay (1000ms)...')
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    const result = {
-      settledAmount: 50000000000000000n, // Mock amount: 0.05 USDFC in base units (1×10⁻¹⁸)
-      epoch: Math.floor(Date.now() / 30000) // Mock epoch
-    }
-
-    console.log('[MockSynapse] Settlement complete:', result)
-    return result
   }
 }

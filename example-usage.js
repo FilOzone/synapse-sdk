@@ -61,11 +61,34 @@ async function main () {
     console.log(`New balance: ${formatAmount(balance, 'USDFC')} USDFC`)
   }
 
-  // Step 2: Create a storage service instance
+  // Step 2: Create a storage service instance with progress callbacks
   console.log('\nCreating storage service...')
   const storage = await synapse.createStorage({
-    // proofSetId: '...', // Optional: use existing proof set
-    // storageProvider: 'f01234' // Optional: preferred storage provider
+    // providerId: 1, // Optional: use specific provider ID
+    // withCDN: true, // Optional: enable CDN (must match synapse init option)
+    callbacks: {
+      onProviderSelected: (provider) => {
+        console.log(`Selected provider: ${provider.owner}`)
+        console.log(`  PDP URL: ${provider.pdpUrl}`)
+      },
+      onProofSetResolved: (info) => {
+        if (info.isExisting) {
+          console.log(`Using existing proof set: ${info.proofSetId}`)
+        } else {
+          console.log(`Created new proof set: ${info.proofSetId}`)
+        }
+      },
+      onProofSetCreationStarted: (txHash, statusUrl) => {
+        console.log(`Proof set creation transaction: ${txHash}`)
+        if (statusUrl) {
+          console.log(`  Status URL: ${statusUrl}`)
+        }
+      },
+      onProofSetCreationProgress: (status) => {
+        const elapsed = Math.round(status.elapsedMs / 1000)
+        console.log(`  [${elapsed}s] Transaction mined: ${status.transactionMined}, Proof set live: ${status.proofSetLive}`)
+      }
+    }
   })
 
   console.log(`Using proof set ID: ${storage.proofSetId}`)
@@ -77,25 +100,27 @@ async function main () {
   // Example: create some binary data
   const data = new TextEncoder().encode('Hello, Filecoin Synapse!')
 
-  // Start upload
-  const uploadTask = storage.upload(data)
+  // Upload with progress callbacks
+  const uploadResult = await storage.upload(data, {
+    onUploadComplete: (commp) => {
+      console.log(`Upload complete! CommP: ${commp}`)
+    },
+    onRootAdded: () => {
+      console.log(`Root added to proof set`)
+    }
+  })
 
-  // Track upload progress
-  const commp = await uploadTask.commp()
-  console.log(`Generated CommP: ${commp}`)
-
-  const sp = await uploadTask.store()
-  console.log(`Stored data with provider: ${sp}`)
-
-  const txHash = await uploadTask.done()
-  console.log(`Blob committed on chain: ${txHash}`)
+  console.log(`Upload successful!`)
+  console.log(`  CommP: ${uploadResult.commp}`)
+  console.log(`  Size: ${uploadResult.size} bytes`)
+  console.log(`  Root ID: ${uploadResult.rootId || 'N/A'}`)
   console.log(`Data is being proven in proof set: ${storage.proofSetId}`)
 
   // Step 4: Download data
   console.log('\nDownloading data...')
 
   // Download with default settings (uses CDN if enabled, verifies by default)
-  const downloadedData = await storage.download(commp)
+  const downloadedData = await storage.download(uploadResult.commp)
 
   // Convert back to string to verify
   const text = 'Hello, Filecoin Synapse!'
@@ -106,26 +131,15 @@ async function main () {
 
   // Example: Download without CDN (direct from SP)
   console.log('\nDownloading directly from SP (no CDN)...')
-  const directData = await storage.download(commp, { withCDN: false })
+  const directData = await storage.download(uploadResult.commp, { withCDN: false })
   console.log(`Direct download successful: ${decoder.decode(directData) === text}`)
 
   // Example: Download without verification (faster but less secure)
   console.log('\nDownloading without verification...')
-  const unverifiedData = await storage.download(commp, { noVerify: true })
+  const unverifiedData = await storage.download(uploadResult.commp, { noVerify: true })
   console.log(`Unverified download successful: ${decoder.decode(unverifiedData) === text}`)
 
-  // Step 5: Settle payments
-  console.log('\nSettling payments...')
-  const { settledAmount, epoch } = await storage.settlePayments()
-  console.log(`Settled payment rail for epoch ${epoch}`)
-  console.log(`Settlement cost: ${formatAmount(settledAmount, 'USDFC')} USDFC`)
-
-  // Step 6: Delete data (optional)
-  console.log('\nDeleting data...')
-  await storage.delete(commp)
-  console.log(`Deleted blob with CommP ${commp} from proof set ${storage.proofSetId}`)
-
-  // Step 7: Withdraw funds (optional)
+  // Step 5: Withdraw funds (optional)
   console.log('\nWithdrawing funds...')
   const withdrawAmount = 1n * (10n ** 18n) // 1 USDFC in smallest unit
   const withdrawTxHash = await synapse.payments.withdraw(withdrawAmount, TOKENS.USDFC)

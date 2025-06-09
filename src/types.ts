@@ -85,16 +85,6 @@ export interface DownloadOptions {
 }
 
 /**
- * Payment settlement result
- */
-export interface SettlementResult {
-  /** Amount settled in USDFC base units */
-  settledAmount: bigint
-  /** Epoch at which settlement occurred */
-  epoch: number
-}
-
-/**
  * Signature data for authenticated operations
  */
 export interface AuthSignature {
@@ -175,6 +165,49 @@ export interface ApprovedProviderInfo {
 }
 
 /**
+ * Callbacks for storage service creation process
+ */
+export interface StorageCreationCallbacks {
+  /**
+   * Called when a storage provider has been selected
+   * @param provider - The selected provider info
+   */
+  onProviderSelected?: (provider: ApprovedProviderInfo) => void
+
+  /**
+   * Called when proof set resolution is complete
+   * @param info - Information about the resolved proof set
+   */
+  onProofSetResolved?: (info: {
+    isExisting: boolean
+    proofSetId: number
+    provider: ApprovedProviderInfo
+  }) => void
+
+  /**
+   * Called when proof set creation transaction is submitted
+   * Only fired when creating a new proof set
+   * @param txHash - Transaction hash for tracking
+   * @param statusUrl - URL to check status (optional)
+   */
+  onProofSetCreationStarted?: (txHash: string, statusUrl?: string) => void
+
+  /**
+   * Called periodically during proof set creation
+   * Only fired when creating a new proof set
+   * @param status - Current creation status
+   */
+  onProofSetCreationProgress?: (status: {
+    transactionMined: boolean
+    transactionSuccess: boolean
+    proofSetLive: boolean
+    serverConfirmed: boolean
+    proofSetId?: number
+    elapsedMs: number
+  }) => void
+}
+
+/**
  * Storage service implementation options
  */
 export interface StorageServiceOptions {
@@ -182,6 +215,8 @@ export interface StorageServiceOptions {
   providerId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
+  /** Callbacks for creation process */
+  callbacks?: StorageCreationCallbacks
 }
 
 /**
@@ -209,26 +244,10 @@ export interface PreflightInfo {
  * Upload progress callbacks
  */
 export interface UploadCallbacks {
-  /** Called after provider and proof set selection */
-  onSetup?: (status: SetupStatus) => void
-  /** Called if a new proof set was created */
-  onProofSetCreated?: (id: number, txn: string) => void
   /** Called when upload to storage provider completes */
   onUploadComplete?: (commp: string) => void
   /** Called when root is added to proof set */
   onRootAdded?: () => void
-}
-
-/**
- * Setup status information
- */
-export interface SetupStatus {
-  /** Selected storage provider */
-  provider: ApprovedProviderInfo
-  /** Selected proof set ID (if existing) */
-  proofSetId?: number
-  /** Whether a new proof set needs to be created */
-  needsNewProofSet: boolean
 }
 
 /**

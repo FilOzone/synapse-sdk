@@ -61,7 +61,6 @@ src/
 ├── utils/                      # Shared utilities
 │   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS
 │   └── errors.ts               # Error creation utilities
-├── storage-service.ts          # MockStorageService (temporary implementation)
 ├── synapse.ts                  # Main Synapse class (minimal interface)
 └── types.ts                    # TypeScript interfaces
 ```

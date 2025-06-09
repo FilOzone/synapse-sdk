@@ -136,7 +136,6 @@ describe('Synapse', () => {
       assert.exists(storage.storageProvider)
       assert.isFunction(storage.upload)
       assert.isFunction(storage.download)
-      assert.isFunction(storage.delete)
     })
 
     it('should accept custom proofSetId', async () => {

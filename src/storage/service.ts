@@ -6,15 +6,14 @@
  * - Proof set creation and selection
  * - File uploads with PDP (Proof of Data Possession)
  * - File downloads with verification
- * - Payment settlement
  */
 
 import type { ethers } from 'ethers'
 import type {
   StorageServiceOptions,
+  StorageCreationCallbacks,
   ApprovedProviderInfo,
   DownloadOptions,
-  SettlementResult,
   PreflightInfo,
   UploadCallbacks,
   UploadResult,
@@ -150,11 +149,20 @@ export class StorageService {
       provider = providers[randomIndex]
     }
 
+    // Notify callback about provider selection
+    try {
+      options.callbacks?.onProviderSelected?.(provider)
+    } catch (error) {
+      // Log but don't propagate callback errors
+      console.error('Error in onProviderSelected callback:', error)
+    }
+
     // Step 2: Select or create proof set
     const proofSetId = await StorageService.selectOrCreateProofSet(
       synapse,
       provider,
-      options.withCDN ?? false
+      options.withCDN ?? false,
+      options.callbacks
     )
 
     // Step 3: Create and return service instance
@@ -167,7 +175,8 @@ export class StorageService {
   private static async selectOrCreateProofSet (
     synapse: Synapse,
     provider: ApprovedProviderInfo,
-    withCDN: boolean
+    withCDN: boolean,
+    callbacks?: StorageCreationCallbacks
   ): Promise<number> {
     const pandoraAddress = synapse.getPandoraAddress()
     const pandoraService = new PandoraService(synapse.getProvider(), pandoraAddress)
@@ -201,7 +210,20 @@ export class StorageService {
       })
 
       // Return the best match
-      return sorted[0].pdpVerifierProofSetId
+      const selectedProofSetId = sorted[0].pdpVerifierProofSetId
+
+      // Notify callback about proof set resolution (fast path)
+      try {
+        callbacks?.onProofSetResolved?.({
+          isExisting: true,
+          proofSetId: selectedProofSetId,
+          provider
+        })
+      } catch (error) {
+        console.error('Error in onProofSetResolved callback:', error)
+      }
+
+      return selectedProofSetId
     }
 
     // Step 4: No suitable proof set exists, create a new one
@@ -233,24 +255,71 @@ export class StorageService {
     )
 
     // createProofSet returns CreateProofSetResponse with txHash and statusUrl
-    const { txHash } = createResult
+    const { txHash, statusUrl } = createResult
 
-    // Wait for the proof set creation to be confirmed on-chain
-    const creationStatus = await pandoraService.waitForProofSetCreationWithStatus(
-      txHash,
-      pdpServer
-    )
+    // Notify callback about proof set creation started
+    try {
+      callbacks?.onProofSetCreationStarted?.(txHash, statusUrl)
+    } catch (error) {
+      console.error('Error in onProofSetCreationStarted callback:', error)
+    }
 
-    if (!creationStatus.summary.isComplete || creationStatus.summary.proofSetId == null) {
+    // Wait for the proof set creation to be confirmed on-chain with progress callbacks
+    const startTime = Date.now()
+    const timeoutMs = 300000 // 5 minutes
+    const pollIntervalMs = 2000 // 2 seconds
+
+    let finalStatus: Awaited<ReturnType<typeof pandoraService.getComprehensiveProofSetStatus>> | undefined
+
+    while (Date.now() - startTime < timeoutMs) {
+      const status = await pandoraService.getComprehensiveProofSetStatus(txHash, pdpServer)
+      finalStatus = status
+
+      // Fire progress callback
+      try {
+        callbacks?.onProofSetCreationProgress?.({
+          transactionMined: status.chainStatus.transactionMined,
+          transactionSuccess: status.chainStatus.transactionSuccess,
+          proofSetLive: status.chainStatus.proofSetLive,
+          serverConfirmed: status.serverStatus?.ok === true,
+          proofSetId: status.summary.proofSetId ?? undefined,
+          elapsedMs: Date.now() - startTime
+        })
+      } catch (error) {
+        console.error('Error in onProofSetCreationProgress callback:', error)
+      }
+
+      // Check if complete or failed
+      if (status.summary.isComplete || status.summary.error != null) {
+        break
+      }
+
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
+    }
+
+    if (finalStatus == null || !finalStatus.summary.isComplete || finalStatus.summary.proofSetId == null) {
       throw createError(
         'StorageService',
         'waitForProofSetCreation',
-        `Proof set creation failed: ${creationStatus.summary.error ?? 'Transaction may have failed'}`
+        `Proof set creation failed: ${finalStatus?.summary.error ?? 'Timeout or transaction may have failed'}`
       )
     }
 
-    console.log(`Created new proof set with ID: ${creationStatus.summary.proofSetId}`)
-    return creationStatus.summary.proofSetId
+    const proofSetId = finalStatus.summary.proofSetId
+    console.log(`Created new proof set with ID: ${proofSetId}`)
+
+    // Notify callback about proof set resolution (slow path)
+    try {
+      callbacks?.onProofSetResolved?.({
+        isExisting: false,
+        proofSetId,
+        provider
+      })
+    } catch (error) {
+      console.error('Error in onProofSetResolved callback:', error)
+    }
+
+    return proofSetId
   }
 
   /**
@@ -294,15 +363,6 @@ export class StorageService {
         'upload',
         `Data size (${sizeBytes} bytes) exceeds maximum allowed size (${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes)`
       )
-    }
-
-    // Setup Phase: Notify caller about setup
-    if (callbacks?.onSetup != null) {
-      callbacks.onSetup({
-        provider: this._provider,
-        proofSetId: this._proofSetId,
-        needsNewProofSet: false // Proof set already created in constructor
-      })
     }
 
     // Upload Phase: Upload data to storage provider
@@ -398,21 +458,5 @@ export class StorageService {
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     // TODO: Implement in Step 7
     throw new Error('Download not yet implemented')
-  }
-
-  /**
-   * Delete data from storage
-   */
-  async delete (commp: string | CommP): Promise<void> {
-    // TODO: Implement in Step 8
-    throw new Error('Delete not yet implemented')
-  }
-
-  /**
-   * Settle payments for the storage
-   */
-  async settlePayments (): Promise<SettlementResult> {
-    // TODO: Implement in Step 8
-    throw new Error('Settle payments not yet implemented')
   }
 }

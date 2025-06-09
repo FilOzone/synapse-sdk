@@ -28,6 +28,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [With MetaMask](#with-metamask)
   * [Advanced Payment Control](#advanced-payment-control)
   * [API Reference](#api-reference)
+  * [Storage Service Creation](#storage-service-creation)
 * [Using Individual Components](#using-individual-components)
   * [Payments Service](#payments-service)
   * [Pandora Service](#pandora-service)
@@ -80,12 +81,16 @@ await synapse.payments.approveService(
 
 // Create storage service and upload data
 const storage = await synapse.createStorage()
-const uploadTask = storage.upload(new TextEncoder().encode('Hello World'))
-const commp = await uploadTask.commp()
-await uploadTask.done()
+
+// Upload data
+const uploadResult = await storage.upload(
+  new TextEncoder().encode('Hello World')
+)
+console.log(`Upload complete! CommP: ${uploadResult.commp}`)
+console.log(`Size: ${uploadResult.size} bytes`)
 
 // Download data
-const data = await storage.download(commp)
+const data = await storage.download(uploadResult.commp)
 console.log(new TextDecoder().decode(data)) // "Hello World"
 ```
 
@@ -169,7 +174,7 @@ interface SynapseOptions {
 #### Synapse Methods
 
 - `payments` - Access payment-related functionality (see below)
-- `createStorage(options?)` - Create a storage service instance
+- `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
 
 #### Synapse.payments Methods
 
@@ -190,6 +195,91 @@ interface SynapseOptions {
 - `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator
 - `revokeService(service, token?)` - Revoke service operator approval
 - `serviceApproval(service, token?)` - Check service approval status and allowances
+
+### Storage Service Creation
+
+The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing proof sets, and coordinating with the blockchain. You just call `createStorage()` and the SDK takes care of everything.
+
+Behind the scenes, the process may be:
+- **Fast (<1 second)**: When reusing existing infrastructure
+- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure
+
+#### Basic Usage
+
+```javascript
+// Simple creation with default provider selection
+const storage = await synapse.createStorage()
+```
+
+#### Advanced Usage with Callbacks
+
+Monitor the creation process with detailed callbacks:
+
+```javascript
+const storage = await synapse.createStorage({
+  providerId: 1,    // Optional: use specific provider ID
+  withCDN: true,    // Optional: enable CDN for faster downloads
+  callbacks: {
+    // Called when a provider is selected
+    onProviderSelected: (provider) => {
+      console.log(`Selected provider: ${provider.owner}`)
+      console.log(`  PDP URL: ${provider.pdpUrl}`)
+    },
+
+    // Called when proof set is found or created
+    onProofSetResolved: (info) => {
+      if (info.isExisting) {
+        console.log(`Using existing proof set: ${info.proofSetId}`)
+      } else {
+        console.log(`Created new proof set: ${info.proofSetId}`)
+      }
+    },
+
+    // Only called when creating a new proof set
+    onProofSetCreationStarted: (txHash, statusUrl) => {
+      console.log(`Creation transaction: ${txHash}`)
+      if (statusUrl) {
+        console.log(`Monitor status at: ${statusUrl}`)
+      }
+    },
+
+    // Progress updates during proof set creation
+    onProofSetCreationProgress: (status) => {
+      const elapsed = Math.round(status.elapsedMs / 1000)
+      console.log(`[${elapsed}s] Mining: ${status.transactionMined}, Live: ${status.proofSetLive}`)
+    }
+  }
+})
+```
+
+#### Creation Options
+
+```typescript
+interface StorageServiceOptions {
+  providerId?: number                      // Specific provider ID to use
+  withCDN?: boolean                        // Enable CDN services
+  callbacks?: StorageCreationCallbacks     // Progress callbacks
+}
+```
+
+#### Upload Methods
+
+Once created, use the storage service to upload and download data:
+
+```javascript
+// Upload with progress callbacks
+const result = await storage.upload(data, {
+  onUploadComplete: (commp) => {
+    console.log(`Upload complete! CommP: ${commp}`)
+  },
+  onRootAdded: () => {
+    console.log('Data added to proof set')
+  }
+})
+
+// Download data
+const downloaded = await storage.download(result.commp)
+```
 
 ---
 
@@ -237,12 +327,14 @@ const pandoraService = new PandoraService(provider, pandoraAddress)
 const costs = await pandoraService.calculateStorageCost(sizeInBytes)
 console.log(`Storage cost: ${costs.perMonth} per month`)
 
-// Check allowances for storage
+// Check allowances for storage (returns allowance details and costs)
 const check = await pandoraService.checkAllowanceForStorage(
   sizeInBytes,
   withCDN,
   paymentsService  // Pass PaymentsService instance
 )
+// check.sufficient - boolean indicating if allowances are sufficient
+// check.costs - storage costs per epoch/day/month
 
 // Prepare storage upload
 const prep = await pandoraService.prepareStorageUpload({
