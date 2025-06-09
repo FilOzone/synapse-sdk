@@ -424,7 +424,10 @@ export class StorageService {
     //   Failed to validate subroots: subroot CID baga6ea4seaqmptmairnm4y3xhtwt2szvgxoxhzkixmktcuyuu34wi2wl5ipgoli not found or does not belong to service public
     // Ideally it should be immediate if Curio finds it in its list of parked
     // pieces.
-    await new Promise(resolve => setTimeout(resolve, 60000))
+    // HACK: Skip delay in tests by checking global flag
+    if ((globalThis as any).__SYNAPSE_SDK_SKIP_DELAYS__ !== true) {
+      await new Promise(resolve => setTimeout(resolve, 60000))
+    }
 
     // Notify upload complete
     if (callbacks?.onUploadComplete != null) {

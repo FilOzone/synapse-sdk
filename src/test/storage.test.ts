@@ -5,6 +5,11 @@ import { StorageService } from '../storage/service.js'
 import type { ApprovedProviderInfo } from '../types.js'
 import type { Synapse } from '../synapse.js'
 
+// HACK: Set global flag to skip delays in tests
+// This avoids the 60-second delay in StorageService.upload()
+// TODO: Remove this when the delay is no longer needed
+;(globalThis as any).__SYNAPSE_SDK_SKIP_DELAYS__ = true
+
 // Mock Synapse instance
 const mockSynapse = {
   getSigner: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
