@@ -64,19 +64,22 @@ const synapse = await Synapse.create({
   rpcURL: RPC_URLS.mainnet.websocket
 })
 
-// Check balances
-const filBalance = await synapse.payments.walletBalance()                   // FIL in wallet
-const usdcBalance = await synapse.payments.walletBalance(TOKENS.USDFC)      // USDFC in wallet
-const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)        // USDFC in payments contract
+// Check balance of USDFC in the payments contract
+const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)
+console.log('USDFC balance in payments contract:',
+  ethers.formatUnits(paymentsBalance, synapse.payments.decimals(TOKENS.USDFC)))
 
 // Deposit funds for storage operations
-await synapse.payments.deposit(10n * 10n**18n, TOKENS.USDFC)
+const amount = ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC))
+await synapse.payments.deposit(amount, TOKENS.USDFC)
 
 // Or manually approve service for creating payment rails
 await synapse.payments.approveService(
   serviceAddress,
-  ethers.parseUnits('10', 18),    // 10 USDFC per epoch rate allowance
-  ethers.parseUnits('1000', 18)   // 1000 USDFC lockup allowance
+  // 10 USDFC per epoch rate allowance
+  ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
+  // 1000 USDFC lockup allowance
+  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
 )
 
 // Create storage service and upload data
@@ -135,8 +138,10 @@ const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4' // Pandora
 // Approve service to create payment rails on your behalf
 await synapse.payments.approveService(
   serviceAddress,
-  '10',   // 10 USDFC per epoch rate allowance
-  '1000'  // 1000 USDFC lockup allowance
+  // 10 USDFC per epoch rate allowance
+  ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
+  // 1000 USDFC lockup allowance
+  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
 )
 
 // Check service approval status
@@ -183,7 +188,7 @@ interface SynapseOptions {
 - `balance(token?)` - Get available balance in payments contract (accounting for lockups)
 - `accountInfo(token?)` - Get detailed account info including funds, lockup details, and available balance
 - `getCurrentEpoch()` - Get the current Filecoin epoch number
-- `decimals(token?)` - Get token decimals (always 18)
+- `decimals(token?)` - Get token decimals
 
 **Token Operations:**
 - `deposit(amount, token?)` - Deposit funds to payments contract (handles approval automatically)
