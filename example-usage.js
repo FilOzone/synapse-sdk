@@ -119,7 +119,7 @@ async function main () {
   // Step 4: Download data
   console.log('\nDownloading data...')
 
-  // Download with default settings (uses CDN if enabled, verifies by default)
+  // Download data (uses CDN if the storage instance was created with CDN enabled)
   const downloadedData = await storage.download(uploadResult.commp)
 
   // Convert back to string to verify
@@ -129,15 +129,8 @@ async function main () {
   console.log(`Downloaded: "${downloadedText}"`)
   console.log(`Download successful: ${downloadedText === text}`)
 
-  // Example: Download without CDN (direct from SP)
-  console.log('\nDownloading directly from SP (no CDN)...')
-  const directData = await storage.download(uploadResult.commp, { withCDN: false })
-  console.log(`Direct download successful: ${decoder.decode(directData) === text}`)
-
-  // Example: Download without verification (faster but less secure)
-  console.log('\nDownloading without verification...')
-  const unverifiedData = await storage.download(uploadResult.commp, { noVerify: true })
-  console.log(`Unverified download successful: ${decoder.decode(unverifiedData) === text}`)
+  // Note: CDN usage is determined by how the storage service was created.
+  // The download method always verifies the CommP to ensure data integrity.
 
   // Step 5: Withdraw funds (optional)
   console.log('\nWithdrawing funds...')

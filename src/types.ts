@@ -76,12 +76,11 @@ export interface UploadTask {
 
 /**
  * Download options
+ * Currently empty, reserved for future options
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface DownloadOptions {
-  /** Skip verification of downloaded data against CommP (default: false) */
-  noVerify?: boolean
-  /** Force use of CDN or direct SP retrieval (overrides instance setting) */
-  withCDN?: boolean
+  // Reserved for future options
 }
 
 /**

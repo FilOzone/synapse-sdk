@@ -456,7 +456,19 @@ export class StorageService {
    * Download data from the storage provider
    */
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
-    // TODO: Implement in Step 7
-    throw new Error('Download not yet implemented')
+    try {
+      // The StorageService instance is already configured with a specific provider
+      // and proof set that either uses CDN or doesn't. PDPServer always verifies the CommP.
+
+      const data = await this._pdpServer.downloadPiece(commp)
+      return data
+    } catch (error) {
+      throw createError(
+        'StorageService',
+        'download',
+        'Failed to download piece from storage provider',
+        error
+      )
+    }
   }
 }

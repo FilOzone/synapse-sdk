@@ -51,8 +51,8 @@ export class MockStorageService {
     console.log('[MockSynapse] CommP:', commpString)
     console.log('[MockSynapse] Download options:', options)
 
-    if (options?.withCDN !== false && (this._withCDN || options?.withCDN)) {
-      console.log('[MockSynapse] Using CDN for download (withCDN=true)')
+    if (this._withCDN) {
+      console.log('[MockSynapse] Using CDN for download (instance configured with CDN)')
       const res = await fetch(`https://${this._signerAddress}.calibration.filcdn.io/${commpString}`)
       return new Uint8Array(await res.arrayBuffer())
     }
@@ -70,15 +70,11 @@ export class MockStorageService {
     }
     console.log('[MockSynapse] Data found, size:', data.length, 'bytes')
 
-    // Mock verification
-    if (options?.noVerify !== true) {
-      console.log('[MockSynapse] Verifying data integrity...')
-      console.log('[MockSynapse] Simulating verification delay (200ms)...')
-      await new Promise(resolve => setTimeout(resolve, 200))
-      console.log('[MockSynapse] Data verification complete')
-    } else {
-      console.log('[MockSynapse] Skipping verification (noVerify=true)')
-    }
+    // Mock verification (always verify)
+    console.log('[MockSynapse] Verifying data integrity...')
+    console.log('[MockSynapse] Simulating verification delay (200ms)...')
+    await new Promise(resolve => setTimeout(resolve, 200))
+    console.log('[MockSynapse] Data verification complete')
 
     // Return a copy of the data
     console.log('[MockSynapse] Returning data copy')

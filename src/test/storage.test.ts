@@ -150,4 +150,75 @@ describe('StorageService', () => {
       }
     })
   })
+
+  describe('download', () => {
+    it('should download and verify a piece', async () => {
+      const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: false })
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      // Mock the PDPServer downloadPiece method
+      const serviceAny = service as any
+      const originalDownload = serviceAny._pdpServer.downloadPiece
+      serviceAny._pdpServer.downloadPiece = async (commp: string): Promise<Uint8Array> => {
+        assert.equal(commp, testCommP)
+        return testData
+      }
+
+      try {
+        const downloaded = await service.download(testCommP)
+        assert.deepEqual(downloaded, testData)
+      } finally {
+        // Restore original method
+        serviceAny._pdpServer.downloadPiece = originalDownload
+      }
+    })
+
+    it('should handle download errors', async () => {
+      const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: false })
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      // Mock the PDPServer downloadPiece method to throw error
+      const serviceAny = service as any
+      const originalDownload = serviceAny._pdpServer.downloadPiece
+      serviceAny._pdpServer.downloadPiece = async (): Promise<Uint8Array> => {
+        throw new Error('Network error')
+      }
+
+      try {
+        await service.download(testCommP)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to download piece from storage provider')
+      } finally {
+        // Restore original method
+        serviceAny._pdpServer.downloadPiece = originalDownload
+      }
+    })
+
+    it('should accept empty download options', async () => {
+      const service = new StorageService(mockSynapse, mockProvider, 123, { withCDN: false })
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      // Mock the PDPServer downloadPiece method
+      const serviceAny = service as any
+      const originalDownload = serviceAny._pdpServer.downloadPiece
+      serviceAny._pdpServer.downloadPiece = async (): Promise<Uint8Array> => {
+        return testData
+      }
+
+      try {
+        // Test with and without empty options object
+        const downloaded1 = await service.download(testCommP)
+        assert.deepEqual(downloaded1, testData)
+
+        const downloaded2 = await service.download(testCommP, {})
+        assert.deepEqual(downloaded2, testData)
+      } finally {
+        // Restore original method
+        serviceAny._pdpServer.downloadPiece = originalDownload
+      }
+    })
+  })
 })
