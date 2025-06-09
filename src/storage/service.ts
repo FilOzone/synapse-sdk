@@ -224,7 +224,6 @@ export class StorageService {
     }
 
     // Step 4: No suitable proof set exists, create a new one
-    console.log('No suitable proof set found, creating new one...')
 
     // Get next client dataset ID
     const nextDatasetId = await pandoraService.getNextClientDataSetId(signerAddress)
@@ -306,7 +305,6 @@ export class StorageService {
     }
 
     const proofSetId = finalStatus.summary.proofSetId
-    console.log(`Created new proof set with ID: ${proofSetId}`)
 
     // Notify callback about proof set resolution (slow path)
     try {

@@ -353,36 +353,71 @@ export class PDPServer {
     const commP = await calculateCommP(uint8Data)
     const size = uint8Data.length
 
-    // Create upload session
+    // Extract the raw hash from the CommP CID
+    const hashBytes = commP.multihash.digest
+    const hashHex = toHex(hashBytes)
+
+    // Create the check data as per original protocol
+    const checkData = {
+      name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
+      hash: hashHex,
+      size
+    }
+
+    const requestBody = {
+      check: checkData
+      // No notify URL needed
+    }
+
+    // Create upload session or check if piece exists
     const createResponse = await fetch(`${this._apiEndpoint}/pdp/piece`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        name,
-        size
-      })
+      body: JSON.stringify(requestBody)
     })
 
-    if (!createResponse.ok) {
+    if (createResponse.status === 200) {
+      // Piece already exists on server
+      return {
+        commP: commP.toString(),
+        size
+      }
+    }
+
+    if (createResponse.status !== 201) {
       const errorText = await createResponse.text()
       throw new Error(`Failed to create upload session: ${createResponse.status} ${createResponse.statusText} - ${errorText}`)
     }
 
-    const { upload_uuid: uploadUuid } = await createResponse.json() as { upload_uuid: string }
+    // Extract upload ID from Location header
+    const location = createResponse.headers.get('Location')
+    if (location == null) {
+      throw new Error('Server did not provide Location header in response (may be restricted by CORS policy)')
+    }
+
+    // Validate the location format and extract UUID
+    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
+    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
+    if (locationMatch == null) {
+      throw new Error(`Invalid Location header format: ${location}`)
+    }
+
+    const uploadUuid = locationMatch[1] // Extract just the UUID
 
     // Upload the data
     const uploadResponse = await fetch(`${this._apiEndpoint}/pdp/piece/upload/${uploadUuid}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/octet-stream',
-        'X-Service-Name': this._serviceName
+        'Content-Length': uint8Data.length.toString()
+        // No Authorization header needed
       },
       body: uint8Data
     })
 
-    if (!uploadResponse.ok) {
+    if (uploadResponse.status !== 204) {
       const errorText = await uploadResponse.text()
       throw new Error(`Failed to upload piece: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`)
     }

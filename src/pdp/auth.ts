@@ -85,12 +85,32 @@ export class PDPAuthHelper {
   }
 
   /**
+   * Get the actual signer, unwrapping NonceManager if needed
+   */
+  private getUnderlyingSigner (): ethers.Signer {
+    // Check if this is a NonceManager-wrapped signer
+    if ('signer' in this.signer && this.signer.constructor.name === 'NonceManager') {
+      // Access the underlying signer for signTypedData support
+      return (this.signer as any).signer
+    }
+    return this.signer
+  }
+
+  /**
    * Check if the signer is a browser provider (MetaMask, etc)
    */
   private async isMetaMaskSigner (): Promise<boolean> {
     try {
+      // Get the actual signer (unwrap NonceManager if needed)
+      const actualSigner = this.getUnderlyingSigner()
+
+      // If it's a Wallet, it can sign locally, so not a MetaMask signer
+      if (actualSigner.constructor.name === 'Wallet') {
+        return false
+      }
+
       // Check if signer has a provider
-      const provider = this.signer.provider
+      const provider = actualSigner.provider
       if (provider == null) {
         return false
       }
@@ -243,7 +263,9 @@ export class PDPAuthHelper {
         payee
       }
 
-      signature = await this.signer.signTypedData(
+      // Use underlying signer for typed data signing (handles NonceManager)
+      const actualSigner = this.getUnderlyingSigner()
+      signature = await actualSigner.signTypedData(
         this.domain,
         { CreateProofSet: EIP712_TYPES.CreateProofSet },
         value
@@ -362,7 +384,9 @@ export class PDPAuthHelper {
         Cid: EIP712_TYPES.Cid
       }
 
-      signature = await this.signer.signTypedData(this.domain, types, value)
+      // Use underlying signer for typed data signing (handles NonceManager)
+      const actualSigner = this.getUnderlyingSigner()
+      signature = await actualSigner.signTypedData(this.domain, types, value)
     }
 
     // Return signature with components
@@ -442,7 +466,9 @@ export class PDPAuthHelper {
         rootIds: rootIdsBigInt
       }
 
-      signature = await this.signer.signTypedData(
+      // Use underlying signer for typed data signing (handles NonceManager)
+      const actualSigner = this.getUnderlyingSigner()
+      signature = await actualSigner.signTypedData(
         this.domain,
         { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
         value
@@ -512,7 +538,9 @@ export class PDPAuthHelper {
         clientDataSetId: BigInt(clientDataSetId)
       }
 
-      signature = await this.signer.signTypedData(
+      // Use underlying signer for typed data signing (handles NonceManager)
+      const actualSigner = this.getUnderlyingSigner()
+      signature = await actualSigner.signTypedData(
         this.domain,
         { DeleteProofSet: EIP712_TYPES.DeleteProofSet },
         value

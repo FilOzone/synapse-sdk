@@ -462,7 +462,7 @@ describe('PDPServer', () => {
   describe('uploadPiece', () => {
     it('should successfully upload data', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockUuid = 'test-uuid-123'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -470,14 +470,33 @@ describe('PDPServer', () => {
         const urlStr = url.toString()
 
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Create upload session
+          // Verify request body has check object
+          const body = JSON.parse(options.body)
+          assert.exists(body.check)
+          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.exists(body.check.hash)
+          assert.equal(body.check.size, 5)
+
+          // Create upload session - return 201 with Location header
           return {
-            ok: true,
-            json: async () => ({ upload_uuid: mockUuid })
+            ok: false,
+            status: 201,
+            headers: {
+              get: (name: string) => {
+                if (name === 'Location') {
+                  return `/pdp/piece/upload/${mockUuid}`
+                }
+                return null
+              }
+            },
+            text: async () => 'Created'
           } as any
         } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
-          // Upload data
-          return { ok: true } as any
+          // Upload data - return 204 No Content
+          return {
+            ok: true,
+            status: 204
+          } as any
         }
 
         throw new Error(`Unexpected request: ${String(urlStr)}`)
@@ -496,7 +515,7 @@ describe('PDPServer', () => {
       const buffer = new ArrayBuffer(5)
       const view = new Uint8Array(buffer)
       view.set([1, 2, 3, 4, 5])
-      const mockUuid = 'test-uuid-456'
+      const mockUuid = 'fedcba09-8765-4321-fedc-ba0987654321'
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -504,12 +523,33 @@ describe('PDPServer', () => {
         const urlStr = url.toString()
 
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          // Verify request body has check object
+          const body = JSON.parse(options.body)
+          assert.exists(body.check)
+          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.exists(body.check.hash)
+          assert.equal(body.check.size, 5)
+
+          // Create upload session - return 201 with Location header
           return {
-            ok: true,
-            json: async () => ({ upload_uuid: mockUuid })
+            ok: false,
+            status: 201,
+            headers: {
+              get: (name: string) => {
+                if (name === 'Location') {
+                  return `/pdp/piece/upload/${mockUuid}`
+                }
+                return null
+              }
+            },
+            text: async () => 'Created'
           } as any
         } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
-          return { ok: true } as any
+          // Upload data - return 204 No Content
+          return {
+            ok: true,
+            status: 204
+          } as any
         }
 
         throw new Error(`Unexpected request: ${String(urlStr)}`)
@@ -526,7 +566,7 @@ describe('PDPServer', () => {
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockUuid = 'test-uuid-789'
+      const mockPieceCid = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       // Mock fetch to return 200 instead of 201 for create
       const originalFetch = global.fetch
@@ -534,14 +574,19 @@ describe('PDPServer', () => {
         const urlStr = url.toString()
 
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Return 200 OK instead of 201 Created (piece already exists)
+          // Verify request body has check object
+          const body = JSON.parse(options.body)
+          assert.exists(body.check)
+          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.exists(body.check.hash)
+          assert.equal(body.check.size, 5)
+
+          // Return 200 OK (piece already exists)
           return {
             ok: true,
             status: 200,
-            json: async () => ({ upload_uuid: mockUuid })
+            json: async () => ({ pieceCID: mockPieceCid })
           } as any
-        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
-          return { ok: true } as any
         }
 
         throw new Error(`Unexpected request: ${String(urlStr)}`)
@@ -566,6 +611,10 @@ describe('PDPServer', () => {
         const urlStr = url.toString()
 
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+          // Verify request body has check object even for error case
+          const body = JSON.parse(options.body)
+          assert.exists(body.check)
+
           return {
             ok: false,
             status: 500,
