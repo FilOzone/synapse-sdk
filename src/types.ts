@@ -212,6 +212,10 @@ export interface StorageCreationCallbacks {
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
   providerId?: number
+  /** Specific provider address to use (optional) */
+  providerAddress?: string
+  /** Specific proof set ID to use (optional) */
+  proofSetId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
   /** Callbacks for creation process */

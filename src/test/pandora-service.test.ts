@@ -359,7 +359,8 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const managedProofSets = await pandoraService.getManagedProofSets(clientAddress)
+      const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress)
+      const managedProofSets = proofSets.filter(ps => ps.isManaged)
       assert.lengthOf(managedProofSets, 1)
       assert.isTrue(managedProofSets[0].isManaged)
     })

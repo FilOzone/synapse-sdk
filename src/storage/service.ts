@@ -13,6 +13,7 @@ import type {
   StorageServiceOptions,
   StorageCreationCallbacks,
   ApprovedProviderInfo,
+  EnhancedProofSetInfo,
   DownloadOptions,
   PreflightInfo,
   UploadCallbacks,
@@ -91,86 +92,59 @@ export class StorageService {
     options: StorageServiceOptions
   ): Promise<StorageService> {
     const signer = synapse.getSigner()
+    const signerAddress = await signer.getAddress()
 
-    // Step 1: Select storage provider
-    let provider: ApprovedProviderInfo
-
-    if (options.providerId != null) {
-      // Use specific provider
-      try {
-        provider = await pandoraService.getApprovedProvider(options.providerId)
-        // Verify provider is actually approved (not zero address)
-        if (provider.owner === '0x0000000000000000000000000000000000000000') {
-          throw new Error(`Provider ID ${options.providerId} is not approved`)
-        }
-      } catch (error) {
-        throw createError(
-          'StorageService',
-          'getApprovedProvider',
-          `Provider ID ${options.providerId} not found or not approved`,
-          error
-        )
-      }
-    } else {
-      // Select random provider
-      const providers = await pandoraService.getAllApprovedProviders()
-      if (providers.length === 0) {
-        throw createError(
-          'StorageService',
-          'getAllApprovedProviders',
-          'No approved storage providers available'
-        )
-      }
-
-      // Random selection that works in all contexts
-      let randomIndex: number
-
-      // Try crypto.getRandomValues if available (HTTPS contexts)
-      if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
-        const randomBytes = new Uint8Array(1)
-        globalThis.crypto.getRandomValues(randomBytes)
-        randomIndex = randomBytes[0] % providers.length
-      } else {
-        // Fallback for HTTP contexts - use multiple entropy sources
-        const timestamp = Date.now()
-        const random = Math.random()
-        // Use wallet address as additional entropy
-        const addressBytes = await signer.getAddress()
-        const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-
-        // Combine sources for better distribution
-        const combined = (timestamp * random * addressSum) % providers.length
-        randomIndex = Math.floor(Math.abs(combined))
-      }
-
-      provider = providers[randomIndex]
-    }
+    // Use the new resolution logic
+    const resolution = await StorageService.resolveProviderAndProofSet(
+      synapse,
+      pandoraService,
+      signerAddress,
+      options
+    )
 
     // Notify callback about provider selection
     try {
-      options.callbacks?.onProviderSelected?.(provider)
+      options.callbacks?.onProviderSelected?.(resolution.provider)
     } catch (error) {
       // Log but don't propagate callback errors
       console.error('Error in onProviderSelected callback:', error)
     }
 
-    // Step 2: Select or create proof set
-    const proofSetId = await StorageService.selectOrCreateProofSet(
-      synapse,
-      pandoraService,
-      provider,
-      options.withCDN ?? false,
-      options.callbacks
-    )
+    // If we need to create a new proof set
+    let finalProofSetId: number
+    if (resolution.proofSetId === -1) {
+      // Need to create new proof set
+      finalProofSetId = await StorageService.createProofSet(
+        synapse,
+        pandoraService,
+        resolution.provider,
+        options.withCDN ?? false,
+        options.callbacks
+      )
+    } else {
+      // Use existing proof set
+      finalProofSetId = resolution.proofSetId
 
-    // Step 3: Create and return service instance
-    return new StorageService(synapse, pandoraService, provider, proofSetId, options)
+      // Notify callback about proof set resolution (fast path)
+      try {
+        options.callbacks?.onProofSetResolved?.({
+          isExisting: true,
+          proofSetId: finalProofSetId,
+          provider: resolution.provider
+        })
+      } catch (error) {
+        console.error('Error in onProofSetResolved callback:', error)
+      }
+    }
+
+    // Create and return service instance
+    return new StorageService(synapse, pandoraService, resolution.provider, finalProofSetId, options)
   }
 
   /**
-   * Select an existing proof set or create a new one
+   * Create a new proof set for the given provider
    */
-  private static async selectOrCreateProofSet (
+  private static async createProofSet (
     synapse: Synapse,
     pandoraService: PandoraService,
     provider: ApprovedProviderInfo,
@@ -180,50 +154,7 @@ export class StorageService {
     const signer = synapse.getSigner()
     const signerAddress = await signer.getAddress()
 
-    // Step 1: Query existing proof sets for this wallet
-    const proofSets = await pandoraService.getClientProofSetsWithDetails(signerAddress)
-
-    // Step 2: Filter proof sets that belong to the selected provider
-    // We need to check if the payee matches the provider's owner address
-    const providerProofSets = proofSets.filter(ps =>
-      ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
-      ps.isLive && // Only consider live proof sets
-      ps.isManaged && // Only consider proof sets managed by current Pandora
-      ps.withCDN === withCDN // Match CDN preference
-    )
-
-    // Step 3: Selection logic
-    if (providerProofSets.length > 0) {
-      // Sort by preference:
-      // 1. Proof sets with existing roots (more efficient to reuse)
-      // 2. Then by PDPVerifier proof set ID (lower IDs = older)
-      const sorted = providerProofSets.sort((a, b) => {
-        // First, prefer proof sets with roots
-        if (a.currentRootCount > 0 && b.currentRootCount === 0) return -1
-        if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
-
-        // Then sort by ID (ascending = older first)
-        return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
-      })
-
-      // Return the best match
-      const selectedProofSetId = sorted[0].pdpVerifierProofSetId
-
-      // Notify callback about proof set resolution (fast path)
-      try {
-        callbacks?.onProofSetResolved?.({
-          isExisting: true,
-          proofSetId: selectedProofSetId,
-          provider
-        })
-      } catch (error) {
-        console.error('Error in onProofSetResolved callback:', error)
-      }
-
-      return selectedProofSetId
-    }
-
-    // Step 4: No suitable proof set exists, create a new one
+    // Create a new proof set
 
     // Get next client dataset ID
     const nextDatasetId = await pandoraService.getNextClientDataSetId(signerAddress)
@@ -318,6 +249,336 @@ export class StorageService {
     }
 
     return proofSetId
+  }
+
+  /**
+   * Resolve provider and proof set based on provided options
+   * Uses lazy loading to minimize RPC calls
+   */
+  private static async resolveProviderAndProofSet (
+    synapse: Synapse,
+    pandoraService: PandoraService,
+    signerAddress: string,
+    options: StorageServiceOptions
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      proofSetId: number
+      isExisting: boolean
+    }> {
+    // Handle explicit proof set ID selection (highest priority)
+    if (options.proofSetId != null) {
+      return await StorageService.resolveByProofSetId(
+        options.proofSetId,
+        pandoraService,
+        signerAddress,
+        options
+      )
+    }
+
+    // Handle explicit provider ID selection
+    if (options.providerId != null) {
+      return await StorageService.resolveByProviderId(
+        options.providerId,
+        pandoraService,
+        signerAddress,
+        options.withCDN ?? false
+      )
+    }
+
+    // Handle explicit provider address selection
+    if (options.providerAddress != null) {
+      return await StorageService.resolveByProviderAddress(
+        options.providerAddress,
+        pandoraService,
+        signerAddress,
+        options.withCDN ?? false
+      )
+    }
+
+    // Smart selection when no specific parameters provided
+    return await StorageService.smartSelectProvider(
+      pandoraService,
+      signerAddress,
+      options.withCDN ?? false,
+      synapse.getSigner()
+    )
+  }
+
+  /**
+   * Resolve by explicit proof set ID
+   */
+  private static async resolveByProofSetId (
+    proofSetId: number,
+    pandoraService: PandoraService,
+    signerAddress: string,
+    options: StorageServiceOptions
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      proofSetId: number
+      isExisting: boolean
+    }> {
+    // Fetch proof sets to find the specific one
+    const proofSets = await pandoraService.getClientProofSetsWithDetails(signerAddress)
+    const proofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === proofSetId)
+
+    if (proofSet == null || !proofSet.isLive || !proofSet.isManaged) {
+      throw createError(
+        'StorageService',
+        'resolveByProofSetId',
+        `Proof set ${proofSetId} not found, not owned by ${signerAddress}, ` +
+        'or not managed by the current Pandora contract'
+      )
+    }
+
+    // Validate consistency with other parameters if provided
+    if (options.providerId != null || options.providerAddress != null) {
+      await StorageService.validateProofSetConsistency(proofSet, options, pandoraService)
+    }
+
+    // Look up provider by address
+    const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+    if (providerId === 0) {
+      throw createError(
+        'StorageService',
+        'resolveByProofSetId',
+        `Provider ${proofSet.payee} for proof set ${proofSetId} is not currently approved`
+      )
+    }
+
+    const provider = await pandoraService.getApprovedProvider(providerId)
+
+    return {
+      provider,
+      proofSetId,
+      isExisting: true
+    }
+  }
+
+  /**
+   * Validate that proof set parameters are consistent. This allows us to be more flexible in
+   * options we allow up-front as long as they don't conflict when we resolve the proof set using
+   * them in priority order.
+   */
+  private static async validateProofSetConsistency (
+    proofSet: EnhancedProofSetInfo,
+    options: StorageServiceOptions,
+    pandoraService: PandoraService
+  ): Promise<void> {
+    // If providerId is specified, validate it matches
+    if (options.providerId != null) {
+      const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+      if (providerId !== options.providerId) {
+        throw createError(
+          'StorageService',
+          'validateProofSetConsistency',
+          `Proof set ${proofSet.pdpVerifierProofSetId} belongs to provider ID ${providerId}, ` +
+          `but provider ID ${options.providerId} was requested`
+        )
+      }
+    }
+
+    // If providerAddress is specified, validate it matches
+    if (options.providerAddress != null) {
+      if (proofSet.payee.toLowerCase() !== options.providerAddress.toLowerCase()) {
+        throw createError(
+          'StorageService',
+          'validateProofSetConsistency',
+          `Proof set ${proofSet.pdpVerifierProofSetId} belongs to provider ${proofSet.payee}, ` +
+          `but provider ${options.providerAddress} was requested`
+        )
+      }
+    }
+  }
+
+  /**
+   * Resolve by explicit provider ID
+   */
+  private static async resolveByProviderId (
+    providerId: number,
+    pandoraService: PandoraService,
+    signerAddress: string,
+    withCDN: boolean
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      proofSetId: number
+      isExisting: boolean
+    }> {
+    // Fetch provider info and proof sets in parallel
+    const [provider, proofSets] = await Promise.all([
+      pandoraService.getApprovedProvider(providerId),
+      pandoraService.getClientProofSetsWithDetails(signerAddress)
+    ])
+
+    if (provider.owner === '0x0000000000000000000000000000000000000000') {
+      throw createError(
+        'StorageService',
+        'resolveByProviderId',
+        `Provider ID ${providerId} not found or not approved`
+      )
+    }
+
+    // Filter for this provider's proof sets
+    const providerProofSets = proofSets.filter(
+      ps => ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
+            ps.isLive &&
+            ps.isManaged &&
+            ps.withCDN === withCDN
+    )
+
+    if (providerProofSets.length > 0) {
+      // Sort by preference: proof sets with roots first, then by ID
+      const sorted = providerProofSets.sort((a, b) => {
+        if (a.currentRootCount > 0 && b.currentRootCount === 0) return -1
+        if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
+        return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
+      })
+
+      return {
+        provider,
+        proofSetId: sorted[0].pdpVerifierProofSetId,
+        isExisting: true
+      }
+    }
+
+    // No existing proof sets, will create new
+    return {
+      provider,
+      proofSetId: -1, // Marker for new proof set
+      isExisting: false
+    }
+  }
+
+  /**
+   * Resolve by explicit provider address
+   */
+  private static async resolveByProviderAddress (
+    providerAddress: string,
+    pandoraService: PandoraService,
+    signerAddress: string,
+    withCDN: boolean
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      proofSetId: number
+      isExisting: boolean
+    }> {
+    // Get provider ID by address
+    const providerId = await pandoraService.getProviderIdByAddress(providerAddress)
+    if (providerId === 0) {
+      throw createError(
+        'StorageService',
+        'resolveByProviderAddress',
+        `Provider ${providerAddress} is not currently approved`
+      )
+    }
+
+    // Use the providerId resolution logic
+    return await StorageService.resolveByProviderId(
+      providerId,
+      pandoraService,
+      signerAddress,
+      withCDN
+    )
+  }
+
+  /**
+   * Smart selection when no explicit parameters provided
+   * Uses progressive data fetching to minimize RPC calls
+   */
+  private static async smartSelectProvider (
+    pandoraService: PandoraService,
+    signerAddress: string,
+    withCDN: boolean,
+    signer: ethers.Signer
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      proofSetId: number
+      isExisting: boolean
+    }> {
+    // Step 1: First try to get client's proof sets
+    const proofSets = await pandoraService.getClientProofSetsWithDetails(signerAddress)
+
+    // Filter for managed proof sets with matching CDN setting
+    const managedProofSets = proofSets.filter(
+      ps => ps.isLive && ps.isManaged && ps.withCDN === withCDN
+    )
+
+    if (managedProofSets.length > 0) {
+      // Prefer proof sets with roots, sort by ID (older first)
+      const sorted = managedProofSets.sort((a, b) => {
+        if (a.currentRootCount > 0 && b.currentRootCount === 0) return -1
+        if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
+        return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
+      })
+      const selected = sorted[0]
+
+      // Get the provider for this proof set
+      const providerId = await pandoraService.getProviderIdByAddress(selected.payee)
+      if (providerId === 0) {
+        throw createError(
+          'StorageService',
+          'smartSelectProvider',
+          `Provider ${selected.payee} for proof set ${selected.pdpVerifierProofSetId} is not currently approved`
+        )
+      }
+
+      const provider = await pandoraService.getApprovedProvider(providerId)
+
+      return {
+        provider,
+        proofSetId: selected.pdpVerifierProofSetId,
+        isExisting: true
+      }
+    }
+
+    // Step 2: No existing proof sets, need to select a provider for new proof set
+    const allProviders = await pandoraService.getAllApprovedProviders()
+
+    if (allProviders.length === 0) {
+      throw createError(
+        'StorageService',
+        'smartSelectProvider',
+        'No approved storage providers available'
+      )
+    }
+
+    // Random selection from all providers
+    const provider = await StorageService.selectRandomProvider(allProviders, signer)
+
+    return {
+      provider,
+      proofSetId: -1, // Marker for new proof set
+      isExisting: false
+    }
+  }
+
+  /**
+   * Select a random provider from the given list
+   */
+  private static async selectRandomProvider (
+    providers: ApprovedProviderInfo[],
+    signer: ethers.Signer
+  ): Promise<ApprovedProviderInfo> {
+    let randomIndex: number
+
+    // Try crypto.getRandomValues if available (HTTPS contexts)
+    if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
+      const randomBytes = new Uint8Array(1)
+      globalThis.crypto.getRandomValues(randomBytes)
+      randomIndex = randomBytes[0] % providers.length
+    } else {
+      // Fallback for HTTP contexts - use multiple entropy sources
+      const timestamp = Date.now()
+      const random = Math.random()
+      // Use wallet address as additional entropy
+      const addressBytes = await signer.getAddress()
+      const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+
+      // Combine sources for better distribution
+      const combined = (timestamp * random * addressSum) % providers.length
+      randomIndex = Math.floor(Math.abs(combined))
+    }
+
+    return providers[randomIndex]
   }
 
   /**

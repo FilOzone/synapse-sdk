@@ -249,15 +249,6 @@ export class PandoraService {
   }
 
   /**
-   * Get only the proof sets managed by this Pandora contract
-   * @param clientAddress - The client's wallet address
-   * @returns Array of proof set information filtered to only include managed proof sets
-   */
-  async getManagedProofSets (clientAddress: string): Promise<EnhancedProofSetInfo[]> {
-    return await this.getClientProofSetsWithDetails(clientAddress, true)
-  }
-
-  /**
    * Get information needed to add roots to an existing proof set
    * @param proofSetId - The proof set ID to get information for
    * @returns Information needed for adding roots (next root ID, client dataset ID)
