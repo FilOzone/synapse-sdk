@@ -418,17 +418,6 @@ export class StorageService {
       )
     }
 
-    // Wait another 60 seconds to ensure piece is fully parked
-    // TODO: Figure out why this is needed on Curio, findPiece is returning the
-    // piece but we get errors like:
-    //   Failed to validate subroots: subroot CID baga6ea4seaqmptmairnm4y3xhtwt2szvgxoxhzkixmktcuyuu34wi2wl5ipgoli not found or does not belong to service public
-    // Ideally it should be immediate if Curio finds it in its list of parked
-    // pieces.
-    // HACK: Skip delay in tests by checking global flag
-    if ((globalThis as any).__SYNAPSE_SDK_SKIP_DELAYS__ !== true) {
-      await new Promise(resolve => setTimeout(resolve, 60000))
-    }
-
     // Notify upload complete
     if (callbacks?.onUploadComplete != null) {
       callbacks.onUploadComplete(uploadResult.commP)
