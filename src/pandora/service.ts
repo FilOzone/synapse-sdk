@@ -100,6 +100,20 @@ export interface ComprehensiveProofSetStatus {
   }
 }
 
+/**
+ * Comprehensive data for storage provider and proof set resolution
+ */
+export interface StorageResolutionData {
+  /** All approved providers indexed by ID */
+  providersById: Map<number, ApprovedProviderInfo>
+  /** All approved providers indexed by address */
+  providersByAddress: Map<string, ApprovedProviderInfo>
+  /** All client proof sets with enhanced details */
+  proofSets: EnhancedProofSetInfo[]
+  /** Proof sets grouped by provider address */
+  proofSetsByProvider: Map<string, EnhancedProofSetInfo[]>
+}
+
 export class PandoraService {
   private readonly _provider: ethers.Provider
   private readonly _pandoraAddress: string
@@ -246,15 +260,6 @@ export class PandoraService {
 
     // Filter out null values (from skipped proof sets when onlyManaged is true)
     return results.filter((result): result is EnhancedProofSetInfo => result !== null)
-  }
-
-  /**
-   * Get only the proof sets managed by this Pandora contract
-   * @param clientAddress - The client's wallet address
-   * @returns Array of proof set information filtered to only include managed proof sets
-   */
-  async getManagedProofSets (clientAddress: string): Promise<EnhancedProofSetInfo[]> {
-    return await this.getClientProofSetsWithDetails(clientAddress, true)
   }
 
   /**
@@ -493,6 +498,67 @@ export class PandoraService {
     }
 
     throw new Error(`Timeout waiting for proof set creation after ${timeoutMs}ms`)
+  }
+
+  /**
+   * Get comprehensive data for storage provider and proof set resolution
+   * This method fetches all data needed for intelligent provider selection in a single call
+   * @param clientAddress - The client's wallet address
+   * @param withCDN - Optional CDN preference filter
+   * @returns Comprehensive resolution data with pre-built indexes
+   */
+  async getStorageResolutionData (
+    clientAddress: string,
+    withCDN?: boolean
+  ): Promise<StorageResolutionData> {
+    // Fetch all proof sets with details - this already handles live/managed filtering
+    const proofSets = await this.getClientProofSetsWithDetails(clientAddress)
+
+    // Filter by CDN preference if specified
+    const filteredProofSets = withCDN !== undefined
+      ? proofSets.filter(ps => ps.withCDN === withCDN && ps.isLive && ps.isManaged)
+      : proofSets.filter(ps => ps.isLive && ps.isManaged)
+
+    // Build provider indexes by fetching directly with IDs
+    const providersById = new Map<number, ApprovedProviderInfo>()
+    const providersByAddress = new Map<string, ApprovedProviderInfo>()
+
+    // Get the next provider ID to know the range
+    const nextId = await this.getNextProviderId()
+
+    // Fetch all providers by ID (starts at 1)
+    for (let id = 1; id < nextId; id++) {
+      try {
+        const provider = await this.getApprovedProvider(id)
+        // Skip if provider was removed (owner would be zero address)
+        if (provider.owner !== '0x0000000000000000000000000000000000000000') {
+          providersById.set(id, provider)
+          providersByAddress.set(provider.owner.toLowerCase(), provider)
+        }
+      } catch (e) {
+        // Provider might have been removed
+        continue
+      }
+    }
+
+    // Group proof sets by provider address
+    const proofSetsByProvider = new Map<string, EnhancedProofSetInfo[]>()
+    for (const ps of filteredProofSets) {
+      const key = ps.payee.toLowerCase()
+      const existing = proofSetsByProvider.get(key)
+      if (existing != null) {
+        existing.push(ps)
+      } else {
+        proofSetsByProvider.set(key, [ps])
+      }
+    }
+
+    return {
+      providersById,
+      providersByAddress,
+      proofSets: filteredProofSets,
+      proofSetsByProvider
+    }
   }
 
   // ========== Storage Cost Operations ==========

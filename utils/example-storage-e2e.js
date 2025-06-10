@@ -103,7 +103,7 @@ async function main () {
     // Step 4: Create storage service
     console.log('\n--- Creating Storage Service ---')
     const storageService = await synapse.createStorage({
-      // providerId: 123, // Optional: specify a provider ID
+      // providerId: 4, // Optional: specify a provider ID
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
