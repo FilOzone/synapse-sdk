@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synapse SDK Demo - File Storage with PDP</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .info {
+            color: #2196F3;
+            margin-top: 10px;
+        }
+        input[type="file"], input[type="text"], input[type="number"] {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+        .status-box {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .file-list {
+            margin-top: 10px;
+        }
+        .file-item {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .hidden {
+            display: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #333;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Synapse SDK Demo - Decentralized File Storage</h1>
+
+    <!-- Wallet Connection -->
+    <div class="container">
+        <h2>1. Connect Wallet</h2>
+        <div class="section">
+            <button id="connectWallet">Connect MetaMask</button>
+            <div id="walletInfo" class="hidden">
+                <p><strong>Account:</strong> <span id="accountAddress"></span></p>
+                <p><strong>Network:</strong> <span id="networkName"></span></p>
+                <p><strong>FIL Balance:</strong> <span id="filBalance"></span> FIL</p>
+                <p><strong>USDFC Balance:</strong> <span id="usdfcBalance"></span> USDFC</p>
+            </div>
+            <div id="walletError" class="error"></div>
+        </div>
+    </div>
+
+    <!-- Payment Setup -->
+    <div class="container">
+        <h2>2. Setup Payments</h2>
+        <div class="section">
+            <p>Deposit USDFC tokens to pay for storage. Storage costs approximately $0.0001 per MB per month.</p>
+            <div>
+                <input type="number" id="depositAmount" placeholder="Amount in USDFC" step="0.01" min="0.01" value="10">
+                <button id="approveTokens" disabled>Approve USDFC</button>
+                <button id="depositTokens" disabled>Deposit to Payments</button>
+            </div>
+            <div class="status-box">
+                <p><strong>Payment Balance:</strong> <span id="paymentBalance">0</span> USDFC</p>
+                <p><strong>Approval Status:</strong> <span id="approvalStatus">Not checked</span></p>
+            </div>
+            <div id="paymentError" class="error"></div>
+            <div id="paymentSuccess" class="success"></div>
+        </div>
+    </div>
+
+    <!-- Storage Configuration -->
+    <div class="container">
+        <h2>3. Storage Configuration</h2>
+        <div class="section">
+            <p>Configure your storage provider and proof set:</p>
+            <div>
+                <label>Storage Provider URL: </label>
+                <input type="text" id="providerUrl" placeholder="https://provider.example.com" value="https://polynomial.computer">
+            </div>
+            <div>
+                <label>Pandora Contract: </label>
+                <input type="text" id="pandoraAddress" placeholder="0x..." value="">
+            </div>
+            <button id="createProofSet" disabled>Create New Proof Set</button>
+            <div class="status-box">
+                <p><strong>Active Proof Set ID:</strong> <span id="proofSetId">None</span></p>
+                <p><strong>Storage Provider:</strong> <span id="activeProvider">Not set</span></p>
+            </div>
+            <div id="storageError" class="error"></div>
+            <div id="storageSuccess" class="success"></div>
+        </div>
+    </div>
+
+    <!-- File Upload -->
+    <div class="container">
+        <h2>4. Upload Files</h2>
+        <div class="section">
+            <input type="file" id="fileInput" disabled>
+            <button id="uploadFile" disabled>Upload & Store File</button>
+            <div id="uploadProgress" class="hidden">
+                <p>Uploading: <span id="uploadStatus"></span></p>
+                <div class="loading"></div>
+            </div>
+            <div id="uploadError" class="error"></div>
+            <div id="uploadSuccess" class="success"></div>
+        </div>
+    </div>
+
+    <!-- File Management -->
+    <div class="container">
+        <h2>5. Stored Files</h2>
+        <div class="section">
+            <button id="refreshFiles" disabled>Refresh File List</button>
+            <div id="fileList" class="file-list"></div>
+            <div id="filesError" class="error"></div>
+        </div>
+    </div>
+
+    <!-- Load external dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+    <script src="dist/browser/synapse-sdk.min.js"></script>
+
+    <script>
+        // Global variables
+        let synapse = null;
+        let currentProofSetId = null;
+        let storageService = null;
+        let pdpTool = null;
+        let pdpUploadService = null;
+        let pdpDownloadService = null;
+        let storedFiles = new Map(); // Track uploaded files locally
+
+        // UI Elements
+        const elements = {
+            connectWallet: document.getElementById('connectWallet'),
+            walletInfo: document.getElementById('walletInfo'),
+            accountAddress: document.getElementById('accountAddress'),
+            networkName: document.getElementById('networkName'),
+            filBalance: document.getElementById('filBalance'),
+            usdfcBalance: document.getElementById('usdfcBalance'),
+            walletError: document.getElementById('walletError'),
+            
+            depositAmount: document.getElementById('depositAmount'),
+            approveTokens: document.getElementById('approveTokens'),
+            depositTokens: document.getElementById('depositTokens'),
+            paymentBalance: document.getElementById('paymentBalance'),
+            approvalStatus: document.getElementById('approvalStatus'),
+            paymentError: document.getElementById('paymentError'),
+            paymentSuccess: document.getElementById('paymentSuccess'),
+            
+            providerUrl: document.getElementById('providerUrl'),
+            pandoraAddress: document.getElementById('pandoraAddress'),
+            createProofSet: document.getElementById('createProofSet'),
+            proofSetId: document.getElementById('proofSetId'),
+            activeProvider: document.getElementById('activeProvider'),
+            storageError: document.getElementById('storageError'),
+            storageSuccess: document.getElementById('storageSuccess'),
+            
+            fileInput: document.getElementById('fileInput'),
+            uploadFile: document.getElementById('uploadFile'),
+            uploadProgress: document.getElementById('uploadProgress'),
+            uploadStatus: document.getElementById('uploadStatus'),
+            uploadError: document.getElementById('uploadError'),
+            uploadSuccess: document.getElementById('uploadSuccess'),
+            
+            refreshFiles: document.getElementById('refreshFiles'),
+            fileList: document.getElementById('fileList'),
+            filesError: document.getElementById('filesError')
+        };
+
+        // Utility functions
+        function showError(element, message) {
+            element.textContent = message;
+            setTimeout(() => element.textContent = '', 5000);
+        }
+
+        function showSuccess(element, message) {
+            element.textContent = message;
+            setTimeout(() => element.textContent = '', 5000);
+        }
+
+        function formatBalance(balance, decimals = 18) {
+            return ethers.formatUnits(balance, decimals);
+        }
+
+        // Wallet connection
+        elements.connectWallet.addEventListener('click', async () => {
+            try {
+                elements.walletError.textContent = '';
+                
+                if (!window.ethereum) {
+                    throw new Error('MetaMask not installed');
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Create provider
+                const provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                const address = await signer.getAddress();
+                
+                // Get network info
+                const network = await provider.getNetwork();
+                const networkName = network.chainId === 314n ? 'Filecoin Mainnet' : 
+                                   network.chainId === 314159n ? 'Filecoin Calibration' : 
+                                   `Unknown (${network.chainId})`;
+                
+                // Initialize Synapse
+                synapse = await SynapseSDK.Synapse.create({ signer });
+                
+                // Update UI
+                elements.accountAddress.textContent = address;
+                elements.networkName.textContent = networkName;
+                elements.walletInfo.classList.remove('hidden');
+                
+                // Update balances
+                await updateBalances();
+                
+                // Enable next steps
+                elements.approveTokens.disabled = false;
+                elements.depositTokens.disabled = false;
+                elements.createProofSet.disabled = false;
+                
+                // Set default Pandora address based on network
+                if (network.chainId === 314159n) {
+                    elements.pandoraAddress.value = '0x74854aEDb918B95D1A5Cbd6447f110b5Ae825889'; // Calibration
+                }
+                
+            } catch (error) {
+                showError(elements.walletError, `Failed to connect: ${error.message}`);
+            }
+        });
+
+        async function updateBalances() {
+            try {
+                const filBalance = await synapse.payments.walletBalance();
+                const usdfcBalance = await synapse.payments.walletBalance(SynapseSDK.TOKENS.USDFC);
+                
+                elements.filBalance.textContent = formatBalance(filBalance);
+                elements.usdfcBalance.textContent = formatBalance(usdfcBalance, 6);
+                
+                // Update payment balance
+                const paymentBalance = await synapse.payments.balance();
+                elements.paymentBalance.textContent = formatBalance(paymentBalance, 6);
+                
+            } catch (error) {
+                console.error('Failed to update balances:', error);
+            }
+        }
+
+        // Token approval
+        elements.approveTokens.addEventListener('click', async () => {
+            try {
+                elements.paymentError.textContent = '';
+                elements.paymentSuccess.textContent = '';
+                
+                const amount = ethers.parseUnits(elements.depositAmount.value, 6);
+                
+                showSuccess(elements.paymentSuccess, 'Approving USDFC tokens...');
+                const tx = await synapse.payments.approveTokens(SynapseSDK.TOKENS.USDFC, amount);
+                await tx.wait();
+                
+                elements.approvalStatus.textContent = 'Approved';
+                showSuccess(elements.paymentSuccess, 'USDFC tokens approved successfully!');
+                
+            } catch (error) {
+                showError(elements.paymentError, `Approval failed: ${error.message}`);
+            }
+        });
+
+        // Token deposit
+        elements.depositTokens.addEventListener('click', async () => {
+            try {
+                elements.paymentError.textContent = '';
+                elements.paymentSuccess.textContent = '';
+                
+                const amount = ethers.parseUnits(elements.depositAmount.value, 6);
+                
+                showSuccess(elements.paymentSuccess, 'Depositing USDFC tokens...');
+                const tx = await synapse.payments.deposit(SynapseSDK.TOKENS.USDFC, amount);
+                await tx.wait();
+                
+                showSuccess(elements.paymentSuccess, 'Tokens deposited successfully!');
+                await updateBalances();
+                
+            } catch (error) {
+                showError(elements.paymentError, `Deposit failed: ${error.message}`);
+            }
+        });
+
+        // Create proof set
+        elements.createProofSet.addEventListener('click', async () => {
+            try {
+                elements.storageError.textContent = '';
+                elements.storageSuccess.textContent = '';
+                
+                const providerUrl = elements.providerUrl.value;
+                const pandoraAddress = elements.pandoraAddress.value;
+                
+                if (!providerUrl || !pandoraAddress) {
+                    throw new Error('Please enter provider URL and Pandora contract address');
+                }
+                
+                showSuccess(elements.storageSuccess, 'Creating storage service and proof set...');
+                
+                // Create storage service
+                storageService = await synapse.createStorage({
+                    providerUrl,
+                    recordKeeperAddress: pandoraAddress
+                });
+                
+                // The storage service will create a proof set automatically
+                currentProofSetId = storageService.proofSetId;
+                
+                // Update UI
+                elements.proofSetId.textContent = currentProofSetId || 'Created (ID pending)';
+                elements.activeProvider.textContent = providerUrl;
+                
+                // Enable file operations
+                elements.fileInput.disabled = false;
+                elements.uploadFile.disabled = false;
+                elements.refreshFiles.disabled = false;
+                
+                showSuccess(elements.storageSuccess, 'Storage service created successfully!');
+                
+            } catch (error) {
+                showError(elements.storageError, `Failed to create storage: ${error.message}`);
+            }
+        });
+
+        // File upload
+        elements.uploadFile.addEventListener('click', async () => {
+            try {
+                elements.uploadError.textContent = '';
+                elements.uploadSuccess.textContent = '';
+                
+                const file = elements.fileInput.files[0];
+                if (!file) {
+                    throw new Error('Please select a file');
+                }
+                
+                if (!storageService) {
+                    throw new Error('Please create a storage service first');
+                }
+                
+                elements.uploadProgress.classList.remove('hidden');
+                elements.uploadStatus.textContent = `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`;
+                
+                // Upload file
+                const result = await storageService.uploadFile(file);
+                
+                elements.uploadProgress.classList.add('hidden');
+                showSuccess(elements.uploadSuccess, `File uploaded successfully! Piece CID: ${result.pieceCid}`);
+                
+                // Clear file input
+                elements.fileInput.value = '';
+                
+                // Refresh file list
+                await refreshFileList();
+                
+            } catch (error) {
+                elements.uploadProgress.classList.add('hidden');
+                showError(elements.uploadError, `Upload failed: ${error.message}`);
+            }
+        });
+
+        // Refresh file list
+        elements.refreshFiles.addEventListener('click', refreshFileList);
+
+        async function refreshFileList() {
+            try {
+                elements.filesError.textContent = '';
+                
+                if (!storageService) {
+                    throw new Error('No active storage service');
+                }
+                
+                // Get stored files
+                const files = await storageService.listFiles();
+                
+                // Clear existing list
+                elements.fileList.innerHTML = '';
+                
+                if (files.length === 0) {
+                    elements.fileList.innerHTML = '<p>No files stored yet</p>';
+                    return;
+                }
+                
+                // Display files
+                files.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div>
+                            <strong>${file.name || 'Unnamed'}</strong><br>
+                            <small>Piece CID: ${file.pieceCid}</small><br>
+                            <small>Size: ${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                        </div>
+                        <button onclick="downloadFile('${file.pieceCid}')">Download</button>
+                    `;
+                    elements.fileList.appendChild(fileItem);
+                });
+                
+            } catch (error) {
+                showError(elements.filesError, `Failed to load files: ${error.message}`);
+            }
+        }
+
+        // Download file
+        window.downloadFile = async (pieceCid) => {
+            try {
+                if (!storageService) {
+                    throw new Error('No active storage service');
+                }
+                
+                showSuccess(elements.filesError, 'Downloading file...');
+                
+                // Download file
+                const blob = await storageService.downloadFile(pieceCid);
+                
+                // Create download link
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `piece_${pieceCid.slice(0, 8)}.dat`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showSuccess(elements.filesError, 'File downloaded successfully!');
+                
+            } catch (error) {
+                showError(elements.filesError, `Download failed: ${error.message}`);
+            }
+        };
+
+        // Auto-refresh balances
+        setInterval(() => {
+            if (synapse) {
+                updateBalances();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
