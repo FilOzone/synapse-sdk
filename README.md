@@ -216,10 +216,12 @@ interface SynapseOptions {
 
 **Balance Operations:**
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
-- `balance(token?)` - Get available balance in payments contract (accounting for lockups)
-- `accountInfo(token?)` - Get detailed account info including funds, lockup details, and available balance
+- `balance()` - Get available USDFC balance in payments contract (accounting for lockups)
+- `accountInfo()` - Get detailed USDFC account info including funds, lockup details, and available balance
 - `getCurrentEpoch()` - Get the current Filecoin epoch number
-- `decimals(token?)` - Get token decimals
+- `decimals()` - Get token decimals (always returns 18)
+
+*Note: Currently only USDFC token is supported for payments contract operations. FIL is also supported for `walletBalance()`.*
 
 **Token Operations:**
 - `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
@@ -272,8 +274,8 @@ const storage = await synapse.createStorage({
     },
 
     // Only called when creating a new proof set
-    onProofSetCreationStarted: (txHash, statusUrl) => {
-      console.log(`Creation transaction: ${txHash}`)
+    onProofSetCreationStarted: (transaction, statusUrl) => {
+      console.log(`Creation transaction: ${transaction.hash}`)
       if (statusUrl) {
         console.log(`Monitor status at: ${statusUrl}`)
       }
@@ -293,14 +295,40 @@ const storage = await synapse.createStorage({
 ```typescript
 interface StorageServiceOptions {
   providerId?: number                      // Specific provider ID to use
+  providerAddress?: string                 // Specific provider address to use
+  proofSetId?: number                      // Specific proof set ID to use
   withCDN?: boolean                        // Enable CDN services
   callbacks?: StorageCreationCallbacks     // Progress callbacks
 }
 ```
 
-#### Upload Methods
+#### Storage Service Properties
 
-Once created, use the storage service to upload and download data:
+Once created, the storage service provides access to:
+
+```javascript
+// The proof set ID being used
+console.log(`Proof set ID: ${storage.proofSetId}`)
+
+// The storage provider address
+console.log(`Storage provider: ${storage.storageProvider}`)
+```
+
+#### Storage Service Methods
+
+##### Preflight Upload
+
+Check if an upload is possible before attempting it:
+
+```javascript
+const preflight = await storage.preflightUpload(dataSize)
+console.log('Estimated costs:', preflight.estimatedCost)
+console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
+```
+
+##### Upload and Download
+
+Upload and download data with the storage service:
 
 ```javascript
 // Upload with progress callbacks
