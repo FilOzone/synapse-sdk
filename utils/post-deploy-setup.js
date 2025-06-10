@@ -198,14 +198,16 @@ async function main () {
         // Step 1: Remove the existing provider (as owner)
         log('Removing existing provider registration...')
         const removeTx = await spTool.removeServiceProvider(deployerSigner, spId)
+        success(`Provider removal transaction sent. Tx: ${removeTx.hash}`)
         await removeTx.wait()
-        success(`Provider removed. Tx: ${removeTx.hash}`)
+        success('Provider removed successfully')
 
         // Step 2: Register with new URLs (as SP)
         log('Registering storage provider with new URLs...')
         const registerTx = await spTool.registerServiceProvider(spSigner, spPdpUrl, spRetrievalUrl)
+        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
-        success(`Storage provider registered successfully. Tx: ${registerTx.hash}`)
+        success('Storage provider registered successfully')
 
         // Step 3: Approve the new registration (as owner)
         log('Approving storage provider registration...')
@@ -226,8 +228,9 @@ async function main () {
           const approveTx = await pandoraContract.approveServiceProvider(spAddress, {
             gasLimit: finalGasLimit
           })
+          success(`Storage provider approval transaction sent. Tx: ${approveTx.hash}`)
           await approveTx.wait()
-          success(`Storage provider approved successfully. Tx: ${approveTx.hash}`)
+          success('Storage provider approved successfully')
         } catch (approveError) {
           // Try to get more detailed error info
           try {
@@ -252,8 +255,9 @@ async function main () {
         // Register the storage provider
         log('Registering storage provider...')
         const registerTx = await spTool.registerServiceProvider(spSigner, spPdpUrl, spRetrievalUrl)
+        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
-        success(`Storage provider registered successfully. Tx: ${registerTx.hash}`)
+        success('Storage provider registered successfully')
       }
 
       // === Step 2: Approve Storage Provider (as deployer) ===
@@ -329,7 +333,9 @@ async function main () {
       log('Approving USDFC spending for payments contract...')
 
       const approveTx = await clientSynapse.payments.approve(TOKENS.USDFC, paymentsAddress, requiredAllowance)
-      success(`USDFC approval set. Tx: ${approveTx}`)
+      success(`USDFC approval transaction sent. Tx: ${approveTx.hash}`)
+      await approveTx.wait()
+      success('USDFC approval confirmed')
     } else {
       success(`USDFC allowance already sufficient: ${ethers.formatUnits(currentAllowance, 18)} USDFC`)
     }
@@ -355,7 +361,9 @@ async function main () {
         LOCKUP_ALLOWANCE,
         TOKENS.USDFC
       )
-      success(`Operator approval set. Tx: ${approveServiceTx}`)
+      success(`Operator approval transaction sent. Tx: ${approveServiceTx.hash}`)
+      await approveServiceTx.wait()
+      success('Operator approval confirmed')
     } else {
       success('Operator approval already configured correctly')
       log(`  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`)

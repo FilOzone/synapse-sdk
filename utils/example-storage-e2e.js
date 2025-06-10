@@ -117,8 +117,8 @@ async function main () {
             console.log(`✓ Created new proof set: ${info.proofSetId}`)
           }
         },
-        onProofSetCreationStarted: (txHash, statusUrl) => {
-          console.log(`  Creating proof set, tx: ${txHash}`)
+        onProofSetCreationStarted: (transaction, statusUrl) => {
+          console.log(`  Creating proof set, tx: ${transaction.hash}`)
         },
         onProofSetCreationProgress: (progress) => {
           if (progress.transactionMined && !progress.proofSetLive) {

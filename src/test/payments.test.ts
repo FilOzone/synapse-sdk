@@ -96,9 +96,10 @@ describe('PaymentsService', () => {
     it('should approve token spending', async () => {
       const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
       const amount = ethers.parseUnits('100', 18)
-      const txHash = await payments.approve(TOKENS.USDFC, paymentsAddress, amount)
-      assert.exists(txHash)
-      assert.typeOf(txHash, 'string')
+      const tx = await payments.approve(TOKENS.USDFC, paymentsAddress, amount)
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.typeOf(tx.hash, 'string')
     })
 
     it('should throw for unsupported token in allowance', async () => {
@@ -127,19 +128,21 @@ describe('PaymentsService', () => {
       const rateAllowance = ethers.parseUnits('10', 18) // 10 USDFC per epoch
       const lockupAllowance = ethers.parseUnits('1000', 18) // 1000 USDFC lockup
 
-      const txHash = await payments.approveService(
+      const tx = await payments.approveService(
         serviceAddress,
         rateAllowance,
         lockupAllowance
       )
-      assert.exists(txHash)
-      assert.typeOf(txHash, 'string')
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.typeOf(tx.hash, 'string')
     })
 
     it('should revoke service operator approval', async () => {
-      const txHash = await payments.revokeService(serviceAddress)
-      assert.exists(txHash)
-      assert.typeOf(txHash, 'string')
+      const tx = await payments.revokeService(serviceAddress)
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.typeOf(tx.hash, 'string')
     })
 
     it('should check service approval status', async () => {
@@ -204,6 +207,100 @@ describe('PaymentsService', () => {
         assert.exists(error)
         assert.include(error.message, 'failed')
       }
+    })
+  })
+
+  describe('Deposit and Withdraw', () => {
+    it('should deposit USDFC tokens', async () => {
+      const depositAmount = ethers.parseUnits('100', 18)
+      const tx = await payments.deposit(depositAmount)
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.typeOf(tx.hash, 'string')
+      assert.exists(tx.from)
+      assert.exists(tx.to)
+      assert.exists(tx.data)
+    })
+
+    it('should withdraw USDFC tokens', async () => {
+      const withdrawAmount = ethers.parseUnits('50', 18)
+      const tx = await payments.withdraw(withdrawAmount)
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.typeOf(tx.hash, 'string')
+      assert.exists(tx.from)
+      assert.exists(tx.to)
+      assert.exists(tx.data)
+    })
+
+    it('should throw for invalid deposit amount', async () => {
+      try {
+        await payments.deposit(0n)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid amount')
+      }
+    })
+
+    it('should throw for invalid withdraw amount', async () => {
+      try {
+        await payments.withdraw(0n)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid amount')
+      }
+    })
+
+    it('should throw for unsupported token in deposit', async () => {
+      try {
+        await payments.deposit(ethers.parseUnits('100', 18), 'FIL' as any)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Unsupported token')
+      }
+    })
+
+    it('should throw for unsupported token in withdraw', async () => {
+      try {
+        await payments.withdraw(ethers.parseUnits('50', 18), 'FIL' as any)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Unsupported token')
+      }
+    })
+
+    it('should handle deposit callbacks', async () => {
+      const depositAmount = ethers.parseUnits('100', 18)
+      let allowanceChecked = false
+      let approvalSent = false
+      let depositStarted = false
+
+      const tx = await payments.deposit(depositAmount, TOKENS.USDFC, {
+        onAllowanceCheck: (current, required) => {
+          allowanceChecked = true
+          assert.equal(current, 0n)
+          assert.equal(required, depositAmount)
+        },
+        onApprovalTransaction: (approveTx) => {
+          approvalSent = true
+          assert.exists(approveTx)
+          assert.exists(approveTx.hash)
+        },
+        onApprovalConfirmed: (receipt) => {
+          // This callback is called after approveTx.wait()
+          assert.exists(receipt)
+          assert.exists(receipt.status)
+        },
+        onDepositStarting: () => {
+          depositStarted = true
+        }
+      })
+
+      assert.exists(tx)
+      assert.exists(tx.hash)
+      assert.isTrue(allowanceChecked)
+      assert.isTrue(approvalSent)
+      assert.isTrue(depositStarted)
     })
   })
 

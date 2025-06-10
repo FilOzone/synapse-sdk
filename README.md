@@ -45,6 +45,8 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [Error Handling](#error-handling)
 * [Contributing](#contributing)
   * [Testing](#testing)
+* [Migration Guide](#migration-guide)
+  * [Transaction Return Types](#transaction-return-types-v070)
 * [License](#license)
 
 ---
@@ -56,7 +58,7 @@ The `Synapse` class provides a complete, easy-to-use interface for interacting w
 ### Quick Start
 
 ```javascript
-import { Synapse, RPC_URLS, TOKENS } from '@filoz/synapse-sdk'
+import { Synapse, RPC_URLS, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 
 // Initialize with private key
 const synapse = await Synapse.create({
@@ -71,16 +73,23 @@ console.log('USDFC balance in payments contract:',
 
 // Deposit funds for storage operations
 const amount = ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC))
-await synapse.payments.deposit(amount, TOKENS.USDFC)
+const depositTx = await synapse.payments.deposit(amount, TOKENS.USDFC)
+console.log(`Deposit transaction: ${depositTx.hash}`)
+// Optional: wait for confirmation
+const receipt = await depositTx.wait()
+console.log(`Deposit confirmed in block ${receipt.blockNumber}`)
 
-// Or manually approve service for creating payment rails
-await synapse.payments.approveService(
+// Approve service for creating payment rails between you and storage providers
+// which are paid out over time as you use their storage
+const approveTx = await synapse.payments.approveService(
   serviceAddress,
   // 10 USDFC per epoch rate allowance
   ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
   // 1000 USDFC lockup allowance
   ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
 )
+console.log(`Service approval transaction: ${approveTx.hash}`)
+await approveTx.wait() // Wait for confirmation before proceeding to use the funds
 
 // Create storage service and upload data
 const storage = await synapse.createStorage()
@@ -110,7 +119,7 @@ const provider = new ethers.BrowserProvider(window.ethereum)
 const synapse = await Synapse.create({ provider })
 
 // Same API as above
-const balance = await synapse.payments.walletBalance()
+const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)
 ```
 
 ### Advanced Payment Control
@@ -123,37 +132,56 @@ import { Synapse, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 const synapse = await Synapse.create({ provider })
 
 // Check current allowance
-const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[network]
+const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[synapse.getNetwork()]
 const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC, paymentsContract)
 
 // Approve only if needed
 if (currentAllowance < requiredAmount) {
-  await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
+  const approveTx = await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
+  console.log(`Approval transaction: ${approveTx.hash}`)
+  await approveTx.wait() // Wait for approval before depositing
 }
 
-// Now deposit (won't trigger approval since we already approved)
-await synapse.payments.deposit(requiredAmount, TOKENS.USDFC)
+// Now deposit with optional callbacks for visibility
+const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
+  onAllowanceCheck: (current, required) => {
+    console.log(`Current allowance: ${current}, Required: ${required}`)
+  },
+  onApprovalTransaction: (tx) => {
+    console.log(`Auto-approval sent: ${tx.hash}`)
+  },
+  onDepositStarting: () => {
+    console.log('Starting deposit transaction...')
+  }
+})
+console.log(`Deposit transaction: ${depositTx.hash}`)
+await depositTx.wait()
 
 // Service operator approvals (required before creating proof sets)
-const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4' // Pandora
+// Get the Pandora service address for the current network
+const pandoraAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()]
 
 // Approve service to create payment rails on your behalf
-await synapse.payments.approveService(
-  serviceAddress,
+const serviceApproveTx = await synapse.payments.approveService(
+  pandoraAddress,
   // 10 USDFC per epoch rate allowance
   ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
   // 1000 USDFC lockup allowance
   ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
 )
+console.log(`Service approval transaction: ${serviceApproveTx.hash}`)
+await serviceApproveTx.wait()
 
 // Check service approval status
-const serviceStatus = await synapse.payments.serviceApproval(serviceAddress)
+const serviceStatus = await synapse.payments.serviceApproval(pandoraAddress)
 console.log('Service approved:', serviceStatus.isApproved)
 console.log('Rate allowance:', serviceStatus.rateAllowance)
 console.log('Rate used:', serviceStatus.rateUsed)
 
 // Revoke service if needed
-await synapse.payments.revokeService(serviceAddress)
+const revokeTx = await synapse.payments.revokeService(pandoraAddress)
+console.log(`Revoke transaction: ${revokeTx.hash}`)
+await revokeTx.wait()
 ```
 
 ### API Reference
@@ -182,6 +210,7 @@ interface SynapseOptions {
 
 - `payments` - Access payment-related functionality (see below)
 - `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
+- `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
 
 #### Synapse.payments Methods
 
@@ -193,14 +222,14 @@ interface SynapseOptions {
 - `decimals(token?)` - Get token decimals
 
 **Token Operations:**
-- `deposit(amount, token?)` - Deposit funds to payments contract (handles approval automatically)
-- `withdraw(amount, token?)` - Withdraw funds from payments contract
-- `approve(token, spender, amount)` - Approve token spending (for manual control)
+- `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
+- `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
+- `approve(token, spender, amount)` - Approve token spending (for manual control), returns `TransactionResponse`
 - `allowance(token, spender)` - Check current token allowance
 
 **Service Approvals:**
-- `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator
-- `revokeService(service, token?)` - Revoke service operator approval
+- `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator, returns `TransactionResponse`
+- `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
 ### Storage Service Creation
@@ -317,18 +346,22 @@ const signer = await provider.getSigner()
 const paymentsService = new PaymentsService(provider, signer, 'calibration', false)
 
 // Deposit USDFC to payments contract
-await paymentsService.deposit(amount) // amount in base uints
+const depositTx = await paymentsService.deposit(amount) // amount in base units
+console.log(`Deposit transaction: ${depositTx.hash}`)
+await depositTx.wait() // Wait for confirmation
 
 // Check account info
 const info = await paymentsService.accountInfo() // Uses USDFC by default
 console.log('Available funds:', info.availableFunds)
 
 // Approve service as operator
-await paymentsService.approveService(
+const approveTx = await paymentsService.approveService(
   serviceAddress,         // e.g., Pandora contract address
   rateAllowance,         // per-epoch rate allowance in base units
   lockupAllowance        // total lockup allowance in base units
 )
+console.log(`Service approval transaction: ${approveTx.hash}`)
+await approveTx.wait() // Wait for confirmation
 ```
 
 ### Pandora Service
@@ -606,6 +639,55 @@ Run the test suite:
 npm test              # Run all tests and linting
 npm run test:node     # Node.js tests only
 npm run test:browser  # Browser tests only
+```
+
+## Migration Guide
+
+### Transaction Return Types (v0.7.0+)
+
+Starting with version 0.7.0, payment methods now return `ethers.TransactionResponse` objects instead of transaction hashes. This provides more control and aligns with standard ethers.js patterns.
+
+**Before (v0.6.x and earlier):**
+```javascript
+// Methods returned transaction hash strings
+const txHash = await synapse.payments.approve(token, spender, amount)
+console.log(`Transaction: ${txHash}`)
+// Transaction was already confirmed
+```
+
+**After (v0.7.0+):**
+```javascript
+// Methods return TransactionResponse objects
+const tx = await synapse.payments.approve(token, spender, amount)
+console.log(`Transaction: ${tx.hash}`)
+// Optional: wait for confirmation when you need it
+const receipt = await tx.wait()
+console.log(`Confirmed in block ${receipt.blockNumber}`)
+```
+
+**Affected methods:**
+- `approve()` - Returns `TransactionResponse`
+- `approveService()` - Returns `TransactionResponse`
+- `revokeService()` - Returns `TransactionResponse`
+- `withdraw()` - Returns `TransactionResponse`
+- `deposit()` - Returns `TransactionResponse`, plus new callbacks for multi-step visibility
+
+**Deposit callbacks (new):**
+```javascript
+const tx = await synapse.payments.deposit(amount, TOKENS.USDFC, {
+  onAllowanceCheck: (current, required) => {
+    console.log(`Checking allowance: ${current} vs ${required}`)
+  },
+  onApprovalTransaction: (approveTx) => {
+    console.log(`Auto-approval sent: ${approveTx.hash}`)
+  },
+  onApprovalConfirmed: (receipt) => {
+    console.log(`Approval confirmed in block ${receipt.blockNumber}`)
+  },
+  onDepositStarting: () => {
+    console.log('Starting deposit transaction...')
+  }
+})
 ```
 
 ## License

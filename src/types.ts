@@ -186,10 +186,10 @@ export interface StorageCreationCallbacks {
   /**
    * Called when proof set creation transaction is submitted
    * Only fired when creating a new proof set
-   * @param txHash - Transaction hash for tracking
+   * @param transaction - Transaction response object
    * @param statusUrl - URL to check status (optional)
    */
-  onProofSetCreationStarted?: (txHash: string, statusUrl?: string) => void
+  onProofSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
 
   /**
    * Called periodically during proof set creation
@@ -203,6 +203,7 @@ export interface StorageCreationCallbacks {
     serverConfirmed: boolean
     proofSetId?: number
     elapsedMs: number
+    receipt?: ethers.TransactionReceipt
   }) => void
 }
 

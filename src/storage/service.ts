@@ -187,11 +187,22 @@ export class StorageService {
     // createProofSet returns CreateProofSetResponse with txHash and statusUrl
     const { txHash, statusUrl } = createResult
 
-    // Notify callback about proof set creation started
+    // Fetch the transaction object from the chain
+    const ethersProvider = synapse.getProvider()
+    let transaction: ethers.TransactionResponse | null = null
     try {
-      callbacks?.onProofSetCreationStarted?.(txHash, statusUrl)
+      transaction = await ethersProvider.getTransaction(txHash)
     } catch (error) {
-      console.error('Error in onProofSetCreationStarted callback:', error)
+      console.error('Failed to fetch transaction details:', error)
+    }
+
+    // Notify callback about proof set creation started
+    if (transaction != null) {
+      try {
+        callbacks?.onProofSetCreationStarted?.(transaction, statusUrl)
+      } catch (error) {
+        console.error('Error in onProofSetCreationStarted callback:', error)
+      }
     }
 
     // Wait for the proof set creation to be confirmed on-chain with progress callbacks
@@ -207,13 +218,26 @@ export class StorageService {
 
       // Fire progress callback
       try {
+        // Get receipt if transaction is mined
+        let receipt: ethers.TransactionReceipt | undefined
+        if (status.chainStatus.transactionMined && status.chainStatus.blockNumber != null) {
+          try {
+            const ethersProvider = synapse.getProvider()
+            const txReceipt = await ethersProvider.getTransactionReceipt(txHash)
+            receipt = txReceipt ?? undefined
+          } catch (error) {
+            console.error('Failed to fetch transaction receipt:', error)
+          }
+        }
+
         callbacks?.onProofSetCreationProgress?.({
           transactionMined: status.chainStatus.transactionMined,
           transactionSuccess: status.chainStatus.transactionSuccess,
           proofSetLive: status.chainStatus.proofSetLive,
           serverConfirmed: status.serverStatus?.ok === true,
           proofSetId: status.summary.proofSetId ?? undefined,
-          elapsedMs: Date.now() - startTime
+          elapsedMs: Date.now() - startTime,
+          receipt
         })
       } catch (error) {
         console.error('Error in onProofSetCreationProgress callback:', error)

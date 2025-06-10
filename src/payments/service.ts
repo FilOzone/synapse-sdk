@@ -7,6 +7,20 @@ import { ethers } from 'ethers'
 import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
 import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 
+/**
+ * Callbacks for deposit operation visibility
+ */
+export interface DepositCallbacks {
+  /** Called when checking current allowance */
+  onAllowanceCheck?: (current: bigint, required: bigint) => void
+  /** Called when approval transaction is sent */
+  onApprovalTransaction?: (tx: ethers.TransactionResponse) => void
+  /** Called when approval is confirmed */
+  onApprovalConfirmed?: (receipt: ethers.TransactionReceipt) => void
+  /** Called before deposit transaction is sent */
+  onDepositStarting?: () => void
+}
+
 export class PaymentsService {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
@@ -219,9 +233,9 @@ export class PaymentsService {
    * @param token - The token to approve spending for (currently only USDFC supported)
    * @param spender - The address to approve as spender
    * @param amount - The amount to approve
-   * @returns Transaction hash
+   * @returns Transaction response object
    */
-  async approve (token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<string> {
+  async approve (token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'approve', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
     }
@@ -243,8 +257,7 @@ export class PaymentsService {
 
     try {
       const approveTx = await usdfcContract.approve(spender, approveAmount, txOptions)
-      await approveTx.wait()
-      return approveTx.hash
+      return approveTx
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -263,14 +276,14 @@ export class PaymentsService {
    * @param rateAllowance - Maximum payment rate per epoch the operator can set
    * @param lockupAllowance - Maximum lockup amount the operator can set
    * @param token - The token to approve for (defaults to USDFC)
-   * @returns Transaction hash
+   * @returns Transaction response object
    */
   async approveService (
     service: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
     token: TokenIdentifier = TOKENS.USDFC
-  ): Promise<string> {
+  ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'approveService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
     }
@@ -302,8 +315,7 @@ export class PaymentsService {
         lockupAllowanceBigint,
         txOptions
       )
-      await approveTx.wait()
-      return approveTx.hash
+      return approveTx
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -318,9 +330,9 @@ export class PaymentsService {
    * Revoke a service contract's operator approval
    * @param service - The service contract address to revoke
    * @param token - The token to revoke approval for (defaults to USDFC)
-   * @returns Transaction hash
+   * @returns Transaction response object
    */
-  async revokeService (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<string> {
+  async revokeService (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'revokeService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
     }
@@ -345,8 +357,7 @@ export class PaymentsService {
         0n, // zero lockup allowance
         txOptions
       )
-      await revokeTx.wait()
-      return revokeTx.hash
+      return revokeTx
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -397,7 +408,7 @@ export class PaymentsService {
     }
   }
 
-  async deposit (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<string> {
+  async deposit (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC, callbacks?: DepositCallbacks): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'deposit', `Unsupported token: ${token}`)
@@ -434,13 +445,24 @@ export class PaymentsService {
     }
 
     const currentAllowance = await this.allowance(token, paymentsAddress)
+    callbacks?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
 
     if (currentAllowance < depositAmountBigint) {
       // Golden path: automatically approve the exact amount needed
-      await this.approve(token, paymentsAddress, depositAmountBigint)
+      const approveTx = await this.approve(token, paymentsAddress, depositAmountBigint)
+      callbacks?.onApprovalTransaction?.(approveTx)
+
+      // Wait for approval to be mined before proceeding
+      const approvalReceipt = await approveTx.wait()
+      if (approvalReceipt != null) {
+        callbacks?.onApprovalConfirmed?.(approvalReceipt)
+      }
     }
 
     // Check if account has sufficient available balance (no frozen account check needed for deposits)
+
+    // Notify that deposit is starting
+    callbacks?.onDepositStarting?.()
 
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
@@ -455,12 +477,11 @@ export class PaymentsService {
       depositAmountBigint,
       txOptions
     )
-    await depositTx.wait()
 
-    return depositTx.hash
+    return depositTx
   }
 
-  async withdraw (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<string> {
+  async withdraw (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'withdraw', `Unsupported token: ${token}`)
@@ -496,8 +517,7 @@ export class PaymentsService {
     }
 
     const withdrawTx = await paymentsContract.withdraw(usdfcAddress, withdrawAmountBigint, txOptions)
-    await withdrawTx.wait()
 
-    return withdrawTx.hash
+    return withdrawTx
   }
 }

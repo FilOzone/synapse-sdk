@@ -160,6 +160,15 @@ export class Synapse {
   }
 
   /**
+   * Get the provider instance
+   * @internal
+   * @returns The ethers Provider instance
+   */
+  getProvider (): ethers.Provider {
+    return this._provider
+  }
+
+  /**
    * Get the signer instance
    * @internal
    * @returns The ethers Signer instance
@@ -213,6 +222,14 @@ export class Synapse {
         error
       )
     }
+  }
+
+  /**
+   * Get the network this instance is connected to
+   * @returns The network type ('mainnet' or 'calibration')
+   */
+  getNetwork (): FilecoinNetworkType {
+    return this._network
   }
 }
 

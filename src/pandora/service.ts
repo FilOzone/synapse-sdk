@@ -635,7 +635,7 @@ export class PandoraService {
       actions: Array<{
         type: 'deposit' | 'approve' | 'approveService'
         description: string
-        execute: () => Promise<string>
+        execute: () => Promise<ethers.TransactionResponse>
       }>
     }> {
     const costs = await this.calculateStorageCost(options.dataSize)
@@ -650,7 +650,7 @@ export class PandoraService {
     const actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
       description: string
-      execute: () => Promise<string>
+      execute: () => Promise<ethers.TransactionResponse>
     }> = []
 
     // Check if deposit is needed

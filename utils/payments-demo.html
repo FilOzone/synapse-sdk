@@ -12,12 +12,12 @@
             padding: 20px;
             background: #f5f5f5;
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 30px;
         }
-        
+
         .connection-status {
             background: white;
             padding: 20px;
@@ -25,7 +25,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
-        
+
         .status-indicator {
             display: inline-block;
             width: 10px;
@@ -33,10 +33,10 @@
             border-radius: 50%;
             margin-right: 5px;
         }
-        
+
         .connected { background: #4CAF50; }
         .disconnected { background: #f44336; }
-        
+
         .section {
             background: white;
             padding: 20px;
@@ -44,31 +44,31 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
-        
+
         .section h2 {
             margin-top: 0;
             color: #333;
             border-bottom: 2px solid #0090FF;
             padding-bottom: 10px;
         }
-        
+
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
-        
+
         .form-group {
             margin-bottom: 15px;
         }
-        
+
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: 600;
             color: #555;
         }
-        
+
         input, select {
             width: 100%;
             padding: 8px 12px;
@@ -76,7 +76,7 @@
             border-radius: 4px;
             font-size: 14px;
         }
-        
+
         button {
             background: #0090FF;
             color: white;
@@ -88,16 +88,16 @@
             font-weight: 600;
             transition: background 0.2s;
         }
-        
+
         button:hover {
             background: #0070CC;
         }
-        
+
         button:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-        
+
         .result {
             margin-top: 15px;
             padding: 10px;
@@ -108,17 +108,17 @@
             word-break: break-all;
             white-space: pre-wrap;
         }
-        
+
         .error {
             background: #ffebee;
             color: #c62828;
         }
-        
+
         .success {
             background: #e8f5e9;
             color: #2e7d32;
         }
-        
+
         .balance-display {
             display: flex;
             justify-content: space-between;
@@ -128,28 +128,28 @@
             border-radius: 4px;
             margin-bottom: 10px;
         }
-        
+
         .balance-label {
             font-weight: 600;
             color: #666;
         }
-        
+
         .balance-value {
             font-family: monospace;
             font-size: 16px;
             color: #333;
         }
-        
+
         .tx-link {
             color: #0090FF;
             text-decoration: none;
             font-size: 12px;
         }
-        
+
         .tx-link:hover {
             text-decoration: underline;
         }
-        
+
         .info-box {
             background: #e3f2fd;
             padding: 10px;
@@ -158,7 +158,7 @@
             font-size: 14px;
             color: #1565c0;
         }
-        
+
         .loading {
             display: inline-block;
             width: 14px;
@@ -169,21 +169,21 @@
             animation: spin 1s linear infinite;
             margin-left: 10px;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+
         .tab-container {
             margin-bottom: 20px;
         }
-        
+
         .tabs {
             display: flex;
             border-bottom: 2px solid #ddd;
         }
-        
+
         .tab {
             padding: 10px 20px;
             cursor: pointer;
@@ -193,18 +193,18 @@
             color: #666;
             transition: all 0.2s;
         }
-        
+
         .tab.active {
             color: #0090FF;
             border-bottom: 2px solid #0090FF;
             margin-bottom: -2px;
         }
-        
+
         .tab-content {
             display: none;
             padding-top: 20px;
         }
-        
+
         .tab-content.active {
             display: block;
         }
@@ -247,14 +247,14 @@
 
     <div class="section" id="operationsSection" style="display: none;">
         <h2>Payment Operations</h2>
-        
+
         <div class="tab-container">
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('deposit')">Deposit/Withdraw</button>
                 <button class="tab" onclick="switchTab('token')">Token Approvals</button>
                 <button class="tab" onclick="switchTab('service')">Service Approvals</button>
             </div>
-            
+
             <!-- Deposit/Withdraw Tab -->
             <div class="tab-content active" id="depositTab">
                 <div class="grid">
@@ -270,7 +270,7 @@
                         <button onclick="deposit()">Deposit</button>
                         <div id="depositResult"></div>
                     </div>
-                    
+
                     <div>
                         <h3>Withdraw USDFC</h3>
                         <div class="info-box">
@@ -285,7 +285,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Token Approvals Tab -->
             <div class="tab-content" id="tokenTab">
                 <div class="grid">
@@ -302,7 +302,7 @@
                         <button onclick="checkAllowance()">Check Allowance</button>
                         <div id="allowanceResult"></div>
                     </div>
-                    
+
                     <div>
                         <h3>Approve Token Spending</h3>
                         <div class="info-box">
@@ -322,7 +322,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Service Approvals Tab -->
             <div class="tab-content" id="serviceTab">
                 <div>
@@ -334,7 +334,7 @@
                         • Payments Contract: <code>0x0E690D3e60B0576D01352AB03b258115eb84A047</code><br>
                         • Rod's Pandora: <code>0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5</code>
                     </div>
-                    
+
                     <div class="grid">
                         <div>
                             <h4>Check Service Approval</h4>
@@ -346,7 +346,7 @@
                             <button onclick="checkServiceApproval()">Check Approval</button>
                             <div id="checkServiceResult"></div>
                         </div>
-                        
+
                         <div>
                             <h4>Approve Service</h4>
                             <div class="form-group">
@@ -365,7 +365,7 @@
                             <button onclick="approveService()">Approve Service</button>
                             <div id="approveServiceResult"></div>
                         </div>
-                        
+
                         <div>
                             <h4>Revoke Service</h4>
                             <div class="form-group">
@@ -384,12 +384,12 @@
     <!-- Load ethers and synapse-sdk -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
     <script src="../dist/browser/synapse-sdk.min.js"></script>
-    
+
     <script>
         let synapse = null;
         let network = null;
         const { Synapse, CONTRACT_ADDRESSES, TOKENS } = window.SynapseSDK;
-        
+
         // Tab switching
         function switchTab(tabName) {
             // Update tab buttons
@@ -397,14 +397,14 @@
                 tab.classList.remove('active');
             });
             event.target.classList.add('active');
-            
+
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
             document.getElementById(tabName + 'Tab').classList.add('active');
         }
-        
+
         // Connect wallet
         async function connectWallet() {
             try {
@@ -412,20 +412,20 @@
                     alert('Please install MetaMask to use this demo');
                     return;
                 }
-                
+
                 showLoading('connectionInfo');
-                
+
                 // Request account access
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
-                
+
                 // Create provider and synapse instance
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 synapse = await Synapse.create({ provider });
-                
+
                 // Get network info
                 const networkInfo = await provider.getNetwork();
                 const chainId = Number(networkInfo.chainId);
-                
+
                 if (chainId === 314) {
                     network = 'mainnet';
                 } else if (chainId === 314159) {
@@ -433,55 +433,55 @@
                 } else {
                     throw new Error('Please connect to Filecoin Mainnet or Calibration Testnet');
                 }
-                
+
                 // Get wallet address
                 const signer = await provider.getSigner();
                 const address = await signer.getAddress();
-                
+
                 // Update UI
                 document.getElementById('connectionInfo').innerHTML = `
                     <p><span class="status-indicator connected"></span> Connected to ${network}</p>
                     <p>Chain ID: ${chainId}</p>
                     <button onclick="disconnectWallet()">Disconnect</button>
                 `;
-                
+
                 document.getElementById('walletAddress').textContent = address;
                 document.getElementById('balancesSection').style.display = 'block';
                 document.getElementById('operationsSection').style.display = 'block';
-                
+
                 // Set default addresses
                 const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[network];
                 const serviceAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
-                
+
                 // Check if contracts are deployed
                 if (!paymentsAddress) {
                     console.warn(`Payments contract not configured for ${network}`);
                     showError('connectionInfo', `Warning: Payments contract address not configured for ${network}`);
                 }
-                
+
                 if (!serviceAddress) {
                     console.warn(`PDP Service contract not configured for ${network}`);
                 }
-                
+
                 if (paymentsAddress) {
                     document.getElementById('allowanceSpender').placeholder = paymentsAddress;
                     document.getElementById('approveSpender').placeholder = paymentsAddress;
                 }
-                
+
                 if (serviceAddress) {
                     document.getElementById('checkServiceAddress').placeholder = serviceAddress;
                     document.getElementById('approveServiceAddress').placeholder = serviceAddress;
                     document.getElementById('revokeServiceAddress').placeholder = serviceAddress;
                 }
-                
+
                 // Refresh balances
                 await refreshBalances();
-                
+
             } catch (error) {
                 showError('connectionInfo', error);
             }
         }
-        
+
         function disconnectWallet() {
             synapse = null;
             network = null;
@@ -492,29 +492,29 @@
             document.getElementById('balancesSection').style.display = 'none';
             document.getElementById('operationsSection').style.display = 'none';
         }
-        
+
         // Refresh balances
         async function refreshBalances() {
             try {
                 showLoading('filBalance');
                 showLoading('usdfcWalletBalance');
                 showLoading('usdfcPaymentsBalance');
-                
+
                 const [filBalance, usdfcWalletBalance, usdfcPaymentsBalance] = await Promise.all([
                     synapse.payments.walletBalance(),
                     synapse.payments.walletBalance(TOKENS.USDFC),
                     synapse.payments.balance(TOKENS.USDFC)
                 ]);
-                
+
                 document.getElementById('filBalance').textContent = ethers.formatEther(filBalance) + ' FIL';
                 document.getElementById('usdfcWalletBalance').textContent = ethers.formatUnits(usdfcWalletBalance, 18) + ' USDFC';
                 document.getElementById('usdfcPaymentsBalance').textContent = ethers.formatUnits(usdfcPaymentsBalance, 18) + ' USDFC';
-                
+
             } catch (error) {
                 console.error('Error refreshing balances:', error);
             }
         }
-        
+
         // Deposit
         async function deposit() {
             try {
@@ -523,22 +523,36 @@
                     showError('depositResult', 'Please enter an amount');
                     return;
                 }
-                
+
                 showLoading('depositResult');
-                
+
                 const amountWei = ethers.parseUnits(amount, 18);
-                const txHash = await synapse.payments.deposit(amountWei, TOKENS.USDFC);
-                
-                showSuccess('depositResult', `Deposit successful! <a href="${getExplorerUrl(txHash)}" target="_blank" class="tx-link">View transaction</a>`);
-                
-                // Refresh balances after a delay
-                setTimeout(refreshBalances, 3000);
-                
+                const tx = await synapse.payments.deposit(amountWei, TOKENS.USDFC, {
+                    onAllowanceCheck: (current, required) => {
+                        console.log(`Allowance check: ${ethers.formatUnits(current, 18)} / ${ethers.formatUnits(required, 18)} USDFC`);
+                    },
+                    onApprovalTransaction: (approveTx) => {
+                        console.log(`Auto-approval sent: ${approveTx.hash}`);
+                    },
+                    onDepositStarting: () => {
+                        console.log('Starting deposit transaction...');
+                    }
+                });
+
+                showSuccess('depositResult', `Deposit transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>`);
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Deposit confirmed in block ${receipt.blockNumber}`);
+
+                // Refresh balances
+                await refreshBalances();
+
             } catch (error) {
                 showError('depositResult', error);
             }
         }
-        
+
         // Withdraw
         async function withdraw() {
             try {
@@ -547,22 +561,26 @@
                     showError('withdrawResult', 'Please enter an amount');
                     return;
                 }
-                
+
                 showLoading('withdrawResult');
-                
+
                 const amountWei = ethers.parseUnits(amount, 18);
-                const txHash = await synapse.payments.withdraw(amountWei, TOKENS.USDFC);
-                
-                showSuccess('withdrawResult', `Withdrawal successful! <a href="${getExplorerUrl(txHash)}" target="_blank" class="tx-link">View transaction</a>`);
-                
-                // Refresh balances after a delay
-                setTimeout(refreshBalances, 3000);
-                
+                const tx = await synapse.payments.withdraw(amountWei, TOKENS.USDFC);
+
+                showSuccess('withdrawResult', `Withdrawal transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>`);
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Withdrawal confirmed in block ${receipt.blockNumber}`);
+
+                // Refresh balances
+                await refreshBalances();
+
             } catch (error) {
                 showError('withdrawResult', error);
             }
         }
-        
+
         // Check allowance
         async function checkAllowance() {
             try {
@@ -571,41 +589,45 @@
                     showError('allowanceResult', 'Please enter a spender address');
                     return;
                 }
-                
+
                 showLoading('allowanceResult');
-                
+
                 const allowance = await synapse.payments.allowance(TOKENS.USDFC, spender);
-                
+
                 showSuccess('allowanceResult', `Allowance: ${ethers.formatUnits(allowance, 18)} USDFC\nSpender: ${spender}`);
-                
+
             } catch (error) {
                 showError('allowanceResult', error);
             }
         }
-        
+
         // Approve token
         async function approveToken() {
             try {
                 const spender = document.getElementById('approveSpender').value || CONTRACT_ADDRESSES.PAYMENTS[network];
                 const amount = document.getElementById('approveAmount').value;
-                
+
                 if (!spender || !amount) {
                     showError('approveResult', 'Please enter spender address and amount');
                     return;
                 }
-                
+
                 showLoading('approveResult');
-                
+
                 const amountWei = ethers.parseUnits(amount, 18);
-                const txHash = await synapse.payments.approve(TOKENS.USDFC, spender, amountWei);
-                
-                showSuccess('approveResult', `Approval successful! <a href="${getExplorerUrl(txHash)}" target="_blank" class="tx-link">View transaction</a>\nSpender: ${spender}\nAmount: ${amount} USDFC`);
-                
+                const tx = await synapse.payments.approve(TOKENS.USDFC, spender, amountWei);
+
+                showSuccess('approveResult', `Approval transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>\nSpender: ${spender}\nAmount: ${amount} USDFC`);
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Approval confirmed in block ${receipt.blockNumber}`);
+
             } catch (error) {
                 showError('approveResult', error);
             }
         }
-        
+
         // Check service approval
         async function checkServiceApproval() {
             try {
@@ -614,11 +636,11 @@
                     showError('checkServiceResult', 'Please enter a service contract address');
                     return;
                 }
-                
+
                 showLoading('checkServiceResult');
-                
+
                 const approval = await synapse.payments.serviceApproval(service, TOKENS.USDFC);
-                
+
                 const result = `Service Approval Status:
 Address: ${service}
 Approved: ${approval.isApproved}
@@ -626,32 +648,32 @@ Rate Allowance: ${ethers.formatUnits(approval.rateAllowance, 18)} USDFC/epoch
 Rate Used: ${ethers.formatUnits(approval.rateUsed, 18)} USDFC/epoch
 Lockup Allowance: ${ethers.formatUnits(approval.lockupAllowance, 18)} USDFC
 Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
-                
+
                 showSuccess('checkServiceResult', result);
-                
+
             } catch (error) {
                 showError('checkServiceResult', error);
             }
         }
-        
+
         // Approve service
         async function approveService() {
             try {
                 const service = document.getElementById('approveServiceAddress').value || CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
                 const rateAllowance = document.getElementById('rateAllowance').value;
                 const lockupAllowance = document.getElementById('lockupAllowance').value;
-                
+
                 if (!service || !rateAllowance || !lockupAllowance) {
                     showError('approveServiceResult', 'Please fill in all fields');
                     return;
                 }
-                
+
                 // Validate service address
                 if (!ethers.isAddress(service)) {
                     showError('approveServiceResult', 'Invalid service contract address');
                     return;
                 }
-                
+
                 // Check if service is a contract
                 try {
                     // Get provider through ethers
@@ -664,7 +686,7 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
                 } catch (e) {
                     console.warn('Could not verify contract existence:', e);
                 }
-                
+
                 // Log for debugging
                 console.log('Approving service:', {
                     service,
@@ -673,26 +695,30 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
                     network,
                     paymentsContract: CONTRACT_ADDRESSES.PAYMENTS[network]
                 });
-                
+
                 showLoading('approveServiceResult');
-                
+
                 const rateWei = ethers.parseUnits(rateAllowance, 18);
                 const lockupWei = ethers.parseUnits(lockupAllowance, 18);
-                const txHash = await synapse.payments.approveService(
+                const tx = await synapse.payments.approveService(
                     service,
                     rateWei,
                     lockupWei,
                     TOKENS.USDFC
                 );
-                
-                showSuccess('approveServiceResult', `Service approval successful! <a href="${getExplorerUrl(txHash)}" target="_blank" class="tx-link">View transaction</a>\nService: ${service}`);
-                
+
+                showSuccess('approveServiceResult', `Service approval transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>\nService: ${service}`);
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Service approval confirmed in block ${receipt.blockNumber}`);
+
             } catch (error) {
                 console.error('Service approval error:', error);
                 showError('approveServiceResult', error);
             }
         }
-        
+
         // Revoke service
         async function revokeService() {
             try {
@@ -701,32 +727,36 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
                     showError('revokeServiceResult', 'Please enter a service contract address');
                     return;
                 }
-                
+
                 showLoading('revokeServiceResult');
-                
-                const txHash = await synapse.payments.revokeService(service, TOKENS.USDFC);
-                
-                showSuccess('revokeServiceResult', `Service revoked successfully! <a href="${getExplorerUrl(txHash)}" target="_blank" class="tx-link">View transaction</a>\nService: ${service}`);
-                
+
+                const tx = await synapse.payments.revokeService(service, TOKENS.USDFC);
+
+                showSuccess('revokeServiceResult', `Service revoke transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>\nService: ${service}`);
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Service revoke confirmed in block ${receipt.blockNumber}`);
+
             } catch (error) {
                 showError('revokeServiceResult', error);
             }
         }
-        
+
         // Helper functions
         function showLoading(elementId) {
             document.getElementById(elementId).innerHTML = '<span class="loading"></span>';
         }
-        
+
         function showError(elementId, error) {
             const message = error.message || error;
             document.getElementById(elementId).innerHTML = `<div class="result error">${message}</div>`;
         }
-        
+
         function showSuccess(elementId, message) {
             document.getElementById(elementId).innerHTML = `<div class="result success">${message}</div>`;
         }
-        
+
         function getExplorerUrl(txHash) {
             if (network === 'mainnet') {
                 return `https://filfox.info/en/tx/${txHash}`;
@@ -734,7 +764,7 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
                 return `https://calibration.filfox.info/en/tx/${txHash}`;
             }
         }
-        
+
         // Check for MetaMask on load
         window.addEventListener('load', () => {
             if (window.ethereum) {
