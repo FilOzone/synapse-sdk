@@ -170,10 +170,10 @@ async function main () {
     log(`Storage Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
+    const spTool = new PandoraService(provider, pandoraAddress)
+
     // === Step 1: Storage Provider Registration ===
     log('\n📋 Step 1: Storage Provider Registration')
-
-    const spTool = new PandoraService(provider, pandoraAddress)
 
     // Check if SP is already approved
     const isAlreadyApproved = await spTool.isProviderApproved(spAddress)
