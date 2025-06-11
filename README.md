@@ -96,7 +96,7 @@ const storage = await synapse.createStorage()
 
 // Upload data
 const uploadResult = await storage.upload(
-  new TextEncoder().encode('Hello Filecoin!')
+  new TextEncoder().encode('🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍')
 )
 console.log(`Upload complete! CommP: ${uploadResult.commp}`)
 console.log(`Size: ${uploadResult.size} bytes`)
@@ -105,8 +105,6 @@ console.log(`Size: ${uploadResult.size} bytes`)
 const data = await storage.download(uploadResult.commp)
 console.log(new TextDecoder().decode(data))
 ```
-
-**Note: The above code won't work currently due to a bug in dealing with small data. See [this issue](https://github.com/FilOzone/synapse-sdk/issues/82) for more details and progress on addressing it.**
 
 ### With MetaMask
 
@@ -352,8 +350,6 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
-
-**Note: The minimum size is currently much larger than 65 bytes due to bugs that are being addressed. See [this issue](https://github.com/FilOzone/synapse-sdk/issues/82) for more details and progress on addressing it.**
 
 ---
 

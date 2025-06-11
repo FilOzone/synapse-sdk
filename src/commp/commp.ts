@@ -38,6 +38,17 @@ export function toZeroPaddedSize (payloadSize: number): number {
 }
 
 /**
+ * Convert a payload size to piece size, by rounding up to the nearest
+ * power of 2 after accounting for Fr32 padding (additional 2 bits per 254).
+ *
+ * @param payloadSize - The size of the payload in bytes.
+ * @returns {number} - The size of the piece in bytes, which is a multiple of 256.
+ */
+export function toPieceSize (payloadSize: number): number {
+  return Fr32.toPieceSize(payloadSize)
+}
+
+/**
  * Parse a CommP string into a CID and validate it
  * @param commpString - The CommP as a string (base32 or other multibase encoding)
  * @returns The parsed and validated CommP CID or null if invalid

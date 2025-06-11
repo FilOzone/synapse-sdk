@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { type AuthSignature, type RootData } from '../types.js'
-import { asCommP, toZeroPaddedSize } from '../commp/index.js'
+import { asCommP, toPieceSize } from '../commp/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -339,7 +339,7 @@ export class PDPAuthHelper {
         root: {
           data: commP.bytes // This will be a Uint8Array
         },
-        rawSize: BigInt(toZeroPaddedSize(root.rawSize))
+        rawSize: BigInt(toPieceSize(root.rawSize))
       })
     }
 

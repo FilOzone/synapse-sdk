@@ -6,5 +6,6 @@ export {
   asCommP,
   calculate,
   createCommPStream,
-  toZeroPaddedSize
+  toZeroPaddedSize,
+  toPieceSize
 } from './commp.js'

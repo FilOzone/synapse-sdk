@@ -945,6 +945,34 @@ describe('StorageService', () => {
       assert.include(preflight.allowanceCheck.message, 'Rate allowance insufficient')
       assert.include(preflight.allowanceCheck.message, 'Lockup allowance insufficient')
     })
+
+    it('should enforce minimum size limit in preflightUpload', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      try {
+        await service.preflightUpload(64) // 64 bytes (1 under minimum)
+        assert.fail('Should have thrown size limit error')
+      } catch (error: any) {
+        assert.include(error.message, 'below minimum allowed size')
+        assert.include(error.message, '64 bytes')
+        assert.include(error.message, '65 bytes')
+      }
+    })
+
+    it('should enforce maximum size limit in preflightUpload', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      try {
+        await service.preflightUpload(210 * 1024 * 1024) // 210 MiB
+        assert.fail('Should have thrown size limit error')
+      } catch (error: any) {
+        assert.include(error.message, 'exceeds maximum allowed size')
+        assert.include(error.message, '220200960') // 210 * 1024 * 1024
+        assert.include(error.message, '209715200') // 200 * 1024 * 1024
+      }
+    })
   })
 
   describe('download', () => {

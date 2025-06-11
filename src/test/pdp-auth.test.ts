@@ -35,31 +35,31 @@ const FIXTURES = {
   signatures: {
     createProofSet: {
       signature: '0x69addf4632ef95bfae97137421ba09576f9c55b12219e2c90442cbc1524421247b373dfad6e59256f87256f08220b0c008bbab7cdaceb1dd51454de094a7ffa51b',
-      digest: '0xf9505c69c8af50c0c3535d4436cca739abd9be143f980d9affc796a859c12679',
+      digest: '0xa7878f0b67c3ab20ada02fc74312090f470388bcd79ec30387735386ed6b9448',
       clientDataSetId: 12345,
       payee: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       withCDN: true
     },
     addRoots: {
-      signature: '0x0d4df872fd94796a2883f5c307d4d8402ded8ad47b9800b91a781735461a629562962255f9e14927cab71c60224fdf3f79f24799efac0aa4692d06362af5f87a1c',
-      digest: '0xf17b431d935267844219010cf340decd8d7e631fdc7f7a6d1d4b6a7f1c1c6430',
+      signature: '0x93eb7bcccb7763258d7a4b86053a186db9234a93403a6e006f56fa716d85eff72e23538848e13c2632bef16c5b8380a5fddef7b81d34ede127f632217c7eab5d1c',
+      digest: '0x754235d696d1117d5694c2b61a46386067b1253b8fb631ac28329b3b6273c1d6',
       clientDataSetId: 12345,
       firstAdded: 1,
       rootDigests: [
         '0xfc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
         '0xa9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f'
       ],
-      rootSizes: [2032, 4064]
+      rootSizes: [2048, 4096]
     },
     scheduleRemovals: {
       signature: '0xe092fd8b6110a4914c0be071d14c1a2c838eb61bf3cb3661e9650da241a22e2d583b7c707eace2f80c9879e123906e02ca5a1eb66d162eaa13d1b7fd19d6db341c',
-      digest: '0x43f04e097c15cd3d0ce855797c63857e886e8b0745aea9379cf2fb07bea10235',
+      digest: '0x5d26947c51884a10708c5820c0c72fae6408a0ad58c127101bf854559a5644c5',
       clientDataSetId: 12345,
       rootIds: [1, 3, 5]
     },
     deleteProofSet: {
       signature: '0x093fae193f81a7fe72d2124ed9d70337747458ac2d568c5b9a42072782adb7c4393f49b2f3bce9a84d94ee2c93ef4c9af8c0b258be3bde3f8df0536fa4eea65b1c',
-      digest: '0x07facb576326aebcfe7d009f08a5161e916046dd13a413c06a914572cb5fc109',
+      digest: '0x2d8dd51594ce9d3f4b377a8a578e331facabf86f4a400cc395dff0b448c6ab7c',
       clientDataSetId: 12345
     }
   }

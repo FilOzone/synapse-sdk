@@ -42,6 +42,37 @@ export class StorageService {
   public readonly proofSetId: string
   public readonly storageProvider: string
 
+  /**
+   * Validate data size against minimum and maximum limits
+   * @param sizeBytes - Size of data in bytes
+   * @param context - Context for error messages (e.g., 'upload', 'preflightUpload')
+   * @throws Error if size is outside allowed limits
+   */
+  private static validateRawSize (sizeBytes: number, context: string): void {
+    if (sizeBytes < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
+      // This restriction is imposed by CommP calculation, which requires at least 65 bytes
+      throw createError(
+        'StorageService',
+        context,
+        `Data size (${sizeBytes} bytes) is below minimum allowed size (${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes).`
+      )
+    }
+
+    if (sizeBytes > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+      // This restriction is ~arbitrary for now, but there is a hard limit on PDP uploads in Curio
+      // of 254 MiB, see: https://github.com/filecoin-project/curio/blob/3ddc785218f4e237f0c073bac9af0b77d0f7125c/pdp/handlers_upload.go#L38
+      // We can increase this in future, arbitrarily, but we first need to:
+      //  - Handle streaming input.
+      //  - Chunking input at size 254 MiB and make a separate piece per each chunk
+      //  - Combine the pieces using "subpieces" and an aggregate CommP in our AddRoots call
+      throw createError(
+        'StorageService',
+        context,
+        `Data size (${sizeBytes} bytes) exceeds maximum allowed size (${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes)`
+      )
+    }
+  }
+
   constructor (
     synapse: Synapse,
     pandoraService: PandoraService,
@@ -627,6 +658,9 @@ export class StorageService {
    * Run preflight checks for an upload
    */
   async preflightUpload (size: number): Promise<PreflightInfo> {
+    // Validate size before proceeding
+    StorageService.validateRawSize(size, 'preflightUpload')
+
     // Check allowances and get costs in a single call
     const allowanceCheck = await this._pandoraService.checkAllowanceForStorage(
       size,
@@ -658,28 +692,8 @@ export class StorageService {
     const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
     const sizeBytes = dataBytes.length
 
-    if (sizeBytes < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
-      // This restriction is imposed by CommP calculation, which requires at least 65 bytes
-      throw createError(
-        'StorageService',
-        'upload',
-        `Data size (${sizeBytes} bytes) is below minimum allowed size (${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes).`
-      )
-    }
-
-    if (sizeBytes > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
-      // This restriction is ~arbitrary for now, but there is a hard limit on PDP uploads in Curio
-      // of 254 MiB, see: https://github.com/filecoin-project/curio/blob/3ddc785218f4e237f0c073bac9af0b77d0f7125c/pdp/handlers_upload.go#L38
-      // We can increase this in future, arbitrarily, but we first need to:
-      //  - Handle streaming input.
-      //  - Chunking input at size 254 MiB and make a separate piece per each chunk
-      //  - Combine the pieces using "subpieces" and an aggregate CommP in our AddRoots call
-      throw createError(
-        'StorageService',
-        'upload',
-        `Data size (${sizeBytes} bytes) exceeds maximum allowed size (${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes)`
-      )
-    }
+    // Validate size before proceeding
+    StorageService.validateRawSize(sizeBytes, 'upload')
 
     // Upload Phase: Upload data to storage provider
     let uploadResult: { commP: string, size: number }
