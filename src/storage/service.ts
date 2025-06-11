@@ -187,22 +187,44 @@ export class StorageService {
     // createProofSet returns CreateProofSetResponse with txHash and statusUrl
     const { txHash, statusUrl } = createResult
 
-    // Fetch the transaction object from the chain
+    // Fetch the transaction object from the chain with retry logic
     const ethersProvider = synapse.getProvider()
     let transaction: ethers.TransactionResponse | null = null
-    try {
-      transaction = await ethersProvider.getTransaction(txHash)
-    } catch (error) {
-      console.error('Failed to fetch transaction details:', error)
+
+    // Retry for up to 30 seconds (1 epoch) for transaction to propagate
+    const txRetryStartTime = Date.now()
+    const txRetryTimeoutMs = 30000 // 30 seconds
+    const txRetryIntervalMs = 2000 // 2 seconds
+
+    while (Date.now() - txRetryStartTime < txRetryTimeoutMs) {
+      try {
+        transaction = await ethersProvider.getTransaction(txHash)
+        if (transaction !== null) {
+          break // Transaction found, exit retry loop
+        }
+      } catch (error) {
+        // Log error but continue retrying
+        console.warn(`Failed to fetch transaction ${txHash}, retrying...`, error)
+      }
+
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, txRetryIntervalMs))
+    }
+
+    // If transaction still not found after retries, throw error
+    if (transaction === null) {
+      throw createError(
+        'StorageService',
+        'create',
+        `Transaction ${txHash} not found after ${txRetryTimeoutMs / 1000} seconds. The transaction may not have propagated to the RPC node.`
+      )
     }
 
     // Notify callback about proof set creation started
-    if (transaction != null) {
-      try {
-        callbacks?.onProofSetCreationStarted?.(transaction, statusUrl)
-      } catch (error) {
-        console.error('Error in onProofSetCreationStarted callback:', error)
-      }
+    try {
+      callbacks?.onProofSetCreationStarted?.(transaction, statusUrl)
+    } catch (error) {
+      console.error('Error in onProofSetCreationStarted callback:', error)
     }
 
     // Wait for the proof set creation to be confirmed on-chain with progress callbacks
