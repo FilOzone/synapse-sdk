@@ -160,6 +160,53 @@ export const SIZE_CONSTANTS = {
 } as const
 
 /**
+ * Timing constants for blockchain operations
+ */
+export const TIMING_CONSTANTS = {
+  /**
+   * How long to wait for a transaction to appear on the network
+   * This is used when we have a transaction hash but need to fetch the transaction object
+   * Filecoin has 30-second epochs, so this gives one full epoch for propagation
+   */
+  TRANSACTION_PROPAGATION_TIMEOUT_MS: 30000, // 30 seconds (1 epoch)
+
+  /**
+   * How often to poll when waiting for a transaction to appear
+   */
+  TRANSACTION_PROPAGATION_POLL_INTERVAL_MS: 2000, // 2 seconds
+
+  /**
+   * Maximum time to wait for a proof set creation to complete
+   * This includes transaction mining and the proof set becoming live on-chain
+   */
+  PROOF_SET_CREATION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+
+  /**
+   * How often to poll for proof set creation status
+   */
+  PROOF_SET_CREATION_POLL_INTERVAL_MS: 2000, // 2 seconds
+
+  /**
+   * Maximum time to wait for a piece to be parked (uploaded) to storage
+   * This is typically slower than blockchain operations as it involves data transfer
+   */
+  PIECE_PARKING_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+
+  /**
+   * How often to poll for piece parking status
+   * Less frequent than blockchain polling as uploads take longer
+   */
+  PIECE_PARKING_POLL_INTERVAL_MS: 5000, // 5 seconds
+
+  /**
+   * Number of confirmations to wait for when calling transaction.wait()
+   * Set to 0 to just get the receipt once mined without waiting for confirmations
+   * Can be increased later for better finality guarantees
+   */
+  TRANSACTION_CONFIRMATIONS: 0
+} as const
+
+/**
  * Recommended RPC endpoints for Filecoin networks
  */
 export const RPC_URLS: Record<FilecoinNetworkType, { http: string, websocket: string }> = {

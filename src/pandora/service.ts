@@ -31,7 +31,7 @@ import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 import { PDPVerifier } from '../pdp/verifier.js'
 import type { PDPServer, ProofSetCreationStatusResponse } from '../pdp/server.js'
 import { PaymentsService } from '../payments/service.js'
-import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.js'
+import { SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
 
 /**
  * Helper information for adding roots to a proof set
@@ -312,13 +312,22 @@ export class PandoraService {
   /**
    * Verify that a proof set creation transaction was successful
    * This checks both the transaction status and on-chain proof set state
-   * @param txHash - Transaction hash from proof set creation
+   * @param txHashOrTransaction - Transaction hash or transaction object from proof set creation
    * @returns Verification result with transaction and proof set status
    */
-  async verifyProofSetCreation (txHash: string): Promise<ProofSetCreationVerification> {
+  async verifyProofSetCreation (txHashOrTransaction: string | ethers.TransactionResponse): Promise<ProofSetCreationVerification> {
     try {
+      // Get transaction hash
+      const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
+
       // Get transaction receipt
-      const receipt = await this._provider.getTransactionReceipt(txHash)
+      let receipt: ethers.TransactionReceipt | null
+      if (typeof txHashOrTransaction === 'string') {
+        receipt = await this._provider.getTransactionReceipt(txHash)
+      } else {
+        // If we have a transaction object, use its wait method which is more efficient
+        receipt = await txHashOrTransaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+      }
 
       if (receipt == null) {
         // Transaction not yet mined
@@ -380,56 +389,18 @@ export class PandoraService {
   }
 
   /**
-   * Wait for a proof set creation transaction to be mined and verified
-   * This polls the chain until the transaction is confirmed and the proof set is live
-   * @param txHash - Transaction hash from proof set creation
-   * @param timeoutMs - Maximum time to wait in milliseconds (default: 5 minutes)
-   * @param pollIntervalMs - How often to check in milliseconds (default: 2 seconds)
-   * @returns Promise that resolves when proof set is confirmed or rejects on timeout/failure
-   */
-  async waitForProofSetCreation (
-    txHash: string,
-    timeoutMs: number = 300000,
-    pollIntervalMs: number = 2000
-  ): Promise<ProofSetCreationVerification> {
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < timeoutMs) {
-      const verification = await this.verifyProofSetCreation(txHash)
-
-      // If transaction failed, return immediately
-      if (verification.transactionMined && !verification.transactionSuccess) {
-        return verification
-      }
-
-      // If proof set is live, we're done
-      if (verification.proofSetLive && verification.proofSetId != null) {
-        return verification
-      }
-
-      // If there was an error (other than not mined yet), return it
-      if (verification.error != null && verification.transactionMined) {
-        return verification
-      }
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
-    }
-
-    // Timeout reached
-    throw new Error(`Timeout waiting for proof set creation after ${timeoutMs}ms`)
-  }
-
-  /**
    * Get comprehensive status combining PDP server and chain information
-   * @param txHash - Transaction hash to check
+   * @param txHashOrTransaction - Transaction hash or transaction object to check
    * @param pdpServer - PDPServer instance to check server status
    * @returns Combined status information
    */
   async getComprehensiveProofSetStatus (
-    txHash: string,
+    txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer: PDPServer
   ): Promise<ComprehensiveProofSetStatus> {
+    // Get transaction hash
+    const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
+
     // Get server status
     let serverStatus: ProofSetCreationStatusResponse | null = null
     try {
@@ -438,8 +409,8 @@ export class PandoraService {
       // Server might not have the status yet
     }
 
-    // Get chain status
-    const chainStatus = await this.verifyProofSetCreation(txHash)
+    // Get chain status (pass through the transaction object if we have it)
+    const chainStatus = await this.verifyProofSetCreation(txHashOrTransaction)
 
     // Combine into summary
     const summary = {
@@ -459,22 +430,34 @@ export class PandoraService {
 
   /**
    * Wait for a proof set to be created and become live
-   * @param txHash - Transaction hash from createProofSet
+   * @param txHashOrTransaction - Transaction hash or transaction object from createProofSet
    * @param pdpServer - PDPServer instance to check server status
    * @param timeoutMs - Maximum time to wait in milliseconds
    * @param pollIntervalMs - How often to check in milliseconds
+   * @param onProgress - Optional callback for progress updates
    * @returns Final status when complete or timeout
    */
   async waitForProofSetCreationWithStatus (
-    txHash: string,
+    txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer: PDPServer,
-    timeoutMs: number = 300000,
-    pollIntervalMs: number = 2000
+    timeoutMs: number = TIMING_CONSTANTS.PROOF_SET_CREATION_TIMEOUT_MS,
+    pollIntervalMs: number = TIMING_CONSTANTS.PROOF_SET_CREATION_POLL_INTERVAL_MS,
+    onProgress?: (status: ComprehensiveProofSetStatus, elapsedMs: number) => void | Promise<void>
   ): Promise<ComprehensiveProofSetStatus> {
     const startTime = Date.now()
 
     while (Date.now() - startTime < timeoutMs) {
-      const status = await this.getComprehensiveProofSetStatus(txHash, pdpServer)
+      const status = await this.getComprehensiveProofSetStatus(txHashOrTransaction, pdpServer)
+
+      // Fire progress callback if provided
+      if (onProgress != null) {
+        try {
+          await onProgress(status, Date.now() - startTime)
+        } catch (error) {
+          // Don't let callback errors break the polling loop
+          console.error('Error in progress callback:', error)
+        }
+      }
 
       if (status.summary.isComplete || status.summary.error != null) {
         return status

@@ -26,11 +26,7 @@ import type { PandoraService } from '../pandora/service.js'
 import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
 import { createError } from '../utils/index.js'
-import { SIZE_CONSTANTS } from '../utils/constants.js'
-
-// Polling configuration for piece parking
-const PIECE_PARKING_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
-const PIECE_POLL_INTERVAL_MS = 5000 // 5 seconds
+import { SIZE_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -191,12 +187,10 @@ export class StorageService {
     const ethersProvider = synapse.getProvider()
     let transaction: ethers.TransactionResponse | null = null
 
-    // Retry for up to 30 seconds (1 epoch) for transaction to propagate
+    // Retry if the transaction is not found immediately
     const txRetryStartTime = Date.now()
-    const txRetryTimeoutMs = 30000 // 30 seconds
-    const txRetryIntervalMs = 2000 // 2 seconds
 
-    while (Date.now() - txRetryStartTime < txRetryTimeoutMs) {
+    while (Date.now() - txRetryStartTime < TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS) {
       try {
         transaction = await ethersProvider.getTransaction(txHash)
         if (transaction !== null) {
@@ -208,7 +202,7 @@ export class StorageService {
       }
 
       // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, txRetryIntervalMs))
+      await new Promise(resolve => setTimeout(resolve, TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS))
     }
 
     // If transaction still not found after retries, throw error
@@ -216,7 +210,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         'create',
-        `Transaction ${txHash} not found after ${txRetryTimeoutMs / 1000} seconds. The transaction may not have propagated to the RPC node.`
+        `Transaction ${txHash} not found after ${TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS / 1000} seconds. The transaction may not have propagated to the RPC node.`
       )
     }
 
@@ -228,56 +222,58 @@ export class StorageService {
     }
 
     // Wait for the proof set creation to be confirmed on-chain with progress callbacks
-    const startTime = Date.now()
-    const timeoutMs = 300000 // 5 minutes
-    const pollIntervalMs = 2000 // 2 seconds
+    let finalStatus: Awaited<ReturnType<typeof pandoraService.getComprehensiveProofSetStatus>>
 
-    let finalStatus: Awaited<ReturnType<typeof pandoraService.getComprehensiveProofSetStatus>> | undefined
+    try {
+      finalStatus = await pandoraService.waitForProofSetCreationWithStatus(
+        transaction,
+        pdpServer,
+        TIMING_CONSTANTS.PROOF_SET_CREATION_TIMEOUT_MS,
+        TIMING_CONSTANTS.PROOF_SET_CREATION_POLL_INTERVAL_MS,
+        async (status, elapsedMs) => {
+          // Fire progress callback
+          if (callbacks?.onProofSetCreationProgress != null) {
+            try {
+              // Get receipt if transaction is mined
+              let receipt: ethers.TransactionReceipt | undefined
+              if (status.chainStatus.transactionMined && status.chainStatus.blockNumber != null) {
+                try {
+                  // Use transaction.wait() which is more efficient than getTransactionReceipt
+                  const txReceipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+                  receipt = txReceipt ?? undefined
+                } catch (error) {
+                  console.error('Failed to fetch transaction receipt:', error)
+                }
+              }
 
-    while (Date.now() - startTime < timeoutMs) {
-      const status = await pandoraService.getComprehensiveProofSetStatus(txHash, pdpServer)
-      finalStatus = status
-
-      // Fire progress callback
-      try {
-        // Get receipt if transaction is mined
-        let receipt: ethers.TransactionReceipt | undefined
-        if (status.chainStatus.transactionMined && status.chainStatus.blockNumber != null) {
-          try {
-            const ethersProvider = synapse.getProvider()
-            const txReceipt = await ethersProvider.getTransactionReceipt(txHash)
-            receipt = txReceipt ?? undefined
-          } catch (error) {
-            console.error('Failed to fetch transaction receipt:', error)
+              callbacks.onProofSetCreationProgress({
+                transactionMined: status.chainStatus.transactionMined,
+                transactionSuccess: status.chainStatus.transactionSuccess,
+                proofSetLive: status.chainStatus.proofSetLive,
+                serverConfirmed: status.serverStatus?.ok === true,
+                proofSetId: status.summary.proofSetId ?? undefined,
+                elapsedMs,
+                receipt
+              })
+            } catch (error) {
+              console.error('Error in onProofSetCreationProgress callback:', error)
+            }
           }
         }
-
-        callbacks?.onProofSetCreationProgress?.({
-          transactionMined: status.chainStatus.transactionMined,
-          transactionSuccess: status.chainStatus.transactionSuccess,
-          proofSetLive: status.chainStatus.proofSetLive,
-          serverConfirmed: status.serverStatus?.ok === true,
-          proofSetId: status.summary.proofSetId ?? undefined,
-          elapsedMs: Date.now() - startTime,
-          receipt
-        })
-      } catch (error) {
-        console.error('Error in onProofSetCreationProgress callback:', error)
-      }
-
-      // Check if complete or failed
-      if (status.summary.isComplete || status.summary.error != null) {
-        break
-      }
-
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
-    }
-
-    if (finalStatus == null || !finalStatus.summary.isComplete || finalStatus.summary.proofSetId == null) {
+      )
+    } catch (error) {
       throw createError(
         'StorageService',
         'waitForProofSetCreation',
-        `Proof set creation failed: ${finalStatus?.summary.error ?? 'Timeout or transaction may have failed'}`
+        error instanceof Error ? error.message : 'Proof set creation failed'
+      )
+    }
+
+    if (!finalStatus.summary.isComplete || finalStatus.summary.proofSetId == null) {
+      throw createError(
+        'StorageService',
+        'waitForProofSetCreation',
+        `Proof set creation failed: ${finalStatus.summary.error ?? 'Transaction may have failed'}`
       )
     }
 
@@ -699,8 +695,8 @@ export class StorageService {
     }
 
     // Poll for piece to be "parked" (ready)
-    const maxWaitTime = PIECE_PARKING_TIMEOUT_MS
-    const pollInterval = PIECE_POLL_INTERVAL_MS
+    const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
+    const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
     const startTime = Date.now()
     let pieceReady = false
 

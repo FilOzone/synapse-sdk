@@ -5,7 +5,7 @@
 
 import { ethers } from 'ethers'
 import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS } from '../utils/index.js'
+import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS } from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -453,7 +453,7 @@ export class PaymentsService {
       callbacks?.onApprovalTransaction?.(approveTx)
 
       // Wait for approval to be mined before proceeding
-      const approvalReceipt = await approveTx.wait()
+      const approvalReceipt = await approveTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
       if (approvalReceipt != null) {
         callbacks?.onApprovalConfirmed?.(approvalReceipt)
       }
