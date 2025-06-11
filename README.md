@@ -44,6 +44,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [Type Definitions](#type-definitions)
   * [Error Handling](#error-handling)
 * [Contributing](#contributing)
+  * [Commit Message Guidelines](#commit-message-guidelines)
   * [Testing](#testing)
 * [Migration Guide](#migration-guide)
   * [Transaction Return Types](#transaction-return-types-v070)
@@ -654,6 +655,55 @@ try {
 ## Contributing
 
 Contributions are welcome! If using an AI tool, you are welcome to load AGENTS.md into your context to teach it about the structure and conventions of this SDK.
+
+### Commit Message Guidelines
+
+This repository uses **auto-publishing** with semantic versioning based on commit messages. All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+
+#### Commit Message Format
+
+```
+<type>(optional scope): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+#### Supported Types and Version Bumps
+
+- **patch** (0.x.Y): `chore:`, `fix:`, `test:`, `docs:`
+- **minor** (0.X.y): `feat:`
+- **major** (X.y.z): Any type with `!` suffix or `BREAKING CHANGE` in footer
+
+The `(optional scope)` is used to provide additional clarity about the target of the changes if isolated to a specific subsystem. e.g. `payments`, `storage`, `pandora`, `ci`, etc.
+
+#### Examples
+
+```bash
+# Patch releases (0.x.Y)
+git commit -m "fix(payments): resolve approval race condition"
+git commit -m "docs: update storage service examples"
+git commit -m "test: add unit tests for CommP calculation"
+git commit -m "chore: update dependencies"
+
+# Minor releases (0.X.y)
+git commit -m "feat: add CDN support for downloads"
+git commit -m "feat(storage): implement batch upload operations"
+
+# Major releases (X.y.z) - AVOID UNTIL M1
+git commit -m "feat!: remove deprecated payment methods"
+git commit -m "fix: update API signature
+
+BREAKING CHANGE: The createStorage method now requires explicit provider selection"
+```
+
+#### Important Notes
+
+- **Stay in 0.x.x range**: Avoid breaking changes (`!` or `BREAKING CHANGE`) until M1 milestone
+- **Auto-publishing**: Every merge to main triggers automatic npm publishing based on commit messages
+- **Changelog generation**: Commit messages are used to generate release notes
+- **Standard JS**: We follow [Standard JS](https://standardjs.com/) code style
 
 ### Testing
 

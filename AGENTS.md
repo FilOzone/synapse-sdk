@@ -25,6 +25,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
   - **BEWARE** of common TS code, these rules will cause problems so you should either `lint:fix` regularly or avoid code that produces these: strict-boolean-expressions, no-trailing-spaces, return-await, no-unused-vars, indent
 - **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
 - **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
+- **Conventional Commits**: Auto-publishing enabled with semantic versioning based on commit messages. Use `feat:` for minor, `fix:`/`chore:`/`docs:`/`test:` for patch. AVOID breaking change signifiers (`!` or `BREAKING CHANGE`) even if there are actual breaking changes. See <README.md#commit-message-guidelines> for full details. IMPORTANT: only create commits if asked to by the user, prefer to provide commit messages.
 
 ## Design Decisions
 
