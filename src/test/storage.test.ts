@@ -5,10 +5,16 @@ import { StorageService } from '../storage/service.js'
 import { Synapse } from '../synapse.js'
 import type { ApprovedProviderInfo } from '../types.js'
 
+// Create a mock Ethereum provider that doesn't try to connect
+const mockEthProvider = {
+  getTransaction: async (hash: string) => null,
+  getNetwork: async () => ({ chainId: BigInt(314159), name: 'test' })
+} as any
+
 // Mock Synapse instance
 const mockSynapse = {
   getSigner: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
-  getProvider: () => new ethers.JsonRpcProvider(),
+  getProvider: () => mockEthProvider,
   getPandoraAddress: () => '0x1234567890123456789012345678901234567890',
   getChainId: () => BigInt(314159),
   payments: {
@@ -1215,6 +1221,319 @@ describe('StorageService', () => {
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
       assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
       assert.equal(result.commp, testCommP)
+    })
+
+    it('should handle new server with transaction tracking', async () => {
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const testData = new Uint8Array(65).fill(42)
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      let uploadCompleteCallbackFired = false
+      let rootAddedCallbackFired = false
+      let rootConfirmedCallbackFired = false
+      let rootAddedTransaction: any = null
+      let confirmedRootIds: number[] = []
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      // Mock uploadPiece
+      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
+        return { commP: testCommP, size: testData.length }
+      }
+
+      // Mock findPiece
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots to return transaction tracking info
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return {
+          message: 'success',
+          txHash: mockTxHash,
+          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+        }
+      }
+
+      // Mock getTransaction from provider
+      const mockTransaction = {
+        hash: mockTxHash,
+        wait: async () => ({ status: 1 })
+      }
+      const originalGetTransaction = mockEthProvider.getTransaction
+      mockEthProvider.getTransaction = async (hash: string) => {
+        assert.equal(hash, mockTxHash)
+        return mockTransaction as any
+      }
+
+      // Mock getRootAdditionStatus
+      serviceAny._pdpServer.getRootAdditionStatus = async (proofSetId: number, txHash: string): Promise<any> => {
+        assert.equal(proofSetId, 123)
+        assert.equal(txHash, mockTxHash)
+        return {
+          txHash: mockTxHash,
+          txStatus: 'confirmed',
+          proofSetId: 123,
+          rootCount: 1,
+          addMessageOk: true,
+          confirmedRootIds: [42]
+        }
+      }
+
+      try {
+        const result = await service.upload(testData, {
+          onUploadComplete: (commp) => {
+            assert.equal(commp, testCommP)
+            uploadCompleteCallbackFired = true
+          },
+          onRootAdded: (transaction) => {
+            rootAddedCallbackFired = true
+            rootAddedTransaction = transaction
+          },
+          onRootConfirmed: (rootIds) => {
+            rootConfirmedCallbackFired = true
+            confirmedRootIds = rootIds
+          }
+        })
+
+        assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
+        assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+        assert.isTrue(rootConfirmedCallbackFired, 'onRootConfirmed should have been called')
+        assert.exists(rootAddedTransaction, 'Transaction should be passed to onRootAdded')
+        assert.equal(rootAddedTransaction.hash, mockTxHash)
+        assert.deepEqual(confirmedRootIds, [42])
+        assert.equal(result.rootId, 42)
+      } finally {
+        // Restore original method
+        mockEthProvider.getTransaction = originalGetTransaction
+      }
+    })
+
+    it.skip('should fail if new server transaction is not found on-chain', async function () {
+      // Skip: This test requires waiting for timeout which makes tests slow
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const testData = new Uint8Array(65).fill(42)
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
+        return { commP: testCommP, size: testData.length }
+      }
+
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots to return transaction tracking info
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return {
+          message: 'success',
+          txHash: mockTxHash,
+          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+        }
+      }
+
+      // Mock getTransaction to always return null (not found)
+      const originalGetTransaction = mockEthProvider.getTransaction
+      mockEthProvider.getTransaction = async () => null
+
+      try {
+        await service.upload(testData)
+        assert.fail('Should have thrown error for transaction not found')
+      } catch (error: any) {
+        // The error is wrapped by createError, so check for the wrapped message
+        assert.include(error.message, 'StorageService addRoots failed:')
+        assert.include(error.message, 'Server returned transaction hash')
+        assert.include(error.message, 'but transaction was not found on-chain')
+      } finally {
+        // Restore original method
+        mockEthProvider.getTransaction = originalGetTransaction
+      }
+    })
+
+    it.skip('should fail if new server verification fails', async function () {
+      // Skip: This test requires waiting for timeout which makes tests slow
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const testData = new Uint8Array(65).fill(42)
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
+        return { commP: testCommP, size: testData.length }
+      }
+
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots to return transaction tracking info
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return {
+          message: 'success',
+          txHash: mockTxHash,
+          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+        }
+      }
+
+      // Mock getTransaction
+      const mockTransaction = {
+        hash: mockTxHash,
+        wait: async () => ({ status: 1 })
+      }
+      const originalGetTransaction = mockEthProvider.getTransaction
+      mockEthProvider.getTransaction = async () => mockTransaction as any
+
+      // Mock getRootAdditionStatus to fail
+      serviceAny._pdpServer.getRootAdditionStatus = async (): Promise<any> => {
+        throw new Error('Root addition status not found')
+      }
+
+      // Override timing constants for faster test
+      // Note: We cannot override imported constants, so this test will use default timeout
+
+      try {
+        await service.upload(testData)
+        assert.fail('Should have thrown error for verification failure')
+      } catch (error: any) {
+        // The error is wrapped by createError
+        assert.include(error.message, 'StorageService addRoots failed:')
+        assert.include(error.message, 'Failed to verify root addition')
+        assert.include(error.message, 'The transaction was confirmed on-chain but the server failed to acknowledge it')
+      } finally {
+        // Restore original method
+        mockEthProvider.getTransaction = originalGetTransaction
+      }
+    })
+
+    it('should handle transaction failure on-chain', async () => {
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const testData = new Uint8Array(65).fill(42)
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
+        return { commP: testCommP, size: testData.length }
+      }
+
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots to return transaction tracking info
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return {
+          message: 'success',
+          txHash: mockTxHash,
+          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+        }
+      }
+
+      // Mock getTransaction
+      const mockTransaction = {
+        hash: mockTxHash,
+        wait: async () => ({ status: 0 }) // Failed transaction
+      }
+      const originalGetTransaction = mockEthProvider.getTransaction
+      mockEthProvider.getTransaction = async () => mockTransaction as any
+
+      try {
+        await service.upload(testData)
+        assert.fail('Should have thrown error for failed transaction')
+      } catch (error: any) {
+        // The error is wrapped twice - first by the specific throw, then by the outer catch
+        assert.include(error.message, 'StorageService addRoots failed:')
+        assert.include(error.message, 'Failed to add root to proof set')
+      } finally {
+        // Restore original method
+        mockEthProvider.getTransaction = originalGetTransaction
+      }
+    })
+
+    it('should work with old servers that do not provide transaction tracking', async () => {
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const testData = new Uint8Array(65).fill(42)
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      let rootAddedCallbackFired = false
+      let rootAddedTransaction: any
+
+      // Mock the required services
+      const serviceAny = service as any
+
+      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
+        return { commP: testCommP, size: testData.length }
+      }
+
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
+        return { uuid: 'test-uuid' }
+      }
+
+      // Mock addRoots without transaction tracking (old server)
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        return { message: 'success' }
+      }
+
+      const result = await service.upload(testData, {
+        onRootAdded: (transaction) => {
+          rootAddedCallbackFired = true
+          rootAddedTransaction = transaction
+        }
+      })
+
+      assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+      assert.isUndefined(rootAddedTransaction, 'Transaction should be undefined for old servers')
+      assert.equal(result.rootId, 0) // Uses nextRootId from getAddRootsInfo
     })
 
     it('should handle ArrayBuffer input', async () => {

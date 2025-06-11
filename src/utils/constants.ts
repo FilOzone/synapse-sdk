@@ -203,7 +203,18 @@ export const TIMING_CONSTANTS = {
    * Set to 0 to just get the receipt once mined without waiting for confirmations
    * Can be increased later for better finality guarantees
    */
-  TRANSACTION_CONFIRMATIONS: 0
+  TRANSACTION_CONFIRMATIONS: 0,
+
+  /**
+   * Maximum time to wait for a root addition to be confirmed and acknowledged
+   * This includes transaction confirmation and server verification
+   */
+  ROOT_ADDITION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+
+  /**
+   * How often to poll for root addition status
+   */
+  ROOT_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
 } as const
 
 /**

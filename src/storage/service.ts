@@ -220,8 +220,10 @@ export class StorageService {
 
     // Retry if the transaction is not found immediately
     const txRetryStartTime = Date.now()
+    const txPropagationTimeout = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS
+    const txPropagationPollInterval = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS
 
-    while (Date.now() - txRetryStartTime < TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS) {
+    while (Date.now() - txRetryStartTime < txPropagationTimeout) {
       try {
         transaction = await ethersProvider.getTransaction(txHash)
         if (transaction !== null) {
@@ -233,7 +235,7 @@ export class StorageService {
       }
 
       // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS))
+      await new Promise(resolve => setTimeout(resolve, txPropagationPollInterval))
     }
 
     // If transaction still not found after retries, throw error
@@ -241,7 +243,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         'create',
-        `Transaction ${txHash} not found after ${TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS / 1000} seconds. The transaction may not have propagated to the RPC node.`
+        `Transaction ${txHash} not found after ${txPropagationTimeout / 1000} seconds. The transaction may not have propagated to the RPC node.`
       )
     }
 
@@ -754,23 +756,141 @@ export class StorageService {
       }]
 
       // Add roots to the proof set
-      await this._pdpServer.addRoots(
+      const addRootsResult = await this._pdpServer.addRoots(
         this._proofSetId, // PDPVerifier proof set ID
         addRootsInfo.clientDataSetId, // Client's dataset ID
         addRootsInfo.nextRootId, // Must match chain state
         rootDataArray
       )
 
-      // Notify root added
-      if (callbacks?.onRootAdded != null) {
-        callbacks.onRootAdded()
+      // Handle transaction tracking if available (backward compatible)
+      let finalRootId = addRootsInfo.nextRootId
+
+      if (addRootsResult.txHash != null) {
+        // New server with transaction tracking - verification is REQUIRED
+        let transaction: ethers.TransactionResponse | null = null
+
+        // Step 1: Get the transaction from chain
+        const txRetryStartTime = Date.now()
+        const txPropagationTimeout = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS
+        const txPropagationPollInterval = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS
+
+        while (Date.now() - txRetryStartTime < txPropagationTimeout) {
+          try {
+            transaction = await this._synapse.getProvider().getTransaction(addRootsResult.txHash)
+            if (transaction !== null) break
+          } catch {
+            // Transaction not found yet
+          }
+          await new Promise(resolve => setTimeout(resolve, txPropagationPollInterval))
+        }
+
+        if (transaction == null) {
+          throw createError(
+            'StorageService',
+            'addRoots',
+            `Server returned transaction hash ${addRootsResult.txHash} but transaction was not found on-chain after ${txPropagationTimeout / 1000} seconds`
+          )
+        }
+
+        // Notify callback with transaction
+        callbacks?.onRootAdded?.(transaction)
+
+        // Step 2: Wait for transaction confirmation
+        let receipt: ethers.TransactionReceipt | null
+        try {
+          receipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+        } catch (error) {
+          throw createError(
+            'StorageService',
+            'addRoots',
+            'Failed to wait for transaction confirmation',
+            error
+          )
+        }
+
+        if (receipt?.status !== 1) {
+          throw createError(
+            'StorageService',
+            'addRoots',
+            'Root addition transaction failed on-chain'
+          )
+        }
+
+        // Step 3: Verify with server - REQUIRED for new servers
+        const maxWaitTime = TIMING_CONSTANTS.ROOT_ADDITION_TIMEOUT_MS
+        const pollInterval = TIMING_CONSTANTS.ROOT_ADDITION_POLL_INTERVAL_MS
+        const startTime = Date.now()
+        let lastError: Error | null = null
+        let statusVerified = false
+
+        while (Date.now() - startTime < maxWaitTime) {
+          try {
+            const status = await this._pdpServer.getRootAdditionStatus(
+              this._proofSetId,
+              addRootsResult.txHash
+            )
+
+            // Check if the transaction is still pending
+            if (status.txStatus === 'pending') {
+              await new Promise(resolve => setTimeout(resolve, pollInterval))
+              continue
+            }
+
+            // Check if transaction failed
+            if (status.addMessageOk === false) {
+              throw new Error('Root addition failed: Transaction was unsuccessful')
+            }
+
+            // Success - get the root IDs
+            if (status.confirmedRootIds != null && status.confirmedRootIds.length > 0) {
+              finalRootId = status.confirmedRootIds[0]
+              callbacks?.onRootConfirmed?.(status.confirmedRootIds)
+              statusVerified = true
+              break
+            }
+
+            // If we get here, status exists but no root IDs yet
+            await new Promise(resolve => setTimeout(resolve, pollInterval))
+          } catch (error) {
+            lastError = error as Error
+            // If it's a 404, the server might not have the record yet
+            if (error instanceof Error && error.message.includes('not found')) {
+              await new Promise(resolve => setTimeout(resolve, pollInterval))
+              continue
+            }
+            // Other errors are fatal
+            throw createError(
+              'StorageService',
+              'addRoots',
+              `Failed to verify root addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              error
+            )
+          }
+        }
+
+        if (!statusVerified) {
+          const errorMessage = `Failed to verify root addition after ${maxWaitTime / 1000} seconds: ${
+            lastError != null ? lastError.message : 'Server did not provide confirmation'
+          }`
+
+          throw createError(
+            'StorageService',
+            'addRoots',
+            errorMessage + '. The transaction was confirmed on-chain but the server failed to acknowledge it.',
+            lastError
+          )
+        }
+      } else {
+        // Old server without transaction tracking
+        callbacks?.onRootAdded?.()
       }
 
       // Return upload result
       return {
         commp: uploadResult.commP,
         size: uploadResult.size,
-        rootId: addRootsInfo.nextRootId // The root ID that was used
+        rootId: finalRootId
       }
     } catch (error) {
       throw createError(

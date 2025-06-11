@@ -329,13 +329,23 @@ console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 Upload and download data with the storage service:
 
 ```javascript
-// Upload with progress callbacks
+// Upload with optional progress callbacks
 const result = await storage.upload(data, {
   onUploadComplete: (commp) => {
     console.log(`Upload complete! CommP: ${commp}`)
   },
-  onRootAdded: () => {
-    console.log('Data added to proof set')
+  onRootAdded: (transaction) => {
+    // For new servers: transaction object with details
+    // For old servers: undefined (backward compatible)
+    if (transaction) {
+      console.log(`Transaction confirmed: ${transaction.hash}`)
+    } else {
+      console.log('Data added to proof set (legacy server)')
+    }
+  },
+  onRootConfirmed: (rootIds) => {
+    // Only called for new servers with transaction tracking
+    console.log(`Root IDs assigned: ${rootIds.join(', ')}`)
   }
 })
 
@@ -486,13 +496,20 @@ const { txHash, statusUrl } = await pdpServer.createProofSet(
 const status = await pdpServer.getProofSetCreationStatus(txHash)
 console.log(`Status: ${status.txStatus}, Proof Set ID: ${status.proofSetId}`)
 
-// Add roots to proof set
-await pdpServer.addRoots(
+// Add roots to proof set (returns transaction tracking info)
+const addResult = await pdpServer.addRoots(
   proofSetId,         // number (PDPVerifier proof set ID)
   clientDataSetId,    // number
   nextRootId,         // number (must match chain state)
   rootDataArray       // Array of { cid: string | CommP, rawSize: number }
 )
+// addResult: { message: string, txHash?: string, statusUrl?: string }
+
+// Check root addition status (for new servers with transaction tracking)
+if (addResult.txHash) {
+  const status = await pdpServer.getRootAdditionStatus(proofSetId, addResult.txHash)
+  console.log(`Status: ${status.txStatus}, Root IDs: ${status.confirmedRootIds}`)
+}
 
 // Upload a piece
 const { commP, size } = await pdpServer.uploadPiece(data, 'my-file.dat')

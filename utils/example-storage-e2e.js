@@ -155,12 +155,27 @@ async function main () {
     console.log('\n--- Uploading File ---')
     console.log('Uploading to storage provider...')
 
+    // Note: With updated Curio servers, you'll get enhanced transaction tracking
+    // The callbacks below demonstrate both old and new server compatibility
+
     const uploadResult = await storageService.upload(fileData, {
       onUploadComplete: (commp) => {
         console.log(`✓ Upload complete! CommP: ${commp}`)
       },
-      onRootAdded: () => {
-        console.log('✓ Root added to proof set')
+      onRootAdded: (transaction) => {
+        if (transaction) {
+          // New enhanced callback with transaction info
+          console.log(`✓ Root addition transaction submitted: ${transaction.hash}`)
+          console.log('  Waiting for confirmation...')
+        } else {
+          // Fallback for old servers
+          console.log('✓ Root added to proof set')
+        }
+      },
+      onRootConfirmed: (rootIds) => {
+        // New callback - only called with updated servers
+        console.log('✓ Root addition confirmed on-chain!')
+        console.log(`  Assigned root IDs: ${rootIds.join(', ')}`)
       }
     })
 

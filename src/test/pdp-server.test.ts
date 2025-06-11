@@ -132,6 +132,116 @@ describe('PDPServer', () => {
     })
   })
 
+  describe('getRootAdditionStatus', () => {
+    it('should handle successful status check', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+      const mockResponse = {
+        txHash: mockTxHash,
+        txStatus: 'confirmed',
+        proofSetId: 1,
+        rootCount: 2,
+        addMessageOk: true,
+        confirmedRootIds: [101, 102]
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        assert.include(url, `/pdp/proof-sets/1/roots/added/${mockTxHash}`)
+        assert.strictEqual(init?.method, 'GET')
+
+        return {
+          status: 200,
+          json: async () => mockResponse
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        assert.deepStrictEqual(result, mockResponse)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle pending status', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+      const mockResponse = {
+        txHash: mockTxHash,
+        txStatus: 'pending',
+        proofSetId: 1,
+        rootCount: 2,
+        addMessageOk: null,
+        confirmedRootIds: undefined
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 200,
+          json: async () => mockResponse
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        assert.strictEqual(result.txStatus, 'pending')
+        assert.isNull(result.addMessageOk)
+        assert.isUndefined(result.confirmedRootIds)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle not found status', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 404
+        } as any
+      }
+
+      try {
+        await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        assert.fail('Should have thrown error for not found status')
+      } catch (error) {
+        assert.include((error as Error).message, `Root addition not found for transaction: ${mockTxHash}`)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle server errors', async () => {
+      const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 500,
+          statusText: 'Internal Server Error',
+          text: async () => 'Database error'
+        } as any
+      }
+
+      try {
+        await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        assert.fail('Should have thrown error for server error')
+      } catch (error) {
+        assert.include((error as Error).message, 'Failed to get root addition status')
+        assert.include((error as Error).message, '500')
+        assert.include((error as Error).message, 'Database error')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
   describe('addRoots', () => {
     it('should validate input parameters', async () => {
       // Test empty root entries
@@ -206,7 +316,10 @@ describe('PDPServer', () => {
 
         return {
           status: 201,
-          text: async () => 'Roots added successfully'
+          text: async () => 'Roots added successfully',
+          headers: {
+            get: (name: string) => null // No Location header for backward compatibility test
+          }
         } as any
       }
 
@@ -283,7 +396,10 @@ describe('PDPServer', () => {
 
         return {
           status: 201,
-          text: async () => 'Multiple roots added successfully'
+          text: async () => 'Multiple roots added successfully',
+          headers: {
+            get: (name: string) => null // No Location header for backward compatibility test
+          }
         } as any
       }
 
@@ -291,6 +407,120 @@ describe('PDPServer', () => {
         const result = await pdpServer.addRoots(1, 0, 0, multipleRootData)
         assert.isDefined(result)
         assert.isDefined(result.message)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle addRoots response with Location header', async () => {
+      const validRootData: RootData[] = [
+        {
+          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          rawSize: 1024 * 1024 // 1 MiB
+        }
+      ]
+      const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        assert.include(url, '/pdp/proof-sets/1/roots')
+        assert.strictEqual(init?.method, 'POST')
+
+        return {
+          status: 201,
+          text: async () => 'Roots added successfully',
+          headers: {
+            get: (name: string) => {
+              if (name === 'Location') {
+                return `/pdp/proof-sets/1/roots/added/${mockTxHash}`
+              }
+              return null
+            }
+          }
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        assert.isDefined(result)
+        assert.isDefined(result.message)
+        assert.strictEqual(result.txHash, mockTxHash)
+        assert.include(result.statusUrl ?? '', mockTxHash)
+        assert.include(result.statusUrl ?? '', '/pdp/proof-sets/1/roots/added/')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle addRoots response with Location header missing 0x prefix', async () => {
+      const validRootData: RootData[] = [
+        {
+          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          rawSize: 1024 * 1024 // 1 MiB
+        }
+      ]
+      const mockTxHashWithout0x = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
+      const mockTxHashWith0x = '0x' + mockTxHashWithout0x
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        return {
+          status: 201,
+          text: async () => 'Roots added successfully',
+          headers: {
+            get: (name: string) => {
+              if (name === 'Location') {
+                return `/pdp/proof-sets/1/roots/added/${mockTxHashWithout0x}`
+              }
+              return null
+            }
+          }
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        assert.isDefined(result)
+        assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle malformed Location header gracefully', async () => {
+      const validRootData: RootData[] = [
+        {
+          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          rawSize: 1024 * 1024 // 1 MiB
+        }
+      ]
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 201,
+          text: async () => 'Roots added successfully',
+          headers: {
+            get: (name: string) => {
+              if (name === 'Location') {
+                return '/some/unexpected/path'
+              }
+              return null
+            }
+          }
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        assert.isDefined(result)
+        assert.isDefined(result.message)
+        assert.isUndefined(result.txHash) // No txHash for malformed Location
+        assert.isUndefined(result.statusUrl)
       } finally {
         global.fetch = originalFetch
       }

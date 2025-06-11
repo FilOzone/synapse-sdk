@@ -67,6 +67,10 @@ export interface ProofSetCreationStatusResponse {
 export interface AddRootsResponse {
   /** Success message from the server */
   message: string
+  /** Transaction hash for the root addition (optional - new servers only) */
+  txHash?: string
+  /** URL to check root addition status (optional - new servers only) */
+  statusUrl?: string
 }
 
 /**
@@ -85,6 +89,24 @@ export interface UploadResponse {
   commP: string
   /** Size of the uploaded piece in bytes */
   size: number
+}
+
+/**
+ * Response from checking root addition status
+ */
+export interface RootAdditionStatusResponse {
+  /** Transaction hash for the root addition */
+  txHash: string
+  /** Transaction status (pending, confirmed, failed) */
+  txStatus: string
+  /** The proof set ID */
+  proofSetId: number
+  /** Number of roots being added */
+  rootCount: number
+  /** Whether the add message was successful (null if pending) */
+  addMessageOk: boolean | null
+  /** Root IDs assigned after confirmation */
+  confirmedRootIds?: number[]
 }
 
 export class PDPServer {
@@ -267,10 +289,30 @@ export class PDPServer {
       throw new Error(`Failed to add roots to proof set: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
+    // Check for Location header (backward compatible with old servers)
+    const location = response.headers.get('Location')
+    let txHash: string | undefined
+    let statusUrl: string | undefined
+
+    if (location != null) {
+      // Expected format: /pdp/proof-sets/{proofSetId}/roots/added/{txHash}
+      const locationMatch = location.match(/\/roots\/added\/([0-9a-fA-Fx]+)$/)
+      if (locationMatch != null) {
+        txHash = locationMatch[1]
+        // Ensure txHash has 0x prefix
+        if (!txHash.startsWith('0x')) {
+          txHash = '0x' + txHash
+        }
+        statusUrl = `${this._apiEndpoint}${location}`
+      }
+    }
+
     // Success - roots have been added
     const responseText = await response.text()
     return {
-      message: responseText !== '' ? responseText : `Roots added to proof set ID ${proofSetId} successfully`
+      message: responseText !== '' ? responseText : `Roots added to proof set ID ${proofSetId} successfully`,
+      txHash,
+      statusUrl
     }
   }
 
@@ -297,6 +339,38 @@ export class PDPServer {
     }
 
     return await response.json() as ProofSetCreationStatusResponse
+  }
+
+  /**
+   * Check the status of a root addition transaction
+   * @param proofSetId - The proof set ID
+   * @param txHash - Transaction hash from addRoots
+   * @returns Promise that resolves with the addition status
+   */
+  async getRootAdditionStatus (
+    proofSetId: number,
+    txHash: string
+  ): Promise<RootAdditionStatusResponse> {
+    const response = await fetch(
+      `${this._apiEndpoint}/pdp/proof-sets/${proofSetId}/roots/added/${txHash}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (response.status === 404) {
+      throw new Error(`Root addition not found for transaction: ${txHash}`)
+    }
+
+    if (response.status !== 200) {
+      const errorText = await response.text()
+      throw new Error(`Failed to get root addition status: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    return await response.json() as RootAdditionStatusResponse
   }
 
   /**

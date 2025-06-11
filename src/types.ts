@@ -250,8 +250,10 @@ export interface PreflightInfo {
 export interface UploadCallbacks {
   /** Called when upload to storage provider completes */
   onUploadComplete?: (commp: string) => void
-  /** Called when root is added to proof set */
-  onRootAdded?: () => void
+  /** Called when root is added to proof set (with optional transaction for new servers) */
+  onRootAdded?: (transaction?: ethers.TransactionResponse) => void
+  /** Called when root addition is confirmed on-chain (new servers only) */
+  onRootConfirmed?: (rootIds: number[]) => void
 }
 
 /**
