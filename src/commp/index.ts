@@ -9,3 +9,8 @@ export {
   toZeroPaddedSize,
   toPieceSize
 } from './commp.js'
+
+export {
+  downloadAndValidateCommP,
+  downloadAndValidateCommPFromUrl
+} from './download.js'

@@ -50,6 +50,8 @@ export interface SynapseOptions {
   withCDN?: boolean
   /** Override Pandora service contract address (defaults to network's default) */
   pandoraAddress?: string
+  /** Optional override for piece retrieval */
+  pieceRetriever?: PieceRetriever
 }
 
 /**
@@ -81,6 +83,29 @@ export interface UploadTask {
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface DownloadOptions {
   // Reserved for future options
+}
+
+/**
+ * PieceRetriever interface for fetching pieces from various sources
+ * Returns standard Web API Response objects for flexibility
+ */
+export interface PieceRetriever {
+  /**
+   * Fetch a piece from available sources
+   * @param commp - The CommP identifier of the piece (validated internally)
+   * @param client - The client address requesting the piece
+   * @param options - Optional retrieval parameters
+   * @returns A Response object that can be processed for the piece data
+   */
+  fetchPiece: (
+    commp: CommP, // Internal interface uses CommP type for validation
+    client: string,
+    options?: {
+      providerAddress?: string // Restrict to specific provider
+      withCDN?: boolean // Enable CDN retrieval attempts
+      signal?: AbortSignal // Optional AbortSignal for request cancellation
+    }
+  ) => Promise<Response>
 }
 
 /**

@@ -29,7 +29,7 @@
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
 import type { RootData, CommP } from '../types.js'
-import { asCommP, calculate as calculateCommP, createCommPStream } from '../commp/index.js'
+import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
 import { toHex } from 'multiformats/bytes'
 
@@ -519,65 +519,8 @@ export class PDPServer {
 
     const response = await fetch(downloadUrl)
 
-    if (!response.ok) {
-      throw new Error(`Failed to download piece: ${response.status} ${response.statusText}`)
-    }
-
-    if (response.body == null) {
-      throw new Error('Response body is null')
-    }
-
-    // Create CommP calculation stream (in future we should offer a "trusted" mode that skips this)
-    const { stream: commpStream, getCommP } = createCommPStream()
-
-    // Create a stream that collects all chunks into an array
-    const chunks: Uint8Array[] = []
-    const collectStream = new TransformStream<Uint8Array, Uint8Array>({
-      transform (chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
-        chunks.push(chunk)
-        controller.enqueue(chunk)
-      }
-    })
-
-    // Pipe the response through both streams
-    const pipelineStream = response.body
-      .pipeThrough(commpStream)
-      .pipeThrough(collectStream)
-
-    // Consume the stream to completion
-    const reader = pipelineStream.getReader()
-    try {
-      while (true) {
-        const { done } = await reader.read()
-        if (done) break
-      }
-    } finally {
-      reader.releaseLock()
-    }
-
-    // Get the calculated CommP
-    const calculatedCommP = getCommP()
-    if (calculatedCommP == null) {
-      throw new Error('Failed to calculate CommP from stream')
-    }
-
-    // Verify the CommP
-    if (calculatedCommP.toString() !== parsedCommP.toString()) {
-      throw new Error(
-        `CommP verification failed. Expected: ${parsedCommP.toString()}, Got: ${calculatedCommP.toString()}`
-      )
-    }
-
-    // Combine all chunks into a single Uint8Array
-    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
-    const result = new Uint8Array(totalLength)
-    let offset = 0
-    for (const chunk of chunks) {
-      result.set(chunk, offset)
-      offset += chunk.length
-    }
-
-    return result
+    // Use the shared download and validation function
+    return await downloadAndValidateCommP(response, parsedCommP)
   }
 
   /**

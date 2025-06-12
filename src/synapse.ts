@@ -6,11 +6,15 @@ import { ethers } from 'ethers'
 import {
   type SynapseOptions,
   type StorageServiceOptions,
-  type FilecoinNetworkType
+  type FilecoinNetworkType,
+  type PieceRetriever,
+  type CommP
 } from './types.js'
 import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
 import { PandoraService } from './pandora/index.js'
+import { ChainRetriever, FilCdnRetriever } from './retriever/index.js'
+import { asCommP, downloadAndValidateCommP } from './commp/index.js'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, createError } from './utils/index.js'
 
 export class Synapse {
@@ -20,6 +24,8 @@ export class Synapse {
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
   private readonly _pandoraAddress: string
+  private readonly _pandoraService: PandoraService
+  private readonly _pieceRetriever: PieceRetriever
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -120,13 +126,28 @@ export class Synapse {
       )
     }
 
+    // Create Pandora service for the retriever
+    const pandoraAddress = options.pandoraAddress ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
+    const pandoraService = new PandoraService(provider, pandoraAddress)
+
+    // Initialize piece retriever (use provided or create default)
+    let pieceRetriever: PieceRetriever
+    if (options.pieceRetriever != null) {
+      pieceRetriever = options.pieceRetriever
+    } else {
+      const chainRetriever = new ChainRetriever(pandoraService)
+      pieceRetriever = new FilCdnRetriever(chainRetriever, network)
+    }
+
     return new Synapse(
       provider,
       signer,
       network,
       options.disableNonceManager === true,
       options.withCDN === true,
-      options.pandoraAddress
+      options.pandoraAddress,
+      pandoraService,
+      pieceRetriever
     )
   }
 
@@ -136,13 +157,17 @@ export class Synapse {
     network: FilecoinNetworkType,
     disableNonceManager: boolean,
     withCDN: boolean,
-    pandoraAddressOverride?: string
+    pandoraAddressOverride: string | undefined,
+    pandoraService: PandoraService,
+    pieceRetriever: PieceRetriever
   ) {
     this._provider = provider
     this._signer = signer
     this._network = network
     this._withCDN = withCDN
     this._payments = new PaymentsService(provider, signer, network, disableNonceManager)
+    this._pandoraService = pandoraService
+    this._pieceRetriever = pieceRetriever
 
     // Set Pandora address (use override or default for network)
     this._pandoraAddress = pandoraAddressOverride ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
@@ -208,11 +233,8 @@ export class Synapse {
         withCDN: options?.withCDN ?? this._withCDN
       }
 
-      // Create PandoraService instance
-      const pandoraService = new PandoraService(this._provider, this._pandoraAddress)
-
       // Create the storage service with proper initialization
-      const storageService = await StorageService.create(this, pandoraService, mergedOptions)
+      const storageService = await StorageService.create(this, this._pandoraService, mergedOptions)
       return storageService
     } catch (error) {
       throw createError(
@@ -230,6 +252,38 @@ export class Synapse {
    */
   getNetwork (): FilecoinNetworkType {
     return this._network
+  }
+
+  /**
+   * Download a piece from storage providers
+   * @param commp - The CommP identifier (as string or CommP object)
+   * @param options - Optional download parameters
+   * @returns The downloaded data as Uint8Array
+   */
+  async download (
+    commp: string | CommP,
+    options?: {
+      withCDN?: boolean
+      providerAddress?: string
+    }
+  ): Promise<Uint8Array> {
+    // Validate CommP
+    const parsedCommP = asCommP(commp)
+    if (parsedCommP == null) {
+      throw createError('Synapse', 'download', `Invalid CommP: ${String(commp)}`)
+    }
+
+    const client = await this._signer.getAddress()
+    const response = await this._pieceRetriever.fetchPiece(
+      parsedCommP,
+      client,
+      {
+        withCDN: options?.withCDN ?? this._withCDN, // Use instance withCDN if not provided
+        providerAddress: options?.providerAddress
+      }
+    )
+
+    return await downloadAndValidateCommP(response, parsedCommP)
   }
 }
 

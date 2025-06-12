@@ -3,7 +3,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { StorageService } from '../storage/service.js'
 import { Synapse } from '../synapse.js'
-import type { ApprovedProviderInfo } from '../types.js'
+import type { ApprovedProviderInfo, CommP } from '../types.js'
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {
@@ -25,6 +25,10 @@ const mockSynapse = {
       rateUsed: BigInt(0),
       lockupUsed: BigInt(0)
     })
+  },
+  download: async (commp: string | CommP, options?: any) => {
+    // Mock download that returns test data - will be overridden in specific tests
+    return new Uint8Array(65).fill(42)
   }
 } as unknown as Synapse
 
@@ -983,75 +987,74 @@ describe('StorageService', () => {
 
   describe('download', () => {
     it('should download and verify a piece', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
-      // Mock the PDPServer downloadPiece method
-      const serviceAny = service as any
-      const originalDownload = serviceAny._pdpServer.downloadPiece
-      serviceAny._pdpServer.downloadPiece = async (commp: string): Promise<Uint8Array> => {
-        assert.equal(commp, testCommP)
-        return testData
-      }
+      // Create a mock Synapse with custom download
+      const mockSynapseWithDownload = {
+        ...mockSynapse,
+        download: async (commp: string | CommP, options?: any) => {
+          assert.equal(commp, testCommP)
+          assert.equal(options?.providerAddress, mockProvider.owner)
+          assert.equal(options?.withCDN, false)
+          return testData
+        }
+      } as unknown as Synapse
 
-      try {
-        const downloaded = await service.download(testCommP)
-        assert.deepEqual(downloaded, testData)
-      } finally {
-        // Restore original method
-        serviceAny._pdpServer.downloadPiece = originalDownload
-      }
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapseWithDownload, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const downloaded = await service.download(testCommP)
+      assert.deepEqual(downloaded, testData)
     })
 
     it('should handle download errors', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
-      // Mock the PDPServer downloadPiece method to throw error
-      const serviceAny = service as any
-      const originalDownload = serviceAny._pdpServer.downloadPiece
-      serviceAny._pdpServer.downloadPiece = async (): Promise<Uint8Array> => {
-        throw new Error('Network error')
-      }
+      // Create a mock Synapse that throws error
+      const mockSynapseWithError = {
+        ...mockSynapse,
+        download: async (): Promise<Uint8Array> => {
+          throw new Error('Network error')
+        }
+      } as unknown as Synapse
+
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapseWithError, mockPandoraService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.download(testCommP)
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to download piece from storage provider')
-      } finally {
-        // Restore original method
-        serviceAny._pdpServer.downloadPiece = originalDownload
+        assert.equal(error.message, 'Network error')
       }
     })
 
     it('should accept empty download options', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
-      // Mock the PDPServer downloadPiece method
-      const serviceAny = service as any
-      const originalDownload = serviceAny._pdpServer.downloadPiece
-      serviceAny._pdpServer.downloadPiece = async (): Promise<Uint8Array> => {
-        return testData
-      }
+      // Create a mock Synapse with custom download
+      const mockSynapseWithOptions = {
+        ...mockSynapse,
+        download: async (commp: string | CommP, options?: any) => {
+          assert.equal(commp, testCommP)
+          // Options should still contain providerAddress and withCDN from StorageService
+          assert.equal(options?.providerAddress, mockProvider.owner)
+          assert.equal(options?.withCDN, false)
+          return testData
+        }
+      } as unknown as Synapse
 
-      try {
-        // Test with and without empty options object
-        const downloaded1 = await service.download(testCommP)
-        assert.deepEqual(downloaded1, testData)
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapseWithOptions, mockPandoraService, mockProvider, 123, { withCDN: false })
 
-        const downloaded2 = await service.download(testCommP, {})
-        assert.deepEqual(downloaded2, testData)
-      } finally {
-        // Restore original method
-        serviceAny._pdpServer.downloadPiece = originalDownload
-      }
+      // Test with and without empty options object
+      const downloaded1 = await service.download(testCommP)
+      assert.deepEqual(downloaded1, testData)
+
+      const downloaded2 = await service.download(testCommP, {})
+      assert.deepEqual(downloaded2, testData)
     })
   })
 
