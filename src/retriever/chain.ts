@@ -80,13 +80,19 @@ export class ChainRetriever implements PieceRetriever {
     commp: CommP,
     signal?: AbortSignal
   ): Promise<Response> {
+    // Define the type for provider attempt results
+    interface ProviderAttemptResult {
+      response: Response
+      index: number
+    }
+
     // Track failures for error reporting
     const failures: Array<{ provider: string, error: string }> = []
 
     // Create individual abort controllers for each provider
     const abortControllers: AbortController[] = []
 
-    const providerAttempts = providers.map(async (provider, index) => {
+    const providerAttempts: Array<Promise<ProviderAttemptResult>> = providers.map(async (provider, index) => {
       // Create a dedicated controller for this provider
       const controller = new AbortController()
       abortControllers[index] = controller
@@ -139,8 +145,8 @@ export class ChainRetriever implements PieceRetriever {
     })
 
     try {
-      // Race all provider attempts - first successful response wins
-      const { response, index: winnerIndex } = await Promise.race(providerAttempts)
+      // Use Promise.any to get the first successful response
+      const { response, index: winnerIndex } = await Promise.any(providerAttempts)
 
       // Now that we have a winner, cancel all other requests
       abortControllers.forEach((ctrl, i) => {
@@ -151,13 +157,18 @@ export class ChainRetriever implements PieceRetriever {
 
       return response
     } catch (error) {
-      // All providers failed
-      const failureDetails = failures.map(f => `${f.provider}: ${f.error}`).join('; ')
-      throw createError(
-        'ChainRetriever',
-        'fetchFromProviders',
-        `All providers failed to serve piece ${commp.toString()}. Details: ${failureDetails}`
-      )
+      // Promise.any throws AggregateError when all promises reject
+      if (error instanceof AggregateError) {
+        // All providers failed
+        const failureDetails = failures.map(f => `${f.provider}: ${f.error}`).join('; ')
+        throw createError(
+          'ChainRetriever',
+          'fetchFromProviders',
+          `All providers failed to serve piece ${commp.toString()}. Details: ${failureDetails}`
+        )
+      }
+      // Re-throw unexpected errors
+      throw error
     }
   }
 

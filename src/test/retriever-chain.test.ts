@@ -109,6 +109,83 @@ describe('ChainRetriever', () => {
   })
 
   describe('fetchPiece with multiple providers', () => {
+    it('should wait for successful provider even if others fail first', async () => {
+      // This tests that Promise.any() waits for success rather than settling with first failure
+      const proofSets = [{
+        isLive: true,
+        currentRootCount: 1,
+        payee: '0xProvider1' // Fast failing provider
+      }, {
+        isLive: true,
+        currentRootCount: 1,
+        payee: '0xProvider2' // Slower but successful provider
+      }]
+
+      const providers = [{
+        owner: '0xProvider1',
+        pdpUrl: 'https://pdp1.example.com',
+        pieceRetrievalUrl: 'https://retrieve1.example.com',
+        registeredAt: 0,
+        approvedAt: 0
+      }, {
+        owner: '0xProvider2',
+        pdpUrl: 'https://pdp2.example.com',
+        pieceRetrievalUrl: 'https://retrieve2.example.com',
+        registeredAt: 0,
+        approvedAt: 0
+      }]
+
+      const mockPandora: Partial<PandoraService> = {
+        getClientProofSetsWithDetails: async () => proofSets as any,
+        getProviderIdByAddress: async (addr: string) => {
+          if (addr === '0xProvider1') return 1
+          if (addr === '0xProvider2') return 2
+          return 0
+        },
+        getApprovedProvider: async (id: number) => {
+          if (id === 1) return providers[0]
+          if (id === 2) return providers[1]
+          throw new Error('Provider not found')
+        }
+      }
+
+      const retriever = new ChainRetriever(mockPandora as PandoraService)
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+        // Provider 1 fails immediately
+        if (url.includes('pdp1.example.com')) {
+          return new Response(null, { status: 404 })
+        }
+
+        // Provider 2 succeeds after a delay
+        if (url.includes('pdp2.example.com')) {
+          // Simulate network delay
+          await new Promise(resolve => setTimeout(resolve, 50))
+          return new Response(null, { status: 200 })
+        }
+
+        if (url.includes('retrieve2.example.com')) {
+          return new Response('success from provider 2', { status: 200 })
+        }
+
+        throw new Error(`Unexpected URL: ${url}`)
+      }
+
+      try {
+        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+
+        // Should get response from provider 2 even though provider 1 failed first
+        assert.equal(response.status, 200)
+        assert.equal(await response.text(), 'success from provider 2')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
     it('should race multiple providers and return first success', async () => {
       const mockPandora: Partial<PandoraService> = {
         getClientProofSetsWithDetails: async () => [
