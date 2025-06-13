@@ -58,41 +58,18 @@ The `Synapse` class provides a complete, easy-to-use interface for interacting w
 
 ### Quick Start
 
-```javascript
-import { Synapse, RPC_URLS, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+Get started with storage in just a few lines of code:
 
-// Initialize with private key
+```javascript
+import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
+
+// Initialize SDK
 const synapse = await Synapse.create({
   privateKey: '0x...',
-  rpcURL: RPC_URLS.mainnet.websocket
+  rpcURL: RPC_URLS.calibration.websocket  // Use calibration testnet for testing
 })
 
-// Check balance of USDFC in the payments contract
-const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)
-console.log('USDFC balance in payments contract:',
-  ethers.formatUnits(paymentsBalance, synapse.payments.decimals(TOKENS.USDFC)))
-
-// Deposit funds for storage operations
-const amount = ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC))
-const depositTx = await synapse.payments.deposit(amount, TOKENS.USDFC)
-console.log(`Deposit transaction: ${depositTx.hash}`)
-// Optional: wait for confirmation
-const receipt = await depositTx.wait()
-console.log(`Deposit confirmed in block ${receipt.blockNumber}`)
-
-// Approve service for creating payment rails between you and storage providers
-// which are paid out over time as you use their storage
-const approveTx = await synapse.payments.approveService(
-  serviceAddress,
-  // 10 USDFC per epoch rate allowance
-  ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
-  // 1000 USDFC lockup allowance
-  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
-)
-console.log(`Service approval transaction: ${approveTx.hash}`)
-await approveTx.wait() // Wait for confirmation before proceeding to use the funds
-
-// Create storage service and upload data
+// Create storage service
 const storage = await synapse.createStorage()
 
 // Upload data
@@ -100,11 +77,36 @@ const uploadResult = await storage.upload(
   new TextEncoder().encode('🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍')
 )
 console.log(`Upload complete! CommP: ${uploadResult.commp}`)
-console.log(`Size: ${uploadResult.size} bytes`)
 
-// Download data
-const data = await storage.download(uploadResult.commp)
-console.log(new TextDecoder().decode(data))
+// Download data from this provider
+const data = await storage.providerDownload(uploadResult.commp)
+console.log('Retrieved:', new TextDecoder().decode(data))
+
+// Or download from any provider that has the piece
+const dataFromAny = await synapse.download(uploadResult.commp)
+```
+
+#### Payment Setup
+
+Before uploading data, you'll need to deposit funds and approve the storage service:
+
+```javascript
+import { TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+import { ethers } from 'ethers'
+
+// 1. Deposit USDFC tokens (one-time setup)
+const amount = ethers.parseUnits('100', 18)  // 100 USDFC
+await synapse.payments.deposit(amount, TOKENS.USDFC)
+
+// 2. Approve the Pandora service for automated payments
+const pandoraAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()]
+await synapse.payments.approveService(
+  pandoraAddress,
+  ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
+  ethers.parseUnits('1000', 18)  // Lockup allowance: 1000 USDFC total
+)
+
+// Now you're ready to use storage!
 ```
 
 ### With MetaMask
@@ -117,8 +119,11 @@ import { ethers } from 'ethers'
 const provider = new ethers.BrowserProvider(window.ethereum)
 const synapse = await Synapse.create({ provider })
 
-// Same API as above
-const paymentsBalance = await synapse.payments.balance(TOKENS.USDFC)
+// Create storage and start using it immediately
+const storage = await synapse.createStorage()
+const data = new TextEncoder().encode('🚀🚀 Hello Filecoin! This is decentralized storage in action.')
+const result = await storage.upload(data)
+console.log(`Stored with CommP: ${result.commp}`)
 ```
 
 ### Advanced Payment Control
@@ -210,6 +215,7 @@ interface SynapseOptions {
 - `payments` - Access payment-related functionality (see below)
 - `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
 - `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
+- `download(commp, options?)` - Download a piece directly from any provider (see Download Options)
 
 #### Synapse.payments Methods
 
@@ -299,6 +305,11 @@ interface StorageServiceOptions {
   withCDN?: boolean                        // Enable CDN services
   callbacks?: StorageCreationCallbacks     // Progress callbacks
 }
+
+// Note: The withCDN option follows an inheritance pattern:
+// 1. Synapse instance default (set during creation)
+// 2. StorageService override (set during createStorage)
+// 3. Per-method override (set during download)
 ```
 
 #### Storage Service Properties
@@ -350,9 +361,14 @@ const result = await storage.upload(data, {
   }
 })
 
-// Download data
-const downloaded = await storage.download(result.commp)
+// Download data from this specific provider
+const downloaded = await storage.providerDownload(result.commp)
 ```
+
+**Storage Service Methods:**
+- `upload(data, callbacks?)` - Upload data to the storage provider
+- `providerDownload(commp, options?)` - Download data from this specific provider
+- `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
 
 ##### Size Constraints
 
@@ -361,6 +377,57 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
+
+### Download Options
+
+The SDK provides flexible download options through both the main Synapse instance and StorageService:
+
+#### Direct Download via Synapse
+
+Download pieces from any available provider:
+
+```javascript
+// Download from any provider that has the piece
+const data = await synapse.download(commp)
+
+// Download with CDN optimization (if available)
+const dataWithCDN = await synapse.download(commp, { withCDN: true })
+
+// Download from a specific provider
+const dataFromProvider = await synapse.download(commp, {
+  providerAddress: '0x...'
+})
+```
+
+#### Provider-Specific Download via StorageService
+
+When using a StorageService instance, downloads are automatically restricted to that specific provider:
+
+```javascript
+// Downloads from the provider associated with this storage instance
+const data = await storage.providerDownload(commp)
+
+// The storage instance passes its withCDN setting to the download
+const storage = await synapse.createStorage({ withCDN: true })
+const dataWithCDN = await storage.providerDownload(commp) // Uses CDN if available
+```
+
+#### CDN Inheritance Pattern
+
+The `withCDN` option follows a clear inheritance hierarchy:
+
+1. **Synapse level**: Default setting for all operations
+2. **StorageService level**: Can override Synapse's default
+3. **Method level**: Can override instance settings
+
+```javascript
+// Example of inheritance
+const synapse = await Synapse.create({ withCDN: true })          // Default: CDN enabled
+const storage = await synapse.createStorage({ withCDN: false })  // Override: CDN disabled
+await synapse.download(commp)                                    // Uses Synapse's withCDN: true
+await storage.providerDownload(commp)                            // Uses StorageService's withCDN: false
+await synapse.download(commp, { withCDN: false })                // Method override: CDN disabled
+```
 
 ---
 

@@ -285,6 +285,20 @@ All interactions with PDP contracts from clients via a PDP server (typically run
 
 This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Pandora manages business logic and payments, and Curio provides the operational HTTP interface for clients.
 
+### Download Flow Patterns
+
+#### Direct Download (via Synapse)
+1. **Client** calls `synapse.download(commp, options)`
+2. **PieceRetriever** (ChainRetriever by default) queries proof sets to find providers
+3. **ChainRetriever** filters for non-zero root counts, validates via `findPiece` endpoint, attempts downloads from multiple providers in parallel using Promise.race() with AbortController for efficient cancellation
+4. **downloadAndValidateCommP** verifies the downloaded data matches the expected CommP
+
+#### Provider-Specific Download (via StorageService)
+1. **Client** calls `storage.providerDownload(commp)`
+2. **StorageService** delegates to `synapse.download()` with `providerAddress` hint
+3. **ChainRetriever** skips proof set lookup and directly queries the specified provider
+4. Download and validation proceed as above
+
 ## Development Environment and External Repositories
 
 In development environments, the following related repositories may be available locally for reference and testing. **Local Repository Naming Convention**: Repositories should be cloned with the format `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) to avoid naming conflicts and clearly identify the source organization.

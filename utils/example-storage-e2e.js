@@ -188,7 +188,7 @@ async function main () {
     console.log('\n--- Downloading File ---')
     console.log(`Downloading piece: ${uploadResult.commp}`)
 
-    const downloadedData = await storageService.download(uploadResult.commp)
+    const downloadedData = await synapse.download(uploadResult.commp)
     console.log(`✓ Downloaded ${formatBytes(downloadedData.length)}`)
 
     // Step 8: Verify the data

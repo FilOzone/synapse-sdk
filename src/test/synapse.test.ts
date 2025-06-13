@@ -178,4 +178,113 @@ describe('Synapse', () => {
       assert.notExists(descriptor?.set)
     })
   })
+
+  describe('download', () => {
+    it('should validate CommP input', async () => {
+      const synapse = await Synapse.create({ signer: mockSigner })
+
+      try {
+        await synapse.download('invalid-commp')
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid CommP')
+        assert.include(error.message, 'invalid-commp')
+      }
+    })
+
+    it('should accept valid CommP string', async () => {
+      // Create test data that matches the expected CommP
+      const testData = new TextEncoder().encode('test data')
+
+      // Mock the piece retriever
+      const mockResponse = new Response(testData, { status: 200 })
+      const mockRetriever = {
+        fetchPiece: async () => mockResponse
+      }
+
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        pieceRetriever: mockRetriever
+      })
+
+      // Use the actual CommP for 'test data'
+      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const data = await synapse.download(testCommP)
+
+      // Should return Uint8Array
+      assert.isTrue(data instanceof Uint8Array)
+      assert.equal(new TextDecoder().decode(data), 'test data')
+    })
+
+    it('should pass withCDN option to retriever', async () => {
+      let cdnOptionReceived: boolean | undefined
+      const testData = new TextEncoder().encode('test data')
+      const mockRetriever = {
+        fetchPiece: async (commp: any, client: string, options?: any) => {
+          cdnOptionReceived = options?.withCDN
+          return new Response(testData)
+        }
+      }
+
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        pieceRetriever: mockRetriever,
+        withCDN: false // Instance default
+      })
+
+      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+
+      // Test with explicit withCDN
+      await synapse.download(testCommP, { withCDN: true })
+      assert.equal(cdnOptionReceived, true, 'Should pass explicit withCDN')
+
+      // Test without explicit withCDN (should use instance default)
+      await synapse.download(testCommP)
+      assert.equal(cdnOptionReceived, false, 'Should use instance default')
+    })
+
+    it('should pass providerAddress option to retriever', async () => {
+      let providerAddressReceived: string | undefined
+      const testData = new TextEncoder().encode('test data')
+      const mockRetriever = {
+        fetchPiece: async (commp: any, client: string, options?: any) => {
+          providerAddressReceived = options?.providerAddress
+          return new Response(testData)
+        }
+      }
+
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        pieceRetriever: mockRetriever
+      })
+
+      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testProvider = '0x1234567890123456789012345678901234567890'
+
+      await synapse.download(testCommP, { providerAddress: testProvider })
+      assert.equal(providerAddressReceived, testProvider)
+    })
+
+    it('should handle download errors', async () => {
+      const mockRetriever = {
+        fetchPiece: async () => {
+          throw new Error('Network error')
+        }
+      }
+
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        pieceRetriever: mockRetriever
+      })
+
+      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+      try {
+        await synapse.download(testCommP)
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Network error')
+      }
+    })
+  })
 })
