@@ -200,10 +200,10 @@ export const TIMING_CONSTANTS = {
 
   /**
    * Number of confirmations to wait for when calling transaction.wait()
-   * Set to 0 to just get the receipt once mined without waiting for confirmations
-   * Can be increased later for better finality guarantees
+   * Set to 1 by default to ensure the transaction is mined, could be increased
+   * in the future, or aligned to F3 expectations
    */
-  TRANSACTION_CONFIRMATIONS: 0,
+  TRANSACTION_CONFIRMATIONS: 1,
 
   /**
    * Maximum time to wait for a root addition to be confirmed and acknowledged
