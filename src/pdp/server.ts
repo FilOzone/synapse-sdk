@@ -30,6 +30,7 @@ import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
 import type { RootData, CommP } from '../types.js'
 import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
+import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
 import { toHex } from 'multiformats/bytes'
 
@@ -385,17 +386,8 @@ export class PDPServer {
       throw new Error(`Invalid CommP: ${String(commP)}`)
     }
 
-    // Extract the digest bytes from the multihash
-    const hashBytes = parsedCommP.multihash.digest
-    const hashHex = toHex(hashBytes)
-
-    const params = new URLSearchParams({
-      name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
-      hash: hashHex,
-      size: size.toString()
-    })
-
-    const response = await fetch(`${this._apiEndpoint}/pdp/piece?${params.toString()}`, {
+    const url = constructFindPieceUrl(this._apiEndpoint, parsedCommP, size)
+    const response = await fetch(url, {
       method: 'GET',
       headers: {}
     })
@@ -515,7 +507,7 @@ export class PDPServer {
     }
 
     // Use the retrieval endpoint configured at construction time
-    const downloadUrl = `${this._retrievalEndpoint}/piece/${parsedCommP.toString()}`
+    const downloadUrl = constructPieceUrl(this._retrievalEndpoint, parsedCommP)
 
     const response = await fetch(downloadUrl)
 

@@ -24,9 +24,10 @@ export function constructPieceUrl (retrievalEndpoint: string, commp: CommP): str
  * Construct a piece discovery (findPiece) URL
  * @param apiEndpoint - The base API endpoint URL
  * @param commp - The CommP identifier
+ * @param size - Optional size parameter (defaults to 0, as size is typically ignored for CommP in Curio)
  * @returns Full URL for finding the piece
  */
-export function constructFindPieceUrl (apiEndpoint: string, commp: CommP): string {
+export function constructFindPieceUrl (apiEndpoint: string, commp: CommP, size = 0): string {
   const endpoint = apiEndpoint.replace(/\/$/, '')
   const hashBytes = commp.multihash.digest
   const hashHex = toHex(hashBytes)
@@ -34,7 +35,7 @@ export function constructFindPieceUrl (apiEndpoint: string, commp: CommP): strin
   const params = new URLSearchParams({
     name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
     hash: hashHex,
-    size: '0' // Size is ignored for CommP in Curio
+    size: size.toString()
   })
 
   return `${endpoint}/pdp/piece?${params.toString()}`
