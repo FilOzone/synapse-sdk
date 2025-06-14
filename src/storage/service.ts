@@ -903,22 +903,25 @@ export class StorageService {
   }
 
   /**
+   * Download data from this specific storage provider
+   * @param commp - The CommP identifier
+   * @param options - Download options (currently unused but reserved for future)
+   * @returns The downloaded data
+   */
+  async providerDownload (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
+    // Pass through to Synapse with our provider hint and withCDN setting
+    return await this._synapse.download(commp, {
+      providerAddress: this._provider.owner,
+      withCDN: this._withCDN // Pass StorageService's withCDN
+    })
+  }
+
+  /**
    * Download data from the storage provider
+   * @deprecated Use providerDownload() for downloads from this specific provider.
+   * This method will be removed in a future version.
    */
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
-    try {
-      // The StorageService instance is already configured with a specific provider
-      // and proof set that either uses CDN or doesn't. PDPServer always verifies the CommP.
-
-      const data = await this._pdpServer.downloadPiece(commp)
-      return data
-    } catch (error) {
-      throw createError(
-        'StorageService',
-        'download',
-        'Failed to download piece from storage provider',
-        error
-      )
-    }
+    return await this.providerDownload(commp, options)
   }
 }

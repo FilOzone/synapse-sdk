@@ -914,7 +914,7 @@ describe('PDPServer', () => {
         await pdpServer.downloadPiece(mockCommP)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to download piece')
+        assert.include(error.message, 'Download failed')
         assert.include(error.message, '404')
       } finally {
         global.fetch = originalFetch
