@@ -56,6 +56,7 @@ export const CONTRACT_ABIS = {
     'function approveServiceProvider(address provider) external',
     'function rejectServiceProvider(address provider) external',
     'function removeServiceProvider(uint256 providerId) external',
+    'function addServiceProvider(address provider, string pdpUrl, string pieceRetrievalUrl) external',
 
     // Read functions
     'function isProviderApproved(address provider) external view returns (bool)',
@@ -82,11 +83,7 @@ export const CONTRACT_ABIS = {
     'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
 
     // Get proof set info by ID
-    // See https://github.com/FilOzone/filecoin-services/pull/42
     'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)'
-    // Was, one of:
-    // 'function proofSetInfo(uint256 proofSetId) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)'
-    // 'function proofSetInfo(uint256 proofSetId) external view returns (uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, uint256 clientDataSetId, bool withCDN)'
   ] as const,
 
   /**

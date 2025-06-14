@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pandora Admin Portal</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
-    <script src="../dist/browser/synapse-sdk.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@filoz/synapse-sdk@latest/dist/browser/synapse-sdk.min.js"></script>
+    <!-- Reown AppKit for wallet connections -->
+    <script type="module">
+        import { createAppKit } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.7.9/dist/appkit.js/+esm'
+        import { EthersAdapter } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-adapter-ethers@1.7.9/+esm'
+        // Make it available globally for the main script
+        window.Reown = { createAppKit, EthersAdapter }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -544,6 +551,59 @@
             }
         }
         
+        /* Safe-specific styles */
+        .safe-proposal-success {
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .safe-proposal-success h4 {
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+        
+        .safe-proposal-success code {
+            background: var(--bg-primary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Space Grotesk', monospace;
+            font-size: 12px;
+        }
+        
+        .safe-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: var(--accent);
+            color: var(--bg-primary);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .safe-link:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+        
+        .safe-info {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        
+        .safe-info p {
+            margin: 5px 0;
+            color: var(--text-secondary);
+        }
+        
         /* Utilities */
         .hidden {
             display: none !important;
@@ -581,7 +641,7 @@
                     <div class="wallet-indicator"></div>
                     <span>Not Connected</span>
                 </div>
-                <button class="btn btn-primary" onclick="showAuthModal()">
+                <button class="btn btn-primary" onclick="showAuthModal()" id="connectButton">
                     Connect Wallet
                     <span class="arrow">↗</span>
                 </button>
@@ -594,6 +654,9 @@
             <div class="nav-item" onclick="showSection('provider')">Provider Dashboard</div>
             <div class="nav-item" onclick="showSection('owner')">Owner Dashboard</div>
         </nav>
+        
+        <!-- Safe Wallet Info -->
+        <div id="safeInfo" class="safe-info hidden"></div>
         
         <!-- Public Section -->
         <section id="publicSection" class="section">
@@ -654,6 +717,14 @@
             <p class="text-secondary text-small mt-4">Choose your authentication method</p>
             
             <div class="auth-options">
+                <div class="auth-option" onclick="connectWalletConnect()">
+                    <div>
+                        <h4>WalletConnect</h4>
+                        <p class="text-secondary text-small">Connect any wallet (including Safe)</p>
+                    </div>
+                    <span class="arrow">→</span>
+                </div>
+                
                 <div class="auth-option" onclick="connectMetaMask()">
                     <div>
                         <h4>MetaMask</h4>
@@ -696,10 +767,13 @@
         let signer = null;
         let currentAccount = null;
         let isOwner = false;
+        let isSafeWallet = false;
+        let appKit = null;
         
         // Contract configuration
         let PANDORA_ADDRESS = '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'; // Default Calibration testnet
         const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
+        const REOWN_PROJECT_ID = '3af79672187c27368785f2182cc0b373'; // Replace with actual Reown project ID
         
         // Check for custom Pandora address in URL params
         const urlParams = new URLSearchParams(window.location.search);
@@ -722,6 +796,15 @@
                 return;
             }
             
+            // Wait for Reown to be available
+            if (typeof window.Reown === 'undefined') {
+                showTransaction('Error: Reown AppKit not loaded', 'error');
+                return;
+            }
+            
+            // Initialize Reown AppKit
+            initializeAppKit();
+            
             // Update contract address display
             updateContractBadge();
             
@@ -736,6 +819,56 @@
                 showPandoraConfig();
             }
         });
+        
+        // Initialize Reown AppKit
+        function initializeAppKit() {
+            const filecoinCalibration = {
+                id: 314159,
+                name: 'Filecoin Calibration',
+                nativeCurrency: {
+                    name: 'testnet Filecoin',
+                    symbol: 'tFIL',
+                    decimals: 18
+                },
+                rpcUrls: {
+                    default: { http: [RPC_URL] }
+                },
+                blockExplorers: {
+                    default: {
+                        name: 'Filfox',
+                        url: 'https://calibration.filfox.info'
+                    }
+                }
+            };
+            
+            const metadata = {
+                name: 'Pandora Admin Portal',
+                description: 'Manage storage providers on Filecoin',
+                url: window.location.origin,
+                icons: ['https://filecoin.io/favicon.ico']
+            };
+            
+            // Create Ethers adapter
+            const ethersAdapter = new window.Reown.EthersAdapter();
+            
+            appKit = window.Reown.createAppKit({
+                adapters: [ethersAdapter],
+                metadata,
+                networks: [filecoinCalibration],
+                defaultNetwork: filecoinCalibration,
+                projectId: REOWN_PROJECT_ID,
+                features: {
+                    analytics: false,
+                    email: false,
+                    socials: false
+                },
+                themeMode: 'dark',
+                themeVariables: {
+                    '--w3m-accent': '#00ff88',
+                    '--w3m-border-radius-master': '8px'
+                }
+            });
+        }
         
         function updateContractBadge() {
             const defaultAddress = '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5';
@@ -801,6 +934,29 @@
         }
         
         // Wallet connection
+        async function connectWalletConnect() {
+            try {
+                hideAuthModal();
+                await appKit.open();
+                
+                // Subscribe to connection state
+                const unsubscribe = appKit.subscribeState(async (state) => {
+                    if (state.isConnected && state.address) {
+                        // Get the provider from the adapter
+                        const provider = await appKit.getUniversalProvider();
+                        if (provider) {
+                            const ethersProvider = new ethers.BrowserProvider(provider);
+                            signer = await ethersProvider.getSigner();
+                            await initializeSynapse(ethersProvider, signer);
+                            unsubscribe();
+                        }
+                    }
+                });
+            } catch (error) {
+                showTransaction(`Failed to connect: ${error.message}`, 'error');
+            }
+        }
+        
         async function connectMetaMask() {
             if (typeof window.ethereum === 'undefined') {
                 showTransaction('Please install MetaMask', 'error');
@@ -836,6 +992,29 @@
             }
         }
         
+        // Check if connected wallet is a Safe
+        async function checkIfSafeWallet(address, provider) {
+            try {
+                const code = await provider.getCode(address);
+                // Safe contracts have specific bytecode patterns
+                // More reliable: check if implements Safe interface
+                const safeContract = new ethers.Contract(
+                    address,
+                    ['function VERSION() view returns (string)'],
+                    provider
+                );
+                
+                try {
+                    const version = await safeContract.VERSION();
+                    return version.startsWith('1.'); // Safe version 1.x.x
+                } catch {
+                    return false;
+                }
+            } catch {
+                return false;
+            }
+        }
+        
         async function initializeSynapse(provider, signer) {
             try {
                 // Initialize Synapse
@@ -850,6 +1029,9 @@
                 // Get account info
                 currentAccount = await signer.getAddress();
                 isOwner = await pandoraService.isOwner(signer);
+                
+                // Check if it's a Safe wallet
+                isSafeWallet = await checkIfSafeWallet(currentAccount, provider);
                 
                 // Update UI
                 updateWalletStatus();
@@ -866,15 +1048,42 @@
             const walletStatus = document.getElementById('walletStatus');
             const indicator = walletStatus.querySelector('.wallet-indicator');
             const text = walletStatus.querySelector('span');
+            const safeInfoDiv = document.getElementById('safeInfo');
+            const connectButton = document.getElementById('connectButton');
             
             if (currentAccount) {
                 walletStatus.classList.add('connected');
                 indicator.classList.add('connected');
-                text.textContent = `${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+                let statusText = `${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`;
+                if (isSafeWallet) {
+                    statusText = `🔐 ${statusText} (Safe)`;
+                    // Show Safe info
+                    safeInfoDiv.classList.remove('hidden');
+                    safeInfoDiv.innerHTML = `
+                        <h4>Safe Multisig Wallet Connected</h4>
+                        <p>Transactions will be proposed to your Safe and require additional signatures before execution.</p>
+                        <p>Safe Address: <code>${currentAccount}</code></p>
+                        <a href="https://app.safe.global/home?safe=fil:${currentAccount}" target="_blank" style="color: var(--accent);">
+                            View Safe Dashboard →
+                        </a>
+                    `;
+                } else {
+                    safeInfoDiv.classList.add('hidden');
+                }
+                text.textContent = statusText;
+                
+                // Update connect button to disconnect
+                connectButton.textContent = 'Disconnect';
+                connectButton.onclick = disconnectWallet;
             } else {
                 walletStatus.classList.remove('connected');
                 indicator.classList.remove('connected');
                 text.textContent = 'Not Connected';
+                safeInfoDiv.classList.add('hidden');
+                
+                // Reset connect button
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.onclick = showAuthModal;
             }
         }
         
@@ -983,8 +1192,15 @@
                 const tx = await pandoraService.registerServiceProvider(signer, pdpUrl, retrievalUrl);
                 updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
                 
-                const receipt = await tx.wait();
-                updateTransaction(txId, 'Registration successful!', 'success');
+                if (isSafeWallet) {
+                    // Safe transaction proposed
+                    updateTransaction(txId, 'Safe transaction proposed', 'success');
+                    showSafeProposalSuccess(tx.hash, currentAccount);
+                } else {
+                    // Regular transaction - wait for confirmation
+                    const receipt = await tx.wait();
+                    updateTransaction(txId, 'Registration successful!', 'success');
+                }
                 
                 // Refresh provider section
                 await updateProviderSection();
@@ -1141,12 +1357,19 @@
                 const tx = await pandoraService.approveServiceProvider(signer, address);
                 updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
                 
-                const receipt = await tx.wait();
-                updateTransaction(txId, 'Provider approved!', 'success');
-                
-                // Refresh lists
-                await refreshProviders();
-                await updateOwnerSection();
+                if (isSafeWallet) {
+                    // Safe transaction proposed
+                    updateTransaction(txId, 'Safe transaction proposed', 'success');
+                    showSafeProposalSuccess(tx.hash, currentAccount);
+                } else {
+                    // Regular transaction - wait for confirmation
+                    const receipt = await tx.wait();
+                    updateTransaction(txId, 'Provider approved!', 'success');
+                    
+                    // Refresh lists
+                    await refreshProviders();
+                    await updateOwnerSection();
+                }
             } catch (error) {
                 updateTransaction(txId, `Approval failed: ${error.message}`, 'error');
             }
@@ -1159,11 +1382,18 @@
                 const tx = await pandoraService.rejectServiceProvider(signer, address);
                 updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
                 
-                const receipt = await tx.wait();
-                updateTransaction(txId, 'Provider rejected!', 'success');
-                
-                // Refresh lists
-                await updateOwnerSection();
+                if (isSafeWallet) {
+                    // Safe transaction proposed
+                    updateTransaction(txId, 'Safe transaction proposed', 'success');
+                    showSafeProposalSuccess(tx.hash, currentAccount);
+                } else {
+                    // Regular transaction - wait for confirmation
+                    const receipt = await tx.wait();
+                    updateTransaction(txId, 'Provider rejected!', 'success');
+                    
+                    // Refresh lists
+                    await updateOwnerSection();
+                }
             } catch (error) {
                 updateTransaction(txId, `Rejection failed: ${error.message}`, 'error');
             }
@@ -1179,12 +1409,20 @@
                 const tx = await pandoraService.removeServiceProvider(signer, parseInt(providerId));
                 updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
                 
-                const receipt = await tx.wait();
-                updateTransaction(txId, 'Provider removed!', 'success');
-                
-                // Refresh lists
-                await refreshProviders();
-                document.getElementById('removeProviderId').value = '';
+                if (isSafeWallet) {
+                    // Safe transaction proposed
+                    updateTransaction(txId, 'Safe transaction proposed', 'success');
+                    showSafeProposalSuccess(tx.hash, currentAccount);
+                    document.getElementById('removeProviderId').value = '';
+                } else {
+                    // Regular transaction - wait for confirmation
+                    const receipt = await tx.wait();
+                    updateTransaction(txId, 'Provider removed!', 'success');
+                    
+                    // Refresh lists
+                    await refreshProviders();
+                    document.getElementById('removeProviderId').value = '';
+                }
             } catch (error) {
                 updateTransaction(txId, `Removal failed: ${error.message}`, 'error');
             }
@@ -1307,19 +1545,54 @@
             }
         }
         
+        // Safe-specific functions
+        function showSafeProposalSuccess(safeTxHash, safeAddress) {
+            const safeUrl = `https://app.safe.global/transactions/queue?safe=fil:${safeAddress}`;
+            const modalContent = `
+                <div class="safe-proposal-success">
+                    <h4>Transaction Proposed to Safe</h4>
+                    <p>The transaction has been proposed and requires additional signatures.</p>
+                    <p>Safe Transaction Hash: <code>${safeTxHash}</code></p>
+                    <a href="${safeUrl}" target="_blank" class="safe-link">
+                        View in Safe Interface →
+                    </a>
+                </div>
+            `;
+            
+            // Create a special transaction entry for Safe
+            const txId = showTransaction('Safe transaction proposed', 'success');
+            const txElement = activeTxs.get(txId);
+            if (txElement) {
+                // Replace content with Safe-specific info
+                txElement.innerHTML = modalContent;
+                // Don't auto-remove Safe notifications
+                setTimeout(() => removeTx(txId), 30000); // Remove after 30 seconds
+            }
+        }
+        
+        // Disconnect wallet function
+        async function disconnectWallet() {
+            if (appKit) {
+                await appKit.disconnect();
+            }
+            currentAccount = null;
+            signer = null;
+            synapse = null;
+            pandoraService = null;
+            isOwner = false;
+            isSafeWallet = false;
+            updateWalletStatus();
+            await updateProviderSection();
+            await updateOwnerSection();
+            showTransaction('Wallet disconnected', 'success');
+        }
+        
         // Listen for account changes
         if (typeof window.ethereum !== 'undefined') {
             window.ethereum.on('accountsChanged', async (accounts) => {
                 if (accounts.length === 0) {
                     // Disconnected
-                    currentAccount = null;
-                    signer = null;
-                    synapse = null;
-                    pandoraService = null;
-                    isOwner = false;
-                    updateWalletStatus();
-                    await updateProviderSection();
-                    await updateOwnerSection();
+                    await disconnectWallet();
                 } else {
                     // Reconnect with new account
                     await connectMetaMask();

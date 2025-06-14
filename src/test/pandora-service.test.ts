@@ -726,6 +726,94 @@ describe('PandoraService', () => {
       assert.equal(providers[0].owner.toLowerCase(), '0x1111111111111111111111111111111111111111')
       assert.equal(providers[1].owner.toLowerCase(), '0x2222222222222222222222222222222222222222')
     })
+
+    describe('addServiceProvider', () => {
+      it('should add a service provider directly', async () => {
+        const providerAddress = '0x1234567890123456789012345678901234567890'
+        const pdpUrl = 'https://pdp.example.com'
+        const pieceRetrievalUrl = 'https://retrieval.example.com'
+
+        // Create a mock signer
+        const mockSigner = {
+          getAddress: async () => '0xabcdef1234567890123456789012345678901234', // owner address
+          provider: mockProvider
+        } as any
+
+        // Mock the contract connection and transaction
+        let addServiceProviderCalled = false
+        const mockContract = {
+          connect: (signer: any) => ({
+            addServiceProvider: async (addr: string, pdp: string, retrieval: string) => {
+              assert.equal(addr, providerAddress)
+              assert.equal(pdp, pdpUrl)
+              assert.equal(retrieval, pieceRetrievalUrl)
+              addServiceProviderCalled = true
+              return {
+                hash: '0xmocktxhash',
+                wait: async () => ({ status: 1 })
+              }
+            }
+          })
+        }
+
+        // Override _getPandoraContract to return our mock
+        const originalGetPandoraContract = (pandoraService as any)._getPandoraContract
+        ;(pandoraService as any)._getPandoraContract = () => mockContract
+
+        const tx = await pandoraService.addServiceProvider(
+          mockSigner,
+          providerAddress,
+          pdpUrl,
+          pieceRetrievalUrl
+        )
+
+        assert.isTrue(addServiceProviderCalled)
+        assert.equal(tx.hash, '0xmocktxhash')
+
+        // Restore original method
+        ;(pandoraService as any)._getPandoraContract = originalGetPandoraContract
+      })
+
+      it('should handle errors when adding service provider', async () => {
+        const providerAddress = '0x1234567890123456789012345678901234567890'
+        const pdpUrl = 'https://pdp.example.com'
+        const pieceRetrievalUrl = 'https://retrieval.example.com'
+
+        // Create a mock signer
+        const mockSigner = {
+          getAddress: async () => '0xabcdef1234567890123456789012345678901234',
+          provider: mockProvider
+        } as any
+
+        // Mock the contract to throw an error
+        const mockContract = {
+          connect: () => ({
+            addServiceProvider: async () => {
+              throw new Error('Provider already approved')
+            }
+          })
+        }
+
+        // Override _getPandoraContract to return our mock
+        const originalGetPandoraContract = (pandoraService as any)._getPandoraContract
+        ;(pandoraService as any)._getPandoraContract = () => mockContract
+
+        try {
+          await pandoraService.addServiceProvider(
+            mockSigner,
+            providerAddress,
+            pdpUrl,
+            pieceRetrievalUrl
+          )
+          assert.fail('Should have thrown error')
+        } catch (error: any) {
+          assert.include(error.message, 'Provider already approved')
+        }
+
+        // Restore original method
+        ;(pandoraService as any)._getPandoraContract = originalGetPandoraContract
+      })
+    })
   })
 
   describe('Storage Cost Operations', () => {
