@@ -1,9 +1,7 @@
 /**
  * FilCdnRetriever - CDN optimization wrapper for piece retrieval
  *
- * This is a stub implementation that wraps a base retriever to demonstrate
- * CDN optimization patterns. When CDN services become available, this will
- * intercept piece requests and attempt CDN retrieval before falling back
+ * This intercepts piece requests and attempts CDN retrieval before falling back
  * to the base retriever.
  */
 
@@ -22,32 +20,27 @@ export class FilCdnRetriever implements PieceRetriever {
       providerAddress?: string
       withCDN?: boolean
       signal?: AbortSignal
+      fetch?: typeof fetch
     }
   ): Promise<Response> {
-    // STUB IMPLEMENTATION - Pass through to base retriever
-    // TODO: When CDN service is available:
-    // 1. Check if options.withCDN is true
-    // 2. Construct CDN URL: https://${this._network}.filcdn.io/${commp.toString()}
-    // 3. Add auth headers if needed (e.g., client signature)
-    // 4. Attempt CDN fetch first
-    // 5. On 402 Payment Required: fall back to baseRetriever
-    // 6. On other errors: optionally fall back or propagate
-    //
-    // Example future implementation:
-    // if (options?.withCDN) {
-    //   const cdnUrl = `https://${this.network}.filcdn.io/${commp.toString()}`
-    //   try {
-    //     const cdnResponse = await fetch(cdnUrl, { signal: options.signal })
-    //     if (cdnResponse.ok) return cdnResponse
-    //     if (cdnResponse.status === 402) {
-    //       // Payment required - fall back to chain retrieval
-    //       console.log('CDN requires payment, falling back to direct retrieval')
-    //     }
-    //   } catch (error) {
-    //     console.warn('CDN fetch failed:', error)
-    //   }
-    // }
+    if (options?.withCDN === true) {
+      const cdnUrl = `https://${client}.${this.network}.filcdn.io/${commp.toString()}`
+      const fetch = options.fetch ?? globalThis.fetch
+      try {
+        const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
+        if (cdnResponse.ok) {
+          return cdnResponse
+        } else if (cdnResponse.status === 402) {
+          console.log('CDN requires payment')
+        } else {
+          console.warn('CDN fetch failed with status:', cdnResponse.status)
+        }
+      } catch (error) {
+        console.warn('CDN fetch failed:', error)
+      }
+    }
 
+    console.log('Falling back to direct retrieval')
     return await this.baseRetriever.fetchPiece(commp, client, options)
   }
 }
