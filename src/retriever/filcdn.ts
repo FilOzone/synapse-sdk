@@ -26,14 +26,12 @@ export class FilCdnRetriever implements PieceRetriever {
       providerAddress?: string
       withCDN?: boolean
       signal?: AbortSignal
-      fetch?: typeof fetch
     }
   ): Promise<Response> {
     if (options?.withCDN === true) {
       const cdnUrl = `https://${client}.${this.hostname()}/${commp.toString()}`
-      const fetchFn = options.fetch ?? globalThis.fetch
       try {
-        const cdnResponse = await fetchFn(cdnUrl, { signal: options?.signal })
+        const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
         if (cdnResponse.ok) {
           return cdnResponse
         } else if (cdnResponse.status === 402) {
