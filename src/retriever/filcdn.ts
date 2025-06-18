@@ -37,7 +37,7 @@ export class FilCdnRetriever implements PieceRetriever {
         if (cdnResponse.ok) {
           return cdnResponse
         } else if (cdnResponse.status === 402) {
-          console.log('CDN requires payment')
+          console.warn('CDN requires payment. Please initialise Synapse SDK with the option `withCDN: true` and re-upload your files.')
         } else {
           console.warn('CDN fetch failed with status:', cdnResponse.status)
         }
