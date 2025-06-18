@@ -13,6 +13,12 @@ export class FilCdnRetriever implements PieceRetriever {
     private readonly network: FilecoinNetworkType
   ) {}
 
+  hostname (): string {
+    return this.network === 'mainnet'
+      ? 'filcdn.io'
+      : 'calibration.filcdn.io'
+  }
+
   async fetchPiece (
     commp: CommP,
     client: string,
@@ -24,7 +30,7 @@ export class FilCdnRetriever implements PieceRetriever {
     }
   ): Promise<Response> {
     if (options?.withCDN === true) {
-      const cdnUrl = `https://${client}.${this.network}.filcdn.io/${commp.toString()}`
+      const cdnUrl = `https://${client}.${this.hostname()}/${commp.toString()}`
       const fetchFn = options.fetch ?? globalThis.fetch
       try {
         const cdnResponse = await fetchFn(cdnUrl, { signal: options?.signal })

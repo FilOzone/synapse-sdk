@@ -222,6 +222,7 @@ describe('FilCdnRetriever', () => {
 
       const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
       assert.exists(cdnRetriever)
+      assert.strictEqual(cdnRetriever.hostname(), 'filcdn.io')
     })
 
     it('should accept calibration network', () => {
@@ -231,6 +232,7 @@ describe('FilCdnRetriever', () => {
 
       const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
       assert.exists(cdnRetriever)
+      assert.strictEqual(cdnRetriever.hostname(), 'calibration.filcdn.io')
     })
   })
 })
