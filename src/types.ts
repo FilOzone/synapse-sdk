@@ -50,6 +50,8 @@ export interface SynapseOptions {
   withCDN?: boolean
   /** Override Pandora service contract address (defaults to network's default) */
   pandoraAddress?: string
+  /** Override Payments contract address (defaults to network's default) */
+  paymentsAddress?: string
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
 }
@@ -279,6 +281,41 @@ export interface UploadCallbacks {
   onRootAdded?: (transaction?: ethers.TransactionResponse) => void
   /** Called when root addition is confirmed on-chain (new servers only) */
   onRootConfirmed?: (rootIds: number[]) => void
+}
+
+/**
+ * Callbacks for permit-based deposit operation visibility
+ */
+export interface PermitDepositCallbacks {
+  /** Called when permit is being signed */
+  onPermitSigning?: () => void
+  /** Called before deposit transaction is sent */
+  onDepositStarting?: () => void
+}
+
+// Internal types - not exported in main index
+/** @internal */
+export interface PermitData {
+  owner: string
+  spender: string
+  value: bigint
+  deadline: bigint
+  nonce: bigint
+}
+
+/** @internal */
+export interface SignedPermit extends PermitData {
+  v: number
+  r: string
+  s: string
+}
+
+/** @internal */
+export interface PermitContext {
+  permitData: PermitData
+  domain: ethers.TypedDataDomain
+  types: Record<string, Array<{ name: string, type: string }>>
+  message: string
 }
 
 /**

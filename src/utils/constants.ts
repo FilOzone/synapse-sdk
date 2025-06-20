@@ -26,6 +26,7 @@ export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
 export const CONTRACT_ABIS = {
   /**
    * ERC20 ABI - minimal interface needed for balance and approval operations
+   * Includes EIP-2612 permit functionality for gasless approvals
    */
   ERC20: [
     'function balanceOf(address owner) view returns (uint256)',
@@ -33,7 +34,13 @@ export const CONTRACT_ABIS = {
     'function symbol() view returns (string)',
     'function approve(address spender, uint256 amount) returns (bool)',
     'function allowance(address owner, address spender) view returns (uint256)',
-    'function transfer(address to, uint256 amount) returns (bool)'
+    'function transfer(address to, uint256 amount) returns (bool)',
+    // EIP-2612 permit functions
+    'function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
+    'function nonces(address owner) view returns (uint256)',
+    'function DOMAIN_SEPARATOR() view returns (bytes32)',
+    'function domainSeparator() view returns (bytes32)', // Some tokens use lowercase
+    'function name() view returns (string)'
   ] as const,
 
   /**
@@ -41,6 +48,7 @@ export const CONTRACT_ABIS = {
    */
   PAYMENTS: [
     'function deposit(address token, address to, uint256 amount)',
+    'function depositWithPermit(address token, address to, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
     'function withdraw(address token, uint256 amount)',
     'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
     'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance)',
