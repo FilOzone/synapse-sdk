@@ -8,7 +8,8 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
-  type CommP
+  type CommP,
+  type ProofsetRoot
 } from './types.js'
 import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
@@ -284,6 +285,26 @@ export class Synapse {
     )
 
     return await downloadAndValidateCommP(response, parsedCommP)
+  }
+
+  /**
+   * Get proofset roots for a given proofset ID
+   * @param proofsetId - The ID of the proof set to fetch roots for
+   * @returns Array of root CIDs
+   */
+  async getProofsetRoots (proofsetId: string): Promise<string[]> {
+    const storage = await this.createStorage()
+    return await storage.getProofsetRoots(proofsetId)
+  }
+
+  /**
+   * Get proofset roots with metadata for a given proofset ID
+   * @param proofsetId - The ID of the proof set to fetch roots for
+   * @returns Array of roots with metadata
+   */
+  async getProofsetRootsWithMetadata (proofsetId: string): Promise<ProofsetRoot[]> {
+    const storage = await this.createStorage()
+    return await storage.getProofsetRootsWithMetadata(proofsetId)
   }
 }
 

@@ -19,7 +19,9 @@ import type {
   UploadCallbacks,
   UploadResult,
   RootData,
-  CommP
+  CommP,
+  ProofsetData,
+  ProofsetRoot
 } from '../types.js'
 import type { Synapse } from '../synapse.js'
 import type { PandoraService } from '../pandora/service.js'
@@ -923,5 +925,30 @@ export class StorageService {
    */
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     return await this.providerDownload(commp, options)
+  }
+
+  /**
+   * Get proofset roots for a given proofset ID
+   * @param proofsetId - The ID of the proof set to fetch roots for
+   * @returns Array of root CIDs
+   */
+  async getProofsetRoots (proofsetId: string): Promise<string[]> {
+    const proofsetData = await this._pdpServer.getProofSet(proofsetId)
+    return proofsetData.roots || []
+  }
+
+  /**
+   * Get proofset roots with metadata for a given proofset ID
+   * @param proofsetId - The ID of the proof set to fetch roots for
+   * @returns Array of roots with metadata
+   */
+  async getProofsetRootsWithMetadata (proofsetId: string): Promise<ProofsetRoot[]> {
+    const proofsetData = await this._pdpServer.getProofSet(proofsetId)
+    const roots = proofsetData.roots || []
+    
+    return roots.map((rootCid, index) => ({
+      rootCid,
+      metadata: proofsetData.metadata?.[index]
+    }))
   }
 }
