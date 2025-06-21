@@ -292,3 +292,25 @@ export interface UploadResult {
   /** Root ID in the proof set */
   rootId?: number
 }
+
+/**
+ * Proofset data returned from the API
+ */
+export interface ProofsetData {
+  /** The proof set ID */
+  proofSetId: number
+  /** Array of root CIDs in the proof set */
+  roots: string[]
+  /** Additional metadata (structure may vary) */
+  metadata?: any
+}
+
+/**
+ * Individual proofset root with metadata
+ */
+export interface ProofsetRoot {
+  /** The root CID */
+  rootCid: string
+  /** Optional metadata for this root */
+  metadata?: string
+}
