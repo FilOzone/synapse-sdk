@@ -2262,4 +2262,113 @@ describe('StorageService', () => {
       }
     })
   })
+
+  describe('getProofSetRoots', () => {
+    it('should successfully fetch proof set roots', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          },
+          {
+            rootId: 102,
+            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (proofSetId: number): Promise<any> => {
+        assert.equal(proofSetId, 123)
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+
+      assert.isArray(result)
+      assert.equal(result.length, 2)
+      assert.equal(result[0].toString(), mockProofSetData.roots[0].rootCid)
+      assert.equal(result[1].toString(), mockProofSetData.roots[1].rootCid)
+    })
+
+    it('should handle empty proof set roots', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+
+      assert.isArray(result)
+      assert.equal(result.length, 0)
+    })
+
+    it('should handle invalid CID in response', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'invalid-cid-format',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+      assert.isArray(result)
+      assert.equal(result.length, 1)
+      assert.equal(result[0].toString(), 'invalid-cid-format')
+    })
+
+    it('should handle PDP server errors', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the PDP server getProofSet method to throw error
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        throw new Error('Proof set not found: 999')
+      }
+
+      try {
+        await service.getProofSetRoots()
+        assert.fail('Should have thrown error for server error')
+      } catch (error: any) {
+        assert.include(error.message, 'Proof set not found: 999')
+      }
+    })
+  })
 })

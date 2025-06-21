@@ -1019,4 +1019,13 @@ export class StorageService {
   async getProviderInfo (): Promise<ApprovedProviderInfo> {
     return await this._synapse.getProviderInfo(this.storageProvider)
   }
+
+  /**
+   * Get the list of root CIDs for this storage service's proof set by querying the PDP server.
+   * @returns Array of root CIDs as CommP objects
+   */
+  async getProofSetRoots (): Promise<CommP[]> {
+    const proofSetData = await this._pdpServer.getProofSet(this._proofSetId)
+    return proofSetData.roots.map(root => root.rootCid)
+  }
 }

@@ -6,7 +6,9 @@ import {
   isFindPieceResponse,
   validateProofSetCreationStatusResponse,
   validateRootAdditionStatusResponse,
-  validateFindPieceResponse
+  validateFindPieceResponse,
+  asProofSetRootData,
+  asProofSetData
 } from '../pdp/validation.js'
 
 describe('PDP Validation', function () {
@@ -14,7 +16,7 @@ describe('PDP Validation', function () {
     it('should validate a valid response', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
-        proofsetCreated: true,
+        proofSetCreated: true,
         service: 'pandora',
         txStatus: 'confirmed',
         ok: true,
@@ -31,7 +33,7 @@ describe('PDP Validation', function () {
     it('should validate response with null ok field', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
-        proofsetCreated: false,
+        proofSetCreated: false,
         service: 'pandora',
         txStatus: 'pending',
         ok: null
@@ -53,17 +55,17 @@ describe('PDP Validation', function () {
         [],
         {}, // Empty object
         { createMessageHash: 123 }, // Wrong type
-        { createMessageHash: '0x123', proofsetCreated: 'yes' }, // Wrong type
+        { createMessageHash: '0x123', proofSetCreated: 'yes' }, // Wrong type
         {
           createMessageHash: '0x123',
-          proofsetCreated: true,
+          proofSetCreated: true,
           service: 'pandora',
           txStatus: 'pending'
           // Missing ok field
         },
         {
           createMessageHash: '0x123',
-          proofsetCreated: true,
+          proofSetCreated: true,
           service: 'pandora',
           txStatus: 'pending',
           ok: null,
@@ -230,6 +232,154 @@ describe('PDP Validation', function () {
       assert.equal(normalized.pieceCid.code, 0xf101) // fil-commitment-unsealed
       assert.equal(normalized.pieceCid.multihash.code, 0x1012) // sha2-256-trunc254-padded
       assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
+    })
+  })
+
+  describe('ProofSetRootData validation', function () {
+    it('should validate and convert a valid root data object', function () {
+      const validRootData = {
+        rootId: 101,
+        rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+        subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+        subrootOffset: 0
+      }
+
+      const converted = asProofSetRootData(validRootData)
+      assert.isNotNull(converted)
+      assert.equal(converted?.rootId, validRootData.rootId)
+      assert.equal(converted?.rootCid.toString(), validRootData.rootCid)
+      assert.equal(converted?.subrootCid.toString(), validRootData.subrootCid)
+      assert.equal(converted?.subrootOffset, validRootData.subrootOffset)
+    })
+
+    it('should return null for invalid root data', function () {
+      const invalidCases = [
+        null,
+        undefined,
+        'string',
+        123,
+        [],
+        {}, // Empty object
+        { rootId: 'not-a-number' }, // Wrong type
+        {
+          rootId: 101,
+          rootCid: 'not-a-commp',
+          subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+          subrootOffset: 0
+        },
+        {
+          rootId: 101,
+          rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+          subrootCid: 'not-a-commp',
+          subrootOffset: 0
+        }
+      ]
+
+      for (const invalid of invalidCases) {
+        assert.isNull(asProofSetRootData(invalid))
+      }
+    })
+  })
+
+  describe('ProofSetData validation', function () {
+    it('should validate and convert valid proof set data', function () {
+      const validProofSetData = {
+        id: 123,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 456
+      }
+
+      const converted = asProofSetData(validProofSetData)
+      assert.isNotNull(converted)
+      assert.equal(converted?.id, validProofSetData.id)
+      assert.equal(converted?.nextChallengeEpoch, validProofSetData.nextChallengeEpoch)
+      assert.equal(converted?.roots.length, validProofSetData.roots.length)
+      assert.equal(converted?.roots[0].rootId, validProofSetData.roots[0].rootId)
+      assert.equal(converted?.roots[0].rootCid.toString(), validProofSetData.roots[0].rootCid)
+      assert.equal(converted?.roots[0].subrootCid.toString(), validProofSetData.roots[0].subrootCid)
+      assert.equal(converted?.roots[0].subrootOffset, validProofSetData.roots[0].subrootOffset)
+    })
+
+    it('should validate and convert proof set data with multiple roots', function () {
+      const validProofSetData = {
+        id: 123,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          },
+          {
+            rootId: 102,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 1024
+          }
+        ],
+        nextChallengeEpoch: 456
+      }
+
+      const converted = asProofSetData(validProofSetData)
+      assert.isNotNull(converted)
+      assert.equal(converted?.roots.length, 2)
+    })
+
+    it('should return null for invalid proof set data', function () {
+      const invalidCases = [
+        null,
+        undefined,
+        'string',
+        123,
+        [],
+        {}, // Empty object
+        { id: 'not-a-number' }, // Wrong type
+        {
+          id: 123,
+          roots: 'not-an-array',
+          nextChallengeEpoch: 456
+        },
+        {
+          id: 123,
+          roots: [
+            {
+              rootId: 101,
+              rootCid: 'not-a-commp',
+              subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+              subrootOffset: 0
+            }
+          ],
+          nextChallengeEpoch: 456
+        }
+      ]
+
+      for (const invalid of invalidCases) {
+        assert.isNull(asProofSetData(invalid))
+      }
+    })
+
+    it('should throw error when validating invalid proof set data', function () {
+      const invalidProofSetData = {
+        id: 'not-a-number',
+        roots: [],
+        nextChallengeEpoch: 456
+      }
+
+      assert.throws(
+        () => {
+          const converted = asProofSetData(invalidProofSetData)
+          if (converted == null) throw new Error('Invalid proof set data response format')
+        },
+        Error,
+        'Invalid proof set data response format'
+      )
     })
   })
 })

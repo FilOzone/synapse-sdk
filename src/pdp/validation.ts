@@ -10,6 +10,7 @@ import type {
   RootAdditionStatusResponse,
   FindPieceResponse
 } from './server.js'
+import type { ProofSetData, ProofSetRootData } from '../types.js'
 import { asCommP } from '../commp/commp.js'
 
 /**
@@ -30,7 +31,7 @@ export function isProofSetCreationStatusResponse (value: unknown): value is Proo
   if (typeof obj.createMessageHash !== 'string') {
     return false
   }
-  if (typeof obj.proofsetCreated !== 'boolean') {
+  if (typeof obj.proofSetCreated !== 'boolean') {
     return false
   }
   if (typeof obj.service !== 'string') {
@@ -189,5 +190,93 @@ export function validateFindPieceResponse (value: unknown): FindPieceResponse {
   return {
     pieceCid: commP,
     piece_cid: obj.piece_cid // Keep legacy field if it exists
+  }
+}
+
+/**
+ * Converts and validates individual proof set root data
+ * Returns null if validation fails
+ *
+ * @param value - The value to validate and convert
+ * @returns Converted ProofSetRootData or null if invalid
+ */
+export function asProofSetRootData (value: unknown): ProofSetRootData | null {
+  if (typeof value !== 'object' || value == null) {
+    return null
+  }
+
+  const obj = value as Record<string, unknown>
+
+  // Required fields
+  if (typeof obj.rootId !== 'number') {
+    return null
+  }
+  if (typeof obj.rootCid !== 'string') {
+    return null
+  }
+  if (typeof obj.subrootCid !== 'string') {
+    return null
+  }
+  if (typeof obj.subrootOffset !== 'number') {
+    return null
+  }
+
+  // Convert CIDs to CommP objects
+  const rootCid = asCommP(obj.rootCid)
+  const subrootCid = asCommP(obj.subrootCid)
+  if (rootCid == null || subrootCid == null) {
+    return null
+  }
+
+  return {
+    rootId: obj.rootId,
+    rootCid,
+    subrootCid,
+    subrootOffset: obj.subrootOffset
+  }
+}
+
+/**
+ * Converts and validates proof set data
+ * Returns null if validation fails
+ *
+ * @param value - The value to validate and convert
+ * @returns Converted ProofSetData or null if invalid
+ */
+export function asProofSetData (value: unknown): ProofSetData | null {
+  if (typeof value !== 'object' || value == null) {
+    return null
+  }
+
+  const obj = value as Record<string, unknown>
+
+  // Required field - id
+  if (typeof obj.id !== 'number') {
+    return null
+  }
+
+  // Required field - roots (array of ProofSetRootData)
+  if (!Array.isArray(obj.roots)) {
+    return null
+  }
+
+  const convertedRoots: ProofSetRootData[] = []
+  for (const root of obj.roots) {
+    const convertedRoot = asProofSetRootData(root)
+    if (convertedRoot == null) {
+      return null
+    }
+    convertedRoots.push(convertedRoot)
+  }
+
+  // Required field - nextChallengeEpoch
+  if (typeof obj.nextChallengeEpoch !== 'number') {
+    return null
+  }
+
+  return {
+    id: obj.id,
+    roots: convertedRoots,
+    nextChallengeEpoch: obj.nextChallengeEpoch
   }
 }

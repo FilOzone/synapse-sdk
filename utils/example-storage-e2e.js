@@ -128,6 +128,13 @@ async function main () {
     })
 
     console.log(`Proof set ID: ${storageService.proofSetId}`)
+    const rootCids = await storageService.getProofSetRoots()
+    console.log(`Proof set contains ${rootCids.length} root CIDs`)
+    /* Uncomment to see root CIDs
+    for (const cid of rootCids) {
+      console.log(`  - Root CID: ${cid}`)
+    }
+    */
 
     // Get detailed provider information
     console.log('\n--- Storage Provider Details ---')

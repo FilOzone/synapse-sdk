@@ -362,3 +362,29 @@ export interface StorageInfo {
     lockupUsed: bigint
   } | null
 }
+
+/**
+ * Proof set data returned from the API
+ */
+export interface ProofSetData {
+  /** The proof set ID */
+  id: number
+  /** Array of root data in the proof set */
+  roots: ProofSetRootData[]
+  /** Next challenge epoch */
+  nextChallengeEpoch: number
+}
+
+/**
+ * Individual proof set root data from API
+ */
+export interface ProofSetRootData {
+  /** Root ID within the proof set */
+  rootId: number
+  /** The root CID */
+  rootCid: CommP
+  /** Sub-root CID (usually same as rootCid) */
+  subrootCid: CommP
+  /** Sub-root offset */
+  subrootOffset: number
+}

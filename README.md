@@ -365,6 +365,10 @@ const result = await storage.upload(data, {
 
 // Download data from this specific provider
 const downloaded = await storage.providerDownload(result.commp)
+
+// Get the list of root CIDs in the current proof set by querying the provider
+const rootCids = await storage.getProofSetRoots()
+console.log(`Root CIDs: ${rootCids.map(cid => cid.toString()).join(', ')}`)
 ```
 
 **Storage Service Methods:**
@@ -372,6 +376,7 @@ const downloaded = await storage.providerDownload(result.commp)
 - `providerDownload(commp, options?)` - Download data from this specific provider
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
 - `getProviderInfo()` - Get detailed information about the selected storage provider
+- `getProofSetRoots()` - Get the list of root CIDs in the proof set by querying the provider
 
 ##### Size Constraints
 
@@ -610,6 +615,7 @@ const data = await pdpServer.downloadPiece(commP)
 
 // Get proof set details
 const proofSet = await pdpServer.getProofSet(proofSetId)
+console.log(`Proof set ${proofSet.id} has ${proofSet.roots.length} roots`)
 ```
 
 #### PDP Auth Helper

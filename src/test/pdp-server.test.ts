@@ -532,7 +532,7 @@ describe('PDPServer', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockResponse = {
         createMessageHash: mockTxHash,
-        proofsetCreated: true,
+        proofSetCreated: true,
         service: 'test-service',
         txStatus: 'confirmed',
         ok: true,
@@ -1135,6 +1135,189 @@ describe('PDPServer', () => {
       try {
         await pdpServer.ping()
         assert.strictEqual(capturedUrl, `${serverUrl}/api/pdp/ping`)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
+  describe('getProofSet', () => {
+    it('should successfully fetch proof set data', async () => {
+      const mockProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          },
+          {
+            rootId: 102,
+            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        assert.include(url, '/pdp/proof-sets/292')
+        assert.strictEqual(init?.method, 'GET')
+        assert.strictEqual((init?.headers as any)?.Accept, 'application/json')
+
+        return {
+          status: 200,
+          ok: true,
+          json: async () => mockProofSetData
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.getProofSet(292)
+        assert.equal(result.id, mockProofSetData.id)
+        assert.equal(result.nextChallengeEpoch, mockProofSetData.nextChallengeEpoch)
+        assert.equal(result.roots.length, mockProofSetData.roots.length)
+        assert.equal(result.roots[0].rootId, mockProofSetData.roots[0].rootId)
+        assert.equal(result.roots[0].rootCid.toString(), mockProofSetData.roots[0].rootCid)
+        assert.equal(result.roots[0].subrootCid.toString(), mockProofSetData.roots[0].subrootCid)
+        assert.equal(result.roots[0].subrootOffset, mockProofSetData.roots[0].subrootOffset)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle proof set not found', async () => {
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 404,
+          ok: false
+        } as any
+      }
+
+      try {
+        await pdpServer.getProofSet(999)
+        assert.fail('Should have thrown error for not found proof set')
+      } catch (error) {
+        assert.include((error as Error).message, 'Proof set not found: 999')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle server errors', async () => {
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 500,
+          ok: false,
+          statusText: 'Internal Server Error',
+          text: async () => 'Database error'
+        } as any
+      }
+
+      try {
+        await pdpServer.getProofSet(292)
+        assert.fail('Should have thrown error for server error')
+      } catch (error) {
+        assert.include((error as Error).message, 'Failed to fetch proof set')
+        assert.include((error as Error).message, '500')
+        assert.include((error as Error).message, 'Database error')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should validate response data', async () => {
+      const invalidProofSetData = {
+        id: '292', // Should be number
+        roots: 'not-array', // Should be array
+        nextChallengeEpoch: 'soon' // Should be number
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 200,
+          ok: true,
+          json: async () => invalidProofSetData
+        } as any
+      }
+
+      try {
+        await pdpServer.getProofSet(292)
+        assert.fail('Should have thrown error for invalid response data')
+      } catch (error) {
+        assert.include((error as Error).message, 'Invalid proof set data response format')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle proof set with no roots', async () => {
+      const emptyProofSetData = {
+        id: 292,
+        roots: [],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 200,
+          ok: true,
+          json: async () => emptyProofSetData
+        } as any
+      }
+
+      try {
+        const result = await pdpServer.getProofSet(292)
+        assert.deepStrictEqual(result, emptyProofSetData)
+        assert.isArray(result.roots)
+        assert.equal(result.roots.length, 0)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should reject response with invalid CIDs', async () => {
+      const invalidCidProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'invalid-cid-format',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock fetch for this test
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 200,
+          ok: true,
+          json: async () => invalidCidProofSetData
+        } as any
+      }
+
+      try {
+        await pdpServer.getProofSet(292)
+        assert.fail('Should have thrown error for invalid CID in response')
+      } catch (error) {
+        assert.include((error as Error).message, 'Invalid proof set data response format')
       } finally {
         global.fetch = originalFetch
       }
