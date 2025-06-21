@@ -528,12 +528,14 @@ export class PandoraService {
    * @param sizeInBytes - Size of data to store
    * @param withCDN - Whether CDN is enabled
    * @param paymentsService - PaymentsService instance to check allowances
+   * @param lockupDays - Number of days for lockup period (defaults to 10)
    * @returns Allowance requirement details and storage costs
    */
   async checkAllowanceForStorage (
     sizeInBytes: number,
     withCDN: boolean,
-    paymentsService: PaymentsService
+    paymentsService: PaymentsService,
+    lockupDays?: number
   ): Promise<{
       rateAllowanceNeeded: bigint
       lockupAllowanceNeeded: bigint
@@ -548,6 +550,7 @@ export class PandoraService {
         perDay: bigint
         perMonth: bigint
       }
+      depositAmountNeeded: bigint
     }> {
     // Get current allowances for this Pandora service
     const approval = await paymentsService.serviceApproval(this._pandoraAddress, TOKENS.USDFC)
@@ -557,8 +560,9 @@ export class PandoraService {
     const selectedCosts = withCDN ? costs.withCDN : costs
     const rateNeeded = selectedCosts.perEpoch
 
-    // Default lockup period is 10 days = 28,800 epochs
-    const lockupNeeded = rateNeeded * TIME_CONSTANTS.DEFAULT_LOCKUP_PERIOD
+    // Calculate lockup period based on provided days (default: 10)
+    const lockupPeriod = BigInt(lockupDays ?? 10) * TIME_CONSTANTS.EPOCHS_PER_DAY
+    const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
     const totalRateNeeded = BigInt(approval.rateUsed) + rateNeeded
@@ -579,6 +583,8 @@ export class PandoraService {
       message = messages.join('. ')
     }
 
+    const depositAmountNeeded = lockupNeeded
+
     return {
       rateAllowanceNeeded: totalRateNeeded,
       lockupAllowanceNeeded: totalLockupNeeded,
@@ -592,7 +598,8 @@ export class PandoraService {
         perEpoch: selectedCosts.perEpoch,
         perDay: selectedCosts.perDay,
         perMonth: selectedCosts.perMonth
-      }
+      },
+      depositAmountNeeded
     }
   }
 
