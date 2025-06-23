@@ -583,8 +583,6 @@ export class PandoraService {
       message = messages.join('. ')
     }
 
-    const depositAmountNeeded = lockupNeeded
-
     return {
       rateAllowanceNeeded: totalRateNeeded,
       lockupAllowanceNeeded: totalLockupNeeded,
@@ -599,7 +597,7 @@ export class PandoraService {
         perDay: selectedCosts.perDay,
         perMonth: selectedCosts.perMonth
       },
-      depositAmountNeeded
+      depositAmountNeeded: lockupNeeded
     }
   }
 
