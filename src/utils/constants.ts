@@ -114,9 +114,9 @@ export const TIME_CONSTANTS = {
   EPOCHS_PER_MONTH: 86400n, // 30 * 2880
 
   /**
-   * Default lockup period in epochs (10 days)
+   * Default lockup period in days
    */
-  DEFAULT_LOCKUP_PERIOD: 28800n // 10 * 2880
+  DEFAULT_LOCKUP_DAYS: 10n
 } as const
 
 /**

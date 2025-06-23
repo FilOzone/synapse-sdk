@@ -561,7 +561,7 @@ export class PandoraService {
     const rateNeeded = selectedCosts.perEpoch
 
     // Calculate lockup period based on provided days (default: 10)
-    const lockupPeriod = BigInt(lockupDays ?? 10) * TIME_CONSTANTS.EPOCHS_PER_DAY
+    const lockupPeriod = BigInt(lockupDays ?? TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS) * TIME_CONSTANTS.EPOCHS_PER_DAY
     const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
