@@ -28,7 +28,8 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { RootData, CommP } from '../types.js'
+import type { RootData } from '../types.js'
+import type { CommP } from '../commp/index.js'
 import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
@@ -80,7 +81,7 @@ export interface AddRootsResponse {
  */
 export interface FindPieceResponse {
   /** The piece CID that was found */
-  pieceCid: string
+  pieceCid: CommP
   /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
   piece_cid?: string
 }
@@ -90,7 +91,7 @@ export interface FindPieceResponse {
  */
 export interface UploadResponse {
   /** CommP CID of the uploaded piece */
-  commP: string
+  commP: CommP
   /** Size of the uploaded piece in bytes */
   size: number
 }
@@ -451,7 +452,7 @@ export class PDPServer {
     if (createResponse.status === 200) {
       // Piece already exists on server
       return {
-        commP: commP.toString(),
+        commP,
         size
       }
     }
@@ -493,7 +494,7 @@ export class PDPServer {
     }
 
     return {
-      commP: commP.toString(),
+      commP,
       size
     }
   }

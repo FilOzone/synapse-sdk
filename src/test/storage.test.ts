@@ -1127,7 +1127,7 @@ describe('StorageService', () => {
       }
 
       const result = await service.upload(minSizeData)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 65)
     })
 
@@ -1168,7 +1168,7 @@ describe('StorageService', () => {
 
       // Should not throw
       const result = await service.upload(maxSizeData)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 200 * 1024 * 1024)
       assert.equal(result.rootId, 0)
     })
@@ -1213,7 +1213,7 @@ describe('StorageService', () => {
 
       const result = await service.upload(testData, {
         onUploadComplete: (commp) => {
-          assert.equal(commp, testCommP)
+          assert.equal(commp.toString(), testCommP)
           uploadCompleteCallbackFired = true
         },
         onRootAdded: () => {
@@ -1223,7 +1223,7 @@ describe('StorageService', () => {
 
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
       assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
     })
 
     it('should handle new server with transaction tracking', async () => {
@@ -1296,7 +1296,7 @@ describe('StorageService', () => {
       try {
         const result = await service.upload(testData, {
           onUploadComplete: (commp) => {
-            assert.equal(commp, testCommP)
+            assert.equal(commp.toString(), testCommP)
             uploadCompleteCallbackFired = true
           },
           onRootAdded: (transaction) => {
@@ -1582,7 +1582,7 @@ describe('StorageService', () => {
       }
 
       const result = await service.upload(buffer)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 1024)
     })
 

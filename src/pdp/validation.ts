@@ -10,6 +10,7 @@ import type {
   RootAdditionStatusResponse,
   FindPieceResponse
 } from './server.js'
+import { asCommP } from '../commp/commp.js'
 
 /**
  * Type guard for ProofSetCreationStatusResponse
@@ -120,6 +121,12 @@ export function isFindPieceResponse (value: unknown): value is FindPieceResponse
     return false
   }
 
+  // Validate that the piece CID is a valid CommP
+  const cidToValidate = (obj.pieceCid ?? obj.piece_cid) as string
+  if (asCommP(cidToValidate) == null) {
+    return false
+  }
+
   return true
 }
 
@@ -149,21 +156,38 @@ export function validateRootAdditionStatusResponse (value: unknown): RootAdditio
 
 /**
  * Validates and returns a FindPieceResponse
- * Normalizes the response to always have pieceCid field
+ * Normalizes the response to always have pieceCid field as a CommP object
  * @param value - The value to validate
  * @throws Error if validation fails
  */
 export function validateFindPieceResponse (value: unknown): FindPieceResponse {
   if (!isFindPieceResponse(value)) {
+    // Check if it failed specifically due to invalid CommP
+    if (typeof value === 'object' && value != null) {
+      const obj = value as Record<string, unknown>
+      const cidStr = (obj.pieceCid ?? obj.piece_cid) as string | undefined
+      if (cidStr != null && asCommP(cidStr) == null) {
+        throw new Error('Invalid find piece response: pieceCid is not a valid CommP')
+      }
+    }
     throw new Error('Invalid find piece response format')
   }
 
   const obj = value as any
 
-  // Normalize to always have pieceCid field
-  if (obj.piece_cid != null && obj.pieceCid == null) {
-    obj.pieceCid = obj.piece_cid
+  // Get the CID string from either field
+  const cidStr = (obj.pieceCid ?? obj.piece_cid) as string
+
+  // Convert to CommP object (we know it's valid because isFindPieceResponse already checked)
+  const commP = asCommP(cidStr)
+  if (commP == null) {
+    // This should never happen since we validated above, but just in case
+    throw new Error('Invalid find piece response: pieceCid is not a valid CommP')
   }
 
-  return obj as FindPieceResponse
+  // Return normalized response with CommP object
+  return {
+    pieceCid: commP,
+    piece_cid: obj.piece_cid // Keep legacy field if it exists
+  }
 }

@@ -698,7 +698,7 @@ export class StorageService {
     StorageService.validateRawSize(sizeBytes, 'upload')
 
     // Upload Phase: Upload data to storage provider
-    let uploadResult: { commP: string, size: number }
+    let uploadResult: { commP: CommP, size: number }
     try {
       uploadResult = await this._pdpServer.uploadPiece(dataBytes)
     } catch (error) {

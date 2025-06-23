@@ -156,7 +156,7 @@ describe('PDP Validation', function () {
 
       assert.isTrue(isFindPieceResponse(validResponse))
       const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid, validResponse.piece_cid)
+      assert.equal(normalized.pieceCid.toString(), validResponse.piece_cid)
       assert.equal(normalized.piece_cid, validResponse.piece_cid)
     })
 
@@ -167,7 +167,8 @@ describe('PDP Validation', function () {
 
       assert.isTrue(isFindPieceResponse(validResponse))
       const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid, validResponse.pieceCid)
+      assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
+      assert.isUndefined(normalized.piece_cid) // No legacy field in this case
     })
 
     it('should validate response with both fields', function () {
@@ -178,7 +179,8 @@ describe('PDP Validation', function () {
 
       assert.isTrue(isFindPieceResponse(validResponse))
       const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid, validResponse.pieceCid)
+      assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
+      assert.equal(normalized.piece_cid, validResponse.piece_cid) // Legacy field preserved
     })
 
     it('should reject invalid responses', function () {
@@ -193,13 +195,41 @@ describe('PDP Validation', function () {
         { pieceCid: 123 }, // Wrong type
         { randomField: 'baga...' }, // Wrong field name
         { piece_cid: null }, // Null value
-        { pieceCid: null } // Null value
+        { pieceCid: null }, // Null value
+        { pieceCid: 'not-a-commp' }, // Invalid CommP
+        { piece_cid: 'QmTest123' }, // Not a CommP (wrong codec)
+        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a CommP (wrong multihash)
       ]
 
       for (const invalid of invalidResponses) {
         assert.isFalse(isFindPieceResponse(invalid))
         assert.throws(() => validateFindPieceResponse(invalid))
       }
+    })
+
+    it('should throw specific error for invalid CommP', function () {
+      const invalidCommPResponse = {
+        pieceCid: 'not-a-valid-commp'
+      }
+
+      assert.throws(
+        () => validateFindPieceResponse(invalidCommPResponse),
+        Error,
+        'Invalid find piece response: pieceCid is not a valid CommP'
+      )
+    })
+
+    it('should return a proper CommP CID object', function () {
+      const validResponse = {
+        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
+      }
+
+      const normalized = validateFindPieceResponse(validResponse)
+
+      // Verify it's a CID object with the correct properties
+      assert.equal(normalized.pieceCid.code, 0xf101) // fil-commitment-unsealed
+      assert.equal(normalized.pieceCid.multihash.code, 0x1012) // sha2-256-trunc254-padded
+      assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
     })
   })
 })
