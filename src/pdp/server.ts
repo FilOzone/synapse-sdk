@@ -566,6 +566,23 @@ export class PDPServer {
     return encoded.slice(2)
   }
 
+  /**
+   * Ping the storage provider to check connectivity
+   * @returns Promise that resolves if provider is reachable (200 response)
+   * @throws Error if provider is not reachable or returns non-200 status
+   */
+  async ping (): Promise<void> {
+    const response = await fetch(`${this._apiEndpoint}/ping`, {
+      method: 'GET',
+      headers: {}
+    })
+
+    if (response.status !== 200) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      throw new Error(`Provider ping failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+  }
+
   getApiEndpoint (): string {
     return this._apiEndpoint
   }
