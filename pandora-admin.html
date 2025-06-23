@@ -2026,6 +2026,11 @@
 
         async function createAndSubmitSafeTransaction(safeAddress, to, data, value = '0', description = '') {
             try {
+                console.log('Creating Safe transaction with:');
+                console.log('- Safe address:', safeAddress);
+                console.log('- Current account:', currentAccount);
+                console.log('- Signer address:', await signer.getAddress());
+                
                 // Get Safe nonce
                 const nonce = await getSafeNonce(safeAddress);
 
@@ -2118,7 +2123,12 @@
 
                 // Submit to Safe Transaction Service
                 const safeServiceUrl = 'https://transaction-testnet.safe.filecoin.io';
-                const signerAddress = await signer.getAddress();
+                // Use currentAccount instead of signer.getAddress() to ensure we use the correct address
+                const signerAddress = currentAccount;
+                
+                if (!signerAddress) {
+                    throw new Error('No signer address available. Please reconnect your wallet.');
+                }
 
                 const payload = {
                     safe: safeAddress,
