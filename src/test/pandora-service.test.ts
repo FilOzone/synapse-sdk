@@ -967,6 +967,10 @@ describe('PandoraService', () => {
         assert.isAbove(Number(check.costs.perDay), 0)
         assert.isAbove(Number(check.costs.perMonth), 0)
 
+        // Check for depositAmountNeeded field
+        assert.exists(check.depositAmountNeeded)
+        assert.isTrue(check.depositAmountNeeded > 0n)
+
         // With no current allowances, should not be sufficient
         assert.isFalse(check.sufficient)
         assert.exists(check.message)
@@ -1018,6 +1022,112 @@ describe('PandoraService', () => {
         assert.exists(check.costs.perEpoch)
         assert.exists(check.costs.perDay)
         assert.exists(check.costs.perMonth)
+
+        // Verify depositAmountNeeded is included
+        assert.exists(check.depositAmountNeeded)
+        assert.isTrue(check.depositAmountNeeded > 0n)
+      })
+
+      it('should include depositAmountNeeded in response', async () => {
+        // Create a mock PaymentsService
+        const mockPaymentsService: any = {
+          serviceApproval: async (serviceAddress: string) => {
+            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            return {
+              isApproved: false,
+              rateAllowance: 0n,
+              lockupAllowance: 0n,
+              rateUsed: 0n,
+              lockupUsed: 0n
+            }
+          }
+        }
+
+        // Mock getServicePrice call
+        mockProvider.call = async (transaction: any) => {
+          const data = transaction.data
+          if (data?.startsWith('0x5482bdf9') === true) {
+            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
+            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const epochsPerMonth = 86400n
+            return ethers.AbiCoder.defaultAbiCoder().encode(
+              ['tuple(uint256,uint256,address,uint256)'],
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
+            )
+          }
+          return '0x' + '0'.repeat(64)
+        }
+
+        const check = await pandoraService.checkAllowanceForStorage(
+          1024 * 1024 * 1024, // 1 GiB
+          false,
+          mockPaymentsService
+        )
+
+        // Verify depositAmountNeeded is present and reasonable
+        assert.exists(check.depositAmountNeeded)
+        assert.isTrue(check.depositAmountNeeded > 0n)
+
+        // depositAmountNeeded should equal the lockup amount (rate * lockup period)
+        // Default is 10 days = 10 * 2880 epochs = 28800 epochs
+        const expectedDeposit = check.costs.perEpoch * 28800n
+        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
+      })
+
+      it('should use custom lockup days when provided', async () => {
+        // Create a mock PaymentsService
+        const mockPaymentsService: any = {
+          serviceApproval: async (serviceAddress: string) => {
+            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            return {
+              isApproved: false,
+              rateAllowance: 0n,
+              lockupAllowance: 0n,
+              rateUsed: 0n,
+              lockupUsed: 0n
+            }
+          }
+        }
+
+        // Mock getServicePrice call
+        mockProvider.call = async (transaction: any) => {
+          const data = transaction.data
+          if (data?.startsWith('0x5482bdf9') === true) {
+            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
+            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const epochsPerMonth = 86400n
+            return ethers.AbiCoder.defaultAbiCoder().encode(
+              ['tuple(uint256,uint256,address,uint256)'],
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
+            )
+          }
+          return '0x' + '0'.repeat(64)
+        }
+
+        // Test with custom lockup period of 20 days
+        const customLockupDays = 20
+        const check = await pandoraService.checkAllowanceForStorage(
+          1024 * 1024 * 1024, // 1 GiB
+          false,
+          mockPaymentsService,
+          customLockupDays
+        )
+
+        // Verify depositAmountNeeded uses custom lockup period
+        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * 2880n // 2880 epochs per day
+        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
+
+        // Compare with default (10 days) to ensure they're different
+        const defaultCheck = await pandoraService.checkAllowanceForStorage(
+          1024 * 1024 * 1024, // 1 GiB
+          false,
+          mockPaymentsService
+        )
+
+        // Custom should be exactly 2x default (20 days vs 10 days)
+        assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
       })
     })
 
