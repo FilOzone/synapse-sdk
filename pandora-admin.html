@@ -26,13 +26,13 @@
             --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
             --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg-primary);
@@ -40,18 +40,18 @@
             line-height: 1.6;
             min-height: 100vh;
         }
-        
+
         h1, h2, h3 {
             font-family: 'Space Grotesk', sans-serif;
             font-weight: 600;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         /* Header */
         .header {
             display: flex;
@@ -61,7 +61,7 @@
             border-bottom: 1px solid var(--border);
             margin-bottom: 40px;
         }
-        
+
         .logo {
             font-family: 'Space Grotesk', sans-serif;
             font-size: 28px;
@@ -70,13 +70,13 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        
+
         .wallet-section {
             display: flex;
             align-items: center;
             gap: 20px;
         }
-        
+
         .network-badge {
             padding: 8px 16px;
             background: var(--bg-card);
@@ -85,7 +85,7 @@
             font-size: 14px;
             color: var(--text-secondary);
         }
-        
+
         .contract-badge {
             padding: 8px 16px;
             background: var(--bg-card);
@@ -99,24 +99,24 @@
             align-items: center;
             gap: 6px;
         }
-        
+
         .contract-badge:hover {
             border-color: var(--accent);
             color: var(--text-primary);
         }
-        
+
         .contract-badge.custom {
             border-color: var(--warning);
         }
-        
+
         .contract-label {
             font-weight: 500;
         }
-        
+
         .contract-address {
             font-family: 'Space Grotesk', monospace;
         }
-        
+
         .wallet-status {
             padding: 10px 20px;
             background: var(--bg-card);
@@ -127,22 +127,22 @@
             align-items: center;
             gap: 10px;
         }
-        
+
         .wallet-status.connected {
             border-color: var(--accent);
         }
-        
+
         .wallet-indicator {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             background: var(--text-secondary);
         }
-        
+
         .wallet-indicator.connected {
             background: var(--accent);
         }
-        
+
         /* Main Navigation */
         .main-nav {
             display: flex;
@@ -150,7 +150,7 @@
             margin-bottom: 40px;
             border-bottom: 1px solid var(--border);
         }
-        
+
         .nav-item {
             padding: 15px 0;
             cursor: pointer;
@@ -159,15 +159,15 @@
             position: relative;
             transition: color 0.3s ease;
         }
-        
+
         .nav-item:hover {
             color: var(--text-primary);
         }
-        
+
         .nav-item.active {
             color: var(--text-primary);
         }
-        
+
         .nav-item.active::after {
             content: '';
             position: absolute;
@@ -177,7 +177,7 @@
             height: 2px;
             background: var(--accent);
         }
-        
+
         /* Cards */
         .card {
             background: var(--bg-card);
@@ -187,24 +187,24 @@
             margin-bottom: 20px;
             transition: all 0.3s ease;
         }
-        
+
         .card:hover {
             border-color: #3a3a3a;
             transform: translateY(-2px);
         }
-        
+
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-        
+
         .card-title {
             font-size: 20px;
             font-weight: 600;
         }
-        
+
         .card-badge {
             padding: 6px 12px;
             background: var(--bg-secondary);
@@ -212,12 +212,12 @@
             font-size: 12px;
             font-weight: 500;
         }
-        
+
         /* Forms */
         .form-group {
             margin-bottom: 20px;
         }
-        
+
         label {
             display: block;
             margin-bottom: 8px;
@@ -225,7 +225,7 @@
             font-weight: 500;
             color: var(--text-secondary);
         }
-        
+
         input[type="text"],
         input[type="password"],
         input[type="url"],
@@ -239,14 +239,14 @@
             font-size: 14px;
             transition: all 0.3s ease;
         }
-        
+
         input:focus,
         select:focus {
             outline: none;
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(0, 255, 136, 0.1);
         }
-        
+
         /* Buttons */
         .btn {
             padding: 12px 24px;
@@ -262,50 +262,50 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .btn-primary {
             background: var(--accent);
             color: var(--bg-primary);
         }
-        
+
         .btn-primary:hover {
             background: var(--accent-hover);
             transform: translateY(-2px);
         }
-        
+
         .btn-secondary {
             background: transparent;
             color: var(--text-primary);
             border: 1px solid var(--border);
         }
-        
+
         .btn-secondary:hover {
             background: var(--bg-hover);
             border-color: var(--text-secondary);
         }
-        
+
         .btn-danger {
             background: var(--error);
             color: white;
         }
-        
+
         .btn-danger:hover {
             background: #cc0000;
         }
-        
+
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
         }
-        
+
         .btn .arrow {
             transition: transform 0.3s ease;
         }
-        
+
         .btn:hover .arrow {
             transform: translateX(4px) translateY(-4px);
         }
-        
+
         /* Provider List */
         .provider-grid {
             display: grid;
@@ -313,7 +313,7 @@
             gap: 20px;
             margin-top: 20px;
         }
-        
+
         .provider-card {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -323,7 +323,7 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .provider-card::before {
             content: '';
             position: absolute;
@@ -333,11 +333,11 @@
             height: 3px;
             background: var(--gradient-1);
         }
-        
+
         .provider-card.pending::before {
             background: var(--gradient-2);
         }
-        
+
         .provider-status {
             display: inline-flex;
             align-items: center;
@@ -349,37 +349,37 @@
             font-weight: 500;
             margin-bottom: 15px;
         }
-        
+
         .status-indicator {
             width: 6px;
             height: 6px;
             border-radius: 50%;
         }
-        
+
         .status-indicator.approved {
             background: var(--success);
         }
-        
+
         .status-indicator.pending {
             background: var(--warning);
         }
-        
+
         .provider-field {
             margin-bottom: 12px;
         }
-        
+
         .provider-label {
             font-size: 12px;
             color: var(--text-secondary);
             margin-bottom: 4px;
         }
-        
+
         .provider-value {
             font-size: 14px;
             word-break: break-all;
             font-family: 'Space Grotesk', monospace;
         }
-        
+
         /* Transactions */
         .tx-monitor {
             position: fixed;
@@ -388,7 +388,7 @@
             max-width: 400px;
             z-index: 1000;
         }
-        
+
         .tx-item {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -400,7 +400,7 @@
             gap: 12px;
             animation: slideIn 0.3s ease;
         }
-        
+
         @keyframes slideIn {
             from {
                 transform: translateX(100%);
@@ -411,7 +411,7 @@
                 opacity: 1;
             }
         }
-        
+
         .tx-spinner {
             width: 20px;
             height: 20px;
@@ -420,19 +420,19 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
         .tx-success {
             border-color: var(--success);
         }
-        
+
         .tx-error {
             border-color: var(--error);
         }
-        
+
         /* Auth Modal */
         .modal {
             position: fixed;
@@ -449,12 +449,12 @@
             visibility: hidden;
             transition: all 0.3s ease;
         }
-        
+
         .modal.show {
             opacity: 1;
             visibility: visible;
         }
-        
+
         .modal-content {
             background: var(--bg-card);
             border: 1px solid var(--border);
@@ -465,17 +465,17 @@
             transform: scale(0.9);
             transition: transform 0.3s ease;
         }
-        
+
         .modal.show .modal-content {
             transform: scale(1);
         }
-        
+
         .auth-options {
             display: grid;
             gap: 15px;
             margin-top: 20px;
         }
-        
+
         .auth-option {
             padding: 20px;
             background: var(--bg-secondary);
@@ -487,12 +487,12 @@
             align-items: center;
             justify-content: space-between;
         }
-        
+
         .auth-option:hover {
             border-color: var(--accent);
             transform: translateX(5px);
         }
-        
+
         /* Loading States */
         .loading {
             display: flex;
@@ -501,49 +501,49 @@
             padding: 40px;
             color: var(--text-secondary);
         }
-        
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
             color: var(--text-secondary);
         }
-        
+
         .empty-state h3 {
             font-size: 20px;
             margin-bottom: 10px;
             color: var(--text-primary);
         }
-        
+
         /* Responsive */
         @media (max-width: 768px) {
             .header {
                 flex-direction: column;
                 gap: 20px;
             }
-            
+
             .wallet-section {
                 width: 100%;
                 flex-wrap: wrap;
                 justify-content: center;
                 gap: 10px;
             }
-            
+
             .network-badge,
             .contract-badge {
                 font-size: 12px;
                 padding: 6px 12px;
             }
-            
+
             .provider-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .main-nav {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
         }
-        
+
         /* Safe-specific styles */
         .safe-proposal-success {
             background: var(--bg-secondary);
@@ -552,12 +552,12 @@
             padding: 20px;
             margin-top: 20px;
         }
-        
+
         .safe-proposal-success h4 {
             color: var(--accent);
             margin-bottom: 10px;
         }
-        
+
         .safe-proposal-success code {
             background: var(--bg-primary);
             padding: 4px 8px;
@@ -565,7 +565,7 @@
             font-family: 'Space Grotesk', monospace;
             font-size: 12px;
         }
-        
+
         .safe-link {
             display: inline-block;
             margin-top: 15px;
@@ -577,12 +577,12 @@
             font-weight: 500;
             transition: all 0.3s ease;
         }
-        
+
         .safe-link:hover {
             background: var(--accent-hover);
             transform: translateY(-2px);
         }
-        
+
         .safe-info {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -591,29 +591,29 @@
             margin-top: 15px;
             font-size: 14px;
         }
-        
+
         .safe-info p {
             margin: 5px 0;
             color: var(--text-secondary);
         }
-        
+
         /* Utilities */
         .hidden {
             display: none !important;
         }
-        
+
         .mt-4 {
             margin-top: 40px;
         }
-        
+
         .mb-4 {
             margin-bottom: 40px;
         }
-        
+
         .text-secondary {
             color: var(--text-secondary);
         }
-        
+
         .text-small {
             font-size: 14px;
         }
@@ -640,17 +640,17 @@
                 </button>
             </div>
         </header>
-        
+
         <!-- Main Navigation -->
         <nav class="main-nav">
             <div class="nav-item active" onclick="showSection('public')">Public View</div>
             <div class="nav-item" onclick="showSection('provider')">Provider Dashboard</div>
             <div class="nav-item" onclick="showSection('owner')">Owner Dashboard</div>
         </nav>
-        
+
         <!-- Safe Wallet Info -->
         <div id="safeInfo" class="safe-info hidden"></div>
-        
+
         <!-- Public Section -->
         <section id="publicSection" class="section">
             <div class="card">
@@ -666,7 +666,7 @@
                 </div>
             </div>
         </section>
-        
+
         <!-- Provider Section -->
         <section id="providerSection" class="section hidden">
             <div class="card">
@@ -674,13 +674,13 @@
                     <h2 class="card-title">Storage Provider Registration</h2>
                     <div class="card-badge" id="providerStatusBadge">Not Connected</div>
                 </div>
-                
+
                 <div id="providerContent">
                     <p class="text-secondary mb-4">Please connect your wallet to access provider functions.</p>
                 </div>
             </div>
         </section>
-        
+
         <!-- Owner Section -->
         <section id="ownerSection" class="section hidden">
             <div class="card">
@@ -688,20 +688,20 @@
                     <h2 class="card-title">Contract Administration</h2>
                     <div class="card-badge" id="ownerStatusBadge">Not Connected</div>
                 </div>
-                
+
                 <div id="ownerContent">
                     <p class="text-secondary mb-4">Please connect your wallet to access owner functions.</p>
                 </div>
             </div>
         </section>
     </div>
-    
+
     <!-- Auth Modal -->
     <div id="authModal" class="modal">
         <div class="modal-content">
             <h3>Connect Wallet</h3>
             <p class="text-secondary text-small mt-4">Choose your authentication method</p>
-            
+
             <div class="auth-options">
                 <div class="auth-option" onclick="connectWalletConnect()">
                     <div>
@@ -710,7 +710,7 @@
                     </div>
                     <span class="arrow">→</span>
                 </div>
-                
+
                 <div class="auth-option" onclick="connectMetaMask()">
                     <div>
                         <h4>MetaMask</h4>
@@ -718,7 +718,7 @@
                     </div>
                     <span class="arrow">→</span>
                 </div>
-                
+
                 <div class="auth-option" onclick="showPrivateKeyInput()">
                     <div>
                         <h4>Private Key</h4>
@@ -727,7 +727,7 @@
                     <span class="arrow">→</span>
                 </div>
             </div>
-            
+
             <div id="privateKeyInput" class="hidden mt-4">
                 <div class="form-group">
                     <label for="privateKey">Private Key</label>
@@ -738,14 +738,14 @@
                     <span class="arrow">↗</span>
                 </button>
             </div>
-            
+
             <button class="btn btn-secondary mt-4" onclick="hideAuthModal()">Cancel</button>
         </div>
     </div>
-    
+
     <!-- Transaction Monitor -->
     <div id="txMonitor" class="tx-monitor"></div>
-    
+
     <script>
         // Global state
         let pandoraService = null;
@@ -756,12 +756,12 @@
         let isSafeWallet = false;
         let appKit = null;
         let ownerSafeAddress = null;
-        
+
         // Contract configuration
         let PANDORA_ADDRESS = '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'; // Default Calibration testnet
         const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
         const REOWN_PROJECT_ID = '3af79672187c27368785f2182cc0b373'; // Replace with actual Reown project ID
-        
+
         // Check for custom Pandora address in URL params
         const urlParams = new URLSearchParams(window.location.search);
         const customPandora = urlParams.get('pandora');
@@ -769,7 +769,7 @@
             PANDORA_ADDRESS = customPandora;
             console.log('Using custom Pandora address:', PANDORA_ADDRESS);
         }
-        
+
         // Initialize on load
         window.addEventListener('load', async () => {
             // Check if required libraries are loaded
@@ -777,20 +777,20 @@
                 showTransaction('Error: ethers.js library not loaded', 'error');
                 return;
             }
-            
+
             if (typeof window.SynapseSDK === 'undefined') {
                 showTransaction('Error: Synapse SDK not loaded', 'error');
                 return;
             }
-            
+
             // Initialize Reown AppKit
             initializeAppKit();
-            
+
             // Update contract address display
             updateContractBadge();
-            
+
             await refreshProviders();
-            
+
             // Check if already connected from previous session
             setTimeout(async () => {
                 try {
@@ -798,7 +798,7 @@
                     if (connectedAddress) {
                         console.log('Found existing connection:', connectedAddress);
                         const walletProvider = appKit.getWalletProvider();
-                        
+
                         if (walletProvider) {
                             const ethersProvider = new ethers.BrowserProvider(walletProvider);
                             signer = await ethersProvider.getSigner();
@@ -810,7 +810,7 @@
                 }
             }, 2000);
         });
-        
+
         // Secret keyboard shortcut: Ctrl+Shift+P to change Pandora address
         let keySequence = [];
         document.addEventListener('keydown', (e) => {
@@ -819,29 +819,29 @@
                 showPandoraConfig();
             }
         });
-        
+
         // Check connection state (for debugging)
         async function checkConnectionState() {
             console.log('=== Checking Connection State ===');
             console.log('AppKit initialized:', !!appKit);
-            
+
             if (appKit) {
                 const address = appKit.getAddress();
                 const chainId = appKit.getChainId();
                 const isConnected = appKit.getIsConnected();
                 const walletProvider = appKit.getWalletProvider();
-                
+
                 console.log('Address:', address);
                 console.log('Chain ID:', chainId);
                 console.log('Is Connected:', isConnected);
                 console.log('Wallet Provider:', walletProvider);
                 console.log('Current Account (app state):', currentAccount);
                 console.log('Signer:', !!signer);
-                
+
                 if (address && !currentAccount) {
                     console.log('Wallet connected but app not initialized. Attempting to initialize...');
                     showTransaction('Re-initializing wallet connection...', 'pending');
-                    
+
                     try {
                         if (walletProvider) {
                             const ethersProvider = new ethers.BrowserProvider(walletProvider);
@@ -861,7 +861,7 @@
             }
             console.log('=== End Connection State ===');
         }
-        
+
         // Initialize Reown AppKit
         function initializeAppKit() {
             const filecoinCalibration = {
@@ -882,17 +882,17 @@
                     }
                 }
             };
-            
+
             const metadata = {
                 name: 'Pandora Admin Portal',
                 description: 'Manage storage providers on Filecoin',
                 url: window.location.origin,
                 icons: ['https://filecoin.io/favicon.ico']
             };
-            
+
             // Create Ethers adapter
             const ethersAdapter = new window.Reown.EthersAdapter();
-            
+
             appKit = window.Reown.createAppKit({
                 adapters: [ethersAdapter],
                 metadata,
@@ -911,15 +911,15 @@
                 }
             });
         }
-        
+
         function updateContractBadge() {
             const defaultAddress = '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5';
             const badge = document.getElementById('contractBadge');
             const addressSpan = badge.querySelector('.contract-address');
-            
+
             // Format address for display
             addressSpan.textContent = `${PANDORA_ADDRESS.slice(0, 6)}...${PANDORA_ADDRESS.slice(-4)}`;
-            
+
             // Add custom class if not default
             if (PANDORA_ADDRESS.toLowerCase() !== defaultAddress.toLowerCase()) {
                 badge.classList.add('custom');
@@ -929,11 +929,11 @@
                 badge.title = 'Default Pandora contract (click to change)';
             }
         }
-        
+
         function showPandoraConfig() {
             const currentAddress = PANDORA_ADDRESS;
             const newAddress = prompt('Enter Pandora contract address:', currentAddress);
-            
+
             if (newAddress && newAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
                 if (newAddress.toLowerCase() !== currentAddress.toLowerCase()) {
                     // Update address and reload with new parameter
@@ -945,7 +945,7 @@
                 showTransaction('Invalid address format', 'error');
             }
         }
-        
+
         // Section navigation
         function showSection(section) {
             // Update nav
@@ -953,72 +953,72 @@
                 nav.classList.remove('active');
             });
             event.target.classList.add('active');
-            
+
             // Update sections
             document.querySelectorAll('.section').forEach(sec => {
                 sec.classList.add('hidden');
             });
             document.getElementById(section + 'Section').classList.remove('hidden');
         }
-        
+
         // Auth modal
         function showAuthModal() {
             document.getElementById('authModal').classList.add('show');
         }
-        
+
         function hideAuthModal() {
             document.getElementById('authModal').classList.remove('show');
             document.getElementById('privateKeyInput').classList.add('hidden');
         }
-        
+
         function showPrivateKeyInput() {
             document.getElementById('privateKeyInput').classList.remove('hidden');
         }
-        
+
         // Wallet connection
         async function connectWalletConnect() {
             try {
                 hideAuthModal();
                 await appKit.open();
-                
+
                 // Wait a bit for the modal to settle
                 setTimeout(async () => {
                     try {
                         // Check if we're connected
                         const account = appKit.getAddress();
                         const chainId = appKit.getChainId();
-                        
+
                         console.log('WalletConnect state:', { account, chainId });
-                        
+
                         if (account) {
                             // Get the provider through the state
                             const walletProvider = appKit.getWalletProvider();
-                            
+
                             if (!walletProvider) {
                                 console.error('No wallet provider available');
                                 showTransaction('Failed to get wallet provider', 'error');
                                 return;
                             }
-                            
+
                             console.log('Got wallet provider:', walletProvider);
-                            
+
                             // Create ethers provider
                             const ethersProvider = new ethers.BrowserProvider(walletProvider);
                             signer = await ethersProvider.getSigner();
-                            
+
                             console.log('Connected account:', await signer.getAddress());
-                            
+
                             await initializeSynapse(ethersProvider, signer);
                         } else {
                             console.log('Not connected yet, subscribing to state changes...');
-                            
+
                             // Subscribe to state changes
                             const unsubscribe = appKit.subscribeState(async (state) => {
                                 console.log('State change:', state);
-                                
+
                                 if (state.isConnected && state.address) {
                                     unsubscribe();
-                                    
+
                                     const walletProvider = appKit.getWalletProvider();
                                     if (walletProvider) {
                                         const ethersProvider = new ethers.BrowserProvider(walletProvider);
@@ -1038,13 +1038,13 @@
                 showTransaction(`Failed to connect: ${error.message}`, 'error');
             }
         }
-        
+
         async function connectMetaMask() {
             if (typeof window.ethereum === 'undefined') {
                 showTransaction('Please install MetaMask', 'error');
                 return;
             }
-            
+
             try {
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 const provider = new ethers.BrowserProvider(window.ethereum);
@@ -1055,14 +1055,14 @@
                 showTransaction(`Failed to connect: ${error.message}`, 'error');
             }
         }
-        
+
         async function connectPrivateKey() {
             const privateKey = document.getElementById('privateKey').value.trim();
             if (!privateKey) {
                 showTransaction('Please enter a private key', 'error');
                 return;
             }
-            
+
             try {
                 const provider = new ethers.JsonRpcProvider(RPC_URL);
                 signer = new ethers.Wallet(privateKey, provider);
@@ -1073,7 +1073,7 @@
                 showTransaction(`Failed to connect: ${error.message}`, 'error');
             }
         }
-        
+
         // Check if connected wallet is a Safe
         async function checkIfSafeWallet(address, provider) {
             try {
@@ -1085,7 +1085,7 @@
                     ['function VERSION() view returns (string)'],
                     provider
                 );
-                
+
                 try {
                     const version = await safeContract.VERSION();
                     return version.startsWith('1.'); // Safe version 1.x.x
@@ -1096,19 +1096,19 @@
                 return false;
             }
         }
-        
+
         // Get Safes owned by an address using Safe Transaction Service API
         async function getSafesByOwner(ownerAddress) {
             try {
                 const response = await fetch(
                     `https://transaction-testnet.safe.filecoin.io/api/v1/owners/${ownerAddress}/safes/`
                 );
-                
+
                 if (!response.ok) {
                     console.log('Safe API response not ok:', response.status);
                     return [];
                 }
-                
+
                 const data = await response.json();
                 console.log('Safes owned by', ownerAddress, ':', data.safes);
                 return data.safes || [];
@@ -1117,7 +1117,7 @@
                 return [];
             }
         }
-        
+
         // Check if any of the user's Safes is the owner of Pandora
         async function checkSafeOwnership(userAddress, provider) {
             try {
@@ -1129,37 +1129,37 @@
                 );
                 const pandoraOwner = await pandoraContract.owner();
                 console.log('Pandora owner address:', pandoraOwner);
-                
+
                 // First check if Pandora owner is a Safe
                 const ownerIsSafe = await checkIfSafeWallet(pandoraOwner, provider);
                 if (!ownerIsSafe) {
                     console.log('Pandora owner is not a Safe contract');
                     return { isSafeOwner: false, ownerSafe: null };
                 }
-                
+
                 console.log('Pandora owner is a Safe:', pandoraOwner);
-                
+
                 // Get all Safes where the user is an owner
                 const userSafes = await getSafesByOwner(userAddress);
-                
+
                 // Check if any of the user's Safes matches the Pandora owner
                 const normalizedPandoraOwner = pandoraOwner.toLowerCase();
-                const matchingSafe = userSafes.find(safe => 
+                const matchingSafe = userSafes.find(safe =>
                     safe.toLowerCase() === normalizedPandoraOwner
                 );
-                
+
                 if (matchingSafe) {
                     console.log('User is a signer of the Safe that owns Pandora!');
                     return { isSafeOwner: true, ownerSafe: matchingSafe };
                 }
-                
+
                 // Also check if user is a direct signer of the Pandora owner Safe
                 const safeContract = new ethers.Contract(
                     pandoraOwner,
                     ['function isOwner(address) view returns (bool)'],
                     provider
                 );
-                
+
                 try {
                     const isDirectOwner = await safeContract.isOwner(userAddress);
                     if (isDirectOwner) {
@@ -1169,32 +1169,32 @@
                 } catch (error) {
                     console.log('Could not check direct ownership:', error);
                 }
-                
+
                 return { isSafeOwner: false, ownerSafe: null };
             } catch (error) {
                 console.error('Error checking Safe ownership:', error);
                 return { isSafeOwner: false, ownerSafe: null };
             }
         }
-        
+
         async function initializeSynapse(provider, signer) {
             const txId = showTransaction('Initializing wallet connection...');
-            
+
             try {
                 // Verify network
                 const network = await provider.getNetwork();
                 console.log('Connected to network:', network);
-                
+
                 if (network.chainId !== 314159n) {
                     updateTransaction(txId, 'Wrong network! Please switch to Filecoin Calibration', 'error');
                     return;
                 }
-                
+
                 // Get account info first
                 currentAccount = await signer.getAddress();
                 console.log('Account address:', currentAccount);
                 updateTransaction(txId, `Connected to ${currentAccount.slice(0, 6)}...${currentAccount.slice(-4)}`);
-                
+
                 // Initialize Synapse
                 console.log('Creating Synapse instance...');
                 synapse = await window.SynapseSDK.Synapse.create({
@@ -1202,22 +1202,22 @@
                     signer: signer
                 });
                 console.log('Synapse instance created');
-                
+
                 // Initialize PandoraService
                 console.log('Creating PandoraService with address:', PANDORA_ADDRESS);
                 pandoraService = new window.SynapseSDK.PandoraService(provider, PANDORA_ADDRESS);
                 console.log('PandoraService created');
-                
+
                 // Check ownership
                 console.log('Checking ownership...');
                 isOwner = await pandoraService.isOwner(signer);
                 console.log('Is direct owner:', isOwner);
-                
+
                 // Check if it's a Safe wallet
                 console.log('Checking if Safe wallet...');
                 isSafeWallet = await checkIfSafeWallet(currentAccount, provider);
                 console.log('Is Safe wallet:', isSafeWallet);
-                
+
                 // If not direct owner, check if user is a signer of a Safe that owns Pandora
                 if (!isOwner) {
                     console.log('Not direct owner, checking Safe ownership...');
@@ -1229,17 +1229,17 @@
                         updateTransaction(txId, `Connected as Safe signer (${ownerSafeAddress.slice(0, 6)}...${ownerSafeAddress.slice(-4)})`);
                     }
                 }
-                
+
                 // Update UI
                 updateWalletStatus();
                 await updateProviderSection();
                 await updateOwnerSection();
-                
+
                 updateTransaction(txId, 'Wallet connected successfully', 'success');
             } catch (error) {
                 console.error('Initialization error:', error);
                 updateTransaction(txId, `Initialization failed: ${error.message}`, 'error');
-                
+
                 // Reset state on error
                 currentAccount = null;
                 signer = null;
@@ -1251,14 +1251,14 @@
                 updateWalletStatus();
             }
         }
-        
+
         function updateWalletStatus() {
             const walletStatus = document.getElementById('walletStatus');
             const indicator = walletStatus.querySelector('.wallet-indicator');
             const text = walletStatus.querySelector('span');
             const safeInfoDiv = document.getElementById('safeInfo');
             const connectButton = document.getElementById('connectButton');
-            
+
             if (currentAccount) {
                 walletStatus.classList.add('connected');
                 indicator.classList.add('connected');
@@ -1285,7 +1285,7 @@
                     safeInfoDiv.classList.add('hidden');
                 }
                 text.textContent = statusText;
-                
+
                 // Update connect button to disconnect
                 connectButton.innerHTML = 'Disconnect <span class="arrow">↗</span>';
                 connectButton.onclick = disconnectWallet;
@@ -1294,35 +1294,35 @@
                 indicator.classList.remove('connected');
                 text.textContent = 'Not Connected';
                 safeInfoDiv.classList.add('hidden');
-                
+
                 // Reset connect button
                 connectButton.innerHTML = 'Connect Wallet <span class="arrow">↗</span>';
                 connectButton.onclick = showAuthModal;
             }
         }
-        
+
         // Provider functions
         async function updateProviderSection() {
             const content = document.getElementById('providerContent');
             const badge = document.getElementById('providerStatusBadge');
-            
+
             if (!currentAccount) {
                 badge.textContent = 'Not Connected';
                 content.innerHTML = '<p class="text-secondary mb-4">Please connect your wallet to access provider functions.</p>';
                 return;
             }
-            
+
             try {
                 // Check provider status
                 const isApproved = await pandoraService.isProviderApproved(currentAccount);
                 const providerId = await pandoraService.getProviderIdByAddress(currentAccount);
                 const pendingInfo = await pandoraService.getPendingProvider(currentAccount);
-                
+
                 if (isApproved) {
                     badge.textContent = 'Approved';
                     badge.style.color = 'var(--success)';
                     const providerInfo = await pandoraService.getApprovedProvider(providerId);
-                    
+
                     content.innerHTML = `
                         <div class="provider-card">
                             <div class="provider-status">
@@ -1346,7 +1346,7 @@
                 } else if (pendingInfo.registeredAt > 0) {
                     badge.textContent = 'Pending Approval';
                     badge.style.color = 'var(--warning)';
-                    
+
                     content.innerHTML = `
                         <div class="provider-card pending">
                             <div class="provider-status">
@@ -1371,7 +1371,7 @@
                 } else {
                     badge.textContent = 'Not Registered';
                     badge.style.color = 'var(--text-secondary)';
-                    
+
                     content.innerHTML = `
                         <form onsubmit="registerProvider(event)">
                             <div class="form-group">
@@ -1393,19 +1393,19 @@
                 content.innerHTML = `<p class="text-secondary">Error loading provider status: ${error.message}</p>`;
             }
         }
-        
+
         async function registerProvider(event) {
             event.preventDefault();
-            
+
             const pdpUrl = document.getElementById('pdpUrl').value;
             const retrievalUrl = document.getElementById('retrievalUrl').value;
-            
+
             const txId = showTransaction('Registering as storage provider...');
-            
+
             try {
                 const tx = await pandoraService.registerServiceProvider(signer, pdpUrl, retrievalUrl);
                 updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
-                
+
                 if (isSafeWallet) {
                     // Safe transaction proposed
                     updateTransaction(txId, 'Safe transaction proposed', 'success');
@@ -1415,45 +1415,45 @@
                     const receipt = await tx.wait();
                     updateTransaction(txId, 'Registration successful!', 'success');
                 }
-                
+
                 // Refresh provider section
                 await updateProviderSection();
             } catch (error) {
                 updateTransaction(txId, `Registration failed: ${error.message}`, 'error');
             }
         }
-        
+
         // Owner functions
         async function updateOwnerSection() {
             const content = document.getElementById('ownerContent');
             const badge = document.getElementById('ownerStatusBadge');
-            
+
             if (!currentAccount) {
                 badge.textContent = 'Not Connected';
                 content.innerHTML = '<p class="text-secondary mb-4">Please connect your wallet to access owner functions.</p>';
                 return;
             }
-            
+
             if (!isOwner) {
                 badge.textContent = 'Not Owner';
                 badge.style.color = 'var(--text-secondary)';
                 content.innerHTML = '<p class="text-secondary mb-4">You are not the contract owner. Owner functions are not available.</p>';
                 return;
             }
-            
+
             badge.textContent = 'Contract Owner';
             badge.style.color = 'var(--success)';
-            
+
             try {
                 // Get pending providers
                 const nextId = await pandoraService.getNextProviderId();
-                
+
                 content.innerHTML = `
                     <h3 class="mb-4">Pending Providers</h3>
                     <div id="pendingProvidersList" class="provider-grid mb-4">
                         <div class="loading">Loading pending providers...</div>
                     </div>
-                    
+
                     <div style="margin-top: 60px;">
                         <h3 class="mb-4">Add Provider Directly</h3>
                         <form onsubmit="addProviderDirectly(event)">
@@ -1475,7 +1475,7 @@
                             </button>
                         </form>
                     </div>
-                    
+
                     <div style="margin-top: 60px;">
                         <h3 class="mb-4">Remove Provider</h3>
                         <form onsubmit="removeProvider(event)">
@@ -1492,7 +1492,7 @@
                         </form>
                     </div>
                 `;
-                
+
                 // Load pending providers
                 await loadPendingProviders();
                 // Load approved providers for removal dropdown
@@ -1501,26 +1501,26 @@
                 content.innerHTML = `<p class="text-secondary">Error loading owner functions: ${error.message}</p>`;
             }
         }
-        
+
         async function loadApprovedProvidersDropdown() {
             const dropdown = document.getElementById('removeProviderId');
-            
+
             try {
                 // Get all approved providers
                 const providers = await pandoraService.getAllApprovedProviders();
-                
+
                 // Clear and populate dropdown
                 dropdown.innerHTML = '';
-                
+
                 if (providers.length === 0) {
                     dropdown.innerHTML = '<option value="">No approved providers</option>';
                     dropdown.disabled = true;
                     return;
                 }
-                
+
                 // Add empty option
                 dropdown.innerHTML = '<option value="">Select a provider...</option>';
-                
+
                 // Get provider IDs for each
                 for (let i = 0; i < providers.length; i++) {
                     const provider = providers[i];
@@ -1536,46 +1536,46 @@
                         console.error('Error getting provider ID:', error);
                     }
                 }
-                
+
                 dropdown.disabled = false;
             } catch (error) {
                 dropdown.innerHTML = '<option value="">Error loading providers</option>';
                 dropdown.disabled = true;
             }
         }
-        
+
         async function loadPendingProviders() {
             const pendingList = document.getElementById('pendingProvidersList');
-            
+
             try {
                 // Get contract owner first to ensure we're authorized
                 const contractOwner = await pandoraService.getOwner();
-                
+
                 // Since there's no direct way to list all pending providers,
                 // we need to listen to past ServiceProviderRegistered events
                 const provider = signer.provider;
-                
+
                 // Check if Pandora ABI is available
                 if (!window.SynapseSDK.CONTRACT_ABIS || !window.SynapseSDK.CONTRACT_ABIS.PANDORA) {
                     pendingList.innerHTML = '<p class="text-secondary">Pandora contract ABI not available. Cannot load pending providers.</p>';
                     return;
                 }
-                
+
                 const pandoraContract = new ethers.Contract(PANDORA_ADDRESS, window.SynapseSDK.CONTRACT_ABIS.PANDORA, provider);
-                
+
                 // Get recent registration events (last 1000 blocks)
                 const currentBlock = await provider.getBlockNumber();
                 const fromBlock = Math.max(0, currentBlock - 1000);
-                
+
                 const filter = pandoraContract.filters.ServiceProviderRegistered();
                 const events = await pandoraContract.queryFilter(filter, fromBlock, currentBlock);
-                
+
                 // Check each registered address to see if it's still pending
                 const pendingProviders = [];
                 for (const event of events) {
                     const providerAddress = event.args[0];
                     const isApproved = await pandoraService.isProviderApproved(providerAddress);
-                    
+
                     if (!isApproved) {
                         const pendingInfo = await pandoraService.getPendingProvider(providerAddress);
                         if (pendingInfo.registeredAt > 0) {
@@ -1586,7 +1586,7 @@
                         }
                     }
                 }
-                
+
                 if (pendingProviders.length === 0) {
                     pendingList.innerHTML = `
                         <div class="empty-state">
@@ -1595,7 +1595,7 @@
                     `;
                     return;
                 }
-                
+
                 pendingList.innerHTML = pendingProviders.map((provider) => `
                     <div class="provider-card pending">
                         <div class="provider-status">
@@ -1633,23 +1633,44 @@
                 pendingList.innerHTML = `<p class="text-secondary">Error loading pending providers: ${error.message}</p>`;
             }
         }
-        
+
         async function approveProvider(address) {
             const txId = showTransaction('Approving provider...');
-            
+
             try {
-                const tx = await pandoraService.approveServiceProvider(signer, address);
-                updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
-                
-                if (isSafeWallet) {
-                    // Safe transaction proposed
-                    updateTransaction(txId, 'Safe transaction proposed', 'success');
-                    showSafeProposalSuccess(tx.hash, currentAccount);
+                // If owner is a Safe, we need to create a Safe transaction
+                if (ownerSafeAddress) {
+                    // Create the transaction data for approveServiceProvider
+                    const pandoraInterface = new ethers.Interface(window.SynapseSDK.CONTRACT_ABIS.PANDORA);
+                    const txData = pandoraInterface.encodeFunctionData('approveServiceProvider', [address]);
+
+                    // Create and submit Safe transaction
+                    updateTransaction(txId, 'Creating Safe transaction...');
+                    const safeTxHash = await createAndSubmitSafeTransaction(
+                        ownerSafeAddress,
+                        PANDORA_ADDRESS,
+                        txData,
+                        '0',
+                        `Approve Provider ${address.slice(0, 6)}...${address.slice(-4)}`
+                    );
+
+                    updateTransaction(txId, 'Safe transaction submitted!', 'success');
+                    showSafeTransactionStatus(safeTxHash, ownerSafeAddress);
+
+                    // Refresh after a delay
+                    setTimeout(async () => {
+                        await refreshProviders();
+                        await updateOwnerSection();
+                    }, 5000);
                 } else {
+                    // Direct transaction (non-Safe owner)
+                    const tx = await pandoraService.approveServiceProvider(signer, address);
+                    updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
+
                     // Regular transaction - wait for confirmation
                     const receipt = await tx.wait();
                     updateTransaction(txId, 'Provider approved!', 'success');
-                    
+
                     // Refresh lists
                     await refreshProviders();
                     await updateOwnerSection();
@@ -1658,23 +1679,43 @@
                 updateTransaction(txId, `Approval failed: ${error.message}`, 'error');
             }
         }
-        
+
         async function rejectProvider(address) {
             const txId = showTransaction('Rejecting provider...');
-            
+
             try {
-                const tx = await pandoraService.rejectServiceProvider(signer, address);
-                updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
-                
-                if (isSafeWallet) {
-                    // Safe transaction proposed
-                    updateTransaction(txId, 'Safe transaction proposed', 'success');
-                    showSafeProposalSuccess(tx.hash, currentAccount);
+                // If owner is a Safe, we need to create a Safe transaction
+                if (ownerSafeAddress) {
+                    // Create the transaction data for rejectServiceProvider
+                    const pandoraInterface = new ethers.Interface(window.SynapseSDK.CONTRACT_ABIS.PANDORA);
+                    const txData = pandoraInterface.encodeFunctionData('rejectServiceProvider', [address]);
+
+                    // Create and submit Safe transaction
+                    updateTransaction(txId, 'Creating Safe transaction...');
+                    const safeTxHash = await createAndSubmitSafeTransaction(
+                        ownerSafeAddress,
+                        PANDORA_ADDRESS,
+                        txData,
+                        '0',
+                        `Reject Provider ${address.slice(0, 6)}...${address.slice(-4)}`
+                    );
+
+                    updateTransaction(txId, 'Safe transaction submitted!', 'success');
+                    showSafeTransactionStatus(safeTxHash, ownerSafeAddress);
+
+                    // Refresh after a delay
+                    setTimeout(async () => {
+                        await updateOwnerSection();
+                    }, 5000);
                 } else {
+                    // Direct transaction (non-Safe owner)
+                    const tx = await pandoraService.rejectServiceProvider(signer, address);
+                    updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
+
                     // Regular transaction - wait for confirmation
                     const receipt = await tx.wait();
                     updateTransaction(txId, 'Provider rejected!', 'success');
-                    
+
                     // Refresh lists
                     await updateOwnerSection();
                 }
@@ -1682,27 +1723,46 @@
                 updateTransaction(txId, `Rejection failed: ${error.message}`, 'error');
             }
         }
-        
+
         async function removeProvider(event) {
             event.preventDefault();
-            
+
             const providerId = document.getElementById('removeProviderId').value;
             const txId = showTransaction('Removing provider...');
-            
+
             try {
-                const tx = await pandoraService.removeServiceProvider(signer, parseInt(providerId));
-                updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
-                
-                if (isSafeWallet) {
-                    // Safe transaction proposed
-                    updateTransaction(txId, 'Safe transaction proposed', 'success');
-                    showSafeProposalSuccess(tx.hash, currentAccount);
+                // If owner is a Safe, we need to create a Safe transaction
+                if (ownerSafeAddress) {
+                    // Create the transaction data for removeServiceProvider
+                    const pandoraInterface = new ethers.Interface(window.SynapseSDK.CONTRACT_ABIS.PANDORA);
+                    const txData = pandoraInterface.encodeFunctionData('removeServiceProvider', [parseInt(providerId)]);
+
+                    // Create and submit Safe transaction
+                    updateTransaction(txId, 'Creating Safe transaction...');
+                    const safeTxHash = await createAndSubmitSafeTransaction(
+                        ownerSafeAddress,
+                        PANDORA_ADDRESS,
+                        txData,
+                        '0',
+                        `Remove Provider #${providerId}`
+                    );
+
+                    updateTransaction(txId, 'Safe transaction submitted!', 'success');
+                    showSafeTransactionStatus(safeTxHash, ownerSafeAddress);
+
                     document.getElementById('removeProviderId').value = '';
+
+                    // Refresh after a delay to allow transaction to process
+                    setTimeout(() => refreshProviders(), 5000);
                 } else {
+                    // Direct transaction (non-Safe owner)
+                    const tx = await pandoraService.removeServiceProvider(signer, parseInt(providerId));
+                    updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
+
                     // Regular transaction - wait for confirmation
                     const receipt = await tx.wait();
                     updateTransaction(txId, 'Provider removed!', 'success');
-                    
+
                     // Refresh lists
                     await refreshProviders();
                     document.getElementById('removeProviderId').value = '';
@@ -1711,38 +1771,59 @@
                 updateTransaction(txId, `Removal failed: ${error.message}`, 'error');
             }
         }
-        
+
         async function addProviderDirectly(event) {
             event.preventDefault();
-            
+
             const providerAddress = document.getElementById('addProviderAddress').value.trim();
             const pdpUrl = document.getElementById('addPdpUrl').value.trim();
             const retrievalUrl = document.getElementById('addRetrievalUrl').value.trim();
-            
+
             const txId = showTransaction('Adding provider directly...');
-            
+
             try {
-                const tx = await pandoraService.addServiceProvider(signer, providerAddress, pdpUrl, retrievalUrl);
-                updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
-                
-                if (isSafeWallet || ownerSafeAddress) {
-                    // Safe transaction proposed
-                    updateTransaction(txId, 'Safe transaction proposed', 'success');
-                    showSafeProposalSuccess(tx.hash, ownerSafeAddress || currentAccount);
-                    
+                // If owner is a Safe, we need to create a Safe transaction
+                if (ownerSafeAddress) {
+                    // Create the transaction data for addServiceProvider
+                    const pandoraInterface = new ethers.Interface(window.SynapseSDK.CONTRACT_ABIS.PANDORA);
+                    const txData = pandoraInterface.encodeFunctionData('addServiceProvider', [providerAddress, pdpUrl, retrievalUrl]);
+
+                    // Create and submit Safe transaction
+                    updateTransaction(txId, 'Creating Safe transaction...');
+                    const safeTxHash = await createAndSubmitSafeTransaction(
+                        ownerSafeAddress,
+                        PANDORA_ADDRESS,
+                        txData,
+                        '0',
+                        `Add Provider ${providerAddress.slice(0, 6)}...${providerAddress.slice(-4)}`
+                    );
+
+                    updateTransaction(txId, 'Safe transaction submitted!', 'success');
+                    showSafeTransactionStatus(safeTxHash, ownerSafeAddress);
+
                     // Clear form fields
                     document.getElementById('addProviderAddress').value = '';
                     document.getElementById('addPdpUrl').value = '';
                     document.getElementById('addRetrievalUrl').value = '';
+
+                    // Refresh after a delay
+                    setTimeout(async () => {
+                        await refreshProviders();
+                        await updateOwnerSection();
+                    }, 5000);
                 } else {
+                    // Direct transaction (non-Safe owner)
+                    const tx = await pandoraService.addServiceProvider(signer, providerAddress, pdpUrl, retrievalUrl);
+                    updateTransaction(txId, `Transaction submitted: ${tx.hash.slice(0, 10)}...`);
+
                     // Regular transaction - wait for confirmation
                     const receipt = await tx.wait();
                     updateTransaction(txId, 'Provider added successfully!', 'success');
-                    
+
                     // Refresh provider lists
                     await refreshProviders();
                     await updateOwnerSection();
-                    
+
                     // Clear form fields
                     document.getElementById('addProviderAddress').value = '';
                     document.getElementById('addPdpUrl').value = '';
@@ -1752,19 +1833,19 @@
                 updateTransaction(txId, `Failed to add provider: ${error.message}`, 'error');
             }
         }
-        
+
         // Public view functions
         async function refreshProviders() {
             const providersList = document.getElementById('providersList');
             providersList.innerHTML = '<div class="loading">Loading providers...</div>';
-            
+
             try {
                 // Initialize temporary provider for public queries
                 const provider = new ethers.JsonRpcProvider(RPC_URL);
                 const tempPandoraService = new window.SynapseSDK.PandoraService(provider, PANDORA_ADDRESS);
-                
+
                 const providers = await tempPandoraService.getAllApprovedProviders();
-                
+
                 if (providers.length === 0) {
                     providersList.innerHTML = `
                         <div class="empty-state">
@@ -1774,7 +1855,7 @@
                     `;
                     return;
                 }
-                
+
                 // Get provider IDs for each approved provider
                 const providersWithIds = await Promise.all(providers.map(async (provider) => {
                     try {
@@ -1784,7 +1865,7 @@
                         return { ...provider, providerId: 'Unknown' };
                     }
                 }));
-                
+
                 providersList.innerHTML = providersWithIds.map((provider) => `
                     <div class="provider-card">
                         <div class="provider-status">
@@ -1809,15 +1890,15 @@
                 providersList.innerHTML = `<p class="text-secondary">Error loading providers: ${error.message}</p>`;
             }
         }
-        
+
         // Transaction monitoring
         let txCounter = 0;
         const activeTxs = new Map();
-        
+
         function showTransaction(message, type = 'pending') {
             const txId = `tx-${++txCounter}`;
             const txMonitor = document.getElementById('txMonitor');
-            
+
             const txElement = document.createElement('div');
             txElement.id = txId;
             txElement.className = `tx-item ${type === 'error' ? 'tx-error' : type === 'success' ? 'tx-success' : ''}`;
@@ -1828,22 +1909,22 @@
                     <div class="text-secondary text-small">${new Date().toLocaleTimeString()}</div>
                 </div>
             `;
-            
+
             txMonitor.appendChild(txElement);
             activeTxs.set(txId, txElement);
-            
+
             // Auto-remove after 10 seconds if not pending
             if (type !== 'pending') {
                 setTimeout(() => removeTx(txId), 10000);
             }
-            
+
             return txId;
         }
-        
+
         function updateTransaction(txId, message, type = 'pending') {
             const txElement = activeTxs.get(txId);
             if (!txElement) return;
-            
+
             txElement.className = `tx-item ${type === 'error' ? 'tx-error' : type === 'success' ? 'tx-success' : ''}`;
             txElement.innerHTML = `
                 ${type === 'pending' ? '<div class="tx-spinner"></div>' : ''}
@@ -1852,13 +1933,13 @@
                     <div class="text-secondary text-small">${new Date().toLocaleTimeString()}</div>
                 </div>
             `;
-            
+
             // Auto-remove after 10 seconds if complete
             if (type !== 'pending') {
                 setTimeout(() => removeTx(txId), 10000);
             }
         }
-        
+
         function removeTx(txId) {
             const txElement = activeTxs.get(txId);
             if (txElement) {
@@ -1869,8 +1950,352 @@
                 }, 300);
             }
         }
-        
+
         // Safe-specific functions
+        async function createSafeTransaction(safeAddress, to, data, value = '0') {
+            // Create a Safe transaction object
+            const safeTx = {
+                to: to,
+                value: value,
+                data: data,
+                operation: 0, // 0 = Call, 1 = DelegateCall
+                safeTxGas: 0,
+                baseGas: 0,
+                gasPrice: 0,
+                gasToken: '0x0000000000000000000000000000000000000000',
+                refundReceiver: '0x0000000000000000000000000000000000000000',
+                nonce: await getSafeNonce(safeAddress)
+            };
+
+            return safeTx;
+        }
+
+        async function getSafeNonce(safeAddress) {
+            try {
+                const safeContract = new ethers.Contract(
+                    safeAddress,
+                    ['function nonce() view returns (uint256)'],
+                    signer.provider
+                );
+                return await safeContract.nonce();
+            } catch (error) {
+                console.error('Failed to get Safe nonce:', error);
+                return 0;
+            }
+        }
+
+        async function createAndSubmitSafeTransaction(safeAddress, to, data, value = '0', description = '') {
+            try {
+                // Get Safe nonce
+                const nonce = await getSafeNonce(safeAddress);
+
+                // Create Safe transaction
+                const safeTx = {
+                    to: to,
+                    value: value,
+                    data: data,
+                    operation: 0, // 0 = Call
+                    safeTxGas: 0,
+                    baseGas: 0,
+                    gasPrice: 0,
+                    gasToken: ethers.ZeroAddress,
+                    refundReceiver: ethers.ZeroAddress,
+                    nonce: nonce
+                };
+
+                // Generate EIP-712 transaction hash
+                const safeTxHash = await generateSafeTxHash(safeAddress, safeTx);
+
+                // Sign the transaction hash using WalletConnect
+                // For Safe transactions, we need to use personal_sign
+                const signature = await signer.signMessage(ethers.getBytes(safeTxHash));
+
+                // Prepare signature in the format Safe expects (v,r,s)
+                const sig = ethers.Signature.from(signature);
+                const formattedSignature = sig.r + sig.s.slice(2) + (sig.v).toString(16).padStart(2, '0');
+
+                // Submit to Safe Transaction Service
+                const safeServiceUrl = 'https://transaction-testnet.safe.filecoin.io';
+                const signerAddress = await signer.getAddress();
+
+                const payload = {
+                    safe: safeAddress,
+                    to: safeTx.to,
+                    value: safeTx.value,
+                    data: safeTx.data || null,
+                    operation: safeTx.operation,
+                    safeTxGas: safeTx.safeTxGas,
+                    baseGas: safeTx.baseGas,
+                    gasPrice: safeTx.gasPrice,
+                    gasToken: safeTx.gasToken,
+                    refundReceiver: safeTx.refundReceiver,
+                    nonce: Number(safeTx.nonce),
+                    contractTransactionHash: safeTxHash,
+                    sender: signerAddress,
+                    signature: formattedSignature,
+                    origin: JSON.stringify({
+                        name: 'Pandora Admin Portal',
+                        url: window.location.origin,
+                        description: description
+                    })
+                };
+
+                console.log('Submitting Safe transaction:', payload);
+
+                const response = await fetch(`${safeServiceUrl}/api/v1/safes/${safeAddress}/multisig-transactions/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = 'Failed to submit Safe transaction';
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        errorMessage = errorJson.detail || errorJson.message || errorText;
+                    } catch {
+                        errorMessage = errorText;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                return safeTxHash;
+            } catch (error) {
+                console.error('Failed to create/submit Safe transaction:', error);
+                throw error;
+            }
+        }
+
+        async function showSafeTransactionStatus(safeTxHash, safeAddress) {
+            const safeUrl = `https://safe.filecoin.io/transactions/queue?safe=fil:${safeAddress}`;
+            const apiUrl = `https://transaction-testnet.safe.filecoin.io/api/v1/multisig-transactions/${safeTxHash}/`;
+
+            const modalContent = `
+                <div class="safe-proposal-success">
+                    <h4>Safe Transaction Submitted</h4>
+                    <p>The transaction has been submitted to your Safe.</p>
+                    <p style="margin: 10px 0;">
+                        <strong>Transaction Hash:</strong><br>
+                        <code style="font-size: 11px; word-break: break-all;">${safeTxHash}</code>
+                    </p>
+                    <p>If this is a multi-sig Safe, other owners will need to sign the transaction.</p>
+                    <div style="margin-top: 20px; display: flex; gap: 10px;">
+                        <a href="${safeUrl}" target="_blank" class="safe-link">
+                            View in Safe →
+                        </a>
+                        <button onclick="checkSafeTransactionStatus('${safeTxHash}')" class="btn btn-secondary" style="padding: 10px 20px;">
+                            Check Status
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const txId = showTransaction('Safe transaction submitted', 'success');
+            const txElement = activeTxs.get(txId);
+            if (txElement) {
+                txElement.innerHTML = modalContent;
+                setTimeout(() => removeTx(txId), 60000); // Keep for 1 minute
+            }
+        }
+
+        async function checkSafeTransactionStatus(safeTxHash) {
+            try {
+                const response = await fetch(`https://transaction-testnet.safe.filecoin.io/api/v1/multisig-transactions/${safeTxHash}/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const confirmations = data.confirmations ? data.confirmations.length : 0;
+                    const threshold = data.confirmationsRequired || 1;
+                    const isExecuted = data.isExecuted;
+
+                    let status = `Confirmations: ${confirmations}/${threshold}`;
+                    if (isExecuted) {
+                        status = '✅ Executed';
+                        showTransaction(`Safe transaction executed!`, 'success');
+                    } else if (confirmations >= threshold) {
+                        status = '⏳ Ready to execute';
+                        showTransaction(`Safe transaction has enough signatures and can be executed`, 'success');
+                    } else {
+                        showTransaction(`Safe transaction status: ${status}`, 'pending');
+                    }
+                } else {
+                    showTransaction('Failed to check transaction status', 'error');
+                }
+            } catch (error) {
+                showTransaction('Failed to check transaction status', 'error');
+            }
+        }
+
+        async function generateSafeTxHash(safeAddress, safeTx) {
+            // EIP-712 typed data for Safe transactions
+            const domain = {
+                chainId: 314159, // Filecoin Calibration
+                verifyingContract: safeAddress
+            };
+
+            const types = {
+                SafeTx: [
+                    { name: 'to', type: 'address' },
+                    { name: 'value', type: 'uint256' },
+                    { name: 'data', type: 'bytes' },
+                    { name: 'operation', type: 'uint8' },
+                    { name: 'safeTxGas', type: 'uint256' },
+                    { name: 'baseGas', type: 'uint256' },
+                    { name: 'gasPrice', type: 'uint256' },
+                    { name: 'gasToken', type: 'address' },
+                    { name: 'refundReceiver', type: 'address' },
+                    { name: 'nonce', type: 'uint256' }
+                ]
+            };
+
+            const message = safeTx;
+
+            // Use ethers v6 TypedDataEncoder
+            const hash = ethers.TypedDataEncoder.hash(domain, types, message);
+            return hash;
+        }
+
+        function showSafeProposalInfo(safeTx, safeAddress) {
+            // For WalletConnect users, direct them to the Safe web interface
+            const safeUrl = `https://safe.filecoin.io/home?safe=fil:${safeAddress}`;
+
+            // Decode the function call for user clarity
+            let functionName = 'Unknown';
+            try {
+                const pandoraInterface = new ethers.Interface(window.SynapseSDK.CONTRACT_ABIS.PANDORA);
+                const decoded = pandoraInterface.parseTransaction({ data: safeTx.data });
+                functionName = decoded.name;
+            } catch (e) {
+                console.error('Failed to decode function:', e);
+            }
+
+            // Create a Safe Transaction Builder compatible JSON
+            const txBuilderJson = {
+                version: "1.0",
+                chainId: "314159",
+                createdAt: Date.now(),
+                meta: {
+                    name: `Pandora Admin: ${functionName}`,
+                    description: `Execute ${functionName} on Pandora contract`,
+                },
+                transactions: [{
+                    to: safeTx.to,
+                    value: safeTx.value || "0",
+                    data: safeTx.data,
+                    contractMethod: {
+                        inputs: [],
+                        name: functionName,
+                        payable: false
+                    },
+                    contractInputsValues: null
+                }]
+            };
+
+            const modalContent = `
+                <div class="safe-proposal-success">
+                    <h4>Safe Transaction Required</h4>
+                    <p>This action requires a Safe multisig transaction.</p>
+
+                    <div style="margin: 20px 0;">
+                        <h5>Option 1: Use Transaction Builder (Recommended)</h5>
+                        <ol style="font-size: 14px; line-height: 1.8;">
+                            <li>Open your Safe interface</li>
+                            <li>Go to "New Transaction" → "Transaction Builder"</li>
+                            <li>Click "Import" and paste the JSON below</li>
+                            <li>Review and create the transaction</li>
+                        </ol>
+                        <div style="position: relative; margin: 10px 0;">
+                            <textarea id="txBuilderData" style="width: 100%; height: 120px; font-family: monospace; font-size: 11px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; padding: 10px; color: var(--text-secondary);" readonly>${JSON.stringify(txBuilderJson, null, 2)}</textarea>
+                            <button onclick="copyTxBuilderData()" class="btn btn-secondary" style="position: absolute; top: 5px; right: 5px; padding: 5px 10px; font-size: 12px;">
+                                Copy JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="margin: 20px 0;">
+                        <h5>Option 2: Manual Entry</h5>
+                        <p style="font-size: 14px;">Create a custom transaction with these details:</p>
+                        <table style="width: 100%; font-size: 12px; margin: 10px 0;">
+                            <tr>
+                                <td style="padding: 5px; font-weight: 600;">Contract:</td>
+                                <td style="padding: 5px; font-family: monospace;">
+                                    <span id="contractAddr">${safeTx.to}</span>
+                                    <button onclick="copyText('contractAddr')" style="margin-left: 5px; padding: 2px 6px; font-size: 10px;">Copy</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; font-weight: 600;">Function:</td>
+                                <td style="padding: 5px; font-family: monospace;">${functionName}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; font-weight: 600;">ABI:</td>
+                                <td style="padding: 5px;">
+                                    <button onclick="copyPandoraABI()" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">
+                                        Copy Pandora ABI
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 5px; font-weight: 600;">Raw Data:</td>
+                                <td style="padding: 5px;">
+                                    <div style="word-break: break-all; font-family: monospace; font-size: 11px; max-height: 60px; overflow-y: auto; background: var(--bg-primary); padding: 5px; border-radius: 4px;">
+                                        <span id="txData">${safeTx.data}</span>
+                                    </div>
+                                    <button onclick="copyText('txData')" style="margin-top: 5px; padding: 2px 6px; font-size: 10px;">Copy</button>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <a href="${safeUrl}" target="_blank" class="safe-link">
+                        Open Safe Interface →
+                    </a>
+                </div>
+            `;
+
+            // Create a special transaction entry for Safe
+            const txId = showTransaction('Safe transaction required', 'success');
+            const txElement = activeTxs.get(txId);
+            if (txElement) {
+                txElement.innerHTML = modalContent;
+                setTimeout(() => removeTx(txId), 120000); // Remove after 2 minutes
+            }
+        }
+
+        // Helper function to copy text
+        function copyText(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showTransaction('Copied to clipboard!', 'success');
+            }).catch(err => {
+                showTransaction('Failed to copy', 'error');
+            });
+        }
+
+        // Helper function to copy transaction builder data
+        function copyTxBuilderData() {
+            const element = document.getElementById('txBuilderData');
+            const text = element.value;
+            navigator.clipboard.writeText(text).then(() => {
+                showTransaction('Transaction JSON copied!', 'success');
+            }).catch(err => {
+                showTransaction('Failed to copy', 'error');
+            });
+        }
+
+        // Helper function to copy Pandora ABI
+        function copyPandoraABI() {
+            const abi = JSON.stringify(window.SynapseSDK.CONTRACT_ABIS.PANDORA, null, 2);
+            navigator.clipboard.writeText(abi).then(() => {
+                showTransaction('Pandora ABI copied!', 'success');
+            }).catch(err => {
+                showTransaction('Failed to copy ABI', 'error');
+            });
+        }
+
         function showSafeProposalSuccess(safeTxHash, safeAddress) {
             const safeUrl = `https://app.safe.global/transactions/queue?safe=fil:${safeAddress}`;
             const modalContent = `
@@ -1883,7 +2308,7 @@
                     </a>
                 </div>
             `;
-            
+
             // Create a special transaction entry for Safe
             const txId = showTransaction('Safe transaction proposed', 'success');
             const txElement = activeTxs.get(txId);
@@ -1894,7 +2319,7 @@
                 setTimeout(() => removeTx(txId), 30000); // Remove after 30 seconds
             }
         }
-        
+
         // Disconnect wallet function
         async function disconnectWallet() {
             try {
@@ -1928,7 +2353,7 @@
                 await updateOwnerSection();
             }
         }
-        
+
         // Listen for account changes
         if (typeof window.ethereum !== 'undefined') {
             window.ethereum.on('accountsChanged', async (accounts) => {
