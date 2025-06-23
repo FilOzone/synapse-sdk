@@ -33,6 +33,7 @@ import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
 import { toHex } from 'multiformats/bytes'
+import { validateProofSetCreationStatusResponse, validateRootAdditionStatusResponse, validateFindPieceResponse } from './validation.js'
 
 /**
  * Response from creating a proof set
@@ -79,7 +80,9 @@ export interface AddRootsResponse {
  */
 export interface FindPieceResponse {
   /** The piece CID that was found */
-  piece_cid: string
+  pieceCid: string
+  /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
+  piece_cid?: string
 }
 
 /**
@@ -339,7 +342,8 @@ export class PDPServer {
       throw new Error(`Failed to get proof set creation status: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    return await response.json() as ProofSetCreationStatusResponse
+    const data = await response.json()
+    return validateProofSetCreationStatusResponse(data)
   }
 
   /**
@@ -371,7 +375,8 @@ export class PDPServer {
       throw new Error(`Failed to get root addition status: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    return await response.json() as RootAdditionStatusResponse
+    const data = await response.json()
+    return validateRootAdditionStatusResponse(data)
   }
 
   /**
@@ -401,8 +406,8 @@ export class PDPServer {
       throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const result = await response.json() as FindPieceResponse
-    return result
+    const data = await response.json()
+    return validateFindPieceResponse(data)
   }
 
   /**
