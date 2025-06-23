@@ -11,7 +11,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@filoz/synapse-sdk": "^0.10.0",
+    "@filoz/synapse-sdk": "^0.13.0",
     "@reown/appkit": "^1.7.9",
     "@reown/appkit-adapter-ethers": "^1.7.9",
     "ethers": "^6.9.0"
