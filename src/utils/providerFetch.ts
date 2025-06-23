@@ -119,7 +119,7 @@ export async function fetchPiecesFromProviders (
       const failureDetails = failures.map((f) => `${f.provider}: ${f.error}`).join('; ')
       throw createError(
         retrieverName,
-        'fetchFromProviders',
+        'fetchPiecesFromProviders',
         `All providers failed to serve piece ${commp.toString()}. Details: ${failureDetails}`
       )
     }

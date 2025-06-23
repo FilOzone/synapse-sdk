@@ -536,7 +536,7 @@ Provides a flexible interface for querying data from a Pandora subgraph. It supp
 import { SubgraphService } from '@filoz/synapse-sdk/subgraph'
 
 const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/some/subgraph'
-const subgraphService = new SubgraphService(subgraphUrl)
+const subgraphService = new SubgraphService({ endpoint: subgraphUrl })
 
 // Example: Query for active providers with custom filtering
 const activeProviders = await subgraphService.queryProviders({
