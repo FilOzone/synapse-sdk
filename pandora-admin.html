@@ -2074,18 +2074,80 @@
 
                 // Generate EIP-712 transaction hash
                 const safeTxHash = await generateSafeTxHash(safeAddress, safeTx);
+                
+                console.log('Safe tx hash:', safeTxHash);
+                console.log('Safe tx hash bytes:', ethers.getBytes(safeTxHash));
 
-                // Sign the transaction hash using WalletConnect
-                // For Safe transactions, we need to use personal_sign
-                const signature = await signer.signMessage(ethers.getBytes(safeTxHash));
+                // Sign the Safe transaction
+                // Try using typed data signing for Safe
+                let signature;
+                try {
+                    // First try typed data signing (EIP-712)
+                    const domain = {
+                        chainId: 314159,
+                        verifyingContract: safeAddress
+                    };
+                    
+                    const types = {
+                        SafeTx: [
+                            { name: 'to', type: 'address' },
+                            { name: 'value', type: 'uint256' },
+                            { name: 'data', type: 'bytes' },
+                            { name: 'operation', type: 'uint8' },
+                            { name: 'safeTxGas', type: 'uint256' },
+                            { name: 'baseGas', type: 'uint256' },
+                            { name: 'gasPrice', type: 'uint256' },
+                            { name: 'gasToken', type: 'address' },
+                            { name: 'refundReceiver', type: 'address' },
+                            { name: 'nonce', type: 'uint256' }
+                        ]
+                    };
+                    
+                    console.log('Attempting EIP-712 signature...');
+                    signature = await signer.signTypedData(domain, types, safeTx);
+                    console.log('EIP-712 signature successful');
+                } catch (typedDataError) {
+                    console.log('EIP-712 failed, falling back to personal sign:', typedDataError);
+                    // Fallback to personal message signing
+                    signature = await signer.signMessage(ethers.getBytes(safeTxHash));
+                }
 
                 console.log('Raw signature:', signature);
                 console.log('Raw signature type:', typeof signature);
                 
                 // Verify the signature to see which address actually signed
                 try {
-                    const recoveredAddress = ethers.verifyMessage(ethers.getBytes(safeTxHash), signature);
-                    console.log('Recovered address from signature:', recoveredAddress);
+                    let recoveredAddress;
+                    try {
+                        // Try to recover from typed data first
+                        const domain = {
+                            chainId: 314159,
+                            verifyingContract: safeAddress
+                        };
+                        
+                        const types = {
+                            SafeTx: [
+                                { name: 'to', type: 'address' },
+                                { name: 'value', type: 'uint256' },
+                                { name: 'data', type: 'bytes' },
+                                { name: 'operation', type: 'uint8' },
+                                { name: 'safeTxGas', type: 'uint256' },
+                                { name: 'baseGas', type: 'uint256' },
+                                { name: 'gasPrice', type: 'uint256' },
+                                { name: 'gasToken', type: 'address' },
+                                { name: 'refundReceiver', type: 'address' },
+                                { name: 'nonce', type: 'uint256' }
+                            ]
+                        };
+                        
+                        recoveredAddress = ethers.verifyTypedData(domain, types, safeTx, signature);
+                        console.log('Recovered address from EIP-712 signature:', recoveredAddress);
+                    } catch {
+                        // Fallback to message verification
+                        recoveredAddress = ethers.verifyMessage(ethers.getBytes(safeTxHash), signature);
+                        console.log('Recovered address from personal signature:', recoveredAddress);
+                    }
+                    
                     console.log('Expected address:', currentAccount);
                     
                     if (recoveredAddress.toLowerCase() !== currentAccount.toLowerCase()) {
@@ -2100,6 +2162,10 @@
                         throw verifyError;
                     }
                 }
+                
+                // For Safe, we need to adjust the signature format
+                // Safe uses a different signature encoding than standard Ethereum signatures
+                console.log('Adjusting signature for Safe format...');
 
                 // Prepare signature in the format Safe expects (v,r,s)
                 let formattedSignature;
@@ -2150,6 +2216,16 @@
 
                     console.log('Formatted signature:', formattedSignature);
                     console.log('Formatted signature length:', formattedSignature.length);
+                    
+                    // Safe expects signatures to have a specific format
+                    // For EOA signatures, we need to append the signature type
+                    // Type 1 means it's an EOA signature (not a contract signature)
+                    if (formattedSignature.length === 132) {
+                        // Append signature type for EOA (01)
+                        formattedSignature = formattedSignature + '01';
+                        console.log('Appended signature type for EOA');
+                        console.log('Final signature:', formattedSignature);
+                    }
 
                 } catch (sigError) {
                     console.error('Signature parsing error:', sigError);
