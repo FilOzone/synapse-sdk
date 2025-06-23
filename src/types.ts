@@ -52,6 +52,8 @@ export interface SynapseOptions {
   pandoraAddress?: string
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
+  /** Optional configuration for the SubgraphService, to enable subgraph-based provider discovery. */
+  subgraphConfig?: SubgraphConfig // Assuming SubgraphConfig is imported or defined elsewhere in this scope
 }
 
 /**
@@ -106,6 +108,45 @@ export interface PieceRetriever {
       signal?: AbortSignal // Optional AbortSignal for request cancellation
     }
   ) => Promise<Response>
+}
+
+/**
+ * Configuration for the SubgraphService, determining how to connect to a
+ * Synapse-compatible subgraph for provider discovery.
+ */
+export interface SubgraphConfig {
+  /** Direct GraphQL endpoint URL. Takes precedence if provided. */
+  endpoint?: string
+  /** Configuration for Goldsky subgraphs. Used if 'endpoint' is not provided. */
+  goldsky?: {
+    projectId: string
+    subgraphName: string
+    version: string
+  }
+  /** Optional API key for authenticated subgraph access */
+  apiKey?: string
+}
+
+/**
+ * Defines the contract for a service that can retrieve provider information from a data source,
+ * typically a Synapse-compatible subgraph.
+ */
+export interface SubgraphRetrievalService {
+  /**
+   * Finds providers that have registered a specific data segment (CommP).
+   *
+   * @param commP - The CommP of the data segment.
+   * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
+   */
+  getProvidersForCommP: (commP: CommP) => Promise<ApprovedProviderInfo[]>
+
+  /**
+   * Retrieves details for a specific provider by their address.
+   *
+   * @param address - The unique address (ID) of the provider.
+   * @returns A promise that resolves to `ApprovedProviderInfo` if found, otherwise `null`.
+   */
+  getProviderByAddress: (address: string) => Promise<ApprovedProviderInfo | null>
 }
 
 /**

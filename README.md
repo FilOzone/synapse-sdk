@@ -32,6 +32,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 * [Using Individual Components](#using-individual-components)
   * [Payments Service](#payments-service)
   * [Pandora Service](#pandora-service)
+  * [Subgraph Service](#subgraph-service)
   * [PDP Components](#pdp-components)
   * [CommP Utilities](#commp-utilities)
 * [Network Configuration](#network-configuration)
@@ -207,6 +208,17 @@ interface SynapseOptions {
   disableNonceManager?: boolean // Disable automatic nonce management
   withCDN?: boolean             // Enable CDN for retrievals
   pandoraAddress?: string       // Override Pandora service contract address
+  subgraphConfig?: SubgraphConfig // Enable subgraph service for retrieval
+}
+
+interface SubgraphConfig {
+  endpoint?: string; // Subgraph endpoint
+  goldsky?: {
+    projectId: string
+    subgraphName: string
+    version: string
+  }                 // Used if endpoint is not provided
+  apiKey?: string   // Optional API key for authenticated subgraph access
 }
 ```
 
@@ -514,6 +526,29 @@ if (verification.proofSetLive) {
 // Storage provider operations
 const isApproved = await pandoraService.isProviderApproved(providerAddress)
 const providers = await pandoraService.getAllApprovedProviders()
+```
+
+### Subgraph Service
+
+Provides a flexible interface for querying data from a Pandora subgraph. It supports queries for providers, proof sets, roots, and fault records defined [here](https://github.com/FilOzone/filecoin-services/blob/main/subgraph/schema.graphql).
+
+```javascript
+import { SubgraphService } from '@filoz/synapse-sdk/subgraph'
+
+const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/some/subgraph'
+const subgraphService = new SubgraphService(subgraphUrl)
+
+// Example: Query for active providers with custom filtering
+const activeProviders = await subgraphService.queryProviders({
+  where: {
+    status: 'Approved',
+  },
+  orderBy: 'totalProofSets',
+  orderDirection: 'desc',
+  first: 10
+})
+
+console.log('Top 10 active providers by proof sets:', activeProviders)
 ```
 
 ### PDP Components
