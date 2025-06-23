@@ -1006,7 +1006,16 @@
                             const ethersProvider = new ethers.BrowserProvider(walletProvider);
                             signer = await ethersProvider.getSigner();
 
-                            console.log('Connected account:', await signer.getAddress());
+                            const connectedAddress = await signer.getAddress();
+                            console.log('Connected account from signer:', connectedAddress);
+                            console.log('Account from AppKit:', account);
+
+                            // Check if addresses match
+                            if (connectedAddress.toLowerCase() !== account.toLowerCase()) {
+                                console.warn('WARNING: Signer address does not match AppKit address!');
+                                console.warn('Signer:', connectedAddress);
+                                console.warn('AppKit:', account);
+                            }
 
                             await initializeSynapse(ethersProvider, signer);
                         } else {
@@ -1750,6 +1759,21 @@
                 return;
             }
 
+            // Check current signer address
+            const signerAddress = await signer.getAddress();
+            console.log('Current signer address:', signerAddress);
+            console.log('Expected owner address:', currentAccount);
+
+            if (signerAddress.toLowerCase() !== currentAccount.toLowerCase()) {
+                const confirmSwitch = confirm(
+                    `Your wallet is connected with address ${signerAddress}, but you need to sign with ${currentAccount}.\n\n` +
+                    `Please switch to the correct account in your wallet and try again.`
+                );
+                if (!confirmSwitch) {
+                    return;
+                }
+            }
+
             const txId = showTransaction('Removing provider...');
 
             try {
@@ -2030,7 +2054,7 @@
                 console.log('- Safe address:', safeAddress);
                 console.log('- Current account:', currentAccount);
                 console.log('- Signer address:', await signer.getAddress());
-                
+
                 // Get Safe nonce
                 const nonce = await getSafeNonce(safeAddress);
 
@@ -2125,7 +2149,7 @@
                 const safeServiceUrl = 'https://transaction-testnet.safe.filecoin.io';
                 // Use currentAccount instead of signer.getAddress() to ensure we use the correct address
                 const signerAddress = currentAccount;
-                
+
                 if (!signerAddress) {
                     throw new Error('No signer address available. Please reconnect your wallet.');
                 }
@@ -2153,6 +2177,8 @@
                 };
 
                 console.log('Submitting Safe transaction:', payload);
+                console.log('Payload sender field:', payload.sender);
+                console.log('Signature:', payload.signature);
 
                 const response = await fetch(`${safeServiceUrl}/api/v1/safes/${safeAddress}/multisig-transactions/`, {
                     method: 'POST',
