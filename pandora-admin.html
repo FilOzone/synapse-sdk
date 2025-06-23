@@ -2081,6 +2081,25 @@
 
                 console.log('Raw signature:', signature);
                 console.log('Raw signature type:', typeof signature);
+                
+                // Verify the signature to see which address actually signed
+                try {
+                    const recoveredAddress = ethers.verifyMessage(ethers.getBytes(safeTxHash), signature);
+                    console.log('Recovered address from signature:', recoveredAddress);
+                    console.log('Expected address:', currentAccount);
+                    
+                    if (recoveredAddress.toLowerCase() !== currentAccount.toLowerCase()) {
+                        console.error('SIGNATURE MISMATCH!');
+                        console.error('Signature was created by:', recoveredAddress);
+                        console.error('But we expected:', currentAccount);
+                        throw new Error(`Your wallet signed with address ${recoveredAddress} but we need a signature from ${currentAccount}. Please ensure you are using the correct account in your wallet.`);
+                    }
+                } catch (verifyError) {
+                    console.error('Error verifying signature:', verifyError);
+                    if (verifyError.message.includes('wallet signed with address')) {
+                        throw verifyError;
+                    }
+                }
 
                 // Prepare signature in the format Safe expects (v,r,s)
                 let formattedSignature;
