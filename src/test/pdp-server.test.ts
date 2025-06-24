@@ -1012,4 +1012,104 @@ describe('PDPServer', () => {
       }
     })
   })
+
+  describe('ping', () => {
+    it('should successfully ping provider with 200 response', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        assert.include(url, '/ping')
+        assert.strictEqual(init?.method, 'GET')
+        assert.deepEqual(init?.headers, {})
+
+        return {
+          status: 200,
+          statusText: 'OK'
+        } as any
+      }
+
+      try {
+        await pdpServer.ping()
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw error on non-200 status code with error text', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 500,
+          statusText: 'Internal Server Error',
+          text: async () => 'Service unavailable'
+        } as any
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider ping failed: 500 Internal Server Error - Service unavailable')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw error on non-200 status code with fallback error text', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 404,
+          statusText: 'Not Found',
+          text: async () => {
+            throw new Error('Text extraction failed')
+          }
+        } as any
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider ping failed: 404 Not Found - Unknown error')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw error on network failure', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        throw new Error('Network error: Connection refused')
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Network error: Connection refused')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should use correct URL endpoint', async () => {
+      let capturedUrl: string = ''
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request) => {
+        capturedUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        return {
+          status: 200,
+          statusText: 'OK'
+        } as any
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.strictEqual(capturedUrl, `${serverUrl}/pdp/ping`)
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
 })
