@@ -94,9 +94,9 @@ Before uploading data, you'll need to deposit funds and approve the storage serv
 import { TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 import { ethers } from 'ethers'
 
-// 1. Deposit USDFC tokens (one-time setup)
+// 1. Deposit USDFC tokens using EIP-2612 permit (recommended)
 const amount = ethers.parseUnits('100', 18)  // 100 USDFC
-await synapse.payments.deposit(amount, TOKENS.USDFC)
+await synapse.payments.depositWithPermit(amount)
 
 // 2. Approve the Pandora service for automated payments
 const pandoraAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()]
@@ -128,35 +128,24 @@ console.log(`Stored with CommP: ${result.commp}`)
 
 ### Advanced Payment Control
 
-For users who need fine-grained control over token approvals:
+For users who need fine-grained control over payment operations:
 
 ```javascript
 import { Synapse, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 
 const synapse = await Synapse.create({ provider })
 
-// Check current allowance
-const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[synapse.getNetwork()]
-const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC, paymentsContract)
-
-// Approve only if needed
-if (currentAllowance < requiredAmount) {
-  const approveTx = await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
-  console.log(`Approval transaction: ${approveTx.hash}`)
-  await approveTx.wait() // Wait for approval before depositing
-}
-
-// Now deposit with optional callbacks for visibility
-const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
-  onAllowanceCheck: (current, required) => {
-    console.log(`Current allowance: ${current}, Required: ${required}`)
+// Deposit with callbacks for UI updates
+const depositTx = await synapse.payments.depositWithPermit(amount, TOKENS.USDFC, {
+  callbacks: {
+    onPermitSigning: () => {
+      console.log('Signing permit for USDFC approval...')
+    },
+    onDepositStarting: () => {
+      console.log('Sending deposit transaction...')
+    }
   },
-  onApprovalTransaction: (tx) => {
-    console.log(`Auto-approval sent: ${tx.hash}`)
-  },
-  onDepositStarting: () => {
-    console.log('Starting deposit transaction...')
-  }
+  deadlineMinutes: 60  // Optional: custom permit expiry (default: 30 minutes)
 })
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait()
@@ -229,7 +218,8 @@ interface SynapseOptions {
 *Note: Currently only USDFC token is supported for payments contract operations. FIL is also supported for `walletBalance()`.*
 
 **Token Operations:**
-- `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
+- `depositWithPermit(amount, token?, options?)` - Deposit using EIP-2612 permit (recommended - single transaction), returns `TransactionResponse`
+- `deposit(amount, token?, callbacks?)` - Traditional approve + deposit flow (2 transactions), returns `TransactionResponse`
 - `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
 - `approve(token, spender, amount)` - Approve token spending (for manual control), returns `TransactionResponse`
 - `allowance(token, spender)` - Check current token allowance
@@ -447,8 +437,8 @@ const provider = new ethers.JsonRpcProvider(rpcUrl)
 const signer = await provider.getSigner()
 const paymentsService = new PaymentsService(provider, signer, 'calibration', false)
 
-// Deposit USDFC to payments contract
-const depositTx = await paymentsService.deposit(amount) // amount in base units
+// Deposit USDFC using EIP-2612 permit (recommended)
+const depositTx = await paymentsService.depositWithPermit(amount) // amount in base units
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait() // Wait for confirmation
 
