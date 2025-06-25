@@ -8,15 +8,18 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { Synapse } from '../synapse.js'
 import { PaymentsService } from '../payments/index.js'
-import { createMockProvider, createMockSigner } from './test-utils.js'
+import { useSinon, createMockProvider, createMockSigner } from './sinon-helpers.js'
 
 describe('Synapse', () => {
+  const getSandbox = useSinon()
   let mockProvider: ethers.Provider
   let mockSigner: ethers.Signer
 
   beforeEach(() => {
-    mockProvider = createMockProvider()
-    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    const sandbox = getSandbox()
+    mockProvider = createMockProvider(sandbox)
+    mockSigner = createMockSigner(sandbox, '0x1234567890123456789012345678901234567890')
+    ;(mockSigner as any).provider = mockProvider
   })
 
   describe('Instantiation', () => {
@@ -101,7 +104,8 @@ describe('Synapse', () => {
   describe('Network validation', () => {
     it('should reject unsupported networks', async () => {
       // Create mock provider with unsupported chain ID
-      const unsupportedProvider = createMockProvider(999999)
+      const sandbox = getSandbox()
+      const unsupportedProvider = createMockProvider(sandbox, { chainId: 999999 })
 
       try {
         await Synapse.create({ provider: unsupportedProvider })
@@ -113,13 +117,15 @@ describe('Synapse', () => {
     })
 
     it('should accept calibration network', async () => {
-      const calibrationProvider = createMockProvider(314159)
+      const sandbox = getSandbox()
+      const calibrationProvider = createMockProvider(sandbox, { chainId: 314159 })
       const synapse = await Synapse.create({ provider: calibrationProvider })
       assert.exists(synapse)
     })
 
     it('should accept mainnet with custom pandora address', async () => {
-      const mainnetProvider = createMockProvider(314)
+      const sandbox = getSandbox()
+      const mainnetProvider = createMockProvider(sandbox, { chainId: 314 })
       const synapse = await Synapse.create({
         provider: mainnetProvider,
         pandoraAddress: '0x1234567890123456789012345678901234567890' // Custom address for mainnet

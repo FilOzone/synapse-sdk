@@ -4,6 +4,7 @@ import { ChainRetriever } from '../retriever/chain.js'
 import type { PandoraService } from '../pandora/index.js'
 import type { ApprovedProviderInfo, EnhancedProofSetInfo, CommP } from '../types.js'
 import { asCommP } from '../commp/index.js'
+import { useSinon, stubFetch, useFakeTimers } from './sinon-helpers.js'
 
 // Create a mock CommP for testing
 const mockCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq') as CommP
@@ -43,6 +44,7 @@ const mockProofSet: EnhancedProofSetInfo = {
 }
 
 describe('ChainRetriever', () => {
+  const getSandbox = useSinon()
   describe('fetchPiece with specific provider', () => {
     it('should fetch from specific provider when providerAddress is given', async () => {
       const mockPandora: Partial<PandoraService> = {
@@ -54,11 +56,12 @@ describe('ChainRetriever', () => {
       }
 
       // Mock fetch to simulate provider responses
-      const originalFetch = global.fetch
+      const sandbox = getSandbox()
+      const fetchStub = stubFetch(sandbox)
       let findPieceCalled = false
       let downloadCalled = false
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      fetchStub.callsFake(async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
         if (url.includes('/pdp/piece?')) {
           findPieceCalled = true
@@ -69,23 +72,18 @@ describe('ChainRetriever', () => {
           return new Response('test data', { status: 200 })
         }
         throw new Error('Unexpected URL')
-      }
+      })
+      const retriever = new ChainRetriever(mockPandora as PandoraService)
+      const response = await retriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        { providerAddress: mockProvider1.owner }
+      )
 
-      try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
-        const response = await retriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          { providerAddress: mockProvider1.owner }
-        )
-
-        assert.isTrue(findPieceCalled, 'Should call findPiece')
-        assert.isTrue(downloadCalled, 'Should call download')
-        assert.equal(response.status, 200)
-        assert.equal(await response.text(), 'test data')
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(findPieceCalled, 'Should call findPiece')
+      assert.isTrue(downloadCalled, 'Should call download')
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), 'test data')
     })
 
     it('should throw when specific provider is not approved', async () => {
@@ -110,6 +108,9 @@ describe('ChainRetriever', () => {
 
   describe('fetchPiece with multiple providers', () => {
     it('should wait for successful provider even if others fail first', async () => {
+      const sandbox = getSandbox()
+      const clock = useFakeTimers(sandbox)
+
       // This tests that Promise.any() waits for success rather than settling with first failure
       const proofSets = [{
         isLive: true,
@@ -152,8 +153,11 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(mockPandora as PandoraService)
 
       // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request): Promise<Response> => {
+      const fetchStub = stubFetch(sandbox)
+
+      let provider2ResolveCallback: (() => void) | null = null
+
+      fetchStub.callsFake(async (input: string | URL | Request): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         // Provider 1 fails immediately
@@ -163,9 +167,16 @@ describe('ChainRetriever', () => {
 
         // Provider 2 succeeds after a delay
         if (url.includes('pdp2.example.com')) {
-          // Simulate network delay
-          await new Promise(resolve => setTimeout(resolve, 50))
-          return new Response(null, { status: 200 })
+          // Return a promise that we can control
+          return await new Promise((resolve) => {
+            provider2ResolveCallback = () => resolve(new Response('', { status: 200 }))
+            // Schedule the callback to run after 50ms
+            setTimeout(() => {
+              if (provider2ResolveCallback != null) {
+                provider2ResolveCallback()
+              }
+            }, 50)
+          })
         }
 
         if (url.includes('retrieve2.example.com')) {
@@ -173,17 +184,19 @@ describe('ChainRetriever', () => {
         }
 
         throw new Error(`Unexpected URL: ${url}`)
-      }
+      })
 
-      try {
-        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+      // Start the fetch operation
+      const responsePromise = retriever.fetchPiece(mockCommP, '0xClient')
 
-        // Should get response from provider 2 even though provider 1 failed first
-        assert.equal(response.status, 200)
-        assert.equal(await response.text(), 'success from provider 2')
-      } finally {
-        global.fetch = originalFetch
-      }
+      // Advance time to trigger the provider 2 response
+      await clock.tickAsync(60)
+
+      const response = await responsePromise
+
+      // Should get response from provider 2 even though provider 1 failed first
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), 'success from provider 2')
     })
 
     it('should race multiple providers and return first success', async () => {
@@ -205,10 +218,11 @@ describe('ChainRetriever', () => {
       }
 
       // Mock fetch to simulate provider responses
-      const originalFetch = global.fetch
       const fetchCalls: string[] = []
+      const sandbox = getSandbox()
+      const fetchStub = stubFetch(sandbox)
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      fetchStub.callsFake(async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
         fetchCalls.push(url)
 
@@ -234,23 +248,19 @@ describe('ChainRetriever', () => {
         }
 
         throw new Error('Unexpected URL')
-      }
+      })
 
-      try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
-        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+      const retriever = new ChainRetriever(mockPandora as PandoraService)
+      const response = await retriever.fetchPiece(mockCommP, '0xClient')
 
-        assert.equal(response.status, 200)
-        const data = await response.text()
-        // Should get data from provider2 since it's faster
-        assert.equal(data, 'data from provider2')
+      assert.equal(response.status, 200)
+      const data = await response.text()
+      // Should get data from provider2 since it's faster
+      assert.equal(data, 'data from provider2')
 
-        // Verify both providers were attempted
-        assert.isTrue(fetchCalls.some(url => url.includes('provider1')))
-        assert.isTrue(fetchCalls.some(url => url.includes('provider2')))
-      } finally {
-        global.fetch = originalFetch
-      }
+      // Verify both providers were attempted
+      assert.isTrue(fetchCalls.some(url => url.includes('provider1')))
+      assert.isTrue(fetchCalls.some(url => url.includes('provider2')))
     })
 
     it('should handle all providers failing', async () => {
@@ -261,14 +271,16 @@ describe('ChainRetriever', () => {
       }
 
       // Mock fetch to simulate failures
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request) => {
+      const sandbox = getSandbox()
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async (input: string | URL | Request) => {
         const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
         if (url.includes('/pdp/piece?')) {
           return new Response('', { status: 404 }) // Piece not found
         }
         throw new Error('Unexpected URL')
-      }
+      })
 
       try {
         const retriever = new ChainRetriever(mockPandora as PandoraService)
@@ -277,8 +289,6 @@ describe('ChainRetriever', () => {
       } catch (error: any) {
         assert.include(error.message, 'All providers failed to serve piece')
         assert.include(error.message, 'findPiece returned 404')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -306,10 +316,11 @@ describe('ChainRetriever', () => {
       }
 
       const controller = new AbortController()
-      const originalFetch = global.fetch
       let signalReceived = false
+      const sandbox = getSandbox()
+      const fetchStub = stubFetch(sandbox)
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      fetchStub.callsFake(async (input: string | URL | Request, init?: RequestInit) => {
         if ((init?.signal) != null) {
           signalReceived = true
           // Abort immediately
@@ -317,7 +328,7 @@ describe('ChainRetriever', () => {
           throw new Error('AbortError')
         }
         throw new Error('No signal provided')
-      }
+      })
 
       try {
         const retriever = new ChainRetriever(mockPandora as PandoraService)
@@ -332,8 +343,6 @@ describe('ChainRetriever', () => {
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.isTrue(signalReceived, 'Signal should be propagated to fetch')
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })

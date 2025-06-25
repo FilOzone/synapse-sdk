@@ -3,11 +3,13 @@ import { assert } from 'chai'
 import { FilCdnRetriever } from '../retriever/filcdn.js'
 import type { PieceRetriever, CommP } from '../types.js'
 import { asCommP } from '../commp/index.js'
+import { useSinon, stubFetch } from './sinon-helpers.js'
 
 // Create a mock CommP for testing
 const mockCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq') as CommP
 
 describe('FilCdnRetriever', () => {
+  const getSandbox = useSinon()
   describe('pass-through behavior', () => {
     it('should pass through when withCDN=false', async () => {
       let baseCalled = false
@@ -23,26 +25,25 @@ describe('FilCdnRetriever', () => {
         }
       }
 
-      const originalFetch = global.fetch
-      global.fetch = async () => {
+      const sandbox = getSandbox()
+
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async () => {
         throw new Error('Should not call fetch when withCDN is false')
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
-        const response = await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            withCDN: false
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const response = await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          withCDN: false
+        }
+      )
 
-        assert.isTrue(baseCalled, 'Base retriever should be called')
-        assert.equal(response, baseResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(baseCalled, 'Base retriever should be called')
+      assert.equal(response, baseResponse)
     })
 
     it('should propagate abort signal to base retriever', async () => {
@@ -58,26 +59,25 @@ describe('FilCdnRetriever', () => {
           return new Response('test data')
         }
       }
-      const originalFetch = global.fetch
-      global.fetch = async () => {
+      const sandbox = getSandbox()
+
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async () => {
         throw new Error('Should not call fetch when withCDN is false')
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
-        await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            signal: controller.signal,
-            withCDN: false
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
+      await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          signal: controller.signal,
+          withCDN: false
+        }
+      )
 
-        assert.isTrue(signalPropagated, 'Signal should be propagated')
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(signalPropagated, 'Signal should be propagated')
     })
 
     it('should pass through when CDN responds with 402', async () => {
@@ -94,29 +94,28 @@ describe('FilCdnRetriever', () => {
           return baseResponse
         }
       }
-      const originalFetch = global.fetch
-      global.fetch = async () => {
+      const sandbox = getSandbox()
+
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async () => {
         cdnCalled = true
         const response = new Response('Payment required', { status: 402 })
         return response
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
-        const response = await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            withCDN: true
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const response = await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          withCDN: true
+        }
+      )
 
-        assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
-        assert.isTrue(baseCalled, 'Base retriever should be called')
-        assert.equal(response, baseResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
+      assert.isTrue(baseCalled, 'Base retriever should be called')
+      assert.equal(response, baseResponse)
     })
 
     it('should pass through when CDN responds badly', async () => {
@@ -133,29 +132,28 @@ describe('FilCdnRetriever', () => {
           return baseResponse
         }
       }
-      const originalFetch = global.fetch
-      global.fetch = async () => {
+      const sandbox = getSandbox()
+
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async () => {
         cdnCalled = true
         const response = new Response('Internal Server Error', { status: 500 })
         return response
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
-        const response = await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            withCDN: true
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const response = await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          withCDN: true
+        }
+      )
 
-        assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
-        assert.isTrue(baseCalled, 'Base retriever should be called')
-        assert.equal(response, baseResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
+      assert.isTrue(baseCalled, 'Base retriever should be called')
+      assert.equal(response, baseResponse)
     })
 
     it('should pass through on network error', async () => {
@@ -172,28 +170,27 @@ describe('FilCdnRetriever', () => {
           return baseResponse
         }
       }
-      const originalFetch = global.fetch
-      global.fetch = async () => {
+      const sandbox = getSandbox()
+
+      const fetchStub = stubFetch(sandbox)
+
+      fetchStub.callsFake(async () => {
         cdnCalled = true
         throw new Error('Network error')
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
-        const response = await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            withCDN: true
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const response = await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          withCDN: true
+        }
+      )
 
-        assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
-        assert.isTrue(baseCalled, 'Base retriever should be called')
-        assert.equal(response, baseResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
+      assert.isTrue(baseCalled, 'Base retriever should be called')
+      assert.equal(response, baseResponse)
     })
   })
 
@@ -209,8 +206,9 @@ describe('FilCdnRetriever', () => {
           throw new Error()
         }
       }
-      const originalFetch = global.fetch
-      global.fetch = async url => {
+      const sandbox = getSandbox()
+      const fetchStub = stubFetch(sandbox)
+      fetchStub.callsFake(async (url) => {
         cdnCalled = true
         assert.strictEqual(
           url,
@@ -218,24 +216,20 @@ describe('FilCdnRetriever', () => {
           'CDN URL should be constructed correctly'
         )
         return cdnResponse
-      }
+      })
 
-      try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
-        const response = await cdnRetriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          {
-            withCDN: true
-          }
-        )
+      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const response = await cdnRetriever.fetchPiece(
+        mockCommP,
+        '0xClient',
+        {
+          withCDN: true
+        }
+      )
 
-        assert.isTrue(cdnCalled, 'CDN fetch should be called')
-        assert.isFalse(baseCalled, 'Base retriever should not be called')
-        assert.equal(response, cdnResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.isTrue(cdnCalled, 'CDN fetch should be called')
+      assert.isFalse(baseCalled, 'Base retriever should not be called')
+      assert.equal(response, cdnResponse)
     })
   })
 

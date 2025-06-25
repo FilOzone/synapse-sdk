@@ -7,16 +7,19 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PandoraService } from '../pandora/index.js'
-import { createMockProvider } from './test-utils.js'
+import { useSinon, createMockProvider, useFakeTimers, advanceTimeInSteps } from './sinon-helpers.js'
+import sinon from 'sinon'
 
 describe('PandoraService', () => {
+  const getSandbox = useSinon()
   let mockProvider: ethers.Provider
   let pandoraService: PandoraService
   const mockPandoraAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
   const clientAddress = '0x1234567890123456789012345678901234567890'
 
   beforeEach(() => {
-    mockProvider = createMockProvider()
+    const sandbox = getSandbox()
+    mockProvider = createMockProvider(sandbox)
     pandoraService = new PandoraService(mockProvider, mockPandoraAddress)
   })
 
@@ -30,18 +33,14 @@ describe('PandoraService', () => {
   describe('getClientProofSets', () => {
     it('should return empty array when client has no proof sets', async () => {
       // Mock provider will return empty array by default
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
-          // Return empty array
-          return ethers.AbiCoder.defaultAbiCoder().encode(
+      const callStub = mockProvider.call as sinon.SinonStub
+      callStub.withArgs(sinon.match((tx: any) => tx.data?.startsWith('0x4234653a')))
+        .resolves(
+          ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
             [[]]
           )
-        }
-        // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
-      }
+        )
 
       const proofSets = await pandoraService.getClientProofSets(clientAddress)
       assert.isArray(proofSets)
@@ -1330,6 +1329,8 @@ describe('PandoraService', () => {
     })
 
     it('should wait for proof set to become live', async () => {
+      const sandbox = getSandbox()
+      const clock = useFakeTimers(sandbox)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
@@ -1394,12 +1395,21 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await pandoraService.waitForProofSetCreationWithStatus(
+      // Start the async operation
+      const resultPromise = pandoraService.waitForProofSetCreationWithStatus(
         mockTxHash,
         mockPDPServer,
         5000, // 5 second timeout
         100 // 100ms poll interval
       )
+
+      // Advance time to trigger the first poll
+      await advanceTimeInSteps(clock, 110, 10)
+
+      // Advance time for the second poll
+      await advanceTimeInSteps(clock, 110, 10)
+
+      const result = await resultPromise
 
       assert.isTrue(result.summary.isComplete)
       assert.isTrue(result.summary.isLive)
@@ -1410,6 +1420,8 @@ describe('PandoraService', () => {
     })
 
     it('should timeout if proof set takes too long', async () => {
+      const sandbox = getSandbox()
+      const clock = useFakeTimers(sandbox)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that always returns pending
@@ -1432,17 +1444,20 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      try {
-        await pandoraService.waitForProofSetCreationWithStatus(
-          mockTxHash,
-          mockPDPServer,
-          300, // 300ms timeout
-          100 // 100ms poll interval
-        )
-        assert.fail('Should have thrown timeout error')
-      } catch (error: any) {
-        assert.include(error.message, 'Timeout waiting for proof set creation')
-      }
+      // Start the async operation
+      const resultPromise = pandoraService.waitForProofSetCreationWithStatus(
+        mockTxHash,
+        mockPDPServer,
+        300, // 300ms timeout
+        100 // 100ms poll interval
+      ).catch(err => err)
+
+      // Advance time past the timeout
+      await advanceTimeInSteps(clock, 350, 50)
+
+      const error = await resultPromise
+      assert.instanceOf(error, Error)
+      assert.include(error.message, 'Timeout waiting for proof set creation')
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
     })
