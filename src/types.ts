@@ -52,8 +52,10 @@ export interface SynapseOptions {
   pandoraAddress?: string
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
-  /** Optional configuration for the SubgraphService, to enable subgraph-based provider discovery. */
-  subgraphConfig?: SubgraphConfig // Assuming SubgraphConfig is imported or defined elsewhere in this scope
+  /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
+  subgraphService?: SubgraphRetrievalService
+  /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
+  subgraphConfig?: SubgraphConfig
 }
 
 /**
@@ -130,6 +132,13 @@ export interface SubgraphConfig {
 /**
  * Defines the contract for a service that can retrieve provider information from a data source,
  * typically a Synapse-compatible subgraph.
+ *
+ * This interface allows for custom implementations to be provided in place of the default
+ * SubgraphService. Any service that implements this interface can be used with the
+ * Synapse SDK by passing it via the `subgraphService` option when creating a Synapse instance.
+ *
+ * This enables integration with alternative data sources or custom implementations
+ * while maintaining compatibility with the SDK's retrieval system.
  */
 export interface SubgraphRetrievalService {
   /**

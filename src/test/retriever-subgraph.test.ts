@@ -230,7 +230,7 @@ describe('SubgraphRetriever', () => {
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
-        assert.include(error.message, 'No providers found and no child retriever was configured')
+        assert.include(error.message, 'No providers found and no additional retriever method was configured')
       }
     })
 

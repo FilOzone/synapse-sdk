@@ -7,7 +7,8 @@
 
 import type { PandoraService } from '../pandora/index.js'
 import type { CommP, PieceRetriever, ApprovedProviderInfo } from '../types.js'
-import { createError, fetchPiecesFromProviders } from '../utils/index.js'
+import { fetchPiecesFromProviders } from './utils.js'
+import { createError } from '../utils/index.js'
 
 export class ChainRetriever implements PieceRetriever {
   constructor (
@@ -93,13 +94,13 @@ export class ChainRetriever implements PieceRetriever {
     } catch (error) {
       // Provider discovery failed - this is a critical error
       return await tryChildOrThrow(
-        'Provider discovery failed and no child retriever was configured'
+        'Provider discovery failed and no additional retriever method was configured'
       )
     }
 
     // Step 2: If no providers found, try child retriever
     if (providersToTry.length === 0) {
-      return await tryChildOrThrow('No providers found and no child retriever was configured')
+      return await tryChildOrThrow('No providers found and no additional retriever method was configured')
     }
 
     // Step 3: Try to fetch from providers
@@ -113,7 +114,7 @@ export class ChainRetriever implements PieceRetriever {
     } catch (fetchError) {
       // All provider attempts failed
       return await tryChildOrThrow(
-        'All provider retrieval attempts failed and no child retriever was configured'
+        'All provider retrieval attempts failed and no additional retriever method was configured'
       )
     }
   }

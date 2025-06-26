@@ -8,6 +8,7 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
+  type SubgraphRetrievalService,
   type CommP
 } from './types.js'
 import { StorageService } from './storage/index.js'
@@ -139,13 +140,24 @@ export class Synapse {
       const chainRetriever = new ChainRetriever(pandoraService /*, no child here */)
       let underlyingRetriever: PieceRetriever = chainRetriever
 
-      if (options.subgraphConfig != null) {
+      // Handle subgraph piece retriever - can provide either a service or configuration
+      if (options.subgraphService != null || options.subgraphConfig != null) {
         try {
-          const subgraphService = new SubgraphService(options.subgraphConfig)
+          let subgraphService: SubgraphRetrievalService
+
+          if (options.subgraphService != null) {
+            subgraphService = options.subgraphService
+          } else if (options.subgraphConfig != null) {
+            subgraphService = new SubgraphService(options.subgraphConfig)
+          } else {
+            // This shouldn't happen due to the if condition above, but TypeScript doesn't know that
+            throw new Error('Invalid subgraph configuration: neither service nor config provided')
+          }
+
           underlyingRetriever = new SubgraphRetriever(subgraphService, chainRetriever)
         } catch (error) {
           throw new Error(
-            `Failed to initialize SubgraphService with provided configuration: ${
+            `Failed to initialize subgraph piece retriever: ${
               error instanceof Error ? error.message : String(error)
             }`
           )

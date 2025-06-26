@@ -266,7 +266,7 @@ describe('SubgraphService', () => {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'ProvidersFlexible')
             assert.deepEqual(body.variables.where, {})
-            assert.equal(body.variables.first, 100)
+            assert.equal(body.variables.first, 10)
             assert.equal(body.variables.skip, 0)
             return new Response(JSON.stringify(mockResponse))
           }
@@ -519,7 +519,7 @@ describe('SubgraphService', () => {
                 rootId: '100',
                 rawSize: '1048576',
                 leafCount: '256',
-                cid: '0xabcdef123456',
+                cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
                 removed: false,
                 totalProofsSubmitted: '10',
                 totalPeriodsFaulted: '1',
@@ -583,7 +583,7 @@ describe('SubgraphService', () => {
                 rootId: '200',
                 rawSize: '10485760',
                 leafCount: '2560',
-                cid: '0xfedcba654321',
+                cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
                 removed: false,
                 totalProofsSubmitted: '20',
                 totalPeriodsFaulted: '0',
@@ -635,6 +635,10 @@ describe('SubgraphService', () => {
           assert.isArray(roots)
           assert.lengthOf(roots, 1)
           assert.equal(roots[0].rawSize, 10485760)
+          assert.equal(
+            roots[0].cid?.toString(),
+            'baga6ea4seaqk27m35u73llf3pw2pwt7ovskmdxpgrgegzupiwzhrxppzgxxmaei'
+          )
         } finally {
           global.fetch = originalFetch
         }

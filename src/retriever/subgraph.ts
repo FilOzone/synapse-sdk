@@ -8,7 +8,7 @@ import type {
   ApprovedProviderInfo,
   SubgraphRetrievalService
 } from '../types.js'
-import { fetchPiecesFromProviders } from '../utils/providerFetch.js'
+import { fetchPiecesFromProviders } from './utils.js'
 import { createError } from '../utils/errors.js'
 
 export class SubgraphRetriever implements PieceRetriever {
@@ -55,13 +55,13 @@ export class SubgraphRetriever implements PieceRetriever {
     } catch (error) {
       // Provider discovery failed - this is a critical error
       return await tryChildOrThrow(
-        'Provider discovery failed and no child retriever was configured'
+        'Provider discovery failed and no additional retriever method was configured'
       )
     }
 
     // Step 2: If no providers found, try child retriever
     if (providersToTry.length === 0) {
-      return await tryChildOrThrow('No providers found and no child retriever was configured')
+      return await tryChildOrThrow('No providers found and no additional retriever method was configured')
     }
 
     // Step 3: Try to fetch from providers
@@ -75,7 +75,7 @@ export class SubgraphRetriever implements PieceRetriever {
     } catch (fetchError) {
       // All provider attempts failed
       return await tryChildOrThrow(
-        'All provider retrieval attempts failed and no child retriever was configured'
+        'All provider retrieval attempts failed and no additional retriever method was configured'
       )
     }
   }

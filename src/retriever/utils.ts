@@ -3,8 +3,8 @@
  */
 
 import type { ApprovedProviderInfo, CommP } from '../types.js'
-import { constructPieceUrl, constructFindPieceUrl } from './piece.js'
-import { createError } from './errors.js'
+import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
+import { createError } from '../utils/errors.js'
 
 // Define the type for provider attempt results (internal to this function)
 interface ProviderAttemptResult {

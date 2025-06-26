@@ -123,7 +123,7 @@ describe('ChainRetriever', () => {
       } catch (error: any) {
         assert.include(
           error.message,
-          'Provider discovery failed and no child retriever was configured'
+          'Provider discovery failed and no additional retriever method was configured'
         )
       }
     })
@@ -309,7 +309,7 @@ describe('ChainRetriever', () => {
       } catch (error: any) {
         assert.include(
           error.message,
-          'All provider retrieval attempts failed and no child retriever was configured'
+          'All provider retrieval attempts failed and no additional retriever method was configured'
         )
       } finally {
         global.fetch = originalFetch
@@ -338,7 +338,7 @@ describe('ChainRetriever', () => {
       } catch (error: any) {
         assert.include(
           error.message,
-          'Provider discovery failed and no child retriever was configured'
+          'Provider discovery failed and no additional retriever method was configured'
         )
       }
     })

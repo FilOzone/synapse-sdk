@@ -208,17 +208,20 @@ interface SynapseOptions {
   disableNonceManager?: boolean // Disable automatic nonce management
   withCDN?: boolean             // Enable CDN for retrievals
   pandoraAddress?: string       // Override Pandora service contract address
-  subgraphConfig?: SubgraphConfig // Enable subgraph service for retrieval
+  
+  // Subgraph Integration (provide ONE of these options)
+  subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
+  subgraphConfig?: SubgraphConfig // Configuration for the default SubgraphService
 }
 
 interface SubgraphConfig {
-  endpoint?: string; // Subgraph endpoint
+  endpoint?: string // Subgraph endpoint
   goldsky?: {
     projectId: string
     subgraphName: string
     version: string
-  }                 // Used if endpoint is not provided
-  apiKey?: string   // Optional API key for authenticated subgraph access
+  } // Used if endpoint is not provided
+  apiKey?: string // Optional API key for authenticated subgraph access
 }
 ```
 
@@ -530,25 +533,67 @@ const providers = await pandoraService.getAllApprovedProviders()
 
 ### Subgraph Service
 
-Provides a flexible interface for querying data from a Pandora subgraph. It supports queries for providers, proof sets, roots, and fault records defined [here](https://github.com/FilOzone/filecoin-services/blob/main/subgraph/schema.graphql).
+The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, proof set tracking, and more.
 
 ```javascript
-import { SubgraphService } from '@filoz/synapse-sdk/subgraph'
+// Create subgraph service
+const subgraphService = new SubgraphService({
+  goldsky: {
+    projectId: 'PROJECT_ID',
+    subgraphName: 'SUBGRAPH_NAME',
+    version: 'latest'
+  }
+})
 
-const subgraphUrl = 'https://api.thegraph.com/subgraphs/name/some/subgraph'
-const subgraphService = new SubgraphService({ endpoint: subgraphUrl })
+// Direct endpoint configuration
+const subgraphService2 = new SubgraphService({
+  endpoint: 'https://api.goldsky.com/api/public/project_id/subgraph_name'
+})
 
 // Example: Query for active providers with custom filtering
 const activeProviders = await subgraphService.queryProviders({
   where: {
-    status: 'Approved',
+    status: 'Approved'
   },
   orderBy: 'totalProofSets',
   orderDirection: 'desc',
-  first: 10
+  first: 5
 })
 
-console.log('Top 10 active providers by proof sets:', activeProviders)
+// Example: Find providers for a specific CommP
+const providers = await subgraphService.getProvidersForCommP(commp)
+```
+
+#### Custom Subgraph Service Implementations
+
+The SDK supports custom implementations of the `SubgraphRetrievalService` interface, allowing you to provide alternative data sources for provider discovery. This is useful for testing, custom integrations, or cases where you need specialized provider selection logic.
+
+```javascript
+// Example: Implementing a custom SubgraphRetrievalService
+class CustomProviderService implements SubgraphRetrievalService {
+  async getProvidersForCommP(commp) {
+    // Your custom implementation here
+    // Could use a different data source, filtering logic, etc.
+    return [{
+      owner: '0x123...',
+      pdpUrl: 'https://example.com/pdp',
+      pieceRetrievalUrl: 'https://example.com/retrieval',
+      registeredAt: Date.now(),
+      approvedAt: Date.now()
+    }]
+  }
+  
+  async getProviderByAddress(address) {
+    // Your custom implementation
+    // ...
+  }
+}
+
+// Using the custom service with Synapse
+const synapse = await Synapse.create({
+  provider,
+  subgraphService: new CustomProviderService()
+})
 ```
 
 ### PDP Components

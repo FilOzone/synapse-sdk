@@ -25,8 +25,9 @@
  * ```
  */
 
-import { toHex } from 'multiformats/bytes'
+import { toHex, fromHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
+import { asCommP } from '../commp/commp.js'
 import type {
   CommP,
   ApprovedProviderInfo,
@@ -34,187 +35,7 @@ import type {
   SubgraphConfig
 } from '../types.js'
 import { createError } from '../utils/errors.js'
-
-const QUERIES = {
-  // queries for subgraphRetriever
-  GET_APPROVED_PROVIDERS_FOR_COMMP: `
-    query GetRoots($cid: Bytes!) {
-      roots(where: { cid: $cid }) {
-        id
-        proofSet {
-          setId
-          owner(where: { status: "APPROVED" }) {
-            id
-            address
-            pdpUrl
-            pieceRetrievalUrl
-            registeredAt
-            approvedAt
-          }
-        }
-      }
-    }
-  `,
-  GET_PROVIDER_BY_ADDRESS: `
-    query Provider($providerId: ID!) {
-      provider(id: $providerId) {
-        id
-        address
-        pdpUrl
-        pieceRetrievalUrl
-        registeredAt
-        approvedAt
-      }
-    }
-  `,
-  // flexible query templates
-  GET_PROVIDERS_FLEXIBLE: `
-    query ProvidersFlexible($where: Provider_filter, $first: Int, $skip: Int, $orderBy: Provider_orderBy, $orderDirection: OrderDirection) {
-      providers(
-        where: $where
-        first: $first
-        skip: $skip
-        orderBy: $orderBy
-        orderDirection: $orderDirection
-      ) {
-        id
-        address
-        pdpUrl
-        pieceRetrievalUrl
-        registeredAt
-        approvedAt
-        status
-        totalFaultedPeriods
-        totalFaultedRoots
-        totalProofSets
-        totalRoots
-        totalDataSize
-        createdAt
-        updatedAt
-      }
-    }
-  `,
-  GET_PROOF_SETS_FLEXIBLE: `
-    query ProofSetsFlexible($where: ProofSet_filter, $first: Int, $skip: Int, $orderBy: ProofSet_orderBy, $orderDirection: OrderDirection) {
-      proofSets(
-        where: $where
-        first: $first
-        skip: $skip
-        orderBy: $orderBy
-        orderDirection: $orderDirection
-      ) {
-        id
-        setId
-        listener
-        clientAddr
-        withCDN
-        isActive
-        leafCount
-        challengeRange
-        lastProvenEpoch
-        nextChallengeEpoch
-        totalRoots
-        totalDataSize
-        totalProofs
-        totalProvedRoots
-        totalFaultedPeriods
-        totalFaultedRoots
-        metadata
-        createdAt
-        updatedAt
-        owner {
-          id
-          address
-          pdpUrl
-          pieceRetrievalUrl
-          registeredAt
-          approvedAt
-        }
-        rail {
-          id
-          railId
-          token
-          paymentRate
-          lockupPeriod
-          settledUpto
-          endEpoch
-        }
-      }
-    }
-  `,
-  GET_ROOTS_FLEXIBLE: `
-    query RootsFlexible($where: Root_filter, $first: Int, $skip: Int, $orderBy: Root_orderBy, $orderDirection: OrderDirection) {
-      roots(
-        where: $where
-        first: $first
-        skip: $skip
-        orderBy: $orderBy
-        orderDirection: $orderDirection
-      ) {
-        id
-        setId
-        rootId
-        rawSize
-        leafCount
-        cid
-        removed
-        totalProofsSubmitted
-        totalPeriodsFaulted
-        lastProvenEpoch
-        lastProvenAt
-        lastFaultedEpoch
-        lastFaultedAt
-        createdAt
-        metadata
-        proofSet {
-          id
-          setId
-          isActive
-          owner {
-            id
-            address
-            pdpUrl
-            pieceRetrievalUrl
-            registeredAt
-            approvedAt
-          }
-        }
-      }
-    }
-  `,
-  GET_FAULT_RECORDS_FLEXIBLE: `
-    query FaultRecordsFlexible($where: FaultRecord_filter, $first: Int, $skip: Int, $orderBy: FaultRecord_orderBy, $orderDirection: OrderDirection) {
-      faultRecords(
-        where: $where
-        first: $first
-        skip: $skip
-        orderBy: $orderBy
-        orderDirection: $orderDirection
-      ) {
-        id
-        proofSetId
-        rootIds
-        currentChallengeEpoch
-        nextChallengeEpoch
-        periodsFaulted
-        deadline
-        createdAt
-        proofSet {
-          id
-          setId
-          owner {
-            id
-            address
-            pdpUrl
-            pieceRetrievalUrl
-            registeredAt
-            approvedAt
-          }
-        }
-      }
-    }
-  `
-} as const
+import { QUERIES } from './queries.js'
 
 // Simplified response types
 interface GraphQLResponse<T = any> {
@@ -310,7 +131,7 @@ export interface RootInfo {
   rootId: number
   rawSize: number
   leafCount: number
-  cid: string
+  cid: CommP | null
   removed: boolean
   totalProofsSubmitted: number
   totalPeriodsFaulted: number
@@ -413,6 +234,20 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
+   * Normalizes query options with defaults
+   */
+  private normalizeQueryOptions (options: QueryOptions = {}): QueryOptions {
+    return {
+      where: {},
+      first: 10,
+      skip: 0,
+      orderBy: 'createdAt',
+      orderDirection: 'desc',
+      ...options
+    } as const
+  }
+
+  /**
    * Executes a GraphQL query
    */
   private async executeQuery<T>(
@@ -455,13 +290,6 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Converts CommP to hex string
-   */
-  private commPToHex (commP: CommP): string {
-    return toHex(CID.parse(commP.toString()).bytes)
-  }
-
-  /**
    * Transforms provider data to ApprovedProviderInfo
    */
   private transformProviderData (data: any): ApprovedProviderInfo {
@@ -480,7 +308,34 @@ export class SubgraphService implements SubgraphRetrievalService {
   private parseTimestamp (value?: number | string): number {
     if (value == null) return 0
     const parsed = Number(value)
-    return isNaN(parsed) || parsed === 0 ? 0 : parsed
+    return isNaN(parsed) ? 0 : parsed
+  }
+
+  /**
+   * Safely converts a hex format CID to CommP format
+   * @param hexCid - The CID in hex format
+   * @returns The CID in CommP format or null if conversion fails
+   */
+  private safeConvertHexToCid (hexCid: string): CommP | null {
+    try {
+      const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
+      const cidBytes = fromHex(cleanHex)
+      const cid = CID.decode(cidBytes)
+      const commp = asCommP(cid)
+
+      if (commp == null) {
+        throw new Error(`Failed to convert CID to CommP format: ${hexCid}`)
+      }
+
+      return commp
+    } catch (error) {
+      console.warn(
+        `SubgraphService: queryProviders: Failed to convert CID to CommP format: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      )
+      return null
+    }
   }
 
   /**
@@ -508,7 +363,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
   async getProvidersForCommP (commP: CommP): Promise<ApprovedProviderInfo[]> {
-    const hexCommP = this.commPToHex(commP)
+    const hexCommP = toHex(commP.bytes)
 
     const data = await this.executeQuery<{ roots: any[] }>(
       QUERIES.GET_APPROVED_PROVIDERS_FOR_COMMP,
@@ -578,17 +433,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    * ```
    */
   async queryProviders (options: QueryOptions = {}): Promise<ApprovedProviderInfo[]> {
-    const {
-      where = {},
-      first = 100,
-      skip = 0,
-      orderBy = 'createdAt',
-      orderDirection = 'desc'
-    } = options
-
     const data = await this.executeQuery<{ providers: any[] }>(
       QUERIES.GET_PROVIDERS_FLEXIBLE,
-      { where, first, skip, orderBy, orderDirection },
+      this.normalizeQueryOptions(options),
       'queryProviders'
     )
 
@@ -628,17 +475,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    * ```
    */
   async queryProofSets (options: QueryOptions = {}): Promise<DetailedSubgraphProofSetInfo[]> {
-    const {
-      where = {},
-      first = 50,
-      skip = 0,
-      orderBy = 'createdAt',
-      orderDirection = 'desc'
-    } = options
-
     const data = await this.executeQuery<{ proofSets: any[] }>(
       QUERIES.GET_PROOF_SETS_FLEXIBLE,
-      { where, first, skip, orderBy, orderDirection },
+      this.normalizeQueryOptions(options),
       'queryProofSets'
     )
 
@@ -717,17 +556,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    * ```
    */
   async queryRoots (options: QueryOptions = {}): Promise<RootInfo[]> {
-    const {
-      where = {},
-      first = 100,
-      skip = 0,
-      orderBy = 'createdAt',
-      orderDirection = 'desc'
-    } = options
-
     const data = await this.executeQuery<{ roots: any[] }>(
       QUERIES.GET_ROOTS_FLEXIBLE,
-      { where, first, skip, orderBy, orderDirection },
+      this.normalizeQueryOptions(options),
       'queryRoots'
     )
 
@@ -742,7 +573,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       rootId: this.parseTimestamp(root.rootId),
       rawSize: this.parseTimestamp(root.rawSize),
       leafCount: this.parseTimestamp(root.leafCount),
-      cid: root.cid,
+      cid: this.safeConvertHexToCid(root.cid),
       removed: root.removed,
       totalProofsSubmitted: this.parseTimestamp(root.totalProofsSubmitted),
       totalPeriodsFaulted: this.parseTimestamp(root.totalPeriodsFaulted),
@@ -784,17 +615,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    * ```
    */
   async queryFaultRecords (options: QueryOptions = {}): Promise<FaultRecord[]> {
-    const {
-      where = {},
-      first = 50,
-      skip = 0,
-      orderBy = 'createdAt',
-      orderDirection = 'desc'
-    } = options
-
     const data = await this.executeQuery<{ faultRecords: any[] }>(
       QUERIES.GET_FAULT_RECORDS_FLEXIBLE,
-      { where, first, skip, orderBy, orderDirection },
+      this.normalizeQueryOptions(options),
       'queryFaultRecords'
     )
 
