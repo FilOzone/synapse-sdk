@@ -26,6 +26,7 @@ import type { PandoraService } from '../pandora/service.js'
 import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
 import { createError } from '../utils/index.js'
+import { asCommP } from '../commp/index.js'
 import { SIZE_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
 
 export class StorageService {
@@ -923,5 +924,24 @@ export class StorageService {
    */
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     return await this.providerDownload(commp, options)
+  }
+
+  /**
+   * Get proof set roots for this storage service's proof set
+   * @returns Array of root CIDs as CommP objects
+   */
+  async getProofSetRoots (): Promise<CommP[]> {
+    const proofSetData = await this._pdpServer.getProofSet(this._proofSetId)
+    return proofSetData.roots.map(root => {
+      const commP = asCommP(root.rootCid)
+      if (commP == null) {
+        throw createError(
+          'StorageService',
+          'getProofSetRoots',
+          `Invalid CommP received from server: ${root.rootCid.toString()}`
+        )
+      }
+      return commP
+    })
   }
 }

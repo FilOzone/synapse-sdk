@@ -1318,7 +1318,7 @@ describe('PandoraService', () => {
           assert.strictEqual(txHash, mockTxHash)
           return {
             createMessageHash: mockTxHash,
-            proofsetCreated: true,
+            proofSetCreated: true,
             service: 'test-service',
             txStatus: 'confirmed',
             ok: true,
@@ -1365,7 +1365,7 @@ describe('PandoraService', () => {
       assert.exists(result.summary)
 
       // Verify server status
-      assert.isTrue(result.serverStatus.proofsetCreated)
+      assert.isTrue(result.serverStatus.proofSetCreated)
       assert.strictEqual(result.serverStatus.proofSetId, 123)
 
       // Verify chain status
@@ -1451,7 +1451,7 @@ describe('PandoraService', () => {
             // First call - not created yet
             return {
               createMessageHash: mockTxHash,
-              proofsetCreated: false,
+              proofSetCreated: false,
               service: 'test-service',
               txStatus: 'pending',
               ok: null,
@@ -1461,7 +1461,7 @@ describe('PandoraService', () => {
             // Second call - created
             return {
               createMessageHash: mockTxHash,
-              proofsetCreated: true,
+              proofSetCreated: true,
               service: 'test-service',
               txStatus: 'confirmed',
               ok: true,
@@ -1527,7 +1527,7 @@ describe('PandoraService', () => {
         getProofSetCreationStatus: async () => {
           return {
             createMessageHash: mockTxHash,
-            proofsetCreated: false,
+            proofSetCreated: false,
             service: 'test-service',
             txStatus: 'pending',
             ok: null,
