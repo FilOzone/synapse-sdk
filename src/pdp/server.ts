@@ -117,7 +117,7 @@ export interface RootAdditionStatusResponse {
 export class PDPServer {
   private readonly _apiEndpoint: string
   private readonly _retrievalEndpoint: string
-  private readonly _authHelper: PDPAuthHelper
+  private readonly _authHelper: PDPAuthHelper | null
   private readonly _serviceName: string
 
   /**
@@ -128,16 +128,19 @@ export class PDPServer {
    * @param serviceName - Service name for uploads (defaults to 'public')
    */
   constructor (
-    authHelper: PDPAuthHelper,
+    authHelper: PDPAuthHelper | null,
     apiEndpoint: string,
     retrievalEndpoint: string,
     serviceName: string = 'public'
   ) {
-    if (apiEndpoint.trim() === '') {
-      throw new Error('PDP API endpoint is required')
-    }
-    if (retrievalEndpoint.trim() === '') {
-      throw new Error('PDP retrieval endpoint is required')
+    // Allow empty endpoints only for null auth (ping validation scenarios)
+    if (authHelper !== null) {
+      if (apiEndpoint.trim() === '') {
+        throw new Error('PDP API endpoint is required')
+      }
+      if (retrievalEndpoint.trim() === '') {
+        throw new Error('PDP retrieval endpoint is required')
+      }
     }
     // Remove trailing slash from endpoints
     this._apiEndpoint = apiEndpoint.replace(/\/$/, '')
@@ -161,13 +164,13 @@ export class PDPServer {
     recordKeeper: string
   ): Promise<CreateProofSetResponse> {
     // Generate the EIP-712 signature for proof set creation
-    const authData = await this._authHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
+    const authData = await this.getAuthHelper().signCreateProofSet(clientDataSetId, payee, withCDN)
 
     // Prepare the extra data for the contract call
     // This needs to match the ProofSetCreateData struct in Pandora contract
     const extraData = this._encodeProofSetCreateData({
       metadata: '', // Empty metadata for now
-      payer: await this._authHelper.getSignerAddress(),
+      payer: await this.getAuthHelper().getSignerAddress(),
       withCDN,
       signature: authData.signature
     })
@@ -251,7 +254,7 @@ export class PDPServer {
     }
 
     // Generate the EIP-712 signature for adding roots
-    const authData = await this._authHelper.signAddRoots(
+    const authData = await this.getAuthHelper().signAddRoots(
       clientDataSetId,
       nextRootId,
       rootDataArray // Pass RootData[] directly to auth helper
@@ -594,6 +597,9 @@ export class PDPServer {
   }
 
   getAuthHelper (): PDPAuthHelper {
+    if (this._authHelper == null) {
+      throw new Error('Auth helper is not initialized')
+    }
     return this._authHelper
   }
 }

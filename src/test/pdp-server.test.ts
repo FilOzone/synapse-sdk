@@ -1014,7 +1014,7 @@ describe('PDPServer', () => {
   })
 
   describe('ping', () => {
-    it('should successfully ping provider with 200 response', async () => {
+    it('should successfully ping a healthy provider', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -1035,13 +1035,13 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should throw error on non-200 status code with error text', async () => {
+    it('should throw error when provider returns non-200 status', async () => {
       const originalFetch = global.fetch
       global.fetch = async () => {
         return {
           status: 500,
           statusText: 'Internal Server Error',
-          text: async () => 'Service unavailable'
+          text: async () => 'Server is down'
         } as any
       }
 
@@ -1049,20 +1049,61 @@ describe('PDPServer', () => {
         await pdpServer.ping()
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Provider ping failed: 500 Internal Server Error - Service unavailable')
+        assert.include(error.message, 'Provider ping failed')
+        assert.include(error.message, '500')
+        assert.include(error.message, 'Internal Server Error')
+        assert.include(error.message, 'Server is down')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should throw error on non-200 status code with fallback error text', async () => {
+    it('should throw error when provider returns 404', async () => {
       const originalFetch = global.fetch
       global.fetch = async () => {
         return {
           status: 404,
           statusText: 'Not Found',
+          text: async () => 'Ping endpoint not found'
+        } as any
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider ping failed')
+        assert.include(error.message, '404')
+        assert.include(error.message, 'Not Found')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle fetch failure', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        throw new Error('Network connection failed')
+      }
+
+      try {
+        await pdpServer.ping()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Network connection failed')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle error when response.text() fails', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        return {
+          status: 503,
+          statusText: 'Service Unavailable',
           text: async () => {
-            throw new Error('Text extraction failed')
+            throw new Error('Failed to read response body')
           }
         } as any
       }
@@ -1071,23 +1112,10 @@ describe('PDPServer', () => {
         await pdpServer.ping()
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Provider ping failed: 404 Not Found - Unknown error')
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-
-    it('should throw error on network failure', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        throw new Error('Network error: Connection refused')
-      }
-
-      try {
-        await pdpServer.ping()
-        assert.fail('Should have thrown error')
-      } catch (error: any) {
-        assert.include(error.message, 'Network error: Connection refused')
+        assert.include(error.message, 'Provider ping failed')
+        assert.include(error.message, '503')
+        assert.include(error.message, 'Service Unavailable')
+        assert.include(error.message, 'Unknown error')
       } finally {
         global.fetch = originalFetch
       }
