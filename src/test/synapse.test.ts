@@ -122,7 +122,8 @@ describe('Synapse', () => {
       const mainnetProvider = createMockProvider(314)
       const synapse = await Synapse.create({
         provider: mainnetProvider,
-        pandoraAddress: '0x1234567890123456789012345678901234567890' // Custom address for mainnet
+        pandoraAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
+        paymentsAddress: '0x9876543210987654321098765432109876543210' // Custom payments address for mainnet
       })
       assert.exists(synapse)
     })

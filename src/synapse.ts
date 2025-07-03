@@ -146,6 +146,7 @@ export class Synapse {
       options.disableNonceManager === true,
       options.withCDN === true,
       options.pandoraAddress,
+      options.paymentsAddress,
       pandoraService,
       pieceRetriever
     )
@@ -158,6 +159,7 @@ export class Synapse {
     disableNonceManager: boolean,
     withCDN: boolean,
     pandoraAddressOverride: string | undefined,
+    paymentsAddressOverride: string | undefined,
     pandoraService: PandoraService,
     pieceRetriever: PieceRetriever
   ) {
@@ -165,7 +167,14 @@ export class Synapse {
     this._signer = signer
     this._network = network
     this._withCDN = withCDN
-    this._payments = new PaymentsService(provider, signer, network, disableNonceManager)
+
+    // Get payments address (use override or default for network)
+    const paymentsAddress = paymentsAddressOverride ?? CONTRACT_ADDRESSES.PAYMENTS[network]
+    if (paymentsAddress == null || paymentsAddress === '') {
+      throw new Error(`No Payments contract address configured for network: ${network}`)
+    }
+    this._payments = new PaymentsService(provider, signer, network, disableNonceManager, paymentsAddress)
+
     this._pandoraService = pandoraService
     this._pieceRetriever = pieceRetriever
 
