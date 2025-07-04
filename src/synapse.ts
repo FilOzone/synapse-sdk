@@ -259,7 +259,7 @@ export class Synapse {
   /**
    * Get information about a storage provider
    * @param providerAddress - The Ethereum address of the provider
-   * @returns Provider information including pricing (currently same for all providers)
+   * @returns Provider metadata including owner, URLs, and approval timestamps
    * @throws Error if provider is not found or not approved
    */
   async getProviderInfo (providerAddress: string): Promise<ApprovedProviderInfo> {
@@ -365,9 +365,9 @@ export class Synapse {
       const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
       const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
 
-      // Calculate per-day pricing (30 days per month)
-      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / 30n
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / 30n
+      // Calculate per-day pricing
+      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: ApprovedProviderInfo) => p.owner !== ethers.ZeroAddress)
@@ -392,7 +392,7 @@ export class Synapse {
           network: this._network,
           epochsPerMonth,
           epochsPerDay,
-          epochDuration: 30, // 30 seconds per epoch
+          epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
           minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
           pandoraAddress: this._pandoraAddress,

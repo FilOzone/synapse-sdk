@@ -865,18 +865,18 @@ export class PandoraService {
    * @returns Service pricing details
    */
   async getServicePrice (): Promise<{
-    pricePerTiBPerMonthNoCDN: number
-    pricePerTiBPerMonthWithCDN: number
+    pricePerTiBPerMonthNoCDN: bigint
+    pricePerTiBPerMonthWithCDN: bigint
     tokenAddress: string
-    epochsPerMonth: number
+    epochsPerMonth: bigint
   }> {
     const contract = this._getPandoraContract()
     const result = await contract.getServicePrice()
     return {
-      pricePerTiBPerMonthNoCDN: Number(result.pricePerTiBPerMonthNoCDN),
-      pricePerTiBPerMonthWithCDN: Number(result.pricePerTiBPerMonthWithCDN),
+      pricePerTiBPerMonthNoCDN: result.pricePerTiBPerMonthNoCDN,
+      pricePerTiBPerMonthWithCDN: result.pricePerTiBPerMonthWithCDN,
       tokenAddress: result.tokenAddress,
-      epochsPerMonth: Number(result.epochsPerMonth)
+      epochsPerMonth: result.epochsPerMonth
     }
   }
 }
