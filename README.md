@@ -32,6 +32,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 * [Using Individual Components](#using-individual-components)
   * [Payments Service](#payments-service)
   * [Pandora Service](#pandora-service)
+  * [Subgraph Service](#subgraph-service)
   * [PDP Components](#pdp-components)
   * [CommP Utilities](#commp-utilities)
 * [Network Configuration](#network-configuration)
@@ -207,6 +208,20 @@ interface SynapseOptions {
   disableNonceManager?: boolean // Disable automatic nonce management
   withCDN?: boolean             // Enable CDN for retrievals
   pandoraAddress?: string       // Override Pandora service contract address
+  
+  // Subgraph Integration (provide ONE of these options)
+  subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
+  subgraphConfig?: SubgraphConfig // Configuration for the default SubgraphService
+}
+
+interface SubgraphConfig {
+  endpoint?: string // Subgraph endpoint
+  goldsky?: {
+    projectId: string
+    subgraphName: string
+    version: string
+  } // Used if endpoint is not provided
+  apiKey?: string // Optional API key for authenticated subgraph access
 }
 ```
 
@@ -514,6 +529,71 @@ if (verification.proofSetLive) {
 // Storage provider operations
 const isApproved = await pandoraService.isProviderApproved(providerAddress)
 const providers = await pandoraService.getAllApprovedProviders()
+```
+
+### Subgraph Service
+
+The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, proof set tracking, and more.
+
+```javascript
+// Create subgraph service
+const subgraphService = new SubgraphService({
+  goldsky: {
+    projectId: 'PROJECT_ID',
+    subgraphName: 'SUBGRAPH_NAME',
+    version: 'latest'
+  }
+})
+
+// Direct endpoint configuration
+const subgraphService2 = new SubgraphService({
+  endpoint: 'https://api.goldsky.com/api/public/project_id/subgraph_name'
+})
+
+// Example: Query for active providers with custom filtering
+const activeProviders = await subgraphService.queryProviders({
+  where: {
+    status: 'Approved'
+  },
+  orderBy: 'totalProofSets',
+  orderDirection: 'desc',
+  first: 5
+})
+
+// Example: Find providers for a specific CommP
+const providers = await subgraphService.getProvidersForCommP(commp)
+```
+
+#### Custom Subgraph Service Implementations
+
+The SDK supports custom implementations of the `SubgraphRetrievalService` interface, allowing you to provide alternative data sources for provider discovery. This is useful for testing, custom integrations, or cases where you need specialized provider selection logic.
+
+```javascript
+// Example: Implementing a custom SubgraphRetrievalService
+class CustomProviderService implements SubgraphRetrievalService {
+  async getProvidersForCommP(commp) {
+    // Your custom implementation here
+    // Could use a different data source, filtering logic, etc.
+    return [{
+      owner: '0x123...',
+      pdpUrl: 'https://example.com/pdp',
+      pieceRetrievalUrl: 'https://example.com/retrieval',
+      registeredAt: Date.now(),
+      approvedAt: Date.now()
+    }]
+  }
+  
+  async getProviderByAddress(address) {
+    // Your custom implementation
+    // ...
+  }
+}
+
+// Using the custom service with Synapse
+const synapse = await Synapse.create({
+  provider,
+  subgraphService: new CustomProviderService()
+})
 ```
 
 ### PDP Components

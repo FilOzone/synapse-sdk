@@ -8,12 +8,14 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
+  type SubgraphRetrievalService,
   type CommP
 } from './types.js'
 import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
 import { PandoraService } from './pandora/index.js'
-import { ChainRetriever, FilCdnRetriever } from './retriever/index.js'
+import { SubgraphService } from './subgraph/service.js'
+import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
 import { asCommP, downloadAndValidateCommP } from './commp/index.js'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, createError } from './utils/index.js'
 
@@ -135,8 +137,34 @@ export class Synapse {
     if (options.pieceRetriever != null) {
       pieceRetriever = options.pieceRetriever
     } else {
-      const chainRetriever = new ChainRetriever(pandoraService)
-      pieceRetriever = new FilCdnRetriever(chainRetriever, network)
+      const chainRetriever = new ChainRetriever(pandoraService /*, no child here */)
+      let underlyingRetriever: PieceRetriever = chainRetriever
+
+      // Handle subgraph piece retriever - can provide either a service or configuration
+      if (options.subgraphService != null || options.subgraphConfig != null) {
+        try {
+          let subgraphService: SubgraphRetrievalService
+
+          if (options.subgraphService != null) {
+            subgraphService = options.subgraphService
+          } else if (options.subgraphConfig != null) {
+            subgraphService = new SubgraphService(options.subgraphConfig)
+          } else {
+            // This shouldn't happen due to the if condition above, but TypeScript doesn't know that
+            throw new Error('Invalid subgraph configuration: neither service nor config provided')
+          }
+
+          underlyingRetriever = new SubgraphRetriever(subgraphService, chainRetriever)
+        } catch (error) {
+          throw new Error(
+            `Failed to initialize subgraph piece retriever: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          )
+        }
+      }
+
+      pieceRetriever = new FilCdnRetriever(underlyingRetriever, network)
     }
 
     return new Synapse(

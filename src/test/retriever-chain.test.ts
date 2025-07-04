@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import { ChainRetriever } from '../retriever/chain.js'
 import type { PandoraService } from '../pandora/index.js'
-import type { ApprovedProviderInfo, EnhancedProofSetInfo, CommP } from '../types.js'
+import type { PieceRetriever, ApprovedProviderInfo, EnhancedProofSetInfo, CommP } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Create a mock CommP for testing
@@ -23,6 +23,17 @@ const mockProvider2: ApprovedProviderInfo = {
   pieceRetrievalUrl: 'https://provider2.example.com/retrieve',
   registeredAt: 1000,
   approvedAt: 2000
+}
+
+// Mock child retriever
+const mockChildRetriever: PieceRetriever = {
+  fetchPiece: async (
+    commP: CommP,
+    client: string,
+    options?: { providerAddress?: string, signal?: AbortSignal }
+  ): Promise<Response> => {
+    return new Response('data from child', { status: 200 })
+  }
 }
 
 // Mock proof set
@@ -88,22 +99,32 @@ describe('ChainRetriever', () => {
       }
     })
 
-    it('should throw when specific provider is not approved', async () => {
+    it('should fall back to child retriever when specific provider is not approved', async () => {
       const mockPandora: Partial<PandoraService> = {
         getProviderIdByAddress: async () => 0 // Provider not found
       }
+      const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+      const response = await retriever.fetchPiece(mockCommP, '0xClient', {
+        providerAddress: '0xNotApproved'
+      })
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), 'data from child')
+    })
 
+    it('should throw when specific provider is not approved and no child retriever', async () => {
+      const mockPandora: Partial<PandoraService> = {
+        getProviderIdByAddress: async () => 0 // Provider not found
+      }
       const retriever = new ChainRetriever(mockPandora as PandoraService)
 
       try {
-        await retriever.fetchPiece(
-          mockCommP,
-          '0xClient',
-          { providerAddress: '0xNotApproved' }
-        )
+        await retriever.fetchPiece(mockCommP, '0xClient', { providerAddress: '0xNotApproved' })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider 0xNotApproved not found or not approved')
+        assert.include(
+          error.message,
+          'Provider discovery failed and no additional retriever method was configured'
+        )
       }
     })
   })
@@ -253,47 +274,72 @@ describe('ChainRetriever', () => {
       }
     })
 
-    it('should handle all providers failing', async () => {
+    it('should fall back to child retriever when all providers fail', async () => {
       const mockPandora: Partial<PandoraService> = {
         getClientProofSetsWithDetails: async () => [mockProofSet],
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
-
-      // Mock fetch to simulate failures
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
-        if (url.includes('/pdp/piece?')) {
-          return new Response('', { status: 404 }) // Piece not found
-        }
-        throw new Error('Unexpected URL')
+      global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
+
+      try {
+        const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+        assert.equal(response.status, 200)
+        assert.equal(await response.text(), 'data from child')
+      } finally {
+        global.fetch = originalFetch
       }
+    })
+
+    it('should throw when all providers fail and no child retriever', async () => {
+      const mockPandora: Partial<PandoraService> = {
+        getClientProofSetsWithDetails: async () => [mockProofSet],
+        getProviderIdByAddress: async () => 1,
+        getApprovedProvider: async () => mockProvider1
+      }
+      const originalFetch = global.fetch
+      global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
 
       try {
         const retriever = new ChainRetriever(mockPandora as PandoraService)
         await retriever.fetchPiece(mockCommP, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'All providers failed to serve piece')
-        assert.include(error.message, 'findPiece returned 404')
+        assert.include(
+          error.message,
+          'All provider retrieval attempts failed and no additional retriever method was configured'
+        )
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should throw when no active proof sets found', async () => {
+    it('should fall back to child retriever when no active proof sets found', async () => {
       const mockPandora: Partial<PandoraService> = {
         getClientProofSetsWithDetails: async () => [] // No proof sets
       }
+      const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+      const response = await retriever.fetchPiece(mockCommP, '0xClient')
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), 'data from child')
+    })
 
+    it('should throw when no active proof sets found and no child retriever', async () => {
+      const mockPandora: Partial<PandoraService> = {
+        getClientProofSetsWithDetails: async () => [] // No proof sets
+      }
       const retriever = new ChainRetriever(mockPandora as PandoraService)
 
       try {
         await retriever.fetchPiece(mockCommP, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'No active proof sets with data found')
+        assert.include(
+          error.message,
+          'Provider discovery failed and no additional retriever method was configured'
+        )
       }
     })
   })
