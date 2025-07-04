@@ -683,39 +683,26 @@ describe('PandoraService', () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // nextServiceProviderId
-        if (data?.startsWith('0x9b0274da') === true) {
-          return ethers.zeroPadValue('0x03', 32) // ID 3, so we have providers 1 and 2
-        }
-
-        // getApprovedProvider for IDs 1 and 2
-        if (data?.startsWith('0x1c7db86a') === true) {
-          const idHex = data.slice(10, 74)
-          if (idHex === ethers.zeroPadValue('0x01', 32).slice(2)) {
-            const provider1 = [
-              '0x1111111111111111111111111111111111111111',
-              'https://pdp1.com',
-              'https://retrieval1.com',
-              1111111111n,
-              1111111112n
-            ]
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(address,string,string,uint256,uint256)'],
-              [provider1]
-            )
-          } else if (idHex === ethers.zeroPadValue('0x02', 32).slice(2)) {
-            const provider2 = [
-              '0x2222222222222222222222222222222222222222',
-              'https://pdp2.com',
-              'https://retrieval2.com',
-              2222222222n,
-              2222222223n
-            ]
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(address,string,string,uint256,uint256)'],
-              [provider2]
-            )
-          }
+        // getAllApprovedProviders
+        if (data?.startsWith('0x0af14754') === true) {
+          const provider1 = [
+            '0x1111111111111111111111111111111111111111',
+            'https://pdp1.com',
+            'https://retrieval1.com',
+            1111111111n,
+            1111111112n
+          ]
+          const provider2 = [
+            '0x2222222222222222222222222222222222222222',
+            'https://pdp2.com',
+            'https://retrieval2.com',
+            2222222222n,
+            2222222223n
+          ]
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(address,string,string,uint256,uint256)[]'],
+            [[provider1, provider2]]
+          )
         }
 
         return '0x' + '0'.repeat(64)

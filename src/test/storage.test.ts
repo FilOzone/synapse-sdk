@@ -29,6 +29,10 @@ const mockSynapse = {
   download: async (commp: string | CommP, options?: any) => {
     // Mock download that returns test data - will be overridden in specific tests
     return new Uint8Array(65).fill(42)
+  },
+  getProviderInfo: async (providerAddress: string) => {
+    // Mock getProviderInfo - will be overridden in specific tests
+    throw new Error('getProviderInfo not mocked')
   }
 } as unknown as Synapse
 
@@ -2207,6 +2211,55 @@ describe('StorageService', () => {
           global.fetch = originalFetch
         }
       })
+    })
+  })
+
+  describe('getProviderInfo', () => {
+    it('should return provider info through Synapse', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the synapse getProviderInfo method
+      const originalGetProviderInfo = mockSynapse.getProviderInfo
+      const expectedProviderInfo = {
+        owner: mockProvider.owner,
+        pdpUrl: 'https://updated-pdp.example.com',
+        pieceRetrievalUrl: 'https://updated-retrieve.example.com',
+        registeredAt: 1234567900,
+        approvedAt: 1234567901
+      }
+
+      mockSynapse.getProviderInfo = async (address: string) => {
+        assert.equal(address, mockProvider.owner)
+        return expectedProviderInfo
+      }
+
+      try {
+        const providerInfo = await service.getProviderInfo()
+        assert.deepEqual(providerInfo, expectedProviderInfo)
+      } finally {
+        mockSynapse.getProviderInfo = originalGetProviderInfo
+      }
+    })
+
+    it('should handle errors from Synapse getProviderInfo', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the synapse getProviderInfo method to throw
+      const originalGetProviderInfo = mockSynapse.getProviderInfo
+      mockSynapse.getProviderInfo = async () => {
+        throw new Error('Provider not found')
+      }
+
+      try {
+        await service.getProviderInfo()
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider not found')
+      } finally {
+        mockSynapse.getProviderInfo = originalGetProviderInfo
+      }
     })
   })
 })

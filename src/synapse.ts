@@ -8,14 +8,16 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
-  type CommP
+  type CommP,
+  type ApprovedProviderInfo,
+  type StorageInfo
 } from './types.js'
 import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
 import { PandoraService } from './pandora/index.js'
 import { ChainRetriever, FilCdnRetriever } from './retriever/index.js'
 import { asCommP, downloadAndValidateCommP } from './commp/index.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, createError } from './utils/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS, createError } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
@@ -255,6 +257,42 @@ export class Synapse {
   }
 
   /**
+   * Get information about a storage provider
+   * @param providerAddress - The Ethereum address of the provider
+   * @returns Provider information including pricing (currently same for all providers)
+   * @throws Error if provider is not found or not approved
+   */
+  async getProviderInfo (providerAddress: string): Promise<ApprovedProviderInfo> {
+    try {
+      // Validate address format
+      if (!ethers.isAddress(providerAddress)) {
+        throw new Error(`Invalid provider address: ${String(providerAddress)}`)
+      }
+
+      // Get provider ID from address
+      const providerId = await this._pandoraService.getProviderIdByAddress(providerAddress)
+      if (providerId === 0) {
+        throw new Error(`Provider ${providerAddress} is not approved`)
+      }
+
+      // Get provider info
+      const providerInfo = await this._pandoraService.getApprovedProvider(providerId)
+      if (providerInfo.owner === ethers.ZeroAddress) {
+        throw new Error(`Provider ${providerAddress} not found`)
+      }
+
+      return providerInfo
+    } catch (error) {
+      throw createError(
+        'Synapse',
+        'getProviderInfo',
+        `Failed to get provider info for ${providerAddress}`,
+        error
+      )
+    }
+  }
+
+  /**
    * Download a piece from storage providers
    * @param commp - The CommP identifier (as string or CommP object)
    * @param options - Optional download parameters
@@ -284,6 +322,93 @@ export class Synapse {
     )
 
     return await downloadAndValidateCommP(response, parsedCommP)
+  }
+
+  /**
+   * Get comprehensive storage service information including pricing, providers, and allowances
+   * @returns Storage service information
+   */
+  async getStorageInfo (): Promise<StorageInfo> {
+    try {
+      // Helper function to get allowances with error handling
+      const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
+        try {
+          const approval = await this._payments.serviceApproval(
+            this._pandoraAddress,
+            TOKENS.USDFC
+          )
+          return {
+            service: this._pandoraAddress,
+            rateAllowance: approval.rateAllowance,
+            lockupAllowance: approval.lockupAllowance,
+            rateUsed: approval.rateUsed,
+            lockupUsed: approval.lockupUsed
+          }
+        } catch (error) {
+          // Return null if wallet not connected or any error occurs
+          return null
+        }
+      }
+
+      // Fetch all data in parallel for performance
+      const [pricingData, providers, allowances] = await Promise.all([
+        this._pandoraService.getServicePrice(),
+        this._pandoraService.getAllApprovedProviders(),
+        getOptionalAllowances()
+      ])
+
+      // Calculate pricing per different time units
+      const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
+      const epochsPerDay = TIME_CONSTANTS.EPOCHS_PER_DAY
+
+      // Calculate per-epoch pricing
+      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
+
+      // Calculate per-day pricing (30 days per month)
+      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / 30n
+      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / 30n
+
+      // Filter out providers with zero addresses
+      const validProviders = providers.filter((p: ApprovedProviderInfo) => p.owner !== ethers.ZeroAddress)
+
+      return {
+        pricing: {
+          noCDN: {
+            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
+            perTiBPerDay: noCDNPerDay,
+            perTiBPerEpoch: noCDNPerEpoch
+          },
+          withCDN: {
+            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
+            perTiBPerDay: withCDNPerDay,
+            perTiBPerEpoch: withCDNPerEpoch
+          },
+          tokenAddress: pricingData.tokenAddress,
+          tokenSymbol: 'USDFC' // Hardcoded as we know it's always USDFC
+        },
+        providers: validProviders,
+        serviceParameters: {
+          network: this._network,
+          epochsPerMonth,
+          epochsPerDay,
+          epochDuration: 30, // 30 seconds per epoch
+          minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
+          maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
+          pandoraAddress: this._pandoraAddress,
+          paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
+          pdpVerifierAddress: CONTRACT_ADDRESSES.PDP_VERIFIER[this._network]
+        },
+        allowances
+      }
+    } catch (error) {
+      throw createError(
+        'Synapse',
+        'getStorageInfo',
+        'Failed to get storage service information',
+        error
+      )
+    }
   }
 }
 

@@ -1011,4 +1011,12 @@ export class StorageService {
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     return await this.providerDownload(commp, options)
   }
+
+  /**
+   * Get information about the storage provider used by this service
+   * @returns Provider information including pricing (currently same for all providers)
+   */
+  async getProviderInfo (): Promise<ApprovedProviderInfo> {
+    return await this._synapse.getProviderInfo(this.storageProvider)
+  }
 }

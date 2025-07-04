@@ -292,3 +292,73 @@ export interface UploadResult {
   /** Root ID in the proof set */
   rootId?: number
 }
+
+/**
+ * Comprehensive storage service information
+ */
+export interface StorageInfo {
+  /** Pricing information for storage services */
+  pricing: {
+    /** Pricing without CDN */
+    noCDN: {
+      /** Cost per TiB per month in token units */
+      perTiBPerMonth: bigint
+      /** Cost per TiB per day in token units */
+      perTiBPerDay: bigint
+      /** Cost per TiB per epoch in token units */
+      perTiBPerEpoch: bigint
+    }
+    /** Pricing with CDN enabled */
+    withCDN: {
+      /** Cost per TiB per month in token units */
+      perTiBPerMonth: bigint
+      /** Cost per TiB per day in token units */
+      perTiBPerDay: bigint
+      /** Cost per TiB per epoch in token units */
+      perTiBPerEpoch: bigint
+    }
+    /** Token contract address */
+    tokenAddress: string
+    /** Token symbol (always USDFC for now) */
+    tokenSymbol: string
+  }
+
+  /** List of approved storage providers */
+  providers: ApprovedProviderInfo[]
+
+  /** Service configuration parameters */
+  serviceParameters: {
+    /** Network type (mainnet or calibration) */
+    network: FilecoinNetworkType
+    /** Number of epochs in a month */
+    epochsPerMonth: bigint
+    /** Number of epochs in a day */
+    epochsPerDay: bigint
+    /** Duration of each epoch in seconds */
+    epochDuration: number
+    /** Minimum allowed upload size in bytes */
+    minUploadSize: number
+    /** Maximum allowed upload size in bytes */
+    maxUploadSize: number
+    /** Pandora service contract address */
+    pandoraAddress: string
+    /** Payments contract address */
+    paymentsAddress: string
+    /** PDP Verifier contract address */
+    pdpVerifierAddress: string
+  }
+
+  /** Current user allowances (null if wallet not connected) */
+  allowances: {
+    /** Service contract address */
+    service: string
+    /** Maximum payment rate per epoch allowed */
+    rateAllowance: bigint
+    /** Maximum lockup amount allowed */
+    lockupAllowance: bigint
+    /** Current rate allowance used */
+    rateUsed: bigint
+    /** Current lockup allowance used */
+    lockupUsed: bigint
+  } | null
+}

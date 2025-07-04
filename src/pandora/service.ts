@@ -848,23 +848,35 @@ export class PandoraService {
    * @returns Array of all approved providers
    */
   async getAllApprovedProviders (): Promise<ApprovedProviderInfo[]> {
-    const nextId = await this.getNextProviderId()
-    const providers: ApprovedProviderInfo[] = []
+    const contract = this._getPandoraContract()
+    const providers = await contract.getAllApprovedProviders()
 
-    // Provider IDs start at 1
-    for (let i = 1; i < nextId; i++) {
-      try {
-        const provider = await this.getApprovedProvider(i)
-        // Skip if provider was removed (owner would be zero address)
-        if (provider.owner !== '0x0000000000000000000000000000000000000000') {
-          providers.push(provider)
-        }
-      } catch (e) {
-        // Provider might have been removed
-        continue
-      }
+    return providers.map((p: any) => ({
+      owner: p.owner,
+      pdpUrl: p.pdpUrl,
+      pieceRetrievalUrl: p.pieceRetrievalUrl,
+      registeredAt: Number(p.registeredAt),
+      approvedAt: Number(p.approvedAt)
+    }))
+  }
+
+  /**
+   * Get the service pricing information from the contract
+   * @returns Service pricing details
+   */
+  async getServicePrice (): Promise<{
+    pricePerTiBPerMonthNoCDN: number
+    pricePerTiBPerMonthWithCDN: number
+    tokenAddress: string
+    epochsPerMonth: number
+  }> {
+    const contract = this._getPandoraContract()
+    const result = await contract.getServicePrice()
+    return {
+      pricePerTiBPerMonthNoCDN: Number(result.pricePerTiBPerMonthNoCDN),
+      pricePerTiBPerMonthWithCDN: Number(result.pricePerTiBPerMonthWithCDN),
+      tokenAddress: result.tokenAddress,
+      epochsPerMonth: Number(result.epochsPerMonth)
     }
-
-    return providers
   }
 }

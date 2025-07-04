@@ -108,7 +108,6 @@ async function main () {
       callbacks: {
         onProviderSelected: (provider) => {
           console.log(`✓ Selected storage provider: ${provider.owner}`)
-          console.log(`  PDP URL: ${provider.pdpUrl}`)
         },
         onProofSetResolved: (info) => {
           if (info.isExisting) {
@@ -128,8 +127,16 @@ async function main () {
       }
     })
 
-    console.log(`Storage provider: ${storageService.storageProvider}`)
     console.log(`Proof set ID: ${storageService.proofSetId}`)
+
+    // Get detailed provider information
+    console.log('\n--- Storage Provider Details ---')
+    const providerInfo = await storageService.getProviderInfo()
+    console.log(`Owner address: ${providerInfo.owner}`)
+    console.log(`PDP URL: ${providerInfo.pdpUrl}`)
+    console.log(`Retrieval URL: ${providerInfo.pieceRetrievalUrl}`)
+    console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
+    console.log(`Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`)
 
     // Step 5: Run preflight checks
     console.log('\n--- Preflight Upload Check ---')
