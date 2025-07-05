@@ -752,7 +752,6 @@ export class StorageService {
       callbacks.onUploadComplete(uploadResult.commP)
     }
 
-    // Add Root Phase: Add the piece to the proof set
     // Add Root Phase: Queue the AddRoots operation for sequential processing
     const rootData: RootData = {
       cid: uploadResult.commP,
@@ -768,10 +767,7 @@ export class StorageService {
         callbacks
       })
 
-      // If no processing is currently active and no timer is running, start a new timer
-      if (!this._isProcessing) {
-        this._processPendingRoots().catch(reject)
-      }
+      this._processPendingRoots()
     })
 
     // Return upload result
@@ -787,11 +783,10 @@ export class StorageService {
      * This method is called from the promise queue to ensure sequential execution
      */
   private async _processPendingRoots (): Promise<void> {
-    this._isProcessing = true
-
-    if (this._pendingRoots.length === 0) {
-      return
+    if (this._isProcessing || this._pendingRoots.length === 0) {
+          return
     }
+    this._isProcessing = true
 
     // Extract all pending roots
     const batch = [...this._pendingRoots]
