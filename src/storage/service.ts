@@ -767,7 +767,7 @@ export class StorageService {
         callbacks
       })
 
-      this._processPendingRoots()
+      void this._processPendingRoots()
     })
 
     // Return upload result
@@ -784,7 +784,7 @@ export class StorageService {
      */
   private async _processPendingRoots (): Promise<void> {
     if (this._isProcessing || this._pendingRoots.length === 0) {
-          return
+      return
     }
     this._isProcessing = true
 
