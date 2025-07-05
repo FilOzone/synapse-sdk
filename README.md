@@ -561,7 +561,7 @@ const activeProviders = await subgraphService.queryProviders({
 })
 
 // Example: Find providers for a specific CommP
-const providers = await subgraphService.getProvidersForCommP(commp)
+const providers = await subgraphService.getApprovedProvidersForCommP(commp)
 ```
 
 #### Custom Subgraph Service Implementations
@@ -571,7 +571,7 @@ The SDK supports custom implementations of the `SubgraphRetrievalService` interf
 ```javascript
 // Example: Implementing a custom SubgraphRetrievalService
 class CustomProviderService implements SubgraphRetrievalService {
-  async getProvidersForCommP(commp) {
+  async getApprovedProvidersForCommP(commp) {
     // Your custom implementation here
     // Could use a different data source, filtering logic, etc.
     return [{

@@ -147,7 +147,7 @@ export interface SubgraphRetrievalService {
    * @param commP - The CommP of the data segment.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    */
-  getProvidersForCommP: (commP: CommP) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForCommP: (commP: CommP) => Promise<ApprovedProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.

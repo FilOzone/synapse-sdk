@@ -28,7 +28,7 @@ export class SubgraphRetriever implements PieceRetriever {
       const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
     }
-    return await this.subgraphService.getProvidersForCommP(commp)
+    return await this.subgraphService.getApprovedProvidersForCommP(commp)
   }
 
   async fetchPiece (

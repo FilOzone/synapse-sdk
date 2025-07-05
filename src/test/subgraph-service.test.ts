@@ -44,7 +44,7 @@ describe('SubgraphService', () => {
     })
   })
 
-  describe('getProvidersForCommP', () => {
+  describe('getApprovedProvidersForCommP', () => {
     it('should return providers for a given CommP', async () => {
       const mockResponse = {
         data: {
@@ -56,7 +56,9 @@ describe('SubgraphService', () => {
                 owner: {
                   id: '0x123',
                   pdpUrl: 'http://provider.url/pdp',
-                  pieceRetrievalUrl: 'http://provider.url/piece'
+                  pieceRetrievalUrl: 'http://provider.url/piece',
+                  status: 'Approved',
+                  address: '0x123'
                 }
               }
             }
@@ -75,11 +77,32 @@ describe('SubgraphService', () => {
 
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getProvidersForCommP(mockCommP)
+        const providers = await service.getApprovedProvidersForCommP(mockCommP)
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
         assert.equal(providers[0].owner, '0x123')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should handle invalid CommP', async () => {
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url =
+          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        if (url.includes(mockEndpoint)) {
+          return new Response(JSON.stringify({ data: { roots: [] } }))
+        }
+        throw new Error(`Unexpected URL: ${url}`)
+      }
+      try {
+        const service = new SubgraphService({ endpoint: mockEndpoint })
+        await service.getApprovedProvidersForCommP(asCommP('invalid') as CommP)
+        assert.fail('should have thrown')
+      } catch (err) {
+        assert.match((err as Error).message, /Invalid CommP/)
       } finally {
         global.fetch = originalFetch
       }
@@ -97,7 +120,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getProvidersForCommP(mockCommP)
+        const providers = await service.getApprovedProvidersForCommP(mockCommP)
         assert.isArray(providers)
         assert.lengthOf(providers, 0)
       } finally {
@@ -117,7 +140,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getProvidersForCommP(mockCommP)
+        await service.getApprovedProvidersForCommP(mockCommP)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /GraphQL error/)
@@ -138,7 +161,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getProvidersForCommP(mockCommP)
+        await service.getApprovedProvidersForCommP(mockCommP)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /HTTP 500: Internal Server Error/)

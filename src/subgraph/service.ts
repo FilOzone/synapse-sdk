@@ -20,7 +20,7 @@
  *   }
  * });
  *
- * const providers = await subgraphService.getProvidersForCommP('baga6ea4seaq...');
+ * const providers = await subgraphService.getApprovedProvidersForCommP('baga6ea4seaq...');
  * console.log(providers);
  * ```
  */
@@ -362,30 +362,45 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getProvidersForCommP (commP: CommP): Promise<ApprovedProviderInfo[]> {
-    const hexCommP = toHex(commP.bytes)
+  async getApprovedProvidersForCommP (commP: CommP): Promise<ApprovedProviderInfo[]> {
+    const commPParsed = asCommP(commP)
+    if (commPParsed == null) {
+      throw createError('SubgraphService', 'getApprovedProvidersForCommP', 'Invalid CommP')
+    }
+    const hexCommP = toHex(commPParsed.bytes)
 
     const data = await this.executeQuery<{ roots: any[] }>(
       QUERIES.GET_APPROVED_PROVIDERS_FOR_COMMP,
       { cid: hexCommP },
-      'getProvidersForCommP'
+      'getApprovedProvidersForCommP'
     )
 
     if (data?.roots == null || data.roots.length === 0) {
-      console.log(`SubgraphService: No providers found for CommP: ${commP.toString()}`)
+      console.log(`SubgraphService: No providers found for CommP: ${commPParsed.toString()}`)
       return []
     }
 
-    return data.roots
-      .map((root) => root.proofSet.owner)
-      .filter((provider) => {
-        const isValid = this.isValidProviderData(provider)
-        if (!isValid) {
-          console.warn('SubgraphService: Skipping incomplete provider data:', provider)
-        }
-        return isValid
-      })
-      .map((provider) => this.transformProviderData(provider))
+    const uniqueProviderMap = data.roots.reduce((acc: Map<string, any>, root: any) => {
+      const provider = root.proofSet.owner
+      const address = provider?.address?.toLowerCase() as string
+
+      if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
+        return acc
+      }
+
+      if (!this.isValidProviderData(provider)) {
+        console.warn('SubgraphService: Skipping incomplete provider data for approved provider:', provider)
+        return acc
+      }
+
+      acc.set(address, provider)
+
+      return acc
+    }, new Map<string, any>())
+
+    return Array.from(uniqueProviderMap.values()).map((provider) =>
+      this.transformProviderData(provider)
+    )
   }
 
   /**

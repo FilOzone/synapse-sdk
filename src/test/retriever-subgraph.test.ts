@@ -34,7 +34,7 @@ const createMockSubgraphService = (
   // This creates a mock that satisfies the SubgraphService interface for testing purposes.
   // We cast to 'any' first to bypass checks for private/protected members.
   const mockService = {
-    getProvidersForCommP: async (commP: CommP): Promise<ApprovedProviderInfo[]> => {
+    getApprovedProvidersForCommP: async (commP: CommP): Promise<ApprovedProviderInfo[]> => {
       if (providersToReturn instanceof Error) {
         throw providersToReturn
       }

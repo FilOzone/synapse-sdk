@@ -5,7 +5,7 @@
 export const QUERIES = {
   // queries for subgraphRetriever
   GET_APPROVED_PROVIDERS_FOR_COMMP: `
-    query GetRoots($cid: Bytes!) {
+    query GetApprovedProvidersForCommP($cid: Bytes!) {
       roots(where: { cid: $cid }) {
         id
         proofSet {
@@ -16,6 +16,7 @@ export const QUERIES = {
             pdpUrl
             pieceRetrievalUrl
             registeredAt
+            status
             approvedAt
           }
         }
