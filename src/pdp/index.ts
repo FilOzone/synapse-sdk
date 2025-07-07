@@ -7,5 +7,18 @@ export type {
   CreateProofSetResponse,
   FindPieceResponse,
   ProofSetCreationStatusResponse,
+  RootAdditionStatusResponse,
   UploadResponse
 } from './server.js'
+
+// Export validation utilities for advanced use
+export {
+  isProofSetCreationStatusResponse,
+  isRootAdditionStatusResponse,
+  isFindPieceResponse,
+  validateProofSetCreationStatusResponse,
+  validateRootAdditionStatusResponse,
+  validateFindPieceResponse,
+  asProofSetRootData,
+  asProofSetData
+} from './validation.js'

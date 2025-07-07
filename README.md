@@ -231,6 +231,8 @@ interface SubgraphConfig {
 - `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
 - `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
 - `download(commp, options?)` - Download a piece directly from any provider (see Download Options)
+- `getProviderInfo(providerAddress)` - Get detailed information about a storage provider
+- `getStorageInfo()` - Get comprehensive storage service information (pricing, providers, parameters)
 
 #### Synapse.payments Methods
 
@@ -378,12 +380,18 @@ const result = await storage.upload(data, {
 
 // Download data from this specific provider
 const downloaded = await storage.providerDownload(result.commp)
+
+// Get the list of root CIDs in the current proof set by querying the provider
+const rootCids = await storage.getProofSetRoots()
+console.log(`Root CIDs: ${rootCids.map(cid => cid.toString()).join(', ')}`)
 ```
 
 **Storage Service Methods:**
 - `upload(data, callbacks?)` - Upload data to the storage provider
 - `providerDownload(commp, options?)` - Download data from this specific provider
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
+- `getProviderInfo()` - Get detailed information about the selected storage provider
+- `getProofSetRoots()` - Get the list of root CIDs in the proof set by querying the provider
 
 ##### Size Constraints
 
@@ -392,6 +400,22 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
+
+### Storage Information
+
+Get comprehensive information about the storage service:
+
+```javascript
+// Get storage service info including pricing and providers
+const info = await synapse.getStorageInfo()
+console.log('Price per TiB/month:', info.pricing.noCDN.perTiBPerMonth)
+console.log('Available providers:', info.providers.length)
+console.log('Network:', info.serviceParameters.network)
+
+// Get details about a specific provider
+const providerInfo = await synapse.getProviderInfo('0x...')
+console.log('Provider PDP URL:', providerInfo.pdpUrl)
+```
 
 ### Download Options
 
@@ -671,6 +695,7 @@ const data = await pdpServer.downloadPiece(commP)
 
 // Get proof set details
 const proofSet = await pdpServer.getProofSet(proofSetId)
+console.log(`Proof set ${proofSet.id} has ${proofSet.roots.length} roots`)
 ```
 
 #### PDP Auth Helper

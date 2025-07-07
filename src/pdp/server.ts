@@ -28,11 +28,12 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { RootData, CommP } from '../types.js'
+import type { RootData, CommP, ProofSetData } from '../types.js'
 import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
 import { toHex } from 'multiformats/bytes'
+import { validateProofSetCreationStatusResponse, validateRootAdditionStatusResponse, validateFindPieceResponse, asProofSetData } from './validation.js'
 
 /**
  * Response from creating a proof set
@@ -51,7 +52,7 @@ export interface ProofSetCreationStatusResponse {
   /** Transaction hash that created the proof set */
   createMessageHash: string
   /** Whether the proof set has been created on-chain */
-  proofsetCreated: boolean
+  proofSetCreated: boolean
   /** Service label that created the proof set */
   service: string
   /** Transaction status (pending, confirmed, failed) */
@@ -79,7 +80,9 @@ export interface AddRootsResponse {
  */
 export interface FindPieceResponse {
   /** The piece CID that was found */
-  piece_cid: string
+  pieceCid: CommP
+  /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
+  piece_cid?: string
 }
 
 /**
@@ -87,7 +90,7 @@ export interface FindPieceResponse {
  */
 export interface UploadResponse {
   /** CommP CID of the uploaded piece */
-  commP: string
+  commP: CommP
   /** Size of the uploaded piece in bytes */
   size: number
 }
@@ -113,7 +116,7 @@ export interface RootAdditionStatusResponse {
 export class PDPServer {
   private readonly _apiEndpoint: string
   private readonly _retrievalEndpoint: string
-  private readonly _authHelper: PDPAuthHelper
+  private readonly _authHelper: PDPAuthHelper | null
   private readonly _serviceName: string
 
   /**
@@ -124,7 +127,7 @@ export class PDPServer {
    * @param serviceName - Service name for uploads (defaults to 'public')
    */
   constructor (
-    authHelper: PDPAuthHelper,
+    authHelper: PDPAuthHelper | null,
     apiEndpoint: string,
     retrievalEndpoint: string,
     serviceName: string = 'public'
@@ -157,13 +160,13 @@ export class PDPServer {
     recordKeeper: string
   ): Promise<CreateProofSetResponse> {
     // Generate the EIP-712 signature for proof set creation
-    const authData = await this._authHelper.signCreateProofSet(clientDataSetId, payee, withCDN)
+    const authData = await this.getAuthHelper().signCreateProofSet(clientDataSetId, payee, withCDN)
 
     // Prepare the extra data for the contract call
     // This needs to match the ProofSetCreateData struct in Pandora contract
     const extraData = this._encodeProofSetCreateData({
       metadata: '', // Empty metadata for now
-      payer: await this._authHelper.getSignerAddress(),
+      payer: await this.getAuthHelper().getSignerAddress(),
       withCDN,
       signature: authData.signature
     })
@@ -247,7 +250,7 @@ export class PDPServer {
     }
 
     // Generate the EIP-712 signature for adding roots
-    const authData = await this._authHelper.signAddRoots(
+    const authData = await this.getAuthHelper().signAddRoots(
       clientDataSetId,
       nextRootId,
       rootDataArray // Pass RootData[] directly to auth helper
@@ -339,7 +342,8 @@ export class PDPServer {
       throw new Error(`Failed to get proof set creation status: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    return await response.json() as ProofSetCreationStatusResponse
+    const data = await response.json()
+    return validateProofSetCreationStatusResponse(data)
   }
 
   /**
@@ -371,7 +375,8 @@ export class PDPServer {
       throw new Error(`Failed to get root addition status: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    return await response.json() as RootAdditionStatusResponse
+    const data = await response.json()
+    return validateRootAdditionStatusResponse(data)
   }
 
   /**
@@ -401,8 +406,8 @@ export class PDPServer {
       throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const result = await response.json() as FindPieceResponse
-    return result
+    const data = await response.json()
+    return validateFindPieceResponse(data)
   }
 
   /**
@@ -446,7 +451,7 @@ export class PDPServer {
     if (createResponse.status === 200) {
       // Piece already exists on server
       return {
-        commP: commP.toString(),
+        commP,
         size
       }
     }
@@ -488,7 +493,7 @@ export class PDPServer {
     }
 
     return {
-      commP: commP.toString(),
+      commP,
       size
     }
   }
@@ -513,6 +518,36 @@ export class PDPServer {
 
     // Use the shared download and validation function
     return await downloadAndValidateCommP(response, parsedCommP)
+  }
+
+  /**
+   * Get proof set details from the PDP server
+   * @param proofSetId - The ID of the proof set to fetch
+   * @returns Promise that resolves with proof set data
+   */
+  async getProofSet (proofSetId: number): Promise<ProofSetData> {
+    const response = await fetch(`${this._apiEndpoint}/pdp/proof-sets/${proofSetId}`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json'
+      }
+    })
+
+    if (response.status === 404) {
+      throw new Error(`Proof set not found: ${proofSetId}`)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to fetch proof set: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    const converted = asProofSetData(data)
+    if (converted == null) {
+      throw new Error('Invalid proof set data response format')
+    }
+    return converted
   }
 
   /**
@@ -566,11 +601,31 @@ export class PDPServer {
     return encoded.slice(2)
   }
 
+  /**
+   * Ping the storage provider to check connectivity
+   * @returns Promise that resolves if provider is reachable (200 response)
+   * @throws Error if provider is not reachable or returns non-200 status
+   */
+  async ping (): Promise<void> {
+    const response = await fetch(`${this._apiEndpoint}/pdp/ping`, {
+      method: 'GET',
+      headers: {}
+    })
+
+    if (response.status !== 200) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      throw new Error(`Provider ping failed: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+  }
+
   getApiEndpoint (): string {
     return this._apiEndpoint
   }
 
   getAuthHelper (): PDPAuthHelper {
+    if (this._authHelper == null) {
+      throw new Error('AuthHelper is not available for an operation that requires signing')
+    }
     return this._authHelper
   }
 }

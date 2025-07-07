@@ -584,23 +584,47 @@ export class StorageService {
         if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
         return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
       })
-      const selected = sorted[0]
 
-      // Get the provider for this proof set
-      const providerId = await pandoraService.getProviderIdByAddress(selected.payee)
-      if (providerId === 0) {
+      // Create async generator that yields providers lazily
+      async function * generateProviders (): AsyncGenerator<ApprovedProviderInfo> {
+        const seenProviders = new Set<string>()
+
+        for (const proofSet of sorted) {
+          const providerAddress = proofSet.payee.toLowerCase()
+          if (seenProviders.has(providerAddress)) {
+            continue
+          }
+          seenProviders.add(providerAddress)
+
+          const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+          if (providerId === 0) {
+            console.warn(`Provider ${proofSet.payee} for proof set ${proofSet.pdpVerifierProofSetId} is not currently approved, skipping`)
+            continue
+          }
+
+          const provider = await pandoraService.getApprovedProvider(providerId)
+          yield provider
+        }
+      }
+
+      const selectedProvider = await StorageService.selectProviderWithPing(generateProviders())
+
+      // Find the first matching proof set ID for this provider
+      const matchingProofSet = sorted.find(ps =>
+        ps.payee.toLowerCase() === selectedProvider.owner.toLowerCase()
+      )
+
+      if (matchingProofSet == null) {
         throw createError(
           'StorageService',
           'smartSelectProvider',
-          `Provider ${selected.payee} for proof set ${selected.pdpVerifierProofSetId} is not currently approved`
+          'Selected provider not found in proof sets'
         )
       }
 
-      const provider = await pandoraService.getApprovedProvider(providerId)
-
       return {
-        provider,
-        proofSetId: selected.pdpVerifierProofSetId,
+        provider: selectedProvider,
+        proofSetId: matchingProofSet.pdpVerifierProofSetId,
         isExisting: true
       }
     }
@@ -627,33 +651,96 @@ export class StorageService {
   }
 
   /**
-   * Select a random provider from the given list
+   * Select a random provider from the given list with ping validation
+   * @param providers - List of available providers
+   * @param signer - Signer for entropy generation
+   * @returns A provider that responds to ping
+   * @throws Error if no providers are reachable
    */
   private static async selectRandomProvider (
     providers: ApprovedProviderInfo[],
     signer: ethers.Signer
   ): Promise<ApprovedProviderInfo> {
-    let randomIndex: number
-
-    // Try crypto.getRandomValues if available (HTTPS contexts)
-    if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
-      const randomBytes = new Uint8Array(1)
-      globalThis.crypto.getRandomValues(randomBytes)
-      randomIndex = randomBytes[0] % providers.length
-    } else {
-      // Fallback for HTTP contexts - use multiple entropy sources
-      const timestamp = Date.now()
-      const random = Math.random()
-      // Use wallet address as additional entropy
-      const addressBytes = await signer.getAddress()
-      const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-
-      // Combine sources for better distribution
-      const combined = (timestamp * random * addressSum) % providers.length
-      randomIndex = Math.floor(Math.abs(combined))
+    if (providers.length === 0) {
+      throw createError(
+        'StorageService',
+        'selectRandomProvider',
+        'No providers available'
+      )
     }
 
-    return providers[randomIndex]
+    // Create async generator that yields providers in random order
+    async function * generateRandomProviders (): AsyncGenerator<ApprovedProviderInfo> {
+      const remaining = [...providers]
+
+      while (remaining.length > 0) {
+        let randomIndex: number
+
+        // Try crypto.getRandomValues if available (HTTPS contexts)
+        if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
+          const randomBytes = new Uint8Array(1)
+          globalThis.crypto.getRandomValues(randomBytes)
+          randomIndex = randomBytes[0] % remaining.length
+        } else {
+          // Fallback for HTTP contexts - use multiple entropy sources
+          const timestamp = Date.now()
+          const random = Math.random()
+          // Use wallet address as additional entropy
+          const addressBytes = await signer.getAddress()
+          const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+
+          // Combine sources for better distribution
+          const combined = (timestamp * random * addressSum) % remaining.length
+          randomIndex = Math.floor(Math.abs(combined))
+        }
+
+        // Remove and yield the selected provider
+        const selected = remaining.splice(randomIndex, 1)[0]
+        yield selected
+      }
+    }
+
+    return await StorageService.selectProviderWithPing(generateRandomProviders())
+  }
+
+  /**
+   * Select a provider from an async iterator with ping validation.
+   * This is shared logic used by both smart selection and random selection.
+   * @param providers - Async iterator of providers to try in order
+   * @returns A provider that responds to ping
+   * @throws Error if no providers are reachable
+   */
+  private static async selectProviderWithPing (providers: AsyncIterable<ApprovedProviderInfo>): Promise<ApprovedProviderInfo> {
+    let providerCount = 0
+
+    // Try providers in order until we find one that responds to ping
+    for await (const provider of providers) {
+      providerCount++
+      try {
+        // Create a temporary PDPServer for this specific provider's endpoint
+        const providerPdpServer = new PDPServer(null, provider.pdpUrl, provider.pieceRetrievalUrl)
+        await providerPdpServer.ping()
+        return provider
+      } catch (error) {
+        console.warn(`Provider ${provider.owner} failed ping test:`, error instanceof Error ? error.message : String(error))
+        // Continue to next provider
+      }
+    }
+
+    // All providers failed ping test
+    if (providerCount === 0) {
+      throw createError(
+        'StorageService',
+        'selectProviderWithPing',
+        'No reachable storage providers available after ping validation'
+      )
+    }
+
+    throw createError(
+      'StorageService',
+      'selectProviderWithPing',
+      `All ${providerCount} available storage providers failed ping validation`
+    )
   }
 
   /**
@@ -698,7 +785,7 @@ export class StorageService {
     StorageService.validateRawSize(sizeBytes, 'upload')
 
     // Upload Phase: Upload data to storage provider
-    let uploadResult: { commP: string, size: number }
+    let uploadResult: { commP: CommP, size: number }
     try {
       uploadResult = await this._pdpServer.uploadPiece(dataBytes)
     } catch (error) {
@@ -923,5 +1010,22 @@ export class StorageService {
    */
   async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     return await this.providerDownload(commp, options)
+  }
+
+  /**
+   * Get information about the storage provider used by this service
+   * @returns Provider information including pricing (currently same for all providers)
+   */
+  async getProviderInfo (): Promise<ApprovedProviderInfo> {
+    return await this._synapse.getProviderInfo(this.storageProvider)
+  }
+
+  /**
+   * Get the list of root CIDs for this storage service's proof set by querying the PDP server.
+   * @returns Array of root CIDs as CommP objects
+   */
+  async getProofSetRoots (): Promise<CommP[]> {
+    const proofSetData = await this._pdpServer.getProofSet(this._proofSetId)
+    return proofSetData.roots.map(root => root.rootCid)
   }
 }

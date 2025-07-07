@@ -528,12 +528,14 @@ export class PandoraService {
    * @param sizeInBytes - Size of data to store
    * @param withCDN - Whether CDN is enabled
    * @param paymentsService - PaymentsService instance to check allowances
+   * @param lockupDays - Number of days for lockup period (defaults to 10)
    * @returns Allowance requirement details and storage costs
    */
   async checkAllowanceForStorage (
     sizeInBytes: number,
     withCDN: boolean,
-    paymentsService: PaymentsService
+    paymentsService: PaymentsService,
+    lockupDays?: number
   ): Promise<{
       rateAllowanceNeeded: bigint
       lockupAllowanceNeeded: bigint
@@ -548,6 +550,7 @@ export class PandoraService {
         perDay: bigint
         perMonth: bigint
       }
+      depositAmountNeeded: bigint
     }> {
     // Get current allowances for this Pandora service
     const approval = await paymentsService.serviceApproval(this._pandoraAddress, TOKENS.USDFC)
@@ -557,8 +560,9 @@ export class PandoraService {
     const selectedCosts = withCDN ? costs.withCDN : costs
     const rateNeeded = selectedCosts.perEpoch
 
-    // Default lockup period is 10 days = 28,800 epochs
-    const lockupNeeded = rateNeeded * TIME_CONSTANTS.DEFAULT_LOCKUP_PERIOD
+    // Calculate lockup period based on provided days (default: 10)
+    const lockupPeriod = BigInt(lockupDays ?? TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS) * TIME_CONSTANTS.EPOCHS_PER_DAY
+    const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
     const totalRateNeeded = BigInt(approval.rateUsed) + rateNeeded
@@ -592,7 +596,8 @@ export class PandoraService {
         perEpoch: selectedCosts.perEpoch,
         perDay: selectedCosts.perDay,
         perMonth: selectedCosts.perMonth
-      }
+      },
+      depositAmountNeeded: lockupNeeded
     }
   }
 
@@ -843,23 +848,35 @@ export class PandoraService {
    * @returns Array of all approved providers
    */
   async getAllApprovedProviders (): Promise<ApprovedProviderInfo[]> {
-    const nextId = await this.getNextProviderId()
-    const providers: ApprovedProviderInfo[] = []
+    const contract = this._getPandoraContract()
+    const providers = await contract.getAllApprovedProviders()
 
-    // Provider IDs start at 1
-    for (let i = 1; i < nextId; i++) {
-      try {
-        const provider = await this.getApprovedProvider(i)
-        // Skip if provider was removed (owner would be zero address)
-        if (provider.owner !== '0x0000000000000000000000000000000000000000') {
-          providers.push(provider)
-        }
-      } catch (e) {
-        // Provider might have been removed
-        continue
-      }
+    return providers.map((p: any) => ({
+      owner: p.owner,
+      pdpUrl: p.pdpUrl,
+      pieceRetrievalUrl: p.pieceRetrievalUrl,
+      registeredAt: Number(p.registeredAt),
+      approvedAt: Number(p.approvedAt)
+    }))
+  }
+
+  /**
+   * Get the service pricing information from the contract
+   * @returns Service pricing details
+   */
+  async getServicePrice (): Promise<{
+    pricePerTiBPerMonthNoCDN: bigint
+    pricePerTiBPerMonthWithCDN: bigint
+    tokenAddress: string
+    epochsPerMonth: bigint
+  }> {
+    const contract = this._getPandoraContract()
+    const result = await contract.getServicePrice()
+    return {
+      pricePerTiBPerMonthNoCDN: result.pricePerTiBPerMonthNoCDN,
+      pricePerTiBPerMonthWithCDN: result.pricePerTiBPerMonthWithCDN,
+      tokenAddress: result.tokenAddress,
+      epochsPerMonth: result.epochsPerMonth
     }
-
-    return providers
   }
 }

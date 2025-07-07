@@ -29,6 +29,10 @@ const mockSynapse = {
   download: async (commp: string | CommP, options?: any) => {
     // Mock download that returns test data - will be overridden in specific tests
     return new Uint8Array(65).fill(42)
+  },
+  getProviderInfo: async (providerAddress: string) => {
+    // Mock getProviderInfo - will be overridden in specific tests
+    throw new Error('getProviderInfo not mocked')
   }
 } as unknown as Synapse
 
@@ -106,14 +110,28 @@ describe('StorageService', () => {
         getApprovedProvider: async (id: number) => mockProviders[id - 1] ?? null
       } as any
 
-      // Create storage service without specifying providerId
-      const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+      // Mock fetch for ping validation
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        if (url.includes('/ping')) {
+          return { status: 200, statusText: 'OK' } as any
+        }
+        throw new Error(`Unexpected URL: ${url}`)
+      }
 
-      // Should have selected one of the providers
-      assert.isTrue(
-        service.storageProvider === mockProviders[0].owner ||
-        service.storageProvider === mockProviders[1].owner
-      )
+      try {
+        // Create storage service without specifying providerId
+        const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+
+        // Should have selected one of the providers
+        assert.isTrue(
+          service.storageProvider === mockProviders[0].owner ||
+          service.storageProvider === mockProviders[1].owner
+        )
+      } finally {
+        global.fetch = originalFetch
+      }
     })
 
     it('should use specific provider when providerId specified', async () => {
@@ -559,13 +577,27 @@ describe('StorageService', () => {
         getAllApprovedProviders: async () => mockProviders
       } as any
 
-      // Test with CDN = false
-      const serviceNoCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: false })
-      assert.equal(serviceNoCDN.proofSetId, '200', 'Should select non-CDN proof set')
+      // Mock fetch for ping validation
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        if (url.includes('/ping')) {
+          return { status: 200, statusText: 'OK' } as any
+        }
+        throw new Error(`Unexpected URL: ${url}`)
+      }
 
-      // Test with CDN = true
-      const serviceWithCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: true })
-      assert.equal(serviceWithCDN.proofSetId, '201', 'Should select CDN proof set')
+      try {
+        // Test with CDN = false
+        const serviceNoCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: false })
+        assert.equal(serviceNoCDN.proofSetId, '200', 'Should select non-CDN proof set')
+
+        // Test with CDN = true
+        const serviceWithCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: true })
+        assert.equal(serviceWithCDN.proofSetId, '201', 'Should select CDN proof set')
+      } finally {
+        global.fetch = originalFetch
+      }
     })
 
     it.skip('should handle proof sets not managed by current Pandora', async () => {
@@ -753,11 +785,25 @@ describe('StorageService', () => {
         }
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+      // Mock fetch for ping validation - existing provider should succeed
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        if (url.includes('/ping')) {
+          return { status: 200, statusText: 'OK' } as any
+        }
+        throw new Error(`Unexpected URL: ${url}`)
+      }
 
-      assert.isTrue(getClientProofSetsCalled, 'Should fetch client proof sets')
-      assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
-      assert.equal(service.proofSetId, '500')
+      try {
+        const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+
+        assert.isTrue(getClientProofSetsCalled, 'Should fetch client proof sets')
+        assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
+        assert.equal(service.proofSetId, '500')
+      } finally {
+        global.fetch = originalFetch
+      }
     })
 
     it.skip('should fetch all providers only when no proof sets exist', async () => {
@@ -1127,7 +1173,7 @@ describe('StorageService', () => {
       }
 
       const result = await service.upload(minSizeData)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 65)
     })
 
@@ -1168,7 +1214,7 @@ describe('StorageService', () => {
 
       // Should not throw
       const result = await service.upload(maxSizeData)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 200 * 1024 * 1024)
       assert.equal(result.rootId, 0)
     })
@@ -1213,7 +1259,7 @@ describe('StorageService', () => {
 
       const result = await service.upload(testData, {
         onUploadComplete: (commp) => {
-          assert.equal(commp, testCommP)
+          assert.equal(commp.toString(), testCommP)
           uploadCompleteCallbackFired = true
         },
         onRootAdded: () => {
@@ -1223,7 +1269,7 @@ describe('StorageService', () => {
 
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
       assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
     })
 
     it('should handle new server with transaction tracking', async () => {
@@ -1296,7 +1342,7 @@ describe('StorageService', () => {
       try {
         const result = await service.upload(testData, {
           onUploadComplete: (commp) => {
-            assert.equal(commp, testCommP)
+            assert.equal(commp.toString(), testCommP)
             uploadCompleteCallbackFired = true
           },
           onRootAdded: (transaction) => {
@@ -1582,7 +1628,7 @@ describe('StorageService', () => {
       }
 
       const result = await service.upload(buffer)
-      assert.equal(result.commp, testCommP)
+      assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 1024)
     })
 
@@ -1715,6 +1761,613 @@ describe('StorageService', () => {
         assert.fail('Should have thrown getAddRootsInfo error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to add root to proof set')
+      }
+    })
+  })
+
+  describe('Provider Ping Validation', () => {
+    describe('selectRandomProvider with ping validation', () => {
+      it('should select first provider that responds to ping', async () => {
+        const testProviders: ApprovedProviderInfo[] = [
+          {
+            owner: '0x1111111111111111111111111111111111111111',
+            pdpUrl: 'https://pdp1.example.com',
+            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            registeredAt: 1234567890,
+            approvedAt: 1234567891
+          },
+          {
+            owner: '0x2222222222222222222222222222222222222222',
+            pdpUrl: 'https://pdp2.example.com',
+            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            registeredAt: 1234567892,
+            approvedAt: 1234567893
+          }
+        ]
+
+        let pingCallCount = 0
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            pingCallCount++
+            // First provider fails, second succeeds
+            if (url.includes('pdp1.example.com')) {
+              return { status: 500, statusText: 'Internal Server Error', text: async () => 'Down' } as any
+            } else if (url.includes('pdp2.example.com')) {
+              return { status: 200, statusText: 'OK' } as any
+            }
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          const result = await (StorageService as any).selectRandomProvider(
+            testProviders,
+            mockSynapse.getSigner(),
+            [],
+            true // Enable ping validation
+          )
+
+          // Should have selected the second provider (first one failed ping)
+          assert.equal(result.owner, testProviders[1].owner)
+          assert.isAtLeast(pingCallCount, 1, 'Should have called ping at least once')
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+
+      it('should exclude providers from selection', async () => {
+        const testProviders: ApprovedProviderInfo[] = [
+          {
+            owner: '0x1111111111111111111111111111111111111111',
+            pdpUrl: 'https://pdp1.example.com',
+            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            registeredAt: 1234567890,
+            approvedAt: 1234567891
+          },
+          {
+            owner: '0x2222222222222222222222222222222222222222',
+            pdpUrl: 'https://pdp2.example.com',
+            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            registeredAt: 1234567892,
+            approvedAt: 1234567893
+          }
+        ]
+
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            // Should only hit the second provider since first is excluded
+            assert.isTrue(url.includes('pdp2.example.com'), 'Should only ping non-excluded provider')
+            return { status: 200, statusText: 'OK' } as any
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          const result = await (StorageService as any).selectRandomProvider(
+            testProviders,
+            mockSynapse.getSigner(),
+            [testProviders[0].owner], // Exclude first provider
+            true // Enable ping validation
+          )
+
+          // Should have selected the second provider
+          assert.equal(result.owner, testProviders[1].owner)
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+
+      it('should throw error when all providers fail ping', async () => {
+        const testProviders: ApprovedProviderInfo[] = [
+          {
+            owner: '0x1111111111111111111111111111111111111111',
+            pdpUrl: 'https://pdp1.example.com',
+            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            registeredAt: 1234567890,
+            approvedAt: 1234567891
+          },
+          {
+            owner: '0x2222222222222222222222222222222222222222',
+            pdpUrl: 'https://pdp2.example.com',
+            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            registeredAt: 1234567892,
+            approvedAt: 1234567893
+          }
+        ]
+
+        const originalFetch = global.fetch
+        global.fetch = async () => {
+          // All pings fail
+          return {
+            status: 500,
+            statusText: 'Internal Server Error',
+            text: async () => 'All servers down'
+          } as any
+        }
+
+        try {
+          await (StorageService as any).selectRandomProvider(
+            testProviders,
+            mockSynapse.getSigner()
+          )
+          assert.fail('Should have thrown error')
+        } catch (error: any) {
+          assert.include(error.message, 'All 2 available storage providers failed ping validation')
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+    })
+
+    describe('smartSelectProvider with ping validation', () => {
+      it('should fail when existing providers fail ping validation', async () => {
+        const testProviders: ApprovedProviderInfo[] = [
+          {
+            owner: '0x1111111111111111111111111111111111111111',
+            pdpUrl: 'https://pdp1.example.com',
+            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            registeredAt: 1234567890,
+            approvedAt: 1234567891
+          },
+          {
+            owner: '0x2222222222222222222222222222222222222222',
+            pdpUrl: 'https://pdp2.example.com',
+            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            registeredAt: 1234567892,
+            approvedAt: 1234567893
+          }
+        ]
+
+        const proofSets = [
+          {
+            railId: 1,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: testProviders[0].owner, // First provider has existing proof set
+            pdpVerifierProofSetId: 100,
+            nextRootId: 0,
+            currentRootCount: 0,
+            isLive: true,
+            isManaged: true,
+            withCDN: false,
+            commissionBps: 0,
+            metadata: '',
+            rootMetadata: [],
+            clientDataSetId: 1
+          }
+        ]
+
+        const mockPandoraService = {
+          getClientProofSetsWithDetails: async () => proofSets,
+          getAllApprovedProviders: async () => testProviders,
+          getProviderIdByAddress: async (address: string) => {
+            const idx = testProviders.findIndex(p => p.owner.toLowerCase() === address.toLowerCase())
+            return idx >= 0 ? idx + 1 : 0
+          },
+          getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null
+        } as any
+
+        let pingCallCount = 0
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            pingCallCount++
+            // All providers fail ping
+            return { status: 500, statusText: 'Internal Server Error', text: async () => 'Down' } as any
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          await (StorageService as any).smartSelectProvider(
+            mockPandoraService,
+            '0x1234567890123456789012345678901234567890',
+            false,
+            mockSynapse.getSigner()
+          )
+          assert.fail('Should have thrown error')
+        } catch (error: any) {
+          // Should fail with selectProviderWithPing error, not fallback to new selection
+          assert.include(error.message, 'All 1 available storage providers failed ping validation')
+          assert.isAtLeast(pingCallCount, 1, 'Should have pinged at least one provider')
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+
+      it('should select new provider when no existing providers are available', async () => {
+        const testProviders: ApprovedProviderInfo[] = [
+          {
+            owner: '0x1111111111111111111111111111111111111111',
+            pdpUrl: 'https://pdp1.example.com',
+            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            registeredAt: 1234567890,
+            approvedAt: 1234567891
+          },
+          {
+            owner: '0x2222222222222222222222222222222222222222',
+            pdpUrl: 'https://pdp2.example.com',
+            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            registeredAt: 1234567892,
+            approvedAt: 1234567893
+          }
+        ]
+
+        const mockPandoraService = {
+          getClientProofSetsWithDetails: async () => [], // No existing proof sets
+          getAllApprovedProviders: async () => testProviders,
+          getProviderIdByAddress: async () => 0,
+          getApprovedProvider: async () => null
+        } as any
+
+        let pingCallCount = 0
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            pingCallCount++
+            // First provider succeeds
+            if (url.includes('pdp1.example.com')) {
+              return { status: 200, statusText: 'OK' } as any
+            }
+            // Other providers can fail
+            return { status: 500, statusText: 'Internal Server Error' } as any
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          const result = await (StorageService as any).smartSelectProvider(
+            mockPandoraService,
+            '0x1234567890123456789012345678901234567890',
+            false,
+            mockSynapse.getSigner()
+          )
+
+          // Should have selected one of the available providers for new proof set
+          assert.isTrue(
+            testProviders.some(p => p.owner === result.provider.owner),
+            'Should have selected one of the available providers'
+          )
+          assert.equal(result.proofSetId, -1) // New proof set marker
+          assert.isFalse(result.isExisting)
+          assert.isAtLeast(pingCallCount, 1, 'Should have pinged at least one provider')
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+
+      it('should use existing provider if ping succeeds', async () => {
+        const testProvider: ApprovedProviderInfo = {
+          owner: '0x1111111111111111111111111111111111111111',
+          pdpUrl: 'https://pdp1.example.com',
+          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          registeredAt: 1234567890,
+          approvedAt: 1234567891
+        }
+
+        const proofSets = [
+          {
+            railId: 1,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: testProvider.owner,
+            pdpVerifierProofSetId: 100,
+            nextRootId: 0,
+            currentRootCount: 5, // Has roots, so preferred
+            isLive: true,
+            isManaged: true,
+            withCDN: false,
+            commissionBps: 0,
+            metadata: '',
+            rootMetadata: [],
+            clientDataSetId: 1
+          }
+        ]
+
+        const mockPandoraService = {
+          getClientProofSetsWithDetails: async () => proofSets,
+          getProviderIdByAddress: async () => 1,
+          getApprovedProvider: async () => testProvider,
+          getAllApprovedProviders: async () => [] // Return empty list to prevent fallback
+        } as any
+
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            return { status: 200, statusText: 'OK' } as any
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          const result = await (StorageService as any).smartSelectProvider(
+            mockPandoraService,
+            '0x1234567890123456789012345678901234567890',
+            false,
+            mockSynapse.getSigner()
+          )
+
+          // Should use existing provider since ping succeeded
+          assert.equal(result.provider.owner, testProvider.owner)
+          assert.equal(result.proofSetId, 100)
+          assert.isTrue(result.isExisting)
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+    })
+
+    describe('selectProviderWithPing', () => {
+      // ... existing code ...
+
+      it('should deduplicate providers from multiple proof sets', async () => {
+        const testProvider: ApprovedProviderInfo = {
+          owner: '0x1111111111111111111111111111111111111111',
+          pdpUrl: 'https://pdp1.example.com',
+          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          registeredAt: 1234567890,
+          approvedAt: 1234567891
+        }
+
+        // Create multiple proof sets with the same provider
+        const proofSets = [
+          {
+            railId: 1,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: testProvider.owner,
+            pdpVerifierProofSetId: 100,
+            nextRootId: 0,
+            currentRootCount: 5,
+            isLive: true,
+            isManaged: true,
+            withCDN: false,
+            commissionBps: 0,
+            metadata: '',
+            rootMetadata: [],
+            clientDataSetId: 1
+          },
+          {
+            railId: 2,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: testProvider.owner, // Same provider
+            pdpVerifierProofSetId: 101,
+            nextRootId: 0,
+            currentRootCount: 3,
+            isLive: true,
+            isManaged: true,
+            withCDN: false,
+            commissionBps: 0,
+            metadata: '',
+            rootMetadata: [],
+            clientDataSetId: 2
+          },
+          {
+            railId: 3,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: testProvider.owner, // Same provider
+            pdpVerifierProofSetId: 102,
+            nextRootId: 0,
+            currentRootCount: 1,
+            isLive: true,
+            isManaged: true,
+            withCDN: false,
+            commissionBps: 0,
+            metadata: '',
+            rootMetadata: [],
+            clientDataSetId: 3
+          }
+        ]
+
+        const mockPandoraService = {
+          getClientProofSetsWithDetails: async () => proofSets,
+          getProviderIdByAddress: async () => 1,
+          getApprovedProvider: async () => testProvider,
+          getAllApprovedProviders: async () => [] // Return empty list to prevent fallback
+        } as any
+
+        let pingCount = 0
+        const originalFetch = global.fetch
+        global.fetch = async (input: string | URL | Request) => {
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+          if (url.includes('/ping')) {
+            pingCount++
+            // Make the ping fail to ensure we see all ping attempts
+            return { status: 500, statusText: 'Internal Server Error' } as any
+          }
+
+          throw new Error(`Unexpected URL: ${url}`)
+        }
+
+        try {
+          await (StorageService as any).smartSelectProvider(
+            mockPandoraService,
+            '0x1234567890123456789012345678901234567890',
+            false,
+            mockSynapse.getSigner()
+          )
+          assert.fail('Should have thrown error')
+        } catch (error: any) {
+          // Verify we only pinged once despite having three proof sets with the same provider
+          assert.equal(pingCount, 1, 'Should only ping each unique provider once')
+          // The error should come from selectProviderWithPing failing, not from getAllApprovedProviders
+          assert.include(error.message, 'All 1 available storage providers failed ping validation')
+        } finally {
+          global.fetch = originalFetch
+        }
+      })
+    })
+  })
+
+  describe('getProviderInfo', () => {
+    it('should return provider info through Synapse', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the synapse getProviderInfo method
+      const originalGetProviderInfo = mockSynapse.getProviderInfo
+      const expectedProviderInfo = {
+        owner: mockProvider.owner,
+        pdpUrl: 'https://updated-pdp.example.com',
+        pieceRetrievalUrl: 'https://updated-retrieve.example.com',
+        registeredAt: 1234567900,
+        approvedAt: 1234567901
+      }
+
+      mockSynapse.getProviderInfo = async (address: string) => {
+        assert.equal(address, mockProvider.owner)
+        return expectedProviderInfo
+      }
+
+      try {
+        const providerInfo = await service.getProviderInfo()
+        assert.deepEqual(providerInfo, expectedProviderInfo)
+      } finally {
+        mockSynapse.getProviderInfo = originalGetProviderInfo
+      }
+    })
+
+    it('should handle errors from Synapse getProviderInfo', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the synapse getProviderInfo method to throw
+      const originalGetProviderInfo = mockSynapse.getProviderInfo
+      mockSynapse.getProviderInfo = async () => {
+        throw new Error('Provider not found')
+      }
+
+      try {
+        await service.getProviderInfo()
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider not found')
+      } finally {
+        mockSynapse.getProviderInfo = originalGetProviderInfo
+      }
+    })
+  })
+
+  describe('getProofSetRoots', () => {
+    it('should successfully fetch proof set roots', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          },
+          {
+            rootId: 102,
+            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (proofSetId: number): Promise<any> => {
+        assert.equal(proofSetId, 123)
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+
+      assert.isArray(result)
+      assert.equal(result.length, 2)
+      assert.equal(result[0].toString(), mockProofSetData.roots[0].rootCid)
+      assert.equal(result[1].toString(), mockProofSetData.roots[1].rootCid)
+    })
+
+    it('should handle empty proof set roots', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+
+      assert.isArray(result)
+      assert.equal(result.length, 0)
+    })
+
+    it('should handle invalid CID in response', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      const mockProofSetData = {
+        id: 292,
+        roots: [
+          {
+            rootId: 101,
+            rootCid: 'invalid-cid-format',
+            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subrootOffset: 0
+          }
+        ],
+        nextChallengeEpoch: 1500
+      }
+
+      // Mock the PDP server getProofSet method
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        return mockProofSetData
+      }
+
+      const result = await service.getProofSetRoots()
+      assert.isArray(result)
+      assert.equal(result.length, 1)
+      assert.equal(result[0].toString(), 'invalid-cid-format')
+    })
+
+    it('should handle PDP server errors', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock the PDP server getProofSet method to throw error
+      const serviceAny = service as any
+      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
+        throw new Error('Proof set not found: 999')
+      }
+
+      try {
+        await service.getProofSetRoots()
+        assert.fail('Should have thrown error for server error')
+      } catch (error: any) {
+        assert.include(error.message, 'Proof set not found: 999')
       }
     })
   })

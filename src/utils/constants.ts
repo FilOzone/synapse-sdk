@@ -104,6 +104,11 @@ export const CONTRACT_ABIS = {
  */
 export const TIME_CONSTANTS = {
   /**
+   * Duration of each epoch in seconds on Filecoin
+   */
+  EPOCH_DURATION: 30,
+
+  /**
    * Number of epochs in a day (24 hours * 60 minutes * 2 epochs per minute)
    */
   EPOCHS_PER_DAY: 2880n,
@@ -114,9 +119,14 @@ export const TIME_CONSTANTS = {
   EPOCHS_PER_MONTH: 86400n, // 30 * 2880
 
   /**
-   * Default lockup period in epochs (10 days)
+   * Number of days in a month (used for pricing calculations)
    */
-  DEFAULT_LOCKUP_PERIOD: 28800n // 10 * 2880
+  DAYS_PER_MONTH: 30n,
+
+  /**
+   * Default lockup period in days
+   */
+  DEFAULT_LOCKUP_DAYS: 10n
 } as const
 
 /**

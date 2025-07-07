@@ -1,3 +1,53 @@
+## [0.18.0](https://github.com/FilOzone/synapse-sdk/compare/v0.17.0...v0.18.0) (2025-07-04)
+
+### Features
+
+* add SDK methods to fetch proofset roots and metadata ([#111](https://github.com/FilOzone/synapse-sdk/issues/111)) ([a6ec128](https://github.com/FilOzone/synapse-sdk/commit/a6ec128b1dbf31eb68ff88d0cb00f91d0557e011))
+
+## [0.17.0](https://github.com/FilOzone/synapse-sdk/compare/v0.16.1...v0.17.0) (2025-07-04)
+
+### Features
+
+* add provider info and storage info APIs ([#124](https://github.com/FilOzone/synapse-sdk/issues/124)) ([af8afb1](https://github.com/FilOzone/synapse-sdk/commit/af8afb1ee8407e7516fc2e661bf28eabbf7efa90))
+
+## [0.16.1](https://github.com/FilOzone/synapse-sdk/compare/v0.16.0...v0.16.1) (2025-07-04)
+
+## [0.16.0](https://github.com/FilOzone/synapse-sdk/compare/v0.15.0...v0.16.0) (2025-07-03)
+
+### Features
+
+* **pdp:** implement ping validation for storage providers in selection process ([#119](https://github.com/FilOzone/synapse-sdk/issues/119)) ([12a5bf7](https://github.com/FilOzone/synapse-sdk/commit/12a5bf78101e9337cf590ece468197771a3d0030))
+
+## [0.15.0](https://github.com/FilOzone/synapse-sdk/compare/v0.14.0...v0.15.0) (2025-06-25)
+
+### Features
+
+* **pdp:** add ping method to check connectivity with SP ([46a3223](https://github.com/FilOzone/synapse-sdk/commit/46a322322c75c6824924da054ca33974855a5aca))
+
+## [0.14.0](https://github.com/FilOzone/synapse-sdk/compare/v0.13.0...v0.14.0) (2025-06-24)
+
+### Features
+
+* **pdp:** always validate and return CommP (CID) objects from server ([d3b30da](https://github.com/FilOzone/synapse-sdk/commit/d3b30da047c9a719641b99b92781ea07b8e8ee7f))
+
+### Trivial Changes
+
+* **pdp:** validate server responses ([d2e135b](https://github.com/FilOzone/synapse-sdk/commit/d2e135b91a94a9ba2c7f9f81f9c0ab2d4c5d411c))
+
+## [0.13.0](https://github.com/FilOzone/synapse-sdk/compare/v0.12.0...v0.13.0) (2025-06-23)
+
+### Features
+
+* enhance checkAllowanceForStorage with customizable lockup periods ([52c3204](https://github.com/FilOzone/synapse-sdk/commit/52c3204c94dc389259414b3f447a8174d3a649b0))
+
+### Bug Fixes
+
+* correct depositAmountNeeded assignment in PandoraService ([bdc1827](https://github.com/FilOzone/synapse-sdk/commit/bdc1827173b7062ba6d018d60e06ab67baf846ad))
+
+### Tests
+
+* add checks for depositAmountNeeded in PandoraService tests ([e07ae2d](https://github.com/FilOzone/synapse-sdk/commit/e07ae2d7dfa78a6d4cd4d61c0564a2f2f2b7e1b1))
+
 ## [0.12.0](https://github.com/FilOzone/synapse-sdk/compare/v0.11.0...v0.12.0) (2025-06-18)
 
 ### Features

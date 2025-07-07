@@ -324,7 +324,7 @@ export interface PreflightInfo {
  */
 export interface UploadCallbacks {
   /** Called when upload to storage provider completes */
-  onUploadComplete?: (commp: string) => void
+  onUploadComplete?: (commp: CommP) => void
   /** Called when root is added to proof set (with optional transaction for new servers) */
   onRootAdded?: (transaction?: ethers.TransactionResponse) => void
   /** Called when root addition is confirmed on-chain (new servers only) */
@@ -336,9 +336,105 @@ export interface UploadCallbacks {
  */
 export interface UploadResult {
   /** CommP of the uploaded data */
-  commp: string
+  commp: CommP
   /** Size of the original data */
   size: number
   /** Root ID in the proof set */
   rootId?: number
+}
+
+/**
+ * Comprehensive storage service information
+ */
+export interface StorageInfo {
+  /** Pricing information for storage services */
+  pricing: {
+    /** Pricing without CDN */
+    noCDN: {
+      /** Cost per TiB per month in token units */
+      perTiBPerMonth: bigint
+      /** Cost per TiB per day in token units */
+      perTiBPerDay: bigint
+      /** Cost per TiB per epoch in token units */
+      perTiBPerEpoch: bigint
+    }
+    /** Pricing with CDN enabled */
+    withCDN: {
+      /** Cost per TiB per month in token units */
+      perTiBPerMonth: bigint
+      /** Cost per TiB per day in token units */
+      perTiBPerDay: bigint
+      /** Cost per TiB per epoch in token units */
+      perTiBPerEpoch: bigint
+    }
+    /** Token contract address */
+    tokenAddress: string
+    /** Token symbol (always USDFC for now) */
+    tokenSymbol: string
+  }
+
+  /** List of approved storage providers */
+  providers: ApprovedProviderInfo[]
+
+  /** Service configuration parameters */
+  serviceParameters: {
+    /** Network type (mainnet or calibration) */
+    network: FilecoinNetworkType
+    /** Number of epochs in a month */
+    epochsPerMonth: bigint
+    /** Number of epochs in a day */
+    epochsPerDay: bigint
+    /** Duration of each epoch in seconds */
+    epochDuration: number
+    /** Minimum allowed upload size in bytes */
+    minUploadSize: number
+    /** Maximum allowed upload size in bytes */
+    maxUploadSize: number
+    /** Pandora service contract address */
+    pandoraAddress: string
+    /** Payments contract address */
+    paymentsAddress: string
+    /** PDP Verifier contract address */
+    pdpVerifierAddress: string
+  }
+
+  /** Current user allowances (null if wallet not connected) */
+  allowances: {
+    /** Service contract address */
+    service: string
+    /** Maximum payment rate per epoch allowed */
+    rateAllowance: bigint
+    /** Maximum lockup amount allowed */
+    lockupAllowance: bigint
+    /** Current rate allowance used */
+    rateUsed: bigint
+    /** Current lockup allowance used */
+    lockupUsed: bigint
+  } | null
+}
+
+/**
+ * Proof set data returned from the API
+ */
+export interface ProofSetData {
+  /** The proof set ID */
+  id: number
+  /** Array of root data in the proof set */
+  roots: ProofSetRootData[]
+  /** Next challenge epoch */
+  nextChallengeEpoch: number
+}
+
+/**
+ * Individual proof set root data from API
+ */
+export interface ProofSetRootData {
+  /** Root ID within the proof set */
+  rootId: number
+  /** The root CID */
+  rootCid: CommP
+  /** Sub-root CID (usually same as rootCid) */
+  subrootCid: CommP
+  /** Sub-root offset */
+  subrootOffset: number
 }
