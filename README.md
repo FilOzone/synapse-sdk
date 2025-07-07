@@ -833,7 +833,7 @@ The benchmark performs:
 - Provides statistical analysis (min, max, average)
 
 #### Benchmark Strategy
-- **Provider**: Uses specific storage provider `0xe9bc394383B67aBcEbe86FD9843F53d8B4a2E981`
+- **Provider**: Uses storage provider from the `PROVIDER_ADDRESS` environment variable
 - **Piece Size**: 100 MiB for meaningful CommP timing data
 - **Execution**: Node.js with private key (eliminates user interaction timing)
 - **Isolation**: Forces new proof sets to avoid caching effects

@@ -6,7 +6,7 @@ import { timingCollector } from './dist/utils/timing.js'
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const PROVIDER_ADDRESS = '0xe9bc394383B67aBcEbe86FD9843F53d8B4a2E981' // Main controlled SP
+const PROVIDER_ADDRESS = process.env.PROVIDER_ADDRESS
 const PIECE_SIZE = 100 * 1024 * 1024 // 100 MiB
 const NUM_RUNS = 4
 
