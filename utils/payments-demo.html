@@ -257,17 +257,34 @@
 
             <!-- Deposit/Withdraw Tab -->
             <div class="tab-content active" id="depositTab">
+                <div>
+                    <h3>Deposit USDFC with Permit (Recommended - Single Transaction)</h3>
+                    <div class="info-box">
+                        <strong>🚀 New!</strong> Deposits USDFC using EIP-2612 permit signatures in a single transaction. This reduces MetaMask popups from 2 (approve + deposit) to 1 (sign permit + deposit) for better UX.
+                    </div>
+                    <div class="form-group">
+                        <label>Amount (USDFC):</label>
+                        <input type="number" id="depositPermitAmount" placeholder="10.0" step="0.1" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Permit Deadline (minutes):</label>
+                        <input type="number" id="permitDeadline" placeholder="30" value="30" min="1" max="60">
+                    </div>
+                    <button onclick="depositWithPermit()">Deposit with Permit (Single Transaction)</button>
+                    <div id="depositPermitResult"></div>
+                </div>
+
                 <div class="grid">
                     <div>
-                        <h3>Deposit USDFC</h3>
+                        <h3>Traditional Deposit (2 Transactions)</h3>
                         <div class="info-box">
-                            Deposits USDFC from your wallet to the payments contract. This automatically handles token approval if needed.
+                            Traditional process: First approves token spending (if needed), then deposits USDFC. Use the Permit method above for a better experience with a single transaction.
                         </div>
                         <div class="form-group">
                             <label>Amount (USDFC):</label>
                             <input type="number" id="depositAmount" placeholder="10.0" step="0.1" min="0">
                         </div>
-                        <button onclick="deposit()">Deposit</button>
+                        <button onclick="deposit()">Traditional Deposit (2 Transactions)</button>
                         <div id="depositResult"></div>
                     </div>
 
@@ -515,7 +532,64 @@
             }
         }
 
-        // Deposit
+        // Deposit with Permit (Recommended)
+        async function depositWithPermit() {
+            try {
+                const amount = document.getElementById('depositPermitAmount').value;
+                const deadlineMinutes = parseInt(document.getElementById('permitDeadline').value) || 30;
+
+                if (!amount) {
+                    showError('depositPermitResult', 'Please enter an amount');
+                    return;
+                }
+
+                showLoading('depositPermitResult');
+
+                const amountWei = ethers.parseUnits(amount, 18);
+
+                // Update status to show permit signing
+                let statusMessages = [];
+
+                const tx = await synapse.payments.depositWithPermit(
+                    amountWei,
+                    TOKENS.USDFC,
+                    {
+                        deadlineMinutes: deadlineMinutes,
+                        callbacks: {
+                            onPermitSigning: () => {
+                                statusMessages.push('🖊️ Signing permit in MetaMask...');
+                                showLoading('depositPermitResult');
+                                document.getElementById('depositPermitResult').innerHTML =
+                                    `<div class="result info">${statusMessages.join('<br>')}</div>`;
+                            },
+                            onDepositStarting: () => {
+                                statusMessages.push('💰 Permit signed! Executing deposit with permit...');
+                                document.getElementById('depositPermitResult').innerHTML =
+                                    `<div class="result info">${statusMessages.join('<br>')}</div>`;
+                            }
+                        }
+                    }
+                );
+
+                showSuccess('depositPermitResult',
+                    `Deposit with permit complete! 🎉<br>` +
+                    `<a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View deposit transaction</a><br>` +
+                    `<small>Used permit signature for gasless approval (single transaction)</small>`
+                );
+
+                // Wait for confirmation
+                const receipt = await tx.wait();
+                console.log(`Deposit with permit confirmed in block ${receipt.blockNumber}`);
+
+                // Refresh balances
+                await refreshBalances();
+
+            } catch (error) {
+                showError('depositPermitResult', error);
+            }
+        }
+
+        // Traditional Deposit (2 transactions)
         async function deposit() {
             try {
                 const amount = document.getElementById('depositAmount').value;
@@ -527,19 +601,46 @@
                 showLoading('depositResult');
 
                 const amountWei = ethers.parseUnits(amount, 18);
+
+                // Track the two-step process
+                let statusMessages = [];
+
                 const tx = await synapse.payments.deposit(amountWei, TOKENS.USDFC, {
                     onAllowanceCheck: (current, required) => {
-                        console.log(`Allowance check: ${ethers.formatUnits(current, 18)} / ${ethers.formatUnits(required, 18)} USDFC`);
+                        const msg = `📊 Allowance check: ${ethers.formatUnits(current, 18)} / ${ethers.formatUnits(required, 18)} USDFC`;
+                        console.log(msg);
+                        statusMessages.push(msg);
+                        document.getElementById('depositResult').innerHTML =
+                            `<div class="result info">${statusMessages.join('<br>')}</div>`;
                     },
                     onApprovalTransaction: (approveTx) => {
-                        console.log(`Auto-approval sent: ${approveTx.hash}`);
+                        const msg = `1️⃣ Approval transaction sent: ${approveTx.hash}`;
+                        console.log(msg);
+                        statusMessages.push(msg);
+                        document.getElementById('depositResult').innerHTML =
+                            `<div class="result info">${statusMessages.join('<br>')}<br>⏳ Waiting for confirmation...</div>`;
+                    },
+                    onApprovalConfirmed: (receipt) => {
+                        const msg = `✅ Approval confirmed in block ${receipt.blockNumber}`;
+                        console.log(msg);
+                        statusMessages.push(msg);
+                        document.getElementById('depositResult').innerHTML =
+                            `<div class="result info">${statusMessages.join('<br>')}</div>`;
                     },
                     onDepositStarting: () => {
-                        console.log('Starting deposit transaction...');
+                        const msg = '2️⃣ Starting deposit transaction...';
+                        console.log(msg);
+                        statusMessages.push(msg);
+                        document.getElementById('depositResult').innerHTML =
+                            `<div class="result info">${statusMessages.join('<br>')}</div>`;
                     }
                 });
 
-                showSuccess('depositResult', `Deposit transaction sent! <a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View transaction</a>`);
+                showSuccess('depositResult',
+                    `Traditional deposit complete!<br>` +
+                    `<a href="${getExplorerUrl(tx.hash)}" target="_blank" class="tx-link">View deposit transaction</a><br>` +
+                    `<small>Note: This required 2 transactions (approve + deposit)</small>`
+                );
 
                 // Wait for confirmation
                 const receipt = await tx.wait();

@@ -5,6 +5,7 @@
 import { ethers } from 'ethers'
 import { type AuthSignature, type RootData } from '../types.js'
 import { asCommP, toPieceSize } from '../commp/index.js'
+import { getUnderlyingSigner, isBrowserSigner, getEIP1193Provider } from '../utils/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -85,60 +86,6 @@ export class PDPAuthHelper {
   }
 
   /**
-   * Get the actual signer, unwrapping NonceManager if needed
-   */
-  private getUnderlyingSigner (): ethers.Signer {
-    // Check if this is a NonceManager-wrapped signer
-    if ('signer' in this.signer && this.signer.constructor.name === 'NonceManager') {
-      // Access the underlying signer for signTypedData support
-      return (this.signer as any).signer
-    }
-    return this.signer
-  }
-
-  /**
-   * Check if the signer is a browser provider (MetaMask, etc)
-   */
-  private async isMetaMaskSigner (): Promise<boolean> {
-    try {
-      // Get the actual signer (unwrap NonceManager if needed)
-      const actualSigner = this.getUnderlyingSigner()
-
-      // If it's a Wallet, it can sign locally, so not a MetaMask signer
-      if (actualSigner.constructor.name === 'Wallet') {
-        return false
-      }
-
-      // Check if signer has a provider
-      const provider = actualSigner.provider
-      if (provider == null) {
-        return false
-      }
-
-      // Check for ethers v6 BrowserProvider
-      if ('_eip1193Provider' in provider) {
-        return true
-      }
-
-      // Check for window.ethereum (browser environment)
-      if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
-        const win = globalThis as any
-        if (win.window?.ethereum != null) {
-          return true
-        }
-      }
-
-      // Check for provider with send method
-      if ('send' in provider || 'request' in provider) {
-        return true
-      }
-    } catch (error) {
-      // Silently fail and return false
-    }
-    return false
-  }
-
-  /**
    * Sign typed data with MetaMask-friendly display
    * This bypasses ethers.js conversion to show human-readable values in MetaMask
    */
@@ -179,18 +126,8 @@ export class PDPAuthHelper {
       message: value
     }
 
-    // For ethers v6, we need to access the underlying EIP-1193 provider
-    let eip1193Provider: any
-    if ('_eip1193Provider' in provider) {
-      // BrowserProvider in ethers v6
-      eip1193Provider = (provider as any)._eip1193Provider
-    } else if ('request' in provider) {
-      // Already an EIP-1193 provider
-      eip1193Provider = provider
-    } else {
-      // Fallback to provider.send
-      eip1193Provider = provider
-    }
+    // Get the EIP-1193 provider for direct wallet communication
+    const eip1193Provider = getEIP1193Provider(provider)
 
     // Call MetaMask directly for better UX
     let signature: string
@@ -241,7 +178,7 @@ export class PDPAuthHelper {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
-    const useMetaMask = await this.isMetaMaskSigner()
+    const useMetaMask = await isBrowserSigner(this.signer)
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
@@ -264,7 +201,7 @@ export class PDPAuthHelper {
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
-      const actualSigner = this.getUnderlyingSigner()
+      const actualSigner = getUnderlyingSigner(this.signer)
       signature = await actualSigner.signTypedData(
         this.domain,
         { CreateProofSet: EIP712_TYPES.CreateProofSet },
@@ -346,7 +283,7 @@ export class PDPAuthHelper {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
-    const useMetaMask = await this.isMetaMaskSigner()
+    const useMetaMask = await isBrowserSigner(this.signer)
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing with properly structured data
@@ -385,7 +322,7 @@ export class PDPAuthHelper {
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
-      const actualSigner = this.getUnderlyingSigner()
+      const actualSigner = getUnderlyingSigner(this.signer)
       signature = await actualSigner.signTypedData(this.domain, types, value)
     }
 
@@ -446,7 +383,7 @@ export class PDPAuthHelper {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
-    const useMetaMask = await this.isMetaMaskSigner()
+    const useMetaMask = await isBrowserSigner(this.signer)
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
@@ -467,7 +404,7 @@ export class PDPAuthHelper {
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
-      const actualSigner = this.getUnderlyingSigner()
+      const actualSigner = getUnderlyingSigner(this.signer)
       signature = await actualSigner.signTypedData(
         this.domain,
         { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
@@ -520,7 +457,7 @@ export class PDPAuthHelper {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
-    const useMetaMask = await this.isMetaMaskSigner()
+    const useMetaMask = await isBrowserSigner(this.signer)
 
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
@@ -539,7 +476,7 @@ export class PDPAuthHelper {
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
-      const actualSigner = this.getUnderlyingSigner()
+      const actualSigner = getUnderlyingSigner(this.signer)
       signature = await actualSigner.signTypedData(
         this.domain,
         { DeleteProofSet: EIP712_TYPES.DeleteProofSet },

@@ -7,7 +7,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PaymentsService } from '../payments/index.js'
-import { TOKENS } from '../utils/index.js'
+import { TOKENS, CONTRACT_ADDRESSES } from '../utils/index.js'
 import { createMockProvider, createMockSigner } from './test-utils.js'
 
 describe('PaymentsService', () => {
@@ -18,7 +18,7 @@ describe('PaymentsService', () => {
   beforeEach(() => {
     mockProvider = createMockProvider()
     mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
-    payments = new PaymentsService(mockProvider, mockSigner, 'calibration', false)
+    payments = new PaymentsService(mockProvider, mockSigner, 'calibration', false, CONTRACT_ADDRESSES.PAYMENTS.calibration)
   })
 
   describe('Instantiation', () => {
@@ -196,7 +196,7 @@ describe('PaymentsService', () => {
         throw new Error('Transaction failed')
       }
 
-      const errorPayments = new PaymentsService(errorProvider, errorSigner, 'calibration', false)
+      const errorPayments = new PaymentsService(errorProvider, errorSigner, 'calibration', false, CONTRACT_ADDRESSES.PAYMENTS.calibration)
 
       try {
         // Try deposit which uses sendTransaction
