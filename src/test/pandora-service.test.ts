@@ -1544,4 +1544,59 @@ describe('PandoraService', () => {
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
     })
   })
+
+  describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
+    it('should return max proving period from contract', async () => {
+      // Mock contract call
+      const originalCall = mockProvider.call
+      mockProvider.call = async ({ data }: any) => {
+        // Check if it's the getMaxProvingPeriod call
+        if (typeof data === 'string' && data.includes('0x')) {
+          // Return encoded uint64 value of 2880
+          return '0x0000000000000000000000000000000000000000000000000000000000000b40'
+        }
+        return '0x'
+      }
+
+      const result = await pandoraService.getMaxProvingPeriod()
+      assert.equal(result, 2880)
+
+      mockProvider.call = originalCall
+    })
+
+    it('should return challenge window from contract', async () => {
+      // Mock contract call
+      const originalCall = mockProvider.call
+      mockProvider.call = async ({ data }: any) => {
+        // Check if it's the getChallengeWindow call
+        if (typeof data === 'string' && data.includes('0x')) {
+          // Return encoded uint256 value of 60
+          return '0x000000000000000000000000000000000000000000000000000000000000003c'
+        }
+        return '0x'
+      }
+
+      const result = await pandoraService.getChallengeWindow()
+      assert.equal(result, 60)
+
+      mockProvider.call = originalCall
+    })
+
+    it('should handle contract call failures', async () => {
+      // Mock contract call to throw error
+      const originalCall = mockProvider.call
+      mockProvider.call = async () => {
+        throw new Error('Contract call failed')
+      }
+
+      try {
+        await pandoraService.getMaxProvingPeriod()
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Contract call failed')
+      }
+
+      mockProvider.call = originalCall
+    })
+  })
 })

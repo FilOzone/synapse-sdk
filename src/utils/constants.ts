@@ -83,7 +83,13 @@ export const CONTRACT_ABIS = {
     'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
 
     // Get proof set info by ID
-    'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)'
+    'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)',
+
+    // Proving period and timing functions
+    'function getMaxProvingPeriod() external view returns (uint64)',
+    'function challengeWindow() external view returns (uint256)',
+    'function maxProvingPeriod() external view returns (uint64)',
+    'function challengeWindowSize() external view returns (uint256)'
   ] as const,
 
   /**
@@ -127,6 +133,20 @@ export const TIME_CONSTANTS = {
    * Default lockup period in days
    */
   DEFAULT_LOCKUP_DAYS: 10n
+} as const
+
+/**
+ * Genesis timestamps for Filecoin networks (Unix timestamp in seconds)
+ */
+export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
+  /**
+   * Mainnet genesis: August 24, 2020 22:00:00 UTC
+   */
+  mainnet: 1598306400,
+  /**
+   * Calibration testnet genesis: November 1, 2022 18:13:00 UTC
+   */
+  calibration: 1667326380
 } as const
 
 /**

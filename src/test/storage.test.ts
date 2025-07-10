@@ -2371,4 +2371,301 @@ describe('StorageService', () => {
       }
     })
   })
+
+  describe('pieceStatus()', () => {
+    const mockCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+
+    it('should return exists=false when piece not found on provider', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => { throw new Error('Piece not found') }
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse payments getCurrentEpoch
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4000)
+      mockSynapseAny.getNetwork = () => 'calibration'
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isFalse(status.exists)
+      assert.isNull(status.retrievalUrl)
+      assert.isNull(status.proofSetLastProven)
+      assert.isNull(status.proofSetNextProofDue)
+      assert.isUndefined(status.rootId)
+    })
+
+    it('should return piece status with proof timing when piece exists', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [{
+          rootId: 1,
+          rootCid: { toString: () => mockCommP }
+        }],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse methods
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4000)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      assert.equal(status.retrievalUrl, 'https://retrieve.example.com/piece/' + mockCommP)
+      assert.equal(status.rootId, 1)
+      assert.isNotNull(status.proofSetLastProven)
+      assert.isNotNull(status.proofSetNextProofDue)
+      assert.isFalse(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
+    })
+
+    it('should detect when in challenge window', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [{
+          rootId: 1,
+          rootCid: { toString: () => mockCommP }
+        }],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse - current epoch is in challenge window
+      // nextChallengeEpoch (5000) is the START of the window
+      // Window ends at 5000 + 60 = 5060
+      // Current epoch 5030 is in the middle of the window
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(5030)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      assert.isTrue(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
+    })
+
+    it('should detect when proof is overdue', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [{
+          rootId: 1,
+          rootCid: { toString: () => mockCommP }
+        }],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse - current epoch is past the challenge window
+      // nextChallengeEpoch (5000) + challengeWindow (60) = 5060 (deadline)
+      // Current epoch 5100 is past the deadline
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(5100)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      assert.isFalse(status.inChallengeWindow) // No longer in window, it's past
+      assert.isTrue(status.isProofOverdue)
+    })
+
+    it('should handle proof set with nextChallengeEpoch=0', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [{
+          rootId: 1,
+          rootCid: { toString: () => mockCommP }
+        }],
+        nextChallengeEpoch: 0 // No next challenge scheduled
+      })
+
+      // Mock synapse
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(5000)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      assert.isNull(status.proofSetLastProven)
+      assert.isNull(status.proofSetNextProofDue)
+      assert.isFalse(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
+    })
+
+    it('should handle trailing slash in retrieval URL', async () => {
+      const mockProviderWithSlash: ApprovedProviderInfo = {
+        ...mockProvider,
+        pieceRetrievalUrl: 'https://retrieve.example.com/' // Trailing slash
+      }
+
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProviderWithSlash, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4000)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async (address: string) => {
+        // Return the provider with trailing slash when asked for this provider's address
+        if (address === mockProviderWithSlash.owner) {
+          return mockProviderWithSlash
+        }
+        throw new Error('Provider not found')
+      }
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      // Should not have double slash
+      assert.equal(status.retrievalUrl, 'https://retrieve.example.com/piece/' + mockCommP)
+      // Check that the URL doesn't contain double slashes after the protocol
+      const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
+      assert.notInclude(urlWithoutProtocol, '//')
+    })
+
+    it('should handle invalid CommP', async () => {
+      const mockPandoraService = {} as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      try {
+        await service.pieceStatus('invalid-commp')
+        assert.fail('Should have thrown error for invalid CommP')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid CommP provided')
+      }
+    })
+
+    it('should calculate hours until challenge window', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => ({
+        id: 123,
+        roots: [{
+          rootId: 1,
+          rootCid: { toString: () => mockCommP }
+        }],
+        nextChallengeEpoch: 5000
+      })
+
+      // Mock synapse - 120 epochs before challenge window (1 hour)
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4880) // 5000 - 120 = 4880 (1 hour before window)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      assert.isTrue(status.exists)
+      assert.isFalse(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
+      assert.approximately(status.hoursUntilChallengeWindow ?? 0, 1, 0.1) // Should be ~1 hour
+    })
+
+    it('should handle proof set data fetch failure gracefully', async () => {
+      const mockPandoraService = {
+        getMaxProvingPeriod: async () => 2880,
+        getChallengeWindow: async () => 60
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+
+      // Mock PDP server methods
+      const serviceAny = service as any
+      serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.getProofSet = async () => { throw new Error('Network error') }
+
+      // Mock synapse
+      const mockSynapseAny = mockSynapse as any
+      mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4000)
+      mockSynapseAny.getNetwork = () => 'calibration'
+      mockSynapseAny.getProviderInfo = async () => mockProvider
+
+      const status = await service.pieceStatus(mockCommP)
+
+      // Should still return basic status even if proof set data fails
+      assert.isTrue(status.exists)
+      assert.isNotNull(status.retrievalUrl)
+      assert.isNull(status.proofSetLastProven)
+      assert.isNull(status.proofSetNextProofDue)
+      assert.isUndefined(status.rootId)
+    })
+  })
 })

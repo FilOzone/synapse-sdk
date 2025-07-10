@@ -19,14 +19,16 @@ import type {
   UploadCallbacks,
   UploadResult,
   RootData,
-  CommP
+  CommP,
+  PieceStatus
 } from '../types.js'
 import type { Synapse } from '../synapse.js'
 import type { PandoraService } from '../pandora/service.js'
 import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
-import { createError } from '../utils/index.js'
+import { createError, epochToDate, calculateLastProofDate, timeUntilEpoch } from '../utils/index.js'
 import { SIZE_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
+import { asCommP } from '../commp/index.js'
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -1027,5 +1029,132 @@ export class StorageService {
   async getProofSetRoots (): Promise<CommP[]> {
     const proofSetData = await this._pdpServer.getProofSet(this._proofSetId)
     return proofSetData.roots.map(root => root.rootCid)
+  }
+
+  /**
+   * Get the status of a piece on this storage provider
+   * This method checks if the piece exists on the provider and provides proof timing information
+   * for the proof set containing this piece.
+   *
+   * Note: Proofs are submitted for entire proof sets, not individual pieces. The timing information
+   * returned reflects when the proof set (containing this piece) was last proven and when the next
+   * proof is due.
+   *
+   * @param commp - The CommP (piece CID) to check
+   * @returns Status information including existence, proof set timing, and retrieval URL
+   */
+  async pieceStatus (commp: string | CommP): Promise<PieceStatus> {
+    const parsedCommP = asCommP(commp)
+    if (parsedCommP == null) {
+      throw createError('StorageService', 'pieceStatus', 'Invalid CommP provided')
+    }
+
+    // Run multiple operations in parallel for better performance
+    const [pieceCheckResult, proofSetData, currentEpoch] = await Promise.all([
+      // Check if piece exists on provider
+      this._pdpServer.findPiece(parsedCommP, 0).then(() => true).catch(() => false),
+      // Get proof set data
+      this._pdpServer.getProofSet(this._proofSetId).catch((error) => {
+        console.debug('Failed to get proof set data:', error)
+        return null
+      }),
+      // Get current epoch
+      this._synapse.payments.getCurrentEpoch()
+    ])
+
+    const exists = pieceCheckResult
+    const network = this._synapse.getNetwork()
+
+    // Initialize return values
+    let retrievalUrl: string | null = null
+    let rootId: number | undefined
+    let lastProven: Date | null = null
+    let nextProofDue: Date | null = null
+    let inChallengeWindow = false
+    let hoursUntilChallengeWindow = 0
+    let isProofOverdue = false
+
+    // If piece exists, get provider info for retrieval URL and proving params in parallel
+    if (exists) {
+      const [providerInfo, provingParams] = await Promise.all([
+        // Get provider info for retrieval URL
+        this.getProviderInfo().catch(() => null),
+        // Get proving period configuration (only if we have proof set data)
+        proofSetData != null
+          ? Promise.all([
+            this._pandoraService.getMaxProvingPeriod(),
+            this._pandoraService.getChallengeWindow()
+          ]).then(([maxProvingPeriod, challengeWindow]) => ({ maxProvingPeriod, challengeWindow }))
+            .catch(() => null)
+          : Promise.resolve(null)
+      ])
+
+      // Set retrieval URL if we have provider info
+      if (providerInfo != null) {
+        // Remove trailing slash from pieceRetrievalUrl to avoid double slashes
+        retrievalUrl = `${providerInfo.pieceRetrievalUrl.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
+      }
+
+      // Process proof timing data if we have proof set data and proving params
+      if (proofSetData != null && provingParams != null) {
+        // Check if this CommP is in the proof set
+        const rootData = proofSetData.roots.find(root => root.rootCid.toString() === parsedCommP.toString())
+
+        if (rootData != null) {
+          rootId = rootData.rootId
+
+          // Calculate timing based on nextChallengeEpoch
+          if (proofSetData.nextChallengeEpoch > 0) {
+            // nextChallengeEpoch is when the challenge window STARTS, not ends!
+            // The proving deadline is nextChallengeEpoch + challengeWindow
+            const challengeWindowStart = proofSetData.nextChallengeEpoch
+            const provingDeadline = challengeWindowStart + provingParams.challengeWindow
+
+            // Calculate when the next proof is due (end of challenge window)
+            nextProofDue = epochToDate(provingDeadline, network)
+
+            // Calculate last proven date (one proving period before next challenge)
+            const lastProvenDate = calculateLastProofDate(
+              proofSetData.nextChallengeEpoch,
+              provingParams.maxProvingPeriod,
+              network
+            )
+            if (lastProvenDate != null) {
+              lastProven = lastProvenDate
+            }
+
+            // Check if we're in the challenge window
+            inChallengeWindow = currentEpoch >= challengeWindowStart && currentEpoch < provingDeadline
+
+            // Check if proof is overdue (past the proving deadline)
+            isProofOverdue = currentEpoch >= provingDeadline
+
+            // Calculate hours until challenge window starts (only if before challenge window)
+            if (currentEpoch < challengeWindowStart) {
+              const timeUntil = timeUntilEpoch(challengeWindowStart, Number(currentEpoch))
+              hoursUntilChallengeWindow = timeUntil.hours
+            }
+          } else {
+            // If nextChallengeEpoch is 0, it might mean:
+            // 1. Proof was just submitted and system is updating
+            // 2. Proof set is not active
+            // In case 1, we might have just proven, so set lastProven to very recent
+            // This is a temporary state and should resolve quickly
+            console.debug('Proof set has nextChallengeEpoch=0, may have just been proven')
+          }
+        }
+      }
+    }
+
+    return {
+      exists,
+      proofSetLastProven: lastProven,
+      proofSetNextProofDue: nextProofDue,
+      retrievalUrl,
+      rootId,
+      inChallengeWindow,
+      hoursUntilChallengeWindow,
+      isProofOverdue
+    }
   }
 }

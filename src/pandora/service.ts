@@ -879,4 +879,75 @@ export class PandoraService {
       epochsPerMonth: result.epochsPerMonth
     }
   }
+
+  // ========== Proving Period Operations ==========
+
+  /**
+   * Get the maximum proving period in epochs
+   * This is the maximum time allowed between proofs before a fault is recorded
+   * @returns Maximum proving period in epochs
+   */
+  async getMaxProvingPeriod (): Promise<number> {
+    const contract = this._getPandoraContract()
+    const maxProvingPeriod = await contract.getMaxProvingPeriod()
+    return Number(maxProvingPeriod)
+  }
+
+  /**
+   * Get the challenge window size in epochs
+   * This is the window at the end of each proving period where proofs can be submitted
+   * @returns Challenge window size in epochs
+   */
+  async getChallengeWindow (): Promise<number> {
+    const contract = this._getPandoraContract()
+    const challengeWindow = await contract.challengeWindow()
+    return Number(challengeWindow)
+  }
+
+  /**
+   * Get the maximum proving period in hours
+   * Convenience method that converts epochs to hours
+   * @returns Maximum proving period in hours
+   */
+  async getProvingPeriodInHours (): Promise<number> {
+    const maxProvingPeriod = await this.getMaxProvingPeriod()
+    // Convert epochs to hours: epochs * 30 seconds / 3600 seconds per hour
+    return (maxProvingPeriod * 30) / 3600
+  }
+
+  /**
+   * Get the challenge window in minutes
+   * Convenience method that converts epochs to minutes
+   * @returns Challenge window in minutes
+   */
+  async getChallengeWindowInMinutes (): Promise<number> {
+    const challengeWindow = await this.getChallengeWindow()
+    // Convert epochs to minutes: epochs * 30 seconds / 60 seconds per minute
+    return (challengeWindow * 30) / 60
+  }
+
+  /**
+   * Get comprehensive proving period information
+   * @returns Object with all proving period timing information
+   */
+  async getProvingPeriodInfo (): Promise<{
+    maxProvingPeriodEpochs: number
+    challengeWindowEpochs: number
+    maxProvingPeriodHours: number
+    challengeWindowMinutes: number
+    epochDurationSeconds: number
+  }> {
+    const [maxProvingPeriod, challengeWindow] = await Promise.all([
+      this.getMaxProvingPeriod(),
+      this.getChallengeWindow()
+    ])
+
+    return {
+      maxProvingPeriodEpochs: maxProvingPeriod,
+      challengeWindowEpochs: challengeWindow,
+      maxProvingPeriodHours: (maxProvingPeriod * 30) / 3600,
+      challengeWindowMinutes: (challengeWindow * 30) / 60,
+      epochDurationSeconds: 30
+    }
+  }
 }

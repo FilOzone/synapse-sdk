@@ -438,3 +438,27 @@ export interface ProofSetRootData {
   /** Sub-root offset */
   subrootOffset: number
 }
+
+/**
+ * Status information for a piece stored on a provider
+ * Note: Proofs are submitted for entire proof sets, not individual pieces.
+ * The timing information reflects the proof set's status.
+ */
+export interface PieceStatus {
+  /** Whether the piece exists on the storage provider */
+  exists: boolean
+  /** When the proof set containing this piece was last proven on-chain (null if never proven or not yet due) */
+  proofSetLastProven: Date | null
+  /** When the next proof is due for the proof set containing this piece (end of challenge window) */
+  proofSetNextProofDue: Date | null
+  /** URL where the piece can be retrieved (null if not available) */
+  retrievalUrl: string | null
+  /** The root ID if the piece is in the proof set */
+  rootId?: number
+  /** Whether the proof set is currently in a challenge window */
+  inChallengeWindow?: boolean
+  /** Time until the proof set enters the challenge window (in hours) */
+  hoursUntilChallengeWindow?: number
+  /** Whether the proof is overdue (past the challenge window without being submitted) */
+  isProofOverdue?: boolean
+}

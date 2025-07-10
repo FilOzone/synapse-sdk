@@ -216,7 +216,23 @@ async function main () {
       process.exit(1)
     }
 
-    // Step 9: Show storage info
+    // Step 9: Check piece status
+    console.log('\n--- Piece Status ---')
+    const pieceStatus = await storageService.pieceStatus(uploadResult.commp)
+    console.log(`Piece exists on provider: ${pieceStatus.exists}`)
+    if (pieceStatus.proofSetLastProven) {
+      console.log(`Proof set last proven: ${pieceStatus.proofSetLastProven.toLocaleString()}`)
+    }
+    if (pieceStatus.proofSetNextProofDue) {
+      console.log(`Proof set next proof due: ${pieceStatus.proofSetNextProofDue.toLocaleString()}`)
+    }
+    if (pieceStatus.inChallengeWindow) {
+      console.log('⚠️  Currently in challenge window - proof must be submitted soon!')
+    } else if (pieceStatus.hoursUntilChallengeWindow && pieceStatus.hoursUntilChallengeWindow > 0) {
+      console.log(`Hours until challenge window: ${pieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
+    }
+
+    // Step 10: Show storage info
     console.log('\n--- Storage Information ---')
     console.log('Your file is now stored on the Filecoin network with:')
     console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)

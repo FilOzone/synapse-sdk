@@ -384,6 +384,12 @@ const downloaded = await storage.providerDownload(result.commp)
 // Get the list of root CIDs in the current proof set by querying the provider
 const rootCids = await storage.getProofSetRoots()
 console.log(`Root CIDs: ${rootCids.map(cid => cid.toString()).join(', ')}`)
+
+// Check the status of a piece on the storage provider
+const status = await storage.pieceStatus(result.commp)
+console.log(`Piece exists: ${status.exists}`)
+console.log(`Proof set last proven: ${status.proofSetLastProven}`)
+console.log(`Proof set next proof due: ${status.proofSetNextProofDue}`)
 ```
 
 **Storage Service Methods:**
@@ -392,6 +398,7 @@ console.log(`Root CIDs: ${rootCids.map(cid => cid.toString()).join(', ')}`)
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
 - `getProviderInfo()` - Get detailed information about the selected storage provider
 - `getProofSetRoots()` - Get the list of root CIDs in the proof set by querying the provider
+- `pieceStatus(commp)` - Get the status of a piece including proof set timing information
 
 ##### Size Constraints
 
