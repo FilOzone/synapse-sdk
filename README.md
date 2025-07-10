@@ -44,6 +44,12 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 * [Additional Information](#additional-information)
   * [Type Definitions](#type-definitions)
   * [Error Handling](#error-handling)
+* [Performance and Timing Analysis](#performance-and-timing-analysis)
+  * [Timing Collection System](#timing-collection-system)
+  * [Accessing Timing Data](#accessing-timing-data)
+  * [Benchmark Tool](#benchmark-tool)
+  * [Performance Characteristics](#performance-characteristics)
+  * [Understanding Wait Times](#understanding-wait-times)
 * [Contributing](#contributing)
   * [Commit Message Guidelines](#commit-message-guidelines)
   * [Testing](#testing)
@@ -840,6 +846,109 @@ try {
   console.error(error.cause)     // Underlying error if any
 }
 ```
+
+## Performance and Timing Analysis
+
+The SDK includes comprehensive timing collection capabilities to help analyze and optimize storage operations.
+
+### Timing Collection System
+
+The SDK automatically collects detailed timing data for all major operations:
+
+#### createProofSet() Timing Points
+- `createProofSet` - Overall proof set creation time
+- `pdpServer.createProofSet` - Server response time for proof set creation
+- `getTransaction` - Time to retrieve transaction from blockchain
+- `waitForProofSetCreationWithStatus` - Overall wait time for completion
+- `pdpServer.getProofSetCreationStatus` - Server acknowledgment time
+- `verifyProofSetCreation` - Proof set liveness verification time
+
+#### upload() Timing Points
+- `upload` - Overall upload operation time
+- `calculateCommP` - CommP calculation time (100 MiB ≈ 2-5 seconds)
+- `POST.pdp.piece` - Piece upload initiation time
+- `PUT.pdp.piece.upload` - Piece upload completion time
+- `findPiece` - Time for piece to be "parked" (ready)
+- `pdpServer.addRoots` - Server processing time for adding roots
+- `getTransaction.addRoots` - Transaction retrieval for root addition
+- `transaction.wait` - Transaction confirmation time
+- `getRootAdditionStatus` - Verified roots confirmation time
+
+### Accessing Timing Data
+
+```javascript
+import { timingCollector } from '@filoz/synapse-sdk'
+
+// Perform operations
+const storage = await synapse.createStorage()
+await storage.upload(data)
+
+// Get timing results
+const results = timingCollector.getResults()
+console.log('Upload timing:', results.upload)
+
+// Print formatted results
+timingCollector.printResults()
+
+// Clear for next measurement
+timingCollector.clear()
+```
+
+### Benchmark Tool
+
+A comprehensive benchmark tool is available for performance analysis:
+
+```bash
+# Build the SDK first
+npm run build
+
+# Run benchmark with your private key
+PRIVATE_KEY=0x... RPC_URL=https://api.calibration.node.glif.io/rpc/v1 node benchmark.js
+```
+
+The benchmark performs:
+- 4 runs of proof set creation + 4 unique piece uploads (100 MiB each)
+- Uses controlled storage provider for consistent results
+- Measures all timing points listed above
+- Provides statistical analysis (min, max, average)
+
+#### Benchmark Strategy
+- **Provider**: Uses storage provider from the `PROVIDER_ADDRESS` environment variable
+- **Piece Size**: 100 MiB for meaningful CommP timing data
+- **Execution**: Node.js with private key (eliminates user interaction timing)
+- **Isolation**: Forces new proof sets to avoid caching effects
+
+### Performance Characteristics
+
+#### Typical Timing Ranges (Calibration Testnet)
+- **CommP Calculation**: 2-5 seconds for 100 MiB
+- **Proof Set Creation**: 30-60 seconds total
+  - Server response: 1-3 seconds
+  - Transaction confirmation: 20-40 seconds
+  - Server acknowledgment: 5-15 seconds
+- **Upload Operations**: 45-90 seconds total
+  - Piece upload: 5-15 seconds
+  - Piece parking: 5-10 seconds
+  - Root addition: 20-40 seconds
+  - Verification: 10-20 seconds
+
+#### Optimization Opportunities
+- **Parallel Operations**: Client and server verification can run concurrently
+- **Confirmation Requirements**: Both client and Curio use 1 confirmation but Curio tends to be slower
+- **CommP Caching**: Pre-calculate CommP for known data to reduce upload latency
+- **Batch Operations**: Multiple pieces can share the same proof set creation overhead
+
+### Understanding Wait Times
+
+Most operation time is spent waiting for:
+1. **Blockchain Confirmations** - Transaction finality (largest component)
+2. **Server Processing** - Storage provider internal operations
+3. **Network Propagation** - RPC node synchronization
+4. **CommP Calculation** - CPU-intensive proof generation
+
+The timing system helps identify which components dominate in your specific environment and network conditions.
+
+---
 
 ## Contributing
 
