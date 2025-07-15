@@ -915,7 +915,7 @@ export class StorageService {
 
         while (Date.now() - startTime < maxWaitTime) {
           try {
-            const status = await this._pdpServer.getRootAdditionStatus(
+            const status = await this._pdpServer.getPieceAdditionStatus(
               this._dataSetId,
               addPiecesResult.txHash
             )
@@ -931,15 +931,15 @@ export class StorageService {
               throw new Error('Piece addition failed: Transaction was unsuccessful')
             }
 
-            // Success - get the root IDs
-            if (status.confirmedRootIds != null && status.confirmedRootIds.length > 0) {
-              finalPieceId = status.confirmedRootIds[0]
-              callbacks?.onRootConfirmed?.(status.confirmedRootIds)
+            // Success - get the piece IDs
+            if (status.confirmedPieceIds != null && status.confirmedPieceIds.length > 0) {
+              finalPieceId = status.confirmedPieceIds[0]
+              callbacks?.onRootConfirmed?.(status.confirmedPieceIds)
               statusVerified = true
               break
             }
 
-            // If we get here, status exists but no root IDs yet
+            // If we get here, status exists but no piece IDs yet
             await new Promise(resolve => setTimeout(resolve, pollInterval))
           } catch (error) {
             lastError = error as Error

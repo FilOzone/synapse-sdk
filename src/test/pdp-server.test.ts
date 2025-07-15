@@ -138,8 +138,8 @@ describe('PDPServer', () => {
       const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'confirmed',
-        proofSetId: 1,
-        rootCount: 2,
+        dataSetId: 1,
+        pieceCount: 2,
         addMessageOk: true,
         confirmedPieceIds: [101, 102]
       }
@@ -170,8 +170,8 @@ describe('PDPServer', () => {
       const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'pending',
-        proofSetId: 1,
-        rootCount: 2,
+        dataSetId: 1,
+        pieceCount: 2,
         addMessageOk: null,
         confirmedPieceIds: undefined
       }
@@ -527,16 +527,16 @@ describe('PDPServer', () => {
     })
   })
 
-  describe('getProofSetCreationStatus', () => {
+  describe('getDataSetCreationStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockResponse = {
         createMessageHash: mockTxHash,
-        proofSetCreated: true,
+        dataSetCreated: true,
         service: 'test-service',
         txStatus: 'confirmed',
         ok: true,
-        proofSetId: 123
+        dataSetId: 123
       }
 
       // Mock fetch for this test
@@ -553,7 +553,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.getProofSetCreationStatus(mockTxHash)
+        const result = await pdpServer.getDataSetCreationStatus(mockTxHash)
         assert.deepStrictEqual(result, mockResponse)
       } finally {
         global.fetch = originalFetch
@@ -572,7 +572,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getProofSetCreationStatus(mockTxHash)
+        await pdpServer.getDataSetCreationStatus(mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
         assert.include((error as Error).message, `Data set creation not found for transaction hash: ${mockTxHash}`)
