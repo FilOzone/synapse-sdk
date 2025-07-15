@@ -24,7 +24,7 @@ describe('PDPVerifier', () => {
     it('should create instance with provider', () => {
       assert.exists(pdpVerifier)
       assert.isFunction(pdpVerifier.proofSetLive)
-      assert.isFunction(pdpVerifier.getNextRootId)
+      assert.isFunction(pdpVerifier.getNextPieceId)
     })
 
     it('should reject unsupported networks', async () => {
@@ -55,18 +55,18 @@ describe('PDPVerifier', () => {
     })
   })
 
-  describe('getNextRootId', () => {
-    it('should get next root ID', async () => {
+  describe('getNextPieceId', () => {
+    it('should get next piece ID', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xd49245c1') === true) { // getNextRootId selector
+        if (data?.startsWith('0xd49245c1') === true) { // getNextPieceId selector
           return ethers.zeroPadValue('0x05', 32) // Return 5
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const nextRootId = await pdpVerifier.getNextRootId(123)
-      assert.equal(nextRootId, 5)
+      const nextPieceId = await pdpVerifier.getNextPieceId(123)
+      assert.equal(nextPieceId, 5)
     })
   })
 

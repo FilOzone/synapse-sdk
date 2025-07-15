@@ -2,12 +2,12 @@
 import { assert } from 'chai'
 import {
   isProofSetCreationStatusResponse,
-  isRootAdditionStatusResponse,
+  isPieceAdditionStatusResponse,
   isFindPieceResponse,
   validateProofSetCreationStatusResponse,
-  validateRootAdditionStatusResponse,
+  validatePieceAdditionStatusResponse,
   validateFindPieceResponse,
-  asProofSetRootData,
+  asProofSetPieceData,
   asProofSetData
 } from '../pdp/validation.js'
 
@@ -17,7 +17,7 @@ describe('PDP Validation', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
         proofSetCreated: true,
-        service: 'pandora',
+        service: 'warmStorage',
         txStatus: 'confirmed',
         ok: true,
         proofSetId: 123
@@ -34,7 +34,7 @@ describe('PDP Validation', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
         proofSetCreated: false,
-        service: 'pandora',
+        service: 'warmStorage',
         txStatus: 'pending',
         ok: null
       }
@@ -59,14 +59,14 @@ describe('PDP Validation', function () {
         {
           createMessageHash: '0x123',
           proofSetCreated: true,
-          service: 'pandora',
+          service: 'warmStorage',
           txStatus: 'pending'
           // Missing ok field
         },
         {
           createMessageHash: '0x123',
           proofSetCreated: true,
-          service: 'pandora',
+          service: 'warmStorage',
           txStatus: 'pending',
           ok: null,
           proofSetId: 'abc' // Wrong type
@@ -80,7 +80,7 @@ describe('PDP Validation', function () {
     })
   })
 
-  describe('RootAdditionStatusResponse validation', function () {
+  describe('PieceAdditionStatusResponse validation', function () {
     it('should validate a valid response', function () {
       const validResponse = {
         txHash: '0x456def',
@@ -88,12 +88,12 @@ describe('PDP Validation', function () {
         proofSetId: 123,
         rootCount: 5,
         addMessageOk: true,
-        confirmedRootIds: [1, 2, 3, 4, 5]
+        confirmedPieceIds: [1, 2, 3, 4, 5]
       }
 
-      assert.isTrue(isRootAdditionStatusResponse(validResponse))
+      assert.isTrue(isPieceAdditionStatusResponse(validResponse))
       assert.deepEqual(
-        validateRootAdditionStatusResponse(validResponse),
+        validatePieceAdditionStatusResponse(validResponse),
         validResponse
       )
     })
@@ -107,9 +107,9 @@ describe('PDP Validation', function () {
         addMessageOk: null
       }
 
-      assert.isTrue(isRootAdditionStatusResponse(validResponse))
+      assert.isTrue(isPieceAdditionStatusResponse(validResponse))
       assert.deepEqual(
-        validateRootAdditionStatusResponse(validResponse),
+        validatePieceAdditionStatusResponse(validResponse),
         validResponse
       )
     })
@@ -131,7 +131,7 @@ describe('PDP Validation', function () {
           proofSetId: 123,
           rootCount: 5,
           addMessageOk: null,
-          confirmedRootIds: 'not-array' // Wrong type
+          confirmedPieceIds: 'not-array' // Wrong type
         },
         {
           txHash: '0x456def',
@@ -139,13 +139,13 @@ describe('PDP Validation', function () {
           proofSetId: 123,
           rootCount: 5,
           addMessageOk: null,
-          confirmedRootIds: [1, 2, 'three'] // Wrong element type
+          confirmedPieceIds: [1, 2, 'three'] // Wrong element type
         }
       ]
 
       for (const invalid of invalidResponses) {
-        assert.isFalse(isRootAdditionStatusResponse(invalid))
-        assert.throws(() => validateRootAdditionStatusResponse(invalid))
+        assert.isFalse(isPieceAdditionStatusResponse(invalid))
+        assert.throws(() => validatePieceAdditionStatusResponse(invalid))
       }
     })
   })
@@ -235,24 +235,24 @@ describe('PDP Validation', function () {
     })
   })
 
-  describe('ProofSetRootData validation', function () {
-    it('should validate and convert a valid root data object', function () {
-      const validRootData = {
-        rootId: 101,
+  describe('ProofSetPieceData validation', function () {
+    it('should validate and convert a valid piece data object', function () {
+      const validPieceData = {
+        pieceId: 101,
         rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        subrootOffset: 0
+        subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+        subpieceOffset: 0
       }
 
-      const converted = asProofSetRootData(validRootData)
+      const converted = asProofSetPieceData(validPieceData)
       assert.isNotNull(converted)
-      assert.equal(converted?.rootId, validRootData.rootId)
-      assert.equal(converted?.rootCid.toString(), validRootData.rootCid)
-      assert.equal(converted?.subrootCid.toString(), validRootData.subrootCid)
-      assert.equal(converted?.subrootOffset, validRootData.subrootOffset)
+      assert.equal(converted?.pieceId, validPieceData.pieceId)
+      assert.equal(converted?.rootCid.toString(), validPieceData.rootCid)
+      assert.equal(converted?.subpieceCid.toString(), validPieceData.subpieceCid)
+      assert.equal(converted?.subpieceOffset, validPieceData.subpieceOffset)
     })
 
-    it('should return null for invalid root data', function () {
+    it('should return null for invalid piece data', function () {
       const invalidCases = [
         null,
         undefined,
@@ -260,23 +260,23 @@ describe('PDP Validation', function () {
         123,
         [],
         {}, // Empty object
-        { rootId: 'not-a-number' }, // Wrong type
+        { pieceId: 'not-a-number' }, // Wrong type
         {
-          rootId: 101,
+          pieceId: 101,
           rootCid: 'not-a-commp',
-          subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-          subrootOffset: 0
+          subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+          subpieceOffset: 0
         },
         {
-          rootId: 101,
+          pieceId: 101,
           rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-          subrootCid: 'not-a-commp',
-          subrootOffset: 0
+          subpieceCid: 'not-a-commp',
+          subpieceOffset: 0
         }
       ]
 
       for (const invalid of invalidCases) {
-        assert.isNull(asProofSetRootData(invalid))
+        assert.isNull(asProofSetPieceData(invalid))
       }
     })
   })
@@ -285,12 +285,12 @@ describe('PDP Validation', function () {
     it('should validate and convert valid proof set data', function () {
       const validProofSetData = {
         id: 123,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
+            pieceId: 101,
             rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceOffset: 0
           }
         ],
         nextChallengeEpoch: 456
@@ -300,28 +300,28 @@ describe('PDP Validation', function () {
       assert.isNotNull(converted)
       assert.equal(converted?.id, validProofSetData.id)
       assert.equal(converted?.nextChallengeEpoch, validProofSetData.nextChallengeEpoch)
-      assert.equal(converted?.roots.length, validProofSetData.roots.length)
-      assert.equal(converted?.roots[0].rootId, validProofSetData.roots[0].rootId)
-      assert.equal(converted?.roots[0].rootCid.toString(), validProofSetData.roots[0].rootCid)
-      assert.equal(converted?.roots[0].subrootCid.toString(), validProofSetData.roots[0].subrootCid)
-      assert.equal(converted?.roots[0].subrootOffset, validProofSetData.roots[0].subrootOffset)
+      assert.equal(converted?.pieces.length, validProofSetData.pieces.length)
+      assert.equal(converted?.pieces[0].pieceId, validProofSetData.pieces[0].pieceId)
+      assert.equal(converted?.pieces[0].rootCid.toString(), validProofSetData.pieces[0].rootCid)
+      assert.equal(converted?.pieces[0].subpieceCid.toString(), validProofSetData.pieces[0].subpieceCid)
+      assert.equal(converted?.pieces[0].subpieceOffset, validProofSetData.pieces[0].subpieceOffset)
     })
 
-    it('should validate and convert proof set data with multiple roots', function () {
+    it('should validate and convert proof set data with multiple pieces', function () {
       const validProofSetData = {
         id: 123,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
+            pieceId: 101,
             rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceOffset: 0
           },
           {
-            rootId: 102,
+            pieceId: 102,
             rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 1024
+            subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceOffset: 1024
           }
         ],
         nextChallengeEpoch: 456
@@ -329,7 +329,7 @@ describe('PDP Validation', function () {
 
       const converted = asProofSetData(validProofSetData)
       assert.isNotNull(converted)
-      assert.equal(converted?.roots.length, 2)
+      assert.equal(converted?.pieces.length, 2)
     })
 
     it('should return null for invalid proof set data', function () {
@@ -343,17 +343,17 @@ describe('PDP Validation', function () {
         { id: 'not-a-number' }, // Wrong type
         {
           id: 123,
-          roots: 'not-an-array',
+          pieces: 'not-an-array',
           nextChallengeEpoch: 456
         },
         {
           id: 123,
-          roots: [
+          pieces: [
             {
-              rootId: 101,
+              pieceId: 101,
               rootCid: 'not-a-commp',
-              subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-              subrootOffset: 0
+              subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+              subpieceOffset: 0
             }
           ],
           nextChallengeEpoch: 456
@@ -368,7 +368,7 @@ describe('PDP Validation', function () {
     it('should throw error when validating invalid proof set data', function () {
       const invalidProofSetData = {
         id: 'not-a-number',
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 456
       }
 
