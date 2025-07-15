@@ -1310,7 +1310,7 @@ describe('StorageService', () => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/pieces/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1399,7 +1399,7 @@ describe('StorageService', () => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/pieces/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1452,7 +1452,7 @@ describe('StorageService', () => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/pieces/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1516,7 +1516,7 @@ describe('StorageService', () => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/pieces/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 

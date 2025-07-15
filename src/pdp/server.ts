@@ -199,7 +199,7 @@ export class PDPServer {
 
     // Parse the location to extract the transaction hash
     // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/proof-sets\/created\/(.+)$/)
+    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
     if (locationMatch == null) {
       throw new Error(`Invalid Location header format: ${location}`)
     }

@@ -263,8 +263,8 @@ export class StorageService {
       finalStatus = await warmStorageService.waitForDataSetCreationWithStatus(
         transaction,
         pdpServer,
-        TIMING_CONSTANTS.PROOF_SET_CREATION_TIMEOUT_MS,
-        TIMING_CONSTANTS.PROOF_SET_CREATION_POLL_INTERVAL_MS,
+        TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
+        TIMING_CONSTANTS.DATA_SET_CREATION_POLL_INTERVAL_MS,
         async (status, elapsedMs) => {
           // Fire progress callback
           if (callbacks?.onDataSetCreationProgress != null) {

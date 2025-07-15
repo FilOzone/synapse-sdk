@@ -96,7 +96,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets')
+        assert.include(url, '/api/pdp/data-sets')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
@@ -108,7 +108,7 @@ describe('PDPServer', () => {
           headers: {
             get: (header: string) => {
               if (header === 'Location') {
-                return `/pdp/proof-sets/created/${mockTxHash}`
+                return `/pdp/data-sets/created/${mockTxHash}`
               }
               return null
             }
@@ -148,7 +148,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/api/pdp/proof-sets/1/pieces/added/${mockTxHash}`)
+        assert.include(url, `/api/pdp/data-sets/1/pieces/added/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -272,7 +272,7 @@ describe('PDPServer', () => {
         await pdpServer.addPieces(1, 0, 0, [invalidRawSize])
         assert.fail('Should have thrown error for invalid raw size')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to add pieces to proof set')
+        assert.include((error as Error).message, 'Failed to add pieces to data set')
       } finally {
         global.fetch = originalFetch
       }
@@ -303,7 +303,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets/1/pieces')
+        assert.include(url, '/api/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
@@ -355,7 +355,7 @@ describe('PDPServer', () => {
         await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to add pieces to proof set: 400 Bad Request - Invalid piece CID')
+        assert.include((error as Error).message, 'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID')
       } finally {
         global.fetch = originalFetch
       }
@@ -425,7 +425,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets/1/pieces')
+        assert.include(url, '/api/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         return {
@@ -434,7 +434,7 @@ describe('PDPServer', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/proof-sets/1/pieces/added/${mockTxHash}`
+                return `/pdp/data-sets/1/pieces/added/${mockTxHash}`
               }
               return null
             }
@@ -448,7 +448,7 @@ describe('PDPServer', () => {
         assert.isDefined(result.message)
         assert.strictEqual(result.txHash, mockTxHash)
         assert.include(result.statusUrl ?? '', mockTxHash)
-        assert.include(result.statusUrl ?? '', '/pdp/proof-sets/1/pieces/added/')
+        assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
       } finally {
         global.fetch = originalFetch
       }
@@ -473,7 +473,7 @@ describe('PDPServer', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/proof-sets/1/pieces/added/${mockTxHashWithout0x}`
+                return `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
               }
               return null
             }
@@ -543,7 +543,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/api/pdp/proof-sets/created/${mockTxHash}`)
+        assert.include(url, `/api/pdp/data-sets/created/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -575,7 +575,7 @@ describe('PDPServer', () => {
         await pdpServer.getProofSetCreationStatus(mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
-        assert.include((error as Error).message, `Proof set creation not found for transaction hash: ${mockTxHash}`)
+        assert.include((error as Error).message, `Data set creation not found for transaction hash: ${mockTxHash}`)
       } finally {
         global.fetch = originalFetch
       }
@@ -1166,7 +1166,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/proof-sets/292')
+        assert.include(url, '/pdp/data-sets/292')
         assert.strictEqual(init?.method, 'GET')
         assert.strictEqual((init?.headers as any)?.Accept, 'application/json')
 
@@ -1205,7 +1205,7 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(999)
         assert.fail('Should have thrown error for not found proof set')
       } catch (error) {
-        assert.include((error as Error).message, 'Proof set not found: 999')
+        assert.include((error as Error).message, 'Data set not found: 999')
       } finally {
         global.fetch = originalFetch
       }
@@ -1227,7 +1227,7 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to fetch proof set')
+        assert.include((error as Error).message, 'Failed to fetch data set')
         assert.include((error as Error).message, '500')
         assert.include((error as Error).message, 'Database error')
       } finally {
@@ -1256,7 +1256,7 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid response data')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid proof set data response format')
+        assert.include((error as Error).message, 'Invalid data set data response format')
       } finally {
         global.fetch = originalFetch
       }
@@ -1317,7 +1317,7 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid CID in response')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid proof set data response format')
+        assert.include((error as Error).message, 'Invalid data set data response format')
       } finally {
         global.fetch = originalFetch
       }
