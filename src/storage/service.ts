@@ -3,7 +3,7 @@
  *
  * This service handles:
  * - Storage provider selection and management
- * - Proof set creation and selection
+ * - Data set creation and selection
  * - File uploads with PDP (Proof of Data Possession)
  * - File downloads with verification
  */
@@ -13,17 +13,17 @@ import type {
   StorageServiceOptions,
   StorageCreationCallbacks,
   ApprovedProviderInfo,
-  EnhancedProofSetInfo,
+  EnhancedDataSetInfo,
   DownloadOptions,
   PreflightInfo,
   UploadCallbacks,
   UploadResult,
-  RootData,
+  PieceData,
   CommP,
   PieceStatus
 } from '../types.js'
 import type { Synapse } from '../synapse.js'
-import type { PandoraService } from '../pandora/service.js'
+import type { WarmStorageService } from '../warm-storage/service.js'
 import { PDPServer } from '../pdp/server.js'
 import { PDPAuthHelper } from '../pdp/auth.js'
 import { createError, epochToDate, calculateLastProofDate, timeUntilEpoch } from '../utils/index.js'
@@ -34,14 +34,14 @@ export class StorageService {
   private readonly _synapse: Synapse
   private readonly _provider: ApprovedProviderInfo
   private readonly _pdpServer: PDPServer
-  private readonly _pandoraService: PandoraService
-  private readonly _pandoraAddress: string
+  private readonly _warmStorageService: WarmStorageService
+  private readonly _warmStorageAddress: string
   private readonly _withCDN: boolean
-  private readonly _proofSetId: number
+  private readonly _dataSetId: number
   private readonly _signer: ethers.Signer
 
   // Public properties from interface
-  public readonly proofSetId: string
+  public readonly dataSetId: string
   public readonly storageProvider: string
 
   /**
@@ -66,7 +66,7 @@ export class StorageService {
       // We can increase this in future, arbitrarily, but we first need to:
       //  - Handle streaming input.
       //  - Chunking input at size 254 MiB and make a separate piece per each chunk
-      //  - Combine the pieces using "subpieces" and an aggregate CommP in our AddRoots call
+      //  - Combine the pieces using "subpieces" and an aggregate CommP in our AddPieces call
       throw createError(
         'StorageService',
         context,
@@ -77,28 +77,28 @@ export class StorageService {
 
   constructor (
     synapse: Synapse,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     provider: ApprovedProviderInfo,
-    proofSetId: number,
+    dataSetId: number,
     options: StorageServiceOptions
   ) {
     this._synapse = synapse
     this._provider = provider
-    this._proofSetId = proofSetId
+    this._dataSetId = dataSetId
     this._withCDN = options.withCDN ?? false
     this._signer = synapse.getSigner()
-    this._pandoraService = pandoraService
+    this._warmStorageService = warmStorageService
 
     // Set public properties
-    this.proofSetId = proofSetId.toString()
+    this.dataSetId = dataSetId.toString()
     this.storageProvider = provider.owner
 
-    // Get Pandora address from Synapse (which already handles override)
-    this._pandoraAddress = synapse.getPandoraAddress()
+    // Get WarmStorage address from Synapse (which already handles override)
+    this._warmStorageAddress = synapse.getWarmStorageAddress()
 
     // Create PDPAuthHelper for signing operations
     const authHelper = new PDPAuthHelper(
-      this._pandoraAddress,
+      this._warmStorageAddress,
       this._signer,
       synapse.getChainId()
     )
@@ -113,20 +113,20 @@ export class StorageService {
 
   /**
    * Static factory method to create a StorageService
-   * Handles provider selection and proof set selection/creation
+   * Handles provider selection and data set selection/creation
    */
   static async create (
     synapse: Synapse,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     options: StorageServiceOptions
   ): Promise<StorageService> {
     const signer = synapse.getSigner()
     const signerAddress = await signer.getAddress()
 
     // Use the new resolution logic
-    const resolution = await StorageService.resolveProviderAndProofSet(
+    const resolution = await StorageService.resolveProviderAndDataSet(
       synapse,
-      pandoraService,
+      warmStorageService,
       signerAddress,
       options
     )
@@ -139,43 +139,43 @@ export class StorageService {
       console.error('Error in onProviderSelected callback:', error)
     }
 
-    // If we need to create a new proof set
-    let finalProofSetId: number
-    if (resolution.proofSetId === -1) {
-      // Need to create new proof set
-      finalProofSetId = await StorageService.createProofSet(
+    // If we need to create a new data set
+    let finalDataSetId: number
+    if (resolution.dataSetId === -1) {
+      // Need to create new data set
+      finalDataSetId = await StorageService.createDataSet(
         synapse,
-        pandoraService,
+        warmStorageService,
         resolution.provider,
         options.withCDN ?? false,
         options.callbacks
       )
     } else {
-      // Use existing proof set
-      finalProofSetId = resolution.proofSetId
+      // Use existing data set
+      finalDataSetId = resolution.dataSetId
 
-      // Notify callback about proof set resolution (fast path)
+      // Notify callback about data set resolution (fast path)
       try {
-        options.callbacks?.onProofSetResolved?.({
+        options.callbacks?.onDataSetResolved?.({
           isExisting: true,
-          proofSetId: finalProofSetId,
+          dataSetId: finalDataSetId,
           provider: resolution.provider
         })
       } catch (error) {
-        console.error('Error in onProofSetResolved callback:', error)
+        console.error('Error in onDataSetResolved callback:', error)
       }
     }
 
     // Create and return service instance
-    return new StorageService(synapse, pandoraService, resolution.provider, finalProofSetId, options)
+    return new StorageService(synapse, warmStorageService, resolution.provider, finalDataSetId, options)
   }
 
   /**
-   * Create a new proof set for the given provider
+   * Create a new data set for the given provider
    */
-  private static async createProofSet (
+  private static async createDataSet (
     synapse: Synapse,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     provider: ApprovedProviderInfo,
     withCDN: boolean,
     callbacks?: StorageCreationCallbacks
@@ -183,17 +183,17 @@ export class StorageService {
     const signer = synapse.getSigner()
     const signerAddress = await signer.getAddress()
 
-    // Create a new proof set
+    // Create a new data set
 
     // Get next client dataset ID
-    const nextDatasetId = await pandoraService.getNextClientDataSetId(signerAddress)
+    const nextDatasetId = await warmStorageService.getNextClientDataSetId(signerAddress)
 
-    // Get pandora address from synapse
-    const pandoraAddress = synapse.getPandoraAddress()
+    // Get warmStorage address from synapse
+    const warmStorageAddress = synapse.getWarmStorageAddress()
 
     // Create PDPAuthHelper for signing
     const authHelper = new PDPAuthHelper(
-      pandoraAddress,
+      warmStorageAddress,
       signer,
       synapse.getChainId()
     )
@@ -205,15 +205,15 @@ export class StorageService {
       provider.pieceRetrievalUrl
     )
 
-    // Create the proof set through the provider
-    const createResult = await pdpServer.createProofSet(
+    // Create the data set through the provider
+    const createResult = await pdpServer.createDataSet(
       nextDatasetId, // clientDataSetId
       provider.owner, // payee (storage provider)
       withCDN,
-      pandoraAddress // recordKeeper (Pandora contract)
+      warmStorageAddress // recordKeeper (WarmStorage contract)
     )
 
-    // createProofSet returns CreateProofSetResponse with txHash and statusUrl
+    // createDataSet returns CreateDataSetResponse with txHash and statusUrl
     const { txHash, statusUrl } = createResult
 
     // Fetch the transaction object from the chain with retry logic
@@ -249,25 +249,25 @@ export class StorageService {
       )
     }
 
-    // Notify callback about proof set creation started
+    // Notify callback about data set creation started
     try {
-      callbacks?.onProofSetCreationStarted?.(transaction, statusUrl)
+      callbacks?.onDataSetCreationStarted?.(transaction, statusUrl)
     } catch (error) {
-      console.error('Error in onProofSetCreationStarted callback:', error)
+      console.error('Error in onDataSetCreationStarted callback:', error)
     }
 
-    // Wait for the proof set creation to be confirmed on-chain with progress callbacks
-    let finalStatus: Awaited<ReturnType<typeof pandoraService.getComprehensiveProofSetStatus>>
+    // Wait for the data set creation to be confirmed on-chain with progress callbacks
+    let finalStatus: Awaited<ReturnType<typeof warmStorageService.getComprehensiveDataSetStatus>>
 
     try {
-      finalStatus = await pandoraService.waitForProofSetCreationWithStatus(
+      finalStatus = await warmStorageService.waitForDataSetCreationWithStatus(
         transaction,
         pdpServer,
-        TIMING_CONSTANTS.PROOF_SET_CREATION_TIMEOUT_MS,
-        TIMING_CONSTANTS.PROOF_SET_CREATION_POLL_INTERVAL_MS,
+        TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
+        TIMING_CONSTANTS.DATA_SET_CREATION_POLL_INTERVAL_MS,
         async (status, elapsedMs) => {
           // Fire progress callback
-          if (callbacks?.onProofSetCreationProgress != null) {
+          if (callbacks?.onDataSetCreationProgress != null) {
             try {
               // Get receipt if transaction is mined
               let receipt: ethers.TransactionReceipt | undefined
@@ -281,17 +281,17 @@ export class StorageService {
                 }
               }
 
-              callbacks.onProofSetCreationProgress({
+              callbacks.onDataSetCreationProgress({
                 transactionMined: status.chainStatus.transactionMined,
                 transactionSuccess: status.chainStatus.transactionSuccess,
-                proofSetLive: status.chainStatus.proofSetLive,
+                dataSetLive: status.chainStatus.dataSetLive,
                 serverConfirmed: status.serverStatus?.ok === true,
-                proofSetId: status.summary.proofSetId ?? undefined,
+                dataSetId: status.summary.dataSetId ?? undefined,
                 elapsedMs,
                 receipt
               })
             } catch (error) {
-              console.error('Error in onProofSetCreationProgress callback:', error)
+              console.error('Error in onDataSetCreationProgress callback:', error)
             }
           }
         }
@@ -299,54 +299,54 @@ export class StorageService {
     } catch (error) {
       throw createError(
         'StorageService',
-        'waitForProofSetCreation',
-        error instanceof Error ? error.message : 'Proof set creation failed'
+        'waitForDataSetCreation',
+        error instanceof Error ? error.message : 'Data set creation failed'
       )
     }
 
-    if (!finalStatus.summary.isComplete || finalStatus.summary.proofSetId == null) {
+    if (!finalStatus.summary.isComplete || finalStatus.summary.dataSetId == null) {
       throw createError(
         'StorageService',
-        'waitForProofSetCreation',
-        `Proof set creation failed: ${finalStatus.summary.error ?? 'Transaction may have failed'}`
+        'waitForDataSetCreation',
+        `Data set creation failed: ${finalStatus.summary.error ?? 'Transaction may have failed'}`
       )
     }
 
-    const proofSetId = finalStatus.summary.proofSetId
+    const dataSetId = finalStatus.summary.dataSetId
 
-    // Notify callback about proof set resolution (slow path)
+    // Notify callback about data set resolution (slow path)
     try {
-      callbacks?.onProofSetResolved?.({
+      callbacks?.onDataSetResolved?.({
         isExisting: false,
-        proofSetId,
+        dataSetId,
         provider
       })
     } catch (error) {
-      console.error('Error in onProofSetResolved callback:', error)
+      console.error('Error in onDataSetResolved callback:', error)
     }
 
-    return proofSetId
+    return dataSetId
   }
 
   /**
-   * Resolve provider and proof set based on provided options
+   * Resolve provider and data set based on provided options
    * Uses lazy loading to minimize RPC calls
    */
-  private static async resolveProviderAndProofSet (
+  private static async resolveProviderAndDataSet (
     synapse: Synapse,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
     options: StorageServiceOptions
   ): Promise<{
       provider: ApprovedProviderInfo
-      proofSetId: number
+      dataSetId: number
       isExisting: boolean
     }> {
-    // Handle explicit proof set ID selection (highest priority)
-    if (options.proofSetId != null) {
-      return await StorageService.resolveByProofSetId(
-        options.proofSetId,
-        pandoraService,
+    // Handle explicit data set ID selection (highest priority)
+    if (options.dataSetId != null) {
+      return await StorageService.resolveByDataSetId(
+        options.dataSetId,
+        warmStorageService,
         signerAddress,
         options
       )
@@ -356,7 +356,7 @@ export class StorageService {
     if (options.providerId != null) {
       return await StorageService.resolveByProviderId(
         options.providerId,
-        pandoraService,
+        warmStorageService,
         signerAddress,
         options.withCDN ?? false
       )
@@ -366,7 +366,7 @@ export class StorageService {
     if (options.providerAddress != null) {
       return await StorageService.resolveByProviderAddress(
         options.providerAddress,
-        pandoraService,
+        warmStorageService,
         signerAddress,
         options.withCDN ?? false
       )
@@ -374,7 +374,7 @@ export class StorageService {
 
     // Smart selection when no specific parameters provided
     return await StorageService.smartSelectProvider(
-      pandoraService,
+      warmStorageService,
       signerAddress,
       options.withCDN ?? false,
       synapse.getSigner()
@@ -382,85 +382,85 @@ export class StorageService {
   }
 
   /**
-   * Resolve by explicit proof set ID
+   * Resolve by explicit data set ID
    */
-  private static async resolveByProofSetId (
-    proofSetId: number,
-    pandoraService: PandoraService,
+  private static async resolveByDataSetId (
+    dataSetId: number,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
     options: StorageServiceOptions
   ): Promise<{
       provider: ApprovedProviderInfo
-      proofSetId: number
+      dataSetId: number
       isExisting: boolean
     }> {
-    // Fetch proof sets to find the specific one
-    const proofSets = await pandoraService.getClientProofSetsWithDetails(signerAddress)
-    const proofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === proofSetId)
+    // Fetch data sets to find the specific one
+    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
+    const dataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === dataSetId)
 
-    if (proofSet == null || !proofSet.isLive || !proofSet.isManaged) {
+    if (dataSet == null || !dataSet.isLive || !dataSet.isManaged) {
       throw createError(
         'StorageService',
-        'resolveByProofSetId',
-        `Proof set ${proofSetId} not found, not owned by ${signerAddress}, ` +
-        'or not managed by the current Pandora contract'
+        'resolveByDataSetId',
+        `Data set ${dataSetId} not found, not owned by ${signerAddress}, ` +
+        'or not managed by the current WarmStorage contract'
       )
     }
 
     // Validate consistency with other parameters if provided
     if (options.providerId != null || options.providerAddress != null) {
-      await StorageService.validateProofSetConsistency(proofSet, options, pandoraService)
+      await StorageService.validateDataSetConsistency(dataSet, options, warmStorageService)
     }
 
     // Look up provider by address
-    const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+    const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
     if (providerId === 0) {
       throw createError(
         'StorageService',
-        'resolveByProofSetId',
-        `Provider ${proofSet.payee} for proof set ${proofSetId} is not currently approved`
+        'resolveByDataSetId',
+        `Provider ${dataSet.payee} for data set ${dataSetId} is not currently approved`
       )
     }
 
-    const provider = await pandoraService.getApprovedProvider(providerId)
+    const provider = await warmStorageService.getApprovedProvider(providerId)
 
     return {
       provider,
-      proofSetId,
+      dataSetId,
       isExisting: true
     }
   }
 
   /**
-   * Validate that proof set parameters are consistent. This allows us to be more flexible in
-   * options we allow up-front as long as they don't conflict when we resolve the proof set using
+   * Validate that data set parameters are consistent. This allows us to be more flexible in
+   * options we allow up-front as long as they don't conflict when we resolve the data set using
    * them in priority order.
    */
-  private static async validateProofSetConsistency (
-    proofSet: EnhancedProofSetInfo,
+  private static async validateDataSetConsistency (
+    dataSet: EnhancedDataSetInfo,
     options: StorageServiceOptions,
-    pandoraService: PandoraService
+    warmStorageService: WarmStorageService
   ): Promise<void> {
     // If providerId is specified, validate it matches
     if (options.providerId != null) {
-      const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+      const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
       if (providerId !== options.providerId) {
         throw createError(
           'StorageService',
-          'validateProofSetConsistency',
-          `Proof set ${proofSet.pdpVerifierProofSetId} belongs to provider ID ${providerId}, ` +
-          `but provider ID ${options.providerId} was requested`
+          'validateDataSetConsistency',
+          `Data set ${String(dataSet.pdpVerifierDataSetId)} belongs to provider ID ${String(providerId)}, ` +
+          `but provider ID ${String(options.providerId)} was requested`
         )
       }
     }
 
     // If providerAddress is specified, validate it matches
     if (options.providerAddress != null) {
-      if (proofSet.payee.toLowerCase() !== options.providerAddress.toLowerCase()) {
+      if (dataSet.payee.toLowerCase() !== options.providerAddress.toLowerCase()) {
         throw createError(
           'StorageService',
-          'validateProofSetConsistency',
-          `Proof set ${proofSet.pdpVerifierProofSetId} belongs to provider ${proofSet.payee}, ` +
+          'validateDataSetConsistency',
+          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${dataSet.payee}, ` +
           `but provider ${options.providerAddress} was requested`
         )
       }
@@ -472,18 +472,18 @@ export class StorageService {
    */
   private static async resolveByProviderId (
     providerId: number,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
     withCDN: boolean
   ): Promise<{
       provider: ApprovedProviderInfo
-      proofSetId: number
+      dataSetId: number
       isExisting: boolean
     }> {
-    // Fetch provider info and proof sets in parallel
-    const [provider, proofSets] = await Promise.all([
-      pandoraService.getApprovedProvider(providerId),
-      pandoraService.getClientProofSetsWithDetails(signerAddress)
+    // Fetch provider info and data sets in parallel
+    const [provider, dataSets] = await Promise.all([
+      warmStorageService.getApprovedProvider(providerId),
+      warmStorageService.getClientDataSetsWithDetails(signerAddress)
     ])
 
     if (provider.owner === '0x0000000000000000000000000000000000000000') {
@@ -494,33 +494,33 @@ export class StorageService {
       )
     }
 
-    // Filter for this provider's proof sets
-    const providerProofSets = proofSets.filter(
+    // Filter for this provider's data sets
+    const providerDataSets = dataSets.filter(
       ps => ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
             ps.isLive &&
             ps.isManaged &&
             ps.withCDN === withCDN
     )
 
-    if (providerProofSets.length > 0) {
-      // Sort by preference: proof sets with roots first, then by ID
-      const sorted = providerProofSets.sort((a, b) => {
-        if (a.currentRootCount > 0 && b.currentRootCount === 0) return -1
-        if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
-        return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
+    if (providerDataSets.length > 0) {
+      // Sort by preference: data sets with roots first, then by ID
+      const sorted = providerDataSets.sort((a, b) => {
+        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
+        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
+        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
       })
 
       return {
         provider,
-        proofSetId: sorted[0].pdpVerifierProofSetId,
+        dataSetId: sorted[0].pdpVerifierDataSetId,
         isExisting: true
       }
     }
 
-    // No existing proof sets, will create new
+    // No existing data sets, will create new
     return {
       provider,
-      proofSetId: -1, // Marker for new proof set
+      dataSetId: -1, // Marker for new data set
       isExisting: false
     }
   }
@@ -530,16 +530,16 @@ export class StorageService {
    */
   private static async resolveByProviderAddress (
     providerAddress: string,
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
     withCDN: boolean
   ): Promise<{
       provider: ApprovedProviderInfo
-      proofSetId: number
+      dataSetId: number
       isExisting: boolean
     }> {
     // Get provider ID by address
-    const providerId = await pandoraService.getProviderIdByAddress(providerAddress)
+    const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
     if (providerId === 0) {
       throw createError(
         'StorageService',
@@ -551,7 +551,7 @@ export class StorageService {
     // Use the providerId resolution logic
     return await StorageService.resolveByProviderId(
       providerId,
-      pandoraService,
+      warmStorageService,
       signerAddress,
       withCDN
     )
@@ -562,77 +562,77 @@ export class StorageService {
    * Uses progressive data fetching to minimize RPC calls
    */
   private static async smartSelectProvider (
-    pandoraService: PandoraService,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
     withCDN: boolean,
     signer: ethers.Signer
   ): Promise<{
       provider: ApprovedProviderInfo
-      proofSetId: number
+      dataSetId: number
       isExisting: boolean
     }> {
-    // Step 1: First try to get client's proof sets
-    const proofSets = await pandoraService.getClientProofSetsWithDetails(signerAddress)
+    // Step 1: First try to get client's data sets
+    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
-    // Filter for managed proof sets with matching CDN setting
-    const managedProofSets = proofSets.filter(
+    // Filter for managed data sets with matching CDN setting
+    const managedDataSets = dataSets.filter(
       ps => ps.isLive && ps.isManaged && ps.withCDN === withCDN
     )
 
-    if (managedProofSets.length > 0) {
-      // Prefer proof sets with roots, sort by ID (older first)
-      const sorted = managedProofSets.sort((a, b) => {
-        if (a.currentRootCount > 0 && b.currentRootCount === 0) return -1
-        if (b.currentRootCount > 0 && a.currentRootCount === 0) return 1
-        return a.pdpVerifierProofSetId - b.pdpVerifierProofSetId
+    if (managedDataSets.length > 0) {
+      // Prefer data sets with roots, sort by ID (older first)
+      const sorted = managedDataSets.sort((a, b) => {
+        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
+        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
+        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
       })
 
       // Create async generator that yields providers lazily
       async function * generateProviders (): AsyncGenerator<ApprovedProviderInfo> {
         const seenProviders = new Set<string>()
 
-        for (const proofSet of sorted) {
-          const providerAddress = proofSet.payee.toLowerCase()
+        for (const dataSet of sorted) {
+          const providerAddress = dataSet.payee.toLowerCase()
           if (seenProviders.has(providerAddress)) {
             continue
           }
           seenProviders.add(providerAddress)
 
-          const providerId = await pandoraService.getProviderIdByAddress(proofSet.payee)
+          const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
           if (providerId === 0) {
-            console.warn(`Provider ${proofSet.payee} for proof set ${proofSet.pdpVerifierProofSetId} is not currently approved, skipping`)
+            console.warn(`Provider ${String(dataSet.payee)} for data set ${String(dataSet.pdpVerifierDataSetId)} is not currently approved, skipping`)
             continue
           }
 
-          const provider = await pandoraService.getApprovedProvider(providerId)
+          const provider = await warmStorageService.getApprovedProvider(providerId)
           yield provider
         }
       }
 
       const selectedProvider = await StorageService.selectProviderWithPing(generateProviders())
 
-      // Find the first matching proof set ID for this provider
-      const matchingProofSet = sorted.find(ps =>
+      // Find the first matching data set ID for this provider
+      const matchingDataSet = sorted.find(ps =>
         ps.payee.toLowerCase() === selectedProvider.owner.toLowerCase()
       )
 
-      if (matchingProofSet == null) {
+      if (matchingDataSet == null) {
         throw createError(
           'StorageService',
           'smartSelectProvider',
-          'Selected provider not found in proof sets'
+          'Selected provider not found in data sets'
         )
       }
 
       return {
         provider: selectedProvider,
-        proofSetId: matchingProofSet.pdpVerifierProofSetId,
+        dataSetId: matchingDataSet.pdpVerifierDataSetId,
         isExisting: true
       }
     }
 
-    // Step 2: No existing proof sets, need to select a provider for new proof set
-    const allProviders = await pandoraService.getAllApprovedProviders()
+    // Step 2: No existing data sets, need to select a provider for new data set
+    const allProviders = await warmStorageService.getAllApprovedProviders()
 
     if (allProviders.length === 0) {
       throw createError(
@@ -647,7 +647,7 @@ export class StorageService {
 
     return {
       provider,
-      proofSetId: -1, // Marker for new proof set
+      dataSetId: -1, // Marker for new data set
       isExisting: false
     }
   }
@@ -753,7 +753,7 @@ export class StorageService {
     StorageService.validateRawSize(size, 'preflightUpload')
 
     // Check allowances and get costs in a single call
-    const allowanceCheck = await this._pandoraService.checkAllowanceForStorage(
+    const allowanceCheck = await this._warmStorageService.checkAllowanceForStorage(
       size,
       this._withCDN,
       this._synapse.payments
@@ -771,7 +771,7 @@ export class StorageService {
         message: allowanceCheck.message
       },
       selectedProvider: this._provider,
-      selectedProofSetId: this._proofSetId
+      selectedDataSetId: this._dataSetId
     }
   }
 
@@ -831,31 +831,31 @@ export class StorageService {
       callbacks.onUploadComplete(uploadResult.commP)
     }
 
-    // Add Root Phase: Add the piece to the proof set
+    // Add Root Phase: Add the piece to the data set
     try {
-      // Get add roots info to ensure we have the correct nextRootId
-      const addRootsInfo = await this._pandoraService.getAddRootsInfo(
-        this._proofSetId
+      // Get add pieces info to ensure we have the correct nextPieceId
+      const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(
+        this._dataSetId
       )
 
-      // Create root data array
-      const rootDataArray: RootData[] = [{
+      // Create piece data array
+      const pieceDataArray: PieceData[] = [{
         cid: uploadResult.commP,
         rawSize: uploadResult.size
       }]
 
-      // Add roots to the proof set
-      const addRootsResult = await this._pdpServer.addRoots(
-        this._proofSetId, // PDPVerifier proof set ID
-        addRootsInfo.clientDataSetId, // Client's dataset ID
-        addRootsInfo.nextRootId, // Must match chain state
-        rootDataArray
+      // Add pieces to the data set
+      const addPiecesResult = await this._pdpServer.addPieces(
+        this._dataSetId, // PDPVerifier data set ID
+        addPiecesInfo.clientDataSetId, // Client's dataset ID
+        addPiecesInfo.nextPieceId, // Must match chain state
+        pieceDataArray
       )
 
       // Handle transaction tracking if available (backward compatible)
-      let finalRootId = addRootsInfo.nextRootId
+      let finalPieceId = addPiecesInfo.nextPieceId
 
-      if (addRootsResult.txHash != null) {
+      if (addPiecesResult.txHash != null) {
         // New server with transaction tracking - verification is REQUIRED
         let transaction: ethers.TransactionResponse | null = null
 
@@ -866,7 +866,7 @@ export class StorageService {
 
         while (Date.now() - txRetryStartTime < txPropagationTimeout) {
           try {
-            transaction = await this._synapse.getProvider().getTransaction(addRootsResult.txHash)
+            transaction = await this._synapse.getProvider().getTransaction(addPiecesResult.txHash)
             if (transaction !== null) break
           } catch {
             // Transaction not found yet
@@ -877,13 +877,13 @@ export class StorageService {
         if (transaction == null) {
           throw createError(
             'StorageService',
-            'addRoots',
-            `Server returned transaction hash ${addRootsResult.txHash} but transaction was not found on-chain after ${txPropagationTimeout / 1000} seconds`
+            'addPieces',
+            `Server returned transaction hash ${addPiecesResult.txHash} but transaction was not found on-chain after ${txPropagationTimeout / 1000} seconds`
           )
         }
 
         // Notify callback with transaction
-        callbacks?.onRootAdded?.(transaction)
+        callbacks?.onPieceAdded?.(transaction)
 
         // Step 2: Wait for transaction confirmation
         let receipt: ethers.TransactionReceipt | null
@@ -892,7 +892,7 @@ export class StorageService {
         } catch (error) {
           throw createError(
             'StorageService',
-            'addRoots',
+            'addPieces',
             'Failed to wait for transaction confirmation',
             error
           )
@@ -901,23 +901,23 @@ export class StorageService {
         if (receipt?.status !== 1) {
           throw createError(
             'StorageService',
-            'addRoots',
-            'Root addition transaction failed on-chain'
+            'addPieces',
+            'Piece addition transaction failed on-chain'
           )
         }
 
         // Step 3: Verify with server - REQUIRED for new servers
-        const maxWaitTime = TIMING_CONSTANTS.ROOT_ADDITION_TIMEOUT_MS
-        const pollInterval = TIMING_CONSTANTS.ROOT_ADDITION_POLL_INTERVAL_MS
+        const maxWaitTime = TIMING_CONSTANTS.PIECE_ADDITION_TIMEOUT_MS
+        const pollInterval = TIMING_CONSTANTS.PIECE_ADDITION_POLL_INTERVAL_MS
         const startTime = Date.now()
         let lastError: Error | null = null
         let statusVerified = false
 
         while (Date.now() - startTime < maxWaitTime) {
           try {
-            const status = await this._pdpServer.getRootAdditionStatus(
-              this._proofSetId,
-              addRootsResult.txHash
+            const status = await this._pdpServer.getPieceAdditionStatus(
+              this._dataSetId,
+              addPiecesResult.txHash
             )
 
             // Check if the transaction is still pending
@@ -928,18 +928,18 @@ export class StorageService {
 
             // Check if transaction failed
             if (status.addMessageOk === false) {
-              throw new Error('Root addition failed: Transaction was unsuccessful')
+              throw new Error('Piece addition failed: Transaction was unsuccessful')
             }
 
-            // Success - get the root IDs
-            if (status.confirmedRootIds != null && status.confirmedRootIds.length > 0) {
-              finalRootId = status.confirmedRootIds[0]
-              callbacks?.onRootConfirmed?.(status.confirmedRootIds)
+            // Success - get the piece IDs
+            if (status.confirmedPieceIds != null && status.confirmedPieceIds.length > 0) {
+              finalPieceId = status.confirmedPieceIds[0]
+              callbacks?.onPieceConfirmed?.(status.confirmedPieceIds)
               statusVerified = true
               break
             }
 
-            // If we get here, status exists but no root IDs yet
+            // If we get here, status exists but no piece IDs yet
             await new Promise(resolve => setTimeout(resolve, pollInterval))
           } catch (error) {
             lastError = error as Error
@@ -951,41 +951,41 @@ export class StorageService {
             // Other errors are fatal
             throw createError(
               'StorageService',
-              'addRoots',
-              `Failed to verify root addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              'addPieces',
+              `Failed to verify piece addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
               error
             )
           }
         }
 
         if (!statusVerified) {
-          const errorMessage = `Failed to verify root addition after ${maxWaitTime / 1000} seconds: ${
+          const errorMessage = `Failed to verify piece addition after ${maxWaitTime / 1000} seconds: ${
             lastError != null ? lastError.message : 'Server did not provide confirmation'
           }`
 
           throw createError(
             'StorageService',
-            'addRoots',
+            'addPieces',
             errorMessage + '. The transaction was confirmed on-chain but the server failed to acknowledge it.',
             lastError
           )
         }
       } else {
         // Old server without transaction tracking
-        callbacks?.onRootAdded?.()
+        callbacks?.onPieceAdded?.()
       }
 
       // Return upload result
       return {
         commp: uploadResult.commP,
         size: uploadResult.size,
-        rootId: finalRootId
+        pieceId: finalPieceId
       }
     } catch (error) {
       throw createError(
         'StorageService',
-        'addRoots',
-        'Failed to add root to proof set',
+        'addPieces',
+        'Failed to add piece to data set',
         error
       )
     }
@@ -1023,25 +1023,25 @@ export class StorageService {
   }
 
   /**
-   * Get the list of root CIDs for this storage service's proof set by querying the PDP server.
+   * Get the list of root CIDs for this storage service's data set by querying the PDP server.
    * @returns Array of root CIDs as CommP objects
    */
-  async getProofSetRoots (): Promise<CommP[]> {
-    const proofSetData = await this._pdpServer.getProofSet(this._proofSetId)
-    return proofSetData.roots.map(root => root.rootCid)
+  async getDataSetPieces (): Promise<CommP[]> {
+    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
+    return dataSetData.pieces.map(piece => piece.pieceCid)
   }
 
   /**
    * Get the status of a piece on this storage provider
    * This method checks if the piece exists on the provider and provides proof timing information
-   * for the proof set containing this piece.
+   * for the data set containing this piece.
    *
-   * Note: Proofs are submitted for entire proof sets, not individual pieces. The timing information
-   * returned reflects when the proof set (containing this piece) was last proven and when the next
+   * Note: Proofs are submitted for entire data sets, not individual pieces. The timing information
+   * returned reflects when the data set (containing this piece) was last proven and when the next
    * proof is due.
    *
    * @param commp - The CommP (piece CID) to check
-   * @returns Status information including existence, proof set timing, and retrieval URL
+   * @returns Status information including existence, data set timing, and retrieval URL
    */
   async pieceStatus (commp: string | CommP): Promise<PieceStatus> {
     const parsedCommP = asCommP(commp)
@@ -1050,12 +1050,12 @@ export class StorageService {
     }
 
     // Run multiple operations in parallel for better performance
-    const [pieceCheckResult, proofSetData, currentEpoch] = await Promise.all([
+    const [pieceCheckResult, dataSetData, currentEpoch] = await Promise.all([
       // Check if piece exists on provider
       this._pdpServer.findPiece(parsedCommP, 0).then(() => true).catch(() => false),
-      // Get proof set data
-      this._pdpServer.getProofSet(this._proofSetId).catch((error) => {
-        console.debug('Failed to get proof set data:', error)
+      // Get data set data
+      this._pdpServer.getDataSet(this._dataSetId).catch((error) => {
+        console.debug('Failed to get data set data:', error)
         return null
       }),
       // Get current epoch
@@ -1067,7 +1067,7 @@ export class StorageService {
 
     // Initialize return values
     let retrievalUrl: string | null = null
-    let rootId: number | undefined
+    let pieceId: number | undefined
     let lastProven: Date | null = null
     let nextProofDue: Date | null = null
     let inChallengeWindow = false
@@ -1079,12 +1079,15 @@ export class StorageService {
       const [providerInfo, provingParams] = await Promise.all([
         // Get provider info for retrieval URL
         this.getProviderInfo().catch(() => null),
-        // Get proving period configuration (only if we have proof set data)
-        proofSetData != null
+        // Get proving period configuration (only if we have data set data)
+        dataSetData != null
           ? Promise.all([
-            this._pandoraService.getMaxProvingPeriod(),
-            this._pandoraService.getChallengeWindow()
-          ]).then(([maxProvingPeriod, challengeWindow]) => ({ maxProvingPeriod, challengeWindow }))
+            this._warmStorageService.getMaxProvingPeriod(),
+            this._warmStorageService.getChallengeWindow()
+          ]).then(([maxProvingPeriod, challengeWindow]) => ({
+            maxProvingPeriod: Number(maxProvingPeriod),
+            challengeWindow: Number(challengeWindow)
+          }))
             .catch(() => null)
           : Promise.resolve(null)
       ])
@@ -1095,19 +1098,19 @@ export class StorageService {
         retrievalUrl = `${providerInfo.pieceRetrievalUrl.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
       }
 
-      // Process proof timing data if we have proof set data and proving params
-      if (proofSetData != null && provingParams != null) {
-        // Check if this CommP is in the proof set
-        const rootData = proofSetData.roots.find(root => root.rootCid.toString() === parsedCommP.toString())
+      // Process proof timing data if we have data set data and proving params
+      if (dataSetData != null && provingParams != null) {
+        // Check if this CommP is in the data set
+        const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedCommP.toString())
 
-        if (rootData != null) {
-          rootId = rootData.rootId
+        if (pieceData != null) {
+          pieceId = pieceData.pieceId
 
           // Calculate timing based on nextChallengeEpoch
-          if (proofSetData.nextChallengeEpoch > 0) {
+          if (dataSetData.nextChallengeEpoch > 0) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
             // The proving deadline is nextChallengeEpoch + challengeWindow
-            const challengeWindowStart = proofSetData.nextChallengeEpoch
+            const challengeWindowStart = dataSetData.nextChallengeEpoch
             const provingDeadline = challengeWindowStart + provingParams.challengeWindow
 
             // Calculate when the next proof is due (end of challenge window)
@@ -1115,7 +1118,7 @@ export class StorageService {
 
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
-              proofSetData.nextChallengeEpoch,
+              dataSetData.nextChallengeEpoch,
               provingParams.maxProvingPeriod,
               network
             )
@@ -1137,10 +1140,10 @@ export class StorageService {
           } else {
             // If nextChallengeEpoch is 0, it might mean:
             // 1. Proof was just submitted and system is updating
-            // 2. Proof set is not active
+            // 2. Data set is not active
             // In case 1, we might have just proven, so set lastProven to very recent
             // This is a temporary state and should resolve quickly
-            console.debug('Proof set has nextChallengeEpoch=0, may have just been proven')
+            console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
           }
         }
       }
@@ -1148,10 +1151,10 @@ export class StorageService {
 
     return {
       exists,
-      proofSetLastProven: lastProven,
-      proofSetNextProofDue: nextProofDue,
+      dataSetLastProven: lastProven,
+      dataSetNextProofDue: nextProofDue,
       retrievalUrl,
-      rootId,
+      pieceId,
       inChallengeWindow,
       hoursUntilChallengeWindow,
       isProofOverdue

@@ -68,7 +68,7 @@ export function timeUntilEpoch (futureEpoch: number, currentEpoch: number): {
 
 /**
  * Calculate when the last proof should have been submitted based on current time
- * @param nextChallengeEpoch - The next challenge epoch from the proof set
+ * @param nextChallengeEpoch - The next challenge epoch from the data set
  * @param maxProvingPeriod - The maximum proving period in epochs
  * @param network - The Filecoin network
  * @returns Date when the last proof should have been submitted, or null if no proof submitted yet
