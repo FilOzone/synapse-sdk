@@ -328,11 +328,11 @@
                 <div>
                     <h3>Service Contract Approvals</h3>
                     <div class="info-box">
-                        Service contracts need operator approval to create payment rails on your behalf. This is required before creating proof sets.
+                        Service contracts need operator approval to create payment rails on your behalf. This is required before creating data sets.
                         <br><br>
                         <strong>Known Addresses on Calibration:</strong><br>
                         • Payments Contract: <code>0x0E690D3e60B0576D01352AB03b258115eb84A047</code><br>
-                        • Rod's Pandora: <code>0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5</code>
+                        • Rod's Warm Storage: <code>0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5</code>
                     </div>
 
                     <div class="grid">
@@ -341,7 +341,7 @@
                             <div class="form-group">
                                 <label>Service Contract Address:</label>
                                 <input type="text" id="checkServiceAddress" placeholder="0x...">
-                                <small style="color: #666;">Pandora address</small>
+                                <small style="color: #666;">Warm Storage address</small>
                             </div>
                             <button onclick="checkServiceApproval()">Check Approval</button>
                             <div id="checkServiceResult"></div>
@@ -361,6 +361,11 @@
                             <div class="form-group">
                                 <label>Lockup Allowance (USDFC):</label>
                                 <input type="number" id="lockupAllowance" placeholder="1000.0" step="1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Max Lockup Period (epochs):</label>
+                                <input type="number" id="maxLockupPeriod" placeholder="86400" step="1" min="0">
+                                <small style="color: #666;">Default: 86400 epochs (30 days)</small>
                             </div>
                             <button onclick="approveService()">Approve Service</button>
                             <div id="approveServiceResult"></div>
@@ -451,7 +456,7 @@
 
                 // Set default addresses
                 const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[network];
-                const serviceAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
+                const serviceAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network];
 
                 // Check if contracts are deployed
                 if (!paymentsAddress) {
@@ -631,7 +636,7 @@
         // Check service approval
         async function checkServiceApproval() {
             try {
-                const service = document.getElementById('checkServiceAddress').value || CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
+                const service = document.getElementById('checkServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 if (!service) {
                     showError('checkServiceResult', 'Please enter a service contract address');
                     return;
@@ -647,7 +652,8 @@ Approved: ${approval.isApproved}
 Rate Allowance: ${ethers.formatUnits(approval.rateAllowance, 18)} USDFC/epoch
 Rate Used: ${ethers.formatUnits(approval.rateUsed, 18)} USDFC/epoch
 Lockup Allowance: ${ethers.formatUnits(approval.lockupAllowance, 18)} USDFC
-Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
+Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC
+Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLockupPeriod) / 2880} days)`;
 
                 showSuccess('checkServiceResult', result);
 
@@ -659,9 +665,10 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
         // Approve service
         async function approveService() {
             try {
-                const service = document.getElementById('approveServiceAddress').value || CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
+                const service = document.getElementById('approveServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 const rateAllowance = document.getElementById('rateAllowance').value;
                 const lockupAllowance = document.getElementById('lockupAllowance').value;
+                const maxLockupPeriod = document.getElementById('maxLockupPeriod').value || '86400';
 
                 if (!service || !rateAllowance || !lockupAllowance) {
                     showError('approveServiceResult', 'Please fill in all fields');
@@ -692,6 +699,7 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
                     service,
                     rateAllowance,
                     lockupAllowance,
+                    maxLockupPeriod,
                     network,
                     paymentsContract: CONTRACT_ADDRESSES.PAYMENTS[network]
                 });
@@ -700,10 +708,12 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
 
                 const rateWei = ethers.parseUnits(rateAllowance, 18);
                 const lockupWei = ethers.parseUnits(lockupAllowance, 18);
+                const maxLockupPeriodBigint = BigInt(maxLockupPeriod);
                 const tx = await synapse.payments.approveService(
                     service,
                     rateWei,
                     lockupWei,
+                    maxLockupPeriodBigint,
                     TOKENS.USDFC
                 );
 
@@ -722,7 +732,7 @@ Lockup Used: ${ethers.formatUnits(approval.lockupUsed, 18)} USDFC`;
         // Revoke service
         async function revokeService() {
             try {
-                const service = document.getElementById('revokeServiceAddress').value || CONTRACT_ADDRESSES.PANDORA_SERVICE[network];
+                const service = document.getElementById('revokeServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 if (!service) {
                     showError('revokeServiceResult', 'Please enter a service contract address');
                     return;

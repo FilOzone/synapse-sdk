@@ -3,22 +3,22 @@ export { PDPAuthHelper } from './auth.js'
 export { PDPVerifier } from './verifier.js'
 export { PDPServer } from './server.js'
 export type {
-  AddRootsResponse,
-  CreateProofSetResponse,
+  AddPiecesResponse,
+  CreateDataSetResponse,
+  DataSetCreationStatusResponse,
   FindPieceResponse,
-  ProofSetCreationStatusResponse,
-  RootAdditionStatusResponse,
+  PieceAdditionStatusResponse,
   UploadResponse
 } from './server.js'
 
 // Export validation utilities for advanced use
 export {
-  isProofSetCreationStatusResponse,
-  isRootAdditionStatusResponse,
+  isDataSetCreationStatusResponse,
+  isPieceAdditionStatusResponse,
   isFindPieceResponse,
-  validateProofSetCreationStatusResponse,
-  validateRootAdditionStatusResponse,
+  validateDataSetCreationStatusResponse,
+  validatePieceAdditionStatusResponse,
   validateFindPieceResponse,
-  asProofSetRootData,
-  asProofSetData
+  asDataSetPieceData,
+  asDataSetData
 } from './validation.js'

@@ -10,13 +10,13 @@ The SDK strategically places performance marks throughout key operations, allowi
 
 The SDK measures the following operations (all prefixed with `synapse:` to avoid collisions):
 
-### createProofSet() Timing Points
-- `synapse:createProofSet` - Overall proof set creation time
-- `synapse:pdpServer.createProofSet` - Server response time for proof set creation
+### createDataSet() Timing Points
+- `synapse:createDataSet` - Overall data set creation time
+- `synapse:pdpServer.createDataSet` - Server response time for data set creation
 - `synapse:getTransaction` - Time to retrieve transaction from blockchain
-- `synapse:waitForProofSetCreationWithStatus` - Overall wait time for completion
-- `synapse:pdpServer.getProofSetCreationStatus` - Server acknowledgment time
-- `synapse:verifyProofSetCreation` - Proof set liveness verification time
+- `synapse:waitForDataSetCreationWithStatus` - Overall wait time for completion
+- `synapse:pdpServer.getDataSetCreationStatus` - Server acknowledgment time
+- `synapse:verifyDataSetCreation` - Data set liveness verification time
 
 ### upload() Timing Points
 - `synapse:upload` - Overall upload operation time
@@ -24,10 +24,10 @@ The SDK measures the following operations (all prefixed with `synapse:` to avoid
 - `synapse:POST.pdp.piece` - Piece upload initiation time
 - `synapse:PUT.pdp.piece.upload` - Piece upload completion time
 - `synapse:findPiece` - Time for piece to be "parked" (ready)
-- `synapse:pdpServer.addRoots` - Server processing time for adding roots
-- `synapse:getTransaction.addRoots` - Transaction retrieval for root addition
+- `synapse:pdpServer.addPieces` - Server processing time for adding pieces
+- `synapse:getTransaction.addPieces` - Transaction retrieval for piece addition
 - `synapse:transaction.wait` - Transaction confirmation time
-- `synapse:getRootAdditionStatus` - Verified roots confirmation time
+- `synapse:getPieceAdditionStatus` - Verified pieces confirmation time
 
 ## Using Performance Data
 
@@ -78,7 +78,7 @@ PRIVATE_KEY=0x... RPC_URL=https://api.calibration.node.glif.io/rpc/v1 node utils
 ```
 
 The benchmark:
-- Runs 4 iterations of proof set creation + 4 unique piece uploads (100 MiB each)
+- Runs 4 iterations of data set creation + 4 unique piece uploads (100 MiB each)
 - Collects all timing measurements
 - Provides statistical analysis (min, max, average)
 - Uses PerformanceObserver to capture SDK timing data
@@ -87,17 +87,17 @@ The benchmark:
 
 ### Typical Timing Ranges (Calibration Testnet, 100 MiB pieces)
 - **CommP Calculation**: 2-8 seconds (CPU-dependent)
-- **Proof Set Creation**: 30-75 seconds total
+- **Data Set Creation**: 30-75 seconds total
   - Server response: 1-8 seconds
   - Transaction confirmation: 20-65 seconds (varies with block cycle timing)
   - Server acknowledgment: 0.5-60 seconds (highly variable due to block timing)
 - **Upload Operations**: 45-150+ seconds total (for 100 MiB pieces)
   - Piece upload: Highly variable (see note below)
   - Piece parking: ~7 seconds (size-independent)
-  - Root addition: 20-70 seconds (includes transaction confirmation)
+  - Piece addition: 20-70 seconds (includes transaction confirmation)
   - Verification: 1-30 seconds (varies with block cycle position)
 
-**Note on Timing Variance**: Operations that wait for blockchain confirmation show high variance due to Filecoin's 30-second block time. If a transaction is submitted just before a new block, confirmation can be very fast (~1 second). If submitted just after a block, you must wait nearly the full 30 seconds for the next block. This explains why operations like `verifyProofSetCreation` and `getRootAdditionStatus` can range from under 1 second to 60+ seconds.
+**Note on Timing Variance**: Operations that wait for blockchain confirmation show high variance due to Filecoin's 30-second block time. If a transaction is submitted just before a new block, confirmation can be very fast (~1 second). If submitted just after a block, you must wait nearly the full 30 seconds for the next block. This explains why operations like `verifyDataSetCreation` and `getPieceAdditionStatus` can range from under 1 second to 60+ seconds.
 
 **Piece Upload Timing**: Upload times are highly dependent on multiple factors:
 - **Upload bandwidth**: 100 MiB at 50 Mbps ≈ 16 seconds (theoretical), but real-world is 30-45 seconds with overhead

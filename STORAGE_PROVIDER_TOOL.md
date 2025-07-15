@@ -1,14 +1,14 @@
 # StorageProviderTool Documentation
 
-The `StorageProviderTool` provides a TypeScript/JavaScript interface for interacting with the Pandora contract's storage provider registry functions.
+The `StorageProviderTool` provides a TypeScript/JavaScript interface for interacting with the Warm Storage contract's storage provider registry functions.
 
 ## Overview
 
-Storage providers must register with the Pandora contract before they can participate in the PDP system. The registration process involves:
+Storage providers must register with the Warm Storage contract before they can participate in the PDP system. The registration process involves:
 
 1. **Storage Provider** registers their service URLs
 2. **Contract Owner** approves the registration
-3. **Storage Provider** can then be used as a payee in proof sets
+3. **Storage Provider** can then be used as a payee in data sets
 
 ## Usage
 

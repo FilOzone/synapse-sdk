@@ -102,7 +102,7 @@
         <strong>Status:</strong> <span id="status">Not connected</span><br>
         <strong>Wallet:</strong> <span id="wallet">None</span><br>
         <strong>Network:</strong> <span id="network">None</span><br>
-        <strong>Pandora Contract:</strong> <span id="pandora">Not configured</span>
+        <strong>Warm Storage Contract:</strong> <span id="warmStorage">Not configured</span>
     </div>
 
     <div class="section">
@@ -112,13 +112,13 @@
     </div>
 
     <div class="section">
-        <h2>Pandora Contract Configuration</h2>
+        <h2>Warm Storage Contract Configuration</h2>
         <div class="input-group">
-            <label>Pandora Address:</label>
-            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="">
-            <button id="updatePandoraBtn" disabled>Update Pandora Address</button>
+            <label>Warm Storage Address:</label>
+            <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="">
+            <button id="updateWarm StorageBtn" disabled>Update Warm Storage Address</button>
         </div>
-        <div id="pandoraStatus" class="warning">Storage cost functions require Pandora contract to be configured</div>
+        <div id="warmStorageStatus" class="warning">Storage cost functions require Warm Storage contract to be configured</div>
     </div>
 
     <div class="section">
@@ -158,7 +158,7 @@
 
     <div class="section">
         <h2>Storage Allowance Checker</h2>
-        <p style="font-size: 14px; color: #666;">Checks allowances for the Pandora contract shown above</p>
+        <p style="font-size: 14px; color: #666;">Checks allowances for the Warm Storage contract shown above</p>
         <div class="input-group">
             <label>Data Size:</label>
             <input type="number" id="allowanceDataSizeInput" value="10" min="0" step="any">
@@ -188,8 +188,8 @@
     <script>
         let synapse = null;
         let payments = null;
-        let pandoraService = null;
-        let pandoraAddress = null;
+        let warmStorageService = null;
+        let warmStorageAddress = null;
 
         // Format bigint for display
         function formatBigInt(value, decimals = 18) {
@@ -266,34 +266,34 @@
 
                 payments = synapse.payments;
                 
-                // Initialize PandoraService with appropriate address based on network
-                const pandoraAddress = network.chainId === 314159n 
+                // Initialize Warm StorageService with appropriate address based on network
+                const warmStorageAddress = network.chainId === 314159n 
                     ? '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'  // calibration
                     : ''; // TODO: mainnet address
                     
-                if (pandoraAddress) {
-                    pandoraService = new SynapseSDK.PandoraService(provider, pandoraAddress);
-                    window.pandoraAddress = pandoraAddress; // Store for later use
+                if (warmStorageAddress) {
+                    warmStorageService = new SynapseSDK.WarmStorageService(provider, warmStorageAddress);
+                    window.warmStorageAddress = warmStorageAddress; // Store for later use
                     window.provider = provider; // Store provider for later use
                     
                     // Set the address in the input field
-                    document.getElementById('pandoraAddressInput').value = pandoraAddress;
+                    document.getElementById('warmStorageAddressInput').value = warmStorageAddress;
                     
                     // Update status
-                    document.getElementById('pandoraStatus').innerHTML = 
-                        '<span style="color: #4CAF50;">✓ Pandora configured at ' + pandoraAddress + '</span>';
-                    document.getElementById('pandoraStatus').className = 'success';
+                    document.getElementById('warmStorageStatus').innerHTML = 
+                        '<span style="color: #4CAF50;">✓ Warm Storage configured at ' + warmStorageAddress + '</span>';
+                    document.getElementById('warmStorageStatus').className = 'success';
                 } else {
-                    document.getElementById('pandoraStatus').innerHTML = 
-                        '<span style="color: #f44336;">✗ No Pandora address for ' + networkName + ' network</span>';
-                    document.getElementById('pandoraStatus').className = 'error';
+                    document.getElementById('warmStorageStatus').innerHTML = 
+                        '<span style="color: #f44336;">✗ No Warm Storage address for ' + networkName + ' network</span>';
+                    document.getElementById('warmStorageStatus').className = 'error';
                 }
 
                 updateStatus('Connected', address, networkName);
-                if (pandoraAddress) {
-                    document.getElementById('pandora').textContent = pandoraAddress;
+                if (warmStorageAddress) {
+                    document.getElementById('warmStorage').textContent = warmStorageAddress;
                 } else {
-                    document.getElementById('pandora').textContent = 'Not available for ' + networkName;
+                    document.getElementById('warmStorage').textContent = 'Not available for ' + networkName;
                 }
                 showResult('connectionResult', { 
                     connected: true, 
@@ -308,14 +308,14 @@
             }
         });
 
-        // Update Pandora address
-        document.getElementById('updatePandoraBtn').addEventListener('click', async () => {
+        // Update Warm Storage address
+        document.getElementById('updateWarm StorageBtn').addEventListener('click', async () => {
             try {
-                const newAddress = document.getElementById('pandoraAddressInput').value.trim();
+                const newAddress = document.getElementById('warmStorageAddressInput').value.trim();
                 
                 // Basic validation
                 if (!newAddress) {
-                    throw new Error('Please enter a Pandora contract address');
+                    throw new Error('Please enter a Warm Storage contract address');
                 }
                 
                 if (!newAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -326,25 +326,25 @@
                     throw new Error('Not connected to network');
                 }
                 
-                // Create new PandoraService instance
-                pandoraService = new SynapseSDK.PandoraService(window.provider, newAddress);
-                window.pandoraAddress = newAddress;
+                // Create new Warm StorageService instance
+                warmStorageService = new SynapseSDK.WarmStorageService(window.provider, newAddress);
+                window.warmStorageAddress = newAddress;
                 
                 // Update status displays
-                document.getElementById('pandora').textContent = newAddress;
-                document.getElementById('pandoraStatus').innerHTML = 
-                    '<span style="color: #4CAF50;">✓ Pandora configured at ' + newAddress + '</span>';
-                document.getElementById('pandoraStatus').className = 'success';
+                document.getElementById('warmStorage').textContent = newAddress;
+                document.getElementById('warmStorageStatus').innerHTML = 
+                    '<span style="color: #4CAF50;">✓ Warm Storage configured at ' + newAddress + '</span>';
+                document.getElementById('warmStorageStatus').className = 'success';
                 
                 showResult('connectionResult', { 
-                    pandoraUpdated: true,
+                    warmStorageUpdated: true,
                     address: newAddress,
-                    message: 'Pandora service updated successfully'
+                    message: 'Warm Storage service updated successfully'
                 });
             } catch (error) {
-                document.getElementById('pandoraStatus').innerHTML = 
+                document.getElementById('warmStorageStatus').innerHTML = 
                     '<span style="color: #f44336;">✗ Error: ' + error.message + '</span>';
-                document.getElementById('pandoraStatus').className = 'error';
+                document.getElementById('warmStorageStatus').className = 'error';
                 showResult('connectionResult', error.message, true);
             }
         });
@@ -421,16 +421,16 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                if (!pandoraService) {
-                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                if (!warmStorageService) {
+                    throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
-                const costs = await pandoraService.calculateStorageCost(sizeBytes);
+                const costs = await warmStorageService.calculateStorageCost(sizeBytes);
                 const selectedCost = withCDN ? costs.withCDN : costs;
                 
                 showResult('costResult', {
                     size: sizeDisplay,
                     sizeBytes,
-                    pricingNote: 'Pricing is fetched from the Pandora contract on-chain',
+                    pricingNote: 'Pricing is fetched from the Warm Storage contract on-chain',
                     withoutCDN: {
                         perEpoch: costs.perEpoch.toString(),
                         perEpochFormatted: formatBigInt(costs.perEpoch) + ' USDFC',
@@ -456,7 +456,7 @@
                     const accountInfo = await payments.accountInfo();
                     
                     // Check allowances
-                    const allowanceCheck = await pandoraService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
+                    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
                     
                     // Calculate the required funds
                     const requiredBalance = selectedCost.perMonth; // At least 1 month of storage
@@ -498,7 +498,7 @@
                     analysisHTML += '<p><strong>Understanding the Requirements:</strong></p>';
                     analysisHTML += '<ul>';
                     analysisHTML += '<li><strong>Balance:</strong> You need enough USDFC deposited in the Payments contract to cover at least 1 month of storage costs.</li>';
-                    analysisHTML += '<li><strong>Rate Allowance:</strong> This allows the Pandora service to charge you per epoch for ongoing storage. It\'s the maximum rate the service can set for payment rails.</li>';
+                    analysisHTML += '<li><strong>Rate Allowance:</strong> This allows the Warm Storage service to charge you per epoch for ongoing storage. It\'s the maximum rate the service can set for payment rails.</li>';
                     analysisHTML += '<li><strong>Lockup Allowance:</strong> This is a security deposit (10 days worth of storage costs) that gets locked when creating a payment rail. It ensures you have funds to cover storage even if you stop depositing.</li>';
                     analysisHTML += '</ul>';
                     
@@ -512,7 +512,7 @@
                             analysisHTML += '<li>Deposit at least ' + formatBigInt(depositNeeded) + ' USDFC to the Payments contract</li>';
                         }
                         if (!allowanceCheck.sufficient) {
-                            analysisHTML += '<li>Approve the Pandora service with:';
+                            analysisHTML += '<li>Approve the Warm Storage service with:';
                             analysisHTML += '<ul>';
                             analysisHTML += '<li>Rate Allowance: ' + formatBigInt(allowanceCheck.rateAllowanceNeeded) + ' USDFC/epoch</li>';
                             analysisHTML += '<li>Lockup Allowance: ' + formatBigInt(allowanceCheck.lockupAllowanceNeeded) + ' USDFC</li>';
@@ -521,7 +521,7 @@
                         analysisHTML += '</ol>';
                     } else {
                         analysisHTML += '<hr>';
-                        analysisHTML += '<p><strong>✅ Ready to Add Roots!</strong> You have sufficient funds and allowances to onboard ' + sizeDisplay + ' of data.</p>';
+                        analysisHTML += '<p><strong>✅ Ready to Add Pieces!</strong> You have sufficient funds and allowances to onboard ' + sizeDisplay + ' of data.</p>';
                     }
                     
                     analysisHTML += '</div>';
@@ -540,8 +540,8 @@
         // Check allowance
         document.getElementById('checkAllowanceBtn').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
-                    throw new Error('PandoraService not initialized. Please configure Pandora address first.');
+                if (!warmStorageService) {
+                    throw new Error('Warm StorageService not initialized. Please configure Warm Storage address first.');
                 }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
                 const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
@@ -560,13 +560,13 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                if (!pandoraService) {
-                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                if (!warmStorageService) {
+                    throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
-                const check = await pandoraService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
+                const check = await warmStorageService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
                 
                 showResult('allowanceResult', {
-                    service: window.pandoraAddress || 'Unknown',
+                    service: window.warmStorageAddress || 'Unknown',
                     size: sizeDisplay,
                     withCDN,
                     sufficient: check.sufficient,
@@ -592,8 +592,8 @@
         // Prepare storage upload
         document.getElementById('prepareUploadBtn').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
-                    throw new Error('PandoraService not initialized. Please configure Pandora address first.');
+                if (!warmStorageService) {
+                    throw new Error('Warm StorageService not initialized. Please configure Warm Storage address first.');
                 }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
                 const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
@@ -612,10 +612,10 @@
                     sizeDisplay = `${sizeValue} TiB`;
                 }
                 
-                if (!pandoraService) {
-                    throw new Error('PandoraService not initialized. Only supported on calibration network.');
+                if (!warmStorageService) {
+                    throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
-                const prep = await pandoraService.prepareStorageUpload({
+                const prep = await warmStorageService.prepareStorageUpload({
                     dataSize: sizeBytes,
                     withCDN
                 }, payments);

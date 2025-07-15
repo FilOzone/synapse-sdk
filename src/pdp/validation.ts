@@ -6,21 +6,21 @@
  */
 
 import type {
-  ProofSetCreationStatusResponse,
-  RootAdditionStatusResponse,
+  DataSetCreationStatusResponse,
+  PieceAdditionStatusResponse,
   FindPieceResponse
 } from './server.js'
-import type { ProofSetData, ProofSetRootData } from '../types.js'
+import type { DataSetData, DataSetPieceData } from '../types.js'
 import { asCommP } from '../commp/commp.js'
 
 /**
- * Type guard for ProofSetCreationStatusResponse
- * Validates the response from checking proof set creation status
+ * Type guard for DataSetCreationStatusResponse
+ * Validates the response from checking data set creation status
  *
  * @param value - The value to validate
- * @returns True if the value matches ProofSetCreationStatusResponse interface
+ * @returns True if the value matches DataSetCreationStatusResponse interface
  */
-export function isProofSetCreationStatusResponse (value: unknown): value is ProofSetCreationStatusResponse {
+export function isDataSetCreationStatusResponse (value: unknown): value is DataSetCreationStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -31,11 +31,7 @@ export function isProofSetCreationStatusResponse (value: unknown): value is Proo
   if (typeof obj.createMessageHash !== 'string') {
     return false
   }
-  // Accept both proofSetCreated and proofsetCreated for compatibility
-  // NOTE: Curio currently returns "proofsetCreated" (lowercase 's') but we support both formats
-  const hasProofSetCreated = typeof obj.proofSetCreated === 'boolean'
-  const hasProofsetCreated = typeof obj.proofsetCreated === 'boolean'
-  if (!hasProofSetCreated && !hasProofsetCreated) {
+  if (typeof obj.dataSetCreated !== 'boolean') {
     return false
   }
   if (typeof obj.service !== 'string') {
@@ -49,7 +45,7 @@ export function isProofSetCreationStatusResponse (value: unknown): value is Proo
   }
 
   // Optional field
-  if (obj.proofSetId !== undefined && typeof obj.proofSetId !== 'number') {
+  if (obj.dataSetId !== undefined && typeof obj.dataSetId !== 'number') {
     return false
   }
 
@@ -57,13 +53,13 @@ export function isProofSetCreationStatusResponse (value: unknown): value is Proo
 }
 
 /**
- * Type guard for RootAdditionStatusResponse
- * Validates the response from checking root addition status
+ * Type guard for PieceAdditionStatusResponse
+ * Validates the response from checking piece addition status
  *
  * @param value - The value to validate
- * @returns True if the value matches RootAdditionStatusResponse interface
+ * @returns True if the value matches PieceAdditionStatusResponse interface
  */
-export function isRootAdditionStatusResponse (value: unknown): value is RootAdditionStatusResponse {
+export function isPieceAdditionStatusResponse (value: unknown): value is PieceAdditionStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -77,23 +73,23 @@ export function isRootAdditionStatusResponse (value: unknown): value is RootAddi
   if (typeof obj.txStatus !== 'string') {
     return false
   }
-  if (typeof obj.proofSetId !== 'number') {
+  if (typeof obj.dataSetId !== 'number') {
     return false
   }
-  if (typeof obj.rootCount !== 'number') {
+  if (typeof obj.pieceCount !== 'number') {
     return false
   }
   if (obj.addMessageOk !== null && typeof obj.addMessageOk !== 'boolean') {
     return false
   }
 
-  // Optional field - confirmedRootIds
-  if (obj.confirmedRootIds !== undefined) {
-    if (!Array.isArray(obj.confirmedRootIds)) {
+  // Optional field - confirmedPieceIds
+  if (obj.confirmedPieceIds !== undefined) {
+    if (!Array.isArray(obj.confirmedPieceIds)) {
       return false
     }
     // Check all elements are numbers
-    for (const id of obj.confirmedRootIds) {
+    for (const id of obj.confirmedPieceIds) {
       if (typeof id !== 'number') {
         return false
       }
@@ -136,44 +132,25 @@ export function isFindPieceResponse (value: unknown): value is FindPieceResponse
 }
 
 /**
- * Validates and returns a ProofSetCreationStatusResponse
+ * Validates and returns a DataSetCreationStatusResponse
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validateProofSetCreationStatusResponse (value: unknown): ProofSetCreationStatusResponse {
-  if (!isProofSetCreationStatusResponse(value)) {
-    throw new Error('Invalid proof set creation status response format')
+export function validateDataSetCreationStatusResponse (value: unknown): DataSetCreationStatusResponse {
+  if (!isDataSetCreationStatusResponse(value)) {
+    throw new Error('Invalid data set creation status response format')
   }
-
-  const obj = value as any
-
-  // Normalize the response - ensure consistent proofSetCreated field name
-  // NOTE: This provides forward compatibility - Curio currently returns "proofsetCreated" (lowercase 's')
-  // but this normalization ensures the SDK interface uses "proofSetCreated" (uppercase 'S')
-  const normalized: ProofSetCreationStatusResponse = {
-    createMessageHash: obj.createMessageHash,
-    proofSetCreated: obj.proofSetCreated ?? obj.proofsetCreated,
-    service: obj.service,
-    txStatus: obj.txStatus,
-    ok: obj.ok
-  }
-
-  // Only include proofSetId if it's actually present
-  if (obj.proofSetId !== undefined) {
-    normalized.proofSetId = obj.proofSetId
-  }
-
-  return normalized
+  return value
 }
 
 /**
- * Validates and returns a RootAdditionStatusResponse
+ * Validates and returns a PieceAdditionStatusResponse
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validateRootAdditionStatusResponse (value: unknown): RootAdditionStatusResponse {
-  if (!isRootAdditionStatusResponse(value)) {
-    throw new Error('Invalid root addition status response format')
+export function validatePieceAdditionStatusResponse (value: unknown): PieceAdditionStatusResponse {
+  if (!isPieceAdditionStatusResponse(value)) {
+    throw new Error('Invalid piece addition status response format')
   }
   return value
 }
@@ -217,13 +194,13 @@ export function validateFindPieceResponse (value: unknown): FindPieceResponse {
 }
 
 /**
- * Converts and validates individual proof set root data
+ * Converts and validates individual data set piece data
  * Returns null if validation fails
  *
  * @param value - The value to validate and convert
- * @returns Converted ProofSetRootData or null if invalid
+ * @returns Converted DataSetPieceData or null if invalid
  */
-export function asProofSetRootData (value: unknown): ProofSetRootData | null {
+export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
   if (typeof value !== 'object' || value == null) {
     return null
   }
@@ -231,42 +208,42 @@ export function asProofSetRootData (value: unknown): ProofSetRootData | null {
   const obj = value as Record<string, unknown>
 
   // Required fields
-  if (typeof obj.rootId !== 'number') {
+  if (typeof obj.pieceId !== 'number') {
     return null
   }
-  if (typeof obj.rootCid !== 'string') {
+  if (typeof obj.pieceCid !== 'string') {
     return null
   }
-  if (typeof obj.subrootCid !== 'string') {
+  if (typeof obj.subPieceCid !== 'string') {
     return null
   }
-  if (typeof obj.subrootOffset !== 'number') {
+  if (typeof obj.subPieceOffset !== 'number') {
     return null
   }
 
   // Convert CIDs to CommP objects
-  const rootCid = asCommP(obj.rootCid)
-  const subrootCid = asCommP(obj.subrootCid)
-  if (rootCid == null || subrootCid == null) {
+  const pieceCid = asCommP(obj.pieceCid)
+  const subPieceCid = asCommP(obj.subPieceCid)
+  if (pieceCid == null || subPieceCid == null) {
     return null
   }
 
   return {
-    rootId: obj.rootId,
-    rootCid,
-    subrootCid,
-    subrootOffset: obj.subrootOffset
+    pieceId: obj.pieceId,
+    pieceCid,
+    subPieceCid,
+    subPieceOffset: obj.subPieceOffset
   }
 }
 
 /**
- * Converts and validates proof set data
+ * Converts and validates data set data
  * Returns null if validation fails
  *
  * @param value - The value to validate and convert
- * @returns Converted ProofSetData or null if invalid
+ * @returns Converted DataSetData or null if invalid
  */
-export function asProofSetData (value: unknown): ProofSetData | null {
+export function asDataSetData (value: unknown): DataSetData | null {
   if (typeof value !== 'object' || value == null) {
     return null
   }
@@ -278,18 +255,18 @@ export function asProofSetData (value: unknown): ProofSetData | null {
     return null
   }
 
-  // Required field - roots (array of ProofSetRootData)
-  if (!Array.isArray(obj.roots)) {
+  // Required field - pieces (array of DataSetPieceData)
+  if (!Array.isArray(obj.pieces)) {
     return null
   }
 
-  const convertedRoots: ProofSetRootData[] = []
-  for (const root of obj.roots) {
-    const convertedRoot = asProofSetRootData(root)
-    if (convertedRoot == null) {
+  const convertedPieces: DataSetPieceData[] = []
+  for (const piece of obj.pieces) {
+    const convertedPiece = asDataSetPieceData(piece)
+    if (convertedPiece == null) {
       return null
     }
-    convertedRoots.push(convertedRoot)
+    convertedPieces.push(convertedPiece)
   }
 
   // Required field - nextChallengeEpoch
@@ -299,7 +276,7 @@ export function asProofSetData (value: unknown): ProofSetData | null {
 
   return {
     id: obj.id,
-    roots: convertedRoots,
+    pieces: convertedPieces,
     nextChallengeEpoch: obj.nextChallengeEpoch
   }
 }
