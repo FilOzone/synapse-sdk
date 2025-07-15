@@ -387,8 +387,8 @@ describe('SubgraphService', () => {
       })
     })
 
-    describe('queryProofSets', () => {
-      it('should query proof sets with default options', async () => {
+    describe('queryDataSets', () => {
+      it('should query data sets with default options', async () => {
         const mockResponse = {
           data: {
             dataSets: [
@@ -403,12 +403,12 @@ describe('SubgraphService', () => {
                 challengeRange: '10',
                 lastProvenEpoch: '1000',
                 nextChallengeEpoch: '1010',
-                totalRoots: '50',
+                totalPieces: '50',
                 totalDataSize: '1000000',
                 totalProofs: '25',
-                totalProvedRoots: '45',
+                totalProvedPieces: '45',
                 totalFaultedPeriods: '2',
-                totalFaultedRoots: '5',
+                totalFaultedPieces: '5',
                 metadata: 'test metadata',
                 createdAt: '1640995200',
                 updatedAt: '1641081600',
@@ -439,7 +439,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'ProofSetsFlexible')
+            assert.include(body.query, 'DataSetsFlexible')
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -447,7 +447,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const dataSets = await service.queryProofSets()
+          const dataSets = await service.queryDataSets()
 
           assert.isArray(dataSets)
           assert.lengthOf(dataSets, 1)
@@ -477,12 +477,12 @@ describe('SubgraphService', () => {
                 challengeRange: '20',
                 lastProvenEpoch: '2000',
                 nextChallengeEpoch: '2020',
-                totalRoots: '100',
+                totalPieces: '100',
                 totalDataSize: '2000000',
                 totalProofs: '50',
-                totalProvedRoots: '90',
+                totalProvedPieces: '90',
                 totalFaultedPeriods: '1',
-                totalFaultedRoots: '10',
+                totalFaultedPieces: '10',
                 metadata: 'active proof set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
@@ -505,7 +505,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'ProofSetsFlexible')
+            assert.include(body.query, 'DataSetsFlexible')
             assert.deepEqual(body.variables.where, { isActive: true, totalDataSize_gte: '1000000' })
             return new Response(JSON.stringify(mockResponse))
           }
@@ -514,7 +514,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const dataSets = await service.queryProofSets({
+          const dataSets = await service.queryDataSets({
             where: { isActive: true, totalDataSize_gte: '1000000' },
             first: 20,
             orderBy: 'totalDataSize',
@@ -531,7 +531,7 @@ describe('SubgraphService', () => {
       })
     })
 
-    describe('queryRoots', () => {
+    describe('queryPieces', () => {
       it('should query pieces with default options', async () => {
         const mockResponse = {
           data: {
@@ -575,7 +575,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'RootsFlexible')
+            assert.include(body.query, 'PiecesFlexible')
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -583,7 +583,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const pieces = await service.queryRoots()
+          const pieces = await service.queryPieces()
 
           assert.isArray(pieces)
           assert.lengthOf(pieces, 1)
@@ -639,7 +639,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'RootsFlexible')
+            assert.include(body.query, 'PiecesFlexible')
             assert.deepEqual(body.variables.where, { removed: false, rawSize_gte: '5000000' })
             return new Response(JSON.stringify(mockResponse))
           }
@@ -648,7 +648,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const pieces = await service.queryRoots({
+          const pieces = await service.queryPieces({
             where: { removed: false, rawSize_gte: '5000000' },
             first: 50,
             orderBy: 'rawSize',
@@ -675,7 +675,7 @@ describe('SubgraphService', () => {
             faultRecords: [
               {
                 id: 'fault-1',
-                proofSetId: '1',
+                dataSetId: '1',
                 pieceIds: ['100', '101', '102'],
                 currentChallengeEpoch: '1000',
                 nextChallengeEpoch: '1010',
@@ -717,7 +717,7 @@ describe('SubgraphService', () => {
           assert.isArray(faultRecords)
           assert.lengthOf(faultRecords, 1)
           assert.equal(faultRecords[0].id, 'fault-1')
-          assert.equal(faultRecords[0].proofSetId, 1)
+          assert.equal(faultRecords[0].dataSetId, 1)
           assert.deepEqual(faultRecords[0].pieceIds, [100, 101, 102])
           assert.equal(faultRecords[0].dataSet.owner.owner, '0x123')
         } finally {
@@ -731,7 +731,7 @@ describe('SubgraphService', () => {
             faultRecords: [
               {
                 id: 'recent-fault',
-                proofSetId: '2',
+                dataSetId: '2',
                 pieceIds: ['200'],
                 currentChallengeEpoch: '2000',
                 nextChallengeEpoch: '2010',
@@ -803,7 +803,7 @@ describe('SubgraphService', () => {
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
           const faultRecords = await service.queryFaultRecords({
-            where: { proofSetId: '999' }
+            where: { dataSetId: '999' }
           })
 
           assert.isArray(faultRecords)
@@ -840,7 +840,7 @@ describe('SubgraphService', () => {
         }
       })
 
-      it('should handle HTTP errors in queryProofSets', async () => {
+      it('should handle HTTP errors in queryDataSets', async () => {
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
           const url =
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -852,7 +852,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          await service.queryProofSets()
+          await service.queryDataSets()
           assert.fail('should have thrown')
         } catch (err) {
           assert.match((err as Error).message, /HTTP 400: Bad Request/)

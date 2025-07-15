@@ -71,7 +71,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[0].owner, // Matches first provider
-          pdpVerifierProofSetId: 100,
+          pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -86,7 +86,7 @@ describe('StorageService', () => {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[1].owner, // Matches second provider
-          pdpVerifierProofSetId: 101,
+          pdpVerifierDataSetId: 101,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -148,7 +148,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 100,
+          pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -224,7 +224,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333', // Matches provider
-          pdpVerifierProofSetId: 100,
+          pdpVerifierDataSetId: 100,
           nextPieceId: 5,
           currentPieceCount: 5,
           isLive: true,
@@ -245,8 +245,8 @@ describe('StorageService', () => {
 
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
-      // Should use existing proof set
-      assert.equal(service.proofSetId, '100')
+      // Should use existing data set
+      assert.equal(service.dataSetId, '100')
     })
 
     it.skip('should create new proof set when none exist', async () => {
@@ -268,7 +268,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 100,
+          pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0, // No pieces
           isLive: true,
@@ -283,7 +283,7 @@ describe('StorageService', () => {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 101,
+          pdpVerifierDataSetId: 101,
           nextPieceId: 5,
           currentPieceCount: 5, // Has pieces - should be preferred
           isLive: true,
@@ -305,7 +305,7 @@ describe('StorageService', () => {
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       // Should select the proof set with pieces
-      assert.equal(service.proofSetId, '101')
+      assert.equal(service.dataSetId, '101')
     })
 
     it('should handle provider selection callbacks', async () => {
@@ -318,13 +318,13 @@ describe('StorageService', () => {
       }
 
       let providerCallbackFired = false
-      let proofSetCallbackFired = false
+      let dataSetCallbackFired = false
 
       const dataSets = [{
         railId: 1,
         payer: '0x1234567890123456789012345678901234567890',
         payee: mockProvider.owner,
-        pdpVerifierProofSetId: 100,
+        pdpVerifierDataSetId: 100,
         nextPieceId: 0,
         currentPieceCount: 0,
         isLive: true,
@@ -349,19 +349,19 @@ describe('StorageService', () => {
             assert.equal(provider.owner, mockProvider.owner)
             providerCallbackFired = true
           },
-          onProofSetResolved: (info) => {
+          onDataSetResolved: (info) => {
             assert.isTrue(info.isExisting)
-            assert.equal(info.proofSetId, 100)
-            proofSetCallbackFired = true
+            assert.equal(info.dataSetId, 100)
+            dataSetCallbackFired = true
           }
         }
       })
 
       assert.isTrue(providerCallbackFired, 'onProviderSelected should have been called')
-      assert.isTrue(proofSetCallbackFired, 'onProofSetResolved should have been called')
+      assert.isTrue(dataSetCallbackFired, 'onDataSetResolved should have been called')
     })
 
-    it('should select by explicit proofSetId', async () => {
+    it('should select by explicit dataSetId', async () => {
       const mockProvider: ApprovedProviderInfo = {
         owner: '0x3333333333333333333333333333333333333333',
         pdpUrl: 'https://pdp3.example.com',
@@ -375,7 +375,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.owner,
-          pdpVerifierProofSetId: 456,
+          pdpVerifierDataSetId: 456,
           nextPieceId: 10,
           currentPieceCount: 10,
           isLive: true,
@@ -400,9 +400,9 @@ describe('StorageService', () => {
         }
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { proofSetId: 456 })
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 456 })
 
-      assert.equal(service.proofSetId, '456')
+      assert.equal(service.dataSetId, '456')
       assert.equal(service.storageProvider, mockProvider.owner)
     })
 
@@ -420,7 +420,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.owner,
-          pdpVerifierProofSetId: 789,
+          pdpVerifierDataSetId: 789,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -450,23 +450,23 @@ describe('StorageService', () => {
       })
 
       assert.equal(service.storageProvider, mockProvider.owner)
-      assert.equal(service.proofSetId, '789')
+      assert.equal(service.dataSetId, '789')
     })
 
-    it('should throw when proofSetId not found', async () => {
+    it('should throw when dataSetId not found', async () => {
       const mockWarmStorageService = {
         getClientDataSetsWithDetails: async () => [] // No proof sets
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockWarmStorageService, { proofSetId: 999 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 999 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Proof set 999 not found')
+        assert.include(error.message, 'Data set 999 not found')
       }
     })
 
-    it('should throw when proofSetId conflicts with providerId', async () => {
+    it('should throw when dataSetId conflicts with providerId', async () => {
       const mockProvider1: ApprovedProviderInfo = {
         owner: '0x5555555555555555555555555555555555555555',
         pdpUrl: 'https://pdp5.example.com',
@@ -480,7 +480,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider1.owner, // Owned by provider 5
-          pdpVerifierProofSetId: 111,
+          pdpVerifierDataSetId: 111,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -500,7 +500,7 @@ describe('StorageService', () => {
 
       try {
         await StorageService.create(mockSynapse, mockWarmStorageService, {
-          proofSetId: 111,
+          dataSetId: 111,
           providerId: 3 // Conflicts with actual owner
         })
         assert.fail('Should have thrown error')
@@ -542,7 +542,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[0].owner,
-          pdpVerifierProofSetId: 200,
+          pdpVerifierDataSetId: 200,
           nextPieceId: 5,
           currentPieceCount: 5,
           isLive: true,
@@ -557,7 +557,7 @@ describe('StorageService', () => {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[0].owner,
-          pdpVerifierProofSetId: 201,
+          pdpVerifierDataSetId: 201,
           nextPieceId: 3,
           currentPieceCount: 3,
           isLive: true,
@@ -590,11 +590,11 @@ describe('StorageService', () => {
       try {
         // Test with CDN = false
         const serviceNoCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: false })
-        assert.equal(serviceNoCDN.proofSetId, '200', 'Should select non-CDN proof set')
+        assert.equal(serviceNoCDN.dataSetId, '200', 'Should select non-CDN data set')
 
         // Test with CDN = true
         const serviceWithCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: true })
-        assert.equal(serviceWithCDN.proofSetId, '201', 'Should select CDN proof set')
+        assert.equal(serviceWithCDN.dataSetId, '201', 'Should select CDN data set')
       } finally {
         global.fetch = originalFetch
       }
@@ -606,7 +606,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x8888888888888888888888888888888888888888',
-          pdpVerifierProofSetId: 300,
+          pdpVerifierDataSetId: 300,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -645,7 +645,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          pdpVerifierProofSetId: 400,
+          pdpVerifierDataSetId: 400,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -664,7 +664,7 @@ describe('StorageService', () => {
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockWarmStorageService, { proofSetId: 400 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 400 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'is not currently approved')
@@ -759,7 +759,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.owner,
-          pdpVerifierProofSetId: 500,
+          pdpVerifierDataSetId: 500,
           nextPieceId: 2,
           currentPieceCount: 2,
           isLive: true,
@@ -800,7 +800,7 @@ describe('StorageService', () => {
 
         assert.isTrue(getClientProofSetsCalled, 'Should fetch client proof sets')
         assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
-        assert.equal(service.proofSetId, '500')
+        assert.equal(service.dataSetId, '500')
       } finally {
         global.fetch = originalFetch
       }
@@ -839,7 +839,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xffffffffffffffffffffffffffffffffffffffffffff',
-          pdpVerifierProofSetId: 600,
+          pdpVerifierDataSetId: 600,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: false, // Not live
@@ -857,20 +857,20 @@ describe('StorageService', () => {
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockWarmStorageService, { proofSetId: 600 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 600 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Proof set 600 not found')
+        assert.include(error.message, 'Data set 600 not found')
       }
     })
 
-    it('should handle conflict between proofSetId and providerAddress', async () => {
+    it('should handle conflict between dataSetId and providerAddress', async () => {
       const mockProofSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x1111222233334444555566667777888899990000', // Different from requested
-          pdpVerifierProofSetId: 700,
+          pdpVerifierDataSetId: 700,
           nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
@@ -889,7 +889,7 @@ describe('StorageService', () => {
 
       try {
         await StorageService.create(mockSynapse, mockWarmStorageService, {
-          proofSetId: 700,
+          dataSetId: 700,
           providerAddress: '0x9999888877776666555544443333222211110000' // Different address
         })
         assert.fail('Should have thrown error')
@@ -943,7 +943,7 @@ describe('StorageService', () => {
       assert.isTrue(preflight.allowanceCheck.sufficient)
       assert.isUndefined(preflight.allowanceCheck.message)
       assert.equal(preflight.selectedProvider.owner, mockProvider.owner)
-      assert.equal(preflight.selectedProofSetId, 123)
+      assert.equal(preflight.selectedDataSetId, 123)
     })
 
     it('should calculate costs with CDN', async () => {
@@ -1141,7 +1141,7 @@ describe('StorageService', () => {
 
     it('should accept data at exactly 65 bytes', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1179,7 +1179,7 @@ describe('StorageService', () => {
 
     it('should accept data up to 200 MiB', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1205,7 +1205,7 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked in mockWarmStorageService
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
       // Mock addPieces
       serviceAny._pdpServer.addPieces = async (): Promise<any> => {
@@ -1221,7 +1221,7 @@ describe('StorageService', () => {
 
     it('should handle upload callbacks correctly', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1249,8 +1249,8 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddRootsInfo
-      // getAddRootsInfo already mocked in mockWarmStorageService
+      // Mock getAddPiecesInfo
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
       // Mock addPieces
       serviceAny._pdpServer.addPieces = async (): Promise<any> => {
@@ -1262,19 +1262,19 @@ describe('StorageService', () => {
           assert.equal(commp.toString(), testCommP)
           uploadCompleteCallbackFired = true
         },
-        onRootAdded: () => {
+        onPieceAdded: () => {
           rootAddedCallbackFired = true
         }
       })
 
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-      assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+      assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
       assert.equal(result.commp.toString(), testCommP)
     })
 
     it('should handle new server with transaction tracking', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1345,20 +1345,20 @@ describe('StorageService', () => {
             assert.equal(commp.toString(), testCommP)
             uploadCompleteCallbackFired = true
           },
-          onRootAdded: (transaction) => {
+          onPieceAdded: (transaction) => {
             rootAddedCallbackFired = true
             rootAddedTransaction = transaction
           },
-          onRootConfirmed: (pieceIds) => {
+          onPieceConfirmed: (pieceIds: number[]) => {
             rootConfirmedCallbackFired = true
             confirmedPieceIds = pieceIds
           }
         })
 
         assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-        assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+        assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
         assert.isTrue(rootConfirmedCallbackFired, 'onRootConfirmed should have been called')
-        assert.exists(rootAddedTransaction, 'Transaction should be passed to onRootAdded')
+        assert.exists(rootAddedTransaction, 'Transaction should be passed to onPieceAdded')
         assert.equal(rootAddedTransaction.hash, mockTxHash)
         assert.deepEqual(confirmedPieceIds, [42])
         assert.equal(result.pieceId, 42)
@@ -1371,7 +1371,7 @@ describe('StorageService', () => {
     it.skip('should fail if new server transaction is not found on-chain', async function () {
       // Skip: This test requires waiting for timeout which makes tests slow
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1424,7 +1424,7 @@ describe('StorageService', () => {
     it.skip('should fail if new server verification fails', async function () {
       // Skip: This test requires waiting for timeout which makes tests slow
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1488,7 +1488,7 @@ describe('StorageService', () => {
 
     it('should handle transaction failure on-chain', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1534,7 +1534,7 @@ describe('StorageService', () => {
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
         assert.include(error.message, 'StorageService addPieces failed:')
-        assert.include(error.message, 'Failed to add piece to proof set')
+        assert.include(error.message, 'Failed to add piece to data set')
       } finally {
         // Restore original method
         mockEthProvider.getTransaction = originalGetTransaction
@@ -1543,7 +1543,7 @@ describe('StorageService', () => {
 
     it('should work with old servers that do not provide transaction tracking', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1574,20 +1574,20 @@ describe('StorageService', () => {
       }
 
       const result = await service.upload(testData, {
-        onRootAdded: (transaction) => {
+        onPieceAdded: (transaction?: ethers.TransactionResponse) => {
           rootAddedCallbackFired = true
           rootAddedTransaction = transaction
         }
       })
 
-      assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+      assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
       assert.isUndefined(rootAddedTransaction, 'Transaction should be undefined for old servers')
-      assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddRootsInfo
+      assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddPiecesInfo
     })
 
     it('should handle ArrayBuffer input', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1619,8 +1619,8 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddRootsInfo
-      // getAddRootsInfo already mocked in mockWarmStorageService
+      // Mock getAddPiecesInfo
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
       // Mock addPieces
       serviceAny._pdpServer.addPieces = async (): Promise<any> => {
@@ -1695,7 +1695,7 @@ describe('StorageService', () => {
 
     it('should handle add pieces failure', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => ({
+        getAddPiecesInfo: async (): Promise<any> => ({
           nextPieceId: 0,
           clientDataSetId: 1,
           currentPieceCount: 0
@@ -1717,7 +1717,7 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked in mockWarmStorageService
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
       // Mock addPieces to fail
       serviceAny._pdpServer.addPieces = async (): Promise<any> => {
@@ -1728,13 +1728,13 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add piece to proof set')
+        assert.include(error.message, 'Failed to add piece to data set')
       }
     })
 
-    it('should handle getAddRootsInfo failure', async () => {
+    it('should handle getAddPiecesInfo failure', async () => {
       const mockWarmStorageService = {
-        getAddRootsInfo: async (): Promise<any> => {
+        getAddPiecesInfo: async (): Promise<any> => {
           throw new Error('Proof set not managed by this WarmStorage')
         }
       } as any
@@ -1754,13 +1754,13 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked to fail in mockWarmStorageService
+      // getAddPiecesInfo already mocked to fail in mockWarmStorageService
 
       try {
         await service.upload(testData)
-        assert.fail('Should have thrown getAddRootsInfo error')
+        assert.fail('Should have thrown getAddPiecesInfo error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add piece to proof set')
+        assert.include(error.message, 'Failed to add piece to data set')
       }
     })
   })
@@ -1931,7 +1931,7 @@ describe('StorageService', () => {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProviders[0].owner, // First provider has existing proof set
-            pdpVerifierProofSetId: 100,
+            pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 0,
             isLive: true,
@@ -2036,12 +2036,12 @@ describe('StorageService', () => {
             mockSynapse.getSigner()
           )
 
-          // Should have selected one of the available providers for new proof set
+          // Should have selected one of the available providers for new data set
           assert.isTrue(
             testProviders.some(p => p.owner === result.provider.owner),
             'Should have selected one of the available providers'
           )
-          assert.equal(result.proofSetId, -1) // New proof set marker
+          assert.equal(result.dataSetId, -1) // New data set marker
           assert.isFalse(result.isExisting)
           assert.isAtLeast(pingCallCount, 1, 'Should have pinged at least one provider')
         } finally {
@@ -2063,7 +2063,7 @@ describe('StorageService', () => {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.owner,
-            pdpVerifierProofSetId: 100,
+            pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 5, // Has pieces, so preferred
             isLive: true,
@@ -2104,7 +2104,7 @@ describe('StorageService', () => {
 
           // Should use existing provider since ping succeeded
           assert.equal(result.provider.owner, testProvider.owner)
-          assert.equal(result.proofSetId, 100)
+          assert.equal(result.dataSetId, 100)
           assert.isTrue(result.isExisting)
         } finally {
           global.fetch = originalFetch
@@ -2130,7 +2130,7 @@ describe('StorageService', () => {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.owner,
-            pdpVerifierProofSetId: 100,
+            pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 5,
             isLive: true,
@@ -2145,7 +2145,7 @@ describe('StorageService', () => {
             railId: 2,
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.owner, // Same provider
-            pdpVerifierProofSetId: 101,
+            pdpVerifierDataSetId: 101,
             nextPieceId: 0,
             currentPieceCount: 3,
             isLive: true,
@@ -2160,7 +2160,7 @@ describe('StorageService', () => {
             railId: 3,
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.owner, // Same provider
-            pdpVerifierProofSetId: 102,
+            pdpVerifierDataSetId: 102,
             nextPieceId: 0,
             currentPieceCount: 1,
             isLive: true,
@@ -2263,7 +2263,7 @@ describe('StorageService', () => {
     })
   })
 
-  describe('getProofSetRoots', () => {
+  describe('getDataSetPieces', () => {
     it('should successfully fetch proof set pieces', async () => {
       const mockWarmStorageService = {} as any
       const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
@@ -2273,13 +2273,13 @@ describe('StorageService', () => {
         pieces: [
           {
             pieceId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceOffset: 0
           },
           {
             pieceId: 102,
-            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            pieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
             subpieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
             subpieceOffset: 0
           }
@@ -2294,12 +2294,12 @@ describe('StorageService', () => {
         return mockProofSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
 
       assert.isArray(result)
       assert.equal(result.length, 2)
-      assert.equal(result[0].toString(), mockProofSetData.pieces[0].rootCid)
-      assert.equal(result[1].toString(), mockProofSetData.pieces[1].rootCid)
+      assert.equal(result[0].toString(), mockProofSetData.pieces[0].pieceCid)
+      assert.equal(result[1].toString(), mockProofSetData.pieces[1].pieceCid)
     })
 
     it('should handle empty proof set pieces', async () => {
@@ -2318,7 +2318,7 @@ describe('StorageService', () => {
         return mockProofSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
 
       assert.isArray(result)
       assert.equal(result.length, 0)
@@ -2333,7 +2333,7 @@ describe('StorageService', () => {
         pieces: [
           {
             pieceId: 101,
-            rootCid: 'invalid-cid-format',
+            pieceCid: 'invalid-cid-format',
             subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceOffset: 0
           }
@@ -2347,7 +2347,7 @@ describe('StorageService', () => {
         return mockProofSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
       assert.isArray(result)
       assert.equal(result.length, 1)
       assert.equal(result[0].toString(), 'invalid-cid-format')
@@ -2364,7 +2364,7 @@ describe('StorageService', () => {
       }
 
       try {
-        await service.getProofSetRoots()
+        await service.getDataSetPieces()
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Proof set not found: 999')
@@ -2401,8 +2401,8 @@ describe('StorageService', () => {
 
       assert.isFalse(status.exists)
       assert.isNull(status.retrievalUrl)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
       assert.isUndefined(status.pieceId)
     })
 
@@ -2421,7 +2421,7 @@ describe('StorageService', () => {
         id: 123,
         pieces: [{
           pieceId: 1,
-          rootCid: { toString: () => mockCommP }
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2437,8 +2437,8 @@ describe('StorageService', () => {
       assert.isTrue(status.exists)
       assert.equal(status.retrievalUrl, 'https://retrieve.example.com/piece/' + mockCommP)
       assert.equal(status.pieceId, 1)
-      assert.isNotNull(status.proofSetLastProven)
-      assert.isNotNull(status.proofSetNextProofDue)
+      assert.isNotNull(status.dataSetLastProven)
+      assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
       assert.isFalse(status.isProofOverdue)
     })
@@ -2458,7 +2458,7 @@ describe('StorageService', () => {
         id: 123,
         pieces: [{
           pieceId: 1,
-          rootCid: { toString: () => mockCommP }
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2494,7 +2494,7 @@ describe('StorageService', () => {
         id: 123,
         pieces: [{
           pieceId: 1,
-          rootCid: { toString: () => mockCommP }
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2529,7 +2529,7 @@ describe('StorageService', () => {
         id: 123,
         pieces: [{
           pieceId: 1,
-          rootCid: { toString: () => mockCommP }
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 0 // No next challenge scheduled
       })
@@ -2543,8 +2543,8 @@ describe('StorageService', () => {
       const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
       assert.isFalse(status.isProofOverdue)
     })
@@ -2620,7 +2620,7 @@ describe('StorageService', () => {
         id: 123,
         pieces: [{
           pieceId: 1,
-          rootCid: { toString: () => mockCommP }
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2663,8 +2663,8 @@ describe('StorageService', () => {
       // Should still return basic status even if proof set data fails
       assert.isTrue(status.exists)
       assert.isNotNull(status.retrievalUrl)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
       assert.isUndefined(status.pieceId)
     })
   })

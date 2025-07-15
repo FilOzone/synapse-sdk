@@ -310,7 +310,7 @@ describe('PDPServer', () => {
         assert.isDefined(body.pieces)
         assert.isDefined(body.extraData)
         assert.strictEqual(body.pieces.length, 1)
-        assert.strictEqual(body.pieces[0].rootCid, validPieceData[0].cid)
+        assert.strictEqual(body.pieces[0].pieceCid, validPieceData[0].cid)
         assert.strictEqual(body.pieces[0].subpieces.length, 1)
         assert.strictEqual(body.pieces[0].subpieces[0].subpieceCid, validPieceData[0].cid) // Piece is its own subpiece
 
@@ -391,8 +391,8 @@ describe('PDPServer', () => {
         assert.strictEqual(body.pieces.length, 2)
         assert.strictEqual(body.pieces[0].subpieces.length, 1) // Each piece has itself as its only subpiece
         assert.strictEqual(body.pieces[1].subpieces.length, 1)
-        assert.strictEqual(body.pieces[0].rootCid, body.pieces[0].subpieces[0].subpieceCid)
-        assert.strictEqual(body.pieces[1].rootCid, body.pieces[1].subpieces[0].subpieceCid)
+        assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subpieces[0].subpieceCid)
+        assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subpieces[0].subpieceCid)
 
         return {
           status: 201,
@@ -1148,13 +1148,13 @@ describe('PDPServer', () => {
         pieces: [
           {
             pieceId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceOffset: 0
           },
           {
             pieceId: 102,
-            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            pieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
             subpieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
             subpieceOffset: 0
           }
@@ -1183,7 +1183,7 @@ describe('PDPServer', () => {
         assert.equal(result.nextChallengeEpoch, mockProofSetData.nextChallengeEpoch)
         assert.equal(result.pieces.length, mockProofSetData.pieces.length)
         assert.equal(result.pieces[0].pieceId, mockProofSetData.pieces[0].pieceId)
-        assert.equal(result.pieces[0].rootCid.toString(), mockProofSetData.pieces[0].rootCid)
+        assert.equal(result.pieces[0].pieceCid.toString(), mockProofSetData.pieces[0].pieceCid)
         assert.equal(result.pieces[0].subpieceCid.toString(), mockProofSetData.pieces[0].subpieceCid)
         assert.equal(result.pieces[0].subpieceOffset, mockProofSetData.pieces[0].subpieceOffset)
       } finally {
@@ -1295,7 +1295,7 @@ describe('PDPServer', () => {
         pieces: [
           {
             pieceId: 101,
-            rootCid: 'invalid-cid-format',
+            pieceCid: 'invalid-cid-format',
             subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
             subpieceOffset: 0
           }

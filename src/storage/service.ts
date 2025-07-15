@@ -883,7 +883,7 @@ export class StorageService {
         }
 
         // Notify callback with transaction
-        callbacks?.onRootAdded?.(transaction)
+        callbacks?.onPieceAdded?.(transaction)
 
         // Step 2: Wait for transaction confirmation
         let receipt: ethers.TransactionReceipt | null
@@ -907,8 +907,8 @@ export class StorageService {
         }
 
         // Step 3: Verify with server - REQUIRED for new servers
-        const maxWaitTime = TIMING_CONSTANTS.ROOT_ADDITION_TIMEOUT_MS
-        const pollInterval = TIMING_CONSTANTS.ROOT_ADDITION_POLL_INTERVAL_MS
+        const maxWaitTime = TIMING_CONSTANTS.PIECE_ADDITION_TIMEOUT_MS
+        const pollInterval = TIMING_CONSTANTS.PIECE_ADDITION_POLL_INTERVAL_MS
         const startTime = Date.now()
         let lastError: Error | null = null
         let statusVerified = false
@@ -934,7 +934,7 @@ export class StorageService {
             // Success - get the piece IDs
             if (status.confirmedPieceIds != null && status.confirmedPieceIds.length > 0) {
               finalPieceId = status.confirmedPieceIds[0]
-              callbacks?.onRootConfirmed?.(status.confirmedPieceIds)
+              callbacks?.onPieceConfirmed?.(status.confirmedPieceIds)
               statusVerified = true
               break
             }
@@ -972,7 +972,7 @@ export class StorageService {
         }
       } else {
         // Old server without transaction tracking
-        callbacks?.onRootAdded?.()
+        callbacks?.onPieceAdded?.()
       }
 
       // Return upload result

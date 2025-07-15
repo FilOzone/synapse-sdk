@@ -273,7 +273,7 @@ export class WarmStorageService {
 
       // Verify this data set is managed by our Warm Storage contract
       if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-        throw new Error(`Data set ${dataSetId} is not managed by this Warm Storage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
+        throw new Error(`Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
       }
 
       const clientDataSetId = Number(dataSetInfo.clientDataSetId)

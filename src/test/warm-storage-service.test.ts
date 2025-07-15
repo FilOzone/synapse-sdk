@@ -32,7 +32,7 @@ describe('WarmStorageService', () => {
       // Mock provider will return empty array by default
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
@@ -48,12 +48,12 @@ describe('WarmStorageService', () => {
       assert.lengthOf(dataSets, 0)
     })
 
-    it('should return proof sets for a client', async () => {
-      // Mock provider to return proof sets
+    it('should return data sets for a client', async () => {
+      // Mock provider to return data sets
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
-          // Return two proof sets
+        if (data?.startsWith('0x967c6f21') === true) {
+          // Return two data sets
           const dataSet1 = {
             railId: 123n,
             payer: '0x1234567890123456789012345678901234567890',
@@ -114,7 +114,7 @@ describe('WarmStorageService', () => {
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 2)
 
-      // Check first proof set
+      // Check first data set
       assert.equal(dataSets[0].railId, 123)
       assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
@@ -124,7 +124,7 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[0].clientDataSetId, 0)
       assert.equal(dataSets[0].withCDN, false)
 
-      // Check second proof set
+      // Check second data set
       assert.equal(dataSets[1].railId, 456)
       assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
@@ -139,7 +139,7 @@ describe('WarmStorageService', () => {
       // Mock provider to throw error
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           throw new Error('Contract call failed')
         }
         // Default return for any other calls
@@ -150,20 +150,20 @@ describe('WarmStorageService', () => {
         await warmStorageService.getClientDataSets(clientAddress)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get client proof sets')
+        assert.include(error.message, 'Failed to get client data sets')
         assert.include(error.message, 'Contract call failed')
       }
     })
   })
 
   describe('getClientDataSetsWithDetails', () => {
-    it('should enhance proof sets with PDPVerifier details', async () => {
+    it('should enhance data sets with PDPVerifier details', async () => {
       // Mock provider for multiple contract calls
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
         // getClientDataSets call
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = {
             railId: 48n,
             payer: clientAddress,
@@ -181,22 +181,22 @@ describe('WarmStorageService', () => {
         }
 
         // railToDataSet call
-        if (data?.startsWith('0x76704486') === true) { // railToDataSet(uint256) selector
+        if (data?.startsWith('0x2ad6e6b5') === true) { // railToDataSet(uint256) selector
           return ethers.zeroPadValue('0xf2', 32) // Return proof set ID 242
         }
 
         // dataSetLive call
-        if (data?.startsWith('0xf5cac1ba') === true) { // dataSetLive(uint256) selector
+        if (data?.startsWith('0xca759f27') === true) { // dataSetLive(uint256) selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
 
         // getNextPieceId call
-        if (data?.startsWith('0xd49245c1') === true) { // getNextPieceId(uint256) selector
+        if (data?.startsWith('0x1c5ae80f') === true) { // getNextPieceId(uint256) selector
           return ethers.zeroPadValue('0x02', 32) // Return 2
         }
 
         // getDataSetListener call
-        if (data?.startsWith('0x31601226') === true) { // getDataSetListener(uint256) selector
+        if (data?.startsWith('0x2b3129bb') === true) { // getDataSetListener(uint256) selector
           return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
@@ -221,12 +221,12 @@ describe('WarmStorageService', () => {
       mockProvider.getNetwork = originalGetNetwork
     })
 
-    it('should filter unmanaged proof sets when onlyManaged is true', async () => {
+    it('should filter unmanaged data sets when onlyManaged is true', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
         // getClientDataSets - return 2 proof sets
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           const dataSets = [
             [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false],
             [49n, clientAddress, '0xdef1234567890123456789012345678901234567', 100n, 'Test2', [], 1n, false]
@@ -238,7 +238,7 @@ describe('WarmStorageService', () => {
         }
 
         // railToDataSet - both return valid IDs
-        if (data?.startsWith('0x76704486') === true) {
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           // Extract the rail ID from the encoded data
           const railIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
           if (railIdHex === ethers.zeroPadValue('0x30', 32).slice(2)) { // rail ID 48
@@ -250,12 +250,12 @@ describe('WarmStorageService', () => {
         }
 
         // dataSetLive - both are live
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
         // getDataSetListener - first is managed, second is not
-        if (data?.startsWith('0x31601226') === true) {
+        if (data?.startsWith('0x2b3129bb') === true) {
           // Extract the proof set ID from the encoded data
           const dataSetIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
           if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // proof set 242
@@ -267,7 +267,7 @@ describe('WarmStorageService', () => {
         }
 
         // getNextPieceId
-        if (data?.startsWith('0xd49245c1') === true) {
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
@@ -281,7 +281,7 @@ describe('WarmStorageService', () => {
       const allDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, false)
       assert.lengthOf(allDataSets, 2)
 
-      // Get only managed proof sets
+      // Get only managed data sets
       const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, true)
       assert.lengthOf(managedDataSets, 1)
       assert.equal(managedDataSets[0].railId, 48)
@@ -294,7 +294,7 @@ describe('WarmStorageService', () => {
         const data = transaction.data
 
         // getClientDataSets - return 1 proof set
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
@@ -303,7 +303,7 @@ describe('WarmStorageService', () => {
         }
 
         // railToDataSet - throw error
-        if (data?.startsWith('0x76704486') === true) {
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           throw new Error('Contract call failed')
         }
 
@@ -317,19 +317,19 @@ describe('WarmStorageService', () => {
         await warmStorageService.getClientDataSetsWithDetails(clientAddress)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get details for proof set with rail ID 48')
+        assert.include(error.message, 'Failed to get details for data set with rail ID 48')
         assert.include(error.message, 'Contract call failed')
       }
     })
   })
 
   describe('getManagedDataSets', () => {
-    it('should return only managed proof sets', async () => {
+    it('should return only managed data sets', async () => {
       // Set up mocks similar to above
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test', [], 0n, false]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
@@ -337,19 +337,19 @@ describe('WarmStorageService', () => {
           )
         }
 
-        if (data?.startsWith('0x76704486') === true) {
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           return ethers.zeroPadValue('0xf2', 32)
         }
 
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        if (data?.startsWith('0x31601226') === true) {
+        if (data?.startsWith('0x2b3129bb') === true) {
           return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
-        if (data?.startsWith('0xd49245c1') === true) {
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
@@ -373,22 +373,22 @@ describe('WarmStorageService', () => {
         const data = transaction.data
 
         // dataSetLive
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
 
         // getNextPieceId
-        if (data?.startsWith('0xd49245c1') === true) {
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x05', 32) // 5
         }
 
         // getDataSetListener
-        if (data?.startsWith('0x31601226') === true) {
+        if (data?.startsWith('0x2b3129bb') === true) {
           return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
         // getDataSet
-        if (data?.startsWith('0x96f25cf3') === true) {
+        if (data?.startsWith('0xbdaac056') === true) {
           const info = [
             48n, // railId
             clientAddress,
@@ -417,28 +417,28 @@ describe('WarmStorageService', () => {
       assert.equal(addPiecesInfo.currentPieceCount, 5)
     })
 
-    it('should throw error if proof set is not managed by this WarmStorage', async () => {
+    it('should throw error if data set is not managed by this WarmStorage', async () => {
       const dataSetId = 48
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
         // dataSetLive
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
         // getDataSetListener
-        if (data?.startsWith('0x31601226') === true) {
+        if (data?.startsWith('0x2b3129bb') === true) {
           return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
         }
 
         // getNextPieceId
-        if (data?.startsWith('0xd49245c1') === true) {
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
         // getDataSet - needed for getAddPiecesInfo
-        if (data?.startsWith('0x96f25cf3') === true) {
+        if (data?.startsWith('0xbdaac056') === true) {
           const info = [
             48, // railId
             clientAddress,
@@ -490,7 +490,7 @@ describe('WarmStorageService', () => {
   })
 
   describe('verifyDataSetCreation', () => {
-    it('should verify successful proof set creation', async () => {
+    it('should verify successful data set creation', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock getTransactionReceipt
@@ -516,7 +516,7 @@ describe('WarmStorageService', () => {
       // Mock dataSetLive check
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
         // Default return for any other calls
@@ -1336,7 +1336,7 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
         return '0x' + '0'.repeat(64)
@@ -1401,7 +1401,7 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
         return '0x' + '0'.repeat(64)
@@ -1426,7 +1426,7 @@ describe('WarmStorageService', () => {
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
     })
 
-    it('should wait for proof set to become live', async () => {
+    it('should wait for data set to become live', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
@@ -1483,7 +1483,7 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
         return '0x' + '0'.repeat(64)
@@ -1506,7 +1506,7 @@ describe('WarmStorageService', () => {
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
     })
 
-    it('should timeout if proof set takes too long', async () => {
+    it('should timeout if data set takes too long', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that always returns pending
@@ -1538,7 +1538,7 @@ describe('WarmStorageService', () => {
         )
         assert.fail('Should have thrown timeout error')
       } catch (error: any) {
-        assert.include(error.message, 'Timeout waiting for proof set creation')
+        assert.include(error.message, 'Timeout waiting for data set creation')
       }
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt

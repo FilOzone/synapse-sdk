@@ -208,31 +208,31 @@ export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
   const obj = value as Record<string, unknown>
 
   // Required fields
-  if (typeof obj.rootId !== 'number') {
+  if (typeof obj.pieceId !== 'number') {
     return null
   }
-  if (typeof obj.rootCid !== 'string') {
+  if (typeof obj.pieceCid !== 'string') {
     return null
   }
-  if (typeof obj.subrootCid !== 'string') {
+  if (typeof obj.subpieceCid !== 'string') {
     return null
   }
-  if (typeof obj.subrootOffset !== 'number') {
+  if (typeof obj.subpieceOffset !== 'number') {
     return null
   }
 
   // Convert CIDs to CommP objects
-  const pieceCid = asCommP(obj.rootCid)
-  const subpieceCid = asCommP(obj.subrootCid)
+  const pieceCid = asCommP(obj.pieceCid)
+  const subpieceCid = asCommP(obj.subpieceCid)
   if (pieceCid == null || subpieceCid == null) {
     return null
   }
 
   return {
-    pieceId: obj.rootId,
+    pieceId: obj.pieceId,
     pieceCid,
     subpieceCid,
-    subpieceOffset: obj.subrootOffset
+    subpieceOffset: obj.subpieceOffset
   }
 }
 
@@ -255,14 +255,14 @@ export function asDataSetData (value: unknown): DataSetData | null {
     return null
   }
 
-  // Required field - roots (array of DataSetPieceData)
-  if (!Array.isArray(obj.roots)) {
+  // Required field - pieces (array of DataSetPieceData)
+  if (!Array.isArray(obj.pieces)) {
     return null
   }
 
   const convertedPieces: DataSetPieceData[] = []
-  for (const root of obj.roots) {
-    const convertedPiece = asDataSetPieceData(root)
+  for (const piece of obj.pieces) {
+    const convertedPiece = asDataSetPieceData(piece)
     if (convertedPiece == null) {
       return null
     }

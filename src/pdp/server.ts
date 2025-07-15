@@ -266,13 +266,13 @@ export class PDPServer {
     // Prepare request body matching the Curio handler expectation
     // Each piece has itself as its only subpiece (internal implementation detail)
     const requestBody = {
-      roots: pieceDataArray.map(pieceData => {
+      pieces: pieceDataArray.map(pieceData => {
         // Convert to string for JSON serialization
         const cidString = typeof pieceData.cid === 'string' ? pieceData.cid : pieceData.cid.toString()
         return {
-          rootCid: cidString,
-          subroots: [{
-            subrootCid: cidString // Piece is its own subpiece
+          pieceCid: cidString,
+          subpieces: [{
+            subpieceCid: cidString // Piece is its own subpiece
           }]
         }
       }),

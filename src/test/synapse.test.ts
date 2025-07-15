@@ -136,7 +136,7 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({ signer: mockSigner })
       const storage = await synapse.createStorage()
       assert.exists(storage)
-      assert.exists(storage.proofSetId)
+      assert.exists(storage.dataSetId)
       assert.exists(storage.storageProvider)
       assert.isFunction(storage.upload)
       assert.isFunction(storage.download)

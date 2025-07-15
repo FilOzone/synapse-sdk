@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import { ChainRetriever } from '../retriever/chain.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { PieceRetriever, ApprovedProviderInfo, EnhancedProofSetInfo, CommP } from '../types.js'
+import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, CommP } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Create a mock CommP for testing
@@ -37,7 +37,7 @@ const mockChildRetriever: PieceRetriever = {
 }
 
 // Mock proof set
-const mockProofSet: EnhancedProofSetInfo = {
+const mockDataSet: EnhancedDataSetInfo = {
   railId: 1,
   payer: '0xClient',
   payee: mockProvider1.owner,
@@ -46,7 +46,7 @@ const mockProofSet: EnhancedProofSetInfo = {
   pieceMetadata: [],
   clientDataSetId: 1,
   withCDN: false,
-  pdpVerifierProofSetId: 123,
+  pdpVerifierDataSetId: 123,
   nextPieceId: 1,
   currentPieceCount: 5,
   isLive: true,
@@ -210,8 +210,8 @@ describe('ChainRetriever', () => {
     it('should race multiple providers and return first success', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [
-          mockProofSet,
-          { ...mockProofSet, payee: mockProvider2.owner }
+          mockDataSet,
+          { ...mockDataSet, payee: mockProvider2.owner }
         ],
         getProviderIdByAddress: async (addr: string) => {
           if (addr === mockProvider1.owner) return 1
@@ -276,7 +276,7 @@ describe('ChainRetriever', () => {
 
     it('should fall back to child retriever when all providers fail', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [mockProofSet],
+        getClientDataSetsWithDetails: async () => [mockDataSet],
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
@@ -295,7 +295,7 @@ describe('ChainRetriever', () => {
 
     it('should throw when all providers fail and no child retriever', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [mockProofSet],
+        getClientDataSetsWithDetails: async () => [mockDataSet],
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
