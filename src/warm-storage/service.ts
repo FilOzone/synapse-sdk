@@ -1,62 +1,62 @@
 /**
- * PandoraService - Consolidated interface for all Pandora contract operations
+ * WarmStorageService - Consolidated interface for all Warm Storage contract operations
  *
  * This combines functionality for:
- * - Proof set management and queries
+ * - Data set management and queries
  * - Storage provider registration and management
  * - Client dataset ID tracking
- * - Proof set creation verification
+ * - Data set creation verification
  *
  * @example
  * ```typescript
- * import { PandoraService } from '@filoz/synapse-sdk/pandora'
+ * import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
  * import { ethers } from 'ethers'
  *
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const pandoraService = new PandoraService(provider, pandoraAddress)
+ * const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
  *
- * // Get proof sets for a client
- * const proofSets = await pandoraService.getClientProofSets(clientAddress)
- * console.log(`Client has ${proofSets.length} proof sets`)
+ * // Get data sets for a client
+ * const dataSets = await warmStorageService.getClientDataSets(clientAddress)
+ * console.log(`Client has ${dataSets.length} data sets`)
  *
  * // Register as a storage provider
  * const signer = await provider.getSigner()
- * await pandoraService.registerServiceProvider(signer, pdpUrl, retrievalUrl)
+ * await warmStorageService.registerServiceProvider(signer, pdpUrl, retrievalUrl)
  * ```
  */
 
 import { ethers } from 'ethers'
-import type { ProofSetInfo, EnhancedProofSetInfo, ApprovedProviderInfo } from '../types.js'
+import type { DataSetInfo, EnhancedDataSetInfo, ApprovedProviderInfo } from '../types.js'
 import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 import { PDPVerifier } from '../pdp/verifier.js'
-import type { PDPServer, ProofSetCreationStatusResponse } from '../pdp/server.js'
+import type { PDPServer, DataSetCreationStatusResponse } from '../pdp/server.js'
 import { PaymentsService } from '../payments/service.js'
 import { SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
 
 /**
- * Helper information for adding roots to a proof set
+ * Helper information for adding pieces to a data set
  */
-export interface AddRootsInfo {
-  /** The next root ID to use when adding roots */
-  nextRootId: number
-  /** The client dataset ID for this proof set */
+export interface AddPiecesInfo {
+  /** The next piece ID to use when adding pieces */
+  nextPieceId: number
+  /** The client dataset ID for this data set */
   clientDataSetId: number
-  /** Current number of roots in the proof set */
-  currentRootCount: number
+  /** Current number of pieces in the data set */
+  currentPieceCount: number
 }
 
 /**
- * Result of verifying a proof set creation transaction
+ * Result of verifying a data set creation transaction
  */
-export interface ProofSetCreationVerification {
+export interface DataSetCreationVerification {
   /** Whether the transaction has been mined */
   transactionMined: boolean
   /** Whether the transaction was successful */
   transactionSuccess: boolean
-  /** The proof set ID that was created (if successful) */
-  proofSetId?: number
-  /** Whether the proof set exists and is live on-chain */
-  proofSetLive: boolean
+  /** The data set ID that was created (if successful) */
+  dataSetId?: number
+  /** Whether the data set exists and is live on-chain */
+  dataSetLive: boolean
   /** Block number where the transaction was mined (if mined) */
   blockNumber?: number
   /** Gas used by the transaction (if mined) */
@@ -80,49 +80,49 @@ export interface PendingProviderInfo {
 /**
  * Combined status information from both PDP server and chain
  */
-export interface ComprehensiveProofSetStatus {
+export interface ComprehensiveDataSetStatus {
   /** Transaction hash */
   txHash: string
   /** Server-side status */
-  serverStatus: ProofSetCreationStatusResponse | null
+  serverStatus: DataSetCreationStatusResponse | null
   /** Chain verification status */
-  chainStatus: ProofSetCreationVerification
+  chainStatus: DataSetCreationVerification
   /** Combined status summary */
   summary: {
     /** Whether creation is complete and successful, both on chain and on the server */
     isComplete: boolean
-    /** Whether proof set is live on chain */
+    /** Whether data set is live on chain */
     isLive: boolean
-    /** Final proof set ID if available */
-    proofSetId: number | null
+    /** Final data set ID if available */
+    dataSetId: number | null
     /** Any error messages */
     error: string | null
   }
 }
 
-export class PandoraService {
+export class WarmStorageService {
   private readonly _provider: ethers.Provider
-  private readonly _pandoraAddress: string
-  private _pandoraContract: ethers.Contract | null = null
+  private readonly _warmStorageAddress: string
+  private _warmStorageContract: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
-  constructor (provider: ethers.Provider, pandoraAddress: string) {
+  constructor (provider: ethers.Provider, warmStorageAddress: string) {
     this._provider = provider
-    this._pandoraAddress = pandoraAddress
+    this._warmStorageAddress = warmStorageAddress
   }
 
   /**
-   * Get cached Pandora contract instance or create new one
+   * Get cached Warm Storage contract instance or create new one
    */
-  private _getPandoraContract (): ethers.Contract {
-    if (this._pandoraContract == null) {
-      this._pandoraContract = new ethers.Contract(
-        this._pandoraAddress,
-        CONTRACT_ABIS.PANDORA_SERVICE,
+  private _getWarmStorageContract (): ethers.Contract {
+    if (this._warmStorageContract == null) {
+      this._warmStorageContract = new ethers.Contract(
+        this._warmStorageAddress,
+        CONTRACT_ABIS.WARM_STORAGE,
         this._provider
       )
     }
-    return this._pandoraContract
+    return this._warmStorageContract
   }
 
   /**
@@ -135,76 +135,76 @@ export class PandoraService {
     return this._pdpVerifier
   }
 
-  // ========== Client Proof Set Operations ==========
+  // ========== Client Data Set Operations ==========
 
   /**
-   * Get all proof sets for a given client address
+   * Get all data sets for a given client address
    * @param clientAddress - The client's wallet address
-   * @returns Array of proof set information
+   * @returns Array of data set information
    */
-  async getClientProofSets (clientAddress: string): Promise<ProofSetInfo[]> {
-    const pandoraContract = this._getPandoraContract()
+  async getClientDataSets (clientAddress: string): Promise<DataSetInfo[]> {
+    const warmStorageContract = this._getWarmStorageContract()
 
     try {
-      // Call the getClientProofSets function on the contract
-      const proofSetsData = await pandoraContract.getClientProofSets(clientAddress)
+      // Call the getClientDataSets function on the contract
+      const dataSetsData = await warmStorageContract.getClientDataSets(clientAddress)
 
-      // Map the raw data to our ProofSetInfo interface
-      const proofSets: ProofSetInfo[] = []
+      // Map the raw data to our DataSetInfo interface
+      const dataSets: DataSetInfo[] = []
 
       // The contract returns an array of structs, we need to map them
-      for (let i = 0; i < proofSetsData.length; i++) {
-        const data = proofSetsData[i]
+      for (let i = 0; i < dataSetsData.length; i++) {
+        const data = dataSetsData[i]
 
         // Skip entries with empty/default values (can happen with contract bugs or uninitialized data)
         if (data.payer === '0x0000000000000000000000000000000000000000' || Number(data.railId) === 0) {
           continue
         }
 
-        proofSets.push({
+        dataSets.push({
           railId: Number(data.railId),
           payer: data.payer,
           payee: data.payee,
           commissionBps: Number(data.commissionBps),
           metadata: data.metadata,
-          rootMetadata: data.rootMetadata, // This is already an array of strings
+          pieceMetadata: data.pieceMetadata, // This is already an array of strings
           clientDataSetId: Number(data.clientDataSetId),
           withCDN: data.withCDN
         })
       }
 
-      return proofSets
+      return dataSets
     } catch (error) {
-      throw new Error(`Failed to get client proof sets: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   /**
-   * Get enhanced proof set information including chain details
+   * Get enhanced data set information including chain details
    * @param clientAddress - The client's wallet address
-   * @param onlyManaged - If true, only return proof sets managed by this Pandora contract (default: false)
-   * @returns Array of proof set information with additional chain data and clear ID separation
+   * @param onlyManaged - If true, only return data sets managed by this Warm Storage contract (default: false)
+   * @returns Array of data set information with additional chain data and clear ID separation
    */
-  async getClientProofSetsWithDetails (clientAddress: string, onlyManaged: boolean = false): Promise<EnhancedProofSetInfo[]> {
-    const proofSets = await this.getClientProofSets(clientAddress)
+  async getClientDataSetsWithDetails (clientAddress: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
+    const dataSets = await this.getClientDataSets(clientAddress)
     const pdpVerifier = this._getPDPVerifier()
-    const pandoraContract = this._getPandoraContract()
+    const warmStorageContract = this._getWarmStorageContract()
 
-    // Process all proof sets in parallel
-    const enhancedProofSetsPromises = proofSets.map(async (proofSet) => {
+    // Process all data sets in parallel
+    const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
       try {
-        // Get the actual PDPVerifier proof set ID from the rail ID
-        const pdpVerifierProofSetId = await pandoraContract.railToProofSet(proofSet.railId)
+        // Get the actual PDPVerifier data set ID from the rail ID
+        const pdpVerifierDataSetId = await warmStorageContract.railToDataSet(dataSet.railId)
 
-        // If railToProofSet returns 0, this rail doesn't exist in this Pandora contract
-        if (Number(pdpVerifierProofSetId) === 0) {
+        // If railToDataSet returns 0, this rail doesn't exist in this Warm Storage contract
+        if (Number(pdpVerifierDataSetId) === 0) {
           return onlyManaged
             ? null // Will be filtered out
             : {
-                ...proofSet,
-                pdpVerifierProofSetId: 0,
-                nextRootId: 0,
-                currentRootCount: 0,
+                ...dataSet,
+                pdpVerifierDataSetId: 0,
+                nextPieceId: 0,
+                currentPieceCount: 0,
                 isLive: false,
                 isManaged: false
               }
@@ -212,97 +212,97 @@ export class PandoraService {
 
         // Parallelize independent calls
         const [isLive, listenerResult] = await Promise.all([
-          pdpVerifier.proofSetLive(Number(pdpVerifierProofSetId)),
-          pdpVerifier.getProofSetListener(Number(pdpVerifierProofSetId)).catch(() => null)
+          pdpVerifier.dataSetLive(Number(pdpVerifierDataSetId)),
+          pdpVerifier.getDataSetListener(Number(pdpVerifierDataSetId)).catch(() => null)
         ])
 
-        // Check if this proof set is managed by our Pandora contract
-        const isManaged = listenerResult != null && listenerResult.toLowerCase() === this._pandoraAddress.toLowerCase()
+        // Check if this data set is managed by our Warm Storage contract
+        const isManaged = listenerResult != null && listenerResult.toLowerCase() === this._warmStorageAddress.toLowerCase()
 
-        // Skip unmanaged proof sets if onlyManaged is true
+        // Skip unmanaged data sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
           return null // Will be filtered out
         }
 
-        // Get next root ID only if the proof set is live
-        const nextRootId = isLive ? await pdpVerifier.getNextRootId(Number(pdpVerifierProofSetId)) : 0
+        // Get next piece ID only if the data set is live
+        const nextPieceId = isLive ? await pdpVerifier.getNextPieceId(Number(pdpVerifierDataSetId)) : 0
 
         return {
-          ...proofSet,
-          pdpVerifierProofSetId: Number(pdpVerifierProofSetId),
-          nextRootId: Number(nextRootId),
-          currentRootCount: Number(nextRootId),
+          ...dataSet,
+          pdpVerifierDataSetId: Number(pdpVerifierDataSetId),
+          nextPieceId: Number(nextPieceId),
+          currentPieceCount: Number(nextPieceId),
           isLive,
           isManaged
         }
       } catch (error) {
         // Re-throw the error to let the caller handle it
-        throw new Error(`Failed to get details for proof set with rail ID ${proofSet.railId}: ${error instanceof Error ? error.message : String(error)}`)
+        throw new Error(`Failed to get details for data set with rail ID ${dataSet.railId}: ${error instanceof Error ? error.message : String(error)}`)
       }
     })
 
     // Wait for all promises to resolve
-    const results = await Promise.all(enhancedProofSetsPromises)
+    const results = await Promise.all(enhancedDataSetsPromises)
 
-    // Filter out null values (from skipped proof sets when onlyManaged is true)
-    return results.filter((result): result is EnhancedProofSetInfo => result !== null)
+    // Filter out null values (from skipped data sets when onlyManaged is true)
+    return results.filter((result): result is EnhancedDataSetInfo => result !== null)
   }
 
   /**
-   * Get information needed to add roots to an existing proof set
-   * @param proofSetId - The proof set ID to get information for
-   * @returns Information needed for adding roots (next root ID, client dataset ID)
+   * Get information needed to add pieces to an existing data set
+   * @param dataSetId - The data set ID to get information for
+   * @returns Information needed for adding pieces (next piece ID, client dataset ID)
    */
-  async getAddRootsInfo (proofSetId: number): Promise<AddRootsInfo> {
+  async getAddPiecesInfo (dataSetId: number): Promise<AddPiecesInfo> {
     try {
-      const pandoraContract = this._getPandoraContract()
+      const warmStorageContract = this._getWarmStorageContract()
       const pdpVerifier = this._getPDPVerifier()
 
       // Parallelize all independent calls
-      const [isLive, nextRootId, listener, proofSetInfo] = await Promise.all([
-        pdpVerifier.proofSetLive(Number(proofSetId)),
-        pdpVerifier.getNextRootId(Number(proofSetId)),
-        pdpVerifier.getProofSetListener(Number(proofSetId)),
-        pandoraContract.getProofSet(Number(proofSetId))
+      const [isLive, nextPieceId, listener, dataSetInfo] = await Promise.all([
+        pdpVerifier.dataSetLive(Number(dataSetId)),
+        pdpVerifier.getNextPieceId(Number(dataSetId)),
+        pdpVerifier.getDataSetListener(Number(dataSetId)),
+        warmStorageContract.getDataSet(Number(dataSetId))
       ])
 
-      // Check if proof set exists and is live
+      // Check if data set exists and is live
       if (!isLive) {
-        throw new Error(`Proof set ${proofSetId} does not exist or is not live`)
+        throw new Error(`Data set ${dataSetId} does not exist or is not live`)
       }
 
-      // Verify this proof set is managed by our Pandora contract
-      if (listener.toLowerCase() !== this._pandoraAddress.toLowerCase()) {
-        throw new Error(`Proof set ${proofSetId} is not managed by this Pandora contract (${this._pandoraAddress}), managed by ${String(listener)}`)
+      // Verify this data set is managed by our Warm Storage contract
+      if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
+        throw new Error(`Data set ${dataSetId} is not managed by this Warm Storage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
       }
 
-      const clientDataSetId = Number(proofSetInfo.clientDataSetId)
+      const clientDataSetId = Number(dataSetInfo.clientDataSetId)
 
       return {
-        nextRootId: Number(nextRootId),
+        nextPieceId: Number(nextPieceId),
         clientDataSetId,
-        currentRootCount: Number(nextRootId)
+        currentPieceCount: Number(nextPieceId)
       }
     } catch (error) {
-      throw new Error(`Failed to get add roots info: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
   /**
    * Get the next available client dataset ID for a client
-   * This reads the current counter from the Pandora contract
+   * This reads the current counter from the Warm Storage contract
    * @param clientAddress - The client's wallet address
-   * @returns The next client dataset ID that will be assigned by this Pandora contract
+   * @returns The next client dataset ID that will be assigned by this Warm Storage contract
    */
   async getNextClientDataSetId (clientAddress: string): Promise<number> {
     try {
-      const pandoraContract = this._getPandoraContract()
+      const warmStorageContract = this._getWarmStorageContract()
 
-      // Get the current clientDataSetIDs counter for this client in this Pandora contract
-      // This is the value that will be used for the next proof set creation
-      const currentCounter = await pandoraContract.clientDataSetIDs(clientAddress)
+      // Get the current clientDataSetIDs counter for this client in this Warm Storage contract
+      // This is the value that will be used for the next data set creation
+      const currentCounter = await warmStorageContract.clientDataSetIDs(clientAddress)
 
-      // Return the current counter value (it will be incremented during proof set creation)
+      // Return the current counter value (it will be incremented during data set creation)
       return Number(currentCounter)
     } catch (error) {
       throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
@@ -310,12 +310,12 @@ export class PandoraService {
   }
 
   /**
-   * Verify that a proof set creation transaction was successful
-   * This checks both the transaction status and on-chain proof set state
-   * @param txHashOrTransaction - Transaction hash or transaction object from proof set creation
-   * @returns Verification result with transaction and proof set status
+   * Verify that a data set creation transaction was successful
+   * This checks both the transaction status and on-chain data set state
+   * @param txHashOrTransaction - Transaction hash or transaction object from data set creation
+   * @returns Verification result with transaction and data set status
    */
-  async verifyProofSetCreation (txHashOrTransaction: string | ethers.TransactionResponse): Promise<ProofSetCreationVerification> {
+  async verifyDataSetCreation (txHashOrTransaction: string | ethers.TransactionResponse): Promise<DataSetCreationVerification> {
     try {
       // Get transaction hash
       const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
@@ -334,7 +334,7 @@ export class PandoraService {
         return {
           transactionMined: false,
           transactionSuccess: false,
-          proofSetLive: false
+          dataSetLive: false
         }
       }
 
@@ -345,36 +345,36 @@ export class PandoraService {
         return {
           transactionMined: true,
           transactionSuccess: false,
-          proofSetLive: false,
+          dataSetLive: false,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed,
           error: 'Transaction failed'
         }
       }
 
-      // Extract proof set ID from transaction logs
+      // Extract data set ID from transaction logs
       const pdpVerifier = this._getPDPVerifier()
-      const proofSetId = await pdpVerifier.extractProofSetIdFromReceipt(receipt)
+      const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
 
-      if (proofSetId == null) {
+      if (dataSetId == null) {
         return {
           transactionMined: true,
           transactionSuccess: true,
-          proofSetLive: false,
+          dataSetLive: false,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed,
-          error: 'Could not find ProofSetCreated event in transaction'
+          error: 'Could not find DataSetCreated event in transaction'
         }
       }
 
-      // Verify the proof set exists and is live on-chain
-      const isLive = await pdpVerifier.proofSetLive(proofSetId)
+      // Verify the data set exists and is live on-chain
+      const isLive = await pdpVerifier.dataSetLive(dataSetId)
 
       return {
         transactionMined: true,
         transactionSuccess: true,
-        proofSetId,
-        proofSetLive: isLive,
+        dataSetId,
+        dataSetLive: isLive,
         blockNumber: receipt.blockNumber,
         gasUsed: receipt.gasUsed
       }
@@ -382,7 +382,7 @@ export class PandoraService {
       return {
         transactionMined: false,
         transactionSuccess: false,
-        proofSetLive: false,
+        dataSetLive: false,
         error: `Verification failed: ${error instanceof Error ? error.message : String(error)}`
       }
     }
@@ -394,29 +394,29 @@ export class PandoraService {
    * @param pdpServer - PDPServer instance to check server status
    * @returns Combined status information
    */
-  async getComprehensiveProofSetStatus (
+  async getComprehensiveDataSetStatus (
     txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer: PDPServer
-  ): Promise<ComprehensiveProofSetStatus> {
+  ): Promise<ComprehensiveDataSetStatus> {
     // Get transaction hash
     const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
 
     // Get server status
-    let serverStatus: ProofSetCreationStatusResponse | null = null
+    let serverStatus: DataSetCreationStatusResponse | null = null
     try {
-      serverStatus = await pdpServer.getProofSetCreationStatus(txHash)
+      serverStatus = await pdpServer.getDataSetCreationStatus(txHash)
     } catch (error) {
       // Server might not have the status yet
     }
 
     // Get chain status (pass through the transaction object if we have it)
-    const chainStatus = await this.verifyProofSetCreation(txHashOrTransaction)
+    const chainStatus = await this.verifyDataSetCreation(txHashOrTransaction)
 
     // Combine into summary
     const summary = {
-      isComplete: chainStatus.transactionMined && chainStatus.proofSetLive && serverStatus != null && serverStatus.ok === true,
-      isLive: chainStatus.proofSetLive,
-      proofSetId: chainStatus.proofSetId ?? serverStatus?.proofSetId ?? null,
+      isComplete: chainStatus.transactionMined && chainStatus.dataSetLive && serverStatus != null && serverStatus.ok === true,
+      isLive: chainStatus.dataSetLive,
+      dataSetId: chainStatus.dataSetId ?? serverStatus?.dataSetId ?? null,
       error: chainStatus.error ?? null
     }
 
@@ -429,25 +429,25 @@ export class PandoraService {
   }
 
   /**
-   * Wait for a proof set to be created and become live
-   * @param txHashOrTransaction - Transaction hash or transaction object from createProofSet
+   * Wait for a data set to be created and become live
+   * @param txHashOrTransaction - Transaction hash or transaction object from createDataSet
    * @param pdpServer - PDPServer instance to check server status
    * @param timeoutMs - Maximum time to wait in milliseconds
    * @param pollIntervalMs - How often to check in milliseconds
    * @param onProgress - Optional callback for progress updates
    * @returns Final status when complete or timeout
    */
-  async waitForProofSetCreationWithStatus (
+  async waitForDataSetCreationWithStatus (
     txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer: PDPServer,
-    timeoutMs: number = TIMING_CONSTANTS.PROOF_SET_CREATION_TIMEOUT_MS,
-    pollIntervalMs: number = TIMING_CONSTANTS.PROOF_SET_CREATION_POLL_INTERVAL_MS,
-    onProgress?: (status: ComprehensiveProofSetStatus, elapsedMs: number) => void | Promise<void>
-  ): Promise<ComprehensiveProofSetStatus> {
+    timeoutMs: number = TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
+    pollIntervalMs: number = TIMING_CONSTANTS.DATA_SET_CREATION_POLL_INTERVAL_MS,
+    onProgress?: (status: ComprehensiveDataSetStatus, elapsedMs: number) => void | Promise<void>
+  ): Promise<ComprehensiveDataSetStatus> {
     const startTime = Date.now()
 
     while (Date.now() - startTime < timeoutMs) {
-      const status = await this.getComprehensiveProofSetStatus(txHashOrTransaction, pdpServer)
+      const status = await this.getComprehensiveDataSetStatus(txHashOrTransaction, pdpServer)
 
       // Fire progress callback if provided
       if (onProgress != null) {
@@ -466,7 +466,7 @@ export class PandoraService {
       await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
     }
 
-    throw new Error(`Timeout waiting for proof set creation after ${timeoutMs}ms`)
+    throw new Error(`Timeout waiting for data set creation after ${timeoutMs}ms`)
   }
 
   // ========== Storage Cost Operations ==========
@@ -488,7 +488,7 @@ export class PandoraService {
         perMonth: bigint
       }
     }> {
-    const pandoraContract = this._getPandoraContract()
+    const warmStorageContract = this._getWarmStorageContract()
 
     // Fetch pricing from chain
     let pricePerTiBPerMonthNoCDN: bigint
@@ -497,7 +497,7 @@ export class PandoraService {
 
     try {
       // Try the newer format first (4 values with CDN pricing)
-      const result = await pandoraContract.getServicePrice()
+      const result = await warmStorageContract.getServicePrice()
       pricePerTiBPerMonthNoCDN = BigInt(result.pricePerTiBPerMonthNoCDN)
       pricePerTiBPerMonthWithCDN = BigInt(result.pricePerTiBPerMonthWithCDN)
       epochsPerMonth = BigInt(result.epochsPerMonth)
@@ -552,8 +552,8 @@ export class PandoraService {
       }
       depositAmountNeeded: bigint
     }> {
-    // Get current allowances for this Pandora service
-    const approval = await paymentsService.serviceApproval(this._pandoraAddress, TOKENS.USDFC)
+    // Get current allowances for this Warm Storage service
+    const approval = await paymentsService.serviceApproval(this._warmStorageAddress, TOKENS.USDFC)
 
     // Calculate storage costs
     const costs = await this.calculateStorageCost(sizeInBytes)
@@ -660,7 +660,7 @@ export class PandoraService {
         type: 'approveService',
         description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
         execute: async () => await paymentsService.approveService(
-          this._pandoraAddress,
+          this._warmStorageAddress,
           allowanceCheck.rateAllowanceNeeded,
           allowanceCheck.lockupAllowanceNeeded,
           TOKENS.USDFC
@@ -696,7 +696,7 @@ export class PandoraService {
     pdpUrl: string,
     pieceRetrievalUrl: string
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getPandoraContract().connect(signer) as ethers.Contract
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
     return await contract.registerServiceProvider(pdpUrl, pieceRetrievalUrl)
   }
 
@@ -710,7 +710,7 @@ export class PandoraService {
     signer: ethers.Signer,
     providerAddress: string
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getPandoraContract().connect(signer) as ethers.Contract
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
     return await contract.approveServiceProvider(providerAddress)
   }
 
@@ -724,7 +724,7 @@ export class PandoraService {
     signer: ethers.Signer,
     providerAddress: string
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getPandoraContract().connect(signer) as ethers.Contract
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
     return await contract.rejectServiceProvider(providerAddress)
   }
 
@@ -738,7 +738,7 @@ export class PandoraService {
     signer: ethers.Signer,
     providerId: number
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getPandoraContract().connect(signer) as ethers.Contract
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
     return await contract.removeServiceProvider(providerId)
   }
 
@@ -756,7 +756,7 @@ export class PandoraService {
     pdpUrl: string,
     pieceRetrievalUrl: string
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getPandoraContract().connect(signer) as ethers.Contract
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
     return await contract.addServiceProvider(providerAddress, pdpUrl, pieceRetrievalUrl)
   }
 
@@ -766,7 +766,7 @@ export class PandoraService {
    * @returns Whether the provider is approved
    */
   async isProviderApproved (providerAddress: string): Promise<boolean> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     return await contract.isProviderApproved(providerAddress)
   }
 
@@ -776,7 +776,7 @@ export class PandoraService {
    * @returns Provider ID (0 if not approved)
    */
   async getProviderIdByAddress (providerAddress: string): Promise<number> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const id = await contract.getProviderIdByAddress(providerAddress)
     return Number(id)
   }
@@ -787,7 +787,7 @@ export class PandoraService {
    * @returns Provider information
    */
   async getApprovedProvider (providerId: number): Promise<ApprovedProviderInfo> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const info = await contract.getApprovedProvider(providerId)
     return {
       owner: info.owner,
@@ -804,7 +804,7 @@ export class PandoraService {
    * @returns Pending provider information
    */
   async getPendingProvider (providerAddress: string): Promise<PendingProviderInfo> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const info = await contract.pendingProviders(providerAddress)
     return {
       pdpUrl: info.pdpUrl,
@@ -818,7 +818,7 @@ export class PandoraService {
    * @returns Next provider ID
    */
   async getNextProviderId (): Promise<number> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const id = await contract.nextServiceProviderId()
     return Number(id)
   }
@@ -828,7 +828,7 @@ export class PandoraService {
    * @returns Owner address
    */
   async getOwner (): Promise<string> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     return await contract.owner()
   }
 
@@ -848,7 +848,7 @@ export class PandoraService {
    * @returns Array of all approved providers
    */
   async getAllApprovedProviders (): Promise<ApprovedProviderInfo[]> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const providers = await contract.getAllApprovedProviders()
 
     return providers.map((p: any) => ({
@@ -870,7 +870,7 @@ export class PandoraService {
     tokenAddress: string
     epochsPerMonth: bigint
   }> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const result = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: result.pricePerTiBPerMonthNoCDN,
@@ -888,7 +888,7 @@ export class PandoraService {
    * @returns Maximum proving period in epochs
    */
   async getMaxProvingPeriod (): Promise<number> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const maxProvingPeriod = await contract.getMaxProvingPeriod()
     return Number(maxProvingPeriod)
   }
@@ -899,7 +899,7 @@ export class PandoraService {
    * @returns Challenge window size in epochs
    */
   async getChallengeWindow (): Promise<number> {
-    const contract = this._getPandoraContract()
+    const contract = this._getWarmStorageContract()
     const challengeWindow = await contract.challengeWindow()
     return Number(challengeWindow)
   }

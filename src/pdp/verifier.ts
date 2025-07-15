@@ -12,9 +12,9 @@
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
  * const pdpVerifier = new PDPVerifier(provider)
  *
- * // Check if a proof set is live
- * const isLive = await pdpVerifier.proofSetLive(proofSetId)
- * console.log(`Proof set ${proofSetId} is ${isLive ? 'live' : 'not live'}`)
+ * // Check if a data set is live
+ * const isLive = await pdpVerifier.dataSetLive(dataSetId)
+ * console.log(`Data set ${dataSetId} is ${isLive ? 'live' : 'not live'}`)
  * ```
  */
 
@@ -58,68 +58,68 @@ export class PDPVerifier {
   }
 
   /**
-   * Check if a proof set is live
-   * @param proofSetId - The PDPVerifier proof set ID
-   * @returns Whether the proof set exists and is live
+   * Check if a data set is live
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns Whether the data set exists and is live
    */
-  async proofSetLive (proofSetId: number): Promise<boolean> {
+  async dataSetLive (dataSetId: number): Promise<boolean> {
     const contract = await this._getContract()
-    return await contract.proofSetLive(proofSetId)
+    return await contract.dataSetLive(dataSetId)
   }
 
   /**
-   * Get the next root ID for a proof set
-   * @param proofSetId - The PDPVerifier proof set ID
+   * Get the next root ID for a data set
+   * @param dataSetId - The PDPVerifier data set ID
    * @returns The next root ID (which equals the current root count)
    */
-  async getNextRootId (proofSetId: number): Promise<number> {
+  async getNextPieceId (dataSetId: number): Promise<number> {
     const contract = await this._getContract()
-    const nextRootId = await contract.getNextRootId(proofSetId)
+    const nextRootId = await contract.getNextPieceId(dataSetId)
     return Number(nextRootId)
   }
 
   /**
-   * Get the proof set listener (record keeper)
-   * @param proofSetId - The PDPVerifier proof set ID
+   * Get the data set listener (record keeper)
+   * @param dataSetId - The PDPVerifier data set ID
    * @returns The address of the listener contract
    */
-  async getProofSetListener (proofSetId: number): Promise<string> {
+  async getDataSetListener (dataSetId: number): Promise<string> {
     const contract = await this._getContract()
-    return await contract.getProofSetListener(proofSetId)
+    return await contract.getDataSetListener(dataSetId)
   }
 
   /**
-   * Get the proof set owner addresses
-   * @param proofSetId - The PDPVerifier proof set ID
+   * Get the data set owner addresses
+   * @param dataSetId - The PDPVerifier data set ID
    * @returns Object with current owner and proposed owner
    */
-  async getProofSetOwner (proofSetId: number): Promise<{ owner: string, proposedOwner: string }> {
+  async getDataSetOwner (dataSetId: number): Promise<{ owner: string, proposedOwner: string }> {
     const contract = await this._getContract()
-    const [owner, proposedOwner] = await contract.getProofSetOwner(proofSetId)
+    const [owner, proposedOwner] = await contract.getDataSetOwner(dataSetId)
     return { owner, proposedOwner }
   }
 
   /**
-   * Get the leaf count for a proof set
-   * @param proofSetId - The PDPVerifier proof set ID
-   * @returns The number of leaves in the proof set
+   * Get the leaf count for a data set
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The number of leaves in the data set
    */
-  async getProofSetLeafCount (proofSetId: number): Promise<number> {
+  async getDataSetLeafCount (dataSetId: number): Promise<number> {
     const contract = await this._getContract()
-    const leafCount = await contract.getProofSetLeafCount(proofSetId)
+    const leafCount = await contract.getDataSetLeafCount(dataSetId)
     return Number(leafCount)
   }
 
   /**
-   * Extract proof set ID from a transaction receipt by looking for ProofSetCreated events
+   * Extract data set ID from a transaction receipt by looking for DataSetCreated events
    * @param receipt - Transaction receipt
-   * @returns Proof set ID if found, null otherwise
+   * @returns Data set ID if found, null otherwise
    */
-  async extractProofSetIdFromReceipt (receipt: ethers.TransactionReceipt): Promise<number | null> {
+  async extractDataSetIdFromReceipt (receipt: ethers.TransactionReceipt): Promise<number | null> {
     try {
       const contract = await this._getContract()
 
-      // Parse logs looking for ProofSetCreated event
+      // Parse logs looking for DataSetCreated event
       for (const log of receipt.logs) {
         try {
           const parsedLog = contract.interface.parseLog({
@@ -127,7 +127,7 @@ export class PDPVerifier {
             data: log.data
           })
 
-          if (parsedLog != null && parsedLog.name === 'ProofSetCreated') {
+          if (parsedLog != null && parsedLog.name === 'DataSetCreated') {
             return Number(parsedLog.args.setId)
           }
         } catch (e) {
@@ -138,7 +138,7 @@ export class PDPVerifier {
 
       return null
     } catch (error) {
-      throw new Error(`Failed to extract proof set ID from receipt: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to extract data set ID from receipt: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
