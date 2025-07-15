@@ -6,9 +6,9 @@ export const QUERIES = {
   // queries for subgraphRetriever
   GET_APPROVED_PROVIDERS_FOR_COMMP: `
     query GetApprovedProvidersForCommP($cid: Bytes!) {
-      roots(where: { cid: $cid }) {
+      pieces(where: { cid: $cid }) {
         id
-        proofSet {
+        dataSet {
           setId
           owner {
             id
@@ -53,18 +53,18 @@ export const QUERIES = {
         approvedAt
         status
         totalFaultedPeriods
-        totalFaultedRoots
-        totalProofSets
-        totalRoots
+        totalFaultedPieces
+        totalDataSets
+        totalPieces
         totalDataSize
         createdAt
         updatedAt
       }
     }
   `,
-  GET_PROOF_SETS_FLEXIBLE: `
-    query ProofSetsFlexible($where: ProofSet_filter, $first: Int, $skip: Int, $orderBy: ProofSet_orderBy, $orderDirection: OrderDirection) {
-      proofSets(
+  GET_DATA_SETS_FLEXIBLE: `
+    query DataSetsFlexible($where: DataSet_filter, $first: Int, $skip: Int, $orderBy: DataSet_orderBy, $orderDirection: OrderDirection) {
+      dataSets(
         where: $where
         first: $first
         skip: $skip
@@ -81,12 +81,12 @@ export const QUERIES = {
         challengeRange
         lastProvenEpoch
         nextChallengeEpoch
-        totalRoots
+        totalPieces
         totalDataSize
         totalProofs
-        totalProvedRoots
+        totalProvedPieces
         totalFaultedPeriods
-        totalFaultedRoots
+        totalFaultedPieces
         metadata
         createdAt
         updatedAt
@@ -110,9 +110,9 @@ export const QUERIES = {
       }
     }
   `,
-  GET_ROOTS_FLEXIBLE: `
-    query RootsFlexible($where: Root_filter, $first: Int, $skip: Int, $orderBy: Root_orderBy, $orderDirection: OrderDirection) {
-      roots(
+  GET_PIECES_FLEXIBLE: `
+    query PiecesFlexible($where: Piece_filter, $first: Int, $skip: Int, $orderBy: Piece_orderBy, $orderDirection: OrderDirection) {
+      pieces(
         where: $where
         first: $first
         skip: $skip
@@ -121,7 +121,7 @@ export const QUERIES = {
       ) {
         id
         setId
-        rootId
+        pieceId
         rawSize
         leafCount
         cid
@@ -134,7 +134,7 @@ export const QUERIES = {
         lastFaultedAt
         createdAt
         metadata
-        proofSet {
+        dataSet {
           id
           setId
           isActive
@@ -160,14 +160,14 @@ export const QUERIES = {
         orderDirection: $orderDirection
       ) {
         id
-        proofSetId
-        rootIds
+        dataSetId
+        pieceIds
         currentChallengeEpoch
         nextChallengeEpoch
         periodsFaulted
         deadline
         createdAt
-        proofSet {
+        dataSet {
           id
           setId
           owner {

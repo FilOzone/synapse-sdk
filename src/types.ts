@@ -13,7 +13,7 @@ export type { CommP }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
-export type ProofSetId = string
+export type DataSetId = string
 export type StorageProvider = string
 
 /**
@@ -48,8 +48,8 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** Override Pandora service contract address (defaults to network's default) */
-  pandoraAddress?: string
+  /** Override Warm Storage service contract address (defaults to network's default) */
+  warmStorageAddress?: string
   /** Override PDPVerifier contract address (defaults to network's default) */
   pdpVerifierAddress?: string
   /** Optional override for piece retrieval */
@@ -64,8 +64,8 @@ export interface SynapseOptions {
  * Storage service options
  */
 export interface StorageOptions {
-  /** Existing proof set ID to use (optional) */
-  proofSetId?: ProofSetId
+  /** Existing data set ID to use (optional) */
+  dataSetId?: DataSetId
   /** Preferred storage provider (optional) */
   storageProvider?: StorageProvider
 }
@@ -177,9 +177,9 @@ export interface AuthSignature {
 }
 
 /**
- * Root data for adding to proof sets
+ * Piece data for adding to data sets
  */
-export interface RootData {
+export interface PieceData {
   /** The CommP CID */
   cid: CommP | string
   /** The raw (unpadded) size of the original data in bytes */
@@ -187,10 +187,10 @@ export interface RootData {
 }
 
 /**
- * Proof set information returned from Pandora contract
+ * Data set information returned from Warm Storage contract
  */
-export interface ProofSetInfo {
-  /** Pandora payment rail ID (different from PDPVerifier proof set ID) */
+export interface DataSetInfo {
+  /** Warm Storage payment rail ID (different from PDPVerifier data set ID) */
   railId: number
   /** Address paying for storage */
   payer: string
@@ -198,29 +198,29 @@ export interface ProofSetInfo {
   payee: string
   /** Commission rate in basis points */
   commissionBps: number
-  /** General metadata for the proof set */
+  /** General metadata for the data set */
   metadata: string
-  /** Array of metadata for each root */
-  rootMetadata: string[]
-  /** Client's sequential dataset ID within this Pandora contract */
+  /** Array of metadata for each piece */
+  pieceMetadata: string[]
+  /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: number
-  /** Whether the proof set is using CDN */
+  /** Whether the data set is using CDN */
   withCDN: boolean
 }
 
 /**
- * Enhanced proof set information with chain details and clear ID separation
+ * Enhanced data set information with chain details and clear ID separation
  */
-export interface EnhancedProofSetInfo extends ProofSetInfo {
-  /** PDPVerifier global proof set ID */
-  pdpVerifierProofSetId: number
-  /** Next root ID to use when adding roots */
-  nextRootId: number
-  /** Current number of roots in the proof set */
-  currentRootCount: number
-  /** Whether the proof set is live on-chain */
+export interface EnhancedDataSetInfo extends DataSetInfo {
+  /** PDPVerifier global data set ID */
+  pdpVerifierDataSetId: number
+  /** Next piece ID to use when adding pieces */
+  nextPieceId: number
+  /** Current number of pieces in the data set */
+  currentPieceCount: number
+  /** Whether the data set is live on-chain */
   isLive: boolean
-  /** Whether this proof set is managed by the current Pandora contract */
+  /** Whether this data set is managed by the current Warm Storage contract */
   isManaged: boolean
 }
 
@@ -251,34 +251,34 @@ export interface StorageCreationCallbacks {
   onProviderSelected?: (provider: ApprovedProviderInfo) => void
 
   /**
-   * Called when proof set resolution is complete
-   * @param info - Information about the resolved proof set
+   * Called when data set resolution is complete
+   * @param info - Information about the resolved data set
    */
-  onProofSetResolved?: (info: {
+  onDataSetResolved?: (info: {
     isExisting: boolean
-    proofSetId: number
+    dataSetId: number
     provider: ApprovedProviderInfo
   }) => void
 
   /**
-   * Called when proof set creation transaction is submitted
-   * Only fired when creating a new proof set
+   * Called when data set creation transaction is submitted
+   * Only fired when creating a new data set
    * @param transaction - Transaction response object
    * @param statusUrl - URL to check status (optional)
    */
-  onProofSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
+  onDataSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
 
   /**
-   * Called periodically during proof set creation
-   * Only fired when creating a new proof set
+   * Called periodically during data set creation
+   * Only fired when creating a new data set
    * @param status - Current creation status
    */
-  onProofSetCreationProgress?: (status: {
+  onDataSetCreationProgress?: (status: {
     transactionMined: boolean
     transactionSuccess: boolean
-    proofSetLive: boolean
+    dataSetLive: boolean
     serverConfirmed: boolean
-    proofSetId?: number
+    dataSetId?: number
     elapsedMs: number
     receipt?: ethers.TransactionReceipt
   }) => void
@@ -292,8 +292,8 @@ export interface StorageServiceOptions {
   providerId?: number
   /** Specific provider address to use (optional) */
   providerAddress?: string
-  /** Specific proof set ID to use (optional) */
-  proofSetId?: number
+  /** Specific data set ID to use (optional) */
+  dataSetId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
   /** Force creation of a new proof set, even if a candidate exists */
@@ -321,8 +321,8 @@ export interface PreflightInfo {
   }
   /** Selected storage provider */
   selectedProvider: ApprovedProviderInfo
-  /** Selected proof set ID */
-  selectedProofSetId: number
+  /** Selected data set ID */
+  selectedDataSetId: number
 }
 
 /**
@@ -331,10 +331,10 @@ export interface PreflightInfo {
 export interface UploadCallbacks {
   /** Called when upload to storage provider completes */
   onUploadComplete?: (commp: CommP) => void
-  /** Called when root is added to proof set (with optional transaction for new servers) */
-  onRootAdded?: (transaction?: ethers.TransactionResponse) => void
-  /** Called when root addition is confirmed on-chain (new servers only) */
-  onRootConfirmed?: (rootIds: number[]) => void
+  /** Called when piece is added to data set (with optional transaction for new servers) */
+  onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
+  /** Called when piece addition is confirmed on-chain (new servers only) */
+  onPieceConfirmed?: (pieceIds: number[]) => void
 }
 
 /**
@@ -345,8 +345,8 @@ export interface UploadResult {
   commp: CommP
   /** Size of the original data */
   size: number
-  /** Root ID in the proof set */
-  rootId?: number
+  /** Piece ID in the data set */
+  pieceId?: number
 }
 
 /**
@@ -396,8 +396,8 @@ export interface StorageInfo {
     minUploadSize: number
     /** Maximum allowed upload size in bytes */
     maxUploadSize: number
-    /** Pandora service contract address */
-    pandoraAddress: string
+    /** Warm Storage service contract address */
+    warmStorageAddress: string
     /** Payments contract address */
     paymentsAddress: string
     /** PDP Verifier contract address */
@@ -420,50 +420,50 @@ export interface StorageInfo {
 }
 
 /**
- * Proof set data returned from the API
+ * Data set data returned from the API
  */
-export interface ProofSetData {
-  /** The proof set ID */
+export interface DataSetData {
+  /** The data set ID */
   id: number
-  /** Array of root data in the proof set */
-  roots: ProofSetRootData[]
+  /** Array of piece data in the data set */
+  pieces: DataSetPieceData[]
   /** Next challenge epoch */
   nextChallengeEpoch: number
 }
 
 /**
- * Individual proof set root data from API
+ * Individual data set piece data from API
  */
-export interface ProofSetRootData {
-  /** Root ID within the proof set */
-  rootId: number
-  /** The root CID */
-  rootCid: CommP
-  /** Sub-root CID (usually same as rootCid) */
-  subrootCid: CommP
-  /** Sub-root offset */
-  subrootOffset: number
+export interface DataSetPieceData {
+  /** Piece ID within the data set */
+  pieceId: number
+  /** The piece CID */
+  pieceCid: CommP
+  /** Sub-piece CID (usually same as pieceCid) */
+  subpieceCid: CommP
+  /** Sub-piece offset */
+  subpieceOffset: number
 }
 
 /**
  * Status information for a piece stored on a provider
- * Note: Proofs are submitted for entire proof sets, not individual pieces.
- * The timing information reflects the proof set's status.
+ * Note: Proofs are submitted for entire data sets, not individual pieces.
+ * The timing information reflects the data set's status.
  */
 export interface PieceStatus {
   /** Whether the piece exists on the storage provider */
   exists: boolean
-  /** When the proof set containing this piece was last proven on-chain (null if never proven or not yet due) */
-  proofSetLastProven: Date | null
-  /** When the next proof is due for the proof set containing this piece (end of challenge window) */
-  proofSetNextProofDue: Date | null
+  /** When the data set containing this piece was last proven on-chain (null if never proven or not yet due) */
+  dataSetLastProven: Date | null
+  /** When the next proof is due for the data set containing this piece (end of challenge window) */
+  dataSetNextProofDue: Date | null
   /** URL where the piece can be retrieved (null if not available) */
   retrievalUrl: string | null
-  /** The root ID if the piece is in the proof set */
-  rootId?: number
-  /** Whether the proof set is currently in a challenge window */
+  /** The piece ID if the piece is in the data set */
+  pieceId?: number
+  /** Whether the data set is currently in a challenge window */
   inChallengeWindow?: boolean
-  /** Time until the proof set enters the challenge window (in hours) */
+  /** Time until the data set enters the challenge window (in hours) */
   hoursUntilChallengeWindow?: number
   /** Whether the proof is overdue (past the challenge window without being submitted) */
   isProofOverdue?: boolean

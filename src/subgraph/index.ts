@@ -4,8 +4,8 @@ export type {
   QueryOptions,
   NestedQueryOptions,
   ProviderStats,
-  SubgraphProofSetInfo,
-  DetailedSubgraphProofSetInfo,
-  RootInfo,
+  SubgraphDataSetInfo,
+  DetailedSubgraphDataSetInfo,
+  PieceInfo,
   FaultRecord
 } from './service.js'

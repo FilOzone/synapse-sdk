@@ -270,7 +270,7 @@ export class PaymentsService {
 
   /**
    * Approve a service contract to act as an operator for payment rails
-   * This allows the service contract (such as Pandora) to create and manage payment rails on behalf
+   * This allows the service contract (such as Warm Storage) to create and manage payment rails on behalf
    * of the client
    * @param service - The service contract address to approve
    * @param rateAllowance - Maximum payment rate per epoch the operator can set

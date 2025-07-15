@@ -48,9 +48,9 @@ export const CONTRACT_ABIS = {
   ] as const,
 
   /**
-   * Pandora ABI - includes both PDP functions and service provider management
+   * Warm Storage ABI - includes both PDP functions and service provider management
    */
-  PANDORA_SERVICE: [
+  WARM_STORAGE: [
     // Write functions
     'function registerServiceProvider(string pdpUrl, string pieceRetrievalUrl) external',
     'function approveServiceProvider(address provider) external',
@@ -73,17 +73,17 @@ export const CONTRACT_ABIS = {
     'function providerToId(address) external view returns (uint256)',
     'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
 
-    // Proof set functions
-    'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])',
+    // Data set functions
+    'function getClientDataSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN)[])',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
 
-    // Mapping from rail ID to PDPVerifier proof set ID
-    'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
+    // Mapping from rail ID to PDPVerifier data set ID
+    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
 
-    // Get proof set info by ID
-    'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)',
+    // Get data set info by ID
+    'function getDataSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN) info)',
 
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
@@ -96,12 +96,12 @@ export const CONTRACT_ABIS = {
    * PDPVerifier contract ABI - core PDP verification functions
    */
   PDP_VERIFIER: [
-    'function getNextRootId(uint256 setId) public view returns (uint256)',
-    'function proofSetLive(uint256 setId) public view returns (bool)',
-    'function getProofSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getProofSetOwner(uint256 setId) public view returns (address, address)',
-    'function getProofSetListener(uint256 setId) public view returns (address)',
-    'event ProofSetCreated(uint256 indexed setId, address indexed owner)'
+    'function getNextPieceId(uint256 setId) public view returns (uint256)',
+    'function dataSetLive(uint256 setId) public view returns (bool)',
+    'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
+    'function getDataSetOwner(uint256 setId) public view returns (address, address)',
+    'function getDataSetListener(uint256 setId) public view returns (address)',
+    'event DataSetCreated(uint256 indexed setId, address indexed owner)'
   ] as const
 } as const
 
@@ -209,15 +209,15 @@ export const TIMING_CONSTANTS = {
   TRANSACTION_PROPAGATION_POLL_INTERVAL_MS: 2000, // 2 seconds
 
   /**
-   * Maximum time to wait for a proof set creation to complete
-   * This includes transaction mining and the proof set becoming live on-chain
+   * Maximum time to wait for a data set creation to complete
+   * This includes transaction mining and the data set becoming live on-chain
    */
-  PROOF_SET_CREATION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+  DATA_SET_CREATION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
 
   /**
-   * How often to poll for proof set creation status
+   * How often to poll for data set creation status
    */
-  PROOF_SET_CREATION_POLL_INTERVAL_MS: 2000, // 2 seconds
+  DATA_SET_CREATION_POLL_INTERVAL_MS: 2000, // 2 seconds
 
   /**
    * Maximum time to wait for a piece to be parked (uploaded) to storage
@@ -239,15 +239,15 @@ export const TIMING_CONSTANTS = {
   TRANSACTION_CONFIRMATIONS: 1,
 
   /**
-   * Maximum time to wait for a root addition to be confirmed and acknowledged
+   * Maximum time to wait for a piece addition to be confirmed and acknowledged
    * This includes transaction confirmation and server verification
    */
-  ROOT_ADDITION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+  PIECE_ADDITION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
 
   /**
-   * How often to poll for root addition status
+   * How often to poll for piece addition status
    */
-  ROOT_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
+  PIECE_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
 } as const
 
 /**
@@ -285,9 +285,9 @@ export const CONTRACT_ADDRESSES = {
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
-   * Pandora service contract addresses
+   * Warm Storage service contract addresses
    */
-  PANDORA_SERVICE: {
+  WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
   } as const satisfies Record<FilecoinNetworkType, string>,
