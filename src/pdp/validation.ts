@@ -31,7 +31,11 @@ export function isProofSetCreationStatusResponse (value: unknown): value is Proo
   if (typeof obj.createMessageHash !== 'string') {
     return false
   }
-  if (typeof obj.proofSetCreated !== 'boolean') {
+  // Accept both proofSetCreated and proofsetCreated for compatibility
+  // NOTE: Curio currently returns "proofsetCreated" (lowercase 's') but we support both formats
+  const hasProofSetCreated = typeof obj.proofSetCreated === 'boolean'
+  const hasProofsetCreated = typeof obj.proofsetCreated === 'boolean'
+  if (!hasProofSetCreated && !hasProofsetCreated) {
     return false
   }
   if (typeof obj.service !== 'string') {
@@ -140,7 +144,26 @@ export function validateProofSetCreationStatusResponse (value: unknown): ProofSe
   if (!isProofSetCreationStatusResponse(value)) {
     throw new Error('Invalid proof set creation status response format')
   }
-  return value
+
+  const obj = value as any
+
+  // Normalize the response - ensure consistent proofSetCreated field name
+  // NOTE: This provides forward compatibility - Curio currently returns "proofsetCreated" (lowercase 's')
+  // but this normalization ensures the SDK interface uses "proofSetCreated" (uppercase 'S')
+  const normalized: ProofSetCreationStatusResponse = {
+    createMessageHash: obj.createMessageHash,
+    proofSetCreated: obj.proofSetCreated ?? obj.proofsetCreated,
+    service: obj.service,
+    txStatus: obj.txStatus,
+    ok: obj.ok
+  }
+
+  // Only include proofSetId if it's actually present
+  if (obj.proofSetId !== undefined) {
+    normalized.proofSetId = obj.proofSetId
+  }
+
+  return normalized
 }
 
 /**

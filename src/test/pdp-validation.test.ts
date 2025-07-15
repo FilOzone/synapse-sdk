@@ -46,6 +46,49 @@ describe('PDP Validation', function () {
       )
     })
 
+    it('should validate response with lowercase proofsetCreated field (Curio compatibility)', function () {
+      // NOTE: This test ensures forward compatibility with Curio
+      // Curio currently returns "proofsetCreated" (lowercase 's') but this SDK normalizes to "proofSetCreated" (uppercase 'S')
+      const curioResponse = {
+        createMessageHash: '0x6a599b48ec4624250b4629c7bfeb4c1a0f51cdc9bd05a5993caf1e873e924f09',
+        proofsetCreated: true, // NOTE: lowercase 's' - this is what Curio currently returns
+        service: 'public',
+        txStatus: 'confirmed',
+        ok: true,
+        proofSetId: 481
+      }
+
+      assert.isTrue(isProofSetCreationStatusResponse(curioResponse))
+      const normalized = validateProofSetCreationStatusResponse(curioResponse)
+
+      // Verify normalization - should have uppercase 'S' in final response
+      assert.equal(normalized.proofSetCreated, true)
+      assert.equal(normalized.createMessageHash, curioResponse.createMessageHash)
+      assert.equal(normalized.service, curioResponse.service)
+      assert.equal(normalized.txStatus, curioResponse.txStatus)
+      assert.equal(normalized.ok, curioResponse.ok)
+      assert.equal(normalized.proofSetId, curioResponse.proofSetId)
+    })
+
+    it('should validate response with both proofSetCreated and proofsetCreated fields', function () {
+      // Edge case: if both fields are present, prefer proofSetCreated
+      const mixedResponse = {
+        createMessageHash: '0x123abc',
+        proofSetCreated: true,
+        proofsetCreated: false, // This should be ignored
+        service: 'pandora',
+        txStatus: 'confirmed',
+        ok: true,
+        proofSetId: 123
+      }
+
+      assert.isTrue(isProofSetCreationStatusResponse(mixedResponse))
+      const normalized = validateProofSetCreationStatusResponse(mixedResponse)
+
+      // Should prefer proofSetCreated over proofsetCreated
+      assert.equal(normalized.proofSetCreated, true)
+    })
+
     it('should reject invalid responses', function () {
       const invalidResponses = [
         null,
@@ -56,6 +99,8 @@ describe('PDP Validation', function () {
         {}, // Empty object
         { createMessageHash: 123 }, // Wrong type
         { createMessageHash: '0x123', proofSetCreated: 'yes' }, // Wrong type
+        { createMessageHash: '0x123', proofsetCreated: 'yes' }, // Wrong type (lowercase field)
+        { createMessageHash: '0x123', service: 'pandora', txStatus: 'pending', ok: null }, // Missing both proofSetCreated and proofsetCreated
         {
           createMessageHash: '0x123',
           proofSetCreated: true,
