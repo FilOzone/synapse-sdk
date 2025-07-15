@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Post-Deployment Setup Script for Synapse/Pandora
+ * Post-Deployment Setup Script for Synapse/Warm Storage
  *
- * This script sets up a newly deployed Pandora contract by:
- * 1. Registering a storage provider with the contract
- * 2. Approving the storage provider registration (using deployer account)
- * 3. Setting up client payment approvals for the Pandora contract
+ * This script sets up a newly deployed Warm Storage contract by:
+ * 1. Registering a service provider with the contract
+ * 2. Approving the service provider registration (using deployer account)
+ * 3. Setting up client payment approvals for the Warm Storage contract
  *
  * === DEPLOYMENT CONTEXT ===
  *
- * This script is designed to work with Pandora contracts deployed using the tools from:
+ * This script is designed to work with Warm Storage contracts deployed using the tools from:
  * https://github.com/FilOzone/filecoin-services/tree/main/service_contracts/tools
  *
  * Example deployment command for Calibration testnet:
@@ -18,7 +18,7 @@
  * cd FilOzone-filecoin-services/service_contracts
  * PDP_VERIFIER_ADDRESS=0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC \
  * PAYMENTS_CONTRACT_ADDRESS=0x0E690D3e60B0576D01352AB03b258115eb84A047 \
- * ./tools/deploy-pandora-calibnet.sh
+ * ./tools/deploy-warm-storage-calibnet.sh
  * ```
  *
  * Common contract addresses for Calibration testnet:
@@ -26,54 +26,52 @@
  * - PAYMENTS_CONTRACT_ADDRESS: 0x0E690D3e60B0576D01352AB03b258115eb84A047
  * - USDFC_TOKEN_ADDRESS: 0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0
  *
- * The deployment script will output the newly deployed Pandora contract address,
- * which should be used as the PANDORA_CONTRACT_ADDRESS for this setup script.
+ * The deployment script will output the newly deployed Warm Storage contract address,
+ * which should be used as the WARM_STORAGE_CONTRACT_ADDRESS for this setup script.
  *
  * === USAGE ===
  *
- * After deploying a new Pandora contract, run this script to complete the setup:
+ * After deploying a new Warm Storage contract, run this script to complete the setup:
  *
  * ```bash
  * cd synapse-sdk
  * DEPLOYER_PRIVATE_KEY=0x... \
  * SP_PRIVATE_KEY=0x... \
  * CLIENT_PRIVATE_KEY=0x... \
- * PANDORA_CONTRACT_ADDRESS=0x... \
+ * WARM_STORAGE_CONTRACT_ADDRESS=0x... \
  * NETWORK=calibration \
- * SP_PDP_URL=http://your-curio-node:4702 \
- * SP_RETRIEVAL_URL=http://your-curio-node:4702 \
+ * SP_SERVICE_URL=http://your-curio-node:4702 \
  * node utils/post-deploy-setup.js
  * ```
  *
  * === REQUIRED ENVIRONMENT VARIABLES ===
  *
- * - DEPLOYER_PRIVATE_KEY: Private key of the Pandora contract deployer/owner
- * - SP_PRIVATE_KEY: Private key of the storage provider
+ * - DEPLOYER_PRIVATE_KEY: Private key of the Warm Storage contract deployer/owner
+ * - SP_PRIVATE_KEY: Private key of the service provider
  * - CLIENT_PRIVATE_KEY: Private key of the client
- * - PANDORA_CONTRACT_ADDRESS: Address of the deployed Pandora contract
+ * - WARM_STORAGE_CONTRACT_ADDRESS: Address of the deployed Warm Storage contract
  *
  * === OPTIONAL ENVIRONMENT VARIABLES ===
  *
  * - NETWORK: Either 'mainnet' or 'calibration' (defaults to 'calibration')
  * - RPC_URL: Custom RPC URL (uses default Glif endpoints if not provided)
- * - SP_PDP_URL: PDP API endpoint URL (defaults to example URL)
- * - SP_RETRIEVAL_URL: Piece retrieval endpoint URL (defaults to example URL)
+ * - SP_SERVICE_URL: Service provider endpoint URL (defaults to example URL)
  *
  * === WHAT THIS SCRIPT DOES ===
  *
- * 1. **Storage Provider Registration:**
+ * 1. **Service Provider Registration:**
  *    - Checks if SP is already approved
- *    - If approved, checks if URLs match the provided SP_PDP_URL and SP_RETRIEVAL_URL
- *    - If URLs have changed:
+ *    - If approved, checks if URL matches the provided SP_SERVICE_URL
+ *    - If URL has changed:
  *      - Removes the existing provider registration (calls removeServiceProvider)
- *      - Re-registers with new URLs (calls registerServiceProvider)
+ *      - Re-registers with new URL (calls registerServiceProvider)
  *      - Approves the new registration (calls approveServiceProvider)
  *    - If not approved, registers and approves as normal
  *    - Validates deployer is contract owner
  *
  * 2. **Client Payment Setup:**
  *    - Sets USDFC allowance for payments contract (100 epochs worth)
- *    - Sets operator approval for Pandora contract (0.1 USDFC/epoch, 10 USDFC lockup)
+ *    - Sets operator approval for Warm Storage contract (0.1 USDFC/epoch, 10 USDFC lockup)
  *    - Only updates approvals if they don't match desired values
  *
  * 3. **ERC20 Allowance Management:**
@@ -90,17 +88,20 @@
  * === IMPORTANT NOTES ===
  *
  * - Ensure all accounts have sufficient FIL for gas costs (expect 0.5-1 FIL per operation)
+ * - Service provider registration requires a 1 FIL fee (paid to the contract)
  * - Client account should have USDFC tokens for testing payments
  */
 
 import { ethers } from 'ethers'
 import { Synapse } from '../dist/index.js'
-import { PandoraService } from '../dist/pandora/index.js'
+import { WarmStorageService } from '../dist/warm-storage/index.js'
 import { CONTRACT_ADDRESSES, CONTRACT_ABIS, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 
 // Constants for payment approvals
 const RATE_ALLOWANCE_PER_EPOCH = ethers.parseUnits('0.1', 18) // 0.1 USDFC per epoch
 const LOCKUP_ALLOWANCE = ethers.parseUnits('10', 18) // 10 USDFC lockup allowance
+const MAX_LOCKUP_PERIOD = 86400n // 30 days in epochs (30 * 2880 epochs/day)
+const INITIAL_DEPOSIT_AMOUNT = ethers.parseUnits('1', 18) // 1 USDFC initial deposit
 
 // Validation helper
 function requireEnv (name) {
@@ -135,12 +136,11 @@ async function main () {
     const deployerPrivateKey = requireEnv('DEPLOYER_PRIVATE_KEY')
     const spPrivateKey = requireEnv('SP_PRIVATE_KEY')
     const clientPrivateKey = requireEnv('CLIENT_PRIVATE_KEY')
-    const pandoraAddress = requireEnv('PANDORA_CONTRACT_ADDRESS')
+    const warmStorageAddress = requireEnv('WARM_STORAGE_CONTRACT_ADDRESS')
 
     const network = process.env.NETWORK || 'calibration'
     const customRpcUrl = process.env.RPC_URL
-    const spPdpUrl = process.env.SP_PDP_URL || 'https://pdp.example.com'
-    const spRetrievalUrl = process.env.SP_RETRIEVAL_URL || 'https://retrieve.example.com'
+    const spServiceUrl = process.env.SP_SERVICE_URL || 'https://service.example.com'
 
     // Validate network
     if (network !== 'mainnet' && network !== 'calibration') {
@@ -152,7 +152,7 @@ async function main () {
     const rpcURL = customRpcUrl || RPC_URLS[network].http
 
     log(`Starting post-deployment setup for network: ${network}`)
-    log(`Pandora contract address: ${pandoraAddress}`)
+    log(`Warm Storage contract address: ${warmStorageAddress}`)
     log(`Using RPC: ${rpcURL}`)
 
     // Create providers and signers
@@ -167,33 +167,30 @@ async function main () {
     const clientAddress = await clientSigner.getAddress()
 
     log(`Deployer address: ${deployerAddress}`)
-    log(`Storage Provider address: ${spAddress}`)
+    log(`Service Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
-    const spTool = new PandoraService(provider, pandoraAddress)
+    const spTool = new WarmStorageService(provider, warmStorageAddress)
 
-    // === Step 1: Storage Provider Registration ===
-    log('\n📋 Step 1: Storage Provider Registration')
+    // === Step 1: Service Provider Registration ===
+    log('\n📋 Step 1: Service Provider Registration')
 
     // Check if SP is already approved
     const isAlreadyApproved = await spTool.isProviderApproved(spAddress)
 
     if (isAlreadyApproved) {
-      // Check if URLs match what we want
+      // Check if URL matches what we want
       const spId = await spTool.getProviderIdByAddress(spAddress)
       const currentInfo = await spTool.getApprovedProvider(spId)
 
-      const urlsMatch = currentInfo.pdpUrl === spPdpUrl &&
-                       currentInfo.pieceRetrievalUrl === spRetrievalUrl
+      const urlMatches = currentInfo.serviceURL === spServiceUrl
 
-      if (urlsMatch) {
-        success('Storage provider is already approved with correct URLs')
+      if (urlMatches) {
+        success('Service provider is already approved with correct URL')
       } else {
-        warning('Storage provider URLs have changed, re-registering...')
-        log(`  Current PDP URL: ${currentInfo.pdpUrl}`)
-        log(`  Current Retrieval URL: ${currentInfo.pieceRetrievalUrl}`)
-        log(`  New PDP URL: ${spPdpUrl}`)
-        log(`  New Retrieval URL: ${spRetrievalUrl}`)
+        warning('Service provider URL has changed, re-registering...')
+        log(`  Current URL: ${currentInfo.serviceURL}`)
+        log(`  New URL: ${spServiceUrl}`)
 
         // Step 1: Remove the existing provider (as owner)
         log('Removing existing provider registration...')
@@ -202,20 +199,20 @@ async function main () {
         await removeTx.wait()
         success('Provider removed successfully')
 
-        // Step 2: Register with new URLs (as SP)
-        log('Registering storage provider with new URLs...')
-        const registerTx = await spTool.registerServiceProvider(spSigner, spPdpUrl, spRetrievalUrl)
-        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
+        // Step 2: Register with new URL (as SP)
+        log('Registering service provider with new URL (requires 1 FIL fee)...')
+        const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
-        success('Storage provider registered successfully')
+        success('Service provider registered successfully')
 
         // Step 3: Approve the new registration (as owner)
-        log('Approving storage provider registration...')
-        const pandoraContract = new ethers.Contract(pandoraAddress, CONTRACT_ABIS.PANDORA_SERVICE, deployerSigner)
+        log('Approving service provider registration...')
+        const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
 
         try {
           // Estimate gas first
-          const gasEstimate = await pandoraContract.approveServiceProvider.estimateGas(spAddress)
+          const gasEstimate = await warmStorageContract.approveServiceProvider.estimateGas(spAddress)
           log(`Gas estimate: ${gasEstimate}`)
 
           // Add 50% buffer for Filecoin network
@@ -225,16 +222,16 @@ async function main () {
 
           log(`Using gas limit: ${finalGasLimit}`)
 
-          const approveTx = await pandoraContract.approveServiceProvider(spAddress, {
+          const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
             gasLimit: finalGasLimit
           })
-          success(`Storage provider approval transaction sent. Tx: ${approveTx.hash}`)
+          success(`Service provider approval transaction sent. Tx: ${approveTx.hash}`)
           await approveTx.wait()
-          success('Storage provider approved successfully')
+          success('Service provider approved successfully')
         } catch (approveError) {
           // Try to get more detailed error info
           try {
-            await pandoraContract.approveServiceProvider.staticCall(spAddress)
+            await warmStorageContract.approveServiceProvider.staticCall(spAddress)
             throw approveError // Re-throw original if static call works
           } catch (staticError) {
             error(`Contract call would revert: ${staticError.reason || staticError.message}`)
@@ -244,42 +241,48 @@ async function main () {
       }
     } else {
       // Check if SP has a pending registration
-      const pendingInfo = await spTool.getPendingProvider(spAddress)
-
-      if (pendingInfo.registeredAt > 0n) {
-        warning('Storage provider has pending registration')
-        log(`  PDP URL: ${pendingInfo.pdpUrl}`)
-        log(`  Retrieval URL: ${pendingInfo.pieceRetrievalUrl}`)
+      let hasPendingRegistration = false
+      try {
+        const pendingInfo = await spTool.getPendingProvider(spAddress)
+        // If we get here, there is a pending registration
+        hasPendingRegistration = true
+        warning('Service provider has pending registration')
+        log(`  Service URL: ${pendingInfo.serviceURL}`)
         log(`  Registered at: ${new Date(Number(pendingInfo.registeredAt) * 1000).toISOString()}`)
-      } else {
-        // Register the storage provider
-        log('Registering storage provider...')
-        const registerTx = await spTool.registerServiceProvider(spSigner, spPdpUrl, spRetrievalUrl)
-        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
-        await registerTx.wait()
-        success('Storage provider registered successfully')
+      } catch (err) {
+        // No pending registration found (this is expected for new providers)
+        hasPendingRegistration = false
       }
 
-      // === Step 2: Approve Storage Provider (as deployer) ===
-      log('\n✅ Step 2: Approve Storage Provider')
+      if (!hasPendingRegistration) {
+        // Register the service provider
+        log('Registering service provider (requires 1 FIL fee)...')
+        const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
+        await registerTx.wait()
+        success('Service provider registered successfully')
+      }
 
-      const deployerSpTool = new PandoraService(provider, pandoraAddress)
+      // === Step 2: Approve Service Provider (as deployer) ===
+      log('\n✅ Step 2: Approve Service Provider')
+
+      const deployerSpTool = new WarmStorageService(provider, warmStorageAddress)
 
       // Verify deployer is contract owner
       const isOwner = await deployerSpTool.isOwner(deployerSigner)
       if (!isOwner) {
-        error('Deployer is not the contract owner. Cannot approve storage provider.')
+        error('Deployer is not the contract owner. Cannot approve service provider.')
         process.exit(1)
       }
 
-      log('Approving storage provider as contract owner...')
+      log('Approving service provider as contract owner...')
 
       // Create contract instance directly to set gas limit
-      const pandoraContract = new ethers.Contract(pandoraAddress, CONTRACT_ABIS.PANDORA_SERVICE, deployerSigner)
+      const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
 
       try {
         // Estimate gas first
-        const gasEstimate = await pandoraContract.approveServiceProvider.estimateGas(spAddress)
+        const gasEstimate = await warmStorageContract.approveServiceProvider.estimateGas(spAddress)
         log(`Gas estimate: ${gasEstimate}`)
 
         // Add 50% buffer for Filecoin network
@@ -289,15 +292,15 @@ async function main () {
 
         log(`Using gas limit: ${finalGasLimit}`)
 
-        const approveTx = await pandoraContract.approveServiceProvider(spAddress, {
+        const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
           gasLimit: finalGasLimit
         })
         await approveTx.wait()
-        success(`Storage provider approved successfully. Tx: ${approveTx.hash}`)
+        success(`Service provider approved successfully. Tx: ${approveTx.hash}`)
       } catch (approveError) {
         // Try to get more detailed error info
         try {
-          await pandoraContract.approveServiceProvider.staticCall(spAddress)
+          await warmStorageContract.approveServiceProvider.staticCall(spAddress)
           throw approveError // Re-throw original if static call works
         } catch (staticError) {
           error(`Contract call would revert: ${staticError.reason || staticError.message}`)
@@ -340,9 +343,33 @@ async function main () {
       success(`USDFC allowance already sufficient: ${ethers.formatUnits(currentAllowance, 18)} USDFC`)
     }
 
-    // Check current operator approval for Pandora contract
-    log('Checking operator approval for Pandora contract...')
-    const currentApproval = await clientSynapse.payments.serviceApproval(pandoraAddress, TOKENS.USDFC)
+    // Check and deposit USDFC into Payments contract
+    log('Checking USDFC balance in Payments contract...')
+    const currentBalance = await clientSynapse.payments.balance(TOKENS.USDFC)
+    log(`Current deposit balance: ${ethers.formatUnits(currentBalance, 18)} USDFC`)
+
+    if (currentBalance < INITIAL_DEPOSIT_AMOUNT) {
+      log(`Depositing ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC into Payments contract...`)
+
+      // Check wallet has enough USDFC
+      const walletBalance = await clientSynapse.payments.walletBalance(TOKENS.USDFC)
+      if (walletBalance < INITIAL_DEPOSIT_AMOUNT) {
+        error(`Insufficient USDFC balance in wallet: ${ethers.formatUnits(walletBalance, 18)} USDFC`)
+        error(`Need at least ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC`)
+        process.exit(1)
+      }
+
+      const depositTx = await clientSynapse.payments.deposit(INITIAL_DEPOSIT_AMOUNT, TOKENS.USDFC)
+      success(`USDFC deposit transaction sent. Tx: ${depositTx.hash}`)
+      await depositTx.wait()
+      success(`Deposited ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC successfully`)
+    } else {
+      success(`USDFC deposit already sufficient: ${ethers.formatUnits(currentBalance, 18)} USDFC`)
+    }
+
+    // Check current operator approval for Warm Storage contract
+    log('Checking operator approval for Warm Storage contract...')
+    const currentApproval = await clientSynapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
 
     const needsUpdate = !currentApproval.isApproved ||
                        currentApproval.rateAllowance < RATE_ALLOWANCE_PER_EPOCH ||
@@ -354,11 +381,12 @@ async function main () {
       log(`  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`)
       log(`  Lockup allowance: ${ethers.formatUnits(currentApproval.lockupAllowance, 18)} USDFC`)
 
-      log('Setting operator approval for Pandora contract...')
+      log('Setting operator approval for Warm Storage contract...')
       const approveServiceTx = await clientSynapse.payments.approveService(
-        pandoraAddress,
+        warmStorageAddress,
         RATE_ALLOWANCE_PER_EPOCH,
         LOCKUP_ALLOWANCE,
+        MAX_LOCKUP_PERIOD,
         TOKENS.USDFC
       )
       success(`Operator approval transaction sent. Tx: ${approveServiceTx.hash}`)
@@ -378,21 +406,23 @@ async function main () {
     if (finalSpApproval) {
       const spId = await spTool.getProviderIdByAddress(spAddress)
       const spInfo = await spTool.getApprovedProvider(spId)
-      success(`✓ Storage Provider approved (ID: ${spId})`)
-      log(`  PDP URL: ${spInfo.pdpUrl}`)
-      log(`  Retrieval URL: ${spInfo.pieceRetrievalUrl}`)
+      success(`✓ Service Provider approved (ID: ${spId})`)
+      log(`  Service URL: ${spInfo.serviceURL}`)
     } else {
-      error('✗ Storage Provider not approved')
+      error('✗ Service Provider not approved')
     }
 
     // Client payment status
     const finalAllowance = await clientSynapse.payments.allowance(TOKENS.USDFC, paymentsAddress)
-    const finalApproval = await clientSynapse.payments.serviceApproval(pandoraAddress, TOKENS.USDFC)
+    const finalApproval = await clientSynapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
+    const finalDepositBalance = await clientSynapse.payments.balance(TOKENS.USDFC)
 
     success(`✓ Client USDFC allowance: ${ethers.formatUnits(finalAllowance, 18)} USDFC`)
+    success(`✓ Client USDFC deposit balance: ${ethers.formatUnits(finalDepositBalance, 18)} USDFC`)
     success(`✓ Client operator approval: ${finalApproval.isApproved}`)
     log(`  Rate allowance: ${ethers.formatUnits(finalApproval.rateAllowance, 18)} USDFC/epoch`)
     log(`  Lockup allowance: ${ethers.formatUnits(finalApproval.lockupAllowance, 18)} USDFC`)
+    log(`  Max lockup period: ${finalApproval.maxLockupPeriod} epochs (${finalApproval.maxLockupPeriod / 2880n} days)`)
 
     // Check client USDFC balance
     const clientBalance = await clientSynapse.payments.walletBalance(TOKENS.USDFC)
@@ -405,8 +435,8 @@ async function main () {
 
     success('\n🎉 Post-deployment setup completed successfully!')
     log('\nThe system is now ready for:')
-    log('• Creating proof sets')
-    log('• Adding data roots')
+    log('• Creating data sets')
+    log('• Adding pieces')
     log('• Processing payments')
   } catch (err) {
     error(`Setup failed: ${err.message}`)
@@ -416,6 +446,7 @@ async function main () {
     if (err.reason) {
       log(`Reason: ${err.reason}`)
     }
+    console.error(err.stack)
     process.exit(1)
   }
 }

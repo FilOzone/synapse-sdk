@@ -5,7 +5,7 @@
 
 import { ethers } from 'ethers'
 import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS } from '../utils/index.js'
+import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS, getCurrentEpoch } from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -126,7 +126,7 @@ export class PaymentsService {
     const [funds, lockupCurrent, lockupRate, lockupLastSettledAt] = accountData
 
     // Calculate time-based lockup
-    const currentEpoch = await this.getCurrentEpoch()
+    const currentEpoch = await getCurrentEpoch(this._provider)
     const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
     const actualLockup = BigInt(lockupCurrent) + (BigInt(lockupRate) * epochsSinceSettlement)
 
@@ -140,18 +140,6 @@ export class PaymentsService {
       lockupLastSettledAt: BigInt(lockupLastSettledAt),
       availableFunds: availableFunds > 0n ? availableFunds : 0n
     }
-  }
-
-  /**
-   * Get the current epoch from the blockchain
-   */
-  async getCurrentEpoch (): Promise<bigint> {
-    const block = await this._provider.getBlock('latest')
-    if (block == null) {
-      throw createError('PaymentsService', 'getCurrentEpoch', 'Failed to get latest block')
-    }
-    // In Filecoin, the block number is the epoch
-    return BigInt(block.number)
   }
 
   async walletBalance (token?: TokenIdentifier): Promise<bigint> {
@@ -270,11 +258,12 @@ export class PaymentsService {
 
   /**
    * Approve a service contract to act as an operator for payment rails
-   * This allows the service contract (such as Pandora) to create and manage payment rails on behalf
+   * This allows the service contract (such as Warm Storage) to create and manage payment rails on behalf
    * of the client
    * @param service - The service contract address to approve
    * @param rateAllowance - Maximum payment rate per epoch the operator can set
    * @param lockupAllowance - Maximum lockup amount the operator can set
+   * @param maxLockupPeriod - Maximum lockup period in epochs the operator can set
    * @param token - The token to approve for (defaults to USDFC)
    * @returns Transaction response object
    */
@@ -282,6 +271,7 @@ export class PaymentsService {
     service: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
+    maxLockupPeriod: TokenAmount,
     token: TokenIdentifier = TOKENS.USDFC
   ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
@@ -290,8 +280,9 @@ export class PaymentsService {
 
     const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
     const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
+    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
 
-    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n) {
+    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
       throw createError('PaymentsService', 'approveService', 'Allowance values cannot be negative')
     }
 
@@ -313,6 +304,7 @@ export class PaymentsService {
         true, // approved
         rateAllowanceBigint,
         lockupAllowanceBigint,
+        maxLockupPeriodBigint,
         txOptions
       )
       return approveTx
@@ -355,6 +347,7 @@ export class PaymentsService {
         false, // not approved
         0n, // zero rate allowance
         0n, // zero lockup allowance
+        0n, // zero max lockup period
         txOptions
       )
       return revokeTx
@@ -380,6 +373,7 @@ export class PaymentsService {
     rateUsed: bigint
     lockupAllowance: bigint
     lockupUsed: bigint
+    maxLockupPeriod: bigint
   }> {
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'serviceApproval', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
@@ -396,7 +390,8 @@ export class PaymentsService {
         rateAllowance: approval[1],
         lockupAllowance: approval[2],
         rateUsed: approval[3],
-        lockupUsed: approval[4]
+        lockupUsed: approval[4],
+        maxLockupPeriod: approval[5]
       }
     } catch (error) {
       throw createError(

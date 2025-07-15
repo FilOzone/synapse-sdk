@@ -15,7 +15,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ### Key Components
 - `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
 - `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
-- `PandoraService`: Coordinates storage operations - calculates costs, checks allowances, manages proof sets; depends on Payments and PDPVerifier.
+- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier.
 - `StorageService`: Storage implementation with upload/download.
 - `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
 
@@ -39,7 +39,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
    - Factory method pattern (`Synapse.create()`) for proper async initialization
    - Minimal Synapse class: only `payments` property and `createStorage()` method
    - Payment methods via `synapse.payments.*` (PaymentsService)
-   - Storage costs/allowances via PandoraService (separate instantiation)
+   - Storage costs/allowances via WarmStorageService (separate instantiation)
    - Strict network validation - only supports Filecoin mainnet and calibration
 
 ### File Structure
@@ -49,15 +49,14 @@ src/
 ├── commp/                      # CommP utilities (Piece Commitment calculations)
 ├── payments/                   # Payment contract interactions
 │   └── service.ts              # PaymentsService (formerly SynapsePayments)
-├── pandora/                    # Pandora contract interactions (storage coordination)
-│   └── service.ts              # PandoraService - storage costs, allowances, proof sets
+├── warm-storage/               # Warm Storage contract interactions (storage coordination)
+│   └── service.ts              # WarmStorageService - storage costs, allowances, data sets
 ├── pdp/                        # PDP protocol implementations
 │   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
 │   ├── server.ts               # PDPServer - Curio HTTP API client
 │   ├── verifier.ts             # PDPVerifier - contract interactions
 │   ├── download-service.ts     # PDPDownloadService - piece downloads
 │   ├── upload-service.ts       # PDPUploadService - piece uploads
-│   └── storage-provider.ts     # StorageProviderTool - SP operations
 ├── storage/                    # Storage service implementation
 │   └── service.ts              # StorageService - real PDP storage implementation
 ├── utils/                      # Shared utilities
@@ -97,19 +96,19 @@ src/
 ### CommPv2 Structure
 The new Piece Multihash CID format (CommPv2) has the structure:
 ```
-uvarint padding | uint8 height | 32 byte root data
+uvarint padding | uint8 height | 32 byte piece data
 ```
 
 ### Key Points
-1. **32-Byte Root Data**: The last 32 bytes represent the root of a binary merkle tree
+1. **32-Byte Piece Data**: The last 32 bytes represent the root of a binary merkle tree
 2. **Height Field**: Encodes the tree height, supporting pieces up to 32 GiB (height 30)
 3. **Size Information**: The format embeds size information directly in the CID
-4. **Contract Compatibility**: Solidity contracts expect only the 32-byte root digest
+4. **Contract Compatibility**: Solidity contracts expect only the 32-byte piece digest
 
 ### Implementation Details
 - **CommPv1 (Legacy)**: Uses fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded (0x1012)
 - **CommPv2 Extraction**: `digest.bytes.subarray(digest.bytes.length - 32)` extracts the 32-byte root
-- **Contract Encoding**: Solidity `PDPVerifier.RootData` expects the 32-byte digest, not the full CID
+- **Contract Encoding**: Solidity `PDPVerifier.PieceData` expects the 32-byte digest, not the full CID
 
 ### Why This Matters
 - Smart contracts work with 32-byte digests for efficiency and gas costs
@@ -137,7 +136,7 @@ SDK Component Hierarchy:
 Synapse (minimal interface)
    └── PaymentsService (pure payments)
 
-PandoraService (storage coordination)
+WarmStorageService (storage coordination)
    ├── Depends on PaymentsService
    └── Depends on PDPVerifier
 ```
@@ -146,7 +145,7 @@ PandoraService (storage coordination)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Pandora                                      │
+│                     Warm Storage                                      │
 │  • Client auth (EIP-712 signatures)                              │
 │  • Provider management (whitelist)                               │
 │  • Integrates Payments contract                                  │
@@ -163,13 +162,13 @@ PandoraService (storage coordination)
 ```
 
 #### 1. PDPVerifier Contract (`FilOzone-pdp/src/PDPVerifier.sol`)
-- **Purpose**: The neutral, protocol-level contract that manages proof sets and verification
+- **Purpose**: The neutral, protocol-level contract that manages data sets and verification
 - **Responsibilities**:
-  - Creates and manages proof sets on-chain
-  - Handles adding/removing roots from proof sets
+  - Creates and manages data sets on-chain
+  - Handles adding/removing pieces from data sets
   - Performs cryptographic proof verification
   - Emits events and calls listener contracts
-- **Key Functions**: `createProofSet()`, `addRoots()`, `proveRoots()`
+- **Key Functions**: `createDataSet()`, `addPieces()`, `provePieces()`
 - **Address**:
   - Calibration: `0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC`
   - Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
@@ -180,12 +179,12 @@ PandoraService (storage coordination)
 - Tracks proving periods and faults
 - Reference implementation showing PDPListener interface
 
-#### 3. Pandora (`FilOzone-filecoin-services/service_contracts/src/PandoraService.sol`)
+#### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
-  - Manages storage provider whitelist via `registerServiceProvider()`
-  - Creates payment rails on proof set creation
+  - Manages service whitelist via `registerServiceProvider()`
+  - Creates payment rails on data set creation
   - Receives callbacks from PDPVerifier via `PDPListener` interface
   - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
 - **Address**:
@@ -222,15 +221,15 @@ PandoraService (storage coordination)
 ### Contract Interaction Flow
 
 1. **Client Operations Flow**:
-   - Client signs operation with Pandora address
+   - Client signs operation with Warm Storage address
    - Calls Curio API with signature
    - Curio calls PDPVerifier with signature as extraData
-   - PDPVerifier calls Pandora callback
+   - PDPVerifier calls Warm Storage callback
    - Service contract validates signature and executes business logic
 
 2. **Critical Data Structures**:
    ```solidity
-   struct RootData {
+   struct PieceData {
      Cids.Cid cid;      // 32-byte CommP digest
      uint64 rawSize;    // Original data size
    }
@@ -238,9 +237,9 @@ PandoraService (storage coordination)
 
 3. **Authentication Schema**:
    - All client operations use EIP-712 typed signatures
-   - Domain separator uses Pandora address
-   - Operations: CreateProofSet, AddRoots, ScheduleRemovals, DeleteProofSet
-   - Clients sign for Pandora, NOT PDPVerifier
+   - Domain separator uses Warm Storage address
+   - Operations: CreateDataSet, AddPieces, ScheduleRemovals, DeleteDataSet
+   - Clients sign for Warm Storage, NOT PDPVerifier
    - Service contract must have operator approval in Payments contract before creating rails
 
 ### Data Flow Patterns
@@ -248,55 +247,55 @@ PandoraService (storage coordination)
 #### Piece Storage Flow
 1. **Client** calculates CommP and uploads to **Curio**
 2. **Curio** stores piece and creates `pdp_piecerefs` record
-3. **Client** references stored pieces when adding roots to proof sets
+3. **Client** references stored pieces when adding pieces to data sets
 4. **Curio** validates piece ownership and calls **PDPVerifier**
 
 #### Authentication Flow
-1. **Client** signs operation data with private key targeting **Pandora**
+1. **Client** signs operation data with private key targeting **Warm Storage**
 2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
-3. **PDPVerifier** passes `extraData` to **Pandora** callback
-4. **Pandora** validates signature and processes business logic
+3. **PDPVerifier** passes `extraData` to **Warm Storage** callback
+4. **Warm Storage** validates signature and processes business logic
 
 #### Payment Flow
-1. **Pandora** creates payment rails during proof set creation
-2. Payments flow from client to storage provider based on storage size and time
-3. **Pandora** acts as arbiter for fault-based payment adjustments
+1. **Warm Storage** creates payment rails during data set creation
+2. Payments flow from client to service provider based on storage size and time
+3. **Warm Storage** acts as arbiter for fault-based payment adjustments
 
 ### PDP Overview
 
 PDP is one of the paid on-chain services offered by Synapse, future services may be included in the future.
 
-1. Clients and providers establish a proof set for data storage verification
-2. Providers add data roots (identified by CommP) to the proof set at the request of clients, and submit periodic proofs
+1. Clients and providers establish a data set for data storage verification
+2. Providers add data pieces (identified by CommP) to the data set at the request of clients, and submit periodic proofs
 3. The system verifies these proofs using randomized challenges based on chain randomness
 4. Faults are reported when proofs fail or are not submitted
 
 All interactions with PDP contracts from clients via a PDP server (typically running Curio) use standard signed EIP-712 encoding of authentication blobs via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys). Use PDPAuthHelper directly for signing operations.
 
 ### Curio PDP API Endpoints
-- `POST /pdp/proof-sets` - Create new proof set
-- `GET /pdp/proof-sets/created/{txHash}` - Check proof set creation status
-- `GET /pdp/proof-sets/{proofSetId}` - Get proof set details
-- `POST /pdp/proof-sets/{proofSetId}/roots` - Add roots to proof set
-- `DELETE /pdp/proof-sets/{proofSetId}/roots/{rootId}` - Schedule root removal
+- `POST /pdp/data-sets` - Create new data set
+- `GET /pdp/data-sets/created/{txHash}` - Check data set creation status
+- `GET /pdp/data-sets/{dataSetId}` - Get data set details
+- `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces to data set
+- `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule piece removal
 - `POST /pdp/piece` - Create piece upload session
 - `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
 - `GET /pdp/piece/` - Find existing pieces
 
-This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Pandora manages business logic and payments, and Curio provides the operational HTTP interface for clients.
+This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Warm Storage manages business logic and payments, and Curio provides the operational HTTP interface for clients.
 
 ### Download Flow Patterns
 
 #### Direct Download (via Synapse)
 1. **Client** calls `synapse.download(commp, options)`
-2. **PieceRetriever** (ChainRetriever by default) queries proof sets to find providers
-3. **ChainRetriever** filters for non-zero root counts, validates via `findPiece` endpoint, attempts downloads from multiple providers in parallel using Promise.race() with AbortController for efficient cancellation
+2. **PieceRetriever** (ChainRetriever by default) queries data sets to find providers
+3. **ChainRetriever** filters for non-zero piece counts, validates via `findPiece` endpoint, attempts downloads from multiple providers in parallel using Promise.race() with AbortController for efficient cancellation
 4. **downloadAndValidateCommP** verifies the downloaded data matches the expected CommP
 
 #### Provider-Specific Download (via StorageService)
 1. **Client** calls `storage.providerDownload(commp)`
 2. **StorageService** delegates to `synapse.download()` with `providerAddress` hint
-3. **ChainRetriever** skips proof set lookup and directly queries the specified provider
+3. **ChainRetriever** skips data set lookup and directly queries the specified provider
 4. Download and validation proceed as above
 
 ## Development Environment and External Repositories

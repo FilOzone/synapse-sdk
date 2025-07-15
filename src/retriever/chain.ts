@@ -1,18 +1,18 @@
 /**
  * ChainRetriever - Queries on-chain data to find and retrieve pieces
  *
- * This retriever uses the Pandora service to find storage providers
+ * This retriever uses the Warm Storage service to find service providers
  * that have the requested piece, then attempts to download from them.
  */
 
-import type { PandoraService } from '../pandora/index.js'
+import type { WarmStorageService } from '../warm-storage/index.js'
 import type { CommP, PieceRetriever, ApprovedProviderInfo } from '../types.js'
 import { fetchPiecesFromProviders } from './utils.js'
 import { createError } from '../utils/index.js'
 
 export class ChainRetriever implements PieceRetriever {
   constructor (
-    private readonly pandoraService: PandoraService,
+    private readonly warmStorageService: WarmStorageService,
     private readonly childRetriever?: PieceRetriever
   ) {}
 
@@ -27,8 +27,8 @@ export class ChainRetriever implements PieceRetriever {
     providerAddress?: string
   ): Promise<ApprovedProviderInfo[]> {
     if (providerAddress != null) {
-      // Direct provider case - skip proof set lookup entirely
-      const providerId = await this.pandoraService.getProviderIdByAddress(providerAddress)
+      // Direct provider case - skip data set lookup entirely
+      const providerId = await this.warmStorageService.getProviderIdByAddress(providerAddress)
       if (providerId === 0) {
         throw createError(
           'ChainRetriever',
@@ -36,34 +36,34 @@ export class ChainRetriever implements PieceRetriever {
           `Provider ${providerAddress} not found or not approved`
         )
       }
-      const provider = await this.pandoraService.getApprovedProvider(providerId)
+      const provider = await this.warmStorageService.getApprovedProvider(providerId)
       return [provider]
     }
 
-    // Multiple provider case - need proof sets to find providers
-    // 1. Get client's proof sets with details
-    const proofSets = await this.pandoraService.getClientProofSetsWithDetails(client)
+    // Multiple provider case - need data sets to find providers
+    // 1. Get client's data sets with details
+    const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
 
-    // 2. Filter for live proof sets with roots
-    const validProofSets = proofSets.filter(ps =>
-      ps.isLive &&
-      ps.currentRootCount > 0
+    // 2. Filter for live data sets with pieces
+    const validDataSets = dataSets.filter(ds =>
+      ds.isLive &&
+      ds.currentPieceCount > 0
     )
 
-    if (validProofSets.length === 0) {
+    if (validDataSets.length === 0) {
       throw createError(
         'ChainRetriever',
         'findProviders',
-        `No active proof sets with data found for client ${client}`
+        `No active data sets with data found for client ${client}`
       )
     }
 
     // 3. Get unique providers and fetch info
-    const uniqueProviders = [...new Set(validProofSets.map(ps => ps.payee))]
+    const uniqueProviders = [...new Set(validDataSets.map(ds => ds.payee))]
     const providerInfos = await Promise.all(
       uniqueProviders.map(async (addr) => {
-        const id = await this.pandoraService.getProviderIdByAddress(addr)
-        return await this.pandoraService.getApprovedProvider(id)
+        const id = await this.warmStorageService.getProviderIdByAddress(addr)
+        return await this.warmStorageService.getApprovedProvider(id)
       })
     )
 

@@ -12,7 +12,7 @@
  * Required environment variables:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
  * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
- * - PANDORA_ADDRESS: Pandora service contract address (optional, uses default for network)
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (optional, uses default for network)
  *
  * Usage:
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
@@ -24,7 +24,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS // Optional - will use default for network
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
 
 // Validate inputs
 if (!PRIVATE_KEY) {
@@ -79,10 +79,10 @@ async function main () {
       rpcURL: RPC_URL
     }
 
-    // Add Pandora address if provided
-    if (PANDORA_ADDRESS) {
-      synapseOptions.pandoraAddress = PANDORA_ADDRESS
-      console.log(`Pandora Address: ${PANDORA_ADDRESS}`)
+    // Add Warm Storage address if provided
+    if (WARM_STORAGE_ADDRESS) {
+      synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
+      console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)
@@ -107,41 +107,41 @@ async function main () {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`✓ Selected storage provider: ${provider.owner}`)
+          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
         },
-        onProofSetResolved: (info) => {
+        onDataSetResolved: (info) => {
           if (info.isExisting) {
-            console.log(`✓ Using existing proof set: ${info.proofSetId}`)
+            console.log(`✓ Using existing data set: ${info.dataSetId}`)
           } else {
-            console.log(`✓ Created new proof set: ${info.proofSetId}`)
+            console.log(`✓ Created new data set: ${info.dataSetId}`)
           }
         },
-        onProofSetCreationStarted: (transaction, statusUrl) => {
-          console.log(`  Creating proof set, tx: ${transaction.hash}`)
+        onDataSetCreationStarted: (transaction, statusUrl) => {
+          console.log(`  Creating data set, tx: ${transaction.hash}`)
         },
-        onProofSetCreationProgress: (progress) => {
-          if (progress.transactionMined && !progress.proofSetLive) {
-            console.log('  Transaction mined, waiting for proof set to be live...')
+        onDataSetCreationProgress: (progress) => {
+          if (progress.transactionMined && !progress.dataSetLive) {
+            console.log('  Transaction mined, waiting for data set to be live...')
           }
         }
       }
     })
 
-    console.log(`Proof set ID: ${storageService.proofSetId}`)
-    const rootCids = await storageService.getProofSetRoots()
-    console.log(`Proof set contains ${rootCids.length} root CIDs`)
-    /* Uncomment to see root CIDs
-    for (const cid of rootCids) {
-      console.log(`  - Root CID: ${cid}`)
+    console.log(`Data set ID: ${storageService.dataSetId}`)
+    const pieceCids = await storageService.getDataSetPieces()
+    console.log(`Data set contains ${pieceCids.length} piece CIDs`)
+    /* Uncomment to see piece CIDs
+    for (const cid of pieceCids) {
+      console.log(`  - Piece CID: ${cid}`)
     }
     */
 
     // Get detailed provider information
-    console.log('\n--- Storage Provider Details ---')
+    console.log('\n--- Service Provider Details ---')
     const providerInfo = await storageService.getProviderInfo()
-    console.log(`Owner address: ${providerInfo.owner}`)
-    console.log(`PDP URL: ${providerInfo.pdpUrl}`)
-    console.log(`Retrieval URL: ${providerInfo.pieceRetrievalUrl}`)
+    console.log(`Service Provider: ${providerInfo.serviceProvider}`)
+    console.log(`Service URL: ${providerInfo.serviceURL}`)
+    console.log(`Peer ID: ${providerInfo.peerId}`)
     console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
     console.log(`Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`)
 
@@ -159,7 +159,7 @@ async function main () {
       console.error('\nPlease ensure you have:')
       console.error('1. Sufficient USDFC balance')
       console.error('2. Approved USDFC spending for the Payments contract')
-      console.error('3. Approved the Pandora service as an operator')
+      console.error('3. Approved the Warm Storage service as an operator')
       process.exit(1)
     }
 
@@ -167,7 +167,7 @@ async function main () {
 
     // Step 6: Upload the file
     console.log('\n--- Uploading File ---')
-    console.log('Uploading to storage provider...')
+    console.log('Uploading to service provider...')
 
     // Note: With updated Curio servers, you'll get enhanced transaction tracking
     // The callbacks below demonstrate both old and new server compatibility
@@ -176,27 +176,27 @@ async function main () {
       onUploadComplete: (commp) => {
         console.log(`✓ Upload complete! CommP: ${commp}`)
       },
-      onRootAdded: (transaction) => {
+      onPieceAdded: (transaction) => {
         if (transaction) {
           // New enhanced callback with transaction info
-          console.log(`✓ Root addition transaction submitted: ${transaction.hash}`)
+          console.log(`✓ Piece addition transaction submitted: ${transaction.hash}`)
           console.log('  Waiting for confirmation...')
         } else {
           // Fallback for old servers
-          console.log('✓ Root added to proof set')
+          console.log('✓ Piece added to data set')
         }
       },
-      onRootConfirmed: (rootIds) => {
+      onPieceConfirmed: (pieceIds) => {
         // New callback - only called with updated servers
-        console.log('✓ Root addition confirmed on-chain!')
-        console.log(`  Assigned root IDs: ${rootIds.join(', ')}`)
+        console.log('✓ Piece addition confirmed on-chain!')
+        console.log(`  Assigned piece IDs: ${pieceIds.join(', ')}`)
       }
     })
 
     console.log('\nUpload result:')
     console.log(`  CommP: ${uploadResult.commp}`)
     console.log(`  Size: ${formatBytes(uploadResult.size)}`)
-    console.log(`  Root ID: ${uploadResult.rootId}`)
+    console.log(`  Piece ID: ${uploadResult.pieceId}`)
 
     // Step 7: Download the file back
     console.log('\n--- Downloading File ---')
@@ -220,11 +220,11 @@ async function main () {
     console.log('\n--- Piece Status ---')
     const pieceStatus = await storageService.pieceStatus(uploadResult.commp)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
-    if (pieceStatus.proofSetLastProven) {
-      console.log(`Proof set last proven: ${pieceStatus.proofSetLastProven.toLocaleString()}`)
+    if (pieceStatus.dataSetLastProven) {
+      console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
     }
-    if (pieceStatus.proofSetNextProofDue) {
-      console.log(`Proof set next proof due: ${pieceStatus.proofSetNextProofDue.toLocaleString()}`)
+    if (pieceStatus.dataSetNextProofDue) {
+      console.log(`Data set next proof due: ${pieceStatus.dataSetNextProofDue.toLocaleString()}`)
     }
     if (pieceStatus.inChallengeWindow) {
       console.log('⚠️  Currently in challenge window - proof must be submitted soon!')
@@ -236,10 +236,10 @@ async function main () {
     console.log('\n--- Storage Information ---')
     console.log('Your file is now stored on the Filecoin network with:')
     console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)
-    console.log(`- Proof set ID: ${storageService.proofSetId}`)
-    console.log(`- Root ID: ${uploadResult.rootId}`)
-    console.log(`- Storage provider: ${storageService.storageProvider}`)
-    console.log('\nThe storage provider will periodically prove they still have your data.')
+    console.log(`- Data set ID: ${storageService.dataSetId}`)
+    console.log(`- Piece ID: ${uploadResult.pieceId}`)
+    console.log(`- Service provider: ${storageService.serviceProvider}`)
+    console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
     console.error('\n❌ Error:', error.message)

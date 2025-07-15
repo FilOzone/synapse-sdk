@@ -6,11 +6,11 @@ This directory contains utility scripts and tools for working with the Synapse S
 
 ### post-deploy-setup.js
 
-Post-deployment setup script for newly deployed Pandora contracts. This script automates the complete setup process after deploying a new Pandora service contract.
+Post-deployment setup script for newly deployed Warm Storage contracts. This script automates the complete setup process after deploying a new Warm Storage service contract.
 
 ### Prerequisites
 
-1. **Deploy a Pandora contract** using the FilOzone deployment tools:
+1. **Deploy a Warm Storage contract** using the FilOzone deployment tools:
    ```bash
    # Clone the FilOzone filecoin-services repository
    git clone https://github.com/FilOzone/filecoin-services.git
@@ -19,7 +19,7 @@ Post-deployment setup script for newly deployed Pandora contracts. This script a
    # Deploy to Calibration testnet
    PDP_VERIFIER_ADDRESS=0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC \
    PAYMENTS_CONTRACT_ADDRESS=0x0E690D3e60B0576D01352AB03b258115eb84A047 \
-   ./tools/deploy-pandora-calibnet.sh
+   ./tools/deploy-warm-storage-calibnet.sh
    ```
 
 2. **Note the deployed contract address** from the deployment output.
@@ -27,7 +27,7 @@ Post-deployment setup script for newly deployed Pandora contracts. This script a
 3. **Ensure accounts have sufficient funds:**
    - Deployer account: FIL for gas costs
    - Client account: USDFC tokens for payments
-   - Storage provider account: FIL for gas costs
+   - Service provider account: FIL for gas costs
 
 ### Usage
 
@@ -36,9 +36,9 @@ cd synapse-sdk
 
 # Set required environment variables
 export DEPLOYER_PRIVATE_KEY=0x...        # Contract deployer/owner
-export SP_PRIVATE_KEY=0x...              # Storage provider
+export SP_PRIVATE_KEY=0x...              # Service provider
 export CLIENT_PRIVATE_KEY=0x...          # Client account
-export PANDORA_CONTRACT_ADDRESS=0x...    # Newly deployed contract
+export WARM_STORAGE_CONTRACT_ADDRESS=0x...    # Newly deployed contract
 export NETWORK=calibration              # or 'mainnet'
 export SP_PDP_URL=http://your-curio:4702 # Your Curio PDP endpoint
 export SP_RETRIEVAL_URL=http://your-curio:4702 # Your retrieval endpoint
@@ -49,14 +49,14 @@ node utils/post-deploy-setup.js
 
 ### What It Does
 
-1. **Storage Provider Setup:**
-   - Registers the storage provider with the Pandora contract
+1. **Service Provider Setup:**
+   - Registers the service provider with the Warm Storage contract
    - Approves the registration (as contract owner)
    - Validates all permissions
 
 2. **Client Payment Setup:**
    - Sets USDFC token allowances for the payments contract
-   - Configures operator approval for the Pandora contract
+   - Configures operator approval for the Warm Storage contract
    - Sets rate and lockup allowances (0.1 USDFC/epoch, 10 USDFC lockup)
 
 3. **Status Verification:**
@@ -105,7 +105,7 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 - Connect to MetaMask or other browser wallets
 - Generate EIP-712 signatures for PDP operations
 - Test signature verification
-- Demonstrate different PDP operation types (CreateProofSet, AddRoots, etc.)
+- Demonstrate different PDP operation types (CreateDataSet, AddPieces, etc.)
 - Visual interface for understanding the authentication flow
 
 **Use Cases:**
@@ -114,27 +114,27 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 - Debugging signature generation issues
 - Educational demonstrations
 
-### storage-provider-tool.html
+### service-provider-tool.html
 
-Browser-based interface for storage provider management operations.
+Browser-based interface for service provider management operations.
 
 **Features:**
-- Connect to Pandora contracts
-- Register as a storage provider
+- Connect to Warm Storage contracts
+- Register as a service provider
 - Check approval status
 - View all approved providers
 - Contract owner functions (approve/reject providers)
 - Real-time status updates
 
 **Use Cases:**
-- Storage provider onboarding
+- Service provider onboarding
 - Contract administration
 - Testing provider registration flow
 - Debugging provider approval issues
 
 **Typical Workflow:**
-1. Connect wallet (storage provider or contract owner)
-2. Enter Pandora contract address
+1. Connect wallet (service provider or contract owner)
+2. Enter Warm Storage contract address
 3. Register as provider (if you're an SP)
 4. Approve providers (if you're the contract owner)
 5. Monitor provider status
@@ -160,7 +160,7 @@ Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
    - Calculate costs for any data size (bytes to TiB)
    - Compare CDN vs non-CDN pricing
    - Get per-epoch, per-day, and per-month breakdowns
-   - Real-time pricing from Pandora contract
+   - Real-time pricing from Warm Storage contract
 
 3. **Funding Analysis:**
    - Automatic check if you have enough funds for storage

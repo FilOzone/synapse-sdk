@@ -9,13 +9,13 @@
  * Simple Storage Example - Minimal upload/download demonstration
  *
  * Usage:
- *   PRIVATE_KEY=0x... PANDORA_ADDRESS=0x... node example-storage-simple.js
+ *   PRIVATE_KEY=0x... WARM_STORAGE_ADDRESS=0x... node example-storage-simple.js
  */
 
 import { Synapse } from '@filoz/synapse-sdk'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 
 if (!PRIVATE_KEY) {
@@ -23,8 +23,8 @@ if (!PRIVATE_KEY) {
   process.exit(1)
 }
 
-if (!PANDORA_ADDRESS) {
-  console.error('ERROR: PANDORA_ADDRESS environment variable is required')
+if (!WARM_STORAGE_ADDRESS) {
+  console.error('ERROR: WARM_STORAGE_ADDRESS environment variable is required')
   console.error('For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5')
   process.exit(1)
 }
@@ -34,15 +34,15 @@ async function main () {
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    pandoraAddress: PANDORA_ADDRESS
+    warmStorageAddress: WARM_STORAGE_ADDRESS
   })
 
   console.log('Connected to:', RPC_URL)
 
   // Create storage service
   const storage = await synapse.createStorage()
-  console.log('Storage provider:', storage.storageProvider)
-  console.log('Proof set ID:', storage.proofSetId)
+  console.log('Service provider:', storage.serviceProvider)
+  console.log('Data set ID:', storage.dataSetId)
 
   // Create test data (must be at least 65 bytes for CommP calculation)
   const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for CommP calculation.\n'

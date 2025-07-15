@@ -1,8 +1,8 @@
 /* globals describe it */
 import { assert } from 'chai'
 import { ChainRetriever } from '../retriever/chain.js'
-import type { PandoraService } from '../pandora/index.js'
-import type { PieceRetriever, ApprovedProviderInfo, EnhancedProofSetInfo, CommP } from '../types.js'
+import type { WarmStorageService } from '../warm-storage/index.js'
+import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, CommP } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Create a mock CommP for testing
@@ -10,17 +10,17 @@ const mockCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4yn
 
 // Mock provider info
 const mockProvider1: ApprovedProviderInfo = {
-  owner: '0x1234567890123456789012345678901234567890',
-  pdpUrl: 'https://provider1.example.com',
-  pieceRetrievalUrl: 'https://provider1.example.com/retrieve',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
+  serviceURL: 'https://provider1.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
 
 const mockProvider2: ApprovedProviderInfo = {
-  owner: '0x2345678901234567890123456789012345678901',
-  pdpUrl: 'https://provider2.example.com',
-  pieceRetrievalUrl: 'https://provider2.example.com/retrieve',
+  serviceProvider: '0x2345678901234567890123456789012345678901',
+  serviceURL: 'https://provider2.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
@@ -36,19 +36,19 @@ const mockChildRetriever: PieceRetriever = {
   }
 }
 
-// Mock proof set
-const mockProofSet: EnhancedProofSetInfo = {
+// Mock data set
+const mockDataSet: EnhancedDataSetInfo = {
   railId: 1,
   payer: '0xClient',
-  payee: mockProvider1.owner,
+  payee: mockProvider1.serviceProvider,
   commissionBps: 100,
   metadata: '',
-  rootMetadata: [],
+  pieceMetadata: [],
   clientDataSetId: 1,
   withCDN: false,
-  pdpVerifierProofSetId: 123,
-  nextRootId: 1,
-  currentRootCount: 5,
+  pdpVerifierDataSetId: 123,
+  nextPieceId: 1,
+  currentPieceCount: 5,
   isLive: true,
   isManaged: true
 }
@@ -56,8 +56,8 @@ const mockProofSet: EnhancedProofSetInfo = {
 describe('ChainRetriever', () => {
   describe('fetchPiece with specific provider', () => {
     it('should fetch from specific provider when providerAddress is given', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getProviderIdByAddress: async (addr: string) => addr === mockProvider1.owner ? 1 : 0,
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getProviderIdByAddress: async (addr: string) => addr === mockProvider1.serviceProvider ? 1 : 0,
         getApprovedProvider: async (id: number) => {
           if (id === 1) return mockProvider1
           throw new Error('Provider not found')
@@ -83,11 +83,11 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         const response = await retriever.fetchPiece(
           mockCommP,
           '0xClient',
-          { providerAddress: mockProvider1.owner }
+          { providerAddress: mockProvider1.serviceProvider }
         )
 
         assert.isTrue(findPieceCalled, 'Should call findPiece')
@@ -100,10 +100,10 @@ describe('ChainRetriever', () => {
     })
 
     it('should fall back to child retriever when specific provider is not approved', async () => {
-      const mockPandora: Partial<PandoraService> = {
+      const mockWarmStorage: Partial<WarmStorageService> = {
         getProviderIdByAddress: async () => 0 // Provider not found
       }
-      const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
       const response = await retriever.fetchPiece(mockCommP, '0xClient', {
         providerAddress: '0xNotApproved'
       })
@@ -112,10 +112,10 @@ describe('ChainRetriever', () => {
     })
 
     it('should throw when specific provider is not approved and no child retriever', async () => {
-      const mockPandora: Partial<PandoraService> = {
+      const mockWarmStorage: Partial<WarmStorageService> = {
         getProviderIdByAddress: async () => 0 // Provider not found
       }
-      const retriever = new ChainRetriever(mockPandora as PandoraService)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
         await retriever.fetchPiece(mockCommP, '0xClient', { providerAddress: '0xNotApproved' })
@@ -132,32 +132,32 @@ describe('ChainRetriever', () => {
   describe('fetchPiece with multiple providers', () => {
     it('should wait for successful provider even if others fail first', async () => {
       // This tests that Promise.any() waits for success rather than settling with first failure
-      const proofSets = [{
+      const dataSets = [{
         isLive: true,
-        currentRootCount: 1,
+        currentPieceCount: 1,
         payee: '0xProvider1' // Fast failing provider
       }, {
         isLive: true,
-        currentRootCount: 1,
+        currentPieceCount: 1,
         payee: '0xProvider2' // Slower but successful provider
       }]
 
       const providers = [{
-        owner: '0xProvider1',
-        pdpUrl: 'https://pdp1.example.com',
-        pieceRetrievalUrl: 'https://retrieve1.example.com',
+        serviceProvider: '0xProvider1',
+        serviceURL: 'https://pdp1.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 0,
         approvedAt: 0
       }, {
-        owner: '0xProvider2',
-        pdpUrl: 'https://pdp2.example.com',
-        pieceRetrievalUrl: 'https://retrieve2.example.com',
+        serviceProvider: '0xProvider2',
+        serviceURL: 'https://pdp2.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 0,
         approvedAt: 0
       }]
 
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => proofSets as any,
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => dataSets as any,
         getProviderIdByAddress: async (addr: string) => {
           if (addr === '0xProvider1') return 1
           if (addr === '0xProvider2') return 2
@@ -170,7 +170,7 @@ describe('ChainRetriever', () => {
         }
       }
 
-      const retriever = new ChainRetriever(mockPandora as PandoraService)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -186,11 +186,14 @@ describe('ChainRetriever', () => {
         if (url.includes('pdp2.example.com')) {
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 50))
-          return new Response(null, { status: 200 })
-        }
 
-        if (url.includes('retrieve2.example.com')) {
-          return new Response('success from provider 2', { status: 200 })
+          // Check if it's a piece retrieval
+          if (url.includes('/piece/')) {
+            return new Response('success from provider 2', { status: 200 })
+          }
+
+          // Otherwise it's a findPiece call
+          return new Response(null, { status: 200 })
         }
 
         throw new Error(`Unexpected URL: ${url}`)
@@ -208,14 +211,14 @@ describe('ChainRetriever', () => {
     })
 
     it('should race multiple providers and return first success', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => [
-          mockProofSet,
-          { ...mockProofSet, payee: mockProvider2.owner }
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [
+          mockDataSet,
+          { ...mockDataSet, payee: mockProvider2.serviceProvider }
         ],
         getProviderIdByAddress: async (addr: string) => {
-          if (addr === mockProvider1.owner) return 1
-          if (addr === mockProvider2.owner) return 2
+          if (addr === mockProvider1.serviceProvider) return 1
+          if (addr === mockProvider2.serviceProvider) return 2
           return 0
         },
         getApprovedProvider: async (id: number) => {
@@ -258,7 +261,7 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         const response = await retriever.fetchPiece(mockCommP, '0xClient')
 
         assert.equal(response.status, 200)
@@ -275,8 +278,8 @@ describe('ChainRetriever', () => {
     })
 
     it('should fall back to child retriever when all providers fail', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => [mockProofSet],
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [mockDataSet],
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
@@ -284,7 +287,7 @@ describe('ChainRetriever', () => {
       global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
 
       try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
         const response = await retriever.fetchPiece(mockCommP, '0xClient')
         assert.equal(response.status, 200)
         assert.equal(await response.text(), 'data from child')
@@ -294,8 +297,8 @@ describe('ChainRetriever', () => {
     })
 
     it('should throw when all providers fail and no child retriever', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => [mockProofSet],
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [mockDataSet],
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
@@ -303,7 +306,7 @@ describe('ChainRetriever', () => {
       global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
 
       try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         await retriever.fetchPiece(mockCommP, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -316,21 +319,21 @@ describe('ChainRetriever', () => {
       }
     })
 
-    it('should fall back to child retriever when no active proof sets found', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => [] // No proof sets
+    it('should fall back to child retriever when no active data sets found', async () => {
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [] // No data sets
       }
-      const retriever = new ChainRetriever(mockPandora as PandoraService, mockChildRetriever)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
       const response = await retriever.fetchPiece(mockCommP, '0xClient')
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
     })
 
-    it('should throw when no active proof sets found and no child retriever', async () => {
-      const mockPandora: Partial<PandoraService> = {
-        getClientProofSetsWithDetails: async () => [] // No proof sets
+    it('should throw when no active data sets found and no child retriever', async () => {
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [] // No data sets
       }
-      const retriever = new ChainRetriever(mockPandora as PandoraService)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
         await retriever.fetchPiece(mockCommP, '0xClient')
@@ -346,7 +349,7 @@ describe('ChainRetriever', () => {
 
   describe('abort signal handling', () => {
     it('should propagate abort signal to fetch requests', async () => {
-      const mockPandora: Partial<PandoraService> = {
+      const mockWarmStorage: Partial<WarmStorageService> = {
         getProviderIdByAddress: async () => 1,
         getApprovedProvider: async () => mockProvider1
       }
@@ -366,12 +369,12 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(mockPandora as PandoraService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         await retriever.fetchPiece(
           mockCommP,
           '0xClient',
           {
-            providerAddress: mockProvider1.owner,
+            providerAddress: mockProvider1.serviceProvider,
             signal: controller.signal
           }
         )

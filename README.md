@@ -4,6 +4,8 @@
 
 A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
 
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
+
 ## Overview
 
 The Synapse SDK is designed with flexibility in mind:
@@ -23,35 +25,70 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Installation](#installation)
-* [Recommended Usage](#recommended-usage)
-  * [Quick Start](#quick-start)
-  * [With MetaMask](#with-metamask)
-  * [Advanced Payment Control](#advanced-payment-control)
-  * [API Reference](#api-reference)
-  * [Storage Service Creation](#storage-service-creation)
-* [Using Individual Components](#using-individual-components)
-  * [Payments Service](#payments-service)
-  * [Pandora Service](#pandora-service)
-  * [Subgraph Service](#subgraph-service)
-  * [PDP Components](#pdp-components)
-  * [CommP Utilities](#commp-utilities)
-* [Network Configuration](#network-configuration)
-  * [RPC Endpoints](#rpc-endpoints)
-  * [GLIF Authorization](#glif-authorization)
-  * [Network Details](#network-details)
-* [Browser Integration](#browser-integration)
-  * [MetaMask Setup](#metamask-setup)
-* [Additional Information](#additional-information)
-  * [Type Definitions](#type-definitions)
-  * [Error Handling](#error-handling)
-* [Contributing](#contributing)
-  * [Commit Message Guidelines](#commit-message-guidelines)
-  * [Testing](#testing)
-* [Migration Guide](#migration-guide)
-  * [Transaction Return Types](#transaction-return-types-v070)
-* [License](#license)
+- [Synapse SDK](#synapse-sdk)
+  - [Overview](#overview)
+  - [Installation](#installation)
+  - [Table of Contents](#table-of-contents)
+  - [Recommended Usage](#recommended-usage)
+    - [Quick Start](#quick-start)
+      - [Payment Setup](#payment-setup)
+    - [With MetaMask](#with-metamask)
+    - [Advanced Payment Control](#advanced-payment-control)
+    - [API Reference](#api-reference)
+      - [Constructor Options](#constructor-options)
+      - [Synapse Methods](#synapse-methods)
+      - [Synapse.payments Methods](#synapsepayments-methods)
+      - [Storage Service Methods](#storage-service-methods)
+    - [Storage Service Creation](#storage-service-creation)
+      - [Basic Usage](#basic-usage)
+      - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
+      - [Creation Options](#creation-options)
+      - [Storage Service Properties](#storage-service-properties)
+      - [Storage Service Methods](#storage-service-methods-1)
+        - [Preflight Upload](#preflight-upload)
+        - [Upload and Download](#upload-and-download)
+        - [Size Constraints](#size-constraints)
+        - [Efficient Batch Uploads](#efficient-batch-uploads)
+    - [Storage Information](#storage-information)
+    - [Download Options](#download-options)
+      - [Direct Download via Synapse](#direct-download-via-synapse)
+      - [Provider-Specific Download via StorageService](#provider-specific-download-via-storageservice)
+      - [CDN Inheritance Pattern](#cdn-inheritance-pattern)
+  - [Using Individual Components](#using-individual-components)
+    - [Payments Service](#payments-service)
+    - [Warm Storage Service](#warm-storage-service)
+    - [Subgraph Service](#subgraph-service)
+      - [Custom Subgraph Service Implementations](#custom-subgraph-service-implementations)
+    - [PDP Components](#pdp-components)
+      - [PDP Verifier](#pdp-verifier)
+      - [PDP Server](#pdp-server)
+      - [PDP Auth Helper](#pdp-auth-helper)
+    - [CommP Utilities](#commp-utilities)
+  - [Network Configuration](#network-configuration)
+    - [RPC Endpoints](#rpc-endpoints)
+    - [GLIF Authorization](#glif-authorization)
+    - [Network Details](#network-details)
+  - [Browser Integration](#browser-integration)
+    - [MetaMask Setup](#metamask-setup)
+  - [Additional Information](#additional-information)
+    - [Type Definitions](#type-definitions)
+    - [Error Handling](#error-handling)
+  - [Contributing](#contributing)
+    - [Commit Message Guidelines](#commit-message-guidelines)
+      - [Commit Message Format](#commit-message-format)
+      - [Supported Types and Version Bumps](#supported-types-and-version-bumps)
+      - [Examples](#examples)
+      - [Important Notes](#important-notes)
+    - [Testing](#testing)
+  - [Migration Guide](#migration-guide)
+    - [Terminology Update (v0.24.0+)](#terminology-update-v0240)
+      - [Import Path Changes](#import-path-changes)
+      - [Type Name Changes](#type-name-changes)
+      - [Method Name Changes](#method-name-changes)
+      - [Configuration Changes](#configuration-changes)
+      - [Complete Migration Example](#complete-migration-example)
+      - [Migration Checklist](#migration-checklist)
+  - [License](#license)
 
 ---
 
@@ -101,12 +138,13 @@ import { ethers } from 'ethers'
 const amount = ethers.parseUnits('100', 18)  // 100 USDFC
 await synapse.payments.deposit(amount, TOKENS.USDFC)
 
-// 2. Approve the Pandora service for automated payments
-const pandoraAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()]
+// 2. Approve the Warm Storage service for automated payments
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
 await synapse.payments.approveService(
-  pandoraAddress,
+  warmStorageAddress,
   ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
-  ethers.parseUnits('1000', 18)  // Lockup allowance: 1000 USDFC total
+  ethers.parseUnits('1000', 18), // Lockup allowance: 1000 USDFC total
+  86400n                         // Max lockup period: 30 days (in epochs)
 )
 
 // Now you're ready to use storage!
@@ -164,29 +202,32 @@ const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait()
 
-// Service operator approvals (required before creating proof sets)
-// Get the Pandora service address for the current network
-const pandoraAddress = CONTRACT_ADDRESSES.PANDORA_SERVICE[synapse.getNetwork()]
+// Service operator approvals (required before creating data sets)
+// Get the Warm Storage service address for the current network
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
 
 // Approve service to create payment rails on your behalf
 const serviceApproveTx = await synapse.payments.approveService(
-  pandoraAddress,
+  warmStorageAddress,
   // 10 USDFC per epoch rate allowance
   ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
   // 1000 USDFC lockup allowance
-  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC))
+  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC)),
+  // 30 days max lockup period (in epochs)
+  86400n
 )
 console.log(`Service approval transaction: ${serviceApproveTx.hash}`)
 await serviceApproveTx.wait()
 
 // Check service approval status
-const serviceStatus = await synapse.payments.serviceApproval(pandoraAddress)
+const serviceStatus = await synapse.payments.serviceApproval(warmStorageAddress)
 console.log('Service approved:', serviceStatus.isApproved)
 console.log('Rate allowance:', serviceStatus.rateAllowance)
 console.log('Rate used:', serviceStatus.rateUsed)
+console.log('Max lockup period:', serviceStatus.maxLockupPeriod)
 
 // Revoke service if needed
-const revokeTx = await synapse.payments.revokeService(pandoraAddress)
+const revokeTx = await synapse.payments.revokeService(warmStorageAddress)
 console.log(`Revoke transaction: ${revokeTx.hash}`)
 await revokeTx.wait()
 ```
@@ -198,22 +239,24 @@ await revokeTx.wait()
 ```typescript
 interface SynapseOptions {
   // Wallet Configuration (exactly one required)
-  privateKey?: string           // Private key for signing
-  provider?: ethers.Provider    // Browser provider (MetaMask, etc.)
-  signer?: ethers.Signer        // External signer
+  privateKey?: string             // Private key for signing
+  provider?: ethers.Provider      // Browser provider (MetaMask, etc.)
+  signer?: ethers.Signer          // External signer
 
   // Network Configuration
-  rpcURL?: string              // RPC endpoint URL
-  authorization?: string        // Authorization header (e.g., 'Bearer TOKEN')
+  rpcURL?: string                 // RPC endpoint URL
+  authorization?: string          // Authorization header (e.g., 'Bearer TOKEN')
 
   // Advanced Configuration
-  disableNonceManager?: boolean // Disable automatic nonce management
-  withCDN?: boolean             // Enable CDN for retrievals
-  pandoraAddress?: string       // Override Pandora service contract address
+  withCDN?: boolean               // Enable CDN for retrievals (set a default for all new storage operations)
+  pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
+  disableNonceManager?: boolean   // Disable automatic nonce management
+  warmStorageAddress?: string     // Override Warm Storage service contract address (for testing purposes)
+  pdpVerifierAddress?: string     // Override PDPVerifier contract address (for testing purposes)
   
-  // Subgraph Integration (provide ONE of these options)
+  // Subgraph Integration (optional, provide only one of these options)
   subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
-  subgraphConfig?: SubgraphConfig // Configuration for the default SubgraphService
+  subgraphConfig?: SubgraphConfig            // Configuration for the default SubgraphService
 }
 
 interface SubgraphConfig {
@@ -229,12 +272,18 @@ interface SubgraphConfig {
 
 #### Synapse Methods
 
-- `payments` - Access payment-related functionality (see below)
-- `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
-- `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
-- `download(commp, options?)` - Download a piece directly from any provider (see Download Options)
-- `getProviderInfo(providerAddress)` - Get detailed information about a storage provider
+**Instance Properties:**
+- `payments` - PaymentsService instance for token operations (see [Payment Methods](#synapepayments-methods) below)
+
+**Core Operations:**
+- `createStorage(options?)` - Create a storage service instance (returns `StorageService`, see [Storage Service Methods](#storage-service-methods) below)
+- `download(commp, options?)` - Download a piece directly from any provider (see [Download Options](#download-options))
 - `getStorageInfo()` - Get comprehensive storage service information (pricing, providers, parameters)
+- `getProviderInfo(providerAddress)` - Get detailed information about a service provider
+
+**Network & Configuration:**
+- `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
+- `getChainId()` - Get the numeric chain ID (314 for mainnet, 314159 for calibration)
 
 #### Synapse.payments Methods
 
@@ -242,7 +291,6 @@ interface SubgraphConfig {
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance()` - Get available USDFC balance in payments contract (accounting for lockups)
 - `accountInfo()` - Get detailed USDFC account info including funds, lockup details, and available balance
-- `getCurrentEpoch()` - Get the current Filecoin epoch number
 - `decimals()` - Get token decimals (always returns 18)
 
 *Note: Currently only USDFC token is supported for payments contract operations. FIL is also supported for `walletBalance()`.*
@@ -254,17 +302,35 @@ interface SubgraphConfig {
 - `allowance(token, spender)` - Check current token allowance
 
 **Service Approvals:**
-- `approveService(service, rateAllowance, lockupAllowance, token?)` - Approve a service contract as operator, returns `TransactionResponse`
+- `approveService(service, rateAllowance, lockupAllowance, maxLockupPeriod, token?)` - Approve a service contract as operator, returns `TransactionResponse`
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
+#### Storage Service Methods
+
+The `StorageService` instance returned by `synapse.createStorage()` provides methods for interacting with a specific service provider and data set.
+
+**Instance Properties:**
+- `dataSetId` - The data set ID being used (string)
+- `serviceProvider` - The service provider address (string)
+
+**Core Storage Operations:**
+- `upload(data, callbacks?)` - Upload data to the service provider, returns `UploadResult` with `commp`, `size`, and `pieceId`
+- `providerDownload(commp, options?)` - Download data from this specific provider, returns `Uint8Array`
+- `preflightUpload(dataSize)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check
+
+**Information & Status:**
+- `getProviderInfo()` - Get detailed information about the selected service provider
+- `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
+- `pieceStatus(commp)` - Get the status of a piece including data set timing information
+
 ### Storage Service Creation
 
-The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing proof sets, and coordinating with the blockchain. You just call `createStorage()` and the SDK takes care of everything.
+The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain. You just call `createStorage()` and the SDK takes care of everything.
 
 Behind the scenes, the process may be:
-- **Fast (<1 second)**: When reusing existing infrastructure
-- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure
+- **Fast (<1 second)**: When reusing existing infrastructure (i.e. an existing data set previously created)
+- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
 #### Basic Usage
 
@@ -288,27 +354,27 @@ const storage = await synapse.createStorage({
       console.log(`  PDP URL: ${provider.pdpUrl}`)
     },
 
-    // Called when proof set is found or created
-    onProofSetResolved: (info) => {
+    // Called when data set is found or created
+    onDataSetResolved: (info) => {
       if (info.isExisting) {
-        console.log(`Using existing proof set: ${info.proofSetId}`)
+        console.log(`Using existing data set: ${info.dataSetId}`)
       } else {
-        console.log(`Created new proof set: ${info.proofSetId}`)
+        console.log(`Created new data set: ${info.dataSetId}`)
       }
     },
 
-    // Only called when creating a new proof set
-    onProofSetCreationStarted: (transaction, statusUrl) => {
+    // Only called when creating a new data set
+    onDataSetCreationStarted: (transaction, statusUrl) => {
       console.log(`Creation transaction: ${transaction.hash}`)
       if (statusUrl) {
         console.log(`Monitor status at: ${statusUrl}`)
       }
     },
 
-    // Progress updates during proof set creation
-    onProofSetCreationProgress: (status) => {
+    // Progress updates during data set creation
+    onDataSetCreationProgress: (status) => {
       const elapsed = Math.round(status.elapsedMs / 1000)
-      console.log(`[${elapsed}s] Mining: ${status.transactionMined}, Live: ${status.proofSetLive}`)
+      console.log(`[${elapsed}s] Mining: ${status.transactionMined}, Live: ${status.dataSetLive}`)
     }
   }
 })
@@ -320,7 +386,7 @@ const storage = await synapse.createStorage({
 interface StorageServiceOptions {
   providerId?: number                      // Specific provider ID to use
   providerAddress?: string                 // Specific provider address to use
-  proofSetId?: number                      // Specific proof set ID to use
+  dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
@@ -337,11 +403,11 @@ interface StorageServiceOptions {
 Once created, the storage service provides access to:
 
 ```javascript
-// The proof set ID being used
-console.log(`Proof set ID: ${storage.proofSetId}`)
+// The data set ID being used
+console.log(`Data set ID: ${storage.dataSetId}`)
 
-// The storage provider address
-console.log(`Storage provider: ${storage.storageProvider}`)
+// The service provider address
+console.log(`Service provider: ${storage.serviceProvider}`)
 ```
 
 #### Storage Service Methods
@@ -366,42 +432,34 @@ const result = await storage.upload(data, {
   onUploadComplete: (commp) => {
     console.log(`Upload complete! CommP: ${commp}`)
   },
-  onRootAdded: (transaction) => {
+  onPieceAdded: (transaction) => {
     // For new servers: transaction object with details
     // For old servers: undefined (backward compatible)
     if (transaction) {
       console.log(`Transaction confirmed: ${transaction.hash}`)
     } else {
-      console.log('Data added to proof set (legacy server)')
+      console.log('Data added to data set (legacy server)')
     }
   },
-  onRootConfirmed: (rootIds) => {
+  onPieceConfirmed: (pieceIds) => {
     // Only called for new servers with transaction tracking
-    console.log(`Root IDs assigned: ${rootIds.join(', ')}`)
+    console.log(`Piece IDs assigned: ${pieceIds.join(', ')}`)
   }
 })
 
 // Download data from this specific provider
 const downloaded = await storage.providerDownload(result.commp)
 
-// Get the list of root CIDs in the current proof set by querying the provider
-const rootCids = await storage.getProofSetRoots()
-console.log(`Root CIDs: ${rootCids.map(cid => cid.toString()).join(', ')}`)
+// Get the list of piece CIDs in the current data set by querying the provider
+const pieceCids = await storage.getDataSetPieces()
+console.log(`Piece CIDs: ${pieceCids.map(cid => cid.toString()).join(', ')}`)
 
-// Check the status of a piece on the storage provider
+// Check the status of a piece on the service provider
 const status = await storage.pieceStatus(result.commp)
 console.log(`Piece exists: ${status.exists}`)
-console.log(`Proof set last proven: ${status.proofSetLastProven}`)
-console.log(`Proof set next proof due: ${status.proofSetNextProofDue}`)
+console.log(`Data set last proven: ${status.dataSetLastProven}`)
+console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 ```
-
-**Storage Service Methods:**
-- `upload(data, callbacks?)` - Upload data to the storage provider
-- `providerDownload(commp, options?)` - Download data from this specific provider
-- `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
-- `getProviderInfo()` - Get detailed information about the selected storage provider
-- `getProofSetRoots()` - Get the list of root CIDs in the proof set by querying the provider
-- `pieceStatus(commp)` - Get the status of a piece including proof set timing information
 
 ##### Size Constraints
 
@@ -410,6 +468,8 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
+
+***Note: these limits are temporary during this current pre-v1 period and will eventually be extended. You can read more in [this issue thread](https://github.com/FilOzone/synapse-sdk/issues/110)***
 
 ##### Efficient Batch Uploads
 
@@ -491,7 +551,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 
 ```javascript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true })          // Default: CDN enabled
+const synapse = await Synapse.create({ withCDN: true })          // Global default for this Synapse instance: CDN enabled
 const storage = await synapse.createStorage({ withCDN: false })  // Override: CDN disabled
 await synapse.download(commp)                                    // Uses Synapse's withCDN: true
 await storage.providerDownload(commp)                            // Uses StorageService's withCDN: false
@@ -527,30 +587,31 @@ console.log('Available funds:', info.availableFunds)
 
 // Approve service as operator
 const approveTx = await paymentsService.approveService(
-  serviceAddress,         // e.g., Pandora contract address
+  serviceAddress,         // e.g., Warm Storage contract address
   rateAllowance,         // per-epoch rate allowance in base units
-  lockupAllowance        // total lockup allowance in base units
+  lockupAllowance,        // total lockup allowance in base units
+  maxLockupPeriod        // max lockup period in epochs (e.g., 86400n for 30 days)
 )
 console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
 ```
 
-### Pandora Service
+### Warm Storage Service
 
-Interact with the Pandora contract for proof set management, storage provider operations, and storage cost calculations.
+Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
 
 ```javascript
-import { PandoraService } from '@filoz/synapse-sdk/pandora'
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
 // Deployed contract addresses are available in CONTRACT_ADDRESSES
-const pandoraService = new PandoraService(provider, pandoraAddress, pdpVerifierAddress)
+const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
 
 // Storage cost calculations
-const costs = await pandoraService.calculateStorageCost(sizeInBytes)
+const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
 console.log(`Storage cost: ${costs.perMonth} per month`)
 
 // Check allowances for storage (returns allowance details and costs)
-const check = await pandoraService.checkAllowanceForStorage(
+const check = await warmStorageService.checkAllowanceForStorage(
   sizeInBytes,
   withCDN,
   paymentsService  // Pass PaymentsService instance
@@ -559,36 +620,36 @@ const check = await pandoraService.checkAllowanceForStorage(
 // check.costs - storage costs per epoch/day/month
 
 // Prepare storage upload
-const prep = await pandoraService.prepareStorageUpload({
+const prep = await warmStorageService.prepareStorageUpload({
   dataSize: sizeInBytes,
   withCDN: false
 }, paymentsService)
 
-// Get client proof sets with enhanced details
-const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress)
-for (const ps of proofSets) {
-  console.log(`Rail ID: ${ps.railId}, PDP Verifier ID: ${ps.pdpVerifierProofSetId}`)
-  console.log(`Is Live: ${ps.isLive}, Is Managed: ${ps.isManaged}`)
-  console.log(`Next Root ID: ${ps.nextRootId}`)
+// Get client data sets with enhanced details
+const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
+for (const ds of dataSets) {
+  console.log(`Rail ID: ${ds.railId}, PDP Verifier ID: ${ds.pdpVerifierDataSetId}`)
+  console.log(`Is Live: ${ds.isLive}, Is Managed: ${ds.isManaged}`)
+  console.log(`Next Piece ID: ${ds.nextPieceId}`)
 }
 
-// Get only proof sets managed by this Pandora instance
-const managedSets = await pandoraService.getManagedProofSets(clientAddress)
+// Get only data sets managed by this Warm Storage instance
+const managedSets = await warmStorageService.getManagedDataSets(clientAddress)
 
-// Verify proof set creation
-const verification = await pandoraService.verifyProofSetCreation(txHash)
-if (verification.proofSetLive) {
-  console.log(`Proof set ${verification.proofSetId} is live!`)
+// Verify data set creation
+const verification = await warmStorageService.verifyDataSetCreation(txHash)
+if (verification.dataSetLive) {
+  console.log(`Data set ${verification.dataSetId} is live!`)
 }
 
-// Storage provider operations
-const isApproved = await pandoraService.isProviderApproved(providerAddress)
-const providers = await pandoraService.getAllApprovedProviders()
+// Service provider operations
+const isApproved = await warmStorageService.isProviderApproved(providerAddress)
+const providers = await warmStorageService.getAllApprovedProviders()
 ```
 
 ### Subgraph Service
 
-The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, proof set tracking, and more.
+The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, data set tracking, and more.
 
 ```javascript
 // Create subgraph service
@@ -610,7 +671,7 @@ const activeProviders = await subgraphService.queryProviders({
   where: {
     status: 'Approved'
   },
-  orderBy: 'totalProofSets',
+  orderBy: 'totalDataSets',
   orderDirection: 'desc',
   first: 5
 })
@@ -665,55 +726,55 @@ import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 // Deployed contract addresses are available in CONTRACT_ADDRESSES
 const pdpVerifier = new PDPVerifier(provider, pdpVerifierAddress)
 
-// Check if proof set is live
-const isLive = await pdpVerifier.proofSetLive(proofSetId)
+// Check if data set is live
+const isLive = await pdpVerifier.dataSetLive(dataSetId)
 
-// Get proof set details
-const nextRootId = await pdpVerifier.getNextRootId(proofSetId)
-const listener = await pdpVerifier.getProofSetListener(proofSetId)
-const leafCount = await pdpVerifier.getProofSetLeafCount(proofSetId)
+// Get data set details
+const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
+const listener = await pdpVerifier.getDataSetListener(dataSetId)
+const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId)
 
-// Extract proof set ID from transaction receipt
-const proofSetId = await pdpVerifier.extractProofSetIdFromReceipt(receipt)
+// Extract data set ID from transaction receipt
+const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
 ```
 
 #### PDP Server
 
-Consolidated interface for all PDP server (Curio) HTTP operations including proof sets, uploads, and downloads.
+Consolidated interface for all PDP server (Curio) HTTP operations including data sets, uploads, and downloads.
 
 ```javascript
 import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create server instance with auth helper
 // Deployed contract addresses are available in CONTRACT_ADDRESSES
-const authHelper = new PDPAuthHelper(pandoraAddress, signer, chainId)
+const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https://pdp.provider.com')
 
-// Create a proof set
-const { txHash, statusUrl } = await pdpServer.createProofSet(
+// Create a data set
+const { txHash, statusUrl } = await pdpServer.createDataSet(
   clientDataSetId,     // number
-  payee,               // string (storage provider address)
+  payee,               // string (service provider address)
   withCDN,             // boolean
-  recordKeeper         // string (Pandora contract address)
+  recordKeeper         // string (Warm Storage contract address)
 )
 
 // Check creation status
-const status = await pdpServer.getProofSetCreationStatus(txHash)
-console.log(`Status: ${status.txStatus}, Proof Set ID: ${status.proofSetId}`)
+const status = await pdpServer.getDataSetCreationStatus(txHash)
+console.log(`Status: ${status.txStatus}, Data Set ID: ${status.dataSetId}`)
 
-// Add roots to proof set (returns transaction tracking info)
-const addResult = await pdpServer.addRoots(
-  proofSetId,         // number (PDPVerifier proof set ID)
+// Add pieces to data set (returns transaction tracking info)
+const addResult = await pdpServer.addPieces(
+  dataSetId,          // number (PDPVerifier data set ID)
   clientDataSetId,    // number
-  nextRootId,         // number (must match chain state)
-  rootDataArray       // Array of { cid: string | CommP, rawSize: number }
+  nextPieceId,        // number (must match chain state)
+  pieceDataArray      // Array of { cid: string | CommP, rawSize: number }
 )
 // addResult: { message: string, txHash?: string, statusUrl?: string }
 
-// Check root addition status (for new servers with transaction tracking)
+// Check piece addition status (for new servers with transaction tracking)
 if (addResult.txHash) {
-  const status = await pdpServer.getRootAdditionStatus(proofSetId, addResult.txHash)
-  console.log(`Status: ${status.txStatus}, Root IDs: ${status.confirmedRootIds}`)
+  const status = await pdpServer.getPieceAdditionStatus(dataSetId, addResult.txHash)
+  console.log(`Status: ${status.txStatus}, Piece IDs: ${status.confirmedPieceIds}`)
 }
 
 // Upload a piece
@@ -726,9 +787,9 @@ console.log(`Piece found: ${piece.uuid}`)
 // Download a piece
 const data = await pdpServer.downloadPiece(commP)
 
-// Get proof set details
-const proofSet = await pdpServer.getProofSet(proofSetId)
-console.log(`Proof set ${proofSet.id} has ${proofSet.roots.length} roots`)
+// Get data set details
+const dataSet = await pdpServer.getDataSet(dataSetId)
+console.log(`Data set ${dataSet.id} has ${dataSet.pieces.length} pieces`)
 ```
 
 #### PDP Auth Helper
@@ -740,19 +801,19 @@ import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create auth helper directly
 // Deployed contract addresses are available in CONTRACT_ADDRESSES
-const authHelper = new PDPAuthHelper(pandoraAddress, signer, chainId)
+const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 
 // Sign operations
-const createProofSetSig = await authHelper.signCreateProofSet(
+const createDataSetSig = await authHelper.signCreateDataSet(
   clientDataSetId,    // number
   payeeAddress,       // string
   withCDN             // boolean
 )
 
-const addRootsSig = await authHelper.signAddRoots(
+const addPiecesSig = await authHelper.signAddPieces(
   clientDataSetId,    // number
-  firstRootId,        // number
-  rootDataArray       // Array of { cid: string | CommP, rawSize: number }
+  firstPieceId,       // number
+  pieceDataArray      // Array of { cid: string | CommP, rawSize: number }
 )
 
 // All signatures return { signature, v, r, s, signedData }
@@ -899,7 +960,7 @@ This repository uses **auto-publishing** with semantic versioning based on commi
 - **minor** (0.X.y): `feat:`
 - **major** (X.y.z): Any type with `!` suffix or `BREAKING CHANGE` in footer
 
-The `(optional scope)` is used to provide additional clarity about the target of the changes if isolated to a specific subsystem. e.g. `payments`, `storage`, `pandora`, `ci`, etc.
+The `(optional scope)` is used to provide additional clarity about the target of the changes if isolated to a specific subsystem. e.g. `payments`, `storage`, `warm-storage`, `ci`, etc.
 
 #### Examples
 
@@ -940,52 +1001,213 @@ npm run test:browser  # Browser tests only
 
 ## Migration Guide
 
-### Transaction Return Types (v0.7.0+)
+### Terminology Update (v0.24.0+)
 
-Starting with version 0.7.0, payment methods now return `ethers.TransactionResponse` objects instead of transaction hashes. This provides more control and aligns with standard ethers.js patterns.
+Starting with version 0.24.0, the SDK introduces comprehensive terminology changes to better align with Filecoin ecosystem conventions:
 
-**Before (v0.6.x and earlier):**
-```javascript
-// Methods returned transaction hash strings
-const txHash = await synapse.payments.approve(token, spender, amount)
-console.log(`Transaction: ${txHash}`)
-// Transaction was already confirmed
+- **Pandora** → **Warm Storage**
+- **Proof Sets** → **Data Sets**
+- **Roots** → **Pieces**
+- **Storage Providers** → **Service Providers**
+  - _Note: most service providers are, in fact, storage providers, however this language reflects the emergence of new service types on Filecoin beyond storage._
+
+This is a breaking change that affects imports, type names, method names, and configuration options throughout the SDK.
+
+#### Import Path Changes
+
+**Before (v0.23.x and earlier):**
+```typescript
+import { PandoraService } from '@filoz/synapse-sdk/pandora'
 ```
 
-**After (v0.7.0+):**
-```javascript
-// Methods return TransactionResponse objects
-const tx = await synapse.payments.approve(token, spender, amount)
-console.log(`Transaction: ${tx.hash}`)
-// Optional: wait for confirmation when you need it
-const receipt = await tx.wait()
-console.log(`Confirmed in block ${receipt.blockNumber}`)
+**After (v0.24.0+):**
+```typescript
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 ```
 
-**Affected methods:**
-- `approve()` - Returns `TransactionResponse`
-- `approveService()` - Returns `TransactionResponse`
-- `revokeService()` - Returns `TransactionResponse`
-- `withdraw()` - Returns `TransactionResponse`
-- `deposit()` - Returns `TransactionResponse`, plus new callbacks for multi-step visibility
+#### Type Name Changes
 
-**Deposit callbacks (new):**
-```javascript
-const tx = await synapse.payments.deposit(amount, TOKENS.USDFC, {
-  onAllowanceCheck: (current, required) => {
-    console.log(`Checking allowance: ${current} vs ${required}`)
-  },
-  onApprovalTransaction: (approveTx) => {
-    console.log(`Auto-approval sent: ${approveTx.hash}`)
-  },
-  onApprovalConfirmed: (receipt) => {
-    console.log(`Approval confirmed in block ${receipt.blockNumber}`)
-  },
-  onDepositStarting: () => {
-    console.log('Starting deposit transaction...')
-  }
+| Old Type (< v0.24.0) | New Type (v0.24.0+) |
+|----------------------|---------------------|
+| `ProofSetId` | `DataSetId` |
+| `RootData` | `PieceData` |
+| `ProofSetInfo` | `DataSetInfo` |
+| `EnhancedProofSetInfo` | `EnhancedDataSetInfo` |
+| `ProofSetCreationStatusResponse` | `DataSetCreationStatusResponse` |
+| `RootAdditionStatusResponse` | `PieceAdditionStatusResponse` |
+| `StorageProvider` | `ServiceProvider` |
+
+#### Method Name Changes
+
+**Synapse Class:**
+```typescript
+// Before (< v0.24.0)
+synapse.getPandoraAddress()
+
+// After (v0.24.0+)
+synapse.getWarmStorageAddress()
+```
+
+**WarmStorageService (formerly PandoraService):**
+```typescript
+// Before (< v0.24.0)
+pandoraService.getClientProofSets(client)
+pandoraService.getAddRootsInfo(proofSetId)
+
+// After (v0.24.0+)
+warmStorageService.getClientDataSets(client)
+warmStorageService.getAddPiecesInfo(dataSetId)
+```
+
+**PDPAuthHelper:**
+```typescript
+// Before (< v0.24.0)
+authHelper.signCreateProofSet(serviceProvider, clientDataSetId)
+authHelper.signAddRoots(proofSetId, rootData)
+
+// After (v0.24.0+)
+authHelper.signCreateDataSet(serviceProvider, clientDataSetId)
+authHelper.signAddPieces(dataSetId, pieceData)
+```
+
+**PDPServer:**
+```typescript
+// Before (< v0.24.0)
+pdpServer.createProofSet(serviceProvider, clientDataSetId)
+pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
+
+// After (v0.24.0+)
+pdpServer.createDataSet(serviceProvider, clientDataSetId)
+pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
+```
+
+#### Interface Property Changes
+
+**ApprovedProviderInfo:**
+```typescript
+// Before (< v0.24.0)
+interface ApprovedProviderInfo {
+  owner: string           // Provider's wallet address
+  pdpUrl: string          // PDP server URL
+  pieceRetrievalUrl: string
+  // ...
+}
+
+// After (v0.24.0+)
+interface ApprovedProviderInfo {
+  serviceProvider: string  // Service provider address (renamed from 'owner')
+  serviceURL: string       // Combined service URL (replaces pdpUrl/pieceRetrievalUrl)
+  peerId: string           // Added peer ID
+  // ...
+}
+```
+
+**StorageService Properties:**
+```typescript
+// Before (< v0.24.0)
+storage.storageProvider  // Provider address property
+
+// After (v0.24.0+)
+storage.serviceProvider  // Renamed property
+```
+
+**Callback Interfaces:**
+```typescript
+// Before (< v0.24.0)
+onProofSetResolved?: (info: { proofSetId: number }) => void
+
+// After (v0.24.0+)
+onDataSetResolved?: (info: { dataSetId: number }) => void
+```
+
+#### Configuration Changes
+
+**Before (< v0.24.0):**
+```typescript
+const synapse = await Synapse.create({
+  pandoraAddress: '0x...',
+  // ...
 })
 ```
+
+**After (v0.24.0+):**
+```typescript
+const synapse = await Synapse.create({
+  warmStorageAddress: '0x...',
+  // ...
+})
+```
+
+#### Complete Migration Example
+
+**Before (< v0.24.0):**
+```typescript
+import { PandoraService } from '@filoz/synapse-sdk/pandora'
+import type { StorageProvider } from '@filoz/synapse-sdk'
+
+const pandoraService = new PandoraService(provider, pandoraAddress)
+const proofSets = await pandoraService.getClientProofSets(client)
+
+for (const proofSet of proofSets) {
+  console.log(`Proof set ${proofSet.railId} has ${proofSet.rootMetadata.length} roots`)
+}
+
+// Using storage service
+const storage = await synapse.createStorage({
+  callbacks: {
+    onProofSetResolved: (info) => {
+      console.log(`Using proof set ${info.proofSetId}`)
+    }
+  }
+})
+console.log(`Storage provider: ${storage.storageProvider}`)
+```
+
+**After (v0.24.0+):**
+```typescript
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+import type { ServiceProvider } from '@filoz/synapse-sdk'
+
+const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
+const dataSets = await warmStorageService.getClientDataSets(client)
+
+for (const dataSet of dataSets) {
+  console.log(`Data set ${dataSet.railId} has ${dataSet.pieceMetadata.length} pieces`)
+}
+
+// Using storage service
+const storage = await synapse.createStorage({
+  callbacks: {
+    onDataSetResolved: (info) => {
+      console.log(`Using data set ${info.dataSetId}`)
+    }
+  }
+})
+console.log(`Service provider: ${storage.serviceProvider}`)
+```
+
+#### Migration Checklist
+
+When upgrading from versions prior to v0.24.0:
+
+1. **Update imports** - Replace `@filoz/synapse-sdk/pandora` with `@filoz/synapse-sdk/warm-storage`
+2. **Update type references**:
+   - Replace all `ProofSet`/`proofSet` with `DataSet`/`dataSet`
+   - Replace all `Root`/`root` with `Piece`/`piece`
+   - Replace `StorageProvider` type with `ServiceProvider`
+3. **Update interface properties**:
+   - `ApprovedProviderInfo.owner` → `ApprovedProviderInfo.serviceProvider`
+   - `ApprovedProviderInfo.pdpUrl` → `ApprovedProviderInfo.serviceURL`
+   - `storage.storageProvider` → `storage.serviceProvider`
+4. **Update callback names**:
+   - `onProofSetResolved` → `onDataSetResolved`
+   - Callback parameter `proofSetId` → `dataSetId`
+5. **Update method calls** - Use the new method names as shown above
+6. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
+7. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
+8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+
+Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.
 
 ## License
 

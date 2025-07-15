@@ -40,68 +40,62 @@ export const CONTRACT_ABIS = {
    * Payments contract ABI - based on fws-payments contract
    */
   PAYMENTS: [
-    'function deposit(address token, address to, uint256 amount)',
+    'function deposit(address token, address to, uint256 amount) payable',
     'function withdraw(address token, uint256 amount)',
     'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
-    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance)',
-    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed)'
+    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
+    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed, uint256 maxLockupPeriod)'
   ] as const,
 
   /**
-   * Pandora ABI - includes both PDP functions and service provider management
+   * Warm Storage ABI - includes both PDP functions and service provider management
    */
-  PANDORA_SERVICE: [
+  WARM_STORAGE: [
     // Write functions
-    'function registerServiceProvider(string pdpUrl, string pieceRetrievalUrl) external',
+    'function registerServiceProvider(string serviceURL, bytes peerId) external payable',
     'function approveServiceProvider(address provider) external',
     'function rejectServiceProvider(address provider) external',
     'function removeServiceProvider(uint256 providerId) external',
-    'function addServiceProvider(address provider, string pdpUrl, string pieceRetrievalUrl) external',
 
     // Read functions
-    'function isProviderApproved(address provider) external view returns (bool)',
     'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
-    'function nextServiceProviderId() external view returns (uint256)',
+    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
+    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
+    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
     'function owner() external view returns (address)',
-    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth) pricing)',
+    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
 
     // Public mappings that are automatically exposed
-    'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
+    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
 
-    // Proof set functions
-    'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])',
+    // Data set functions
+    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
 
-    // Mapping from rail ID to PDPVerifier proof set ID
-    'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
+    // Mapping from rail ID to PDPVerifier data set ID
+    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
 
-    // Get proof set info by ID
-    'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)',
+    // Get data set info by ID
+    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch))',
 
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
-    'function challengeWindow() external view returns (uint256)',
-    'function maxProvingPeriod() external view returns (uint64)',
-    'function challengeWindowSize() external view returns (uint256)'
+    'function challengeWindow() external view returns (uint256)'
   ] as const,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
   PDP_VERIFIER: [
-    'function getNextRootId(uint256 setId) public view returns (uint256)',
-    'function proofSetLive(uint256 setId) public view returns (bool)',
-    'function getProofSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getProofSetOwner(uint256 setId) public view returns (address, address)',
-    'function getProofSetListener(uint256 setId) public view returns (address)',
-    'event ProofSetCreated(uint256 indexed setId, address indexed owner)'
+    'function getNextPieceId(uint256 setId) public view returns (uint256)',
+    'function dataSetLive(uint256 setId) public view returns (bool)',
+    'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
+    'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
+    'function getDataSetListener(uint256 setId) public view returns (address)',
+    'event DataSetCreated(uint256 indexed setId, address indexed owner)'
   ] as const
 } as const
 
@@ -186,7 +180,7 @@ export const SIZE_CONSTANTS = {
   MIN_UPLOAD_SIZE: 65,
 
   /**
-   * Default number of uploads to batch together in a single addRoots transaction
+   * Default number of uploads to batch together in a single addPieces transaction
    * This balances gas efficiency with reasonable transaction sizes
    */
   DEFAULT_UPLOAD_BATCH_SIZE: 32
@@ -209,15 +203,15 @@ export const TIMING_CONSTANTS = {
   TRANSACTION_PROPAGATION_POLL_INTERVAL_MS: 2000, // 2 seconds
 
   /**
-   * Maximum time to wait for a proof set creation to complete
-   * This includes transaction mining and the proof set becoming live on-chain
+   * Maximum time to wait for a data set creation to complete
+   * This includes transaction mining and the data set becoming live on-chain
    */
-  PROOF_SET_CREATION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+  DATA_SET_CREATION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
 
   /**
-   * How often to poll for proof set creation status
+   * How often to poll for data set creation status
    */
-  PROOF_SET_CREATION_POLL_INTERVAL_MS: 2000, // 2 seconds
+  DATA_SET_CREATION_POLL_INTERVAL_MS: 2000, // 2 seconds
 
   /**
    * Maximum time to wait for a piece to be parked (uploaded) to storage
@@ -239,15 +233,15 @@ export const TIMING_CONSTANTS = {
   TRANSACTION_CONFIRMATIONS: 1,
 
   /**
-   * Maximum time to wait for a root addition to be confirmed and acknowledged
+   * Maximum time to wait for a piece addition to be confirmed and acknowledged
    * This includes transaction confirmation and server verification
    */
-  ROOT_ADDITION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
+  PIECE_ADDITION_TIMEOUT_MS: 7 * 60 * 1000, // 7 minutes
 
   /**
-   * How often to poll for root addition status
+   * How often to poll for piece addition status
    */
-  ROOT_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
+  PIECE_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
 } as const
 
 /**
@@ -281,15 +275,15 @@ export const CONTRACT_ADDRESSES = {
    */
   PAYMENTS: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+    calibration: '0xd73635Ef752846e5de17Cc2f9BA24D6421E23C7C'
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
-   * Pandora service contract addresses
+   * Warm Storage service contract addresses
    */
-  PANDORA_SERVICE: {
+  WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
+    calibration: '0xaC93e1383Be4dDc451e68B790bE2f66F407A77e5'
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -297,7 +291,7 @@ export const CONTRACT_ADDRESSES = {
    */
   PDP_VERIFIER: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
+    calibration: '0x1b0436f3E0CA97b5bb43727965994E6b77b8794B'
   } as const satisfies Record<FilecoinNetworkType, string>
 } as const
 

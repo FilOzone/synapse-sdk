@@ -122,29 +122,29 @@
             border: 1px solid #eee;
             border-radius: 8px;
         }
-        .root-entry {
+        .piece-entry {
             border: 1px solid #ddd;
             padding: 15px;
             margin-bottom: 10px;
             border-radius: 4px;
             background-color: #fafafa;
         }
-        .root-entry h4 {
+        .piece-entry h4 {
             margin: 0 0 10px 0;
             color: #333;
         }
-        .add-root-btn, .remove-root-btn {
+        .add-piece-btn, .remove-piece-btn {
             background-color: #28a745;
             font-size: 14px;
             padding: 5px 10px;
         }
-        .remove-root-btn {
+        .remove-piece-btn {
             background-color: #dc3545;
         }
-        .add-root-btn:hover {
+        .add-piece-btn:hover {
             background-color: #218838;
         }
-        .remove-root-btn:hover {
+        .remove-piece-btn:hover {
             background-color: #c82333;
         }
     </style>
@@ -180,36 +180,36 @@
         </div>
 
         <div class="form-group">
-            <label for="pandoraAddress">Pandora Contract:</label>
-            <input type="text" id="pandoraAddress" value="" placeholder="Will be auto-filled based on network" />
-            <div class="help-text">Address of the Pandora service contract</div>
+            <label for="warmStorageAddress">Warm Storage Contract:</label>
+            <input type="text" id="warmStorageAddress" value="" placeholder="Will be auto-filled based on network" />
+            <div class="help-text">Address of the Warm Storage service contract</div>
         </div>
 
-        <!-- STORAGE PROVIDERS SECTION -->
+        <!-- SERVICE PROVIDERS SECTION -->
         <div class="section">
-            <h2>Storage Providers</h2>
+            <h2>Service Providers</h2>
             <div class="form-group">
                 <button id="listProvidersBtn">List Approved Providers</button>
-                <div class="help-text">View all storage providers approved to use this Pandora service</div>
+                <div class="help-text">View all service providers approved to use this Warm Storage service</div>
             </div>
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
         </div>
 
-        <!-- CREATE PROOF SET SECTION -->
+        <!-- CREATE DATA SET SECTION -->
         <div class="section">
-            <h2>Create Proof Set</h2>
+            <h2>Create Data Set</h2>
 
             <div class="form-group">
-                <label for="payee">Storage Provider Address:</label>
+                <label for="payee">Service Provider Address:</label>
                 <input type="text" id="payee" value="" placeholder="0x..." />
-                <div class="help-text">Address of the storage provider that will receive payments (must be whitelisted in Pandora)</div>
+                <div class="help-text">Address of the service provider that will receive payments (must be whitelisted in Warm Storage)</div>
             </div>
 
             <div class="form-group">
                 <label for="clientDataSetId">Client Dataset ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="number" id="clientDataSetId" value="0" style="flex: 1;" />
-                    <button type="button" id="autoFillClientDataSetId" class="add-root-btn" disabled>Auto-fill</button>
+                    <button type="button" id="autoFillClientDataSetId" class="add-piece-btn" disabled>Auto-fill</button>
                 </div>
                 <div class="help-text">Unique identifier for your dataset (click Auto-fill to get next available ID)</div>
             </div>
@@ -224,73 +224,73 @@
             </div>
 
             <div class="form-group">
-                <button id="createProofSetBtn" disabled>Create Proof Set</button>
+                <button id="createDataSetBtn" disabled>Create Data Set</button>
                 <button id="checkStatusBtn" disabled>Check Status</button>
                 <button id="autoMonitorBtn" disabled style="background-color: #28a745;">Auto-Monitor</button>
             </div>
         </div>
 
-        <!-- ADD ROOTS SECTION -->
+        <!-- ADD PIECES SECTION -->
         <div class="section">
-            <h2>Add Roots to Proof Set</h2>
+            <h2>Add Pieces to Data Set</h2>
 
             <div class="form-group">
-                <label for="pdpVerifierProofSetId">Proof Set ID:</label>
+                <label for="pdpVerifierDataSetId">Data Set ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="number" id="pdpVerifierProofSetId" value="" style="flex: 1;" />
-                    <button type="button" id="discoverProofSets" class="add-root-btn" disabled>Discover</button>
+                    <input type="number" id="pdpVerifierDataSetId" value="" style="flex: 1;" />
+                    <button type="button" id="discoverDataSets" class="add-piece-btn" disabled>Discover</button>
                 </div>
-                <div class="help-text">Proof set ID to add roots to (click Discover to see your proof sets)</div>
+                <div class="help-text">Data set ID to add pieces to (click Discover to see your data sets)</div>
             </div>
 
 
             <div class="form-group">
-                <label for="addRootsClientDataSetId">Client Dataset ID:</label>
+                <label for="addPiecesClientDataSetId">Client Dataset ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="number" id="addRootsClientDataSetId" value="0" style="flex: 1;" />
-                    <button type="button" id="autoFillAddRootsInfo" class="add-root-btn" disabled>Auto-fill</button>
+                    <input type="number" id="addPiecesClientDataSetId" value="0" style="flex: 1;" />
+                    <button type="button" id="autoFillAddPiecesInfo" class="add-piece-btn" disabled>Auto-fill</button>
                 </div>
-                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from proof set)</div>
+                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from data set)</div>
             </div>
 
             <div class="form-group">
-                <label for="nextRootId">Next Root ID:</label>
-                <input type="number" id="nextRootId" value="0" />
-                <div class="help-text">The next root ID for this proof set (auto-filled when you select a proof set)</div>
+                <label for="nextPieceId">Next Piece ID:</label>
+                <input type="number" id="nextPieceId" value="0" />
+                <div class="help-text">The next piece ID for this data set (auto-filled when you select a data set)</div>
             </div>
 
             <div class="form-group">
-                <label>Root Data Entries:</label>
-                <div class="help-text">Add the root CIDs and their raw data sizes to include in the proof set</div>
-                <div id="rootEntries">
-                    <div class="root-entry">
-                        <h4>Root Entry 1</h4>
+                <label>Piece Data Entries:</label>
+                <div class="help-text">Add the piece CIDs and their raw data sizes to include in the data set</div>
+                <div id="pieceEntries">
+                    <div class="piece-entry">
+                        <h4>Piece Entry 1</h4>
                         <div style="margin-bottom: 10px;">
-                            <label>Root CID:</label>
-                            <input type="text" class="root-cid" placeholder="e.g., baga6ea4seaqnfohehz3exlkn63ufp5nkgcxfmyxlscwvgoem56wocg7qhvidzpq" />
+                            <label>Piece CID:</label>
+                            <input type="text" class="piece-cid" placeholder="e.g., baga6ea4seaqnfohehz3exlkn63ufp5nkgcxfmyxlscwvgoem56wocg7qhvidzpq" />
                         </div>
                         <div style="margin-bottom: 10px;">
                             <label>Raw Size (bytes):</label>
-                            <input type="number" class="root-size" placeholder="e.g., 1048576" />
+                            <input type="number" class="piece-size" placeholder="e.g., 1048576" />
                         </div>
-                        <button type="button" class="remove-root-btn" onclick="removeRootEntry(this)">Remove</button>
+                        <button type="button" class="remove-piece-btn" onclick="removePieceEntry(this)">Remove</button>
                     </div>
                 </div>
-                <button type="button" class="add-root-btn" onclick="addRootEntry()">Add Another Root</button>
+                <button type="button" class="add-piece-btn" onclick="addPieceEntry()">Add Another Piece</button>
             </div>
 
             <div class="form-group">
-                <button id="addRootsBtn" disabled>Add Roots</button>
+                <button id="addPiecesBtn" disabled>Add Pieces</button>
             </div>
         </div>
 
-        <!-- MONITOR PROOF SET SECTION -->
+        <!-- MONITOR DATA SET SECTION -->
         <div class="section">
-            <h2>Monitor Proof Set</h2>
+            <h2>Monitor Data Set</h2>
             <div class="form-group">
                 <label for="monitorTxHash">Transaction Hash:</label>
                 <input type="text" id="monitorTxHash" placeholder="0x..." />
-                <div class="help-text">Enter a proof set creation transaction hash to monitor its status</div>
+                <div class="help-text">Enter a data set creation transaction hash to monitor its status</div>
             </div>
             <div class="form-group">
                 <button id="monitorTxBtn">Check Transaction Status</button>
@@ -308,7 +308,7 @@
 
     <script>
         // The SDK is now available as window.SynapseSDK
-        const { PDPAuthHelper, PDPServer, PandoraService } = window.SynapseSDK;
+        const { PDPAuthHelper, PDPServer, Warm StorageService } = window.SynapseSDK;
 
         // Use CONTRACT_ADDRESSES from the SDK
         const { CONTRACT_ADDRESSES } = window.SynapseSDK;
@@ -317,8 +317,8 @@
         let currentTxHash = null
         let connectedSigner = null
         let connectedAddress = null
-        let rootEntryCounter = 1
-        let pandoraService = null
+        let pieceEntryCounter = 1
+        let warmStorageService = null
         let provider = null
 
         // Network selection
@@ -332,37 +332,37 @@
         })
 
         function updateContractAddress() {
-            const pandoraInput = document.getElementById('pandoraAddress')
-            pandoraInput.value = CONTRACT_ADDRESSES.PANDORA_SERVICE[currentNetwork] || ''
+            const warmStorageInput = document.getElementById('warmStorageAddress')
+            warmStorageInput.value = CONTRACT_ADDRESSES.WARM_STORAGE[currentNetwork] || ''
         }
 
-        // Root entry management
-        function addRootEntry() {
-            rootEntryCounter++
-            const rootEntries = document.getElementById('rootEntries')
+        // Piece entry management
+        function addPieceEntry() {
+            pieceEntryCounter++
+            const pieceEntries = document.getElementById('pieceEntries')
             const newEntry = document.createElement('div')
-            newEntry.className = 'root-entry'
+            newEntry.className = 'piece-entry'
             newEntry.innerHTML = `
-                <h4>Root Entry ${rootEntryCounter}</h4>
+                <h4>Piece Entry ${pieceEntryCounter}</h4>
                 <div style="margin-bottom: 10px;">
-                    <label>Root CID:</label>
-                    <input type="text" class="root-cid" placeholder="e.g., baga6ea4seaqnfohehz3exlkn63ufp5nkgcxfmyxlscwvgoem56wocg7qhvidzpq" />
+                    <label>Piece CID:</label>
+                    <input type="text" class="piece-cid" placeholder="e.g., baga6ea4seaqnfohehz3exlkn63ufp5nkgcxfmyxlscwvgoem56wocg7qhvidzpq" />
                 </div>
                 <div style="margin-bottom: 10px;">
                     <label>Raw Size (bytes):</label>
-                    <input type="number" class="root-size" placeholder="e.g., 1048576" />
+                    <input type="number" class="piece-size" placeholder="e.g., 1048576" />
                 </div>
-                <button type="button" class="remove-root-btn" onclick="removeRootEntry(this)">Remove</button>
+                <button type="button" class="remove-piece-btn" onclick="removePieceEntry(this)">Remove</button>
             `
-            rootEntries.appendChild(newEntry)
+            pieceEntries.appendChild(newEntry)
         }
 
-        function removeRootEntry(button) {
-            const rootEntries = document.getElementById('rootEntries')
-            if (rootEntries.children.length > 1) {
+        function removePieceEntry(button) {
+            const pieceEntries = document.getElementById('pieceEntries')
+            if (pieceEntries.children.length > 1) {
                 button.parentElement.remove()
             } else {
-                showStatus('Cannot remove the last root entry. At least one root entry is required.', 'error')
+                showStatus('Cannot remove the last piece entry. At least one piece entry is required.', 'error')
             }
         }
 
@@ -401,20 +401,20 @@
                 document.getElementById('connectWalletBtn').textContent = 'Connected'
                 document.getElementById('connectWalletBtn').disabled = true
                 document.getElementById('walletStatus').textContent = `Connected: ${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)} on ${currentNetwork === 'mainnet' ? 'Mainnet' : 'Calibration'}`
-                document.getElementById('createProofSetBtn').disabled = false
-                document.getElementById('addRootsBtn').disabled = false
+                document.getElementById('createDataSetBtn').disabled = false
+                document.getElementById('addPiecesBtn').disabled = false
                 document.getElementById('autoFillClientDataSetId').disabled = false
-                document.getElementById('discoverProofSets').disabled = false
-                document.getElementById('autoFillAddRootsInfo').disabled = false
+                document.getElementById('discoverDataSets').disabled = false
+                document.getElementById('autoFillAddPiecesInfo').disabled = false
 
-                // Create PandoraService instance
-                const pandoraAddress = document.getElementById('pandoraAddress').value
-                pandoraService = new PandoraService(provider, pandoraAddress)
+                // Create Warm StorageService instance
+                const warmStorageAddress = document.getElementById('warmStorageAddress').value
+                warmStorageService = new Warm StorageService(provider, warmStorageAddress)
 
                 showStatus(`Successfully connected to MetaMask!
 Address: ${connectedAddress}
 Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Testnet'} (${network.chainId})
-Pandora: ${pandoraAddress}`, 'success')
+Warm Storage: ${warmStorageAddress}`, 'success')
 
             } catch (error) {
                 console.error('MetaMask connection error:', error)
@@ -426,8 +426,8 @@ Pandora: ${pandoraAddress}`, 'success')
                 document.getElementById('connectWalletBtn').textContent = 'Connect MetaMask'
                 document.getElementById('connectWalletBtn').disabled = false
                 document.getElementById('walletStatus').textContent = 'Click to connect your MetaMask wallet for signing'
-                document.getElementById('createProofSetBtn').disabled = true
-                document.getElementById('addRootsBtn').disabled = true
+                document.getElementById('createDataSetBtn').disabled = true
+                document.getElementById('addPiecesBtn').disabled = true
             }
         }
 
@@ -446,8 +446,8 @@ Pandora: ${pandoraAddress}`, 'success')
                     document.getElementById('connectWalletBtn').textContent = 'Connect MetaMask'
                     document.getElementById('connectWalletBtn').disabled = false
                     document.getElementById('walletStatus').textContent = 'Click to connect your MetaMask wallet for signing'
-                    document.getElementById('createProofSetBtn').disabled = true
-                    document.getElementById('addRootsBtn').disabled = true
+                    document.getElementById('createDataSetBtn').disabled = true
+                    document.getElementById('addPiecesBtn').disabled = true
                     showStatus('MetaMask disconnected', 'info')
                 } else {
                     // Account changed, reconnect
@@ -467,7 +467,7 @@ Pandora: ${pandoraAddress}`, 'success')
 
         function validateInputs() {
             const pdpEndpoint = document.getElementById('pdpEndpoint').value
-            const pandoraAddress = document.getElementById('pandoraAddress').value
+            const warmStorageAddress = document.getElementById('warmStorageAddress').value
 
             if (!connectedSigner) {
                 throw new Error('Please connect your MetaMask wallet first')
@@ -477,82 +477,82 @@ Pandora: ${pandoraAddress}`, 'success')
                 throw new Error('Please enter a valid PDP endpoint URL')
             }
 
-            if (!pandoraAddress || !ethers.isAddress(pandoraAddress)) {
-                throw new Error('Please enter a valid Pandora contract address')
+            if (!warmStorageAddress || !ethers.isAddress(warmStorageAddress)) {
+                throw new Error('Please enter a valid Warm Storage contract address')
             }
 
-            return { pdpEndpoint, pandoraAddress }
+            return { pdpEndpoint, warmStorageAddress }
         }
 
-        function validateCreateProofSetInputs() {
-            const { pdpEndpoint, pandoraAddress } = validateInputs()
+        function validateCreateDataSetInputs() {
+            const { pdpEndpoint, warmStorageAddress } = validateInputs()
             const payee = document.getElementById('payee').value
 
             if (!payee || !ethers.isAddress(payee)) {
-                throw new Error('Please enter a valid storage provider address')
+                throw new Error('Please enter a valid service provider address')
             }
 
-            return { pdpEndpoint, pandoraAddress, payee }
+            return { pdpEndpoint, warmStorageAddress, payee }
         }
 
-        function validateAddRootsInputs() {
-            const { pdpEndpoint, pandoraAddress } = validateInputs()
+        function validateAddPiecesInputs() {
+            const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
-            const pdpVerifierProofSetId = parseInt(document.getElementById('pdpVerifierProofSetId').value)
-            const clientDataSetId = parseInt(document.getElementById('addRootsClientDataSetId').value)
-            const nextRootId = parseInt(document.getElementById('nextRootId').value)
+            const pdpVerifierDataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value)
+            const clientDataSetId = parseInt(document.getElementById('addPiecesClientDataSetId').value)
+            const nextPieceId = parseInt(document.getElementById('nextPieceId').value)
 
-            if (isNaN(pdpVerifierProofSetId) || pdpVerifierProofSetId < 0) {
-                throw new Error('Please enter a valid proof set ID (use Discover to auto-fill)')
+            if (isNaN(pdpVerifierDataSetId) || pdpVerifierDataSetId < 0) {
+                throw new Error('Please enter a valid data set ID (use Discover to auto-fill)')
             }
 
             if (isNaN(clientDataSetId) || clientDataSetId < 0) {
                 throw new Error('Please enter a valid client dataset ID')
             }
 
-            if (isNaN(nextRootId) || nextRootId < 0) {
-                throw new Error('Please enter a valid next root ID')
+            if (isNaN(nextPieceId) || nextPieceId < 0) {
+                throw new Error('Please enter a valid next piece ID')
             }
 
-            // Validate root entries
-            const rootEntries = document.querySelectorAll('.root-entry')
-            const rootDataArray = []
+            // Validate piece entries
+            const pieceEntries = document.querySelectorAll('.piece-entry')
+            const pieceDataArray = []
 
-            for (let i = 0; i < rootEntries.length; i++) {
-                const entry = rootEntries[i]
-                const cidInput = entry.querySelector('.root-cid')
-                const sizeInput = entry.querySelector('.root-size')
+            for (let i = 0; i < pieceEntries.length; i++) {
+                const entry = pieceEntries[i]
+                const cidInput = entry.querySelector('.piece-cid')
+                const sizeInput = entry.querySelector('.piece-size')
 
                 const cid = cidInput.value.trim()
                 const rawSize = parseInt(sizeInput.value)
 
                 if (!cid) {
-                    throw new Error(`Root entry ${i + 1}: Please enter a root CID`)
+                    throw new Error(`Piece entry ${i + 1}: Please enter a piece CID`)
                 }
 
                 if (isNaN(rawSize) || rawSize <= 0) {
-                    throw new Error(`Root entry ${i + 1}: Please enter a valid raw size (positive number)`)
+                    throw new Error(`Piece entry ${i + 1}: Please enter a valid raw size (positive number)`)
                 }
 
-                rootDataArray.push({
+                pieceDataArray.push({
                     cid: cid,
                     rawSize: rawSize
                 })
             }
 
-            if (rootDataArray.length === 0) {
-                throw new Error('Please add at least one root entry')
+            if (pieceDataArray.length === 0) {
+                throw new Error('Please add at least one piece entry')
             }
 
-            return { pdpEndpoint, pandoraAddress, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray }
+            return { pdpEndpoint, warmStorageAddress, pdpVerifierDataSetId, clientDataSetId, nextPieceId, pieceDataArray }
         }
 
-        // Create Proof Set functionality
-        document.getElementById('createProofSetBtn').addEventListener('click', async () => {
+        // Create Data Set functionality
+        document.getElementById('createDataSetBtn').addEventListener('click', async () => {
             try {
                 showStatus('Validating inputs...', 'info')
 
-                const { pdpEndpoint, pandoraAddress, payee } = validateCreateProofSetInputs()
+                const { pdpEndpoint, warmStorageAddress, payee } = validateCreateDataSetInputs()
                 const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value)
                 const withCDN = document.getElementById('withCDN').value === 'true'
 
@@ -561,19 +561,19 @@ Pandora: ${pandoraAddress}`, 'success')
 
                 // Create auth helper and PDPServer using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, chainId)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                showStatus('Signing and sending proof set creation...', 'info')
+                showStatus('Signing and sending data set creation...', 'info')
 
-                // Create proof set using the SDK's PDPServer
-                const result = await pdpServer.createProofSet(clientDataSetId, payee, withCDN, pandoraAddress)
+                // Create data set using the SDK's PDPServer
+                const result = await pdpServer.createDataSet(clientDataSetId, payee, withCDN, warmStorageAddress)
 
                 currentTxHash = result.txHash
                 document.getElementById('checkStatusBtn').disabled = false
                 document.getElementById('autoMonitorBtn').disabled = false
 
-                showStatus(`Proof set creation submitted successfully!
+                showStatus(`Data set creation submitted successfully!
 Transaction Hash: ${result.txHash}
 Status URL: ${result.statusUrl}
 
@@ -583,40 +583,40 @@ Starting automatic monitoring...`, 'success')
                 startStatusPolling()
 
             } catch (error) {
-                console.error('Error creating proof set:', error)
+                console.error('Error creating data set:', error)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
 
-        // Add Roots functionality
-        document.getElementById('addRootsBtn').addEventListener('click', async () => {
+        // Add Pieces functionality
+        document.getElementById('addPiecesBtn').addEventListener('click', async () => {
             try {
                 showStatus('Validating inputs...', 'info')
 
-                const { pdpEndpoint, pandoraAddress, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
+                const { pdpEndpoint, warmStorageAddress, pdpVerifierDataSetId, clientDataSetId, nextPieceId, pieceDataArray } = validateAddPiecesInputs()
 
 
                 showStatus('Creating PDP auth helper and server...', 'info')
 
                 // Create auth helper and PDPServer using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, chainId)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                showStatus('Signing and sending add roots request...', 'info')
+                showStatus('Signing and sending add pieces request...', 'info')
 
-                // Add roots using the SDK's PDPServer (uses PDPVerifier proof set ID)
-                const result = await pdpServer.addRoots(pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray)
+                // Add pieces using the SDK's PDPServer (uses PDPVerifier data set ID)
+                const result = await pdpServer.addPieces(pdpVerifierDataSetId, clientDataSetId, nextPieceId, pieceDataArray)
 
-                showStatus(`Roots added successfully!
+                showStatus(`Pieces added successfully!
 ${result.message}
 
-Proof Set ID: ${pdpVerifierProofSetId}
-Total roots added: ${rootDataArray.length}
-Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
+Data Set ID: ${pdpVerifierDataSetId}
+Total pieces added: ${pieceDataArray.length}
+Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
 
             } catch (error) {
-                console.error('Error adding roots:', error)
+                console.error('Error adding pieces:', error)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
@@ -624,35 +624,35 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
         // Check Status functionality with comprehensive checking
         document.getElementById('checkStatusBtn').addEventListener('click', async () => {
             if (!currentTxHash) {
-                showStatus('No transaction hash available. Create a proof set first.', 'error')
+                showStatus('No transaction hash available. Create a data set first.', 'error')
                 return
             }
 
             try {
-                showStatus('Checking comprehensive proof set creation status...', 'info')
+                showStatus('Checking comprehensive data set creation status...', 'info')
 
-                const { pdpEndpoint, pandoraAddress } = validateInputs()
+                const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
                 // Create PDPServer for status checking
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                // Get comprehensive status using PandoraService
-                const comprehensiveStatus = await pandoraService.getComprehensiveProofSetStatus(
+                // Get comprehensive status using Warm StorageService
+                const comprehensiveStatus = await warmStorageService.getComprehensiveDataSetStatus(
                     currentTxHash,
                     pdpServer
                 )
 
                 // Build detailed status message
-                let statusMessage = `🔍 Comprehensive Proof Set Status:\n\n`
+                let statusMessage = `🔍 Comprehensive Data Set Status:\n\n`
 
                 // Summary details
                 statusMessage += `📊 Overall Status: ${comprehensiveStatus.summary.isComplete ? 'Complete' : 'In Progress'}\n`
                 if (comprehensiveStatus.summary.error) {
                     statusMessage += `❌ Error: ${comprehensiveStatus.summary.error}\n`
                 }
-                if (comprehensiveStatus.summary.proofSetId) {
-                    statusMessage += `✅ Proof Set ID: ${comprehensiveStatus.summary.proofSetId}\n`
+                if (comprehensiveStatus.summary.dataSetId) {
+                    statusMessage += `✅ Data Set ID: ${comprehensiveStatus.summary.dataSetId}\n`
                 }
                 statusMessage += `\n`
 
@@ -665,9 +665,9 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
                     statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
                 }
-                if (chain.proofSetId != null) {
-                    statusMessage += `  • Proof Set ID: ${chain.proofSetId}\n`
-                    statusMessage += `  • Proof Set Live: ${chain.proofSetLive ? '✅' : '❌'}\n`
+                if (chain.dataSetId != null) {
+                    statusMessage += `  • Data Set ID: ${chain.dataSetId}\n`
+                    statusMessage += `  • Data Set Live: ${chain.dataSetLive ? '✅' : '❌'}\n`
                 }
                 if (chain.error) {
                     statusMessage += `  • Error: ${chain.error}\n`
@@ -681,9 +681,9 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
                     statusMessage += `  • Service: ${pdpServerStatus.service}\n`
                     statusMessage += `  • TX Status: ${pdpServerStatus.txStatus}\n`
                     statusMessage += `  • Success: ${pdpServerStatus.ok === null ? 'Pending' : (pdpServerStatus.ok ? '✅' : '❌')}\n`
-                    statusMessage += `  • Proof Set Created: ${pdpServerStatus.proofsetCreated ? '✅' : '❌'}\n`
-                    if (pdpServerStatus.proofSetId) {
-                        statusMessage += `  • Server Proof Set ID: ${pdpServerStatus.proofSetId}\n`
+                    statusMessage += `  • Data Set Created: ${pdpServerStatus.dataSetCreated ? '✅' : '❌'}\n`
+                    if (pdpServerStatus.dataSetId) {
+                        statusMessage += `  • Server Data Set ID: ${pdpServerStatus.dataSetId}\n`
                     }
                 } else {
                     statusMessage += `🖥️ PDP Server Status: Not available (using chain verification only)\n`
@@ -696,23 +696,23 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
                 showStatus(statusMessage, statusType)
 
-                // Auto-populate proof set ID for add roots if creation succeeded
-                if (chain.proofSetLive && chain.proofSetId != null) {
-                    document.getElementById('pdpVerifierProofSetId').value = chain.proofSetId
+                // Auto-populate data set ID for add pieces if creation succeeded
+                if (chain.dataSetLive && chain.dataSetId != null) {
+                    document.getElementById('pdpVerifierDataSetId').value = chain.dataSetId
                     
-                    // Also try to get the additional info for this new proof set
+                    // Also try to get the additional info for this new data set
                     try {
-                        const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                        const newProofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === chain.proofSetId)
-                        if (newProofSet) {
-                            document.getElementById('addRootsClientDataSetId').value = newProofSet.clientDataSetId
-                            document.getElementById('nextRootId').value = newProofSet.nextRootId
+                        const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                        const newDataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === chain.dataSetId)
+                        if (newDataSet) {
+                            document.getElementById('addPiecesClientDataSetId').value = newDataSet.clientDataSetId
+                            document.getElementById('nextPieceId').value = newDataSet.nextPieceId
                         }
                     } catch (e) {
-                        // Ignore errors here, the proof set ID is the important part
+                        // Ignore errors here, the data set ID is the important part
                     }
                     
-                    showStatus(statusMessage + `\n✨ Auto-populated proof set ID ${chain.proofSetId} for adding roots!`, statusType)
+                    showStatus(statusMessage + `\n✨ Auto-populated data set ID ${chain.dataSetId} for adding pieces!`, statusType)
                 }
 
             } catch (error) {
@@ -732,11 +732,11 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
             statusPollingInterval = setInterval(async () => {
                 try {
-                    const { pdpEndpoint, pandoraAddress } = validateInputs()
-                    const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                    const { pdpEndpoint, warmStorageAddress } = validateInputs()
+                    const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                     const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                    const status = await pandoraService.getComprehensiveProofSetStatus(
+                    const status = await warmStorageService.getComprehensiveDataSetStatus(
                         currentTxHash,
                         pdpServer
                     )
@@ -791,7 +791,7 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
             } else {
                 // Not monitoring - start it
                 if (!currentTxHash) {
-                    showStatus('No transaction to monitor. Create a proof set first.', 'error')
+                    showStatus('No transaction to monitor. Create a data set first.', 'error')
                     return
                 }
                 startStatusPolling()
@@ -802,13 +802,13 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
         // Discovery button handlers
         document.getElementById('autoFillClientDataSetId').addEventListener('click', async () => {
             try {
-                if (!pandoraService || !connectedAddress) {
+                if (!warmStorageService || !connectedAddress) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
                 showStatus('Getting next available client dataset ID...', 'info')
-                const nextId = await pandoraService.getNextClientDataSetId(connectedAddress)
+                const nextId = await warmStorageService.getNextClientDataSetId(connectedAddress)
                 document.getElementById('clientDataSetId').value = nextId
                 showStatus(`Next client dataset ID: ${nextId}`, 'success')
             } catch (error) {
@@ -817,162 +817,162 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
             }
         })
 
-        document.getElementById('discoverProofSets').addEventListener('click', async () => {
+        document.getElementById('discoverDataSets').addEventListener('click', async () => {
             try {
-                if (!pandoraService || !connectedAddress) {
+                if (!warmStorageService || !connectedAddress) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
-                showStatus('Discovering your proof sets with detailed information...', 'info')
+                showStatus('Discovering your data sets with detailed information...', 'info')
                 
-                const proofSetsWithDetails = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                const managedProofSets = proofSetsWithDetails.filter(ps => ps.isManaged)
+                const dataSetsWithDetails = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                const managedDataSets = dataSetsWithDetails.filter(ps => ps.isManaged)
 
-                if (proofSetsWithDetails.length === 0) {
-                    showStatus('No proof sets found for your address in this Pandora contract', 'info')
+                if (dataSetsWithDetails.length === 0) {
+                    showStatus('No data sets found for your address in this Warm Storage contract', 'info')
                     return
                 }
 
-                // Get unmanaged proof sets (those from other Pandora contracts)
-                const unmanagedProofSets = proofSetsWithDetails.filter(ps => !ps.isManaged)
+                // Get unmanaged data sets (those from other Warm Storage contracts)
+                const unmanagedDataSets = dataSetsWithDetails.filter(ps => !ps.isManaged)
 
-                let message = `Found ${proofSetsWithDetails.length} proof set(s) total:\n\n`
+                let message = `Found ${dataSetsWithDetails.length} data set(s) total:\n\n`
 
-                if (managedProofSets.length > 0) {
-                    message += `✅ YOUR PROOF SETS (${managedProofSets.length}):\n\n`
-                    managedProofSets.forEach((ps, index) => {
-                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                if (managedDataSets.length > 0) {
+                    message += `✅ YOUR DATA SETS (${managedDataSets.length}):\n\n`
+                    managedDataSets.forEach((ps, index) => {
+                        message += `${index + 1}. Data Set ID: ${ps.pdpVerifierDataSetId} (Dataset ${ps.clientDataSetId})\n`
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'}\n`
-                        message += `   Current Roots: ${ps.currentRootCount}\n`
-                        message += `   Next Root ID: ${ps.nextRootId}\n`
-                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   Current Pieces: ${ps.currentPieceCount}\n`
+                        message += `   Next Piece ID: ${ps.nextPieceId}\n`
+                        message += `   Service Provider: ${ps.payee}\n`
                         message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n`
                         message += `   Commission: ${ps.commissionBps / 100}%\n\n`
                     })
                 }
 
-                if (unmanagedProofSets.length > 0) {
-                    message += `⚠️ OTHER PROOF SETS (${unmanagedProofSets.length}):\n\n`
-                    unmanagedProofSets.forEach((ps, index) => {
-                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                if (unmanagedDataSets.length > 0) {
+                    message += `⚠️ OTHER DATA SETS (${unmanagedDataSets.length}):\n\n`
+                    unmanagedDataSets.forEach((ps, index) => {
+                        message += `${index + 1}. Data Set ID: ${ps.pdpVerifierDataSetId} (Dataset ${ps.clientDataSetId})\n`
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'} - Cannot manage from this interface\n`
-                        message += `   Current Roots: ${ps.currentRootCount}\n`
-                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   Current Pieces: ${ps.currentPieceCount}\n`
+                        message += `   Service Provider: ${ps.payee}\n`
                         message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n\n`
                     })
                 }
 
-                if (managedProofSets.length > 0) {
-                    message += '✨ Auto-selected the first managed proof set for adding roots.'
+                if (managedDataSets.length > 0) {
+                    message += '✨ Auto-selected the first managed data set for adding pieces.'
                 } else {
-                    message += '❌ No proof sets managed by this Pandora contract. You cannot add roots from this interface.'
+                    message += '❌ No data sets managed by this Warm Storage contract. You cannot add pieces from this interface.'
                 }
 
-                showStatus(message, managedProofSets.length > 0 ? 'success' : 'info')
+                showStatus(message, managedDataSets.length > 0 ? 'success' : 'info')
 
-                // Auto-populate the first MANAGED proof set if found
-                if (managedProofSets.length > 0) {
-                    const firstManaged = managedProofSets[0]
-                    // Use PDPVerifier proof set ID throughout
-                    document.getElementById('pdpVerifierProofSetId').value = firstManaged.pdpVerifierProofSetId
-                    document.getElementById('addRootsClientDataSetId').value = firstManaged.clientDataSetId
-                    document.getElementById('nextRootId').value = firstManaged.nextRootId
+                // Auto-populate the first MANAGED data set if found
+                if (managedDataSets.length > 0) {
+                    const firstManaged = managedDataSets[0]
+                    // Use PDPVerifier data set ID throughout
+                    document.getElementById('pdpVerifierDataSetId').value = firstManaged.pdpVerifierDataSetId
+                    document.getElementById('addPiecesClientDataSetId').value = firstManaged.clientDataSetId
+                    document.getElementById('nextPieceId').value = firstManaged.nextPieceId
                 } else {
-                    // Clear the fields if no managed proof sets
-                    document.getElementById('pdpVerifierProofSetId').value = ''
-                    document.getElementById('addRootsClientDataSetId').value = ''
-                    document.getElementById('nextRootId').value = ''
+                    // Clear the fields if no managed data sets
+                    document.getElementById('pdpVerifierDataSetId').value = ''
+                    document.getElementById('addPiecesClientDataSetId').value = ''
+                    document.getElementById('nextPieceId').value = ''
                 }
             } catch (error) {
-                console.error('Error discovering proof sets:', error)
+                console.error('Error discovering data sets:', error)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
 
-        document.getElementById('autoFillAddRootsInfo').addEventListener('click', async () => {
+        document.getElementById('autoFillAddPiecesInfo').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
-                const proofSetId = parseInt(document.getElementById('pdpVerifierProofSetId').value)
-                if (isNaN(proofSetId) || proofSetId < 0) {
-                    showStatus('Please enter a valid proof set ID first', 'error')
+                const dataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value)
+                if (isNaN(dataSetId) || dataSetId < 0) {
+                    showStatus('Please enter a valid data set ID first', 'error')
                     return
                 }
 
-                showStatus('Getting add roots information...', 'info')
+                showStatus('Getting add pieces information...', 'info')
                 
                 try {
-                    const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                    const proofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === proofSetId)
+                    const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                    const dataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === dataSetId)
                     
-                    if (!proofSet) {
-                        showStatus('Proof set not found or not owned by connected wallet', 'error')
+                    if (!dataSet) {
+                        showStatus('Data set not found or not owned by connected wallet', 'error')
                         return
                     }
                     
-                    if (!proofSet.isManaged) {
-                        showStatus('This proof set is not managed by the current Pandora contract', 'error')
+                    if (!dataSet.isManaged) {
+                        showStatus('This data set is not managed by the current Warm Storage contract', 'error')
                         return
                     }
                     
-                    const addRootsInfo = await pandoraService.getAddRootsInfo(proofSet.pdpVerifierProofSetId)
+                    const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSet.pdpVerifierDataSetId)
                     
-                    // Keep the proof set ID as entered
-                    document.getElementById('addRootsClientDataSetId').value = addRootsInfo.clientDataSetId
-                    document.getElementById('nextRootId').value = addRootsInfo.nextRootId
+                    // Keep the data set ID as entered
+                    document.getElementById('addPiecesClientDataSetId').value = addPiecesInfo.clientDataSetId
+                    document.getElementById('nextPieceId').value = addPiecesInfo.nextPieceId
                     
                     showStatus(`Auto-filled:
-Proof Set ID: ${proofSetId}
-Client Dataset ID: ${addRootsInfo.clientDataSetId}
-Next Root ID: ${addRootsInfo.nextRootId}
-Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
+Data Set ID: ${dataSetId}
+Client Dataset ID: ${addPiecesInfo.clientDataSetId}
+Next Piece ID: ${addPiecesInfo.nextPieceId}
+Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                 } catch (error) {
-                    console.error('Error getting add roots info:', error)
+                    console.error('Error getting add pieces info:', error)
                     showStatus(`Error: ${error.message}`, 'error')
                 }
             } catch (error) {
-                console.error('Error getting add roots info:', error)
+                console.error('Error getting add pieces info:', error)
                 console.error(error.stack)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
 
-        // Pandora address change handler
-        document.getElementById('pandoraAddress').addEventListener('change', async () => {
-            const newAddress = document.getElementById('pandoraAddress').value.trim()
+        // Warm Storage address change handler
+        document.getElementById('warmStorageAddress').addEventListener('change', async () => {
+            const newAddress = document.getElementById('warmStorageAddress').value.trim()
             
             if (!newAddress) {
-                showStatus('Pandora address cannot be empty', 'error')
+                showStatus('Warm Storage address cannot be empty', 'error')
                 return
             }
             
             if (!ethers.isAddress(newAddress)) {
-                showStatus('Invalid Pandora contract address format', 'error')
+                showStatus('Invalid Warm Storage contract address format', 'error')
                 return
             }
             
             if (!provider) {
-                showStatus('Please connect MetaMask first before changing Pandora address', 'error')
+                showStatus('Please connect MetaMask first before changing Warm Storage address', 'error')
                 return
             }
             
             try {
-                // Reinitialize PandoraService with new address
-                pandoraService = new PandoraService(provider, newAddress)
-                showStatus(`PandoraService reinitialized with address: ${newAddress}`, 'success')
+                // Reinitialize Warm StorageService with new address
+                warmStorageService = new Warm StorageService(provider, newAddress)
+                showStatus(`Warm StorageService reinitialized with address: ${newAddress}`, 'success')
             } catch (error) {
-                showStatus(`Failed to reinitialize PandoraService: ${error.message}`, 'error')
+                showStatus(`Failed to reinitialize Warm StorageService: ${error.message}`, 'error')
             }
         })
 
         // List providers button handler
         document.getElementById('listProvidersBtn').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
@@ -982,14 +982,14 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                 providersDiv.className = 'status info'
                 providersDiv.style.display = 'block'
 
-                const providers = await pandoraService.getAllApprovedProviders()
+                const providers = await warmStorageService.getAllApprovedProviders()
                 
                 if (providers.length === 0) {
-                    providersDiv.textContent = 'No approved storage providers found'
+                    providersDiv.textContent = 'No approved service providers found'
                     return
                 }
 
-                let message = `Found ${providers.length} approved storage provider(s):\n\n`
+                let message = `Found ${providers.length} approved service provider(s):\n\n`
                 providers.forEach((provider, index) => {
                     message += `${index + 1}. ${provider.owner}\n`
                     message += `   PDP URL: ${provider.pdpUrl}\n`
@@ -1018,7 +1018,7 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                     return
                 }
 
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
@@ -1031,11 +1031,11 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
 
                 showStatus('Checking transaction status...', 'info')
 
-                const pandoraAddress = document.getElementById('pandoraAddress').value
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                const warmStorageAddress = document.getElementById('warmStorageAddress').value
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                const comprehensiveStatus = await pandoraService.getComprehensiveProofSetStatus(txHash, pdpServer)
+                const comprehensiveStatus = await warmStorageService.getComprehensiveDataSetStatus(txHash, pdpServer)
 
                 // Build detailed status message
                 let statusMessage = `🔍 Transaction Status for ${txHash.slice(0, 10)}...:\n\n`
@@ -1045,8 +1045,8 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                 if (comprehensiveStatus.summary.error) {
                     statusMessage += `❌ Error: ${comprehensiveStatus.summary.error}\n`
                 }
-                if (comprehensiveStatus.summary.proofSetId) {
-                    statusMessage += `✅ Proof Set ID: ${comprehensiveStatus.summary.proofSetId}\n`
+                if (comprehensiveStatus.summary.dataSetId) {
+                    statusMessage += `✅ Data Set ID: ${comprehensiveStatus.summary.dataSetId}\n`
                 }
                 statusMessage += `\n`
 
@@ -1059,8 +1059,8 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
                     statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
                 }
-                if (chain.proofSetId != null) {
-                    statusMessage += `  • Proof Set Live: ${chain.proofSetLive ? '✅' : '❌'}\n`
+                if (chain.dataSetId != null) {
+                    statusMessage += `  • Data Set Live: ${chain.dataSetLive ? '✅' : '❌'}\n`
                 }
 
                 const statusType = comprehensiveStatus.summary.error ? 'error' : (comprehensiveStatus.summary.isComplete ? 'success' : 'info')
@@ -1073,7 +1073,7 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
         })
 
         // Initial setup
-        updateContractAddress() // Set initial Pandora address based on selected network
+        updateContractAddress() // Set initial Warm Storage address based on selected network
         showStatus('Welcome to the PDP Testing Tool! Connect your MetaMask wallet to begin.', 'info')
     </script>
 </body>

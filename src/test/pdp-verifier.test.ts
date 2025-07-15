@@ -22,130 +22,148 @@ describe('PDPVerifier', () => {
   describe('Instantiation', () => {
     it('should create instance and connect provider', () => {
       assert.exists(pdpVerifier)
-      assert.isFunction(pdpVerifier.proofSetLive)
-      assert.isFunction(pdpVerifier.getNextRootId)
+      assert.isFunction(pdpVerifier.dataSetLive)
+      assert.isFunction(pdpVerifier.getNextPieceId)
     })
 
     it('should create instance with custom address', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const customVerifier = new PDPVerifier(mockProvider, customAddress)
       assert.exists(customVerifier)
-      assert.isFunction(customVerifier.proofSetLive)
-      assert.isFunction(customVerifier.getNextRootId)
+      assert.isFunction(customVerifier.dataSetLive)
+      assert.isFunction(customVerifier.getNextPieceId)
     })
   })
 
-  describe('proofSetLive', () => {
-    it('should check if proof set is live', async () => {
+  describe('dataSetLive', () => {
+    it('should check if data set is live', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) { // proofSetLive selector
+        if (data?.startsWith('0xca759f27') === true) { // dataSetLive selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const isLive = await pdpVerifier.proofSetLive(123)
+      const isLive = await pdpVerifier.dataSetLive(123)
       assert.isTrue(isLive)
     })
   })
 
-  describe('getNextRootId', () => {
-    it('should get next root ID', async () => {
+  describe('getNextPieceId', () => {
+    it('should get next piece ID', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xd49245c1') === true) { // getNextRootId selector
+        if (data?.startsWith('0x1c5ae80f') === true) { // getNextPieceId selector
           return ethers.zeroPadValue('0x05', 32) // Return 5
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const nextRootId = await pdpVerifier.getNextRootId(123)
-      assert.equal(nextRootId, 5)
+      const nextPieceId = await pdpVerifier.getNextPieceId(123)
+      assert.equal(nextPieceId, 5)
     })
   })
 
-  describe('getProofSetListener', () => {
-    it('should get proof set listener', async () => {
+  describe('getDataSetListener', () => {
+    it('should get data set listener', async () => {
       const listenerAddress = '0x1234567890123456789012345678901234567890'
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x31601226') === true) { // getProofSetListener selector
+        if (data?.startsWith('0x2b3129bb') === true) { // getDataSetListener selector
           return ethers.zeroPadValue(listenerAddress, 32)
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const listener = await pdpVerifier.getProofSetListener(123)
+      const listener = await pdpVerifier.getDataSetListener(123)
       assert.equal(listener.toLowerCase(), listenerAddress.toLowerCase())
     })
   })
 
-  describe('getProofSetOwner', () => {
-    it('should get proof set owner', async () => {
-      const owner = '0x1234567890123456789012345678901234567890'
-      const proposedOwner = '0xabcdef1234567890123456789012345678901234'
+  describe('getDataSetStorageProvider', () => {
+    it('should get data set storage provider', async () => {
+      const storageProvider = '0x1234567890123456789012345678901234567890'
+      const proposedStorageProvider = '0xabcdef1234567890123456789012345678901234'
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4726075b') === true) { // getProofSetOwner selector
+        if (data?.startsWith('0x21b7cd1c') === true) { // getDataSetStorageProvider selector
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['address', 'address'],
-            [owner, proposedOwner]
+            [storageProvider, proposedStorageProvider]
           )
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const result = await pdpVerifier.getProofSetOwner(123)
-      assert.equal(result.owner.toLowerCase(), owner.toLowerCase())
-      assert.equal(result.proposedOwner.toLowerCase(), proposedOwner.toLowerCase())
+      const result = await pdpVerifier.getDataSetStorageProvider(123)
+      assert.equal(result.storageProvider.toLowerCase(), storageProvider.toLowerCase())
+      assert.equal(result.proposedStorageProvider.toLowerCase(), proposedStorageProvider.toLowerCase())
     })
   })
 
-  describe('getProofSetLeafCount', () => {
-    it('should get proof set leaf count', async () => {
+  describe('getDataSetLeafCount', () => {
+    it('should get data set leaf count', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x3f84135f') === true) { // getProofSetLeafCount selector
+        if (data?.startsWith('0xa531998c') === true) { // getDataSetLeafCount selector
           return ethers.zeroPadValue('0x0a', 32) // Return 10
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const leafCount = await pdpVerifier.getProofSetLeafCount(123)
+      const leafCount = await pdpVerifier.getDataSetLeafCount(123)
       assert.equal(leafCount, 10)
     })
   })
 
-  describe('extractProofSetIdFromReceipt', () => {
-    it('should extract proof set ID from receipt', async () => {
+  describe('extractDataSetIdFromReceipt', () => {
+    it('should extract data set ID from receipt', () => {
       const mockReceipt = {
-        logs: [{
-          address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-          topics: [
-            ethers.id('ProofSetCreated(uint256,address)'),
-            ethers.zeroPadValue('0x7b', 32), // proof set ID 123
-            ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32)
-          ],
-          data: '0x'
-        }]
+        logs: [
+          {
+            topics: [
+              '0x1234567890123456789012345678901234567890123456789012345678901234', // Event signature
+              ethers.zeroPadValue('0x7b', 32) // Data set ID = 123
+            ],
+            data: '0x' + '0'.repeat(64)
+          }
+        ]
       } as any
 
-      const proofSetId = pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
-      assert.equal(proofSetId, 123)
+      // Mock the interface to parse logs
+      ;(pdpVerifier as any)._contract.interface.parseLog = (log: any) => {
+        if (log.topics[0] === '0x1234567890123456789012345678901234567890123456789012345678901234') {
+          return {
+            name: 'DataSetCreated',
+            args: {
+              setId: BigInt(123)
+            },
+            fragment: {} as any,
+            signature: 'DataSetCreated(uint256)',
+            topic: log.topics[0]
+          } as any
+        }
+        return null
+      }
+
+      const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(mockReceipt)
+      assert.equal(dataSetId, 123)
     })
 
-    it('should return null if no ProofSetCreated event found', async () => {
-      const mockReceipt = { logs: [] } as any
+    it('should return null if no DataSetCreated event found', () => {
+      const mockReceipt = {
+        logs: []
+      } as any
 
-      const proofSetId = pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
-      assert.isNull(proofSetId)
+      const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(mockReceipt)
+      assert.isNull(dataSetId)
     })
   })
 
   describe('getContractAddress', () => {
-    it('should return the contract address', async () => {
+    it('should return the contract address', () => {
       const address = pdpVerifier.getContractAddress()
       assert.equal(address, testAddress)
     })

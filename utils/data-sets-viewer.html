@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proof Sets Viewer - Synapse SDK</title>
+    <title>Data Sets Viewer - Synapse SDK</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -81,33 +81,33 @@
             width: 400px;
             font-family: monospace;
         }
-        .proof-sets-container {
+        .data-sets-container {
             margin-top: 20px;
         }
-        .proof-set {
+        .data-set {
             background: #f8f9fa;
             border: 1px solid #dee2e6;
             border-radius: 4px;
             padding: 15px;
             margin-bottom: 15px;
         }
-        .proof-set.not-managed {
+        .data-set.not-managed {
             background: #fff3cd;
             border-color: #ffeaa7;
         }
-        .proof-set h3 {
+        .data-set h3 {
             margin-top: 0;
             color: #495057;
         }
-        .proof-set-detail {
+        .data-set-detail {
             margin: 5px 0;
         }
-        .proof-set-detail label {
+        .data-set-detail label {
             font-weight: bold;
             display: inline-block;
             width: 200px;
         }
-        .proof-set-detail .value {
+        .data-set-detail .value {
             font-family: monospace;
             color: #666;
         }
@@ -119,7 +119,7 @@
             font-family: monospace;
             font-size: 12px;
         }
-        .no-proof-sets {
+        .no-data-sets {
             color: #666;
             font-style: italic;
             padding: 20px;
@@ -159,13 +159,13 @@
             background: #ff9800;
             color: white;
         }
-        .roots-section {
+        .pieces-section {
             margin-top: 15px;
             padding: 10px;
             background: #f5f5f5;
             border-radius: 4px;
         }
-        .root-item {
+        .piece-item {
             margin: 5px 0;
             padding: 5px;
             background: white;
@@ -181,15 +181,15 @@
         .expandable:hover {
             background: #e8e8e8;
         }
-        .root-details {
+        .piece-details {
             display: none;
             margin-top: 10px;
             padding-left: 20px;
         }
-        .root-details.expanded {
+        .piece-details.expanded {
             display: block;
         }
-        .proof-set-id {
+        .data-set-id {
             font-size: 20px;
             font-weight: bold;
             color: #2196F3;
@@ -221,7 +221,7 @@
     </style>
 </head>
 <body>
-    <h1>Proof Sets Viewer</h1>
+    <h1>Data Sets Viewer</h1>
     
     <div class="status">
         <strong>Status:</strong> <span id="status">Not connected</span><br>
@@ -236,22 +236,22 @@
     </div>
 
     <div class="section">
-        <h2>View Proof Sets</h2>
+        <h2>View Data Sets</h2>
         <div class="input-group">
-            <label>Pandora Contract:</label>
-            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="" style="width: 500px;">
+            <label>Warm Storage Contract:</label>
+            <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="" style="width: 500px;">
             <div style="margin-top: 5px; color: #666; font-size: 12px;">Leave empty to use network default</div>
         </div>
         <div class="input-group">
             <label>Client Address:</label>
             <input type="text" id="clientAddressInput" placeholder="0x... (leave empty for connected wallet)">
         </div>
-        <button id="reconnectBtn" disabled>Reconnect with Selected Pandora</button>
-        <button id="getProofSetsBtn" disabled>Get Proof Sets</button>
-        <button id="getMyProofSetsBtn" disabled>Get My Proof Sets</button>
+        <button id="reconnectBtn" disabled>Reconnect with Selected Warm Storage</button>
+        <button id="getDataSetsBtn" disabled>Get Data Sets</button>
+        <button id="getMyDataSetsBtn" disabled>Get My Data Sets</button>
         
-        <div id="proofSetsSummary" style="margin-top: 20px;"></div>
-        <div id="proofSetsResult" class="proof-sets-container"></div>
+        <div id="dataSetsSummary" style="margin-top: 20px;"></div>
+        <div id="dataSetsResult" class="data-sets-container"></div>
     </div>
 
     <!-- Load ethers.js first -->
@@ -261,10 +261,10 @@
     
     <script>
         // Get the SDK components from the global window object
-        const { Synapse, PandoraService, CONTRACT_ADDRESSES } = window.SynapseSDK;
+        const { Synapse, WarmStorageService, CONTRACT_ADDRESSES } = window.SynapseSDK;
         
         let synapse = null;
-        let pandoraService = null;
+        let warmStorageService = null;
         let connectedAddress = null;
         let provider = null;
 
@@ -297,25 +297,25 @@
             return `<span class="address-display">${address}</span>`;
         }
 
-        // Get root details for a proof set
-        async function getRootDetails(proofSetId) {
+        // Get piece details for a data set
+        async function getPieceDetails(dataSetId) {
             try {
                 // This is a placeholder - in reality, you'd need to query PDPVerifier events
-                // or have a backend service that indexes root data
+                // or have a backend service that indexes piece data
                 // For now, we'll show what info we have
-                const rootCount = await getNextRootId(proofSetId);
+                const pieceCount = await getNextPieceId(dataSetId);
                 return {
-                    count: rootCount,
-                    details: `${rootCount} root(s) added to this proof set`
+                    count: pieceCount,
+                    details: `${pieceCount} piece(s) added to this data set`
                 };
             } catch (error) {
-                console.error('Error getting root details:', error);
-                return { count: 0, details: 'Unable to fetch root details' };
+                console.error('Error getting piece details:', error);
+                return { count: 0, details: 'Unable to fetch piece details' };
             }
         }
 
-        // Get next root ID (which is the count of roots)
-        async function getNextRootId(proofSetId) {
+        // Get next piece ID (which is the count of pieces)
+        async function getNextPieceId(dataSetId) {
             try {
                 const network = await provider.getNetwork();
                 const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
@@ -323,128 +323,128 @@
                 
                 const pdpVerifier = new ethers.Contract(
                     pdpVerifierAddress,
-                    ['function getNextRootId(uint256) view returns (uint256)'],
+                    ['function getNextPieceId(uint256) view returns (uint256)'],
                     provider
                 );
                 
-                const nextRootId = await pdpVerifier.getNextRootId(proofSetId);
-                return Number(nextRootId);
+                const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId);
+                return Number(nextPieceId);
             } catch (error) {
-                console.error('Error getting next root ID:', error);
+                console.error('Error getting next piece ID:', error);
                 return 0;
             }
         }
 
-        // Display enhanced proof sets
-        async function displayEnhancedProofSets(proofSets, clientAddress) {
-            if (proofSets.length === 0) {
-                return `<div class="no-proof-sets">No proof sets found for ${formatAddress(clientAddress)}</div>`;
+        // Display enhanced data sets
+        async function displayEnhancedDataSets(dataSets, clientAddress) {
+            if (dataSets.length === 0) {
+                return `<div class="no-data-sets">No data sets found for ${formatAddress(clientAddress)}</div>`;
             }
 
             // Calculate summary statistics
-            const totalProofSets = proofSets.length;
-            const managedProofSets = proofSets.filter(ps => ps.isManaged).length;
-            const liveProofSets = proofSets.filter(ps => ps.isLive).length;
-            const totalRoots = proofSets.reduce((sum, ps) => sum + ps.currentRootCount, 0);
+            const totalDataSets = dataSets.length;
+            const managedDataSets = dataSets.filter(ps => ps.isManaged).length;
+            const liveDataSets = dataSets.filter(ps => ps.isLive).length;
+            const totalPieces = dataSets.reduce((sum, ps) => sum + ps.currentPieceCount, 0);
 
             let summaryHtml = `
                 <div class="summary-stats">
                     <div class="stat-card">
-                        <h4>Total Proof Sets</h4>
-                        <div class="value">${totalProofSets}</div>
+                        <h4>Total Data Sets</h4>
+                        <div class="value">${totalDataSets}</div>
                     </div>
                     <div class="stat-card">
-                        <h4>Managed by This Pandora</h4>
-                        <div class="value">${managedProofSets}</div>
+                        <h4>Managed by This Warm Storage</h4>
+                        <div class="value">${managedDataSets}</div>
                     </div>
                     <div class="stat-card">
-                        <h4>Live Proof Sets</h4>
-                        <div class="value">${liveProofSets}</div>
+                        <h4>Live Data Sets</h4>
+                        <div class="value">${liveDataSets}</div>
                     </div>
                     <div class="stat-card">
-                        <h4>Total Roots</h4>
-                        <div class="value">${totalRoots}</div>
+                        <h4>Total Pieces</h4>
+                        <div class="value">${totalPieces}</div>
                     </div>
                 </div>
             `;
             
-            document.getElementById('proofSetsSummary').innerHTML = summaryHtml;
+            document.getElementById('dataSetsSummary').innerHTML = summaryHtml;
 
-            let html = `<h3>Proof Sets for ${formatAddress(clientAddress)}</h3>`;
+            let html = `<h3>Data Sets for ${formatAddress(clientAddress)}</h3>`;
             
-            for (let index = 0; index < proofSets.length; index++) {
-                const proofSet = proofSets[index];
-                const commissionPercent = (proofSet.commissionBps / 100).toFixed(2);
+            for (let index = 0; index < dataSets.length; index++) {
+                const dataSet = dataSets[index];
+                const commissionPercent = (dataSet.commissionBps / 100).toFixed(2);
                 
-                // Determine proof set class based on management status
-                const proofSetClass = proofSet.isManaged ? 'proof-set' : 'proof-set not-managed';
+                // Determine data set class based on management status
+                const dataSetClass = dataSet.isManaged ? 'data-set' : 'data-set not-managed';
                 
                 html += `
-                    <div class="${proofSetClass}">
+                    <div class="${dataSetClass}">
                         <h3>
-                            Proof Set ID: <span class="proof-set-id">${proofSet.pdpVerifierProofSetId}</span>
-                            <span class="status-badge ${proofSet.isLive ? 'live' : 'not-live'}">${proofSet.isLive ? 'LIVE' : 'NOT LIVE'}</span>
-                            <span class="status-badge ${proofSet.isManaged ? 'managed' : 'not-managed'}">${proofSet.isManaged ? 'MANAGED' : 'UNMANAGED'}</span>
+                            Data Set ID: <span class="data-set-id">${dataSet.pdpVerifierDataSetId}</span>
+                            <span class="status-badge ${dataSet.isLive ? 'live' : 'not-live'}">${dataSet.isLive ? 'LIVE' : 'NOT LIVE'}</span>
+                            <span class="status-badge ${dataSet.isManaged ? 'managed' : 'not-managed'}">${dataSet.isManaged ? 'MANAGED' : 'UNMANAGED'}</span>
                         </h3>
                         
-                        <div class="proof-set-detail">
+                        <div class="data-set-detail">
                             <label>Client Dataset ID:</label>
-                            <span class="value">${proofSet.clientDataSetId}</span>
+                            <span class="value">${dataSet.clientDataSetId}</span>
                         </div>
-                        <div class="proof-set-detail">
-                            <label>Pandora Rail ID:</label>
-                            <span class="value">${proofSet.railId} (internal)</span>
+                        <div class="data-set-detail">
+                            <label>Warm Storage Rail ID:</label>
+                            <span class="value">${dataSet.railId} (internal)</span>
                         </div>
-                        <div class="proof-set-detail">
+                        <div class="data-set-detail">
                             <label>Client (Payer):</label>
-                            <span class="value">${formatAddress(proofSet.payer)}</span>
+                            <span class="value">${formatAddress(dataSet.payer)}</span>
                         </div>
-                        <div class="proof-set-detail">
-                            <label>Storage Provider:</label>
-                            <span class="value">${formatAddress(proofSet.payee)}</span>
+                        <div class="data-set-detail">
+                            <label>Service Provider:</label>
+                            <span class="value">${formatAddress(dataSet.payee)}</span>
                         </div>
-                        <div class="proof-set-detail">
+                        <div class="data-set-detail">
                             <label>Commission:</label>
-                            <span class="value">${commissionPercent}% (${proofSet.commissionBps} bps)</span>
+                            <span class="value">${commissionPercent}% (${dataSet.commissionBps} bps)</span>
                         </div>
-                        <div class="proof-set-detail">
+                        <div class="data-set-detail">
                             <label>CDN Enabled:</label>
-                            <span class="value">${proofSet.withCDN ? 'Yes' : 'No'}</span>
+                            <span class="value">${dataSet.withCDN ? 'Yes' : 'No'}</span>
                         </div>
-                        <div class="proof-set-detail">
+                        <div class="data-set-detail">
                             <label>Metadata:</label>
-                            <span class="value">${proofSet.metadata || '(empty)'}</span>
+                            <span class="value">${dataSet.metadata || '(empty)'}</span>
                         </div>
                         
-                        <div class="roots-section">
-                            <h4>Roots Information</h4>
-                            <div class="proof-set-detail">
-                                <label>Current Root Count:</label>
-                                <span class="value">${proofSet.currentRootCount}</span>
+                        <div class="pieces-section">
+                            <h4>Pieces Information</h4>
+                            <div class="data-set-detail">
+                                <label>Current Piece Count:</label>
+                                <span class="value">${dataSet.currentPieceCount}</span>
                             </div>
-                            <div class="proof-set-detail">
-                                <label>Next Root ID:</label>
-                                <span class="value">${proofSet.nextRootId}</span>
+                            <div class="data-set-detail">
+                                <label>Next Piece ID:</label>
+                                <span class="value">${dataSet.nextPieceId}</span>
                             </div>
-                            ${proofSet.currentRootCount > 0 ? `
-                                <div class="proof-set-detail">
-                                    <label>Root Metadata:</label>
-                                    ${proofSet.rootMetadata && proofSet.rootMetadata.length > 0 
-                                        ? `<div class="metadata-list">${proofSet.rootMetadata.map((m, i) => `Root ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
+                            ${dataSet.currentPieceCount > 0 ? `
+                                <div class="data-set-detail">
+                                    <label>Piece Metadata:</label>
+                                    ${dataSet.pieceMetadata && dataSet.pieceMetadata.length > 0 
+                                        ? `<div class="metadata-list">${dataSet.pieceMetadata.map((m, i) => `Piece ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
                                         : '<span class="value">(no metadata stored)</span>'
                                     }
                                 </div>
                             ` : `
-                                <div class="proof-set-detail">
-                                    <span class="value" style="color: #666; font-style: italic;">No roots added yet</span>
+                                <div class="data-set-detail">
+                                    <span class="value" style="color: #666; font-style: italic;">No pieces added yet</span>
                                 </div>
                             `}
                         </div>
                         
-                        ${!proofSet.isManaged ? `
+                        ${!dataSet.isManaged ? `
                             <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px;">
-                                <strong>Note:</strong> This proof set is not managed by the current Pandora contract. 
-                                You cannot add roots or modify it from this interface.
+                                <strong>Note:</strong> This data set is not managed by the current Warm Storage contract. 
+                                You cannot add pieces or modify it from this interface.
                             </div>
                         ` : ''}
                     </div>
@@ -456,7 +456,7 @@
 
 
         // Connect to MetaMask
-        async function connectWithPandora(pandoraAddress) {
+        async function connectWithWarmStorage(warmStorageAddress) {
             try {
                 if (!window.ethereum) {
                     throw new Error('MetaMask not found! Please install MetaMask.');
@@ -484,16 +484,16 @@
                 // Create Synapse instance
                 synapse = await Synapse.create({
                     signer,
-                    pandoraAddress: pandoraAddress || undefined
+                    warmStorageAddress: warmStorageAddress || undefined
                 });
                 
-                // Create PandoraService instance separately
-                pandoraService = new PandoraService(provider, pandoraAddress || CONTRACT_ADDRESSES.PANDORA_SERVICE[networkName]);
+                // Create WarmStorageService instance separately
+                warmStorageService = new WarmStorageService(provider, warmStorageAddress || CONTRACT_ADDRESSES.WARM_STORAGE[networkName]);
                 
-                console.log('Using Pandora address:', pandoraAddress || 'default');
+                console.log('Using Warm Storage address:', warmStorageAddress || 'default');
 
                 updateStatus('Connected', connectedAddress, networkName);
-                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Pandora: ${pandoraAddress || 'SDK default'}</div>`);
+                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Warm Storage: ${warmStorageAddress || 'SDK default'}</div>`);
                 
                 enableButtons();
             } catch (error) {
@@ -503,68 +503,68 @@
         }
 
         document.getElementById('connectBtn').addEventListener('click', async () => {
-            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
-            await connectWithPandora(pandoraAddress);
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
         });
 
-        // Reconnect with selected Pandora
+        // Reconnect with selected Warm Storage
         document.getElementById('reconnectBtn').addEventListener('click', async () => {
-            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
-            await connectWithPandora(pandoraAddress);
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
         });
 
-        // Get proof sets for specified address
-        document.getElementById('getProofSetsBtn').addEventListener('click', async () => {
+        // Get data sets for specified address
+        document.getElementById('getDataSetsBtn').addEventListener('click', async () => {
             try {
                 const clientAddress = document.getElementById('clientAddressInput').value.trim();
                 if (!clientAddress) {
                     throw new Error('Please enter a client address');
                 }
 
-                showResult('proofSetsResult', '<div class="loading">Loading proof sets...</div>');
-                document.getElementById('proofSetsSummary').innerHTML = '';
+                showResult('dataSetsResult', '<div class="loading">Loading data sets...</div>');
+                document.getElementById('dataSetsSummary').innerHTML = '';
                 
-                console.log('Getting enhanced proof sets for:', clientAddress);
-                console.log('PandoraService instance:', pandoraService);
+                console.log('Getting enhanced data sets for:', clientAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress);
-                console.log('Enhanced proof sets result:', proofSets);
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress);
+                console.log('Enhanced data sets result:', dataSets);
                 
-                const html = await displayEnhancedProofSets(proofSets, clientAddress);
-                showResult('proofSetsResult', html);
+                const html = await displayEnhancedDataSets(dataSets, clientAddress);
+                showResult('dataSetsResult', html);
                 
             } catch (error) {
-                console.error('Error getting proof sets:', error);
-                showResult('proofSetsResult', error.message, true);
-                document.getElementById('proofSetsSummary').innerHTML = '';
+                console.error('Error getting data sets:', error);
+                showResult('dataSetsResult', error.message, true);
+                document.getElementById('dataSetsSummary').innerHTML = '';
             }
         });
 
-        // Get proof sets for connected wallet
-        document.getElementById('getMyProofSetsBtn').addEventListener('click', async () => {
+        // Get data sets for connected wallet
+        document.getElementById('getMyDataSetsBtn').addEventListener('click', async () => {
             try {
                 if (!connectedAddress) {
                     throw new Error('No wallet connected');
                 }
 
-                showResult('proofSetsResult', '<div class="loading">Loading your proof sets...</div>');
-                document.getElementById('proofSetsSummary').innerHTML = '';
+                showResult('dataSetsResult', '<div class="loading">Loading your data sets...</div>');
+                document.getElementById('dataSetsSummary').innerHTML = '';
                 
-                console.log('Getting enhanced proof sets for connected wallet:', connectedAddress);
-                console.log('PandoraService instance:', pandoraService);
+                console.log('Getting enhanced data sets for connected wallet:', connectedAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress);
-                console.log('Enhanced proof sets result:', proofSets);
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress);
+                console.log('Enhanced data sets result:', dataSets);
                 
-                const html = await displayEnhancedProofSets(proofSets, connectedAddress);
-                showResult('proofSetsResult', html);
+                const html = await displayEnhancedDataSets(dataSets, connectedAddress);
+                showResult('dataSetsResult', html);
                 
             } catch (error) {
-                console.error('Error getting proof sets:', error);
-                showResult('proofSetsResult', error.message, true);
-                document.getElementById('proofSetsSummary').innerHTML = '';
+                console.error('Error getting data sets:', error);
+                showResult('dataSetsResult', error.message, true);
+                document.getElementById('dataSetsSummary').innerHTML = '';
             }
         });
 

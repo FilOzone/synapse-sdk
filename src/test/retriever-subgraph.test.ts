@@ -10,9 +10,9 @@ const mockCommP = asCommP(
 ) as CommP
 
 const mockProvider: ApprovedProviderInfo = {
-  owner: '0x1234567890123456789012345678901234567890',
-  pdpUrl: 'https://provider.example.com/pdp',
-  pieceRetrievalUrl: 'https://provider.example.com/retrieve',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
+  serviceURL: 'https://provider.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
@@ -42,7 +42,7 @@ const createMockSubgraphService = (
     },
     getProviderByAddress: async (address: string): Promise<ApprovedProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : providersToReturn ?? []
-      return providers.find((p) => p.owner === address) ?? null
+      return providers.find((p) => p.serviceProvider === address) ?? null
     }
   } as any
 
@@ -114,11 +114,13 @@ describe('SubgraphRetriever', () => {
       ): Promise<Response> => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-        if (url.includes(mockProvider.pdpUrl)) {
+        if (url.includes(mockProvider.serviceURL)) {
+          // Check if it's a piece retrieval
+          if (url.includes('/piece/')) {
+            return new Response('piece data', { status: 200 })
+          }
+          // Otherwise it's a findPiece call
           return new Response(null, { status: 200 })
-        }
-        if (url.includes(mockProvider.pieceRetrievalUrl)) {
-          return new Response('piece data', { status: 200 })
         }
         throw new Error(`Unexpected fetch call to ${url}`)
       }
@@ -150,7 +152,7 @@ describe('SubgraphRetriever', () => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         // Mock provider failure
-        if (url.includes(mockProvider.pdpUrl) || url.includes(mockProvider.pieceRetrievalUrl)) {
+        if (url.includes(mockProvider.serviceURL) || url.includes(mockProvider.serviceURL)) {
           return new Response('provider error', { status: 500 })
         }
         throw new Error(`Unexpected fetch call to ${url}`)
@@ -166,8 +168,7 @@ describe('SubgraphRetriever', () => {
     it('should filter by providerAddress when provided (providers from service)', async () => {
       const otherProvider: ApprovedProviderInfo = {
         ...mockProvider,
-        owner: '0xother',
-        pieceRetrievalUrl: 'https://otherprovider.example.com/retrieve'
+        serviceProvider: '0xother'
       }
       const mockService = createMockSubgraphService([mockProvider, otherProvider]) // Service returns multiple providers
       let fetchCalledForMockProvider = false
@@ -179,11 +180,11 @@ describe('SubgraphRetriever', () => {
       ): Promise<Response> => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-        if (url.includes(mockProvider.pieceRetrievalUrl)) {
+        if (url.includes(mockProvider.serviceURL)) {
           fetchCalledForMockProvider = true
           return new Response('piece data', { status: 200 })
         }
-        if (url.includes(otherProvider.pieceRetrievalUrl)) {
+        if (url.includes(otherProvider.serviceURL)) {
           fetchCalledForOtherProvider = true
           return new Response('other piece data', { status: 200 })
         }
@@ -195,7 +196,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      await retriever.fetchPiece(mockCommP, 'client1', { providerAddress: mockProvider.owner })
+      await retriever.fetchPiece(mockCommP, 'client1', { providerAddress: mockProvider.serviceProvider })
 
       assert.isTrue(fetchCalledForMockProvider, 'Should have fetched from the specified provider')
       assert.isFalse(fetchCalledForOtherProvider, 'Should NOT have fetched from the other provider')

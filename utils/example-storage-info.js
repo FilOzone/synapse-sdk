@@ -81,8 +81,8 @@ async function main () {
     console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerDay)}`)
     console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerEpoch)}`)
 
-    // Display storage providers
-    console.log('\n--- Storage Providers ---')
+    // Display service providers
+    console.log('\n--- Service Providers ---')
     if (storageInfo.providers.length === 0) {
       console.log('No approved providers found')
     } else {
@@ -90,9 +90,9 @@ async function main () {
 
       storageInfo.providers.forEach((provider, index) => {
         console.log(`\nProvider ${index + 1}:`)
-        console.log(`  Address:    ${provider.owner}`)
-        console.log(`  PDP URL:    ${provider.pdpUrl}`)
-        console.log(`  Retrieval:  ${provider.pieceRetrievalUrl}`)
+        console.log(`  Address:    ${provider.serviceProvider}`)
+        console.log(`  Service URL: ${provider.serviceURL}`)
+        console.log(`  Peer ID:     ${provider.peerId}`)
         console.log(`  Registered: ${formatTimestamp(provider.registeredAt)}`)
         console.log(`  Approved:   ${formatTimestamp(provider.approvedAt)}`)
       })
@@ -107,7 +107,7 @@ async function main () {
     console.log(`Min upload size:  ${formatBytes(storageInfo.serviceParameters.minUploadSize)}`)
     console.log(`Max upload size:  ${formatBytes(storageInfo.serviceParameters.maxUploadSize)}`)
     console.log('\nContract Addresses:')
-    console.log(`  Pandora:      ${storageInfo.serviceParameters.pandoraAddress}`)
+    console.log(`  Warm Storage: ${storageInfo.serviceParameters.warmStorageAddress}`)
     console.log(`  Payments:     ${storageInfo.serviceParameters.paymentsAddress}`)
     console.log(`  PDP Verifier: ${storageInfo.serviceParameters.pdpVerifierAddress}`)
 

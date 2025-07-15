@@ -2,8 +2,10 @@
  * Epoch to date conversion utilities for Filecoin networks
  */
 
+import { ethers } from 'ethers'
 import type { FilecoinNetworkType } from '../types.js'
 import { TIME_CONSTANTS, GENESIS_TIMESTAMPS } from './constants.js'
+import { createError } from './errors.js'
 
 /**
  * Convert a Filecoin epoch to a JavaScript Date
@@ -68,7 +70,7 @@ export function timeUntilEpoch (futureEpoch: number, currentEpoch: number): {
 
 /**
  * Calculate when the last proof should have been submitted based on current time
- * @param nextChallengeEpoch - The next challenge epoch from the proof set
+ * @param nextChallengeEpoch - The next challenge epoch from the data set
  * @param maxProvingPeriod - The maximum proving period in epochs
  * @param network - The Filecoin network
  * @returns Date when the last proof should have been submitted, or null if no proof submitted yet
@@ -93,4 +95,19 @@ export function calculateLastProofDate (
   }
 
   return epochToDate(lastProofEpoch, network)
+}
+
+/**
+ * Get the current epoch from the blockchain
+ * @internal This is an internal utility, not part of the public API
+ * @param provider - The ethers provider to query
+ * @returns The current epoch as a bigint
+ */
+export async function getCurrentEpoch (provider: ethers.Provider): Promise<bigint> {
+  const block = await provider.getBlock('latest')
+  if (block == null) {
+    throw createError('epoch', 'getCurrentEpoch', 'Failed to get latest block')
+  }
+  // In Filecoin, the block number is the epoch
+  return BigInt(block.number)
 }

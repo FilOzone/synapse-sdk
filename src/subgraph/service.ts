@@ -1,5 +1,5 @@
 /**
- * SubgraphService - A service for querying a subgraph to find storage providers for a given piece.
+ * SubgraphService - A service for querying a subgraph to find service providers for a given piece.
  *
  * This service abstracts the logic for connecting to and querying a GraphQL endpoint,
  * which can be a direct URL or a Goldsky-hosted subgraph.
@@ -73,35 +73,35 @@ export interface NestedQueryOptions extends QueryOptions {
 export interface ProviderStats extends ApprovedProviderInfo {
   status: string
   totalFaultedPeriods: number
-  totalFaultedRoots: number
-  totalProofSets: number
-  totalRoots: number
+  totalFaultedPieces: number
+  totalDataSets: number
+  totalPieces: number
   totalDataSize: number
   createdAt: number
   updatedAt: number
 }
 
 /**
- * Basic proof set information from subgraph
+ * Basic data set information from subgraph
  */
-export interface SubgraphProofSetInfo {
+export interface SubgraphDataSetInfo {
   id: string
   setId: number
   isActive: boolean
   leafCount: number
   totalDataSize: number
-  totalRoots: number
+  totalPieces: number
   totalProofs: number
-  totalProvedRoots: number
-  totalFaultedRoots: number
+  totalProvedPieces: number
+  totalFaultedPieces: number
   createdAt: number
   updatedAt: number
 }
 
 /**
- * Detailed proof set information from subgraph with additional metadata
+ * Detailed data set information from subgraph with additional metadata
  */
-export interface DetailedSubgraphProofSetInfo extends SubgraphProofSetInfo {
+export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
   listener: string
   clientAddr: string
   withCDN: boolean
@@ -110,7 +110,7 @@ export interface DetailedSubgraphProofSetInfo extends SubgraphProofSetInfo {
   nextChallengeEpoch: number
   totalFaultedPeriods: number
   metadata: string
-  owner: ApprovedProviderInfo
+  serviceProvider: ApprovedProviderInfo
   rail?: {
     id: string
     railId: number
@@ -123,12 +123,12 @@ export interface DetailedSubgraphProofSetInfo extends SubgraphProofSetInfo {
 }
 
 /**
- * Root/piece information with proof set context
+ * Piece information with data set context
  */
-export interface RootInfo {
+export interface PieceInfo {
   id: string
   setId: number
-  rootId: number
+  pieceId: number
   rawSize: number
   leafCount: number
   cid: CommP | null
@@ -141,11 +141,11 @@ export interface RootInfo {
   lastFaultedAt: number
   createdAt: number
   metadata: string
-  proofSet: {
+  dataSet: {
     id: string
     setId: number
     isActive: boolean
-    owner: ApprovedProviderInfo
+    serviceProvider: ApprovedProviderInfo
   }
 }
 
@@ -154,17 +154,17 @@ export interface RootInfo {
  */
 export interface FaultRecord {
   id: string
-  proofSetId: number
-  rootIds: number[]
+  dataSetId: number
+  pieceIds: number[]
   currentChallengeEpoch: number
   nextChallengeEpoch: number
   periodsFaulted: number
   deadline: number
   createdAt: number
-  proofSet: {
+  dataSet: {
     id: string
     setId: number
-    owner: ApprovedProviderInfo
+    serviceProvider: ApprovedProviderInfo
   }
 }
 
@@ -294,9 +294,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    */
   private transformProviderData (data: any): ApprovedProviderInfo {
     return {
-      owner: data.address != null && data.address !== '' ? data.address : data.id,
-      pdpUrl: data.pdpUrl,
-      pieceRetrievalUrl: data.pieceRetrievalUrl,
+      serviceProvider: data.serviceProvider ?? data.address ?? data.id,
+      serviceURL: data.serviceURL ?? data.pdpUrl,
+      peerId: data.peerId ?? '',
       registeredAt: this.parseTimestamp(data.registeredAt),
       approvedAt: this.parseTimestamp(data.approvedAt)
     }
@@ -345,15 +345,13 @@ export class SubgraphService implements SubgraphRetrievalService {
     return (
       data?.id != null &&
       data.id.trim() !== '' &&
-      data?.pdpUrl != null &&
-      data.pdpUrl.trim() !== '' &&
-      data?.pieceRetrievalUrl != null &&
-      data.pieceRetrievalUrl.trim() !== ''
+      data?.serviceURL != null &&
+      data.serviceURL.trim() !== ''
     )
   }
 
   /**
-   * Queries the subgraph to find approved storage providers that have a specific piece (CommP).
+   * Queries the subgraph to find approved service providers that have a specific piece (CommP).
    *
    * It sends a GraphQL query to the configured endpoint and parses the response to extract
    * a list of providers, including their addresses and retrieval URLs.
@@ -369,19 +367,19 @@ export class SubgraphService implements SubgraphRetrievalService {
     }
     const hexCommP = toHex(commPParsed.bytes)
 
-    const data = await this.executeQuery<{ roots: any[] }>(
+    const data = await this.executeQuery<{ pieces: any[] }>(
       QUERIES.GET_APPROVED_PROVIDERS_FOR_COMMP,
       { cid: hexCommP },
       'getApprovedProvidersForCommP'
     )
 
-    if (data?.roots == null || data.roots.length === 0) {
+    if (data?.pieces == null || data.pieces.length === 0) {
       console.log(`SubgraphService: No providers found for CommP: ${commPParsed.toString()}`)
       return []
     }
 
-    const uniqueProviderMap = data.roots.reduce((acc: Map<string, any>, root: any) => {
-      const provider = root.proofSet.owner
+    const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
+      const provider = piece.dataSet.serviceProvider
       const address = provider?.address?.toLowerCase() as string
 
       if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
@@ -404,7 +402,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find a specific approved storage provider by their address.
+   * Queries the subgraph to find a specific approved service provider by their address.
    *
    * @param address - The wallet address of the provider to search for.
    * @returns A promise that resolves to an `ApprovedProviderInfo` object if the provider is found, or `null` otherwise.
@@ -440,9 +438,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    *   orderDirection: "desc"
    * });
    *
-   * // Get providers with minimum proof sets
+   * // Get providers with minimum data sets
    * const activeProviders = await service.queryProviders({
-   *   where: { totalProofSets_gte: "5" },
+   *   where: { totalDataSets_gte: "5" },
    *   first: 20
    * });
    * ```
@@ -465,23 +463,23 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Generic method to query proof sets with flexible where clauses
+   * Generic method to query data sets with flexible where clauses
    *
    * @param options - Query options including where clause, pagination, and ordering
-   * @returns A promise that resolves to an array of `DetailedSubgraphProofSetInfo` objects
+   * @returns A promise that resolves to an array of `DetailedSubgraphDataSetInfo` objects
    *
    * @example
    * ```typescript
-   * // Get active proof sets
-   * const activeProofSets = await service.queryProofSets({
+   * // Get active data sets
+   * const activeDataSets = await service.queryDataSets({
    *   where: { isActive: true },
    *   first: 50,
    *   orderBy: "createdAt",
    *   orderDirection: "desc"
    * });
    *
-   * // Get proof sets by owner with minimum data size
-   * const largeProofSets = await service.queryProofSets({
+   * // Get data sets by owner with minimum data size
+   * const largeDataSets = await service.queryDataSets({
    *   where: {
    *     owner: "0x123...",
    *     totalDataSize_gte: "1000000000"
@@ -489,80 +487,89 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryProofSets (options: QueryOptions = {}): Promise<DetailedSubgraphProofSetInfo[]> {
-    const data = await this.executeQuery<{ proofSets: any[] }>(
-      QUERIES.GET_PROOF_SETS_FLEXIBLE,
+  async queryDataSets (options: QueryOptions = {}): Promise<DetailedSubgraphDataSetInfo[]> {
+    const data = await this.executeQuery<{ dataSets: any[] }>(
+      QUERIES.GET_DATA_SETS_FLEXIBLE,
       this.normalizeQueryOptions(options),
-      'queryProofSets'
+      'queryDataSets'
     )
 
-    if (data?.proofSets == null || data?.proofSets?.length === 0) {
-      console.log('SubgraphService: No proof sets found for the given criteria')
+    if (data?.dataSets == null || data?.dataSets?.length === 0) {
+      console.log('SubgraphService: No data sets found for the given criteria')
       return []
     }
 
-    return data.proofSets.map((proofSet: any) => ({
-      id: proofSet.id,
-      setId: this.parseTimestamp(proofSet.setId),
-      listener: proofSet.listener ?? '',
-      clientAddr: proofSet.clientAddr ?? '',
-      withCDN: proofSet.withCDN ?? false,
-      isActive: proofSet.isActive,
-      leafCount: this.parseTimestamp(proofSet.leafCount),
-      challengeRange: this.parseTimestamp(proofSet.challengeRange),
-      lastProvenEpoch: this.parseTimestamp(proofSet.lastProvenEpoch),
-      nextChallengeEpoch: this.parseTimestamp(proofSet.nextChallengeEpoch),
-      totalRoots: this.parseTimestamp(proofSet.totalRoots),
-      totalDataSize: this.parseTimestamp(proofSet.totalDataSize),
-      totalProofs: this.parseTimestamp(proofSet.totalProofs),
-      totalProvedRoots: this.parseTimestamp(proofSet.totalProvedRoots),
-      totalFaultedPeriods: this.parseTimestamp(proofSet.totalFaultedPeriods),
-      totalFaultedRoots: this.parseTimestamp(proofSet.totalFaultedRoots),
-      metadata: proofSet.metadata ?? '',
-      createdAt: this.parseTimestamp(proofSet.createdAt),
-      updatedAt: this.parseTimestamp(proofSet.updatedAt),
+    return data.dataSets.map((dataSet: any) => ({
+      id: dataSet.id,
+      setId: this.parseTimestamp(dataSet.setId),
+      listener: dataSet.listener ?? '',
+      clientAddr: dataSet.clientAddr ?? '',
+      withCDN: dataSet.withCDN ?? false,
+      isActive: dataSet.isActive,
+      leafCount: this.parseTimestamp(dataSet.leafCount),
+      challengeRange: this.parseTimestamp(dataSet.challengeRange),
+      lastProvenEpoch: this.parseTimestamp(dataSet.lastProvenEpoch),
+      nextChallengeEpoch: this.parseTimestamp(dataSet.nextChallengeEpoch),
+      totalPieces: this.parseTimestamp(dataSet.totalPieces),
+      totalDataSize: this.parseTimestamp(dataSet.totalDataSize),
+      totalProofs: this.parseTimestamp(dataSet.totalProofs),
+      totalProvedPieces: this.parseTimestamp(dataSet.totalProvedPieces),
+      totalFaultedPeriods: this.parseTimestamp(dataSet.totalFaultedPeriods),
+      totalFaultedPieces: this.parseTimestamp(dataSet.totalFaultedPieces),
+      metadata: dataSet.metadata ?? '',
+      createdAt: this.parseTimestamp(dataSet.createdAt),
+      updatedAt: this.parseTimestamp(dataSet.updatedAt),
       owner:
-        proofSet.owner != null
-          ? this.transformProviderData(proofSet.owner)
+        dataSet.owner != null
+          ? this.transformProviderData(dataSet.owner)
           : {
-              owner: '',
-              pdpUrl: '',
-              pieceRetrievalUrl: '',
+              serviceProvider: '',
+              serviceURL: '',
+              peerId: '',
               registeredAt: 0,
               approvedAt: 0
             },
+      serviceProvider: dataSet.serviceProvider != null
+        ? this.transformProviderData(dataSet.serviceProvider)
+        : {
+            serviceProvider: '',
+            serviceURL: '',
+            peerId: '',
+            registeredAt: 0,
+            approvedAt: 0
+          },
       rail:
-        proofSet.rail != null
+        dataSet.rail != null
           ? {
-              id: proofSet.rail.id,
-              railId: this.parseTimestamp(proofSet.rail.railId),
-              token: proofSet.rail.token,
-              paymentRate: this.parseTimestamp(proofSet.rail.paymentRate),
-              lockupPeriod: this.parseTimestamp(proofSet.rail.lockupPeriod),
-              settledUpto: this.parseTimestamp(proofSet.rail.settledUpto),
-              endEpoch: this.parseTimestamp(proofSet.rail.endEpoch)
+              id: dataSet.rail.id,
+              railId: this.parseTimestamp(dataSet.rail.railId),
+              token: dataSet.rail.token,
+              paymentRate: this.parseTimestamp(dataSet.rail.paymentRate),
+              lockupPeriod: this.parseTimestamp(dataSet.rail.lockupPeriod),
+              settledUpto: this.parseTimestamp(dataSet.rail.settledUpto),
+              endEpoch: this.parseTimestamp(dataSet.rail.endEpoch)
             }
           : undefined
     }))
   }
 
   /**
-   * Generic method to query roots with flexible where clauses
+   * Generic method to query pieces with flexible where clauses
    *
    * @param options - Query options including where clause, pagination, and ordering
-   * @returns A promise that resolves to an array of `RootInfo` objects
+   * @returns A promise that resolves to an array of `PieceInfo` objects
    *
    * @example
    * ```typescript
-   * // Get roots by proof set
-   * const proofSetRoots = await service.queryRoots({
-   *   where: { proofSet: "0x123..." },
+   * // Get pieces by data set
+   * const dataSetPieces = await service.queryPieces({
+   *   where: { dataSet: "0x123..." },
    *   first: 100,
    *   orderBy: "createdAt"
    * });
    *
-   * // Get non-removed roots with minimum size
-   * const largeRoots = await service.queryRoots({
+   * // Get non-removed pieces with minimum size
+   * const largePieces = await service.queryPieces({
    *   where: {
    *     removed: false,
    *     rawSize_gte: "1000000"
@@ -570,39 +577,39 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryRoots (options: QueryOptions = {}): Promise<RootInfo[]> {
-    const data = await this.executeQuery<{ roots: any[] }>(
-      QUERIES.GET_ROOTS_FLEXIBLE,
+  async queryPieces (options: QueryOptions = {}): Promise<PieceInfo[]> {
+    const data = await this.executeQuery<{ pieces: any[] }>(
+      QUERIES.GET_PIECES_FLEXIBLE,
       this.normalizeQueryOptions(options),
-      'queryRoots'
+      'queryPieces'
     )
 
-    if (data?.roots == null || data?.roots?.length === 0) {
-      console.log('SubgraphService: No roots found for the given criteria')
+    if (data?.pieces == null || data?.pieces?.length === 0) {
+      console.log('SubgraphService: No pieces found for the given criteria')
       return []
     }
 
-    return data.roots.map((root) => ({
-      id: root.id,
-      setId: this.parseTimestamp(root.setId),
-      rootId: this.parseTimestamp(root.rootId),
-      rawSize: this.parseTimestamp(root.rawSize),
-      leafCount: this.parseTimestamp(root.leafCount),
-      cid: this.safeConvertHexToCid(root.cid),
-      removed: root.removed,
-      totalProofsSubmitted: this.parseTimestamp(root.totalProofsSubmitted),
-      totalPeriodsFaulted: this.parseTimestamp(root.totalPeriodsFaulted),
-      lastProvenEpoch: this.parseTimestamp(root.lastProvenEpoch),
-      lastProvenAt: this.parseTimestamp(root.lastProvenAt),
-      lastFaultedEpoch: this.parseTimestamp(root.lastFaultedEpoch),
-      lastFaultedAt: this.parseTimestamp(root.lastFaultedAt),
-      createdAt: this.parseTimestamp(root.createdAt),
-      metadata: root.metadata ?? '',
-      proofSet: {
-        id: root.proofSet.id,
-        setId: this.parseTimestamp(root.proofSet.setId),
-        isActive: root.proofSet.isActive,
-        owner: this.transformProviderData(root.proofSet.owner)
+    return data.pieces.map((piece) => ({
+      id: piece.id,
+      setId: this.parseTimestamp(piece.setId),
+      pieceId: this.parseTimestamp(piece.pieceId),
+      rawSize: this.parseTimestamp(piece.rawSize),
+      leafCount: this.parseTimestamp(piece.leafCount),
+      cid: this.safeConvertHexToCid(piece.cid),
+      removed: piece.removed,
+      totalProofsSubmitted: this.parseTimestamp(piece.totalProofsSubmitted),
+      totalPeriodsFaulted: this.parseTimestamp(piece.totalPeriodsFaulted),
+      lastProvenEpoch: this.parseTimestamp(piece.lastProvenEpoch),
+      lastProvenAt: this.parseTimestamp(piece.lastProvenAt),
+      lastFaultedEpoch: this.parseTimestamp(piece.lastFaultedEpoch),
+      lastFaultedAt: this.parseTimestamp(piece.lastFaultedAt),
+      createdAt: this.parseTimestamp(piece.createdAt),
+      metadata: piece.metadata ?? '',
+      dataSet: {
+        id: piece.dataSet.id,
+        setId: this.parseTimestamp(piece.dataSet.setId),
+        isActive: piece.dataSet.isActive,
+        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider)
       }
     }))
   }
@@ -623,9 +630,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    *   orderDirection: "desc"
    * });
    *
-   * // Get fault records for specific proof set
-   * const proofSetFaults = await service.queryFaultRecords({
-   *   where: { proofSetId: "123" }
+   * // Get fault records for specific data set
+   * const dataSetFaults = await service.queryFaultRecords({
+   *   where: { dataSetId: "123" }
    * });
    * ```
    */
@@ -643,17 +650,17 @@ export class SubgraphService implements SubgraphRetrievalService {
 
     return data.faultRecords.map((fault) => ({
       id: fault.id,
-      proofSetId: this.parseTimestamp(fault.proofSetId),
-      rootIds: fault.rootIds.map((id: any) => this.parseTimestamp(id)),
+      dataSetId: this.parseTimestamp(fault.dataSetId),
+      pieceIds: fault.pieceIds.map((id: any) => this.parseTimestamp(id)),
       currentChallengeEpoch: this.parseTimestamp(fault.currentChallengeEpoch),
       nextChallengeEpoch: this.parseTimestamp(fault.nextChallengeEpoch),
       periodsFaulted: this.parseTimestamp(fault.periodsFaulted),
       deadline: this.parseTimestamp(fault.deadline),
       createdAt: this.parseTimestamp(fault.createdAt),
-      proofSet: {
-        id: fault.proofSet.id,
-        setId: this.parseTimestamp(fault.proofSet.setId),
-        owner: this.transformProviderData(fault.proofSet.owner)
+      dataSet: {
+        id: fault.dataSet.id,
+        setId: this.parseTimestamp(fault.dataSet.setId),
+        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider)
       }
     }))
   }

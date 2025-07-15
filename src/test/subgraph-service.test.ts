@@ -48,15 +48,14 @@ describe('SubgraphService', () => {
     it('should return providers for a given CommP', async () => {
       const mockResponse = {
         data: {
-          roots: [
+          pieces: [
             {
               id: mockCommP.toString(),
-              proofSet: {
+              dataSet: {
                 setId: '1',
-                owner: {
+                serviceProvider: {
                   id: '0x123',
-                  pdpUrl: 'http://provider.url/pdp',
-                  pieceRetrievalUrl: 'http://provider.url/piece',
+                  serviceURL: 'http://provider.url/pdp',
                   status: 'Approved',
                   address: '0x123'
                 }
@@ -81,7 +80,7 @@ describe('SubgraphService', () => {
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
-        assert.equal(providers[0].owner, '0x123')
+        assert.equal(providers[0].serviceProvider, '0x123')
       } finally {
         global.fetch = originalFetch
       }
@@ -93,7 +92,7 @@ describe('SubgraphService', () => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
-          return new Response(JSON.stringify({ data: { roots: [] } }))
+          return new Response(JSON.stringify({ data: { pieces: [] } }))
         }
         throw new Error(`Unexpected URL: ${url}`)
       }
@@ -114,7 +113,7 @@ describe('SubgraphService', () => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
-          return new Response(JSON.stringify({ data: { roots: [] } }))
+          return new Response(JSON.stringify({ data: { pieces: [] } }))
         }
         throw new Error(`Unexpected URL: ${url}`)
       }
@@ -179,8 +178,7 @@ describe('SubgraphService', () => {
         data: {
           provider: {
             id: mockAddress,
-            pdpUrl: 'http://provider.url/pdp',
-            pieceRetrievalUrl: 'http://provider.url/piece'
+            serviceURL: 'http://provider.url/pdp'
           }
         }
       }
@@ -190,7 +188,7 @@ describe('SubgraphService', () => {
       const provider = await service.getProviderByAddress(mockAddress)
 
       assert.isNotNull(provider)
-      assert.equal(provider?.owner, mockAddress)
+      assert.equal(provider?.serviceProvider, mockAddress)
     })
 
     it('should return null if provider not found', async () => {
@@ -265,16 +263,14 @@ describe('SubgraphService', () => {
               {
                 id: '0x123',
                 address: '0x123',
-                pdpUrl: 'https://provider1.com',
-                pieceRetrievalUrl: 'https://retrieval1.com',
+                serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               },
               {
                 id: '0x456',
                 address: '0x456',
-                pdpUrl: 'https://provider2.com',
-                pieceRetrievalUrl: 'https://retrieval2.com',
+                serviceURL: 'https://provider2.com',
                 registeredAt: '1640995300',
                 approvedAt: '1641081700'
               }
@@ -302,8 +298,8 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 2)
-          assert.equal(providers[0].owner, '0x123')
-          assert.equal(providers[1].owner, '0x456')
+          assert.equal(providers[0].serviceProvider, '0x123')
+          assert.equal(providers[1].serviceProvider, '0x456')
         } finally {
           global.fetch = originalFetch
         }
@@ -316,8 +312,7 @@ describe('SubgraphService', () => {
               {
                 id: '0x123',
                 address: '0x123',
-                pdpUrl: 'https://provider1.com',
-                pieceRetrievalUrl: 'https://retrieval1.com',
+                serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               }
@@ -331,7 +326,7 @@ describe('SubgraphService', () => {
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'ProvidersFlexible')
-            assert.deepEqual(body.variables.where, { status: 'APPROVED', totalProofSets_gte: '5' })
+            assert.deepEqual(body.variables.where, { status: 'APPROVED', totalDataSets_gte: '5' })
             assert.equal(body.variables.first, 10)
             assert.equal(body.variables.skip, 20)
             assert.equal(body.variables.orderBy, 'approvedAt')
@@ -344,7 +339,7 @@ describe('SubgraphService', () => {
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
           const providers = await service.queryProviders({
-            where: { status: 'APPROVED', totalProofSets_gte: '5' },
+            where: { status: 'APPROVED', totalDataSets_gte: '5' },
             first: 10,
             skip: 20,
             orderBy: 'approvedAt',
@@ -353,7 +348,7 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 1)
-          assert.equal(providers[0].owner, '0x123')
+          assert.equal(providers[0].serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -387,13 +382,13 @@ describe('SubgraphService', () => {
       })
     })
 
-    describe('queryProofSets', () => {
-      it('should query proof sets with default options', async () => {
+    describe('queryDataSets', () => {
+      it('should query data sets with default options', async () => {
         const mockResponse = {
           data: {
-            proofSets: [
+            dataSets: [
               {
-                id: 'proof-set-1',
+                id: 'data-set-1',
                 setId: '1',
                 listener: '0xlistener1',
                 clientAddr: '0xclient1',
@@ -403,20 +398,19 @@ describe('SubgraphService', () => {
                 challengeRange: '10',
                 lastProvenEpoch: '1000',
                 nextChallengeEpoch: '1010',
-                totalRoots: '50',
+                totalPieces: '50',
                 totalDataSize: '1000000',
                 totalProofs: '25',
-                totalProvedRoots: '45',
+                totalProvedPieces: '45',
                 totalFaultedPeriods: '2',
-                totalFaultedRoots: '5',
+                totalFaultedPieces: '5',
                 metadata: 'test metadata',
                 createdAt: '1640995200',
                 updatedAt: '1641081600',
-                owner: {
+                serviceProvider: {
                   id: '0x123',
                   address: '0x123',
-                  pdpUrl: 'https://provider1.com',
-                  pieceRetrievalUrl: 'https://retrieval1.com',
+                  serviceURL: 'https://provider1.com',
                   registeredAt: '1640995200',
                   approvedAt: '1641081600'
                 },
@@ -439,7 +433,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'ProofSetsFlexible')
+            assert.include(body.query, 'DataSetsFlexible')
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -447,27 +441,27 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const proofSets = await service.queryProofSets()
+          const dataSets = await service.queryDataSets()
 
-          assert.isArray(proofSets)
-          assert.lengthOf(proofSets, 1)
-          assert.equal(proofSets[0].id, 'proof-set-1')
-          assert.equal(proofSets[0].setId, 1)
-          assert.equal(proofSets[0].isActive, true)
-          assert.equal(proofSets[0].owner.owner, '0x123')
-          assert.isObject(proofSets[0].rail)
-          assert.equal(proofSets[0].rail?.railId, 1)
+          assert.isArray(dataSets)
+          assert.lengthOf(dataSets, 1)
+          assert.equal(dataSets[0].id, 'data-set-1')
+          assert.equal(dataSets[0].setId, 1)
+          assert.equal(dataSets[0].isActive, true)
+          assert.equal(dataSets[0].serviceProvider.serviceProvider, '0x123')
+          assert.isObject(dataSets[0].rail)
+          assert.equal(dataSets[0].rail?.railId, 1)
         } finally {
           global.fetch = originalFetch
         }
       })
 
-      it('should query proof sets with custom filters', async () => {
+      it('should query data sets with custom filters', async () => {
         const mockResponse = {
           data: {
-            proofSets: [
+            dataSets: [
               {
-                id: 'proof-set-active',
+                id: 'data-set-active',
                 setId: '2',
                 listener: '0xlistener2',
                 clientAddr: '0xclient2',
@@ -477,20 +471,19 @@ describe('SubgraphService', () => {
                 challengeRange: '20',
                 lastProvenEpoch: '2000',
                 nextChallengeEpoch: '2020',
-                totalRoots: '100',
+                totalPieces: '100',
                 totalDataSize: '2000000',
                 totalProofs: '50',
-                totalProvedRoots: '90',
+                totalProvedPieces: '90',
                 totalFaultedPeriods: '1',
-                totalFaultedRoots: '10',
-                metadata: 'active proof set',
+                totalFaultedPieces: '10',
+                metadata: 'active data set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
-                owner: {
+                serviceProvider: {
                   id: '0x456',
                   address: '0x456',
-                  pdpUrl: 'https://provider2.com',
-                  pieceRetrievalUrl: 'https://retrieval2.com',
+                  serviceURL: 'https://provider2.com',
                   registeredAt: '1640995300',
                   approvedAt: '1641081700'
                 },
@@ -505,7 +498,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'ProofSetsFlexible')
+            assert.include(body.query, 'DataSetsFlexible')
             assert.deepEqual(body.variables.where, { isActive: true, totalDataSize_gte: '1000000' })
             return new Response(JSON.stringify(mockResponse))
           }
@@ -514,32 +507,32 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const proofSets = await service.queryProofSets({
+          const dataSets = await service.queryDataSets({
             where: { isActive: true, totalDataSize_gte: '1000000' },
             first: 20,
             orderBy: 'totalDataSize',
             orderDirection: 'desc'
           })
 
-          assert.isArray(proofSets)
-          assert.lengthOf(proofSets, 1)
-          assert.equal(proofSets[0].isActive, true)
-          assert.isUndefined(proofSets[0].rail)
+          assert.isArray(dataSets)
+          assert.lengthOf(dataSets, 1)
+          assert.equal(dataSets[0].isActive, true)
+          assert.isUndefined(dataSets[0].rail)
         } finally {
           global.fetch = originalFetch
         }
       })
     })
 
-    describe('queryRoots', () => {
-      it('should query roots with default options', async () => {
+    describe('queryPieces', () => {
+      it('should query pieces with default options', async () => {
         const mockResponse = {
           data: {
-            roots: [
+            pieces: [
               {
-                id: 'root-1',
+                id: 'piece-1',
                 setId: '1',
-                rootId: '100',
+                pieceId: '100',
                 rawSize: '1048576',
                 leafCount: '256',
                 cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
@@ -551,16 +544,15 @@ describe('SubgraphService', () => {
                 lastFaultedEpoch: '999',
                 lastFaultedAt: '1640995100',
                 createdAt: '1640995000',
-                metadata: 'root metadata',
-                proofSet: {
-                  id: 'proof-set-1',
+                metadata: 'piece metadata',
+                dataSet: {
+                  id: 'data-set-1',
                   setId: '1',
                   isActive: true,
-                  owner: {
+                  serviceProvider: {
                     id: '0x123',
                     address: '0x123',
-                    pdpUrl: 'https://provider1.com',
-                    pieceRetrievalUrl: 'https://retrieval1.com',
+                    serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -575,7 +567,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'RootsFlexible')
+            assert.include(body.query, 'PiecesFlexible')
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -583,27 +575,27 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const roots = await service.queryRoots()
+          const pieces = await service.queryPieces()
 
-          assert.isArray(roots)
-          assert.lengthOf(roots, 1)
-          assert.equal(roots[0].id, 'root-1')
-          assert.equal(roots[0].rootId, 100)
-          assert.equal(roots[0].removed, false)
-          assert.equal(roots[0].proofSet.owner.owner, '0x123')
+          assert.isArray(pieces)
+          assert.lengthOf(pieces, 1)
+          assert.equal(pieces[0].id, 'piece-1')
+          assert.equal(pieces[0].pieceId, 100)
+          assert.equal(pieces[0].removed, false)
+          assert.equal(pieces[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
       })
 
-      it('should query roots with size filter', async () => {
+      it('should query pieces with size filter', async () => {
         const mockResponse = {
           data: {
-            roots: [
+            pieces: [
               {
-                id: 'large-root',
+                id: 'large-piece',
                 setId: '2',
-                rootId: '200',
+                pieceId: '200',
                 rawSize: '10485760',
                 leafCount: '2560',
                 cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
@@ -615,16 +607,15 @@ describe('SubgraphService', () => {
                 lastFaultedEpoch: '0',
                 lastFaultedAt: '0',
                 createdAt: '1641000000',
-                metadata: 'large root',
-                proofSet: {
-                  id: 'proof-set-2',
+                metadata: 'large piece',
+                dataSet: {
+                  id: 'data-set-2',
                   setId: '2',
                   isActive: true,
-                  owner: {
+                  serviceProvider: {
                     id: '0x456',
                     address: '0x456',
-                    pdpUrl: 'https://provider2.com',
-                    pieceRetrievalUrl: 'https://retrieval2.com',
+                    serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }
@@ -639,7 +630,7 @@ describe('SubgraphService', () => {
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
-            assert.include(body.query, 'RootsFlexible')
+            assert.include(body.query, 'PiecesFlexible')
             assert.deepEqual(body.variables.where, { removed: false, rawSize_gte: '5000000' })
             return new Response(JSON.stringify(mockResponse))
           }
@@ -648,18 +639,18 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const roots = await service.queryRoots({
+          const pieces = await service.queryPieces({
             where: { removed: false, rawSize_gte: '5000000' },
             first: 50,
             orderBy: 'rawSize',
             orderDirection: 'desc'
           })
 
-          assert.isArray(roots)
-          assert.lengthOf(roots, 1)
-          assert.equal(roots[0].rawSize, 10485760)
+          assert.isArray(pieces)
+          assert.lengthOf(pieces, 1)
+          assert.equal(pieces[0].rawSize, 10485760)
           assert.equal(
-            roots[0].cid?.toString(),
+            pieces[0].cid?.toString(),
             'baga6ea4seaqk27m35u73llf3pw2pwt7ovskmdxpgrgegzupiwzhrxppzgxxmaei'
           )
         } finally {
@@ -675,21 +666,20 @@ describe('SubgraphService', () => {
             faultRecords: [
               {
                 id: 'fault-1',
-                proofSetId: '1',
-                rootIds: ['100', '101', '102'],
+                dataSetId: '1',
+                pieceIds: ['100', '101', '102'],
                 currentChallengeEpoch: '1000',
                 nextChallengeEpoch: '1010',
                 periodsFaulted: '3',
                 deadline: '1641000000',
                 createdAt: '1640995200',
-                proofSet: {
-                  id: 'proof-set-1',
+                dataSet: {
+                  id: 'data-set-1',
                   setId: '1',
-                  owner: {
+                  serviceProvider: {
                     id: '0x123',
                     address: '0x123',
-                    pdpUrl: 'https://provider1.com',
-                    pieceRetrievalUrl: 'https://retrieval1.com',
+                    serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -717,9 +707,9 @@ describe('SubgraphService', () => {
           assert.isArray(faultRecords)
           assert.lengthOf(faultRecords, 1)
           assert.equal(faultRecords[0].id, 'fault-1')
-          assert.equal(faultRecords[0].proofSetId, 1)
-          assert.deepEqual(faultRecords[0].rootIds, [100, 101, 102])
-          assert.equal(faultRecords[0].proofSet.owner.owner, '0x123')
+          assert.equal(faultRecords[0].dataSetId, 1)
+          assert.deepEqual(faultRecords[0].pieceIds, [100, 101, 102])
+          assert.equal(faultRecords[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -731,21 +721,20 @@ describe('SubgraphService', () => {
             faultRecords: [
               {
                 id: 'recent-fault',
-                proofSetId: '2',
-                rootIds: ['200'],
+                dataSetId: '2',
+                pieceIds: ['200'],
                 currentChallengeEpoch: '2000',
                 nextChallengeEpoch: '2010',
                 periodsFaulted: '1',
                 deadline: '1641100000',
                 createdAt: '1641000000',
-                proofSet: {
-                  id: 'proof-set-2',
+                dataSet: {
+                  id: 'data-set-2',
                   setId: '2',
-                  owner: {
+                  serviceProvider: {
                     id: '0x456',
                     address: '0x456',
-                    pdpUrl: 'https://provider2.com',
-                    pieceRetrievalUrl: 'https://retrieval2.com',
+                    serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }
@@ -803,7 +792,7 @@ describe('SubgraphService', () => {
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
           const faultRecords = await service.queryFaultRecords({
-            where: { proofSetId: '999' }
+            where: { dataSetId: '999' }
           })
 
           assert.isArray(faultRecords)
@@ -840,7 +829,7 @@ describe('SubgraphService', () => {
         }
       })
 
-      it('should handle HTTP errors in queryProofSets', async () => {
+      it('should handle HTTP errors in queryDataSets', async () => {
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
           const url =
             typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -852,7 +841,7 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          await service.queryProofSets()
+          await service.queryDataSets()
           assert.fail('should have thrown')
         } catch (err) {
           assert.match((err as Error).message, /HTTP 400: Bad Request/)

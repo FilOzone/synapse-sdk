@@ -3,7 +3,7 @@
  */
 
 import { ethers } from 'ethers'
-import { type AuthSignature, type RootData } from '../types.js'
+import { type AuthSignature, type PieceData } from '../types.js'
 import { asCommP, toPieceSize } from '../commp/index.js'
 
 // Declare window.ethereum for TypeScript
@@ -15,28 +15,28 @@ declare global {
 
 // EIP-712 Type definitions
 const EIP712_TYPES = {
-  CreateProofSet: [
+  CreateDataSet: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'withCDN', type: 'bool' },
     { name: 'payee', type: 'address' }
   ],
-  Cid: [
+  PieceCid: [
     { name: 'data', type: 'bytes' }
   ],
-  RootData: [
-    { name: 'root', type: 'Cid' },
+  PieceData: [
+    { name: 'piece', type: 'PieceCid' },
     { name: 'rawSize', type: 'uint256' }
   ],
-  AddRoots: [
+  AddPieces: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'firstAdded', type: 'uint256' },
-    { name: 'rootData', type: 'RootData[]' }
+    { name: 'pieceData', type: 'PieceData[]' }
   ],
-  ScheduleRemovals: [
+  SchedulePieceRemovals: [
     { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'rootIds', type: 'uint256[]' }
+    { name: 'pieceIds', type: 'uint256[]' }
   ],
-  DeleteProofSet: [
+  DeleteDataSet: [
     { name: 'clientDataSetId', type: 'uint256' }
   ]
 }
@@ -45,7 +45,7 @@ const EIP712_TYPES = {
  * Helper class for creating EIP-712 typed signatures for PDP operations
  *
  * This class provides methods to create cryptographic signatures required for
- * authenticating PDP (Proof of Data Possession) operations with storage providers.
+ * authenticating PDP (Proof of Data Possession) operations with service providers.
  * All signatures are EIP-712 compatible for improved security and UX.
  *
  * Can be used standalone or through the Synapse SDK.
@@ -64,8 +64,8 @@ const EIP712_TYPES = {
  * const auth = synapse.getPDPAuthHelper()
  *
  * // Sign operations for PDP service authentication
- * const createSig = await auth.signCreateProofSet(0, providerAddress, false)
- * const addRootsSig = await auth.signAddRoots(0, 1, rootDataArray)
+ * const createSig = await auth.signCreateDataSet(0, providerAddress, false)
+ * const addPiecesSig = await auth.signAddPieces(0, 1, pieceDataArray)
  * ```
  */
 export class PDPAuthHelper {
@@ -77,7 +77,7 @@ export class PDPAuthHelper {
 
     // EIP-712 domain
     this.domain = {
-      name: 'PandoraService',
+      name: 'FilecoinWarmStorageService',
       version: '1',
       chainId: Number(chainId),
       verifyingContract: serviceContractAddress
@@ -156,8 +156,8 @@ export class PDPAuthHelper {
     // Determine the primary type (the first one that isn't a dependency)
     let primaryType = ''
     for (const typeName of Object.keys(types)) {
-      // Skip Cid and RootData as they are dependencies
-      if (typeName !== 'Cid' && typeName !== 'RootData') {
+      // Skip Cid and PieceData as they are dependencies
+      if (typeName !== 'PieceCid' && typeName !== 'PieceData') {
         primaryType = typeName
         break
       }
@@ -212,28 +212,28 @@ export class PDPAuthHelper {
   }
 
   /**
-   * Create signature for proof set creation
+   * Create signature for data set creation
    *
-   * This signature authorizes a storage provider to create a new proof set
+   * This signature authorizes a service provider to create a new data set
    * on behalf of the client. The signature includes the client's dataset ID,
-   * the storage provider's payment address, and CDN preference.
+   * the service provider's payment address, and CDN preference.
    *
    * @param clientDataSetId - Unique dataset ID for the client (typically starts at 0 and increments)
-   * @param payee - Storage provider's address that will receive payments
+   * @param payee - Service provider's address that will receive payments
    * @param withCDN - Whether to enable CDN service for faster retrieval (default: false)
-   * @returns Promise resolving to authentication signature for proof set creation
+   * @returns Promise resolving to authentication signature for data set creation
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
-   * const signature = await auth.signCreateProofSet(
+   * const signature = await auth.signCreateDataSet(
    *   0,                              // First dataset for this client
-   *   '0x1234...abcd',               // Storage provider address
+   *   '0x1234...abcd',               // Service provider address
    *   true                           // Enable CDN service
    * )
    * ```
    */
-  async signCreateProofSet (
+  async signCreateDataSet (
     clientDataSetId: number | bigint,
     payee: string,
     withCDN: boolean = false
@@ -252,7 +252,7 @@ export class PDPAuthHelper {
       }
 
       signature = await this.signWithMetaMask(
-        { CreateProofSet: EIP712_TYPES.CreateProofSet },
+        { CreateDataSet: EIP712_TYPES.CreateDataSet },
         value
       )
     } else {
@@ -267,7 +267,7 @@ export class PDPAuthHelper {
       const actualSigner = this.getUnderlyingSigner()
       signature = await actualSigner.signTypedData(
         this.domain,
-        { CreateProofSet: EIP712_TYPES.CreateProofSet },
+        { CreateDataSet: EIP712_TYPES.CreateDataSet },
         value
       )
     }
@@ -278,7 +278,7 @@ export class PDPAuthHelper {
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
-      { CreateProofSet: EIP712_TYPES.CreateProofSet },
+      { CreateDataSet: EIP712_TYPES.CreateDataSet },
       {
         clientDataSetId: BigInt(clientDataSetId),
         withCDN,
@@ -296,50 +296,56 @@ export class PDPAuthHelper {
   }
 
   /**
-   * Create signature for adding roots to a proof set
+   * Create signature for adding pieces to a data set
    *
-   * This signature authorizes a storage provider to add new data roots
-   * to an existing proof set. Each root represents aggregated data that
+   * This signature authorizes a service provider to add new data pieces
+   * to an existing data set. Each piece represents aggregated data that
    * will be proven using PDP challenges.
    *
-   * @param clientDataSetId - Client's dataset ID (same as used in createProofSet)
-   * @param firstRootId - ID of the first root being added (sequential numbering)
-   * @param rootDataArray - Array of root data containing CommP CIDs and raw sizes
-   * @returns Promise resolving to authentication signature for adding roots
+   * @param clientDataSetId - Client's dataset ID (same as used in createDataSet)
+   * @param firstPieceId - ID of the first piece being added (sequential numbering)
+   * @param pieceDataArray - Array of piece data containing CommP CIDs and raw sizes
+   * @returns Promise resolving to authentication signature for adding pieces
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
-   * const rootData = [{
+   * const pieceData = [{
    *   cid: 'baga6ea4seaqai...', // CommP CID of aggregated data
    *   rawSize: 1024 * 1024     // Raw size in bytes before padding
    * }]
-   * const signature = await auth.signAddRoots(
-   *   0,           // Same dataset ID as proof set creation
-   *   1,           // First root has ID 1 (0 reserved)
-   *   rootData     // Array of roots to add
+   * const signature = await auth.signAddPieces(
+   *   0,           // Same dataset ID as data set creation
+   *   1,           // First piece has ID 1 (0 reserved)
+   *   pieceData    // Array of pieces to add
    * )
    * ```
    */
-  async signAddRoots (
+  async signAddPieces (
     clientDataSetId: number | bigint,
-    firstRootId: number | bigint,
-    rootDataArray: RootData[]
+    firstPieceId: number | bigint,
+    pieceDataArray: PieceData[]
   ): Promise<AuthSignature> {
-    // Transform the root data into the proper format for EIP-712
-    const formattedRootData = []
-    for (const root of rootDataArray) {
-      const commP = typeof root.cid === 'string' ? asCommP(root.cid) : root.cid
+    // Transform the piece data into the proper format for EIP-712
+    const formattedPieceData = []
+    for (const piece of pieceDataArray) {
+      const commP = typeof piece.cid === 'string' ? asCommP(piece.cid) : piece.cid
       if (commP == null) {
-        throw new Error(`Invalid CommP: ${String(root.cid)}`)
+        throw new Error(`Invalid CommP: ${String(piece.cid)}`)
       }
 
       // Format as nested structure matching Solidity's Cids.Cid struct
-      formattedRootData.push({
-        root: {
+      formattedPieceData.push({
+        piece: {
           data: commP.bytes // This will be a Uint8Array
         },
-        rawSize: BigInt(toPieceSize(root.rawSize))
+        // IMPORTANT: We use toPieceSize() here to convert raw size to padded piece size.
+        // This is required because Curio records subPiece sizes as PaddedPieceSize in
+        // handlers.go:743-755, and when totaling up the sizes for addPieces operation,
+        // it sums the padded sizes, not raw sizes. We must match this behavior.
+        // See: https://github.com/FilOzone/synapse-sdk/pull/95
+        // TODO: this should be undone when we switch to CommPv2 and we just go with raw size e2e.
+        rawSize: BigInt(toPieceSize(piece.rawSize))
       })
     }
 
@@ -352,10 +358,10 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing with properly structured data
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        firstAdded: firstRootId.toString(), // Keep as string for MetaMask display
-        rootData: formattedRootData.map(item => ({
-          root: {
-            data: ethers.hexlify(item.root.data) // Convert Uint8Array to hex string for MetaMask
+        firstAdded: firstPieceId.toString(), // Keep as string for MetaMask display
+        pieceData: formattedPieceData.map(item => ({
+          piece: {
+            data: ethers.hexlify(item.piece.data) // Convert Uint8Array to hex string for MetaMask
           },
           rawSize: item.rawSize.toString() // Keep as string for MetaMask display
         }))
@@ -363,9 +369,9 @@ export class PDPAuthHelper {
 
       // Define the complete type structure
       const types = {
-        AddRoots: EIP712_TYPES.AddRoots,
-        RootData: EIP712_TYPES.RootData,
-        Cid: EIP712_TYPES.Cid
+        AddPieces: EIP712_TYPES.AddPieces,
+        PieceData: EIP712_TYPES.PieceData,
+        PieceCid: EIP712_TYPES.PieceCid
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -373,15 +379,15 @@ export class PDPAuthHelper {
       // Use standard ethers.js signing with bigint values
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        firstAdded: BigInt(firstRootId),
-        rootData: formattedRootData
+        firstAdded: BigInt(firstPieceId),
+        pieceData: formattedPieceData
       }
 
       // Define the complete type structure
       const types = {
-        AddRoots: EIP712_TYPES.AddRoots,
-        RootData: EIP712_TYPES.RootData,
-        Cid: EIP712_TYPES.Cid
+        AddPieces: EIP712_TYPES.AddPieces,
+        PieceData: EIP712_TYPES.PieceData,
+        PieceCid: EIP712_TYPES.PieceCid
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -396,14 +402,14 @@ export class PDPAuthHelper {
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
       {
-        AddRoots: EIP712_TYPES.AddRoots,
-        RootData: EIP712_TYPES.RootData,
-        Cid: EIP712_TYPES.Cid
+        AddPieces: EIP712_TYPES.AddPieces,
+        PieceData: EIP712_TYPES.PieceData,
+        PieceCid: EIP712_TYPES.PieceCid
       },
       {
         clientDataSetId: BigInt(clientDataSetId),
-        firstAdded: BigInt(firstRootId),
-        rootData: formattedRootData
+        firstAdded: BigInt(firstPieceId),
+        pieceData: formattedPieceData
       }
     )
 
@@ -417,31 +423,31 @@ export class PDPAuthHelper {
   }
 
   /**
-   * Create signature for scheduling root removals
+   * Create signature for scheduling piece removals
    *
-   * This signature authorizes a storage provider to schedule specific roots
-   * for removal from the proof set. Roots are typically removed after the
+   * This signature authorizes a service provider to schedule specific pieces
+   * for removal from the data set. Pieces are typically removed after the
    * next successful proof submission.
    *
    * @param clientDataSetId - Client's dataset ID
-   * @param rootIds - Array of root IDs to schedule for removal
+   * @param pieceIds - Array of piece IDs to schedule for removal
    * @returns Promise resolving to authentication signature for scheduling removals
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
-   * const signature = await auth.signScheduleRemovals(
+   * const signature = await auth.signSchedulePieceRemovals(
    *   0,           // Dataset ID
-   *   [1, 2, 3]    // Root IDs to remove
+   *   [1, 2, 3]    // Piece IDs to remove
    * )
    * ```
    */
-  async signScheduleRemovals (
+  async signSchedulePieceRemovals (
     clientDataSetId: number | bigint,
-    rootIds: Array<number | bigint>
+    pieceIds: Array<number | bigint>
   ): Promise<AuthSignature> {
-    // Convert rootIds to BigInt array for proper encoding
-    const rootIdsBigInt = rootIds.map(id => BigInt(id))
+    // Convert pieceIds to BigInt array for proper encoding
+    const pieceIdsBigInt = pieceIds.map(id => BigInt(id))
 
     let signature: string
 
@@ -452,25 +458,25 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing for better UX
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        rootIds: rootIdsBigInt.map(id => id.toString()) // Convert to string array for display
+        pieceIds: pieceIdsBigInt.map(id => id.toString()) // Convert to string array for display
       }
 
       signature = await this.signWithMetaMask(
-        { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
+        { SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals },
         value
       )
     } else {
       // Use standard ethers.js signing with BigInt values
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIds: rootIdsBigInt
+        pieceIds: pieceIdsBigInt
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
       const actualSigner = this.getUnderlyingSigner()
       signature = await actualSigner.signTypedData(
         this.domain,
-        { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
+        { SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals },
         value
       )
     }
@@ -480,10 +486,10 @@ export class PDPAuthHelper {
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
-      { ScheduleRemovals: EIP712_TYPES.ScheduleRemovals },
+      { SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals },
       {
         clientDataSetId: BigInt(clientDataSetId),
-        rootIds: rootIdsBigInt
+        pieceIds: pieceIdsBigInt
       }
     )
 
@@ -497,24 +503,24 @@ export class PDPAuthHelper {
   }
 
   /**
-   * Create signature for proof set deletion
+   * Create signature for data set deletion
    *
-   * This signature authorizes complete deletion of a proof set and all
+   * This signature authorizes complete deletion of a data set and all
    * its associated data. This action is irreversible and will terminate
    * the storage service for this dataset.
    *
    * @param clientDataSetId - Client's dataset ID to delete
-   * @returns Promise resolving to authentication signature for proof set deletion
+   * @returns Promise resolving to authentication signature for data set deletion
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
-   * const signature = await auth.signDeleteProofSet(
+   * const signature = await auth.signDeleteDataSet(
    *   0  // Dataset ID to delete
    * )
    * ```
    */
-  async signDeleteProofSet (
+  async signDeleteDataSet (
     clientDataSetId: number | bigint
   ): Promise<AuthSignature> {
     let signature: string
@@ -529,7 +535,7 @@ export class PDPAuthHelper {
       }
 
       signature = await this.signWithMetaMask(
-        { DeleteProofSet: EIP712_TYPES.DeleteProofSet },
+        { DeleteDataSet: EIP712_TYPES.DeleteDataSet },
         value
       )
     } else {
@@ -542,7 +548,7 @@ export class PDPAuthHelper {
       const actualSigner = this.getUnderlyingSigner()
       signature = await actualSigner.signTypedData(
         this.domain,
-        { DeleteProofSet: EIP712_TYPES.DeleteProofSet },
+        { DeleteDataSet: EIP712_TYPES.DeleteDataSet },
         value
       )
     }
@@ -552,7 +558,7 @@ export class PDPAuthHelper {
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
-      { DeleteProofSet: EIP712_TYPES.DeleteProofSet },
+      { DeleteDataSet: EIP712_TYPES.DeleteDataSet },
       {
         clientDataSetId: BigInt(clientDataSetId)
       }
