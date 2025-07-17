@@ -1,9 +1,7 @@
 ######################################################################################
 # READ THIS FIRST
-# This file is authored in FilOzone/github-mgmt repository and copied to other repos via automation.
-# If you need to make changes, either:
-# 1. Make the changes in FilOzone/github-mgmt repository OR
-# 2. Make the changes in the local repo and remove the automated copying from github-mgmt.
+# This file is authored in FilOzone/github-mgmt repository and MANUALLY copied to other repos.
+# See https://github.com/FilOzone/github-mgmt/blob/master/files/workflows/add-issues-and-prs-to-fs-project-board.yml for more info.
 ######################################################################################
 
 # This action adds all issues and PRs to the FS project board.
