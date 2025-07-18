@@ -964,4 +964,4 @@ const tx = await synapse.payments.deposit(amount, TOKENS.USDFC, {
 
 ## License
 
-Apache-2.0
+Dual-licensed under [MIT](https://opensource.org/licenses/MIT) + [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)

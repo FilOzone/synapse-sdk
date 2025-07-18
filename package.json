@@ -55,7 +55,7 @@
     "web3"
   ],
   "author": "Rod Vagg <rod@vagg.org>",
-  "license": "Apache-2.0",
+  "license": "Apache-2.0 OR MIT",
   "bugs": {
     "url": "https://github.com/FilOzone/synapse-sdk/issues"
   },
