@@ -34,6 +34,7 @@ import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
 import { toHex } from 'multiformats/bytes'
 import { validateProofSetCreationStatusResponse, validateRootAdditionStatusResponse, validateFindPieceResponse, asProofSetData } from './validation.js'
+import { timingCollector } from '../utils/timing.js'
 
 /**
  * Response from creating a proof set
@@ -420,7 +421,9 @@ export class PDPServer {
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
     // Calculate CommP
+    timingCollector.start('calculateCommP')
     const commP = await calculateCommP(uint8Data)
+    timingCollector.end('calculateCommP')
     const size = uint8Data.length
 
     // Extract the raw hash from the CommP CID
@@ -440,6 +443,7 @@ export class PDPServer {
     }
 
     // Create upload session or check if piece exists
+    timingCollector.start('POST.pdp.piece')
     const createResponse = await fetch(`${this._apiEndpoint}/pdp/piece`, {
       method: 'POST',
       headers: {
@@ -447,6 +451,7 @@ export class PDPServer {
       },
       body: JSON.stringify(requestBody)
     })
+    timingCollector.end('POST.pdp.piece')
 
     if (createResponse.status === 200) {
       // Piece already exists on server
@@ -477,6 +482,7 @@ export class PDPServer {
     const uploadUuid = locationMatch[1] // Extract just the UUID
 
     // Upload the data
+    timingCollector.start('PUT.pdp.piece.upload')
     const uploadResponse = await fetch(`${this._apiEndpoint}/pdp/piece/upload/${uploadUuid}`, {
       method: 'PUT',
       headers: {
@@ -486,6 +492,7 @@ export class PDPServer {
       },
       body: uint8Data
     })
+    timingCollector.end('PUT.pdp.piece.upload')
 
     if (uploadResponse.status !== 204) {
       const errorText = await uploadResponse.text()
