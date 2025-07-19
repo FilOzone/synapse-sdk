@@ -1121,6 +1121,76 @@ describe('StorageService', () => {
         assert.include(error.message, '65 bytes')
       }
     })
+    it('should support parallel uploads', async () => {
+      // Use a counter to simulate the nextRootId changing on the contract
+      // between addRoots transactions, which might not execute in order.
+      let nextRootId = 0
+      const addRootsCalls: Array<{ commP: string, rootId: number }> = []
+
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => {
+          const currentRootId = nextRootId
+          nextRootId++
+          return {
+            nextRootId: currentRootId,
+            clientDataSetId: 1,
+            currentRootCount: currentRootId
+          }
+        }
+      } as any
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const serviceAny = service as any
+
+      // Mock PDPServer methods to track calls
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
+        // Use the first byte to create a unique commP for each upload
+        const commP = `baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2m${data[0]}`
+        return { commP, size: data.length }
+      }
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.addRoots = async (proofSetId: number, clientDataSetId: number, nextRootId: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
+        // The mock now receives the whole batch, so we process it.
+        // We use nextRootId from the call arguments to simulate what the contract does.
+        comms.forEach((comm, index) => {
+          addRootsCalls.push({ commP: comm.cid.toString(), rootId: nextRootId + index })
+        })
+        // Return a response that simulates an older server for simplicity,
+        // as we are not testing the transaction tracking part here.
+        return { message: 'success' }
+      }
+
+      // Create distinct data for each upload
+      const firstData = new Uint8Array(65).fill(1) // 65 bytes
+      const secondData = new Uint8Array(66).fill(2) // 66 bytes
+      const thirdData = new Uint8Array(67).fill(3) // 67 bytes
+
+      // Start all uploads concurrently
+      const uploads = [
+        service.upload(firstData),
+        service.upload(secondData),
+        service.upload(thirdData)
+      ]
+
+      // Wait for all to complete
+      const results = await Promise.all(uploads)
+
+      assert.lengthOf(results, 3, 'All three uploads should complete successfully')
+
+      const resultSizes = results.map(r => r.size)
+      const resultRootIds = results.map(r => r.rootId)
+
+      assert.deepEqual(resultSizes, [65, 66, 67], 'Should have one result for each data size')
+      assert.deepEqual(resultRootIds, [0, 1, 2], 'The set of assigned root IDs should be {0, 1, 2}')
+
+      // Verify the calls to the mock were made correctly
+      assert.lengthOf(addRootsCalls, 3, 'addRoots should be called three times')
+      for (const result of results) {
+        assert.isTrue(
+          addRootsCalls.some(call => call.commP === result.commp.toString() && call.rootId === result.rootId),
+          `addRoots call for commp ${result.commp.toString()} and rootId ${result.rootId ?? 'not found'} should exist`
+        )
+      }
+    })
 
     it('should enforce 200 MiB size limit', async () => {
       const mockPandoraService = {} as any

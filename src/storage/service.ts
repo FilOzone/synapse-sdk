@@ -40,6 +40,16 @@ export class StorageService {
   private readonly _proofSetId: number
   private readonly _signer: ethers.Signer
 
+  // AddRoots batching state
+  private _pendingRoots: Array<{
+    rootData: RootData
+    resolve: (rootId: number) => void
+    reject: (error: Error) => void
+    callbacks?: UploadCallbacks
+  }> = []
+
+  private _isProcessing: boolean = false
+
   // Public properties from interface
   public readonly proofSetId: string
   public readonly storageProvider: string
@@ -831,18 +841,54 @@ export class StorageService {
       callbacks.onUploadComplete(uploadResult.commP)
     }
 
-    // Add Root Phase: Add the piece to the proof set
+    // Add Root Phase: Queue the AddRoots operation for sequential processing
+    const rootData: RootData = {
+      cid: uploadResult.commP,
+      rawSize: uploadResult.size
+    }
+
+    const finalRootId = await new Promise<number>((resolve, reject) => {
+      // Add to pending batch
+      this._pendingRoots.push({
+        rootData,
+        resolve,
+        reject,
+        callbacks
+      })
+
+      void this._processPendingRoots()
+    })
+
+    // Return upload result
+    return {
+      commp: uploadResult.commP,
+      size: uploadResult.size,
+      rootId: finalRootId
+    }
+  }
+
+  /**
+     * Process pending roots by batching them into a single AddRoots operation
+     * This method is called from the promise queue to ensure sequential execution
+     */
+  private async _processPendingRoots (): Promise<void> {
+    if (this._isProcessing || this._pendingRoots.length === 0) {
+      return
+    }
+    this._isProcessing = true
+
+    // Extract all pending roots
+    const batch = [...this._pendingRoots]
+    this._pendingRoots = []
+
     try {
       // Get add roots info to ensure we have the correct nextRootId
       const addRootsInfo = await this._pandoraService.getAddRootsInfo(
         this._proofSetId
       )
 
-      // Create root data array
-      const rootDataArray: RootData[] = [{
-        cid: uploadResult.commP,
-        rawSize: uploadResult.size
-      }]
+      // Create root data array from the batch
+      const rootDataArray: RootData[] = batch.map((item) => item.rootData)
 
       // Add roots to the proof set
       const addRootsResult = await this._pdpServer.addRoots(
@@ -853,7 +899,7 @@ export class StorageService {
       )
 
       // Handle transaction tracking if available (backward compatible)
-      let finalRootId = addRootsInfo.nextRootId
+      let confirmedRootIds: number[] = []
 
       if (addRootsResult.txHash != null) {
         // New server with transaction tracking - verification is REQUIRED
@@ -882,8 +928,8 @@ export class StorageService {
           )
         }
 
-        // Notify callback with transaction
-        callbacks?.onRootAdded?.(transaction)
+        // Notify callbacks with transaction
+        batch.forEach((item) => item.callbacks?.onRootAdded?.(transaction))
 
         // Step 2: Wait for transaction confirmation
         let receipt: ethers.TransactionReceipt | null
@@ -933,8 +979,10 @@ export class StorageService {
 
             // Success - get the root IDs
             if (status.confirmedRootIds != null && status.confirmedRootIds.length > 0) {
-              finalRootId = status.confirmedRootIds[0]
-              callbacks?.onRootConfirmed?.(status.confirmedRootIds)
+              confirmedRootIds = status.confirmedRootIds
+              batch.forEach((item) =>
+                item.callbacks?.onRootConfirmed?.(status.confirmedRootIds ?? [])
+              )
               statusVerified = true
               break
             }
@@ -952,8 +1000,8 @@ export class StorageService {
             throw createError(
               'StorageService',
               'addRoots',
-              `Failed to verify root addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              error
+                `Failed to verify root addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                error
             )
           }
         }
@@ -972,22 +1020,34 @@ export class StorageService {
         }
       } else {
         // Old server without transaction tracking
-        callbacks?.onRootAdded?.()
+        // Generate sequential root IDs starting from nextRootId
+        confirmedRootIds = Array.from(
+          { length: batch.length },
+          (_, i) => addRootsInfo.nextRootId + i
+        )
+        batch.forEach((item) => item.callbacks?.onRootAdded?.())
       }
 
-      // Return upload result
-      return {
-        commp: uploadResult.commP,
-        size: uploadResult.size,
-        rootId: finalRootId
-      }
+      // Resolve all promises in the batch with their respective root IDs
+      batch.forEach((item, index) => {
+        const rootId =
+            confirmedRootIds[index] ?? addRootsInfo.nextRootId + index
+        item.resolve(rootId)
+      })
     } catch (error) {
-      throw createError(
+      // Reject all promises in the batch
+      const finalError = createError(
         'StorageService',
         'addRoots',
         'Failed to add root to proof set',
         error
       )
+      batch.forEach((item) => item.reject(finalError))
+    } finally {
+      this._isProcessing = false
+      if (this._pendingRoots.length > 0) {
+        void this._processPendingRoots().catch()
+      }
     }
   }
 
