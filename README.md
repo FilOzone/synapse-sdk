@@ -514,6 +514,53 @@ console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
 ```
 
+#### Payment Rail Settlement
+
+Payment rails are continuous payment streams between clients and storage providers. As storage services are used over time, payment obligations accumulate but must be "settled" to actually transfer funds. Settlement converts accumulated payment obligations into actual token transfers.
+
+**Why settle?**
+- **Storage Providers**: Settle to receive accumulated payments for storage services
+- **Clients**: Settle to clear payment obligations and update available balance
+
+**When to settle?**
+- Periodically to ensure payments flow properly
+- When a storage provider needs to access accumulated earnings
+- Before withdrawing funds (to ensure accurate available balance)
+
+Either party can initiate settlement for any rail.
+
+```javascript
+// Get all rails where wallet is the payer (client)
+const payerRails = await paymentsService.getRailsAsPayer()
+console.log(`Found ${payerRails.length} rails as payer`)
+
+// Get all rails where wallet is the payee (storage provider)
+const payeeRails = await paymentsService.getRailsAsPayee()
+console.log(`Found ${payeeRails.length} rails as payee`)
+
+// Check settlement status for a specific rail
+const status = await paymentsService.getSettlementStatus(railId)
+console.log(`Rail ${railId} settlement status:`)
+console.log(`  Epochs behind: ${status.epochsBehind}`)
+console.log(`  Estimated amount: ${status.estimatedSettlementAmount}`)
+console.log(`  Is settled: ${status.isSettled}`)
+
+// Settle a rail (brings payments current to latest epoch)
+const result = await paymentsService.settle(railId)
+console.log(`Settlement complete:`)
+console.log(`  Total settled: ${result.totalSettledAmount}`)
+console.log(`  Net to payee: ${result.totalNetPayeeAmount}`)
+console.log(`  Commission: ${result.totalOperatorCommission}`)
+
+// Settle up to a specific epoch (optional)
+await paymentsService.settle(railId, targetEpoch)
+
+// Get detailed rail information
+const rail = await paymentsService.getRail(railId)
+console.log(`Payment rate: ${rail.paymentRate} per epoch`)
+console.log(`Settled up to epoch: ${rail.settledUpTo}`)
+```
+
 ### Pandora Service
 
 Interact with the Pandora contract for proof set management, storage provider operations, and storage cost calculations.

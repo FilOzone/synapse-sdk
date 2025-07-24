@@ -142,9 +142,10 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         const rateUsed = 0n
         const lockupAllowance = 0n
         const lockupUsed = 0n
+        const maxLockupPeriod = BigInt(28800) // 10 days
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['bool', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed]
+          ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed, maxLockupPeriod]
         )
       }
       return '0x'
