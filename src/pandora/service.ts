@@ -289,6 +289,70 @@ export class PandoraService {
   }
 
   /**
+   * Get the proof set ID associated with a payment rail
+   * @param railId - The payment rail ID
+   * @returns The PDPVerifier proof set ID, or 0 if not found
+   */
+  async getProofSetIdByRail (railId: bigint | number): Promise<number> {
+    try {
+      const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+      const pandoraContract = this._getPandoraContract()
+      const proofSetId = await pandoraContract.railToProofSet(railIdBigint)
+      return Number(proofSetId)
+    } catch (error) {
+      throw new Error(`Failed to get proof set ID for rail ${railId}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Get proof set information by proof set ID
+   * @param proofSetId - The PDPVerifier proof set ID
+   * @returns The proof set information
+   */
+  async getProofSetInfo (proofSetId: number): Promise<ProofSetInfo> {
+    try {
+      const pandoraContract = this._getPandoraContract()
+      const data = await pandoraContract.proofSetInfo(proofSetId)
+
+      return {
+        railId: Number(data.railId),
+        payer: data.payer,
+        payee: data.payee,
+        commissionBps: Number(data.commissionBps),
+        metadata: data.metadata,
+        rootMetadata: data.rootMetadata,
+        clientDataSetId: Number(data.clientDataSetId),
+        withCDN: data.withCDN
+      }
+    } catch (error) {
+      throw new Error(`Failed to get proof set info for ID ${proofSetId}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Get the payment rail ID associated with a proof set
+   * @param proofSetId - The proof set ID to query
+   * @returns The payment rail ID, or null if not found
+   */
+  async getProofSetRailId (proofSetId: number): Promise<number | null> {
+    try {
+      const pandoraContract = this._getPandoraContract()
+      // Try the deployed contract's getter function first
+      if ('getProofSetRailId' in pandoraContract) {
+        const railId = await pandoraContract.getProofSetRailId(proofSetId)
+        return railId > 0n ? Number(railId) : null
+      }
+
+      // Fallback to reading from the proofSetInfo mapping
+      const data = await pandoraContract.proofSetInfo(proofSetId)
+      return data.railId > 0 ? Number(data.railId) : null
+    } catch (error) {
+      // If the function doesn't exist or fails, return null
+      return null
+    }
+  }
+
+  /**
    * Get the next available client dataset ID for a client
    * This reads the current counter from the Pandora contract
    * @param clientAddress - The client's wallet address
@@ -662,8 +726,7 @@ export class PandoraService {
         execute: async () => await paymentsService.approveService(
           this._pandoraAddress,
           allowanceCheck.rateAllowanceNeeded,
-          allowanceCheck.lockupAllowanceNeeded,
-          TOKENS.USDFC
+          allowanceCheck.lockupAllowanceNeeded
         )
       })
     }
@@ -948,6 +1011,73 @@ export class PandoraService {
       maxProvingPeriodHours: (maxProvingPeriod * 30) / 3600,
       challengeWindowMinutes: (challengeWindow * 30) / 60,
       epochDurationSeconds: 30
+    }
+  }
+
+  /**
+   * Get both proof set and payment rail information in one call
+   * @param proofSetId - The PDPVerifier proof set ID
+   * @returns Combined proof set and rail information
+   */
+  async getProofSetWithRailInfo (proofSetId: number): Promise<{
+    proofSet: ProofSetInfo
+    railId: number
+    isActive: boolean
+  }> {
+    const proofSetInfo = await this.getProofSetInfo(proofSetId)
+
+    // Check if the rail exists (railId > 0)
+    const isActive = proofSetInfo.railId > 0
+
+    return {
+      proofSet: proofSetInfo,
+      railId: proofSetInfo.railId,
+      isActive
+    }
+  }
+
+  /**
+   * Find all rails associated with proof sets for a client
+   * @param clientAddress - The client's wallet address
+   * @returns Array of rail IDs and their associated proof set IDs
+   */
+  async getClientRails (clientAddress: string): Promise<Array<{
+    railId: number
+    proofSetId: number
+    payer: string
+    payee: string
+  }>> {
+    const proofSets = await this.getClientProofSetsWithDetails(clientAddress, true)
+
+    return proofSets.map(ps => ({
+      railId: ps.railId,
+      proofSetId: ps.pdpVerifierProofSetId,
+      payer: ps.payer,
+      payee: ps.payee
+    }))
+  }
+
+  /**
+   * Check if a rail belongs to a proof set managed by this Pandora contract
+   * @param railId - The payment rail ID
+   * @returns Whether the rail is associated with a managed proof set
+   */
+  async isRailManaged (railId: bigint | number): Promise<boolean> {
+    try {
+      const proofSetId = await this.getProofSetIdByRail(railId)
+
+      // If no proof set found, rail is not managed
+      if (proofSetId === 0) {
+        return false
+      }
+
+      // Check if the proof set is managed by this Pandora contract
+      const pdpVerifier = this._getPDPVerifier()
+      const listener = await pdpVerifier.getProofSetListener(proofSetId)
+
+      return listener.toLowerCase() === this._pandoraAddress.toLowerCase()
+    } catch {
+      return false
     }
   }
 }

@@ -50,9 +50,9 @@ function formatBytes (bytes) {
 }
 
 // Helper to format USDFC amounts (18 decimals)
-function formatUSDFC (amount) {
+function formatUSDFC (amount, decimals = 6) {
   const usdfc = Number(amount) / 1e18
-  return usdfc.toFixed(6) + ' USDFC'
+  return usdfc.toFixed(decimals) + ' USDFC'
 }
 
 async function main () {
@@ -115,6 +115,7 @@ async function main () {
           } else {
             console.log(`✓ Created new proof set: ${info.proofSetId}`)
           }
+          console.log(`  Provider: ${info.provider.owner}`)
         },
         onProofSetCreationStarted: (transaction, statusUrl) => {
           console.log(`  Creating proof set, tx: ${transaction.hash}`)
@@ -130,11 +131,31 @@ async function main () {
     console.log(`Proof set ID: ${storageService.proofSetId}`)
     const rootCids = await storageService.getProofSetRoots()
     console.log(`Proof set contains ${rootCids.length} root CIDs`)
-    /* Uncomment to see root CIDs
-    for (const cid of rootCids) {
-      console.log(`  - Root CID: ${cid}`)
+
+    // Get payment rail information
+    const railId = await storageService.getPaymentRailId()
+    if (railId) {
+      console.log('\n--- Payment Rail Information ---')
+      console.log(`Payment Rail ID: ${railId}`)
+
+      try {
+        const rail = await synapse.payments.getRail(railId)
+        console.log(`Payer (client): ${rail.from}`)
+        console.log(`Payee (storage provider): ${rail.to}`)
+        console.log(`Payment rate: ${formatUSDFC(rail.paymentRate, 9)}/epoch`)
+        console.log(`Status: ${rail.endEpoch === 0n ? 'Active' : 'Terminated'}`)
+
+        // Check settlement status
+        const settlementStatus = await synapse.payments.getSettlementStatus(railId)
+        if (settlementStatus.epochsBehind > 0n) {
+          console.log(`Settlement: ${settlementStatus.epochsBehind} epochs behind (${formatUSDFC(settlementStatus.estimatedSettlementAmount)} pending)`)
+        } else {
+          console.log('Settlement: Up to date')
+        }
+      } catch (error) {
+        console.log(`Could not retrieve rail details: ${error.message}`)
+      }
     }
-    */
 
     // Get detailed provider information
     console.log('\n--- Storage Provider Details ---')
@@ -241,6 +262,8 @@ async function main () {
     console.log(`- Storage provider: ${storageService.storageProvider}`)
     console.log('\nThe storage provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
+    console.log('\nPayment flows continuously from your account to the storage provider via')
+    console.log(`payment rail #${railId || '(unknown)'} as long as the data is stored.`)
   } catch (error) {
     console.error('\n❌ Error:', error.message)
     if (error.cause) {

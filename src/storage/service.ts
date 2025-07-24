@@ -1157,4 +1157,12 @@ export class StorageService {
       isProofOverdue
     }
   }
+
+  /**
+   * Get the payment rail ID associated with this storage service's proof set
+   * @returns The payment rail ID, or null if not found
+   */
+  async getPaymentRailId (): Promise<number | null> {
+    return await this._pandoraService.getProofSetRailId(this._proofSetId)
+  }
 }

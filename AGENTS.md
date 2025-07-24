@@ -327,4 +327,20 @@ In development environments, the following related repositories may be available
   - Calibration: `https://api.calibration.node.glif.io/rpc/v1`
   - Mainnet: `https://api.node.glif.io/rpc/v1`
 
+## Payment Rails and Settlement
+
+**Key Concepts**:
+- **Payment Rails**: Continuous payment streams from clients to storage providers, created automatically with proof sets
+- **Settlement**: Process that converts accumulated payment obligations into actual token transfers
+- **One-to-One Mapping**: Each proof set has exactly one payment rail (railId in ProofSetInfo)
+- **Bidirectional Access**: `pandora.getProofSetIdByRail(railId)` and `pandora.getProofSetInfo(proofSetId).railId`
+
+**Settlement Methods**:
+- `payments.settle(railId, untilEpoch?)` - Settle payments up to current or specified epoch
+- `payments.getSettlementStatus(railId)` - Check if settlement needed and estimate amounts
+- `payments.getRailsAsPayer()` / `getRailsAsPayee()` - Find rails by role
+- Either party can settle any rail
+
+**Settlement Incentives**: SPs settle to receive payments, clients settle to clear obligations and update available balance.
+
 This document should be kept updated and curated as the SDK implementation progresses.

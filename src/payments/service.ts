@@ -4,8 +4,8 @@
  */
 
 import { ethers } from 'ethers'
-import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS } from '../utils/index.js'
+import type { TokenAmount, TokenIdentifier, FilecoinNetworkType, PaymentRail, RailReference, SettlementResult } from '../types.js'
+import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS, TIME_CONSTANTS } from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -275,6 +275,7 @@ export class PaymentsService {
    * @param service - The service contract address to approve
    * @param rateAllowance - Maximum payment rate per epoch the operator can set
    * @param lockupAllowance - Maximum lockup amount the operator can set
+   * @param maxLockupPeriod - Maximum lockup period (in epochs) the operator can set for rails (defaults to 10 days)
    * @param token - The token to approve for (defaults to USDFC)
    * @returns Transaction response object
    */
@@ -282,6 +283,7 @@ export class PaymentsService {
     service: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
+    maxLockupPeriod: bigint | number = TIME_CONSTANTS.EPOCHS_PER_DAY * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS,
     token: TokenIdentifier = TOKENS.USDFC
   ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
@@ -290,8 +292,9 @@ export class PaymentsService {
 
     const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
     const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
+    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
 
-    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n) {
+    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
       throw createError('PaymentsService', 'approveService', 'Allowance values cannot be negative')
     }
 
@@ -313,6 +316,7 @@ export class PaymentsService {
         true, // approved
         rateAllowanceBigint,
         lockupAllowanceBigint,
+        maxLockupPeriodBigint,
         txOptions
       )
       return approveTx
@@ -355,6 +359,7 @@ export class PaymentsService {
         false, // not approved
         0n, // zero rate allowance
         0n, // zero lockup allowance
+        0n, // zero max lockup period
         txOptions
       )
       return revokeTx
@@ -380,6 +385,7 @@ export class PaymentsService {
     rateUsed: bigint
     lockupAllowance: bigint
     lockupUsed: bigint
+    maxLockupPeriod: bigint
   }> {
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'serviceApproval', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
@@ -396,7 +402,8 @@ export class PaymentsService {
         rateAllowance: approval[1],
         lockupAllowance: approval[2],
         rateUsed: approval[3],
-        lockupUsed: approval[4]
+        lockupUsed: approval[4],
+        maxLockupPeriod: approval[5]
       }
     } catch (error) {
       throw createError(
@@ -519,5 +526,262 @@ export class PaymentsService {
     const withdrawTx = await paymentsContract.withdraw(usdfcAddress, withdrawAmountBigint, txOptions)
 
     return withdrawTx
+  }
+
+  /**
+   * Settle a payment rail up to a specific epoch
+   * @param railId - The rail ID to settle
+   * @param untilEpoch - Optional epoch to settle up to (defaults to current epoch)
+   * @returns Settlement result with amounts and status
+   */
+  async settle (railId: bigint | number, untilEpoch?: bigint | number): Promise<SettlementResult> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+
+    // If untilEpoch not provided, use current epoch
+    let untilEpochBigint: bigint
+    if (untilEpoch === undefined) {
+      untilEpochBigint = await this.getCurrentEpoch()
+    } else {
+      untilEpochBigint = typeof untilEpoch === 'bigint' ? untilEpoch : BigInt(untilEpoch)
+    }
+
+    const paymentsContract = this._getPaymentsContract()
+    const signerAddress = await this._signer.getAddress()
+
+    // Get the network fee required for settlement
+    const networkFee = await paymentsContract.NETWORK_FEE()
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {
+      value: networkFee // Include network fee in native token
+    }
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      // Call settleRail and wait for transaction
+      const settleTx = await paymentsContract.settleRail(railIdBigint, untilEpochBigint, txOptions)
+      const receipt = await settleTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+
+      if (receipt == null) {
+        throw new Error('Transaction receipt is null')
+      }
+
+      // Parse the return values from the transaction receipt
+      // settleRail returns (totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note)
+      // TODO: Parse the RailSettled event to get actual settlement values
+
+      // For now, return basic info from the transaction
+      return {
+        totalSettledAmount: 0n, // Would need to parse from event
+        totalNetPayeeAmount: 0n,
+        totalOperatorCommission: 0n,
+        finalSettledEpoch: untilEpochBigint,
+        note: 'Settlement completed'
+      }
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'settle',
+        `Failed to settle rail ${railIdBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Settle a terminated rail without validation
+   * This is used for rails that have been terminated and need final settlement
+   * @param railId - The rail ID to settle
+   * @returns Settlement result with amounts and status
+   */
+  async settleTerminatedRail (railId: bigint | number): Promise<SettlementResult> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+    const paymentsContract = this._getPaymentsContract()
+    const signerAddress = await this._signer.getAddress()
+
+    // Get the network fee required for settlement
+    const networkFee = await paymentsContract.NETWORK_FEE()
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {
+      value: networkFee // Include network fee in native token
+    }
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      const settleTx = await paymentsContract.settleTerminatedRailWithoutValidation(railIdBigint, txOptions)
+      const receipt = await settleTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+
+      if (receipt == null) {
+        throw new Error('Transaction receipt is null')
+      }
+
+      // Similar to settle(), would need to parse events for actual values
+      return {
+        totalSettledAmount: 0n,
+        totalNetPayeeAmount: 0n,
+        totalOperatorCommission: 0n,
+        finalSettledEpoch: 0n,
+        note: 'Terminated rail settlement completed'
+      }
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'settleTerminatedRail',
+        `Failed to settle terminated rail ${railIdBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Get detailed information about a payment rail
+   * @param railId - The rail ID to query
+   * @returns Payment rail information
+   */
+  async getRail (railId: bigint | number): Promise<PaymentRail> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const railData = await paymentsContract.getRail(railIdBigint)
+
+      // The contract returns a tuple, destructure it
+      return {
+        token: railData.token,
+        from: railData.from,
+        to: railData.to,
+        operator: railData.operator,
+        validator: railData.validator,
+        paymentRate: railData.paymentRate,
+        lockupPeriod: railData.lockupPeriod,
+        lockupFixed: railData.lockupFixed,
+        settledUpTo: railData.settledUpTo,
+        endEpoch: railData.endEpoch,
+        commissionRateBps: railData.commissionRateBps,
+        serviceFeeRecipient: railData.serviceFeeRecipient
+      }
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'getRail',
+        `Failed to get rail information for rail ${railIdBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Get all rails where the current wallet is the payer
+   * @param token - Optional token filter (defaults to USDFC)
+   * @returns Array of rail references
+   */
+  async getRailsAsPayer (token: TokenIdentifier = TOKENS.USDFC): Promise<RailReference[]> {
+    if (token !== TOKENS.USDFC) {
+      throw createError('PaymentsService', 'getRailsAsPayer', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const rails = await paymentsContract.getRailsForPayerAndToken(signerAddress, usdfcAddress, true)
+
+      return rails.map((rail: any) => ({
+        railId: rail.railId,
+        isTerminated: rail.isTerminated,
+        endEpoch: rail.endEpoch
+      }))
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'getRailsAsPayer',
+        'Failed to get rails where wallet is payer',
+        error
+      )
+    }
+  }
+
+  /**
+   * Get all rails where the current wallet is the payee
+   * @param token - Optional token filter (defaults to USDFC)
+   * @returns Array of rail references
+   */
+  async getRailsAsPayee (token: TokenIdentifier = TOKENS.USDFC): Promise<RailReference[]> {
+    if (token !== TOKENS.USDFC) {
+      throw createError('PaymentsService', 'getRailsAsPayee', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const rails = await paymentsContract.getRailsForPayeeAndToken(signerAddress, usdfcAddress, true)
+
+      return rails.map((rail: any) => ({
+        railId: rail.railId,
+        isTerminated: rail.isTerminated,
+        endEpoch: rail.endEpoch
+      }))
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'getRailsAsPayee',
+        'Failed to get rails where wallet is payee',
+        error
+      )
+    }
+  }
+
+  /**
+   * Get the settlement status for a rail
+   * @param railId - The rail ID to check
+   * @returns Settlement status information
+   */
+  async getSettlementStatus (railId: bigint | number): Promise<{
+    rail: PaymentRail
+    isActive: boolean
+    isSettled: boolean
+    epochsBehind: bigint
+    estimatedSettlementAmount: bigint
+  }> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+
+    // Get rail information
+    const rail = await this.getRail(railIdBigint)
+
+    // Get current epoch
+    const currentEpoch = await this.getCurrentEpoch()
+
+    // Calculate settlement status
+    const isActive = rail.endEpoch === 0n || rail.endEpoch > currentEpoch
+    const effectiveEndEpoch = isActive ? currentEpoch : rail.endEpoch
+    const isSettled = rail.settledUpTo >= effectiveEndEpoch
+    const epochsBehind = isSettled ? 0n : effectiveEndEpoch - rail.settledUpTo
+
+    // Calculate estimated settlement amount
+    let estimatedSettlementAmount = 0n
+    if (!isSettled) {
+      const epochsToSettle = effectiveEndEpoch - rail.settledUpTo
+      // In the deployed contract, there's no rate change mechanism, just use paymentRate
+      const effectiveRate = rail.paymentRate
+      estimatedSettlementAmount = epochsToSettle * effectiveRate
+    }
+
+    return {
+      rail,
+      isActive,
+      isSettled,
+      epochsBehind,
+      estimatedSettlementAmount
+    }
   }
 }
