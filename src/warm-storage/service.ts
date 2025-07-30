@@ -822,7 +822,7 @@ export class WarmStorageService {
       // New fields
       storageProvider: info.storageProvider,
       serviceURL: info.serviceURL,
-      peerId: info.peerId,
+      peerId: ethers.toUtf8String(info.peerId),
       registeredAt: Number(info.registeredAt),
       approvedAt: Number(info.approvedAt),
 
@@ -846,7 +846,7 @@ export class WarmStorageService {
     return {
       // New fields
       serviceURL: info.serviceURL,
-      peerId: info.peerId,
+      peerId: ethers.toUtf8String(info.peerId),
       registeredAt: Number(info.registeredAt),
 
       // Legacy fields for backwards compatibility
@@ -897,7 +897,7 @@ export class WarmStorageService {
       // New fields
       storageProvider: p.storageProvider,
       serviceURL: p.serviceURL,
-      peerId: p.peerId,
+      peerId: ethers.toUtf8String(p.peerId),
       registeredAt: Number(p.registeredAt),
       approvedAt: Number(p.approvedAt),
 
