@@ -159,13 +159,13 @@
             background: #ff9800;
             color: white;
         }
-        .roots-section {
+        .pieces-section {
             margin-top: 15px;
             padding: 10px;
             background: #f5f5f5;
             border-radius: 4px;
         }
-        .root-item {
+        .piece-item {
             margin: 5px 0;
             padding: 5px;
             background: white;
@@ -181,12 +181,12 @@
         .expandable:hover {
             background: #e8e8e8;
         }
-        .root-details {
+        .piece-details {
             display: none;
             margin-top: 10px;
             padding-left: 20px;
         }
-        .root-details.expanded {
+        .piece-details.expanded {
             display: block;
         }
         .proof-set-id {
@@ -297,25 +297,25 @@
             return `<span class="address-display">${address}</span>`;
         }
 
-        // Get root details for a proof set
-        async function getRootDetails(proofSetId) {
+        // Get piece details for a data set
+        async function getPieceDetails(dataSetId) {
             try {
                 // This is a placeholder - in reality, you'd need to query PDPVerifier events
-                // or have a backend service that indexes root data
+                // or have a backend service that indexes piece data
                 // For now, we'll show what info we have
-                const rootCount = await getNextRootId(proofSetId);
+                const pieceCount = await getNextPieceId(dataSetId);
                 return {
-                    count: rootCount,
-                    details: `${rootCount} root(s) added to this proof set`
+                    count: pieceCount,
+                    details: `${pieceCount} piece(s) added to this data set`
                 };
             } catch (error) {
-                console.error('Error getting root details:', error);
-                return { count: 0, details: 'Unable to fetch root details' };
+                console.error('Error getting piece details:', error);
+                return { count: 0, details: 'Unable to fetch piece details' };
             }
         }
 
-        // Get next root ID (which is the count of roots)
-        async function getNextRootId(proofSetId) {
+        // Get next piece ID (which is the count of pieces)
+        async function getNextPieceId(dataSetId) {
             try {
                 const network = await provider.getNetwork();
                 const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
@@ -323,14 +323,14 @@
                 
                 const pdpVerifier = new ethers.Contract(
                     pdpVerifierAddress,
-                    ['function getNextRootId(uint256) view returns (uint256)'],
+                    ['function getNextPieceId(uint256) view returns (uint256)'],
                     provider
                 );
                 
-                const nextRootId = await pdpVerifier.getNextRootId(proofSetId);
-                return Number(nextRootId);
+                const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId);
+                return Number(nextPieceId);
             } catch (error) {
-                console.error('Error getting next root ID:', error);
+                console.error('Error getting next piece ID:', error);
                 return 0;
             }
         }
@@ -342,10 +342,10 @@
             }
 
             // Calculate summary statistics
-            const totalProofSets = proofSets.length;
-            const managedProofSets = proofSets.filter(ps => ps.isManaged).length;
-            const liveProofSets = proofSets.filter(ps => ps.isLive).length;
-            const totalRoots = proofSets.reduce((sum, ps) => sum + ps.currentRootCount, 0);
+            const totalDataSets = dataSets.length;
+            const managedDataSets = dataSets.filter(ps => ps.isManaged).length;
+            const liveDataSets = dataSets.filter(ps => ps.isLive).length;
+            const totalPieces = dataSets.reduce((sum, ps) => sum + ps.currentPieceCount, 0);
 
             let summaryHtml = `
                 <div class="summary-stats">
@@ -354,16 +354,16 @@
                         <div class="value">${totalProofSets}</div>
                     </div>
                     <div class="stat-card">
-                        <h4>Managed by This Pandora</h4>
-                        <div class="value">${managedProofSets}</div>
+                        <h4>Managed by This Warm Storage</h4>
+                        <div class="value">${managedDataSets}</div>
                     </div>
                     <div class="stat-card">
                         <h4>Live Proof Sets</h4>
                         <div class="value">${liveProofSets}</div>
                     </div>
                     <div class="stat-card">
-                        <h4>Total Roots</h4>
-                        <div class="value">${totalRoots}</div>
+                        <h4>Total Pieces</h4>
+                        <div class="value">${totalPieces}</div>
                     </div>
                 </div>
             `;
@@ -391,9 +391,9 @@
                             <label>Client Dataset ID:</label>
                             <span class="value">${proofSet.clientDataSetId}</span>
                         </div>
-                        <div class="proof-set-detail">
-                            <label>Pandora Rail ID:</label>
-                            <span class="value">${proofSet.railId} (internal)</span>
+                        <div class="data-set-detail">
+                            <label>Warm Storage Rail ID:</label>
+                            <span class="value">${dataSet.railId} (internal)</span>
                         </div>
                         <div class="proof-set-detail">
                             <label>Client (Payer):</label>
@@ -416,35 +416,35 @@
                             <span class="value">${proofSet.metadata || '(empty)'}</span>
                         </div>
                         
-                        <div class="roots-section">
-                            <h4>Roots Information</h4>
-                            <div class="proof-set-detail">
-                                <label>Current Root Count:</label>
-                                <span class="value">${proofSet.currentRootCount}</span>
+                        <div class="pieces-section">
+                            <h4>Pieces Information</h4>
+                            <div class="data-set-detail">
+                                <label>Current Piece Count:</label>
+                                <span class="value">${dataSet.currentPieceCount}</span>
                             </div>
-                            <div class="proof-set-detail">
-                                <label>Next Root ID:</label>
-                                <span class="value">${proofSet.nextRootId}</span>
+                            <div class="data-set-detail">
+                                <label>Next Piece ID:</label>
+                                <span class="value">${dataSet.nextPieceId}</span>
                             </div>
-                            ${proofSet.currentRootCount > 0 ? `
-                                <div class="proof-set-detail">
-                                    <label>Root Metadata:</label>
-                                    ${proofSet.rootMetadata && proofSet.rootMetadata.length > 0 
-                                        ? `<div class="metadata-list">${proofSet.rootMetadata.map((m, i) => `Root ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
+                            ${dataSet.currentPieceCount > 0 ? `
+                                <div class="data-set-detail">
+                                    <label>Piece Metadata:</label>
+                                    ${dataSet.pieceMetadata && dataSet.pieceMetadata.length > 0 
+                                        ? `<div class="metadata-list">${dataSet.pieceMetadata.map((m, i) => `Piece ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
                                         : '<span class="value">(no metadata stored)</span>'
                                     }
                                 </div>
                             ` : `
-                                <div class="proof-set-detail">
-                                    <span class="value" style="color: #666; font-style: italic;">No roots added yet</span>
+                                <div class="data-set-detail">
+                                    <span class="value" style="color: #666; font-style: italic;">No pieces added yet</span>
                                 </div>
                             `}
                         </div>
                         
                         ${!proofSet.isManaged ? `
                             <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px;">
-                                <strong>Note:</strong> This proof set is not managed by the current Pandora contract. 
-                                You cannot add roots or modify it from this interface.
+                                <strong>Note:</strong> This data set is not managed by the current Warm Storage contract. 
+                                You cannot add pieces or modify it from this interface.
                             </div>
                         ` : ''}
                     </div>
