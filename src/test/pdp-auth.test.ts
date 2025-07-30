@@ -66,7 +66,7 @@ const FIXTURES = {
 }
 
 // Helper to create CommP CIDs from the test piece digests
-const ROOT_DATA: PieceData[] = [
+const PIECE_DATA: PieceData[] = [
   {
     cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy', // digest: 0xfc7e92...
     rawSize: 1024
@@ -113,7 +113,7 @@ describe('Auth Signature Compatibility', () => {
     const result = await authHelper.signAddPieces(
       FIXTURES.signatures.addPieces.clientDataSetId,
       FIXTURES.signatures.addPieces.firstAdded,
-      ROOT_DATA
+      PIECE_DATA
     )
 
     // Verify signature matches exactly

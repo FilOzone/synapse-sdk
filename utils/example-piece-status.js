@@ -174,9 +174,9 @@ async function main () {
       console.log(`\n🔗 Retrieval URL: ${status.retrievalUrl}`)
     }
 
-    // Root ID
-    if (status.rootId !== undefined) {
-      console.log(`\n🆔 Root ID: ${status.rootId}`)
+    // Piece ID
+    if (status.pieceId !== undefined) {
+      console.log(`\n🆔 Piece ID: ${status.pieceId}`)
     }
 
     // Proof timing

@@ -49,7 +49,7 @@ src/
 ├── commp/                      # CommP utilities (Piece Commitment calculations)
 ├── payments/                   # Payment contract interactions
 │   └── service.ts              # PaymentsService (formerly SynapsePayments)
-├── warm-storage/                    # Warm Storage contract interactions (storage coordination)
+├── warm-storage/               # Warm Storage contract interactions (storage coordination)
 │   └── service.ts              # WarmStorageService - storage costs, allowances, data sets
 ├── pdp/                        # PDP protocol implementations
 │   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
@@ -180,7 +180,7 @@ WarmStorageService (storage coordination)
 - Tracks proving periods and faults
 - Reference implementation showing PDPListener interface
 
-#### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/PandoraService.sol`)
+#### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)

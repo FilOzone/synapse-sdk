@@ -128,11 +128,11 @@ async function main () {
     })
 
     console.log(`Data set ID: ${storageService.dataSetId}`)
-    const rootCids = await storageService.getDataSetRoots()
-    console.log(`Data set contains ${rootCids.length} root CIDs`)
-    /* Uncomment to see root CIDs
-    for (const cid of rootCids) {
-      console.log(`  - Root CID: ${cid}`)
+    const pieceCids = await storageService.getDataSetPieces()
+    console.log(`Data set contains ${pieceCids.length} piece CIDs`)
+    /* Uncomment to see piece CIDs
+    for (const cid of pieceCids) {
+      console.log(`  - Piece CID: ${cid}`)
     }
     */
 
@@ -176,27 +176,27 @@ async function main () {
       onUploadComplete: (commp) => {
         console.log(`✓ Upload complete! CommP: ${commp}`)
       },
-      onRootAdded: (transaction) => {
+      onPieceAdded: (transaction) => {
         if (transaction) {
           // New enhanced callback with transaction info
-          console.log(`✓ Root addition transaction submitted: ${transaction.hash}`)
+          console.log(`✓ Piece addition transaction submitted: ${transaction.hash}`)
           console.log('  Waiting for confirmation...')
         } else {
           // Fallback for old servers
-          console.log('✓ Root added to data set')
+          console.log('✓ Piece added to data set')
         }
       },
-      onRootConfirmed: (rootIds) => {
+      onPieceConfirmed: (pieceIds) => {
         // New callback - only called with updated servers
-        console.log('✓ Root addition confirmed on-chain!')
-        console.log(`  Assigned root IDs: ${rootIds.join(', ')}`)
+        console.log('✓ Piece addition confirmed on-chain!')
+        console.log(`  Assigned piece IDs: ${pieceIds.join(', ')}`)
       }
     })
 
     console.log('\nUpload result:')
     console.log(`  CommP: ${uploadResult.commp}`)
     console.log(`  Size: ${formatBytes(uploadResult.size)}`)
-    console.log(`  Root ID: ${uploadResult.rootId}`)
+    console.log(`  Piece ID: ${uploadResult.pieceId}`)
 
     // Step 7: Download the file back
     console.log('\n--- Downloading File ---')
@@ -237,7 +237,7 @@ async function main () {
     console.log('Your file is now stored on the Filecoin network with:')
     console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)
     console.log(`- Data set ID: ${storageService.dataSetId}`)
-    console.log(`- Root ID: ${uploadResult.rootId}`)
+    console.log(`- Piece ID: ${uploadResult.pieceId}`)
     console.log(`- Storage provider: ${storageService.storageProvider}`)
     console.log('\nThe storage provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
