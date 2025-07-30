@@ -15,7 +15,7 @@ import {
 } from './types.js'
 import { StorageService } from './storage/index.js'
 import { PaymentsService } from './payments/index.js'
-import { PandoraService } from './pandora/index.js'
+import { WarmStorageService } from './warm-storage/index.js'
 import { SubgraphService } from './subgraph/service.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
 import { asCommP, downloadAndValidateCommP } from './commp/index.js'
@@ -27,8 +27,8 @@ export class Synapse {
   private readonly _withCDN: boolean
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
-  private readonly _pandoraAddress: string
-  private readonly _pandoraService: PandoraService
+  private readonly _warmStorageAddress: string
+  private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
 
   /**
@@ -130,16 +130,16 @@ export class Synapse {
       )
     }
 
-    // Create Pandora service for the retriever
-    const pandoraAddress = options.pandoraAddress ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
-    const pandoraService = new PandoraService(provider, pandoraAddress)
+    // Create Warm Storage service for the retriever
+    const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
+    const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
     if (options.pieceRetriever != null) {
       pieceRetriever = options.pieceRetriever
     } else {
-      const chainRetriever = new ChainRetriever(pandoraService /*, no child here */)
+      const chainRetriever = new ChainRetriever(warmStorageService /*, no child here */)
       let underlyingRetriever: PieceRetriever = chainRetriever
 
       // Handle subgraph piece retriever - can provide either a service or configuration
@@ -175,8 +175,8 @@ export class Synapse {
       network,
       options.disableNonceManager === true,
       options.withCDN === true,
-      options.pandoraAddress,
-      pandoraService,
+      options.warmStorageAddress,
+      warmStorageService,
       pieceRetriever
     )
   }
@@ -187,8 +187,8 @@ export class Synapse {
     network: FilecoinNetworkType,
     disableNonceManager: boolean,
     withCDN: boolean,
-    pandoraAddressOverride: string | undefined,
-    pandoraService: PandoraService,
+    warmStorageAddressOverride: string | undefined,
+    warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever
   ) {
     this._provider = provider
@@ -196,13 +196,13 @@ export class Synapse {
     this._network = network
     this._withCDN = withCDN
     this._payments = new PaymentsService(provider, signer, network, disableNonceManager)
-    this._pandoraService = pandoraService
+    this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
 
-    // Set Pandora address (use override or default for network)
-    this._pandoraAddress = pandoraAddressOverride ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
-    if (this._pandoraAddress === '' || this._pandoraAddress === undefined) {
-      throw new Error(`No Pandora service address configured for network: ${network}`)
+    // Set Warm Storage address (use override or default for network)
+    this._warmStorageAddress = warmStorageAddressOverride ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
+    if (this._warmStorageAddress === '' || this._warmStorageAddress === undefined) {
+      throw new Error(`No Warm Storage service address configured for network: ${network}`)
     }
   }
 
@@ -242,12 +242,12 @@ export class Synapse {
   }
 
   /**
-   * Get the Pandora service address
+   * Get the Warm Storage service address
    * @internal
-   * @returns The Pandora service address
+   * @returns The Warm Storage service address
    */
-  getPandoraAddress (): string {
-    return this._pandoraAddress
+  getWarmStorageAddress (): string {
+    return this._warmStorageAddress
   }
 
   /**
@@ -264,7 +264,7 @@ export class Synapse {
       }
 
       // Create the storage service with proper initialization
-      const storageService = await StorageService.create(this, this._pandoraService, mergedOptions)
+      const storageService = await StorageService.create(this, this._warmStorageService, mergedOptions)
       return storageService
     } catch (error) {
       throw createError(
@@ -298,14 +298,14 @@ export class Synapse {
       }
 
       // Get provider ID from address
-      const providerId = await this._pandoraService.getProviderIdByAddress(providerAddress)
+      const providerId = await this._warmStorageService.getProviderIdByAddress(providerAddress)
       if (providerId === 0) {
         throw new Error(`Provider ${providerAddress} is not approved`)
       }
 
       // Get provider info
-      const providerInfo = await this._pandoraService.getApprovedProvider(providerId)
-      if (providerInfo.owner === ethers.ZeroAddress) {
+      const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
+      if ((providerInfo.storageProvider ?? providerInfo.owner) === ethers.ZeroAddress) {
         throw new Error(`Provider ${providerAddress} not found`)
       }
 
@@ -362,11 +362,11 @@ export class Synapse {
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
           const approval = await this._payments.serviceApproval(
-            this._pandoraAddress,
+            this._warmStorageAddress,
             TOKENS.USDFC
           )
           return {
-            service: this._pandoraAddress,
+            service: this._warmStorageAddress,
             rateAllowance: approval.rateAllowance,
             lockupAllowance: approval.lockupAllowance,
             rateUsed: approval.rateUsed,
@@ -380,8 +380,8 @@ export class Synapse {
 
       // Fetch all data in parallel for performance
       const [pricingData, providers, allowances] = await Promise.all([
-        this._pandoraService.getServicePrice(),
-        this._pandoraService.getAllApprovedProviders(),
+        this._warmStorageService.getServicePrice(),
+        this._warmStorageService.getAllApprovedProviders(),
         getOptionalAllowances()
       ])
 
@@ -423,7 +423,7 @@ export class Synapse {
           epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
           minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-          pandoraAddress: this._pandoraAddress,
+          warmStorageAddress: this._warmStorageAddress,
           paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
           pdpVerifierAddress: CONTRACT_ADDRESSES.PDP_VERIFIER[this._network]
         },

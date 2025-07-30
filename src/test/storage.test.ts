@@ -15,7 +15,7 @@ const mockEthProvider = {
 const mockSynapse = {
   getSigner: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
   getProvider: () => mockEthProvider,
-  getPandoraAddress: () => '0x1234567890123456789012345678901234567890',
+  getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
   getChainId: () => BigInt(314159),
   payments: {
     serviceApproval: async () => ({
@@ -38,9 +38,9 @@ const mockSynapse = {
 
 // Mock provider info
 const mockProvider: ApprovedProviderInfo = {
-  owner: '0xabcdef1234567890123456789012345678901234',
-  pdpUrl: 'https://pdp.example.com',
-  pieceRetrievalUrl: 'https://retrieve.example.com',
+  storageProvider: '0xabcdef1234567890123456789012345678901234',
+  serviceURL: 'https://pdp.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1234567890,
   approvedAt: 1234567891
 }
@@ -48,63 +48,63 @@ const mockProvider: ApprovedProviderInfo = {
 describe('StorageService', () => {
   describe('create() factory method', () => {
     it('should select a random provider when no providerId specified', async () => {
-      // Create mock PandoraService
+      // Create mock WarmStorageService
       const mockProviders: ApprovedProviderInfo[] = [
         {
-          owner: '0x1111111111111111111111111111111111111111',
-          pdpUrl: 'https://pdp1.example.com',
-          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          storageProvider: '0x1111111111111111111111111111111111111111',
+          serviceURL: 'https://pdp1.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         },
         {
-          owner: '0x2222222222222222222222222222222222222222',
-          pdpUrl: 'https://pdp2.example.com',
-          pieceRetrievalUrl: 'https://retrieve2.example.com',
+          storageProvider: '0x2222222222222222222222222222222222222222',
+          serviceURL: 'https://pdp2.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567892,
           approvedAt: 1234567893
         }
       ]
 
-      const proofSets = [
+      const dataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].owner, // Matches first provider
-          pdpVerifierProofSetId: 100,
-          nextRootId: 0,
-          currentRootCount: 0,
+          payee: mockProviders[0].storageProvider, // Matches first provider
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         },
         {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[1].owner, // Matches second provider
-          pdpVerifierProofSetId: 101,
-          nextRootId: 0,
-          currentRootCount: 0,
+          payee: mockProviders[1].storageProvider, // Matches second provider
+          pdpVerifierDataSetId: 101,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 2
         }
       ]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getAllApprovedProviders: async () => mockProviders,
-        getClientProofSetsWithDetails: async () => proofSets,
+        getClientDataSetsWithDetails: async () => dataSets,
         getNextClientDataSetId: async () => 3,
         getProviderIdByAddress: async (address: string) => {
-          const idx = mockProviders.findIndex(p => p.owner.toLowerCase() === address.toLowerCase())
+          const idx = mockProviders.findIndex(p => p.storageProvider.toLowerCase() === address.toLowerCase())
           return idx >= 0 ? idx + 1 : 0
         },
         getApprovedProvider: async (id: number) => mockProviders[id - 1] ?? null
@@ -122,12 +122,12 @@ describe('StorageService', () => {
 
       try {
         // Create storage service without specifying providerId
-        const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+        const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
         // Should have selected one of the providers
         assert.isTrue(
-          service.storageProvider === mockProviders[0].owner ||
-          service.storageProvider === mockProviders[1].owner
+          service.storageProvider === mockProviders[0].storageProvider ||
+          service.storageProvider === mockProviders[1].storageProvider
         )
       } finally {
         global.fetch = originalFetch
@@ -136,54 +136,54 @@ describe('StorageService', () => {
 
     it('should use specific provider when providerId specified', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x3333333333333333333333333333333333333333',
-        pdpUrl: 'https://pdp3.example.com',
-        pieceRetrievalUrl: 'https://retrieve3.example.com',
+        storageProvider: '0x3333333333333333333333333333333333333333',
+        serviceURL: 'https://pdp3.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567894,
         approvedAt: 1234567895
       }
 
-      const proofSets = [
+      const dataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 100,
-          nextRootId: 0,
-          currentRootCount: 0,
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async (id: number) => {
           assert.equal(id, 3)
           return mockProvider
         },
-        getClientProofSetsWithDetails: async () => proofSets,
+        getClientDataSetsWithDetails: async () => dataSets,
         getNextClientDataSetId: async () => 2
       } as any
 
       // Create storage service with specific providerId
-      const service = await StorageService.create(mockSynapse, mockPandoraService, { providerId: 3 })
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
-      assert.equal(service.storageProvider, mockProvider.owner)
+      assert.equal(service.storageProvider, mockProvider.storageProvider)
     })
 
     it('should throw when no approved providers available', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getAllApprovedProviders: async () => [], // Empty array
-        getClientProofSetsWithDetails: async () => []
+        getClientDataSetsWithDetails: async () => []
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, {})
+        await StorageService.create(mockSynapse, mockWarmStorageService, {})
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'No approved storage providers available')
@@ -191,207 +191,207 @@ describe('StorageService', () => {
     })
 
     it('should throw when specified provider not found', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => ({
-          owner: '0x0000000000000000000000000000000000000000', // Zero address
-          pdpUrl: '',
+          storageProvider: '0x0000000000000000000000000000000000000000', // Zero address
+          serviceURL: '',
           pieceRetrievalUrl: '',
           registeredAt: 0,
           approvedAt: 0
         }),
-        getClientProofSetsWithDetails: async () => [] // Also needs this for parallel fetch
+        getClientDataSetsWithDetails: async () => [] // Also needs this for parallel fetch
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, { providerId: 999 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 999 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Provider ID 999 not found or not approved')
       }
     })
 
-    it('should select existing proof set when available', async () => {
+    it('should select existing data set when available', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x3333333333333333333333333333333333333333',
-        pdpUrl: 'https://pdp3.example.com',
-        pieceRetrievalUrl: 'https://retrieve3.example.com',
+        storageProvider: '0x3333333333333333333333333333333333333333',
+        serviceURL: 'https://pdp3.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567894,
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333', // Matches provider
-          pdpVerifierProofSetId: 100,
-          nextRootId: 5,
-          currentRootCount: 5,
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 5,
+          currentPieceCount: 5,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientProofSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getNextClientDataSetId: async () => 2
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, { providerId: 3 })
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
-      // Should use existing proof set
-      assert.equal(service.proofSetId, '100')
+      // Should use existing data set
+      assert.equal(service.dataSetId, '100')
     })
 
-    it.skip('should create new proof set when none exist', async () => {
-      // Skip: Requires real PDPServer for createProofSet
+    it.skip('should create new data set when none exist', async () => {
+      // Skip: Requires real PDPServer for createDataSet
       // This would need mocking of PDPServer which is created internally
     })
 
-    it('should prefer proof sets with existing roots', async () => {
+    it('should prefer data sets with existing pieces', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x3333333333333333333333333333333333333333',
-        pdpUrl: 'https://pdp3.example.com',
-        pieceRetrievalUrl: 'https://retrieve3.example.com',
+        storageProvider: '0x3333333333333333333333333333333333333333',
+        serviceURL: 'https://pdp3.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567894,
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 100,
-          nextRootId: 0,
-          currentRootCount: 0, // No roots
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 0,
+          currentPieceCount: 0, // No pieces
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         },
         {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
-          pdpVerifierProofSetId: 101,
-          nextRootId: 5,
-          currentRootCount: 5, // Has roots - should be preferred
+          pdpVerifierDataSetId: 101,
+          nextPieceId: 5,
+          currentPieceCount: 5, // Has pieces - should be preferred
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 2
         }
       ]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientProofSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getNextClientDataSetId: async () => 3
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, { providerId: 3 })
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
-      // Should select the proof set with roots
-      assert.equal(service.proofSetId, '101')
+      // Should select the data set with pieces
+      assert.equal(service.dataSetId, '101')
     })
 
     it('should handle provider selection callbacks', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x3333333333333333333333333333333333333333',
-        pdpUrl: 'https://pdp3.example.com',
-        pieceRetrievalUrl: 'https://retrieve3.example.com',
+        storageProvider: '0x3333333333333333333333333333333333333333',
+        serviceURL: 'https://pdp3.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567894,
         approvedAt: 1234567895
       }
 
       let providerCallbackFired = false
-      let proofSetCallbackFired = false
+      let dataSetCallbackFired = false
 
-      const proofSets = [{
+      const dataSets = [{
         railId: 1,
         payer: '0x1234567890123456789012345678901234567890',
-        payee: mockProvider.owner,
-        pdpVerifierProofSetId: 100,
-        nextRootId: 0,
-        currentRootCount: 0,
+        payee: mockProvider.storageProvider,
+        pdpVerifierDataSetId: 100,
+        nextPieceId: 0,
+        currentPieceCount: 0,
         isLive: true,
         isManaged: true,
         withCDN: false,
         commissionBps: 0,
         metadata: '',
-        rootMetadata: [],
+        pieceMetadata: [],
         clientDataSetId: 1
       }]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientProofSetsWithDetails: async () => proofSets,
+        getClientDataSetsWithDetails: async () => dataSets,
         getNextClientDataSetId: async () => 2
       } as any
 
-      await StorageService.create(mockSynapse, mockPandoraService, {
+      await StorageService.create(mockSynapse, mockWarmStorageService, {
         providerId: 3,
         callbacks: {
           onProviderSelected: (provider) => {
-            assert.equal(provider.owner, mockProvider.owner)
+            assert.equal(provider.storageProvider, mockProvider.storageProvider)
             providerCallbackFired = true
           },
-          onProofSetResolved: (info) => {
+          onDataSetResolved: (info) => {
             assert.isTrue(info.isExisting)
-            assert.equal(info.proofSetId, 100)
-            proofSetCallbackFired = true
+            assert.equal(info.dataSetId, 100)
+            dataSetCallbackFired = true
           }
         }
       })
 
       assert.isTrue(providerCallbackFired, 'onProviderSelected should have been called')
-      assert.isTrue(proofSetCallbackFired, 'onProofSetResolved should have been called')
+      assert.isTrue(dataSetCallbackFired, 'onDataSetResolved should have been called')
     })
 
-    it('should select by explicit proofSetId', async () => {
+    it('should select by explicit dataSetId', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x3333333333333333333333333333333333333333',
-        pdpUrl: 'https://pdp3.example.com',
-        pieceRetrievalUrl: 'https://retrieve3.example.com',
+        storageProvider: '0x3333333333333333333333333333333333333333',
+        serviceURL: 'https://pdp3.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567894,
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.owner,
-          pdpVerifierProofSetId: 456,
-          nextRootId: 10,
-          currentRootCount: 10,
+          payee: mockProvider.storageProvider,
+          pdpVerifierDataSetId: 456,
+          nextPieceId: 10,
+          currentPieceCount: 10,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets,
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr, mockProvider.owner)
+          assert.equal(addr, mockProvider.storageProvider)
           return 3
         },
         getApprovedProvider: async (id: number) => {
@@ -400,107 +400,107 @@ describe('StorageService', () => {
         }
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, { proofSetId: 456 })
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 456 })
 
-      assert.equal(service.proofSetId, '456')
-      assert.equal(service.storageProvider, mockProvider.owner)
+      assert.equal(service.dataSetId, '456')
+      assert.equal(service.storageProvider, mockProvider.storageProvider)
     })
 
     it('should select by providerAddress', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0x4444444444444444444444444444444444444444',
-        pdpUrl: 'https://pdp4.example.com',
-        pieceRetrievalUrl: 'https://retrieve4.example.com',
+        storageProvider: '0x4444444444444444444444444444444444444444',
+        serviceURL: 'https://pdp4.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567896,
         approvedAt: 1234567897
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.owner,
-          pdpVerifierProofSetId: 789,
-          nextRootId: 0,
-          currentRootCount: 0,
+          payee: mockProvider.storageProvider,
+          pdpVerifierDataSetId: 789,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr.toLowerCase(), mockProvider.owner.toLowerCase())
+          assert.equal(addr.toLowerCase(), mockProvider.storageProvider.toLowerCase())
           return 4
         },
         getApprovedProvider: async (id: number) => {
           assert.equal(id, 4)
           return mockProvider
         },
-        getClientProofSetsWithDetails: async () => mockProofSets
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, {
-        providerAddress: mockProvider.owner
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
+        providerAddress: mockProvider.storageProvider
       })
 
-      assert.equal(service.storageProvider, mockProvider.owner)
-      assert.equal(service.proofSetId, '789')
+      assert.equal(service.storageProvider, mockProvider.storageProvider)
+      assert.equal(service.dataSetId, '789')
     })
 
-    it('should throw when proofSetId not found', async () => {
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => [] // No proof sets
+    it('should throw when dataSetId not found', async () => {
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => [] // No data sets
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, { proofSetId: 999 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 999 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Proof set 999 not found')
+        assert.include(error.message, 'Data set 999 not found')
       }
     })
 
-    it('should throw when proofSetId conflicts with providerId', async () => {
+    it('should throw when dataSetId conflicts with providerId', async () => {
       const mockProvider1: ApprovedProviderInfo = {
-        owner: '0x5555555555555555555555555555555555555555',
-        pdpUrl: 'https://pdp5.example.com',
-        pieceRetrievalUrl: 'https://retrieve5.example.com',
+        storageProvider: '0x5555555555555555555555555555555555555555',
+        serviceURL: 'https://pdp5.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567898,
         approvedAt: 1234567899
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider1.owner, // Owned by provider 5
-          pdpVerifierProofSetId: 111,
-          nextRootId: 0,
-          currentRootCount: 0,
+          payee: mockProvider1.storageProvider, // Owned by provider 5
+          pdpVerifierDataSetId: 111,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets,
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 5 // Different provider ID
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, {
-          proofSetId: 111,
+        await StorageService.create(mockSynapse, mockWarmStorageService, {
+          dataSetId: 111,
           providerId: 3 // Conflicts with actual owner
         })
         assert.fail('Should have thrown error')
@@ -511,13 +511,13 @@ describe('StorageService', () => {
     })
 
     it('should throw when providerAddress not approved', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getProviderIdByAddress: async () => 0, // Not approved
-        getClientProofSetsWithDetails: async () => []
+        getClientDataSetsWithDetails: async () => []
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, {
+        await StorageService.create(mockSynapse, mockWarmStorageService, {
           providerAddress: '0x6666666666666666666666666666666666666666'
         })
         assert.fail('Should have thrown error')
@@ -529,49 +529,49 @@ describe('StorageService', () => {
     it('should filter by CDN setting in smart selection', async () => {
       const mockProviders: ApprovedProviderInfo[] = [
         {
-          owner: '0x7777777777777777777777777777777777777777',
-          pdpUrl: 'https://pdp7.example.com',
-          pieceRetrievalUrl: 'https://retrieve7.example.com',
+          storageProvider: '0x7777777777777777777777777777777777777777',
+          serviceURL: 'https://pdp7.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567900,
           approvedAt: 1234567901
         }
       ]
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].owner,
-          pdpVerifierProofSetId: 200,
-          nextRootId: 5,
-          currentRootCount: 5,
+          payee: mockProviders[0].storageProvider,
+          pdpVerifierDataSetId: 200,
+          nextPieceId: 5,
+          currentPieceCount: 5,
           isLive: true,
           isManaged: true,
           withCDN: false, // No CDN
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         },
         {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].owner,
-          pdpVerifierProofSetId: 201,
-          nextRootId: 3,
-          currentRootCount: 3,
+          payee: mockProviders[0].storageProvider,
+          pdpVerifierDataSetId: 201,
+          nextPieceId: 3,
+          currentPieceCount: 3,
           isLive: true,
           isManaged: true,
           withCDN: true, // With CDN
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 2
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets,
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 7,
         getApprovedProvider: async () => mockProviders[0],
         getAllApprovedProviders: async () => mockProviders
@@ -589,126 +589,126 @@ describe('StorageService', () => {
 
       try {
         // Test with CDN = false
-        const serviceNoCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: false })
-        assert.equal(serviceNoCDN.proofSetId, '200', 'Should select non-CDN proof set')
+        const serviceNoCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: false })
+        assert.equal(serviceNoCDN.dataSetId, '200', 'Should select non-CDN data set')
 
         // Test with CDN = true
-        const serviceWithCDN = await StorageService.create(mockSynapse, mockPandoraService, { withCDN: true })
-        assert.equal(serviceWithCDN.proofSetId, '201', 'Should select CDN proof set')
+        const serviceWithCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: true })
+        assert.equal(serviceWithCDN.dataSetId, '201', 'Should select CDN data set')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it.skip('should handle proof sets not managed by current Pandora', async () => {
-      const mockProofSets = [
+    it.skip('should handle data sets not managed by current WarmStorage', async () => {
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x8888888888888888888888888888888888888888',
-          pdpVerifierProofSetId: 300,
-          nextRootId: 0,
-          currentRootCount: 0,
+          pdpVerifierDataSetId: 300,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
-          isManaged: false, // Not managed by current Pandora
+          isManaged: false, // Not managed by current WarmStorage
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets,
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getAllApprovedProviders: async () => [{
-          owner: '0x9999999999999999999999999999999999999999',
-          pdpUrl: 'https://pdp9.example.com',
-          pieceRetrievalUrl: 'https://retrieve9.example.com',
+          storageProvider: '0x9999999999999999999999999999999999999999',
+          serviceURL: 'https://pdp9.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567902,
           approvedAt: 1234567903
         }],
         getNextClientDataSetId: async () => 1
       } as any
 
-      // Should create new proof set since existing one is not managed
-      const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+      // Should create new data set since existing one is not managed
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
-      // Should have selected a provider but no existing proof set
+      // Should have selected a provider but no existing data set
       assert.exists(service.storageProvider)
-      assert.notEqual(service.storageProvider, mockProofSets[0].payee)
+      assert.notEqual(service.storageProvider, mockDataSets[0].payee)
     })
 
-    it('should throw when proof set belongs to non-approved provider', async () => {
-      const mockProofSets = [
+    it('should throw when data set belongs to non-approved provider', async () => {
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          pdpVerifierProofSetId: 400,
-          nextRootId: 0,
-          currentRootCount: 0,
+          pdpVerifierDataSetId: 400,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets,
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 0 // Provider not approved
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, { proofSetId: 400 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 400 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'is not currently approved')
       }
     })
 
-    it.skip('should create new proof set when none exist for provider', async () => {
+    it.skip('should create new data set when none exist for provider', async () => {
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        pdpUrl: 'https://pdp-b.example.com',
-        pieceRetrievalUrl: 'https://retrieve-b.example.com',
+        storageProvider: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        serviceURL: 'https://pdp-b.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567904,
         approvedAt: 1234567905
       }
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientProofSetsWithDetails: async () => [], // No proof sets
+        getClientDataSetsWithDetails: async () => [], // No data sets
         getProviderIdByAddress: async () => 11,
         getNextClientDataSetId: async () => 1
       } as any
 
-      const service = await StorageService.create(mockSynapse, mockPandoraService, {
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
         providerId: 11
       })
 
-      assert.equal(service.storageProvider, mockProvider.owner)
-      // Note: actual proof set creation is skipped in tests
+      assert.equal(service.storageProvider, mockProvider.storageProvider)
+      // Note: actual data set creation is skipped in tests
     })
 
     it.skip('should validate parallel fetching in resolveByProviderId', async () => {
       let getApprovedProviderCalled = false
-      let getClientProofSetsCalled = false
+      let getClientDataSetsCalled = false
       const callOrder: string[] = []
 
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0xcccccccccccccccccccccccccccccccccccccccc',
-        pdpUrl: 'https://pdp-c.example.com',
-        pieceRetrievalUrl: 'https://retrieve-c.example.com',
+        storageProvider: '0xcccccccccccccccccccccccccccccccccccccccc',
+        serviceURL: 'https://pdp-c.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567906,
         approvedAt: 1234567907
       }
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getApprovedProvider: async () => {
           callOrder.push('getApprovedProvider-start')
           getApprovedProviderCalled = true
@@ -717,71 +717,71 @@ describe('StorageService', () => {
           callOrder.push('getApprovedProvider-end')
           return mockProvider
         },
-        getClientProofSetsWithDetails: async () => {
-          callOrder.push('getClientProofSetsWithDetails-start')
-          getClientProofSetsCalled = true
+        getClientDataSetsWithDetails: async () => {
+          callOrder.push('getClientDataSetsWithDetails-start')
+          getClientDataSetsCalled = true
           // Simulate async work
           await new Promise(resolve => setTimeout(resolve, 10))
-          callOrder.push('getClientProofSetsWithDetails-end')
+          callOrder.push('getClientDataSetsWithDetails-end')
           return []
         },
         getNextClientDataSetId: async () => 1
       } as any
 
-      await StorageService.create(mockSynapse, mockPandoraService, { providerId: 12 })
+      await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 12 })
 
       assert.isTrue(getApprovedProviderCalled)
-      assert.isTrue(getClientProofSetsCalled)
+      assert.isTrue(getClientDataSetsCalled)
 
       // Verify both calls started before either finished (parallel execution)
       const providerStartIndex = callOrder.indexOf('getApprovedProvider-start')
-      const proofSetsStartIndex = callOrder.indexOf('getClientProofSetsWithDetails-start')
+      const dataSetsStartIndex = callOrder.indexOf('getClientDataSetsWithDetails-start')
       const providerEndIndex = callOrder.indexOf('getApprovedProvider-end')
 
       assert.isBelow(providerStartIndex, providerEndIndex)
-      assert.isBelow(proofSetsStartIndex, providerEndIndex)
+      assert.isBelow(dataSetsStartIndex, providerEndIndex)
     })
 
     it('should use progressive loading in smart selection', async () => {
-      let getClientProofSetsCalled = false
+      let getClientDataSetsCalled = false
       let getAllApprovedProvidersCalled = false
 
       const mockProvider: ApprovedProviderInfo = {
-        owner: '0xdddddddddddddddddddddddddddddddddddddddd',
-        pdpUrl: 'https://pdp-d.example.com',
-        pieceRetrievalUrl: 'https://retrieve-d.example.com',
+        storageProvider: '0xdddddddddddddddddddddddddddddddddddddddd',
+        serviceURL: 'https://pdp-d.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1234567908,
         approvedAt: 1234567909
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.owner,
-          pdpVerifierProofSetId: 500,
-          nextRootId: 2,
-          currentRootCount: 2,
+          payee: mockProvider.storageProvider,
+          pdpVerifierDataSetId: 500,
+          nextPieceId: 2,
+          currentPieceCount: 2,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => {
-          getClientProofSetsCalled = true
-          return mockProofSets
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => {
+          getClientDataSetsCalled = true
+          return mockDataSets
         },
         getProviderIdByAddress: async () => 13,
         getApprovedProvider: async () => mockProvider,
         getAllApprovedProviders: async () => {
           getAllApprovedProvidersCalled = true
-          throw new Error('Should not fetch all providers when proof sets exist')
+          throw new Error('Should not fetch all providers when data sets exist')
         }
       } as any
 
@@ -796,31 +796,31 @@ describe('StorageService', () => {
       }
 
       try {
-        const service = await StorageService.create(mockSynapse, mockPandoraService, {})
+        const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
-        assert.isTrue(getClientProofSetsCalled, 'Should fetch client proof sets')
+        assert.isTrue(getClientDataSetsCalled, 'Should fetch client data sets')
         assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
-        assert.equal(service.proofSetId, '500')
+        assert.equal(service.dataSetId, '500')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it.skip('should fetch all providers only when no proof sets exist', async () => {
+    it.skip('should fetch all providers only when no data sets exist', async () => {
       let getAllApprovedProvidersCalled = false
 
       const mockProviders: ApprovedProviderInfo[] = [
         {
-          owner: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-          pdpUrl: 'https://pdp-e.example.com',
-          pieceRetrievalUrl: 'https://retrieve-e.example.com',
+          storageProvider: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          serviceURL: 'https://pdp-e.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567910,
           approvedAt: 1234567911
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => [], // No proof sets
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => [], // No data sets
         getAllApprovedProviders: async () => {
           getAllApprovedProvidersCalled = true
           return mockProviders
@@ -828,68 +828,68 @@ describe('StorageService', () => {
         getNextClientDataSetId: async () => 1
       } as any
 
-      await StorageService.create(mockSynapse, mockPandoraService, {})
+      await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
-      assert.isTrue(getAllApprovedProvidersCalled, 'Should fetch all providers when no proof sets')
+      assert.isTrue(getAllApprovedProvidersCalled, 'Should fetch all providers when no data sets')
     })
 
-    it('should handle proof set not live', async () => {
-      const mockProofSets = [
+    it('should handle data set not live', async () => {
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xffffffffffffffffffffffffffffffffffffffffffff',
-          pdpVerifierProofSetId: 600,
-          nextRootId: 0,
-          currentRootCount: 0,
+          pdpVerifierDataSetId: 600,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: false, // Not live
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, { proofSetId: 600 })
+        await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 600 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Proof set 600 not found')
+        assert.include(error.message, 'Data set 600 not found')
       }
     })
 
-    it('should handle conflict between proofSetId and providerAddress', async () => {
-      const mockProofSets = [
+    it('should handle conflict between dataSetId and providerAddress', async () => {
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x1111222233334444555566667777888899990000', // Different from requested
-          pdpVerifierProofSetId: 700,
-          nextRootId: 0,
-          currentRootCount: 0,
+          pdpVerifierDataSetId: 700,
+          nextPieceId: 0,
+          currentPieceCount: 0,
           isLive: true,
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
           metadata: '',
-          rootMetadata: [],
+          pieceMetadata: [],
           clientDataSetId: 1
         }
       ]
 
-      const mockPandoraService = {
-        getClientProofSetsWithDetails: async () => mockProofSets
+      const mockWarmStorageService = {
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
       try {
-        await StorageService.create(mockSynapse, mockPandoraService, {
-          proofSetId: 700,
+        await StorageService.create(mockSynapse, mockWarmStorageService, {
+          dataSetId: 700,
           providerAddress: '0x9999888877776666555544443333222211110000' // Different address
         })
         assert.fail('Should have thrown error')
@@ -916,7 +916,7 @@ describe('StorageService', () => {
 
   describe('preflightUpload', () => {
     it('should calculate costs without CDN', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         checkAllowanceForStorage: async () => ({
           rateAllowanceNeeded: BigInt(100),
           lockupAllowanceNeeded: BigInt(2880000),
@@ -933,7 +933,7 @@ describe('StorageService', () => {
           }
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
@@ -942,12 +942,12 @@ describe('StorageService', () => {
       assert.equal(preflight.estimatedCost.perMonth, BigInt(864000))
       assert.isTrue(preflight.allowanceCheck.sufficient)
       assert.isUndefined(preflight.allowanceCheck.message)
-      assert.equal(preflight.selectedProvider.owner, mockProvider.owner)
-      assert.equal(preflight.selectedProofSetId, 123)
+      assert.equal(preflight.selectedProvider.storageProvider, mockProvider.storageProvider)
+      assert.equal(preflight.selectedDataSetId, 123)
     })
 
     it('should calculate costs with CDN', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         checkAllowanceForStorage: async (): Promise<any> => ({
           rateAllowanceNeeded: BigInt(200),
           lockupAllowanceNeeded: BigInt(5760000),
@@ -964,7 +964,7 @@ describe('StorageService', () => {
           }
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: true })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: true })
 
       const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
@@ -976,7 +976,7 @@ describe('StorageService', () => {
     })
 
     it('should handle insufficient allowances', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         checkAllowanceForStorage: async (): Promise<any> => ({
           rateAllowanceNeeded: BigInt(2000000),
           lockupAllowanceNeeded: BigInt(20000000),
@@ -993,7 +993,7 @@ describe('StorageService', () => {
           }
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const preflight = await service.preflightUpload(100 * 1024 * 1024) // 100 MiB
 
@@ -1003,8 +1003,8 @@ describe('StorageService', () => {
     })
 
     it('should enforce minimum size limit in preflightUpload', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.preflightUpload(64) // 64 bytes (1 under minimum)
@@ -1017,8 +1017,8 @@ describe('StorageService', () => {
     })
 
     it('should enforce maximum size limit in preflightUpload', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.preflightUpload(210 * 1024 * 1024) // 210 MiB
@@ -1041,14 +1041,14 @@ describe('StorageService', () => {
         ...mockSynapse,
         download: async (commp: string | CommP, options?: any) => {
           assert.equal(commp, testCommP)
-          assert.equal(options?.providerAddress, mockProvider.owner)
+          assert.equal(options?.providerAddress, mockProvider.storageProvider)
           assert.equal(options?.withCDN, false)
           return testData
         }
       } as unknown as Synapse
 
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapseWithDownload, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapseWithDownload, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const downloaded = await service.download(testCommP)
       assert.deepEqual(downloaded, testData)
@@ -1065,8 +1065,8 @@ describe('StorageService', () => {
         }
       } as unknown as Synapse
 
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapseWithError, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapseWithError, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.download(testCommP)
@@ -1086,14 +1086,14 @@ describe('StorageService', () => {
         download: async (commp: string | CommP, options?: any) => {
           assert.equal(commp, testCommP)
           // Options should still contain providerAddress and withCDN from StorageService
-          assert.equal(options?.providerAddress, mockProvider.owner)
+          assert.equal(options?.providerAddress, mockProvider.storageProvider)
           assert.equal(options?.withCDN, false)
           return testData
         }
       } as unknown as Synapse
 
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapseWithOptions, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapseWithOptions, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Test with and without empty options object
       const downloaded1 = await service.download(testCommP)
@@ -1106,8 +1106,8 @@ describe('StorageService', () => {
 
   describe('upload', () => {
     it('should enforce 65 byte minimum size limit', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that is below the minimum
       const undersizedData = new Uint8Array(64) // 64 bytes (1 byte under minimum)
@@ -1123,8 +1123,8 @@ describe('StorageService', () => {
     })
 
     it('should enforce 200 MiB size limit', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that exceeds the limit
       const oversizedData = new Uint8Array(210 * 1024 * 1024) // 210 MiB
@@ -1140,14 +1140,14 @@ describe('StorageService', () => {
     })
 
     it('should accept data at exactly 65 bytes', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data at exactly the minimum
       const minSizeData = new Uint8Array(65) // 65 bytes
@@ -1167,8 +1167,8 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return { message: 'success' }
       }
 
@@ -1178,14 +1178,14 @@ describe('StorageService', () => {
     })
 
     it('should accept data up to 200 MiB', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data at exactly the limit
       const maxSizeData = new Uint8Array(200 * 1024 * 1024) // 200 MiB
@@ -1205,10 +1205,10 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked in mockPandoraService
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
-      // Mock addRoots
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return { message: 'success' }
       }
 
@@ -1216,25 +1216,25 @@ describe('StorageService', () => {
       const result = await service.upload(maxSizeData)
       assert.equal(result.commp.toString(), testCommP)
       assert.equal(result.size, 200 * 1024 * 1024)
-      assert.equal(result.rootId, 0)
+      assert.equal(result.pieceId, 0)
     })
 
     it('should handle upload callbacks correctly', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that meets minimum size (65 bytes)
       const testData = new Uint8Array(65).fill(42) // 65 bytes of value 42
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       let uploadCompleteCallbackFired = false
-      let rootAddedCallbackFired = false
+      let pieceAddedCallbackFired = false
 
       // Mock the required services
       const serviceAny = service as any
@@ -1249,11 +1249,11 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddRootsInfo
-      // getAddRootsInfo already mocked in mockPandoraService
+      // Mock getAddPiecesInfo
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
-      // Mock addRoots
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return { message: 'success' }
       }
 
@@ -1262,35 +1262,35 @@ describe('StorageService', () => {
           assert.equal(commp.toString(), testCommP)
           uploadCompleteCallbackFired = true
         },
-        onRootAdded: () => {
-          rootAddedCallbackFired = true
+        onPieceAdded: () => {
+          pieceAddedCallbackFired = true
         }
       })
 
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-      assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
       assert.equal(result.commp.toString(), testCommP)
     })
 
     it('should handle new server with transaction tracking', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       let uploadCompleteCallbackFired = false
-      let rootAddedCallbackFired = false
-      let rootConfirmedCallbackFired = false
-      let rootAddedTransaction: any = null
-      let confirmedRootIds: number[] = []
+      let pieceAddedCallbackFired = false
+      let pieceConfirmedCallbackFired = false
+      let pieceAddedTransaction: any = null
+      let confirmedPieceIds: number[] = []
 
       // Mock the required services
       const serviceAny = service as any
@@ -1305,12 +1305,12 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots to return transaction tracking info
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces to return transaction tracking info
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1325,17 +1325,17 @@ describe('StorageService', () => {
         return mockTransaction as any
       }
 
-      // Mock getRootAdditionStatus
-      serviceAny._pdpServer.getRootAdditionStatus = async (proofSetId: number, txHash: string): Promise<any> => {
-        assert.equal(proofSetId, 123)
+      // Mock getPieceAdditionStatus
+      serviceAny._pdpServer.getPieceAdditionStatus = async (dataSetId: number, txHash: string): Promise<any> => {
+        assert.equal(dataSetId, 123)
         assert.equal(txHash, mockTxHash)
         return {
           txHash: mockTxHash,
           txStatus: 'confirmed',
-          proofSetId: 123,
-          rootCount: 1,
+          dataSetId: 123,
+          pieceCount: 1,
           addMessageOk: true,
-          confirmedRootIds: [42]
+          confirmedPieceIds: [42]
         }
       }
 
@@ -1345,23 +1345,23 @@ describe('StorageService', () => {
             assert.equal(commp.toString(), testCommP)
             uploadCompleteCallbackFired = true
           },
-          onRootAdded: (transaction) => {
-            rootAddedCallbackFired = true
-            rootAddedTransaction = transaction
+          onPieceAdded: (transaction) => {
+            pieceAddedCallbackFired = true
+            pieceAddedTransaction = transaction
           },
-          onRootConfirmed: (rootIds) => {
-            rootConfirmedCallbackFired = true
-            confirmedRootIds = rootIds
+          onPieceConfirmed: (pieceIds: number[]) => {
+            pieceConfirmedCallbackFired = true
+            confirmedPieceIds = pieceIds
           }
         })
 
         assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-        assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
-        assert.isTrue(rootConfirmedCallbackFired, 'onRootConfirmed should have been called')
-        assert.exists(rootAddedTransaction, 'Transaction should be passed to onRootAdded')
-        assert.equal(rootAddedTransaction.hash, mockTxHash)
-        assert.deepEqual(confirmedRootIds, [42])
-        assert.equal(result.rootId, 42)
+        assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+        assert.isTrue(pieceConfirmedCallbackFired, 'onpieceConfirmed should have been called')
+        assert.exists(pieceAddedTransaction, 'Transaction should be passed to onPieceAdded')
+        assert.equal(pieceAddedTransaction.hash, mockTxHash)
+        assert.deepEqual(confirmedPieceIds, [42])
+        assert.equal(result.pieceId, 42)
       } finally {
         // Restore original method
         mockEthProvider.getTransaction = originalGetTransaction
@@ -1370,14 +1370,14 @@ describe('StorageService', () => {
 
     it.skip('should fail if new server transaction is not found on-chain', async function () {
       // Skip: This test requires waiting for timeout which makes tests slow
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
@@ -1394,12 +1394,12 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots to return transaction tracking info
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces to return transaction tracking info
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1412,7 +1412,7 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for transaction not found')
       } catch (error: any) {
         // The error is wrapped by createError, so check for the wrapped message
-        assert.include(error.message, 'StorageService addRoots failed:')
+        assert.include(error.message, 'StorageService addPieces failed:')
         assert.include(error.message, 'Server returned transaction hash')
         assert.include(error.message, 'but transaction was not found on-chain')
       } finally {
@@ -1423,14 +1423,14 @@ describe('StorageService', () => {
 
     it.skip('should fail if new server verification fails', async function () {
       // Skip: This test requires waiting for timeout which makes tests slow
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
@@ -1447,12 +1447,12 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots to return transaction tracking info
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces to return transaction tracking info
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1464,9 +1464,9 @@ describe('StorageService', () => {
       const originalGetTransaction = mockEthProvider.getTransaction
       mockEthProvider.getTransaction = async () => mockTransaction as any
 
-      // Mock getRootAdditionStatus to fail
-      serviceAny._pdpServer.getRootAdditionStatus = async (): Promise<any> => {
-        throw new Error('Root addition status not found')
+      // Mock getPieceAdditionStatus to fail
+      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
+        throw new Error('Piece addition status not found')
       }
 
       // Override timing constants for faster test
@@ -1477,8 +1477,8 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for verification failure')
       } catch (error: any) {
         // The error is wrapped by createError
-        assert.include(error.message, 'StorageService addRoots failed:')
-        assert.include(error.message, 'Failed to verify root addition')
+        assert.include(error.message, 'StorageService addPieces failed:')
+        assert.include(error.message, 'Failed to verify piece addition')
         assert.include(error.message, 'The transaction was confirmed on-chain but the server failed to acknowledge it')
       } finally {
         // Restore original method
@@ -1487,14 +1487,14 @@ describe('StorageService', () => {
     })
 
     it('should handle transaction failure on-chain', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
@@ -1511,12 +1511,12 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots to return transaction tracking info
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces to return transaction tracking info
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return {
           message: 'success',
           txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/proof-sets/123/roots/added/${mockTxHash}`
+          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`
         }
       }
 
@@ -1533,8 +1533,8 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for failed transaction')
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
-        assert.include(error.message, 'StorageService addRoots failed:')
-        assert.include(error.message, 'Failed to add root to proof set')
+        assert.include(error.message, 'StorageService addPieces failed:')
+        assert.include(error.message, 'Failed to add piece to data set')
       } finally {
         // Restore original method
         mockEthProvider.getTransaction = originalGetTransaction
@@ -1542,20 +1542,20 @@ describe('StorageService', () => {
     })
 
     it('should work with old servers that do not provide transaction tracking', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
-      let rootAddedCallbackFired = false
-      let rootAddedTransaction: any
+      let pieceAddedCallbackFired = false
+      let pieceAddedTransaction: any
 
       // Mock the required services
       const serviceAny = service as any
@@ -1568,32 +1568,32 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock addRoots without transaction tracking (old server)
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces without transaction tracking (old server)
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return { message: 'success' }
       }
 
       const result = await service.upload(testData, {
-        onRootAdded: (transaction) => {
-          rootAddedCallbackFired = true
-          rootAddedTransaction = transaction
+        onPieceAdded: (transaction?: ethers.TransactionResponse) => {
+          pieceAddedCallbackFired = true
+          pieceAddedTransaction = transaction
         }
       })
 
-      assert.isTrue(rootAddedCallbackFired, 'onRootAdded should have been called')
-      assert.isUndefined(rootAddedTransaction, 'Transaction should be undefined for old servers')
-      assert.equal(result.rootId, 0) // Uses nextRootId from getAddRootsInfo
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+      assert.isUndefined(pieceAddedTransaction, 'Transaction should be undefined for old servers')
+      assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddPiecesInfo
     })
 
     it('should handle ArrayBuffer input', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create ArrayBuffer instead of Uint8Array
       const buffer = new ArrayBuffer(1024)
@@ -1619,11 +1619,11 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddRootsInfo
-      // getAddRootsInfo already mocked in mockPandoraService
+      // Mock getAddPiecesInfo
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
-      // Mock addRoots
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         return { message: 'success' }
       }
 
@@ -1634,8 +1634,8 @@ describe('StorageService', () => {
 
     it.skip('should handle piece parking timeout', async () => {
       // Skip this test as it's timing-sensitive and causes issues in CI
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
@@ -1675,8 +1675,8 @@ describe('StorageService', () => {
     })
 
     it('should handle upload piece failure', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
 
       // Mock uploadPiece to fail
@@ -1693,15 +1693,15 @@ describe('StorageService', () => {
       }
     })
 
-    it('should handle add roots failure', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+    it('should handle add pieces failure', async () => {
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
@@ -1717,28 +1717,28 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked in mockPandoraService
+      // getAddPiecesInfo already mocked in mockWarmStorageService
 
-      // Mock addRoots to fail
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+      // Mock addPieces to fail
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
         throw new Error('Signature validation failed')
       }
 
       try {
         await service.upload(testData)
-        assert.fail('Should have thrown add roots error')
+        assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add root to proof set')
+        assert.include(error.message, 'Failed to add piece to data set')
       }
     })
 
-    it('should handle getAddRootsInfo failure', async () => {
-      const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => {
-          throw new Error('Proof set not managed by this Pandora')
+    it('should handle getAddPiecesInfo failure', async () => {
+      const mockWarmStorageService = {
+        getAddPiecesInfo: async (): Promise<any> => {
+          throw new Error('Data set not managed by this WarmStorage')
         }
       } as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
@@ -1754,13 +1754,13 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddRootsInfo already mocked to fail in mockPandoraService
+      // getAddPiecesInfo already mocked to fail in mockWarmStorageService
 
       try {
         await service.upload(testData)
-        assert.fail('Should have thrown getAddRootsInfo error')
+        assert.fail('Should have thrown getAddPiecesInfo error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add root to proof set')
+        assert.include(error.message, 'Failed to add piece to data set')
       }
     })
   })
@@ -1770,16 +1770,16 @@ describe('StorageService', () => {
       it('should select first provider that responds to ping', async () => {
         const testProviders: ApprovedProviderInfo[] = [
           {
-            owner: '0x1111111111111111111111111111111111111111',
-            pdpUrl: 'https://pdp1.example.com',
-            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            storageProvider: '0x1111111111111111111111111111111111111111',
+            serviceURL: 'https://pdp1.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567890,
             approvedAt: 1234567891
           },
           {
-            owner: '0x2222222222222222222222222222222222222222',
-            pdpUrl: 'https://pdp2.example.com',
-            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            storageProvider: '0x2222222222222222222222222222222222222222',
+            serviceURL: 'https://pdp2.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567892,
             approvedAt: 1234567893
           }
@@ -1812,7 +1812,7 @@ describe('StorageService', () => {
           )
 
           // Should have selected the second provider (first one failed ping)
-          assert.equal(result.owner, testProviders[1].owner)
+          assert.equal(result.storageProvider, testProviders[1].storageProvider)
           assert.isAtLeast(pingCallCount, 1, 'Should have called ping at least once')
         } finally {
           global.fetch = originalFetch
@@ -1822,16 +1822,16 @@ describe('StorageService', () => {
       it('should exclude providers from selection', async () => {
         const testProviders: ApprovedProviderInfo[] = [
           {
-            owner: '0x1111111111111111111111111111111111111111',
-            pdpUrl: 'https://pdp1.example.com',
-            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            storageProvider: '0x1111111111111111111111111111111111111111',
+            serviceURL: 'https://pdp1.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567890,
             approvedAt: 1234567891
           },
           {
-            owner: '0x2222222222222222222222222222222222222222',
-            pdpUrl: 'https://pdp2.example.com',
-            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            storageProvider: '0x2222222222222222222222222222222222222222',
+            serviceURL: 'https://pdp2.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567892,
             approvedAt: 1234567893
           }
@@ -1854,12 +1854,12 @@ describe('StorageService', () => {
           const result = await (StorageService as any).selectRandomProvider(
             testProviders,
             mockSynapse.getSigner(),
-            [testProviders[0].owner], // Exclude first provider
+            [testProviders[0].storageProvider], // Exclude first provider
             true // Enable ping validation
           )
 
           // Should have selected the second provider
-          assert.equal(result.owner, testProviders[1].owner)
+          assert.equal(result.storageProvider, testProviders[1].storageProvider)
         } finally {
           global.fetch = originalFetch
         }
@@ -1868,16 +1868,16 @@ describe('StorageService', () => {
       it('should throw error when all providers fail ping', async () => {
         const testProviders: ApprovedProviderInfo[] = [
           {
-            owner: '0x1111111111111111111111111111111111111111',
-            pdpUrl: 'https://pdp1.example.com',
-            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            storageProvider: '0x1111111111111111111111111111111111111111',
+            serviceURL: 'https://pdp1.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567890,
             approvedAt: 1234567891
           },
           {
-            owner: '0x2222222222222222222222222222222222222222',
-            pdpUrl: 'https://pdp2.example.com',
-            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            storageProvider: '0x2222222222222222222222222222222222222222',
+            serviceURL: 'https://pdp2.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567892,
             approvedAt: 1234567893
           }
@@ -1911,44 +1911,44 @@ describe('StorageService', () => {
       it('should fail when existing providers fail ping validation', async () => {
         const testProviders: ApprovedProviderInfo[] = [
           {
-            owner: '0x1111111111111111111111111111111111111111',
-            pdpUrl: 'https://pdp1.example.com',
-            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            storageProvider: '0x1111111111111111111111111111111111111111',
+            serviceURL: 'https://pdp1.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567890,
             approvedAt: 1234567891
           },
           {
-            owner: '0x2222222222222222222222222222222222222222',
-            pdpUrl: 'https://pdp2.example.com',
-            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            storageProvider: '0x2222222222222222222222222222222222222222',
+            serviceURL: 'https://pdp2.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567892,
             approvedAt: 1234567893
           }
         ]
 
-        const proofSets = [
+        const dataSets = [
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProviders[0].owner, // First provider has existing proof set
-            pdpVerifierProofSetId: 100,
-            nextRootId: 0,
-            currentRootCount: 0,
+            payee: testProviders[0].storageProvider, // First provider has existing data set
+            pdpVerifierDataSetId: 100,
+            nextPieceId: 0,
+            currentPieceCount: 0,
             isLive: true,
             isManaged: true,
             withCDN: false,
             commissionBps: 0,
             metadata: '',
-            rootMetadata: [],
+            pieceMetadata: [],
             clientDataSetId: 1
           }
         ]
 
-        const mockPandoraService = {
-          getClientProofSetsWithDetails: async () => proofSets,
+        const mockWarmStorageService = {
+          getClientDataSetsWithDetails: async () => dataSets,
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async (address: string) => {
-            const idx = testProviders.findIndex(p => p.owner.toLowerCase() === address.toLowerCase())
+            const idx = testProviders.findIndex(p => p.storageProvider.toLowerCase() === address.toLowerCase())
             return idx >= 0 ? idx + 1 : 0
           },
           getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null
@@ -1970,7 +1970,7 @@ describe('StorageService', () => {
 
         try {
           await (StorageService as any).smartSelectProvider(
-            mockPandoraService,
+            mockWarmStorageService,
             '0x1234567890123456789012345678901234567890',
             false,
             mockSynapse.getSigner()
@@ -1988,23 +1988,23 @@ describe('StorageService', () => {
       it('should select new provider when no existing providers are available', async () => {
         const testProviders: ApprovedProviderInfo[] = [
           {
-            owner: '0x1111111111111111111111111111111111111111',
-            pdpUrl: 'https://pdp1.example.com',
-            pieceRetrievalUrl: 'https://retrieve1.example.com',
+            storageProvider: '0x1111111111111111111111111111111111111111',
+            serviceURL: 'https://pdp1.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567890,
             approvedAt: 1234567891
           },
           {
-            owner: '0x2222222222222222222222222222222222222222',
-            pdpUrl: 'https://pdp2.example.com',
-            pieceRetrievalUrl: 'https://retrieve2.example.com',
+            storageProvider: '0x2222222222222222222222222222222222222222',
+            serviceURL: 'https://pdp2.example.com',
+            peerId: 'test-peer-id',
             registeredAt: 1234567892,
             approvedAt: 1234567893
           }
         ]
 
-        const mockPandoraService = {
-          getClientProofSetsWithDetails: async () => [], // No existing proof sets
+        const mockWarmStorageService = {
+          getClientDataSetsWithDetails: async () => [], // No existing data sets
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async () => 0,
           getApprovedProvider: async () => null
@@ -2030,18 +2030,18 @@ describe('StorageService', () => {
 
         try {
           const result = await (StorageService as any).smartSelectProvider(
-            mockPandoraService,
+            mockWarmStorageService,
             '0x1234567890123456789012345678901234567890',
             false,
             mockSynapse.getSigner()
           )
 
-          // Should have selected one of the available providers for new proof set
+          // Should have selected one of the available providers for new data set
           assert.isTrue(
-            testProviders.some(p => p.owner === result.provider.owner),
+            testProviders.some(p => (p.storageProvider ?? p.storageProvider) === (result.provider.storageProvider ?? result.provider.storageProvider)),
             'Should have selected one of the available providers'
           )
-          assert.equal(result.proofSetId, -1) // New proof set marker
+          assert.equal(result.dataSetId, -1) // New data set marker
           assert.isFalse(result.isExisting)
           assert.isAtLeast(pingCallCount, 1, 'Should have pinged at least one provider')
         } finally {
@@ -2051,33 +2051,33 @@ describe('StorageService', () => {
 
       it('should use existing provider if ping succeeds', async () => {
         const testProvider: ApprovedProviderInfo = {
-          owner: '0x1111111111111111111111111111111111111111',
-          pdpUrl: 'https://pdp1.example.com',
-          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          storageProvider: '0x1111111111111111111111111111111111111111',
+          serviceURL: 'https://pdp1.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         }
 
-        const proofSets = [
+        const dataSets = [
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.owner,
-            pdpVerifierProofSetId: 100,
-            nextRootId: 0,
-            currentRootCount: 5, // Has roots, so preferred
+            payee: testProvider.storageProvider,
+            pdpVerifierDataSetId: 100,
+            nextPieceId: 0,
+            currentPieceCount: 5, // Has pieces, so preferred
             isLive: true,
             isManaged: true,
             withCDN: false,
             commissionBps: 0,
             metadata: '',
-            rootMetadata: [],
+            pieceMetadata: [],
             clientDataSetId: 1
           }
         ]
 
-        const mockPandoraService = {
-          getClientProofSetsWithDetails: async () => proofSets,
+        const mockWarmStorageService = {
+          getClientDataSetsWithDetails: async () => dataSets,
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [] // Return empty list to prevent fallback
@@ -2096,15 +2096,15 @@ describe('StorageService', () => {
 
         try {
           const result = await (StorageService as any).smartSelectProvider(
-            mockPandoraService,
+            mockWarmStorageService,
             '0x1234567890123456789012345678901234567890',
             false,
             mockSynapse.getSigner()
           )
 
           // Should use existing provider since ping succeeded
-          assert.equal(result.provider.owner, testProvider.owner)
-          assert.equal(result.proofSetId, 100)
+          assert.equal(result.provider.storageProvider, testProvider.storageProvider)
+          assert.equal(result.dataSetId, 100)
           assert.isTrue(result.isExisting)
         } finally {
           global.fetch = originalFetch
@@ -2115,66 +2115,66 @@ describe('StorageService', () => {
     describe('selectProviderWithPing', () => {
       // ... existing code ...
 
-      it('should deduplicate providers from multiple proof sets', async () => {
+      it('should deduplicate providers from multiple data sets', async () => {
         const testProvider: ApprovedProviderInfo = {
-          owner: '0x1111111111111111111111111111111111111111',
-          pdpUrl: 'https://pdp1.example.com',
-          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          storageProvider: '0x1111111111111111111111111111111111111111',
+          serviceURL: 'https://pdp1.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         }
 
-        // Create multiple proof sets with the same provider
-        const proofSets = [
+        // Create multiple data sets with the same provider
+        const dataSets = [
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.owner,
-            pdpVerifierProofSetId: 100,
-            nextRootId: 0,
-            currentRootCount: 5,
+            payee: testProvider.storageProvider,
+            pdpVerifierDataSetId: 100,
+            nextPieceId: 0,
+            currentPieceCount: 5,
             isLive: true,
             isManaged: true,
             withCDN: false,
             commissionBps: 0,
             metadata: '',
-            rootMetadata: [],
+            pieceMetadata: [],
             clientDataSetId: 1
           },
           {
             railId: 2,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.owner, // Same provider
-            pdpVerifierProofSetId: 101,
-            nextRootId: 0,
-            currentRootCount: 3,
+            payee: testProvider.storageProvider, // Same provider
+            pdpVerifierDataSetId: 101,
+            nextPieceId: 0,
+            currentPieceCount: 3,
             isLive: true,
             isManaged: true,
             withCDN: false,
             commissionBps: 0,
             metadata: '',
-            rootMetadata: [],
+            pieceMetadata: [],
             clientDataSetId: 2
           },
           {
             railId: 3,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.owner, // Same provider
-            pdpVerifierProofSetId: 102,
-            nextRootId: 0,
-            currentRootCount: 1,
+            payee: testProvider.storageProvider, // Same provider
+            pdpVerifierDataSetId: 102,
+            nextPieceId: 0,
+            currentPieceCount: 1,
             isLive: true,
             isManaged: true,
             withCDN: false,
             commissionBps: 0,
             metadata: '',
-            rootMetadata: [],
+            pieceMetadata: [],
             clientDataSetId: 3
           }
         ]
 
-        const mockPandoraService = {
-          getClientProofSetsWithDetails: async () => proofSets,
+        const mockWarmStorageService = {
+          getClientDataSetsWithDetails: async () => dataSets,
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [] // Return empty list to prevent fallback
@@ -2196,14 +2196,14 @@ describe('StorageService', () => {
 
         try {
           await (StorageService as any).smartSelectProvider(
-            mockPandoraService,
+            mockWarmStorageService,
             '0x1234567890123456789012345678901234567890',
             false,
             mockSynapse.getSigner()
           )
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          // Verify we only pinged once despite having three proof sets with the same provider
+          // Verify we only pinged once despite having three data sets with the same provider
           assert.equal(pingCount, 1, 'Should only ping each unique provider once')
           // The error should come from selectProviderWithPing failing, not from getAllApprovedProviders
           assert.include(error.message, 'All 1 available storage providers failed ping validation')
@@ -2216,21 +2216,22 @@ describe('StorageService', () => {
 
   describe('getProviderInfo', () => {
     it('should return provider info through Synapse', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock the synapse getProviderInfo method
       const originalGetProviderInfo = mockSynapse.getProviderInfo
       const expectedProviderInfo = {
-        owner: mockProvider.owner,
-        pdpUrl: 'https://updated-pdp.example.com',
-        pieceRetrievalUrl: 'https://updated-retrieve.example.com',
+        storageProvider: mockProvider.storageProvider,
+        serviceURL: 'https://updated-pdp.example.com',
+        peerId: 'test-peer-id',
+        // pieceRetrievalUrl: 'https://updated-retrieve.example.com', // Combined into serviceURL
         registeredAt: 1234567900,
         approvedAt: 1234567901
       }
 
       mockSynapse.getProviderInfo = async (address: string) => {
-        assert.equal(address, mockProvider.owner)
+        assert.equal(address, mockProvider.storageProvider)
         return expectedProviderInfo
       }
 
@@ -2243,8 +2244,8 @@ describe('StorageService', () => {
     })
 
     it('should handle errors from Synapse getProviderInfo', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock the synapse getProviderInfo method to throw
       const originalGetProviderInfo = mockSynapse.getProviderInfo
@@ -2263,111 +2264,111 @@ describe('StorageService', () => {
     })
   })
 
-  describe('getProofSetRoots', () => {
-    it('should successfully fetch proof set roots', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+  describe('getDataSetPieces', () => {
+    it('should successfully fetch data set pieces', async () => {
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceOffset: 0
           },
           {
-            rootId: 102,
-            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
-            subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
-            subrootOffset: 0
+            pieceId: 102,
+            pieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subpieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            subpieceOffset: 0
           }
         ],
         nextChallengeEpoch: 1500
       }
 
-      // Mock the PDP server getProofSet method
+      // Mock the PDP server getDataSet method
       const serviceAny = service as any
-      serviceAny._pdpServer.getProofSet = async (proofSetId: number): Promise<any> => {
-        assert.equal(proofSetId, 123)
-        return mockProofSetData
+      serviceAny._pdpServer.getDataSet = async (dataSetId: number): Promise<any> => {
+        assert.equal(dataSetId, 123)
+        return mockDataSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
 
       assert.isArray(result)
       assert.equal(result.length, 2)
-      assert.equal(result[0].toString(), mockProofSetData.roots[0].rootCid)
-      assert.equal(result[1].toString(), mockProofSetData.roots[1].rootCid)
+      assert.equal(result[0].toString(), mockDataSetData.pieces[0].pieceCid)
+      assert.equal(result[1].toString(), mockDataSetData.pieces[1].pieceCid)
     })
 
-    it('should handle empty proof set roots', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+    it('should handle empty data set pieces', async () => {
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 1500
       }
 
-      // Mock the PDP server getProofSet method
+      // Mock the PDP server getDataSet method
       const serviceAny = service as any
-      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
-        return mockProofSetData
+      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
+        return mockDataSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
 
       assert.isArray(result)
       assert.equal(result.length, 0)
     })
 
     it('should handle invalid CID in response', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'invalid-cid-format',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'invalid-cid-format',
+            subpieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subpieceOffset: 0
           }
         ],
         nextChallengeEpoch: 1500
       }
 
-      // Mock the PDP server getProofSet method
+      // Mock the PDP server getDataSet method
       const serviceAny = service as any
-      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
-        return mockProofSetData
+      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
+        return mockDataSetData
       }
 
-      const result = await service.getProofSetRoots()
+      const result = await service.getDataSetPieces()
       assert.isArray(result)
       assert.equal(result.length, 1)
       assert.equal(result[0].toString(), 'invalid-cid-format')
     })
 
     it('should handle PDP server errors', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      // Mock the PDP server getProofSet method to throw error
+      // Mock the PDP server getDataSet method to throw error
       const serviceAny = service as any
-      serviceAny._pdpServer.getProofSet = async (): Promise<any> => {
-        throw new Error('Proof set not found: 999')
+      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
+        throw new Error('Data set not found: 999')
       }
 
       try {
-        await service.getProofSetRoots()
+        await service.getDataSetPieces()
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
-        assert.include(error.message, 'Proof set not found: 999')
+        assert.include(error.message, 'Data set not found: 999')
       }
     })
   })
@@ -2376,19 +2377,19 @@ describe('StorageService', () => {
     const mockCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
     it('should return exists=false when piece not found on provider', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => { throw new Error('Piece not found') }
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 5000
       })
 
@@ -2401,27 +2402,27 @@ describe('StorageService', () => {
 
       assert.isFalse(status.exists)
       assert.isNull(status.retrievalUrl)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
-      assert.isUndefined(status.rootId)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
+      assert.isUndefined(status.pieceId)
     })
 
     it('should return piece status with proof timing when piece exists', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [{
-          rootId: 1,
-          rootCid: { toString: () => mockCommP }
+        pieces: [{
+          pieceId: 1,
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2435,30 +2436,30 @@ describe('StorageService', () => {
       const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.equal(status.retrievalUrl, 'https://retrieve.example.com/piece/' + mockCommP)
-      assert.equal(status.rootId, 1)
-      assert.isNotNull(status.proofSetLastProven)
-      assert.isNotNull(status.proofSetNextProofDue)
+      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockCommP)
+      assert.equal(status.pieceId, 1)
+      assert.isNotNull(status.dataSetLastProven)
+      assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
       assert.isFalse(status.isProofOverdue)
     })
 
     it('should detect when in challenge window', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [{
-          rootId: 1,
-          rootCid: { toString: () => mockCommP }
+        pieces: [{
+          pieceId: 1,
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2480,21 +2481,21 @@ describe('StorageService', () => {
     })
 
     it('should detect when proof is overdue', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [{
-          rootId: 1,
-          rootCid: { toString: () => mockCommP }
+        pieces: [{
+          pieceId: 1,
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2514,22 +2515,22 @@ describe('StorageService', () => {
       assert.isTrue(status.isProofOverdue)
     })
 
-    it('should handle proof set with nextChallengeEpoch=0', async () => {
-      const mockPandoraService = {
+    it('should handle data set with nextChallengeEpoch=0', async () => {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [{
-          rootId: 1,
-          rootCid: { toString: () => mockCommP }
+        pieces: [{
+          pieceId: 1,
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 0 // No next challenge scheduled
       })
@@ -2543,8 +2544,8 @@ describe('StorageService', () => {
       const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
       assert.isFalse(status.isProofOverdue)
     })
@@ -2555,19 +2556,19 @@ describe('StorageService', () => {
         pieceRetrievalUrl: 'https://retrieve.example.com/' // Trailing slash
       }
 
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProviderWithSlash, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProviderWithSlash, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 5000
       })
 
@@ -2577,7 +2578,7 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async (address: string) => {
         // Return the provider with trailing slash when asked for this provider's address
-        if (address === mockProviderWithSlash.owner) {
+        if (address === mockProviderWithSlash.storageProvider) {
           return mockProviderWithSlash
         }
         throw new Error('Provider not found')
@@ -2587,15 +2588,15 @@ describe('StorageService', () => {
 
       assert.isTrue(status.exists)
       // Should not have double slash
-      assert.equal(status.retrievalUrl, 'https://retrieve.example.com/piece/' + mockCommP)
+      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockCommP)
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')
     })
 
     it('should handle invalid CommP', async () => {
-      const mockPandoraService = {} as any
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.pieceStatus('invalid-commp')
@@ -2606,21 +2607,21 @@ describe('StorageService', () => {
     })
 
     it('should calculate hours until challenge window', async () => {
-      const mockPandoraService = {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => ({
+      serviceAny._pdpServer.getDataSet = async () => ({
         id: 123,
-        roots: [{
-          rootId: 1,
-          rootCid: { toString: () => mockCommP }
+        pieces: [{
+          pieceId: 1,
+          pieceCid: { toString: () => mockCommP }
         }],
         nextChallengeEpoch: 5000
       })
@@ -2639,18 +2640,18 @@ describe('StorageService', () => {
       assert.approximately(status.hoursUntilChallengeWindow ?? 0, 1, 0.1) // Should be ~1 hour
     })
 
-    it('should handle proof set data fetch failure gracefully', async () => {
-      const mockPandoraService = {
+    it('should handle data set data fetch failure gracefully', async () => {
+      const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60
       } as any
 
-      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
       serviceAny._pdpServer.findPiece = async () => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.getProofSet = async () => { throw new Error('Network error') }
+      serviceAny._pdpServer.getDataSet = async () => { throw new Error('Network error') }
 
       // Mock synapse
       const mockSynapseAny = mockSynapse as any
@@ -2660,12 +2661,12 @@ describe('StorageService', () => {
 
       const status = await service.pieceStatus(mockCommP)
 
-      // Should still return basic status even if proof set data fails
+      // Should still return basic status even if data set data fails
       assert.isTrue(status.exists)
       assert.isNotNull(status.retrievalUrl)
-      assert.isNull(status.proofSetLastProven)
-      assert.isNull(status.proofSetNextProofDue)
-      assert.isUndefined(status.rootId)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
+      assert.isUndefined(status.pieceId)
     })
   })
 })
