@@ -238,17 +238,17 @@
     <div class="section">
         <h2>View Proof Sets</h2>
         <div class="input-group">
-            <label>Pandora Contract:</label>
-            <input type="text" id="pandoraAddressInput" placeholder="0x..." value="" style="width: 500px;">
+            <label>Warm Storage Contract:</label>
+            <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="" style="width: 500px;">
             <div style="margin-top: 5px; color: #666; font-size: 12px;">Leave empty to use network default</div>
         </div>
         <div class="input-group">
             <label>Client Address:</label>
             <input type="text" id="clientAddressInput" placeholder="0x... (leave empty for connected wallet)">
         </div>
-        <button id="reconnectBtn" disabled>Reconnect with Selected Pandora</button>
-        <button id="getProofSetsBtn" disabled>Get Proof Sets</button>
-        <button id="getMyProofSetsBtn" disabled>Get My Proof Sets</button>
+        <button id="reconnectBtn" disabled>Reconnect with Selected Warm Storage</button>
+        <button id="getDataSetsBtn" disabled>Get Data Sets</button>
+        <button id="getMyDataSetsBtn" disabled>Get My Data Sets</button>
         
         <div id="proofSetsSummary" style="margin-top: 20px;"></div>
         <div id="proofSetsResult" class="proof-sets-container"></div>
@@ -261,10 +261,10 @@
     
     <script>
         // Get the SDK components from the global window object
-        const { Synapse, PandoraService, CONTRACT_ADDRESSES } = window.SynapseSDK;
+        const { Synapse, WarmStorageService, CONTRACT_ADDRESSES } = window.SynapseSDK;
         
         let synapse = null;
-        let pandoraService = null;
+        let warmStorageService = null;
         let connectedAddress = null;
         let provider = null;
 
@@ -456,7 +456,7 @@
 
 
         // Connect to MetaMask
-        async function connectWithPandora(pandoraAddress) {
+        async function connectWithWarmStorage(warmStorageAddress) {
             try {
                 if (!window.ethereum) {
                     throw new Error('MetaMask not found! Please install MetaMask.');
@@ -484,16 +484,16 @@
                 // Create Synapse instance
                 synapse = await Synapse.create({
                     signer,
-                    pandoraAddress: pandoraAddress || undefined
+                    warmStorageAddress: warmStorageAddress || undefined
                 });
                 
-                // Create PandoraService instance separately
-                pandoraService = new PandoraService(provider, pandoraAddress || CONTRACT_ADDRESSES.PANDORA_SERVICE[networkName]);
+                // Create WarmStorageService instance separately
+                warmStorageService = new WarmStorageService(provider, warmStorageAddress || CONTRACT_ADDRESSES.WARM_STORAGE[networkName]);
                 
-                console.log('Using Pandora address:', pandoraAddress || 'default');
+                console.log('Using Warm Storage address:', warmStorageAddress || 'default');
 
                 updateStatus('Connected', connectedAddress, networkName);
-                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Pandora: ${pandoraAddress || 'SDK default'}</div>`);
+                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Warm Storage: ${warmStorageAddress || 'SDK default'}</div>`);
                 
                 enableButtons();
             } catch (error) {
@@ -503,14 +503,14 @@
         }
 
         document.getElementById('connectBtn').addEventListener('click', async () => {
-            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
-            await connectWithPandora(pandoraAddress);
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
         });
 
-        // Reconnect with selected Pandora
+        // Reconnect with selected Warm Storage
         document.getElementById('reconnectBtn').addEventListener('click', async () => {
-            const pandoraAddress = document.getElementById('pandoraAddressInput').value.trim();
-            await connectWithPandora(pandoraAddress);
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
         });
 
         // Get proof sets for specified address
@@ -524,12 +524,12 @@
                 showResult('proofSetsResult', '<div class="loading">Loading proof sets...</div>');
                 document.getElementById('proofSetsSummary').innerHTML = '';
                 
-                console.log('Getting enhanced proof sets for:', clientAddress);
-                console.log('PandoraService instance:', pandoraService);
+                console.log('Getting enhanced data sets for:', clientAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress);
-                console.log('Enhanced proof sets result:', proofSets);
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress);
+                console.log('Enhanced data sets result:', dataSets);
                 
                 const html = await displayEnhancedProofSets(proofSets, clientAddress);
                 showResult('proofSetsResult', html);
@@ -551,12 +551,12 @@
                 showResult('proofSetsResult', '<div class="loading">Loading your proof sets...</div>');
                 document.getElementById('proofSetsSummary').innerHTML = '';
                 
-                console.log('Getting enhanced proof sets for connected wallet:', connectedAddress);
-                console.log('PandoraService instance:', pandoraService);
+                console.log('Getting enhanced data sets for connected wallet:', connectedAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
                 
                 // Use the enhanced method to get more details
-                const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress);
-                console.log('Enhanced proof sets result:', proofSets);
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress);
+                console.log('Enhanced data sets result:', dataSets);
                 
                 const html = await displayEnhancedProofSets(proofSets, connectedAddress);
                 showResult('proofSetsResult', html);

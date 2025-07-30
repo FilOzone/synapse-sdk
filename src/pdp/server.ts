@@ -271,8 +271,8 @@ export class PDPServer {
         const cidString = typeof pieceData.cid === 'string' ? pieceData.cid : pieceData.cid.toString()
         return {
           pieceCid: cidString,
-          subpieces: [{
-            subpieceCid: cidString // Piece is its own subpiece
+          subPieces: [{
+            subPieceCid: cidString // Piece is its own subpiece
           }]
         }
       }),

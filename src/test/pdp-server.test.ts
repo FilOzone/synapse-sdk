@@ -311,8 +311,8 @@ describe('PDPServer', () => {
         assert.isDefined(body.extraData)
         assert.strictEqual(body.pieces.length, 1)
         assert.strictEqual(body.pieces[0].pieceCid, validPieceData[0].cid)
-        assert.strictEqual(body.pieces[0].subpieces.length, 1)
-        assert.strictEqual(body.pieces[0].subpieces[0].subpieceCid, validPieceData[0].cid) // Piece is its own subpiece
+        assert.strictEqual(body.pieces[0].subPieces.length, 1)
+        assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceData[0].cid) // Piece is its own subpiece
 
         return {
           status: 201,
@@ -389,10 +389,10 @@ describe('PDPServer', () => {
         const body = JSON.parse(init?.body as string)
 
         assert.strictEqual(body.pieces.length, 2)
-        assert.strictEqual(body.pieces[0].subpieces.length, 1) // Each piece has itself as its only subpiece
-        assert.strictEqual(body.pieces[1].subpieces.length, 1)
-        assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subpieces[0].subpieceCid)
-        assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subpieces[0].subpieceCid)
+        assert.strictEqual(body.pieces[0].subPieces.length, 1) // Each piece has itself as its only subpiece
+        assert.strictEqual(body.pieces[1].subPieces.length, 1)
+        assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subPieces[0].subPieceCid)
+        assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subPieces[0].subPieceCid)
 
         return {
           status: 201,

@@ -12,7 +12,7 @@
  * Required environment variables:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
  * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
- * - PANDORA_ADDRESS: Pandora service contract address (optional, uses default for network)
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (optional, uses default for network)
  *
  * Usage:
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
@@ -24,7 +24,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS // Optional - will use default for network
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
 
 // Validate inputs
 if (!PRIVATE_KEY) {
@@ -79,10 +79,10 @@ async function main () {
       rpcURL: RPC_URL
     }
 
-    // Add Pandora address if provided
-    if (PANDORA_ADDRESS) {
-      synapseOptions.pandoraAddress = PANDORA_ADDRESS
-      console.log(`Pandora Address: ${PANDORA_ADDRESS}`)
+    // Add Warm Storage address if provided
+    if (WARM_STORAGE_ADDRESS) {
+      synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
+      console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)
@@ -107,7 +107,7 @@ async function main () {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`✓ Selected storage provider: ${provider.owner}`)
+          console.log(`✓ Selected storage provider: ${provider.storageProvider}`)
         },
         onProofSetResolved: (info) => {
           if (info.isExisting) {
@@ -139,9 +139,9 @@ async function main () {
     // Get detailed provider information
     console.log('\n--- Storage Provider Details ---')
     const providerInfo = await storageService.getProviderInfo()
-    console.log(`Owner address: ${providerInfo.owner}`)
-    console.log(`PDP URL: ${providerInfo.pdpUrl}`)
-    console.log(`Retrieval URL: ${providerInfo.pieceRetrievalUrl}`)
+    console.log(`Storage Provider: ${providerInfo.storageProvider}`)
+    console.log(`Service URL: ${providerInfo.serviceURL}`)
+    console.log(`Peer ID: ${providerInfo.peerId}`)
     console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
     console.log(`Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`)
 
@@ -159,7 +159,7 @@ async function main () {
       console.error('\nPlease ensure you have:')
       console.error('1. Sufficient USDFC balance')
       console.error('2. Approved USDFC spending for the Payments contract')
-      console.error('3. Approved the Pandora service as an operator')
+      console.error('3. Approved the Warm Storage service as an operator')
       process.exit(1)
     }
 

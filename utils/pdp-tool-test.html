@@ -180,9 +180,9 @@
         </div>
 
         <div class="form-group">
-            <label for="pandoraAddress">Pandora Contract:</label>
-            <input type="text" id="pandoraAddress" value="" placeholder="Will be auto-filled based on network" />
-            <div class="help-text">Address of the Pandora service contract</div>
+            <label for="warmStorageAddress">Warm Storage Contract:</label>
+            <input type="text" id="warmStorageAddress" value="" placeholder="Will be auto-filled based on network" />
+            <div class="help-text">Address of the Warm Storage service contract</div>
         </div>
 
         <!-- STORAGE PROVIDERS SECTION -->
@@ -190,7 +190,7 @@
             <h2>Storage Providers</h2>
             <div class="form-group">
                 <button id="listProvidersBtn">List Approved Providers</button>
-                <div class="help-text">View all storage providers approved to use this Pandora service</div>
+                <div class="help-text">View all storage providers approved to use this Warm Storage service</div>
             </div>
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
         </div>
@@ -202,7 +202,7 @@
             <div class="form-group">
                 <label for="payee">Storage Provider Address:</label>
                 <input type="text" id="payee" value="" placeholder="0x..." />
-                <div class="help-text">Address of the storage provider that will receive payments (must be whitelisted in Pandora)</div>
+                <div class="help-text">Address of the storage provider that will receive payments (must be whitelisted in Warm Storage)</div>
             </div>
 
             <div class="form-group">
@@ -308,7 +308,7 @@
 
     <script>
         // The SDK is now available as window.SynapseSDK
-        const { PDPAuthHelper, PDPServer, PandoraService } = window.SynapseSDK;
+        const { PDPAuthHelper, PDPServer, Warm StorageService } = window.SynapseSDK;
 
         // Use CONTRACT_ADDRESSES from the SDK
         const { CONTRACT_ADDRESSES } = window.SynapseSDK;
@@ -318,7 +318,7 @@
         let connectedSigner = null
         let connectedAddress = null
         let rootEntryCounter = 1
-        let pandoraService = null
+        let warmStorageService = null
         let provider = null
 
         // Network selection
@@ -332,8 +332,8 @@
         })
 
         function updateContractAddress() {
-            const pandoraInput = document.getElementById('pandoraAddress')
-            pandoraInput.value = CONTRACT_ADDRESSES.PANDORA_SERVICE[currentNetwork] || ''
+            const warmStorageInput = document.getElementById('warmStorageAddress')
+            warmStorageInput.value = CONTRACT_ADDRESSES.WARM_STORAGE[currentNetwork] || ''
         }
 
         // Root entry management
@@ -407,14 +407,14 @@
                 document.getElementById('discoverProofSets').disabled = false
                 document.getElementById('autoFillAddRootsInfo').disabled = false
 
-                // Create PandoraService instance
-                const pandoraAddress = document.getElementById('pandoraAddress').value
-                pandoraService = new PandoraService(provider, pandoraAddress)
+                // Create Warm StorageService instance
+                const warmStorageAddress = document.getElementById('warmStorageAddress').value
+                warmStorageService = new Warm StorageService(provider, warmStorageAddress)
 
                 showStatus(`Successfully connected to MetaMask!
 Address: ${connectedAddress}
 Network: ${currentNetwork === 'mainnet' ? 'Filecoin Mainnet' : 'Calibration Testnet'} (${network.chainId})
-Pandora: ${pandoraAddress}`, 'success')
+Warm Storage: ${warmStorageAddress}`, 'success')
 
             } catch (error) {
                 console.error('MetaMask connection error:', error)
@@ -467,7 +467,7 @@ Pandora: ${pandoraAddress}`, 'success')
 
         function validateInputs() {
             const pdpEndpoint = document.getElementById('pdpEndpoint').value
-            const pandoraAddress = document.getElementById('pandoraAddress').value
+            const warmStorageAddress = document.getElementById('warmStorageAddress').value
 
             if (!connectedSigner) {
                 throw new Error('Please connect your MetaMask wallet first')
@@ -477,26 +477,26 @@ Pandora: ${pandoraAddress}`, 'success')
                 throw new Error('Please enter a valid PDP endpoint URL')
             }
 
-            if (!pandoraAddress || !ethers.isAddress(pandoraAddress)) {
-                throw new Error('Please enter a valid Pandora contract address')
+            if (!warmStorageAddress || !ethers.isAddress(warmStorageAddress)) {
+                throw new Error('Please enter a valid Warm Storage contract address')
             }
 
-            return { pdpEndpoint, pandoraAddress }
+            return { pdpEndpoint, warmStorageAddress }
         }
 
-        function validateCreateProofSetInputs() {
-            const { pdpEndpoint, pandoraAddress } = validateInputs()
+        function validateCreateDataSetInputs() {
+            const { pdpEndpoint, warmStorageAddress } = validateInputs()
             const payee = document.getElementById('payee').value
 
             if (!payee || !ethers.isAddress(payee)) {
                 throw new Error('Please enter a valid storage provider address')
             }
 
-            return { pdpEndpoint, pandoraAddress, payee }
+            return { pdpEndpoint, warmStorageAddress, payee }
         }
 
         function validateAddRootsInputs() {
-            const { pdpEndpoint, pandoraAddress } = validateInputs()
+            const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
             const pdpVerifierProofSetId = parseInt(document.getElementById('pdpVerifierProofSetId').value)
             const clientDataSetId = parseInt(document.getElementById('addRootsClientDataSetId').value)
@@ -544,7 +544,7 @@ Pandora: ${pandoraAddress}`, 'success')
                 throw new Error('Please add at least one root entry')
             }
 
-            return { pdpEndpoint, pandoraAddress, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray }
+            return { pdpEndpoint, warmStorageAddress, pdpVerifierDataSetId, clientDataSetId, nextRootId, rootDataArray }
         }
 
         // Create Proof Set functionality
@@ -552,7 +552,7 @@ Pandora: ${pandoraAddress}`, 'success')
             try {
                 showStatus('Validating inputs...', 'info')
 
-                const { pdpEndpoint, pandoraAddress, payee } = validateCreateProofSetInputs()
+                const { pdpEndpoint, warmStorageAddress, payee } = validateCreateDataSetInputs()
                 const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value)
                 const withCDN = document.getElementById('withCDN').value === 'true'
 
@@ -561,13 +561,13 @@ Pandora: ${pandoraAddress}`, 'success')
 
                 // Create auth helper and PDPServer using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, chainId)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
                 showStatus('Signing and sending proof set creation...', 'info')
 
-                // Create proof set using the SDK's PDPServer
-                const result = await pdpServer.createProofSet(clientDataSetId, payee, withCDN, pandoraAddress)
+                // Create data set using the SDK's PDPServer
+                const result = await pdpServer.createDataSet(clientDataSetId, payee, withCDN, warmStorageAddress)
 
                 currentTxHash = result.txHash
                 document.getElementById('checkStatusBtn').disabled = false
@@ -593,14 +593,14 @@ Starting automatic monitoring...`, 'success')
             try {
                 showStatus('Validating inputs...', 'info')
 
-                const { pdpEndpoint, pandoraAddress, pdpVerifierProofSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
+                const { pdpEndpoint, warmStorageAddress, pdpVerifierDataSetId, clientDataSetId, nextRootId, rootDataArray } = validateAddRootsInputs()
 
 
                 showStatus('Creating PDP auth helper and server...', 'info')
 
                 // Create auth helper and PDPServer using connected MetaMask signer
                 const chainId = currentNetwork === 'mainnet' ? 314 : 314159
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, chainId)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, chainId)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
                 showStatus('Signing and sending add roots request...', 'info')
@@ -631,14 +631,14 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
             try {
                 showStatus('Checking comprehensive proof set creation status...', 'info')
 
-                const { pdpEndpoint, pandoraAddress } = validateInputs()
+                const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
                 // Create PDPServer for status checking
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                // Get comprehensive status using PandoraService
-                const comprehensiveStatus = await pandoraService.getComprehensiveProofSetStatus(
+                // Get comprehensive status using Warm StorageService
+                const comprehensiveStatus = await warmStorageService.getComprehensiveDataSetStatus(
                     currentTxHash,
                     pdpServer
                 )
@@ -702,11 +702,11 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
                     
                     // Also try to get the additional info for this new proof set
                     try {
-                        const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                        const newProofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === chain.proofSetId)
-                        if (newProofSet) {
-                            document.getElementById('addRootsClientDataSetId').value = newProofSet.clientDataSetId
-                            document.getElementById('nextRootId').value = newProofSet.nextRootId
+                        const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                        const newDataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === chain.dataSetId)
+                        if (newDataSet) {
+                            document.getElementById('addRootsClientDataSetId').value = newDataSet.clientDataSetId
+                            document.getElementById('nextRootId').value = newDataSet.nextRootId
                         }
                     } catch (e) {
                         // Ignore errors here, the proof set ID is the important part
@@ -732,11 +732,11 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
             statusPollingInterval = setInterval(async () => {
                 try {
-                    const { pdpEndpoint, pandoraAddress } = validateInputs()
-                    const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                    const { pdpEndpoint, warmStorageAddress } = validateInputs()
+                    const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                     const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                    const status = await pandoraService.getComprehensiveProofSetStatus(
+                    const status = await warmStorageService.getComprehensiveDataSetStatus(
                         currentTxHash,
                         pdpServer
                     )
@@ -802,13 +802,13 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
         // Discovery button handlers
         document.getElementById('autoFillClientDataSetId').addEventListener('click', async () => {
             try {
-                if (!pandoraService || !connectedAddress) {
+                if (!warmStorageService || !connectedAddress) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
                 showStatus('Getting next available client dataset ID...', 'info')
-                const nextId = await pandoraService.getNextClientDataSetId(connectedAddress)
+                const nextId = await warmStorageService.getNextClientDataSetId(connectedAddress)
                 document.getElementById('clientDataSetId').value = nextId
                 showStatus(`Next client dataset ID: ${nextId}`, 'success')
             } catch (error) {
@@ -819,23 +819,23 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
         document.getElementById('discoverProofSets').addEventListener('click', async () => {
             try {
-                if (!pandoraService || !connectedAddress) {
+                if (!warmStorageService || !connectedAddress) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
                 showStatus('Discovering your proof sets with detailed information...', 'info')
                 
-                const proofSetsWithDetails = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                const managedProofSets = proofSetsWithDetails.filter(ps => ps.isManaged)
+                const dataSetsWithDetails = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                const managedDataSets = dataSetsWithDetails.filter(ps => ps.isManaged)
 
-                if (proofSetsWithDetails.length === 0) {
-                    showStatus('No proof sets found for your address in this Pandora contract', 'info')
+                if (dataSetsWithDetails.length === 0) {
+                    showStatus('No data sets found for your address in this Warm Storage contract', 'info')
                     return
                 }
 
-                // Get unmanaged proof sets (those from other Pandora contracts)
-                const unmanagedProofSets = proofSetsWithDetails.filter(ps => !ps.isManaged)
+                // Get unmanaged data sets (those from other Warm Storage contracts)
+                const unmanagedDataSets = dataSetsWithDetails.filter(ps => !ps.isManaged)
 
                 let message = `Found ${proofSetsWithDetails.length} proof set(s) total:\n\n`
 
@@ -866,7 +866,7 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
                 if (managedProofSets.length > 0) {
                     message += '✨ Auto-selected the first managed proof set for adding roots.'
                 } else {
-                    message += '❌ No proof sets managed by this Pandora contract. You cannot add roots from this interface.'
+                    message += '❌ No data sets managed by this Warm Storage contract. You cannot add roots from this interface.'
                 }
 
                 showStatus(message, managedProofSets.length > 0 ? 'success' : 'info')
@@ -892,7 +892,7 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
 
         document.getElementById('autoFillAddRootsInfo').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
@@ -906,20 +906,20 @@ Next root ID will be: ${nextRootId + rootDataArray.length}`, 'success')
                 showStatus('Getting add roots information...', 'info')
                 
                 try {
-                    const proofSets = await pandoraService.getClientProofSetsWithDetails(connectedAddress)
-                    const proofSet = proofSets.find(ps => ps.pdpVerifierProofSetId === proofSetId)
+                    const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
+                    const dataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === dataSetId)
                     
                     if (!proofSet) {
                         showStatus('Proof set not found or not owned by connected wallet', 'error')
                         return
                     }
                     
-                    if (!proofSet.isManaged) {
-                        showStatus('This proof set is not managed by the current Pandora contract', 'error')
+                    if (!dataSet.isManaged) {
+                        showStatus('This data set is not managed by the current Warm Storage contract', 'error')
                         return
                     }
                     
-                    const addRootsInfo = await pandoraService.getAddRootsInfo(proofSet.pdpVerifierProofSetId)
+                    const addRootsInfo = await warmStorageService.getAddRootsInfo(dataSet.pdpVerifierDataSetId)
                     
                     // Keep the proof set ID as entered
                     document.getElementById('addRootsClientDataSetId').value = addRootsInfo.clientDataSetId
@@ -941,38 +941,38 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
             }
         })
 
-        // Pandora address change handler
-        document.getElementById('pandoraAddress').addEventListener('change', async () => {
-            const newAddress = document.getElementById('pandoraAddress').value.trim()
+        // Warm Storage address change handler
+        document.getElementById('warmStorageAddress').addEventListener('change', async () => {
+            const newAddress = document.getElementById('warmStorageAddress').value.trim()
             
             if (!newAddress) {
-                showStatus('Pandora address cannot be empty', 'error')
+                showStatus('Warm Storage address cannot be empty', 'error')
                 return
             }
             
             if (!ethers.isAddress(newAddress)) {
-                showStatus('Invalid Pandora contract address format', 'error')
+                showStatus('Invalid Warm Storage contract address format', 'error')
                 return
             }
             
             if (!provider) {
-                showStatus('Please connect MetaMask first before changing Pandora address', 'error')
+                showStatus('Please connect MetaMask first before changing Warm Storage address', 'error')
                 return
             }
             
             try {
-                // Reinitialize PandoraService with new address
-                pandoraService = new PandoraService(provider, newAddress)
-                showStatus(`PandoraService reinitialized with address: ${newAddress}`, 'success')
+                // Reinitialize Warm StorageService with new address
+                warmStorageService = new Warm StorageService(provider, newAddress)
+                showStatus(`Warm StorageService reinitialized with address: ${newAddress}`, 'success')
             } catch (error) {
-                showStatus(`Failed to reinitialize PandoraService: ${error.message}`, 'error')
+                showStatus(`Failed to reinitialize Warm StorageService: ${error.message}`, 'error')
             }
         })
 
         // List providers button handler
         document.getElementById('listProvidersBtn').addEventListener('click', async () => {
             try {
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
@@ -982,7 +982,7 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                 providersDiv.className = 'status info'
                 providersDiv.style.display = 'block'
 
-                const providers = await pandoraService.getAllApprovedProviders()
+                const providers = await warmStorageService.getAllApprovedProviders()
                 
                 if (providers.length === 0) {
                     providersDiv.textContent = 'No approved storage providers found'
@@ -1018,7 +1018,7 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
                     return
                 }
 
-                if (!pandoraService) {
+                if (!warmStorageService) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
@@ -1031,11 +1031,11 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
 
                 showStatus('Checking transaction status...', 'info')
 
-                const pandoraAddress = document.getElementById('pandoraAddress').value
-                const authHelper = new PDPAuthHelper(pandoraAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
+                const warmStorageAddress = document.getElementById('warmStorageAddress').value
+                const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, currentNetwork === 'mainnet' ? 314 : 314159)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                const comprehensiveStatus = await pandoraService.getComprehensiveProofSetStatus(txHash, pdpServer)
+                const comprehensiveStatus = await warmStorageService.getComprehensiveDataSetStatus(txHash, pdpServer)
 
                 // Build detailed status message
                 let statusMessage = `🔍 Transaction Status for ${txHash.slice(0, 10)}...:\n\n`
@@ -1073,7 +1073,7 @@ Current roots in proof set: ${addRootsInfo.currentRootCount}`, 'success')
         })
 
         // Initial setup
-        updateContractAddress() // Set initial Pandora address based on selected network
+        updateContractAddress() // Set initial Warm Storage address based on selected network
         showStatus('Welcome to the PDP Testing Tool! Connect your MetaMask wallet to begin.', 'info')
     </script>
 </body>
