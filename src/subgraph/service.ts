@@ -123,7 +123,7 @@ export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
 }
 
 /**
- * Root/piece information with data set context
+ * Piece information with data set context
  */
 export interface PieceInfo {
   id: string

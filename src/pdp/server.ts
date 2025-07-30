@@ -299,7 +299,7 @@ export class PDPServer {
     let statusUrl: string | undefined
 
     if (location != null) {
-      // Expected format: /pdp/data-sets/{proofSetId}/pieces/added/{txHash}
+      // Expected format: /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
       const locationMatch = location.match(/\/pieces\/added\/([0-9a-fA-Fx]+)$/)
       if (locationMatch != null) {
         txHash = locationMatch[1]
