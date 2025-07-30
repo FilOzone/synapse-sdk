@@ -65,13 +65,13 @@ export class PDPVerifier {
   }
 
   /**
-   * Get the data set owner addresses
+   * Get the data set storage provider addresses
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns Object with current owner and proposed owner
+   * @returns Object with current storage provider and proposed storage provider
    */
-  async getDataSetOwner (dataSetId: number): Promise<{ owner: string, proposedOwner: string }> {
-    const [owner, proposedOwner] = await this._contract.getDataSetOwner(dataSetId)
-    return { owner, proposedOwner }
+  async getDataSetStorageProvider (dataSetId: number): Promise<{ storageProvider: string, proposedStorageProvider: string }> {
+    const [storageProvider, proposedStorageProvider] = await this._contract.getDataSetStorageProvider(dataSetId)
+    return { storageProvider, proposedStorageProvider }
   }
 
   /**

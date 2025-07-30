@@ -793,6 +793,147 @@ export class WarmStorageService {
     return await contractWithSigner.unsuspendServiceProvider(providerId)
   }
 
+  /**
+   * Check if an address is an approved provider
+   * @param providerAddress - Address to check
+   * @returns Whether the address is an approved provider
+   */
+  async isProviderApproved (providerAddress: string): Promise<boolean> {
+    const contract = this._getWarmStorageContract()
+    return await contract.isProviderApproved(providerAddress)
+  }
+
+  /**
+   * Get provider ID by address
+   * @param providerAddress - Address of the provider
+   * @returns Provider ID (0 if not approved)
+   */
+  async getProviderIdByAddress (providerAddress: string): Promise<number> {
+    const contract = this._getWarmStorageContract()
+    const id = await contract.getProviderIdByAddress(providerAddress)
+    return Number(id)
+  }
+
+  /**
+   * Get information about an approved provider
+   * @param providerId - ID of the provider
+   * @returns Provider information
+   */
+  async getApprovedProvider (providerId: number): Promise<ApprovedProviderInfo> {
+    const contract = this._getWarmStorageContract()
+    const info = await contract.getApprovedProvider(providerId)
+
+    // Map new contract structure to SDK interface with backwards compatibility
+    return {
+      // New fields
+      storageProvider: info.storageProvider,
+      serviceURL: info.serviceURL,
+      peerId: ethers.toUtf8String(info.peerId),
+      registeredAt: Number(info.registeredAt),
+      approvedAt: Number(info.approvedAt),
+
+      // Legacy fields for backwards compatibility
+      owner: info.storageProvider,
+      pdpUrl: info.serviceURL,
+      pieceRetrievalUrl: info.serviceURL
+    }
+  }
+
+  /**
+   * Get information about a pending provider
+   * @param providerAddress - Address of the pending provider
+   * @returns Pending provider information
+   */
+  async getPendingProvider (providerAddress: string): Promise<PendingProviderInfo> {
+    const contract = this._getWarmStorageContract()
+    const info = await contract.getPendingProvider(providerAddress)
+
+    // Map new contract structure to SDK interface with backwards compatibility
+    return {
+      // New fields
+      serviceURL: info.serviceURL,
+      peerId: ethers.toUtf8String(info.peerId),
+      registeredAt: Number(info.registeredAt),
+
+      // Legacy fields for backwards compatibility
+      pdpUrl: info.serviceURL,
+      pieceRetrievalUrl: info.serviceURL
+    }
+  }
+
+  /**
+   * Get the next provider ID that will be assigned
+   * @returns Next provider ID
+   */
+  async getNextProviderId (): Promise<number> {
+    const contract = this._getWarmStorageContract()
+    const id = await contract.nextServiceProviderId()
+    return Number(id)
+  }
+
+  /**
+   * Get the contract owner address
+   * @returns Owner address
+   */
+  async getOwner (): Promise<string> {
+    const contract = this._getWarmStorageContract()
+    return await contract.owner()
+  }
+
+  /**
+   * Check if a signer is the contract owner
+   * @param signer - Signer to check
+   * @returns Whether the signer is the owner
+   */
+  async isOwner (signer: ethers.Signer): Promise<boolean> {
+    const signerAddress = await signer.getAddress()
+    const ownerAddress = await this.getOwner()
+    return signerAddress.toLowerCase() === ownerAddress.toLowerCase()
+  }
+
+  /**
+   * Get all approved providers
+   * @returns Array of all approved providers
+   */
+  async getAllApprovedProviders (): Promise<ApprovedProviderInfo[]> {
+    const contract = this._getWarmStorageContract()
+    const providers = await contract.getAllApprovedProviders()
+
+    return providers.map((p: any) => ({
+      // New fields
+      storageProvider: p.storageProvider,
+      serviceURL: p.serviceURL,
+      peerId: ethers.toUtf8String(p.peerId),
+      registeredAt: Number(p.registeredAt),
+      approvedAt: Number(p.approvedAt),
+
+      // Legacy fields for backwards compatibility
+      owner: p.storageProvider,
+      pdpUrl: p.serviceURL,
+      pieceRetrievalUrl: p.serviceURL
+    }))
+  }
+
+  /**
+   * Get the service pricing information from the contract
+   * @returns Service pricing details
+   */
+  async getServicePrice (): Promise<{
+    pricePerTiBPerMonthNoCDN: bigint
+    pricePerTiBPerMonthWithCDN: bigint
+    tokenAddress: string
+    epochsPerMonth: bigint
+  }> {
+    const contract = this._getWarmStorageContract()
+    const result = await contract.getServicePrice()
+    return {
+      pricePerTiBPerMonthNoCDN: result.pricePerTiBPerMonthNoCDN,
+      pricePerTiBPerMonthWithCDN: result.pricePerTiBPerMonthWithCDN,
+      tokenAddress: result.tokenAddress,
+      epochsPerMonth: result.epochsPerMonth
+    }
+  }
+
   // ========== Proving Period Operations ==========
 
   /**

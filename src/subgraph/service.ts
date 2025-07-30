@@ -110,7 +110,7 @@ export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
   nextChallengeEpoch: number
   totalFaultedPeriods: number
   metadata: string
-  owner: ApprovedProviderInfo
+  storageProvider: ApprovedProviderInfo
   rail?: {
     id: string
     railId: number
@@ -145,7 +145,7 @@ export interface PieceInfo {
     id: string
     setId: number
     isActive: boolean
-    owner: ApprovedProviderInfo
+    storageProvider: ApprovedProviderInfo
   }
 }
 
@@ -164,7 +164,7 @@ export interface FaultRecord {
   dataSet: {
     id: string
     setId: number
-    owner: ApprovedProviderInfo
+    storageProvider: ApprovedProviderInfo
   }
 }
 
@@ -381,7 +381,7 @@ export class SubgraphService implements SubgraphRetrievalService {
     }
 
     const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
-      const provider = piece.dataSet.owner
+      const provider = piece.dataSet.storageProvider
       const address = provider?.address?.toLowerCase() as string
 
       if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
@@ -525,9 +525,9 @@ export class SubgraphService implements SubgraphRetrievalService {
         dataSet.owner != null
           ? this.transformProviderData(dataSet.owner)
           : {
-              owner: '',
-              pdpUrl: '',
-              pieceRetrievalUrl: '',
+              storageProvider: '',
+              serviceURL: '',
+              peerId: '',
               registeredAt: 0,
               approvedAt: 0
             },
@@ -602,7 +602,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        owner: this.transformProviderData(piece.dataSet.owner)
+        storageProvider: this.transformProviderData(piece.dataSet.storageProvider)
       }
     }))
   }
@@ -653,7 +653,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        owner: this.transformProviderData(fault.dataSet.owner)
+        storageProvider: this.transformProviderData(fault.dataSet.storageProvider)
       }
     }))
   }

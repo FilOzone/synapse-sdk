@@ -10,17 +10,17 @@ const mockCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4yn
 
 // Mock provider info
 const mockProvider1: ApprovedProviderInfo = {
-  owner: '0x1234567890123456789012345678901234567890',
-  pdpUrl: 'https://provider1.example.com',
-  pieceRetrievalUrl: 'https://provider1.example.com/retrieve',
+  storageProvider: '0x1234567890123456789012345678901234567890',
+  serviceURL: 'https://provider1.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
 
 const mockProvider2: ApprovedProviderInfo = {
-  owner: '0x2345678901234567890123456789012345678901',
-  pdpUrl: 'https://provider2.example.com',
-  pieceRetrievalUrl: 'https://provider2.example.com/retrieve',
+  storageProvider: '0x2345678901234567890123456789012345678901',
+  serviceURL: 'https://provider2.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
@@ -40,7 +40,7 @@ const mockChildRetriever: PieceRetriever = {
 const mockDataSet: EnhancedDataSetInfo = {
   railId: 1,
   payer: '0xClient',
-  payee: mockProvider1.owner,
+  payee: mockProvider1.storageProvider,
   commissionBps: 100,
   metadata: '',
   pieceMetadata: [],
@@ -57,7 +57,7 @@ describe('ChainRetriever', () => {
   describe('fetchPiece with specific provider', () => {
     it('should fetch from specific provider when providerAddress is given', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async (addr: string) => addr === mockProvider1.owner ? 1 : 0,
+        getProviderIdByAddress: async (addr: string) => addr === mockProvider1.storageProvider ? 1 : 0,
         getApprovedProvider: async (id: number) => {
           if (id === 1) return mockProvider1
           throw new Error('Provider not found')
@@ -87,7 +87,7 @@ describe('ChainRetriever', () => {
         const response = await retriever.fetchPiece(
           mockCommP,
           '0xClient',
-          { providerAddress: mockProvider1.owner }
+          { providerAddress: mockProvider1.storageProvider }
         )
 
         assert.isTrue(findPieceCalled, 'Should call findPiece')
@@ -143,15 +143,15 @@ describe('ChainRetriever', () => {
       }]
 
       const providers = [{
-        owner: '0xProvider1',
-        pdpUrl: 'https://pdp1.example.com',
-        pieceRetrievalUrl: 'https://retrieve1.example.com',
+        storageProvider: '0xProvider1',
+        serviceURL: 'https://pdp1.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 0,
         approvedAt: 0
       }, {
-        owner: '0xProvider2',
-        pdpUrl: 'https://pdp2.example.com',
-        pieceRetrievalUrl: 'https://retrieve2.example.com',
+        storageProvider: '0xProvider2',
+        serviceURL: 'https://pdp2.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 0,
         approvedAt: 0
       }]
@@ -186,11 +186,14 @@ describe('ChainRetriever', () => {
         if (url.includes('pdp2.example.com')) {
           // Simulate network delay
           await new Promise(resolve => setTimeout(resolve, 50))
-          return new Response(null, { status: 200 })
-        }
 
-        if (url.includes('retrieve2.example.com')) {
-          return new Response('success from provider 2', { status: 200 })
+          // Check if it's a piece retrieval
+          if (url.includes('/piece/')) {
+            return new Response('success from provider 2', { status: 200 })
+          }
+
+          // Otherwise it's a findPiece call
+          return new Response(null, { status: 200 })
         }
 
         throw new Error(`Unexpected URL: ${url}`)
@@ -211,11 +214,11 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [
           mockDataSet,
-          { ...mockDataSet, payee: mockProvider2.owner }
+          { ...mockDataSet, payee: mockProvider2.storageProvider }
         ],
         getProviderIdByAddress: async (addr: string) => {
-          if (addr === mockProvider1.owner) return 1
-          if (addr === mockProvider2.owner) return 2
+          if (addr === mockProvider1.storageProvider) return 1
+          if (addr === mockProvider2.storageProvider) return 2
           return 0
         },
         getApprovedProvider: async (id: number) => {
@@ -371,7 +374,7 @@ describe('ChainRetriever', () => {
           mockCommP,
           '0xClient',
           {
-            providerAddress: mockProvider1.owner,
+            providerAddress: mockProvider1.storageProvider,
             signal: controller.signal
           }
         )

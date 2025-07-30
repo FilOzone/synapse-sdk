@@ -589,14 +589,14 @@ describe('WarmStorageService', () => {
         const data = transaction.data
         if (data?.startsWith('0x1c7db86a') === true) { // getApprovedProvider selector
           const providerInfo = [
-            '0x1234567890123456789012345678901234567890', // owner
-            'https://pdp.provider.com', // pdpUrl
-            'https://retrieval.provider.com', // pieceRetrievalUrl
+            '0x1234567890123456789012345678901234567890', // storageProvider
+            'https://pdp.provider.com', // serviceURL
+            ethers.hexlify(ethers.toUtf8Bytes('test-peer-id')), // peerId
             1234567890n, // registeredAt
             1234567900n // approvedAt
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)'],
+            ['tuple(address,string,bytes,uint256,uint256)'],
             [providerInfo]
           )
         }
@@ -604,9 +604,9 @@ describe('WarmStorageService', () => {
       }
 
       const info = await warmStorageService.getApprovedProvider(1)
-      assert.equal(info.owner.toLowerCase(), '0x1234567890123456789012345678901234567890')
-      assert.equal(info.pdpUrl, 'https://pdp.provider.com')
-      assert.equal(info.pieceRetrievalUrl, 'https://retrieval.provider.com')
+      assert.equal(info.storageProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
+      assert.equal(info.serviceURL, 'https://pdp.provider.com')
+      assert.equal(info.peerId, 'test-peer-id')
       assert.equal(info.registeredAt, 1234567890)
       assert.equal(info.approvedAt, 1234567900)
     })
@@ -614,23 +614,23 @@ describe('WarmStorageService', () => {
     it('should get pending provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x3faef523') === true) { // pendingProviders selector
+        if (data?.startsWith('0x1746feb6') === true) { // getPendingProvider selector
           const pendingInfo = [
-            'https://pdp.pending.com', // pdpUrl
-            'https://retrieval.pending.com', // pieceRetrievalUrl
+            'https://pdp.pending.com', // serviceURL
+            ethers.hexlify(ethers.toUtf8Bytes('pending-peer-id')), // peerId
             1234567880n // registeredAt
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['string', 'string', 'uint256'],
-            pendingInfo
+            ['tuple(string,bytes,uint256)'],
+            [pendingInfo]
           )
         }
         return '0x' + '0'.repeat(64)
       }
 
       const info = await warmStorageService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
-      assert.equal(info.pdpUrl, 'https://pdp.pending.com')
-      assert.equal(info.pieceRetrievalUrl, 'https://retrieval.pending.com')
+      assert.equal(info.serviceURL, 'https://pdp.pending.com')
+      assert.equal(info.peerId, 'pending-peer-id')
       assert.equal(info.registeredAt, 1234567880)
     })
 

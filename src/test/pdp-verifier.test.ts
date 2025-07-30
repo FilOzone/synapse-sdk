@@ -82,25 +82,25 @@ describe('PDPVerifier', () => {
     })
   })
 
-  describe('getDataSetOwner', () => {
-    it('should get proof set owner', async () => {
-      const owner = '0x1234567890123456789012345678901234567890'
-      const proposedOwner = '0xabcdef1234567890123456789012345678901234'
+  describe('getDataSetStorageProvider', () => {
+    it('should get data set storage provider', async () => {
+      const storageProvider = '0x1234567890123456789012345678901234567890'
+      const proposedStorageProvider = '0xabcdef1234567890123456789012345678901234'
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x358842ee') === true) { // getDataSetOwner selector
+        if (data?.startsWith('0x21b7cd1c') === true) { // getDataSetStorageProvider selector
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['address', 'address'],
-            [owner, proposedOwner]
+            [storageProvider, proposedStorageProvider]
           )
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const result = await pdpVerifier.getDataSetOwner(123)
-      assert.equal(result.owner.toLowerCase(), owner.toLowerCase())
-      assert.equal(result.proposedOwner.toLowerCase(), proposedOwner.toLowerCase())
+      const result = await pdpVerifier.getDataSetStorageProvider(123)
+      assert.equal(result.storageProvider.toLowerCase(), storageProvider.toLowerCase())
+      assert.equal(result.proposedStorageProvider.toLowerCase(), proposedStorageProvider.toLowerCase())
     })
   })
 

@@ -53,10 +53,10 @@ describe('SubgraphService', () => {
               id: mockCommP.toString(),
               dataSet: {
                 setId: '1',
-                owner: {
+                storageProvider: {
                   id: '0x123',
-                  pdpUrl: 'http://provider.url/pdp',
-                  pieceRetrievalUrl: 'http://provider.url/piece',
+                  serviceURL: 'http://provider.url/pdp',
+                  // pieceRetrievalUrl: 'http://provider.url/piece', // Combined into serviceURL
                   status: 'Approved',
                   address: '0x123'
                 }
@@ -81,7 +81,7 @@ describe('SubgraphService', () => {
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
-        assert.equal(providers[0].owner, '0x123')
+        assert.equal(providers[0].storageProvider, '0x123')
       } finally {
         global.fetch = originalFetch
       }
@@ -179,8 +179,8 @@ describe('SubgraphService', () => {
         data: {
           provider: {
             id: mockAddress,
-            pdpUrl: 'http://provider.url/pdp',
-            pieceRetrievalUrl: 'http://provider.url/piece'
+            serviceURL: 'http://provider.url/pdp'
+            // pieceRetrievalUrl: 'http://provider.url/piece' // Combined into serviceURL
           }
         }
       }
@@ -190,7 +190,7 @@ describe('SubgraphService', () => {
       const provider = await service.getProviderByAddress(mockAddress)
 
       assert.isNotNull(provider)
-      assert.equal(provider?.owner, mockAddress)
+      assert.equal(provider?.storageProvider, mockAddress)
     })
 
     it('should return null if provider not found', async () => {
@@ -265,16 +265,16 @@ describe('SubgraphService', () => {
               {
                 id: '0x123',
                 address: '0x123',
-                pdpUrl: 'https://provider1.com',
-                pieceRetrievalUrl: 'https://retrieval1.com',
+                serviceURL: 'https://provider1.com',
+                // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               },
               {
                 id: '0x456',
                 address: '0x456',
-                pdpUrl: 'https://provider2.com',
-                pieceRetrievalUrl: 'https://retrieval2.com',
+                serviceURL: 'https://provider2.com',
+                // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                 registeredAt: '1640995300',
                 approvedAt: '1641081700'
               }
@@ -302,8 +302,8 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 2)
-          assert.equal(providers[0].owner, '0x123')
-          assert.equal(providers[1].owner, '0x456')
+          assert.equal(providers[0].storageProvider, '0x123')
+          assert.equal(providers[1].storageProvider, '0x456')
         } finally {
           global.fetch = originalFetch
         }
@@ -316,8 +316,8 @@ describe('SubgraphService', () => {
               {
                 id: '0x123',
                 address: '0x123',
-                pdpUrl: 'https://provider1.com',
-                pieceRetrievalUrl: 'https://retrieval1.com',
+                serviceURL: 'https://provider1.com',
+                // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               }
@@ -353,7 +353,7 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 1)
-          assert.equal(providers[0].owner, '0x123')
+          assert.equal(providers[0].storageProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -412,11 +412,11 @@ describe('SubgraphService', () => {
                 metadata: 'test metadata',
                 createdAt: '1640995200',
                 updatedAt: '1641081600',
-                owner: {
+                storageProvider: {
                   id: '0x123',
                   address: '0x123',
-                  pdpUrl: 'https://provider1.com',
-                  pieceRetrievalUrl: 'https://retrieval1.com',
+                  serviceURL: 'https://provider1.com',
+                  // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                   registeredAt: '1640995200',
                   approvedAt: '1641081600'
                 },
@@ -454,7 +454,7 @@ describe('SubgraphService', () => {
           assert.equal(dataSets[0].id, 'proof-set-1')
           assert.equal(dataSets[0].setId, 1)
           assert.equal(dataSets[0].isActive, true)
-          assert.equal(dataSets[0].owner.owner, '0x123')
+          assert.equal(dataSets[0].storageProvider.storageProvider, '0x123')
           assert.isObject(dataSets[0].rail)
           assert.equal(dataSets[0].rail?.railId, 1)
         } finally {
@@ -486,11 +486,11 @@ describe('SubgraphService', () => {
                 metadata: 'active proof set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
-                owner: {
+                storageProvider: {
                   id: '0x456',
                   address: '0x456',
-                  pdpUrl: 'https://provider2.com',
-                  pieceRetrievalUrl: 'https://retrieval2.com',
+                  serviceURL: 'https://provider2.com',
+                  // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                   registeredAt: '1640995300',
                   approvedAt: '1641081700'
                 },
@@ -556,11 +556,11 @@ describe('SubgraphService', () => {
                   id: 'proof-set-1',
                   setId: '1',
                   isActive: true,
-                  owner: {
+                  storageProvider: {
                     id: '0x123',
                     address: '0x123',
-                    pdpUrl: 'https://provider1.com',
-                    pieceRetrievalUrl: 'https://retrieval1.com',
+                    serviceURL: 'https://provider1.com',
+                    // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -590,7 +590,7 @@ describe('SubgraphService', () => {
           assert.equal(pieces[0].id, 'piece-1')
           assert.equal(pieces[0].pieceId, 100)
           assert.equal(pieces[0].removed, false)
-          assert.equal(pieces[0].dataSet.owner.owner, '0x123')
+          assert.equal(pieces[0].dataSet.storageProvider.storageProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -620,11 +620,11 @@ describe('SubgraphService', () => {
                   id: 'proof-set-2',
                   setId: '2',
                   isActive: true,
-                  owner: {
+                  storageProvider: {
                     id: '0x456',
                     address: '0x456',
-                    pdpUrl: 'https://provider2.com',
-                    pieceRetrievalUrl: 'https://retrieval2.com',
+                    serviceURL: 'https://provider2.com',
+                    // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }
@@ -685,11 +685,11 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'proof-set-1',
                   setId: '1',
-                  owner: {
+                  storageProvider: {
                     id: '0x123',
                     address: '0x123',
-                    pdpUrl: 'https://provider1.com',
-                    pieceRetrievalUrl: 'https://retrieval1.com',
+                    serviceURL: 'https://provider1.com',
+                    // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -719,7 +719,7 @@ describe('SubgraphService', () => {
           assert.equal(faultRecords[0].id, 'fault-1')
           assert.equal(faultRecords[0].dataSetId, 1)
           assert.deepEqual(faultRecords[0].pieceIds, [100, 101, 102])
-          assert.equal(faultRecords[0].dataSet.owner.owner, '0x123')
+          assert.equal(faultRecords[0].dataSet.storageProvider.storageProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -741,11 +741,11 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'proof-set-2',
                   setId: '2',
-                  owner: {
+                  storageProvider: {
                     id: '0x456',
                     address: '0x456',
-                    pdpUrl: 'https://provider2.com',
-                    pieceRetrievalUrl: 'https://retrieval2.com',
+                    serviceURL: 'https://provider2.com',
+                    // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }
