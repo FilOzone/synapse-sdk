@@ -17,7 +17,7 @@
  * Environment variables:
  *   PRIVATE_KEY     - Your Ethereum private key (with 0x prefix)
  *   RPC_URL         - Filecoin RPC endpoint (defaults to calibration)
- *   PANDORA_ADDRESS - Pandora service contract address (optional)
+ *   WARM_STORAGE_ADDRESS - Warm Storage service contract address (optional)
  *   LOCALE          - Date/time locale (optional, defaults to system locale)
  *
  * Examples:
@@ -36,7 +36,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS // Optional
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 
 // Parse command line arguments
 const args = process.argv.slice(2)
@@ -120,8 +120,8 @@ async function main () {
       rpcURL: RPC_URL
     }
 
-    if (PANDORA_ADDRESS) {
-      synapseOptions.pandoraAddress = PANDORA_ADDRESS
+    if (WARM_STORAGE_ADDRESS) {
+      synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
     }
 
     const synapse = await Synapse.create(synapseOptions)
