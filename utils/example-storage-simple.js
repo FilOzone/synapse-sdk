@@ -42,7 +42,7 @@ async function main () {
   // Create storage service
   const storage = await synapse.createStorage()
   console.log('Storage provider:', storage.storageProvider)
-  console.log('Proof set ID:', storage.proofSetId)
+  console.log('Data set ID:', storage.dataSetId)
 
   // Create test data (must be at least 65 bytes for CommP calculation)
   const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for CommP calculation.\n'

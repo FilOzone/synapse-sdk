@@ -46,47 +46,47 @@ describe('PDP Validation', function () {
       )
     })
 
-    it('should validate response with lowercase proofsetCreated field (Curio compatibility)', function () {
+    it('should validate response with lowercase datasetCreated field (Curio compatibility)', function () {
       // NOTE: This test ensures forward compatibility with Curio
-      // Curio currently returns "proofsetCreated" (lowercase 's') but this SDK normalizes to "proofSetCreated" (uppercase 'S')
+      // Curio currently returns "datasetCreated" (lowercase 's') but this SDK normalizes to "dataSetCreated" (uppercase 'S')
       const curioResponse = {
         createMessageHash: '0x6a599b48ec4624250b4629c7bfeb4c1a0f51cdc9bd05a5993caf1e873e924f09',
-        proofsetCreated: true, // NOTE: lowercase 's' - this is what Curio currently returns
+        datasetCreated: true, // NOTE: lowercase 's' - this is what Curio currently returns
         service: 'public',
         txStatus: 'confirmed',
         ok: true,
-        proofSetId: 481
+        dataSetId: 481
       }
 
-      assert.isTrue(isProofSetCreationStatusResponse(curioResponse))
-      const normalized = validateProofSetCreationStatusResponse(curioResponse)
+      assert.isTrue(isDataSetCreationStatusResponse(curioResponse))
+      const normalized = validateDataSetCreationStatusResponse(curioResponse)
 
       // Verify normalization - should have uppercase 'S' in final response
-      assert.equal(normalized.proofSetCreated, true)
+      assert.equal(normalized.dataSetCreated, true)
       assert.equal(normalized.createMessageHash, curioResponse.createMessageHash)
       assert.equal(normalized.service, curioResponse.service)
       assert.equal(normalized.txStatus, curioResponse.txStatus)
       assert.equal(normalized.ok, curioResponse.ok)
-      assert.equal(normalized.proofSetId, curioResponse.proofSetId)
+      assert.equal(normalized.dataSetId, curioResponse.dataSetId)
     })
 
-    it('should validate response with both proofSetCreated and proofsetCreated fields', function () {
-      // Edge case: if both fields are present, prefer proofSetCreated
+    it('should validate response with both dataSetCreated and datasetCreated fields', function () {
+      // Edge case: if both fields are present, prefer dataSetCreated
       const mixedResponse = {
         createMessageHash: '0x123abc',
-        proofSetCreated: true,
-        proofsetCreated: false, // This should be ignored
-        service: 'pandora',
+        dataSetCreated: true,
+        datasetCreated: false, // This should be ignored
+        service: 'warmStorage',
         txStatus: 'confirmed',
         ok: true,
-        proofSetId: 123
+        dataSetId: 123
       }
 
-      assert.isTrue(isProofSetCreationStatusResponse(mixedResponse))
-      const normalized = validateProofSetCreationStatusResponse(mixedResponse)
+      assert.isTrue(isDataSetCreationStatusResponse(mixedResponse))
+      const normalized = validateDataSetCreationStatusResponse(mixedResponse)
 
-      // Should prefer proofSetCreated over proofsetCreated
-      assert.equal(normalized.proofSetCreated, true)
+      // Should prefer dataSetCreated over datasetCreated
+      assert.equal(normalized.dataSetCreated, true)
     })
 
     it('should reject invalid responses', function () {
@@ -328,7 +328,7 @@ describe('PDP Validation', function () {
 
   describe('DataSetData validation', function () {
     it('should validate and convert valid data set data', function () {
-      const validProofSetData = {
+      const validDataSetData = {
         id: 123,
         pieces: [
           {
@@ -341,19 +341,19 @@ describe('PDP Validation', function () {
         nextChallengeEpoch: 456
       }
 
-      const converted = asDataSetData(validProofSetData)
+      const converted = asDataSetData(validDataSetData)
       assert.isNotNull(converted)
-      assert.equal(converted?.id, validProofSetData.id)
-      assert.equal(converted?.nextChallengeEpoch, validProofSetData.nextChallengeEpoch)
-      assert.equal(converted?.pieces.length, validProofSetData.pieces.length)
-      assert.equal(converted?.pieces[0].pieceId, validProofSetData.pieces[0].pieceId)
-      assert.equal(converted?.pieces[0].pieceCid.toString(), validProofSetData.pieces[0].pieceCid)
-      assert.equal(converted?.pieces[0].subpieceCid.toString(), validProofSetData.pieces[0].subpieceCid)
-      assert.equal(converted?.pieces[0].subpieceOffset, validProofSetData.pieces[0].subpieceOffset)
+      assert.equal(converted?.id, validDataSetData.id)
+      assert.equal(converted?.nextChallengeEpoch, validDataSetData.nextChallengeEpoch)
+      assert.equal(converted?.pieces.length, validDataSetData.pieces.length)
+      assert.equal(converted?.pieces[0].pieceId, validDataSetData.pieces[0].pieceId)
+      assert.equal(converted?.pieces[0].pieceCid.toString(), validDataSetData.pieces[0].pieceCid)
+      assert.equal(converted?.pieces[0].subpieceCid.toString(), validDataSetData.pieces[0].subpieceCid)
+      assert.equal(converted?.pieces[0].subpieceOffset, validDataSetData.pieces[0].subpieceOffset)
     })
 
     it('should validate and convert data set data with multiple pieces', function () {
-      const validProofSetData = {
+      const validDataSetData = {
         id: 123,
         pieces: [
           {
@@ -372,7 +372,7 @@ describe('PDP Validation', function () {
         nextChallengeEpoch: 456
       }
 
-      const converted = asDataSetData(validProofSetData)
+      const converted = asDataSetData(validDataSetData)
       assert.isNotNull(converted)
       assert.equal(converted?.pieces.length, 2)
     })
@@ -411,7 +411,7 @@ describe('PDP Validation', function () {
     })
 
     it('should throw error when validating invalid data set data', function () {
-      const invalidProofSetData = {
+      const invalidDataSetData = {
         id: 'not-a-number',
         pieces: [],
         nextChallengeEpoch: 456
@@ -419,7 +419,7 @@ describe('PDP Validation', function () {
 
       assert.throws(
         () => {
-          const converted = asDataSetData(invalidProofSetData)
+          const converted = asDataSetData(invalidDataSetData)
           if (converted == null) throw new Error('Invalid data set data response format')
         },
         Error,

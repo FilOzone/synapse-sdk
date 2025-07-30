@@ -42,7 +42,7 @@ const createMockSubgraphService = (
     },
     getProviderByAddress: async (address: string): Promise<ApprovedProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : providersToReturn ?? []
-      return providers.find((p) => p.owner === address) ?? null
+      return providers.find((p) => (p.storageProvider ?? p.owner) === address) ?? null
     }
   } as any
 

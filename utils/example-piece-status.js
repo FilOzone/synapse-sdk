@@ -7,12 +7,12 @@
  * including whether it exists, when it was last proven, and when the next proof is due.
  *
  * Usage:
- *   node example-piece-status.js <commp> [providerAddress[, proofSetId]]
+ *   node example-piece-status.js <commp> [providerAddress[, dataSetId]]
  *
  * Arguments:
  *   commp           - Required: The CommP (piece commitment) to check
  *   providerAddress - Optional: Specific provider address to check
- *   proofSetId      - Optional: Specific proof set ID to use
+ *   dataSetId      - Optional: Specific data set ID to use
  *
  * Environment variables:
  *   PRIVATE_KEY     - Your Ethereum private key (with 0x prefix)
@@ -27,7 +27,7 @@
  *   # Check piece on specific provider
  *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123...
  *
- *   # Check piece with specific provider and proof set
+ *   # Check piece with specific provider and data set
  *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123... 456
  */
 
@@ -42,18 +42,18 @@ const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS // Optional
 const args = process.argv.slice(2)
 const commp = args[0]
 const providerAddress = args[1]
-const proofSetId = args[2] ? parseInt(args[2]) : undefined
+const dataSetId = args[2] ? parseInt(args[2]) : undefined
 
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, proofSetId]]')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
 if (!commp) {
   console.error('ERROR: CommP argument is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, proofSetId]]')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
@@ -109,8 +109,8 @@ async function main () {
     if (providerAddress) {
       console.log(`Provider: ${providerAddress}`)
     }
-    if (proofSetId !== undefined) {
-      console.log(`Proof Set ID: ${proofSetId}`)
+    if (dataSetId !== undefined) {
+      console.log(`Data Set ID: ${dataSetId}`)
     }
 
     // Initialize Synapse SDK
@@ -136,9 +136,9 @@ async function main () {
       storageOptions.providerAddress = providerAddress
     }
 
-    // Add proof set ID if specified
-    if (proofSetId !== undefined) {
-      storageOptions.proofSetId = proofSetId
+    // Add data set ID if specified
+    if (dataSetId !== undefined) {
+      storageOptions.dataSetId = dataSetId
     }
 
     // Add callbacks to show what's happening
@@ -146,8 +146,8 @@ async function main () {
       onProviderSelected: (provider) => {
         console.log(`✓ Using provider: ${provider.owner}`)
       },
-      onProofSetResolved: (info) => {
-        console.log(`✓ Using proof set: ${info.proofSetId}`)
+      onDataSetResolved: (info) => {
+        console.log(`✓ Using data set: ${info.dataSetId}`)
       }
     }
 
@@ -180,16 +180,16 @@ async function main () {
     }
 
     // Proof timing
-    console.log('\n⏱️  Proof Set Timing (proofs cover all pieces in the set):')
+    console.log('\n⏱️  Data Set Timing (proofs cover all pieces in the set):')
 
-    if (status.proofSetLastProven) {
-      console.log(`   Proof set last proven: ${formatDate(status.proofSetLastProven)} (${formatTimeDiff(status.proofSetLastProven)})`)
+    if (status.dataSetLastProven) {
+      console.log(`   Data set last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`)
     } else {
-      console.log('   Proof set last proven: Never (proof set not yet proven)')
+      console.log('   Data set last proven: Never (data set not yet proven)')
     }
 
-    if (status.proofSetNextProofDue) {
-      console.log(`   Proof set next proof due: ${formatDate(status.proofSetNextProofDue)} (${formatTimeDiff(status.proofSetNextProofDue)})`)
+    if (status.dataSetNextProofDue) {
+      console.log(`   Data set next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`)
 
       // Challenge window status
       if (status.isProofOverdue) {
@@ -197,7 +197,7 @@ async function main () {
         console.log('   The storage provider has missed the proof deadline and may face penalties.')
       } else if (status.inChallengeWindow) {
         // Calculate time remaining in challenge window
-        const timeRemaining = status.proofSetNextProofDue.getTime() - new Date().getTime()
+        const timeRemaining = status.dataSetNextProofDue.getTime() - new Date().getTime()
         const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
         console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
         console.log(`   The storage provider has ${minutesRemaining} minutes to submit a proof.`)
@@ -205,13 +205,13 @@ async function main () {
         console.log(`\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
       }
     } else {
-      console.log('   Proof set next proof due: Not scheduled')
+      console.log('   Data set next proof due: Not scheduled')
     }
 
     // Additional info
     console.log('\n📝 Storage Details:')
     console.log(`   Provider: ${storage.storageProvider}`)
-    console.log(`   Proof Set: ${storage.proofSetId}`)
+    console.log(`   Data Set: ${storage.dataSetId}`)
 
     // Summary
     console.log('\n' + '─'.repeat(50))
@@ -221,7 +221,7 @@ async function main () {
       console.log('⚠️  Status: Proof urgently needed')
     } else if (status.hoursUntilChallengeWindow && status.hoursUntilChallengeWindow < 24) {
       console.log('⏰ Status: Proof needed soon')
-    } else if (status.proofSetNextProofDue) {
+    } else if (status.dataSetNextProofDue) {
       console.log('✅ Status: All good')
     } else {
       console.log('❓ Status: Unknown (no proof schedule)')

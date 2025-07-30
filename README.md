@@ -4,7 +4,7 @@
 
 A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
 
-> ⚠️ **BREAKING CHANGES in v0.20.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, and **Roots** are now **Pieces**. See the [Terminology Update](#terminology-update-v0200) section for migration instructions.
+> ⚠️ **BREAKING CHANGES in v0.21.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, and **Roots** are now **Pieces**. See the [Terminology Update](#terminology-update-v0200) section for migration instructions.
 
 ## Overview
 
@@ -965,9 +965,9 @@ const tx = await synapse.payments.deposit(amount, TOKENS.USDFC, {
 })
 ```
 
-### Terminology Update (v0.20.0+)
+### Terminology Update (v0.21.0+)
 
-Starting with version 0.20.0, the SDK introduces comprehensive terminology changes to better align with Filecoin ecosystem conventions:
+Starting with version 0.21.0, the SDK introduces comprehensive terminology changes to better align with Filecoin ecosystem conventions:
 
 - **Pandora** → **Warm Storage**
 - **Proof Sets** → **Data Sets**
@@ -982,14 +982,14 @@ This is a breaking change that affects imports, type names, method names, and co
 import { PandoraService } from '@filoz/synapse-sdk/pandora'
 ```
 
-**After (v0.20.0+):**
+**After (v0.21.0+):**
 ```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 ```
 
 #### Type Name Changes
 
-| Old Type (< v0.20.0) | New Type (v0.20.0+) |
+| Old Type (< v0.21.0) | New Type (v0.21.0+) |
 |----------------------|---------------------|
 | `ProofSetId` | `DataSetId` |
 | `RootData` | `PieceData` |
@@ -1002,49 +1002,49 @@ import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
 **Synapse Class:**
 ```typescript
-// Before (< v0.20.0)
+// Before (< v0.21.0)
 synapse.getPandoraAddress()
 
-// After (v0.20.0+)
+// After (v0.21.0+)
 synapse.getWarmStorageAddress()
 ```
 
 **WarmStorageService (formerly PandoraService):**
 ```typescript
-// Before (< v0.20.0)
+// Before (< v0.21.0)
 pandoraService.getClientProofSets(client)
 pandoraService.getAddRootsInfo(proofSetId)
 
-// After (v0.20.0+)
+// After (v0.21.0+)
 warmStorageService.getClientDataSets(client)
 warmStorageService.getAddPiecesInfo(dataSetId)
 ```
 
 **PDPAuthHelper:**
 ```typescript
-// Before (< v0.20.0)
+// Before (< v0.21.0)
 authHelper.signCreateProofSet(storageProvider, clientDataSetId)
 authHelper.signAddRoots(proofSetId, rootData)
 
-// After (v0.20.0+)
+// After (v0.21.0+)
 authHelper.signCreateDataSet(storageProvider, clientDataSetId)
 authHelper.signAddPieces(dataSetId, pieceData)
 ```
 
 **PDPServer:**
 ```typescript
-// Before (< v0.20.0)
+// Before (< v0.21.0)
 pdpServer.createProofSet(storageProvider, clientDataSetId)
 pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
 
-// After (v0.20.0+)
+// After (v0.21.0+)
 pdpServer.createDataSet(storageProvider, clientDataSetId)
 pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
 ```
 
 #### Configuration Changes
 
-**Before (< v0.20.0):**
+**Before (< v0.21.0):**
 ```typescript
 const synapse = await Synapse.create({
   pandoraAddress: '0x...',
@@ -1052,7 +1052,7 @@ const synapse = await Synapse.create({
 })
 ```
 
-**After (v0.20.0+):**
+**After (v0.21.0+):**
 ```typescript
 const synapse = await Synapse.create({
   warmStorageAddress: '0x...',
@@ -1062,7 +1062,7 @@ const synapse = await Synapse.create({
 
 #### Complete Migration Example
 
-**Before (< v0.20.0):**
+**Before (< v0.21.0):**
 ```typescript
 import { PandoraService } from '@filoz/synapse-sdk/pandora'
 
@@ -1074,7 +1074,7 @@ for (const proofSet of proofSets) {
 }
 ```
 
-**After (v0.20.0+):**
+**After (v0.21.0+):**
 ```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
@@ -1088,7 +1088,7 @@ for (const dataSet of dataSets) {
 
 #### Migration Checklist
 
-When upgrading from versions prior to v0.20.0:
+When upgrading from versions prior to v0.21.0:
 
 1. **Update imports** - Replace `@filoz/synapse-sdk/pandora` with `@filoz/synapse-sdk/warm-storage`
 2. **Update type references** - Replace all `ProofSet`/`proofSet` with `DataSet`/`dataSet` and `Root`/`root` with `Piece`/`piece`
@@ -1097,7 +1097,7 @@ When upgrading from versions prior to v0.20.0:
 5. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
 6. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
 
-Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.20.0 or later.
+Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.21.0 or later.
 
 ## License
 

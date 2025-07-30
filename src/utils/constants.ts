@@ -52,18 +52,18 @@ export const CONTRACT_ABIS = {
    */
   WARM_STORAGE: [
     // Write functions
-    'function registerServiceProvider(string pdpUrl, string pieceRetrievalUrl) external',
+    'function registerServiceProvider(string serviceURL, bytes peerId) external',
     'function approveServiceProvider(address provider) external',
     'function rejectServiceProvider(address provider) external',
     'function removeServiceProvider(uint256 providerId) external',
-    'function addServiceProvider(address provider, string pdpUrl, string pieceRetrievalUrl) external',
 
     // Read functions
     'function isProviderApproved(address provider) external view returns (bool)',
     'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
+    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
+    'function getPendingProvider(address provider) external view returns (tuple(string serviceURL, bytes peerId, uint256 registeredAt))',
+    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
+    'function approvedProviders(uint256 providerId) external view returns (address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
     'function nextServiceProviderId() external view returns (uint256)',
     'function owner() external view returns (address)',
     'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth) pricing)',
@@ -71,7 +71,7 @@ export const CONTRACT_ABIS = {
     // Public mappings that are automatically exposed
     'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
+    'function getAllApprovedProviders() external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
 
     // Data set functions
     'function getClientDataSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN)[])',
@@ -88,20 +88,101 @@ export const CONTRACT_ABIS = {
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
     'function challengeWindow() external view returns (uint256)',
-    'function maxProvingPeriod() external view returns (uint64)',
-    'function challengeWindowSize() external view returns (uint256)'
+
+    // PDPListener callbacks (called by PDPVerifier)
+    'function dataSetCreated(uint256 dataSetId, address creator, bytes extraData) external',
+    'function dataSetDeleted(uint256 dataSetId, uint256 deletedLeafCount, bytes extraData) external',
+    'function piecesAdded(uint256 dataSetId, uint256 firstAdded, tuple(tuple(bytes data) piece, uint256 rawSize)[] pieceData, bytes extraData) external',
+    'function piecesScheduledRemove(uint256 dataSetId, uint256[] pieceIds, bytes extraData) external',
+    'function possessionProven(uint256 dataSetId, uint256 challengedLeafCount, uint256 seed, uint256 challengeCount) external',
+    'function nextProvingPeriod(uint256 dataSetId, uint256 challengeEpoch, uint256 leafCount, bytes extraData) external',
+    'function storageProviderChanged(uint256 dataSetId, address oldStorageProvider, address newStorageProvider, bytes extraData) external',
+
+    // Commission management
+    'function basicServiceCommissionBps() external view returns (uint256)',
+    'function cdnServiceCommissionBps() external view returns (uint256)',
+    'function updateServiceCommission(uint256 newBasicCommissionBps, uint256 newCdnCommissionBps) external',
+
+    // Payment validation (IValidator interface)
+    'function validatePayment(uint256 railId, uint256 proposedAmount, uint256 fromEpoch, uint256 toEpoch, uint256) external returns (tuple(uint256 modifiedAmount, uint256 settleUpto, string note))',
+
+    // New data set functions
+    'function getDataSetMetadata(uint256 dataSetId) external view returns (string)',
+    'function getDataSetParties(uint256 dataSetId) external view returns (address payer, address payee)',
+    'function getDataSetRailId(uint256 dataSetId) external view returns (uint256)',
+    'function getDataSetWithCDN(uint256 dataSetId) external view returns (bool)',
+    'function getPieceMetadata(uint256 dataSetId, uint256 pieceId) external view returns (string)',
+
+    // Rate calculation functions
+    'function calculateStorageRatePerEpoch(uint256 totalBytes, bool withCDN) external view returns (uint256)',
+    'function getDataSetSizeInBytes(uint256 leafCount) external pure returns (uint256)',
+    'function getEffectiveRates() external view returns (uint256 basicServiceFee, uint256 spPaymentBasic, uint256 cdnServiceFee, uint256 spPaymentWithCDN)',
+
+    // Proving period functions
+    'function getProvingPeriodForEpoch(uint256 dataSetId, uint256 epoch) external view returns (uint256)',
+    'function isEpochProven(uint256 dataSetId, uint256 epoch) external view returns (bool)',
+    'function thisChallengeWindowStart(uint256 setId) external view returns (uint256)',
+    'function nextChallengeWindowStart(uint256 setId) external view returns (uint256)',
+
+    // EIP-712 support
+    'function eip712Domain() external view returns (bytes1 fields, string name, string version, uint256 chainId, address verifyingContract, bytes32 salt, uint256[] extensions)'
   ] as const,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
   PDP_VERIFIER: [
+    // Core operations
+    'function createDataSet(address listenerAddr, bytes extraData) payable returns (uint256)',
+    'function deleteDataSet(uint256 setId, bytes extraData) external',
+    'function addPieces(uint256 setId, tuple(tuple(bytes data) piece, uint256 rawSize)[] pieceData, bytes extraData) external returns (uint256)',
+    'function schedulePieceDeletions(uint256 setId, uint256[] pieceIds, bytes extraData) external',
+
+    // Proof operations
+    'function provePossession(uint256 setId, tuple(bytes32 leaf, bytes32[] proof)[] proofs) payable external',
+    'function nextProvingPeriod(uint256 setId, uint256 challengeEpoch, bytes extraData) external',
+
+    // Storage provider management
+    'function getDataSetStorageProvider(uint256 setId) external view returns (address current, address proposed)',
+    'function proposeDataSetStorageProvider(uint256 setId, address newStorageProvider) external',
+    'function claimDataSetStorageProvider(uint256 setId, bytes extraData) external',
+
+    // Data set queries
     'function getNextPieceId(uint256 setId) public view returns (uint256)',
     'function dataSetLive(uint256 setId) public view returns (bool)',
     'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getDataSetOwner(uint256 setId) public view returns (address, address)',
     'function getDataSetListener(uint256 setId) public view returns (address)',
-    'event DataSetCreated(uint256 indexed setId, address indexed owner)'
+    'function getDataSetLastProvenEpoch(uint256 setId) external view returns (uint256)',
+
+    // Piece information
+    'function getPieceCid(uint256 setId, uint256 pieceId) external view returns (tuple(bytes data))',
+    'function getPieceLeafCount(uint256 setId, uint256 pieceId) external view returns (uint256)',
+    'function getActivePieceCount(uint256 setId) external view returns (uint256)',
+    'function getActivePieces(uint256 setId, uint256 offset, uint256 limit) external view returns (tuple(bytes data)[] pieces, uint256[] pieceIds, uint256[] rawSizes, bool hasMore)',
+    'function pieceLive(uint256 setId, uint256 pieceId) external view returns (bool)',
+    'function pieceChallengable(uint256 setId, uint256 pieceId) external view returns (bool)',
+
+    // Challenge functions
+    'function getChallengeRange(uint256 setId) external view returns (uint256)',
+    'function getNextChallengeEpoch(uint256 setId) external view returns (uint256)',
+    'function getChallengeFinality() external view returns (uint256)',
+
+    // Utility functions
+    'function findPieceIds(uint256 setId, uint256[] leafIndexs) external view returns (tuple(uint256 pieceId, uint256 offset)[])',
+    'function getScheduledRemovals(uint256 setId) external view returns (uint256[])',
+    'function getRandomness(uint256 epoch) external view returns (uint256)',
+    'function calculateProofFee(uint256 setId, uint256 estimatedGasFee) external returns (uint256)',
+    'function getFILUSDPrice() external returns (uint64 price, int32 expo)',
+
+    // Events
+    'event DataSetCreated(uint256 indexed setId, address indexed storageProvider)',
+    'event StorageProviderChanged(uint256 indexed setId, address indexed oldStorageProvider, address indexed newStorageProvider)',
+    'event DataSetDeleted(uint256 indexed setId, uint256 deletedLeafCount)',
+    'event DataSetEmpty(uint256 indexed setId)',
+    'event PiecesAdded(uint256 indexed setId, uint256[] pieceIds)',
+    'event PiecesRemoved(uint256 indexed setId, uint256[] pieceIds)',
+    'event PossessionProven(uint256 indexed setId, tuple(uint256 pieceId, uint256 offset)[] challenges)',
+    'event NextProvingPeriod(uint256 indexed setId, uint256 challengeEpoch, uint256 leafCount)'
   ] as const
 } as const
 

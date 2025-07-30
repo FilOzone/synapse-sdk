@@ -69,12 +69,18 @@ export interface DataSetCreationVerification {
  * Information about a pending storage provider
  */
 export interface PendingProviderInfo {
-  /** PDP server URL */
-  pdpUrl: string
-  /** Piece retrieval URL */
-  pieceRetrievalUrl: string
+  /** Combined service URL (replaces separate pdpUrl and pieceRetrievalUrl) */
+  serviceURL: string
+  /** Libp2p peer ID of the provider */
+  peerId: string
   /** Timestamp when registered */
   registeredAt: number
+
+  // Legacy field mappings for backwards compatibility
+  /** @deprecated Use serviceURL instead */
+  pdpUrl?: string
+  /** @deprecated Combined into serviceURL */
+  pieceRetrievalUrl?: string
 }
 
 /**
@@ -687,17 +693,38 @@ export class WarmStorageService {
   /**
    * Register as a storage provider (requires signer)
    * @param signer - Signer for the storage provider account
-   * @param pdpUrl - The PDP server URL
-   * @param pieceRetrievalUrl - The piece retrieval URL
+   * @param serviceURL - The combined service URL for PDP and piece retrieval
+   * @param peerId - The libp2p peer ID of the provider
    * @returns Transaction response
    */
   async registerServiceProvider (
     signer: ethers.Signer,
+    serviceURL: string,
+    peerId: string | Uint8Array
+  ): Promise<ethers.TransactionResponse> {
+    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
+    // Convert peerId to bytes if it's a string
+    const peerIdBytes = typeof peerId === 'string' ? ethers.toUtf8Bytes(peerId) : peerId
+    return await contract.registerServiceProvider(serviceURL, peerIdBytes)
+  }
+
+  /**
+   * Register as a storage provider (legacy method for backwards compatibility)
+   * @deprecated Use registerServiceProvider with serviceURL and peerId instead
+   * @param signer - Signer for the storage provider account
+   * @param pdpUrl - The PDP server URL
+   * @param pieceRetrievalUrl - The piece retrieval URL
+   * @returns Transaction response
+   */
+  async registerServiceProviderLegacy (
+    signer: ethers.Signer,
     pdpUrl: string,
     pieceRetrievalUrl: string
   ): Promise<ethers.TransactionResponse> {
-    const contract = this._getWarmStorageContract().connect(signer) as ethers.Contract
-    return await contract.registerServiceProvider(pdpUrl, pieceRetrievalUrl)
+    // For legacy support, combine URLs and generate a placeholder peerId
+    const serviceURL = pdpUrl // Use PDP URL as the primary service URL
+    const peerId = new Uint8Array(0) // Empty peerId for legacy compatibility
+    return await this.registerServiceProvider(signer, serviceURL, peerId)
   }
 
   /**
@@ -789,12 +816,20 @@ export class WarmStorageService {
   async getApprovedProvider (providerId: number): Promise<ApprovedProviderInfo> {
     const contract = this._getWarmStorageContract()
     const info = await contract.getApprovedProvider(providerId)
+
+    // Map new contract structure to SDK interface with backwards compatibility
     return {
-      owner: info.owner,
-      pdpUrl: info.pdpUrl,
-      pieceRetrievalUrl: info.pieceRetrievalUrl,
+      // New fields
+      storageProvider: info.storageProvider,
+      serviceURL: info.serviceURL,
+      peerId: info.peerId,
       registeredAt: Number(info.registeredAt),
-      approvedAt: Number(info.approvedAt)
+      approvedAt: Number(info.approvedAt),
+
+      // Legacy fields for backwards compatibility
+      owner: info.storageProvider,
+      pdpUrl: info.serviceURL,
+      pieceRetrievalUrl: info.serviceURL
     }
   }
 
@@ -805,11 +840,18 @@ export class WarmStorageService {
    */
   async getPendingProvider (providerAddress: string): Promise<PendingProviderInfo> {
     const contract = this._getWarmStorageContract()
-    const info = await contract.pendingProviders(providerAddress)
+    const info = await contract.getPendingProvider(providerAddress)
+
+    // Map new contract structure to SDK interface with backwards compatibility
     return {
-      pdpUrl: info.pdpUrl,
-      pieceRetrievalUrl: info.pieceRetrievalUrl,
-      registeredAt: Number(info.registeredAt)
+      // New fields
+      serviceURL: info.serviceURL,
+      peerId: info.peerId,
+      registeredAt: Number(info.registeredAt),
+
+      // Legacy fields for backwards compatibility
+      pdpUrl: info.serviceURL,
+      pieceRetrievalUrl: info.serviceURL
     }
   }
 
@@ -852,11 +894,17 @@ export class WarmStorageService {
     const providers = await contract.getAllApprovedProviders()
 
     return providers.map((p: any) => ({
-      owner: p.owner,
-      pdpUrl: p.pdpUrl,
-      pieceRetrievalUrl: p.pieceRetrievalUrl,
+      // New fields
+      storageProvider: p.storageProvider,
+      serviceURL: p.serviceURL,
+      peerId: p.peerId,
       registeredAt: Number(p.registeredAt),
-      approvedAt: Number(p.approvedAt)
+      approvedAt: Number(p.approvedAt),
+
+      // Legacy fields for backwards compatibility
+      owner: p.storageProvider,
+      pdpUrl: p.serviceURL,
+      pieceRetrievalUrl: p.serviceURL
     }))
   }
 

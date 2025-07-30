@@ -293,12 +293,19 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Transforms provider data to ApprovedProviderInfo
    */
   private transformProviderData (data: any): ApprovedProviderInfo {
+    const address = data.address != null && data.address !== '' ? data.address : data.id
     return {
-      owner: data.address != null && data.address !== '' ? data.address : data.id,
-      pdpUrl: data.pdpUrl,
-      pieceRetrievalUrl: data.pieceRetrievalUrl,
+      // New fields
+      storageProvider: address,
+      serviceURL: data.serviceURL ?? data.pdpUrl ?? '',
+      peerId: data.peerId ?? '',
       registeredAt: this.parseTimestamp(data.registeredAt),
-      approvedAt: this.parseTimestamp(data.approvedAt)
+      approvedAt: this.parseTimestamp(data.approvedAt),
+
+      // Legacy fields for backwards compatibility
+      owner: address,
+      pdpUrl: data.pdpUrl ?? data.serviceURL ?? '',
+      pieceRetrievalUrl: data.pieceRetrievalUrl ?? data.serviceURL ?? ''
     }
   }
 
@@ -342,7 +349,16 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Validates provider data completeness
    */
   private isValidProviderData (data: any): boolean {
-    return (
+    // Check for new structure
+    const hasNewFields = (
+      data?.id != null &&
+      data.id.trim() !== '' &&
+      data?.serviceURL != null &&
+      data.serviceURL.trim() !== ''
+    )
+
+    // Check for legacy structure
+    const hasLegacyFields = (
       data?.id != null &&
       data.id.trim() !== '' &&
       data?.pdpUrl != null &&
@@ -350,6 +366,8 @@ export class SubgraphService implements SubgraphRetrievalService {
       data?.pieceRetrievalUrl != null &&
       data.pieceRetrievalUrl.trim() !== ''
     )
+
+    return hasNewFields || hasLegacyFields
   }
 
   /**
@@ -521,9 +539,9 @@ export class SubgraphService implements SubgraphRetrievalService {
       metadata: dataSet.metadata ?? '',
       createdAt: this.parseTimestamp(dataSet.createdAt),
       updatedAt: this.parseTimestamp(dataSet.updatedAt),
-      owner:
-        dataSet.owner != null
-          ? this.transformProviderData(dataSet.owner)
+      storageProvider:
+        dataSet.storageProvider != null
+          ? this.transformProviderData(dataSet.storageProvider)
           : {
               owner: '',
               pdpUrl: '',

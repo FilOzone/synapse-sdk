@@ -305,7 +305,7 @@ export class Synapse {
 
       // Get provider info
       const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
-      if (providerInfo.owner === ethers.ZeroAddress) {
+      if ((providerInfo.storageProvider ?? providerInfo.owner) === ethers.ZeroAddress) {
         throw new Error(`Provider ${providerAddress} not found`)
       }
 

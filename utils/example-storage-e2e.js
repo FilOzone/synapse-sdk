@@ -109,27 +109,27 @@ async function main () {
         onProviderSelected: (provider) => {
           console.log(`✓ Selected storage provider: ${provider.owner}`)
         },
-        onProofSetResolved: (info) => {
+        onDataSetResolved: (info) => {
           if (info.isExisting) {
-            console.log(`✓ Using existing proof set: ${info.proofSetId}`)
+            console.log(`✓ Using existing data set: ${info.dataSetId}`)
           } else {
-            console.log(`✓ Created new proof set: ${info.proofSetId}`)
+            console.log(`✓ Created new data set: ${info.dataSetId}`)
           }
         },
-        onProofSetCreationStarted: (transaction, statusUrl) => {
-          console.log(`  Creating proof set, tx: ${transaction.hash}`)
+        onDataSetCreationStarted: (transaction, statusUrl) => {
+          console.log(`  Creating data set, tx: ${transaction.hash}`)
         },
-        onProofSetCreationProgress: (progress) => {
-          if (progress.transactionMined && !progress.proofSetLive) {
-            console.log('  Transaction mined, waiting for proof set to be live...')
+        onDataSetCreationProgress: (progress) => {
+          if (progress.transactionMined && !progress.dataSetLive) {
+            console.log('  Transaction mined, waiting for data set to be live...')
           }
         }
       }
     })
 
-    console.log(`Proof set ID: ${storageService.proofSetId}`)
-    const rootCids = await storageService.getProofSetRoots()
-    console.log(`Proof set contains ${rootCids.length} root CIDs`)
+    console.log(`Data set ID: ${storageService.dataSetId}`)
+    const rootCids = await storageService.getDataSetRoots()
+    console.log(`Data set contains ${rootCids.length} root CIDs`)
     /* Uncomment to see root CIDs
     for (const cid of rootCids) {
       console.log(`  - Root CID: ${cid}`)
@@ -183,7 +183,7 @@ async function main () {
           console.log('  Waiting for confirmation...')
         } else {
           // Fallback for old servers
-          console.log('✓ Root added to proof set')
+          console.log('✓ Root added to data set')
         }
       },
       onRootConfirmed: (rootIds) => {
@@ -220,11 +220,11 @@ async function main () {
     console.log('\n--- Piece Status ---')
     const pieceStatus = await storageService.pieceStatus(uploadResult.commp)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
-    if (pieceStatus.proofSetLastProven) {
-      console.log(`Proof set last proven: ${pieceStatus.proofSetLastProven.toLocaleString()}`)
+    if (pieceStatus.dataSetLastProven) {
+      console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
     }
-    if (pieceStatus.proofSetNextProofDue) {
-      console.log(`Proof set next proof due: ${pieceStatus.proofSetNextProofDue.toLocaleString()}`)
+    if (pieceStatus.dataSetNextProofDue) {
+      console.log(`Data set next proof due: ${pieceStatus.dataSetNextProofDue.toLocaleString()}`)
     }
     if (pieceStatus.inChallengeWindow) {
       console.log('⚠️  Currently in challenge window - proof must be submitted soon!')
@@ -236,7 +236,7 @@ async function main () {
     console.log('\n--- Storage Information ---')
     console.log('Your file is now stored on the Filecoin network with:')
     console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)
-    console.log(`- Proof set ID: ${storageService.proofSetId}`)
+    console.log(`- Data set ID: ${storageService.dataSetId}`)
     console.log(`- Root ID: ${uploadResult.rootId}`)
     console.log(`- Storage provider: ${storageService.storageProvider}`)
     console.log('\nThe storage provider will periodically prove they still have your data.')

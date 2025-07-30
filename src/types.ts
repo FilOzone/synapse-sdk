@@ -227,15 +227,23 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
  */
 export interface ApprovedProviderInfo {
   /** Provider's wallet address */
-  owner: string
-  /** PDP server URL */
-  pdpUrl: string
-  /** Piece retrieval URL */
-  pieceRetrievalUrl: string
+  storageProvider: string
+  /** Combined service URL (replaces separate pdpUrl and pieceRetrievalUrl) */
+  serviceURL: string
+  /** Libp2p peer ID of the provider */
+  peerId: string
   /** Timestamp when registered */
   registeredAt: number
   /** Timestamp when approved */
   approvedAt: number
+
+  // Legacy field mappings for backwards compatibility
+  /** @deprecated Use storageProvider instead */
+  owner?: string
+  /** @deprecated Use serviceURL instead */
+  pdpUrl?: string
+  /** @deprecated Combined into serviceURL */
+  pieceRetrievalUrl?: string
 }
 
 /**

@@ -92,7 +92,7 @@ describe('Auth Signature Compatibility', () => {
     assert.strictEqual(signer.address, FIXTURES.signerAddress)
   })
 
-  it('should generate CreateProofSet signature matching Solidity reference', async () => {
+  it('should generate CreateDataSet signature matching Solidity reference', async () => {
     const result = await authHelper.signCreateDataSet(
       FIXTURES.signatures.createDataSet.clientDataSetId,
       FIXTURES.signatures.createDataSet.payee,
@@ -101,7 +101,7 @@ describe('Auth Signature Compatibility', () => {
 
     // Verify signature matches exactly
     assert.strictEqual(result.signature, FIXTURES.signatures.createDataSet.signature,
-      'CreateProofSet signature should match Solidity reference')
+      'CreateDataSet signature should match Solidity reference')
 
     // Verify signed data can be used to recover signer
     // For EIP-712, signedData is already the message hash

@@ -28,7 +28,7 @@ describe('WarmStorageService', () => {
   })
 
   describe('getClientDataSets', () => {
-    it('should return empty array when client has no proof sets', async () => {
+    it('should return empty array when client has no data sets', async () => {
       // Mock provider will return empty array by default
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -182,7 +182,7 @@ describe('WarmStorageService', () => {
 
         // railToDataSet call
         if (data?.startsWith('0x2ad6e6b5') === true) { // railToDataSet(uint256) selector
-          return ethers.zeroPadValue('0xf2', 32) // Return proof set ID 242
+          return ethers.zeroPadValue('0xf2', 32) // Return data set ID 242
         }
 
         // dataSetLive call
@@ -225,7 +225,7 @@ describe('WarmStorageService', () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // getClientDataSets - return 2 proof sets
+        // getClientDataSets - return 2 data sets
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSets = [
             [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false],
@@ -256,11 +256,11 @@ describe('WarmStorageService', () => {
 
         // getDataSetListener - first is managed, second is not
         if (data?.startsWith('0x2b3129bb') === true) {
-          // Extract the proof set ID from the encoded data
+          // Extract the data set ID from the encoded data
           const dataSetIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
-          if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // proof set 242
+          if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // data set 242
             return ethers.zeroPadValue(mockWarmStorageAddress, 32) // Managed by us
-          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) { // proof set 243
+          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) { // data set 243
             return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
           }
           return ethers.zeroPadValue('0x0000000000000000000000000000000000000000', 32)
@@ -277,7 +277,7 @@ describe('WarmStorageService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      // Get all proof sets
+      // Get all data sets
       const allDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, false)
       assert.lengthOf(allDataSets, 2)
 
@@ -289,11 +289,11 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw error when contract calls fail', async () => {
-      // Mock getClientDataSets to return a proof set
+      // Mock getClientDataSets to return a data set
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // getClientDataSets - return 1 proof set
+        // getClientDataSets - return 1 data set
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false]
           return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -505,7 +505,7 @@ describe('WarmStorageService', () => {
             address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
             topics: [
               ethers.id('DataSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32), // proof set ID 123
+              ethers.zeroPadValue('0x7b', 32), // data set ID 123
               ethers.zeroPadValue(clientAddress, 32) // owner address
             ],
             data: '0x' // Empty data for indexed parameters
@@ -710,8 +710,8 @@ describe('WarmStorageService', () => {
 
       const providers = await warmStorageService.getAllApprovedProviders()
       assert.lengthOf(providers, 2)
-      assert.equal(providers[0].owner.toLowerCase(), '0x1111111111111111111111111111111111111111')
-      assert.equal(providers[1].owner.toLowerCase(), '0x2222222222222222222222222222222222222222')
+      assert.equal(providers[0].storageProvider.toLowerCase(), '0x1111111111111111111111111111111111111111')
+      assert.equal(providers[1].storageProvider.toLowerCase(), '0x2222222222222222222222222222222222222222')
     })
 
     describe('addServiceProvider', () => {
@@ -722,7 +722,7 @@ describe('WarmStorageService', () => {
 
         // Create a mock signer
         const mockSigner = {
-          getAddress: async () => '0xabcdef1234567890123456789012345678901234', // owner address
+          getAddress: async () => '0xabcdef1234567890123456789012345678901234', // storage provider address
           provider: mockProvider
         } as any
 

@@ -3,7 +3,7 @@
 /**
  * PDPServer tests
  *
- * Tests the PDPServer class for creating proof sets and adding pieces via HTTP API
+ * Tests the PDPServer class for creating data sets and adding pieces via HTTP API
  */
 
 import { assert } from 'chai'
@@ -88,7 +88,7 @@ describe('PDPServer', () => {
   })
 
   describe('createDataSet', () => {
-    it('should handle successful proof set creation', async () => {
+    it('should handle successful data set creation', async () => {
       // Mock the createDataSet endpoint
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
@@ -1142,8 +1142,8 @@ describe('PDPServer', () => {
   })
 
   describe('getDataSet', () => {
-    it('should successfully fetch proof set data', async () => {
-      const mockProofSetData = {
+    it('should successfully fetch data set data', async () => {
+      const mockDataSetData = {
         id: 292,
         pieces: [
           {
@@ -1173,25 +1173,25 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => mockProofSetData
+          json: async () => mockDataSetData
         } as any
       }
 
       try {
         const result = await pdpServer.getDataSet(292)
-        assert.equal(result.id, mockProofSetData.id)
-        assert.equal(result.nextChallengeEpoch, mockProofSetData.nextChallengeEpoch)
-        assert.equal(result.pieces.length, mockProofSetData.pieces.length)
-        assert.equal(result.pieces[0].pieceId, mockProofSetData.pieces[0].pieceId)
-        assert.equal(result.pieces[0].pieceCid.toString(), mockProofSetData.pieces[0].pieceCid)
-        assert.equal(result.pieces[0].subpieceCid.toString(), mockProofSetData.pieces[0].subpieceCid)
-        assert.equal(result.pieces[0].subpieceOffset, mockProofSetData.pieces[0].subpieceOffset)
+        assert.equal(result.id, mockDataSetData.id)
+        assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
+        assert.equal(result.pieces.length, mockDataSetData.pieces.length)
+        assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
+        assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
+        assert.equal(result.pieces[0].subpieceCid.toString(), mockDataSetData.pieces[0].subpieceCid)
+        assert.equal(result.pieces[0].subpieceOffset, mockDataSetData.pieces[0].subpieceOffset)
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should handle proof set not found', async () => {
+    it('should handle data set not found', async () => {
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -1203,7 +1203,7 @@ describe('PDPServer', () => {
 
       try {
         await pdpServer.getDataSet(999)
-        assert.fail('Should have thrown error for not found proof set')
+        assert.fail('Should have thrown error for not found data set')
       } catch (error) {
         assert.include((error as Error).message, 'Data set not found: 999')
       } finally {
@@ -1236,7 +1236,7 @@ describe('PDPServer', () => {
     })
 
     it('should validate response data', async () => {
-      const invalidProofSetData = {
+      const invalidDataSetData = {
         id: '292', // Should be number
         pieces: 'not-array', // Should be array
         nextChallengeEpoch: 'soon' // Should be number
@@ -1248,7 +1248,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidProofSetData
+          json: async () => invalidDataSetData
         } as any
       }
 
@@ -1262,8 +1262,8 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should handle proof set with no pieces', async () => {
-      const emptyProofSetData = {
+    it('should handle data set with no pieces', async () => {
+      const emptyDataSetData = {
         id: 292,
         pieces: [],
         nextChallengeEpoch: 1500
@@ -1275,13 +1275,13 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => emptyProofSetData
+          json: async () => emptyDataSetData
         } as any
       }
 
       try {
         const result = await pdpServer.getDataSet(292)
-        assert.deepStrictEqual(result, emptyProofSetData)
+        assert.deepStrictEqual(result, emptyDataSetData)
         assert.isArray(result.pieces)
         assert.equal(result.pieces.length, 0)
       } finally {
@@ -1290,7 +1290,7 @@ describe('PDPServer', () => {
     })
 
     it('should reject response with invalid CIDs', async () => {
-      const invalidCidProofSetData = {
+      const invalidCidDataSetData = {
         id: 292,
         pieces: [
           {
@@ -1309,7 +1309,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidCidProofSetData
+          json: async () => invalidCidDataSetData
         } as any
       }
 

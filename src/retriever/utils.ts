@@ -56,7 +56,7 @@ export async function fetchPiecesFromProviders (
 
       try {
         // Phase 1: Check if provider has the piece
-        const findUrl = constructFindPieceUrl(provider.pdpUrl, commp)
+        const findUrl = constructFindPieceUrl(provider.serviceURL ?? provider.pdpUrl ?? '', commp)
         const findResponse = await fetch(findUrl, {
           signal: controller.signal
         })
@@ -64,14 +64,14 @@ export async function fetchPiecesFromProviders (
         if (!findResponse.ok) {
           // Provider doesn't have the piece
           failures.push({
-            provider: provider.owner,
+            provider: provider.storageProvider ?? 'unknown',
             error: `findPiece returned ${findResponse.status}`
           })
           throw new Error('Provider does not have piece')
         }
 
         // Phase 2: Provider has piece, download it
-        const downloadUrl = constructPieceUrl(provider.pieceRetrievalUrl, commp)
+        const downloadUrl = constructPieceUrl(provider.serviceURL ?? provider.pieceRetrievalUrl ?? '', commp)
         const response = await fetch(downloadUrl, {
           signal: controller.signal
         })
@@ -83,18 +83,19 @@ export async function fetchPiecesFromProviders (
 
         // Download failed
         failures.push({
-          provider: provider.owner,
+          provider: provider.storageProvider,
           error: `download returned ${response.status}`
         })
         throw new Error(`Download failed with status ${response.status}`)
       } catch (error: any) {
         // Log actual failures
         const errorMsg = error.message ?? 'Unknown error'
-        if (!failures.some((f) => f.provider === provider.owner)) {
-          failures.push({ provider: provider.owner, error: errorMsg })
+        const providerName = provider.storageProvider ?? 'unknown'
+        if (!failures.some((f) => f.provider === providerName)) {
+          failures.push({ provider: providerName, error: errorMsg })
         }
         // TODO: remove this at some point, it might get noisy
-        console.warn(`Failed to fetch from provider ${provider.owner}:`, errorMsg)
+        console.warn(`Failed to fetch from provider ${providerName}:`, errorMsg)
         throw error
       }
     }

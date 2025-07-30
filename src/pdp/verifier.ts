@@ -68,14 +68,14 @@ export class PDPVerifier {
   }
 
   /**
-   * Get the next root ID for a data set
+   * Get the next piece ID for a data set
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns The next root ID (which equals the current root count)
+   * @returns The next piece ID (which equals the current piece count)
    */
   async getNextPieceId (dataSetId: number): Promise<number> {
     const contract = await this._getContract()
-    const nextRootId = await contract.getNextPieceId(dataSetId)
-    return Number(nextRootId)
+    const nextPieceId = await contract.getNextPieceId(dataSetId)
+    return Number(nextPieceId)
   }
 
   /**

@@ -91,7 +91,7 @@ export class StorageService {
 
     // Set public properties
     this.dataSetId = dataSetId.toString()
-    this.storageProvider = provider.owner
+    this.storageProvider = provider.storageProvider ?? provider.owner ?? ''
 
     // Get WarmStorage address from Synapse (which already handles override)
     this._warmStorageAddress = synapse.getWarmStorageAddress()
@@ -106,8 +106,8 @@ export class StorageService {
     // Create PDPServer instance with provider URLs
     this._pdpServer = new PDPServer(
       authHelper,
-      provider.pdpUrl,
-      provider.pieceRetrievalUrl
+      provider.serviceURL ?? provider.pdpUrl ?? '',
+      provider.serviceURL ?? provider.pieceRetrievalUrl ?? ''
     )
   }
 
@@ -201,14 +201,14 @@ export class StorageService {
     // Create PDPServer instance for API calls
     const pdpServer = new PDPServer(
       authHelper,
-      provider.pdpUrl,
-      provider.pieceRetrievalUrl
+      provider.serviceURL ?? provider.pdpUrl ?? '',
+      provider.serviceURL ?? provider.pieceRetrievalUrl ?? ''
     )
 
     // Create the data set through the provider
     const createResult = await pdpServer.createDataSet(
       nextDatasetId, // clientDataSetId
-      provider.owner, // payee (storage provider)
+      provider.storageProvider ?? provider.owner ?? '', // payee (storage provider)
       withCDN,
       warmStorageAddress // recordKeeper (WarmStorage contract)
     )
@@ -486,7 +486,7 @@ export class StorageService {
       warmStorageService.getClientDataSetsWithDetails(signerAddress)
     ])
 
-    if (provider.owner === '0x0000000000000000000000000000000000000000') {
+    if ((provider.storageProvider ?? provider.owner) === '0x0000000000000000000000000000000000000000') {
       throw createError(
         'StorageService',
         'resolveByProviderId',
@@ -496,14 +496,14 @@ export class StorageService {
 
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
+      ps => ps.payee.toLowerCase() === (provider.storageProvider ?? provider.owner ?? '').toLowerCase() &&
             ps.isLive &&
             ps.isManaged &&
             ps.withCDN === withCDN
     )
 
     if (providerDataSets.length > 0) {
-      // Sort by preference: data sets with roots first, then by ID
+      // Sort by preference: data sets with pieces first, then by ID
       const sorted = providerDataSets.sort((a, b) => {
         if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
         if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
@@ -580,7 +580,7 @@ export class StorageService {
     )
 
     if (managedDataSets.length > 0) {
-      // Prefer data sets with roots, sort by ID (older first)
+      // Prefer data sets with pieces, sort by ID (older first)
       const sorted = managedDataSets.sort((a, b) => {
         if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
         if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
@@ -613,7 +613,7 @@ export class StorageService {
 
       // Find the first matching data set ID for this provider
       const matchingDataSet = sorted.find(ps =>
-        ps.payee.toLowerCase() === selectedProvider.owner.toLowerCase()
+        ps.payee.toLowerCase() === selectedProvider.storageProvider.toLowerCase()
       )
 
       if (matchingDataSet == null) {
@@ -720,11 +720,11 @@ export class StorageService {
       providerCount++
       try {
         // Create a temporary PDPServer for this specific provider's endpoint
-        const providerPdpServer = new PDPServer(null, provider.pdpUrl, provider.pieceRetrievalUrl)
+        const providerPdpServer = new PDPServer(null, provider.serviceURL ?? provider.pdpUrl, provider.serviceURL ?? provider.pieceRetrievalUrl)
         await providerPdpServer.ping()
         return provider
       } catch (error) {
-        console.warn(`Provider ${provider.owner} failed ping test:`, error instanceof Error ? error.message : String(error))
+        console.warn(`Provider ${provider.storageProvider ?? provider.owner ?? 'unknown'} failed ping test:`, error instanceof Error ? error.message : String(error))
         // Continue to next provider
       }
     }
@@ -831,7 +831,7 @@ export class StorageService {
       callbacks.onUploadComplete(uploadResult.commP)
     }
 
-    // Add Root Phase: Add the piece to the data set
+    // Add Piece Phase: Add the piece to the data set
     try {
       // Get add pieces info to ensure we have the correct nextPieceId
       const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(
@@ -1000,7 +1000,7 @@ export class StorageService {
   async providerDownload (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     // Pass through to Synapse with our provider hint and withCDN setting
     return await this._synapse.download(commp, {
-      providerAddress: this._provider.owner,
+      providerAddress: this._provider.storageProvider ?? this._provider.owner ?? '',
       withCDN: this._withCDN // Pass StorageService's withCDN
     })
   }
@@ -1023,8 +1023,8 @@ export class StorageService {
   }
 
   /**
-   * Get the list of root CIDs for this storage service's data set by querying the PDP server.
-   * @returns Array of root CIDs as CommP objects
+   * Get the list of piece CIDs for this storage service's data set by querying the PDP server.
+   * @returns Array of piece CIDs as CommP objects
    */
   async getDataSetPieces (): Promise<CommP[]> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
@@ -1095,7 +1095,7 @@ export class StorageService {
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         // Remove trailing slash from pieceRetrievalUrl to avoid double slashes
-        retrievalUrl = `${providerInfo.pieceRetrievalUrl.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
+        retrievalUrl = `${(providerInfo.serviceURL ?? providerInfo.pieceRetrievalUrl ?? '').replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
       }
 
       // Process proof timing data if we have data set data and proving params
