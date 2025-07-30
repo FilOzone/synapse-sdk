@@ -405,8 +405,8 @@ async function main () {
 
     success('\n🎉 Post-deployment setup completed successfully!')
     log('\nThe system is now ready for:')
-    log('• Creating proof sets')
-    log('• Adding data roots')
+    log('• Creating data sets')
+    log('• Adding pieces')
     log('• Processing payments')
   } catch (err) {
     error(`Setup failed: ${err.message}`)

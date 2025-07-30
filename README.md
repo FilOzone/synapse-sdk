@@ -105,7 +105,7 @@ const amount = ethers.parseUnits('100', 18)  // 100 USDFC
 await synapse.payments.deposit(amount, TOKENS.USDFC)
 
 // 2. Approve the Warm Storage service for automated payments
-const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE_SERVICE[synapse.getNetwork()]
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
 await synapse.payments.approveService(
   warmStorageAddress,
   ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
@@ -169,7 +169,7 @@ await depositTx.wait()
 
 // Service operator approvals (required before creating data sets)
 // Get the Warm Storage service address for the current network
-const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE_SERVICE[synapse.getNetwork()]
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
 
 // Approve service to create payment rails on your behalf
 const serviceApproveTx = await synapse.payments.approveService(
