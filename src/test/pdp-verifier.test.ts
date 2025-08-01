@@ -12,12 +12,11 @@ import { createMockProvider } from './test-utils.js'
 describe('PDPVerifier', () => {
   let mockProvider: ethers.Provider
   let pdpVerifier: PDPVerifier
+  const testAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    // Mock getNetwork to return calibration
-    mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
-    pdpVerifier = new PDPVerifier(mockProvider)
+    pdpVerifier = new PDPVerifier(mockProvider, testAddress)
   })
 
   describe('Instantiation', () => {
@@ -27,16 +26,12 @@ describe('PDPVerifier', () => {
       assert.isFunction(pdpVerifier.getNextRootId)
     })
 
-    it('should reject unsupported networks', async () => {
-      mockProvider.getNetwork = async () => ({ chainId: 1n, name: 'mainnet' }) as any
-      const unsupportedVerifier = new PDPVerifier(mockProvider)
-
-      try {
-        await unsupportedVerifier.proofSetLive(1)
-        assert.fail('Should have thrown for unsupported network')
-      } catch (error: any) {
-        assert.include(error.message, 'Unsupported network')
-      }
+    it('should create instance with custom address', () => {
+      const customAddress = '0x1234567890123456789012345678901234567890'
+      const customVerifier = new PDPVerifier(mockProvider, customAddress)
+      assert.exists(customVerifier)
+      assert.isFunction(customVerifier.proofSetLive)
+      assert.isFunction(customVerifier.getNextRootId)
     })
   })
 
@@ -152,7 +147,7 @@ describe('PDPVerifier', () => {
   describe('getContractAddress', () => {
     it('should return the contract address', async () => {
       const address = await pdpVerifier.getContractAddress()
-      assert.equal(address, '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC')
+      assert.equal(address, testAddress)
     })
   })
 })

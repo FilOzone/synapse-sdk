@@ -13,7 +13,7 @@
  * import { ethers } from 'ethers'
  *
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const pandoraService = new PandoraService(provider, pandoraAddress)
+ * const pandoraService = new PandoraService(provider, pandoraAddress, pdpVerifierAddress)
  *
  * // Get proof sets for a client
  * const proofSets = await pandoraService.getClientProofSets(clientAddress)
@@ -103,12 +103,14 @@ export interface ComprehensiveProofSetStatus {
 export class PandoraService {
   private readonly _provider: ethers.Provider
   private readonly _pandoraAddress: string
+  private readonly _pdpVerifierAddress: string
   private _pandoraContract: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
-  constructor (provider: ethers.Provider, pandoraAddress: string) {
+  constructor (provider: ethers.Provider, pandoraAddress: string, pdpVerifierAddress: string) {
     this._provider = provider
     this._pandoraAddress = pandoraAddress
+    this._pdpVerifierAddress = pdpVerifierAddress
   }
 
   /**
@@ -130,7 +132,7 @@ export class PandoraService {
    */
   private _getPDPVerifier (): PDPVerifier {
     if (this._pdpVerifier == null) {
-      this._pdpVerifier = new PDPVerifier(this._provider)
+      this._pdpVerifier = new PDPVerifier(this._provider, this._pdpVerifierAddress)
     }
     return this._pdpVerifier
   }

@@ -10,7 +10,7 @@
  * import { ethers } from 'ethers'
  *
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const pdpVerifier = new PDPVerifier(provider)
+ * const pdpVerifier = new PDPVerifier(provider, contractAddress)
  *
  * // Check if a proof set is live
  * const isLive = await pdpVerifier.proofSetLive(proofSetId)
@@ -19,15 +19,16 @@
  */
 
 import { ethers } from 'ethers'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/index.js'
+import { CONTRACT_ABIS } from '../utils/index.js'
 
 export class PDPVerifier {
   private readonly _provider: ethers.Provider
+  private readonly _contractAddress: string
   private _contract: ethers.Contract | null = null
-  private _chainId: number | null = null
 
-  constructor (provider: ethers.Provider) {
+  constructor (provider: ethers.Provider, contractAddress: string) {
     this._provider = provider
+    this._contractAddress = contractAddress
   }
 
   /**
@@ -35,21 +36,8 @@ export class PDPVerifier {
    */
   private async _getContract (): Promise<ethers.Contract> {
     if (this._contract == null) {
-      // Detect network to get the correct PDPVerifier address
-      const network = await this._provider.getNetwork()
-      this._chainId = Number(network.chainId)
-
-      let pdpVerifierAddress: string
-      if (this._chainId === 314) {
-        pdpVerifierAddress = CONTRACT_ADDRESSES.PDP_VERIFIER.mainnet
-      } else if (this._chainId === 314159) {
-        pdpVerifierAddress = CONTRACT_ADDRESSES.PDP_VERIFIER.calibration
-      } else {
-        throw new Error(`Unsupported network: ${this._chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
-      }
-
       this._contract = new ethers.Contract(
-        pdpVerifierAddress,
+        this._contractAddress,
         CONTRACT_ABIS.PDP_VERIFIER,
         this._provider
       )

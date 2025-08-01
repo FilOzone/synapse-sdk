@@ -28,6 +28,7 @@ export class Synapse {
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
   private readonly _pandoraAddress: string
+  private readonly _pdpVerifierAddress: string
   private readonly _pandoraService: PandoraService
   private readonly _pieceRetriever: PieceRetriever
 
@@ -132,7 +133,8 @@ export class Synapse {
 
     // Create Pandora service for the retriever
     const pandoraAddress = options.pandoraAddress ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
-    const pandoraService = new PandoraService(provider, pandoraAddress)
+    const pdpVerifierAddress = options.pdpVerifierAddress ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
+    const pandoraService = new PandoraService(provider, pandoraAddress, pdpVerifierAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -176,6 +178,7 @@ export class Synapse {
       options.disableNonceManager === true,
       options.withCDN === true,
       options.pandoraAddress,
+      options.pdpVerifierAddress,
       pandoraService,
       pieceRetriever
     )
@@ -188,6 +191,7 @@ export class Synapse {
     disableNonceManager: boolean,
     withCDN: boolean,
     pandoraAddressOverride: string | undefined,
+    pdpVerifierAddressOverride: string | undefined,
     pandoraService: PandoraService,
     pieceRetriever: PieceRetriever
   ) {
@@ -203,6 +207,12 @@ export class Synapse {
     this._pandoraAddress = pandoraAddressOverride ?? CONTRACT_ADDRESSES.PANDORA_SERVICE[network]
     if (this._pandoraAddress === '' || this._pandoraAddress === undefined) {
       throw new Error(`No Pandora service address configured for network: ${network}`)
+    }
+
+    // Set PDPVerifier address (use override or default for network)
+    this._pdpVerifierAddress = pdpVerifierAddressOverride ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
+    if (this._pdpVerifierAddress === '' || this._pdpVerifierAddress === undefined) {
+      throw new Error(`No PDPVerifier contract address configured for network: ${network}`)
     }
   }
 
@@ -248,6 +258,15 @@ export class Synapse {
    */
   getPandoraAddress (): string {
     return this._pandoraAddress
+  }
+
+  /**
+   * Get the PDPVerifier contract address
+   * @internal
+   * @returns The PDPVerifier contract address
+   */
+  getPDPVerifierAddress (): string {
+    return this._pdpVerifierAddress
   }
 
   /**

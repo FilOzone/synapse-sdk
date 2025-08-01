@@ -50,6 +50,8 @@ export interface SynapseOptions {
   withCDN?: boolean
   /** Override Pandora service contract address (defaults to network's default) */
   pandoraAddress?: string
+  /** Override PDPVerifier contract address (defaults to network's default) */
+  pdpVerifierAddress?: string
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
