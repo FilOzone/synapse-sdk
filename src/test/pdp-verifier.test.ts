@@ -132,21 +132,21 @@ describe('PDPVerifier', () => {
         }]
       } as any
 
-      const proofSetId = await pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
+      const proofSetId = pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
       assert.equal(proofSetId, 123)
     })
 
     it('should return null if no ProofSetCreated event found', async () => {
       const mockReceipt = { logs: [] } as any
 
-      const proofSetId = await pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
+      const proofSetId = pdpVerifier.extractProofSetIdFromReceipt(mockReceipt)
       assert.isNull(proofSetId)
     })
   })
 
   describe('getContractAddress', () => {
     it('should return the contract address', async () => {
-      const address = await pdpVerifier.getContractAddress()
+      const address = pdpVerifier.getContractAddress()
       assert.equal(address, testAddress)
     })
   })

@@ -37,20 +37,12 @@ export class PDPVerifier {
   }
 
   /**
-   * Get the PDPVerifier contract instance
-   */
-  private async _getContract (): Promise<ethers.Contract> {
-    return this._contract
-  }
-
-  /**
    * Check if a proof set is live
    * @param proofSetId - The PDPVerifier proof set ID
    * @returns Whether the proof set exists and is live
    */
   async proofSetLive (proofSetId: number): Promise<boolean> {
-    const contract = await this._getContract()
-    return await contract.proofSetLive(proofSetId)
+    return await this._contract.proofSetLive(proofSetId)
   }
 
   /**
@@ -59,8 +51,7 @@ export class PDPVerifier {
    * @returns The next root ID (which equals the current root count)
    */
   async getNextRootId (proofSetId: number): Promise<number> {
-    const contract = await this._getContract()
-    const nextRootId = await contract.getNextRootId(proofSetId)
+    const nextRootId = await this._contract.getNextRootId(proofSetId)
     return Number(nextRootId)
   }
 
@@ -70,8 +61,7 @@ export class PDPVerifier {
    * @returns The address of the listener contract
    */
   async getProofSetListener (proofSetId: number): Promise<string> {
-    const contract = await this._getContract()
-    return await contract.getProofSetListener(proofSetId)
+    return await this._contract.getProofSetListener(proofSetId)
   }
 
   /**
@@ -80,8 +70,7 @@ export class PDPVerifier {
    * @returns Object with current owner and proposed owner
    */
   async getProofSetOwner (proofSetId: number): Promise<{ owner: string, proposedOwner: string }> {
-    const contract = await this._getContract()
-    const [owner, proposedOwner] = await contract.getProofSetOwner(proofSetId)
+    const [owner, proposedOwner] = await this._contract.getProofSetOwner(proofSetId)
     return { owner, proposedOwner }
   }
 
@@ -91,8 +80,7 @@ export class PDPVerifier {
    * @returns The number of leaves in the proof set
    */
   async getProofSetLeafCount (proofSetId: number): Promise<number> {
-    const contract = await this._getContract()
-    const leafCount = await contract.getProofSetLeafCount(proofSetId)
+    const leafCount = await this._contract.getProofSetLeafCount(proofSetId)
     return Number(leafCount)
   }
 
@@ -101,14 +89,12 @@ export class PDPVerifier {
    * @param receipt - Transaction receipt
    * @returns Proof set ID if found, null otherwise
    */
-  async extractProofSetIdFromReceipt (receipt: ethers.TransactionReceipt): Promise<number | null> {
+  extractProofSetIdFromReceipt (receipt: ethers.TransactionReceipt): number | null {
     try {
-      const contract = await this._getContract()
-
       // Parse logs looking for ProofSetCreated event
       for (const log of receipt.logs) {
         try {
-          const parsedLog = contract.interface.parseLog({
+          const parsedLog = this._contract.interface.parseLog({
             topics: log.topics,
             data: log.data
           })
@@ -131,8 +117,7 @@ export class PDPVerifier {
   /**
    * Get the PDPVerifier contract address for the current network
    */
-  async getContractAddress (): Promise<string> {
-    const contract = await this._getContract()
-    return contract.target as string
+  getContractAddress (): string {
+    return this._contract.target as string
   }
 }
