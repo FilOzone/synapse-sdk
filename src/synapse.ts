@@ -444,7 +444,7 @@ export class Synapse {
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
           pandoraAddress: this._pandoraAddress,
           paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
-          pdpVerifierAddress: CONTRACT_ADDRESSES.PDP_VERIFIER[this._network]
+          pdpVerifierAddress: this._pdpVerifierAddress
         },
         allowances
       }

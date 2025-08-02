@@ -37,7 +37,7 @@ describe('PDPVerifier', () => {
     it('should throw error when calling methods without provider', async () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const customVerifier = new PDPVerifier(customAddress)
-      
+
       try {
         await customVerifier.proofSetLive(123)
         assert.fail('Expected error to be thrown')
