@@ -32,6 +32,7 @@ import { PDPVerifier } from '../pdp/verifier.js'
 import type { PDPServer, ProofSetCreationStatusResponse } from '../pdp/server.js'
 import { PaymentsService } from '../payments/service.js'
 import { SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
+import { timingCollector } from '../utils/timing.js'
 
 /**
  * Helper information for adding roots to a proof set
@@ -406,13 +407,18 @@ export class PandoraService {
     // Get server status
     let serverStatus: ProofSetCreationStatusResponse | null = null
     try {
+      timingCollector.start('pdpServer.getProofSetCreationStatus')
       serverStatus = await pdpServer.getProofSetCreationStatus(txHash)
+      timingCollector.end('pdpServer.getProofSetCreationStatus')
     } catch (error) {
+      timingCollector.end('pdpServer.getProofSetCreationStatus')
       // Server might not have the status yet
     }
 
     // Get chain status (pass through the transaction object if we have it)
+    timingCollector.start('verifyProofSetCreation')
     const chainStatus = await this.verifyProofSetCreation(txHashOrTransaction)
+    timingCollector.end('verifyProofSetCreation')
 
     // Combine into summary
     const summary = {

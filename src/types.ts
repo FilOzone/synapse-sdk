@@ -296,6 +296,8 @@ export interface StorageServiceOptions {
   proofSetId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
+  /** Force creation of a new proof set (for benchmarking) */
+  newProofSet?: boolean
   /** Callbacks for creation process */
   callbacks?: StorageCreationCallbacks
 }
