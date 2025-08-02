@@ -132,7 +132,7 @@ export class PandoraService {
    */
   private _getPDPVerifier (): PDPVerifier {
     if (this._pdpVerifier == null) {
-      this._pdpVerifier = new PDPVerifier(this._pdpVerifierAddress).connect(this._provider)
+      this._pdpVerifier = new PDPVerifier(this._provider, this._pdpVerifierAddress)
     }
     return this._pdpVerifier
   }

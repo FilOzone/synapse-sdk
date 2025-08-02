@@ -10,7 +10,7 @@
  * import { ethers } from 'ethers'
  *
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const pdpVerifier = new PDPVerifier(contractAddress).connect(provider)
+ * const pdpVerifier = new PDPVerifier(provider, contractAddress)
  *
  * // Check if a proof set is live
  * const isLive = await pdpVerifier.proofSetLive(proofSetId)
@@ -22,39 +22,24 @@ import { ethers } from 'ethers'
 import { CONTRACT_ABIS } from '../utils/index.js'
 
 export class PDPVerifier {
-  private _provider: ethers.Provider | null = null
+  private readonly _provider: ethers.Provider
   private readonly _contractAddress: string
-  private _contract: ethers.Contract | null = null
+  private readonly _contract: ethers.Contract
 
-  constructor (contractAddress: string) {
-    this._contractAddress = contractAddress
-  }
-
-  /**
-   * Connect a provider to this PDPVerifier instance
-   * @param provider - The ethers provider to use for contract calls
-   * @returns This PDPVerifier instance for chaining
-   */
-  connect (provider: ethers.Provider): PDPVerifier {
+  constructor (provider: ethers.Provider, contractAddress: string) {
     this._provider = provider
-    this._contract = null // Reset contract to force recreation with new provider
-    return this
+    this._contractAddress = contractAddress
+    this._contract = new ethers.Contract(
+      this._contractAddress,
+      CONTRACT_ABIS.PDP_VERIFIER,
+      this._provider
+    )
   }
 
   /**
    * Get the PDPVerifier contract instance
    */
   private async _getContract (): Promise<ethers.Contract> {
-    if (this._provider == null) {
-      throw new Error('PDPVerifier: No provider connected. Call connect(provider) first.')
-    }
-    if (this._contract == null) {
-      this._contract = new ethers.Contract(
-        this._contractAddress,
-        CONTRACT_ABIS.PDP_VERIFIER,
-        this._provider
-      )
-    }
     return this._contract
   }
 

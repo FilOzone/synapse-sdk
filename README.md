@@ -640,7 +640,7 @@ Low-level interface to the PDPVerifier contract for protocol operations.
 ```javascript
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
-const pdpVerifier = new PDPVerifier(contractAddress).connect(provider)
+const pdpVerifier = new PDPVerifier(provider, contractAddress)
 
 // Check if proof set is live
 const isLive = await pdpVerifier.proofSetLive(proofSetId)
