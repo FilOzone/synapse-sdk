@@ -638,9 +638,10 @@ The PDP (Proof of Data Possession) system has three main components:
 Low-level interface to the PDPVerifier contract for protocol operations.
 
 ```javascript
+import { CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
-const pdpVerifier = new PDPVerifier(provider, contractAddress)
+const pdpVerifier = new PDPVerifier(provider, CONTRACT_ADDRESSES.PDP_VERIFIER.calibration)
 
 // Check if proof set is live
 const isLive = await pdpVerifier.proofSetLive(proofSetId)
