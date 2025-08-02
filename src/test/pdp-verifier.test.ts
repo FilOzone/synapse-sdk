@@ -16,11 +16,11 @@ describe('PDPVerifier', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    pdpVerifier = new PDPVerifier(mockProvider, testAddress)
+    pdpVerifier = new PDPVerifier(testAddress).connect(mockProvider)
   })
 
   describe('Instantiation', () => {
-    it('should create instance with provider', () => {
+    it('should create instance and connect provider', () => {
       assert.exists(pdpVerifier)
       assert.isFunction(pdpVerifier.proofSetLive)
       assert.isFunction(pdpVerifier.getNextRootId)
@@ -28,10 +28,22 @@ describe('PDPVerifier', () => {
 
     it('should create instance with custom address', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const customVerifier = new PDPVerifier(mockProvider, customAddress)
+      const customVerifier = new PDPVerifier(customAddress).connect(mockProvider)
       assert.exists(customVerifier)
       assert.isFunction(customVerifier.proofSetLive)
       assert.isFunction(customVerifier.getNextRootId)
+    })
+
+    it('should throw error when calling methods without provider', async () => {
+      const customAddress = '0x1234567890123456789012345678901234567890'
+      const customVerifier = new PDPVerifier(customAddress)
+      
+      try {
+        await customVerifier.proofSetLive(123)
+        assert.fail('Expected error to be thrown')
+      } catch (error) {
+        assert.include((error as Error).message, 'No provider connected')
+      }
     })
   })
 
