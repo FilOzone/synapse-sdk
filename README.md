@@ -323,6 +323,7 @@ interface StorageServiceOptions {
   proofSetId?: number                      // Specific proof set ID to use
   withCDN?: boolean                        // Enable CDN services
   callbacks?: StorageCreationCallbacks     // Progress callbacks
+  uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
 
 // Note: The withCDN option follows an inheritance pattern:
@@ -409,6 +410,26 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
+
+##### Efficient Batch Uploads
+
+When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
+
+```javascript
+// Efficient: Start all uploads without await - they'll be batched automatically
+const uploads = []
+for (const data of dataArray) {
+  uploads.push(storage.upload(data))  // No await here
+}
+const results = await Promise.all(uploads)
+
+// Less efficient: Awaiting each upload forces sequential processing
+for (const data of dataArray) {
+  await storage.upload(data)  // Each waits for the previous to complete
+}
+```
+
+The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
 
 ### Storage Information
 

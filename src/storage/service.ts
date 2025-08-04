@@ -39,6 +39,7 @@ export class StorageService {
   private readonly _withCDN: boolean
   private readonly _proofSetId: number
   private readonly _signer: ethers.Signer
+  private readonly _uploadBatchSize: number
 
   // AddRoots batching state
   private _pendingRoots: Array<{
@@ -98,6 +99,7 @@ export class StorageService {
     this._withCDN = options.withCDN ?? false
     this._signer = synapse.getSigner()
     this._pandoraService = pandoraService
+    this._uploadBatchSize = Math.max(1, options.uploadBatchSize ?? SIZE_CONSTANTS.DEFAULT_UPLOAD_BATCH_SIZE)
 
     // Set public properties
     this.proofSetId = proofSetId.toString()
@@ -856,7 +858,13 @@ export class StorageService {
         callbacks
       })
 
-      void this._processPendingRoots()
+      // Debounce: defer processing to next event loop tick
+      // This allows multiple synchronous upload() calls to queue up before processing
+      setTimeout(() => {
+        void this._processPendingRoots().catch((error) => {
+          console.error('Failed to process pending roots batch:', error)
+        })
+      }, 0)
     })
 
     // Return upload result
@@ -877,9 +885,9 @@ export class StorageService {
     }
     this._isProcessing = true
 
-    // Extract all pending roots
-    const batch = [...this._pendingRoots]
-    this._pendingRoots = []
+    // Extract up to uploadBatchSize pending roots
+    const batch = this._pendingRoots.slice(0, this._uploadBatchSize)
+    this._pendingRoots = this._pendingRoots.slice(this._uploadBatchSize)
 
     try {
       // Get add roots info to ensure we have the correct nextRootId
@@ -1046,7 +1054,9 @@ export class StorageService {
     } finally {
       this._isProcessing = false
       if (this._pendingRoots.length > 0) {
-        void this._processPendingRoots().catch()
+        void this._processPendingRoots().catch((error) => {
+          console.error('Failed to process pending roots batch:', error)
+        })
       }
     }
   }

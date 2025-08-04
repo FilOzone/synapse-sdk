@@ -183,7 +183,13 @@ export const SIZE_CONSTANTS = {
    * Minimum upload size (65 bytes)
    * CommP calculation requires at least 65 bytes
    */
-  MIN_UPLOAD_SIZE: 65
+  MIN_UPLOAD_SIZE: 65,
+
+  /**
+   * Default number of uploads to batch together in a single addRoots transaction
+   * This balances gas efficiency with reasonable transaction sizes
+   */
+  DEFAULT_UPLOAD_BATCH_SIZE: 32
 } as const
 
 /**

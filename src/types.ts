@@ -298,6 +298,8 @@ export interface StorageServiceOptions {
   withCDN?: boolean
   /** Callbacks for creation process */
   callbacks?: StorageCreationCallbacks
+  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
+  uploadBatchSize?: number
 }
 
 /**

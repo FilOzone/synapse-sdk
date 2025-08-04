@@ -3,7 +3,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { StorageService } from '../storage/service.js'
 import { Synapse } from '../synapse.js'
-import type { ApprovedProviderInfo, CommP } from '../types.js'
+import type { ApprovedProviderInfo, CommP, UploadResult } from '../types.js'
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {
@@ -1159,16 +1159,29 @@ describe('StorageService', () => {
         return { message: 'success' }
       }
 
+      // Track callbacks
+      const uploadCompleteCallbacks: string[] = []
+      const rootAddedCallbacks: number[] = []
+
       // Create distinct data for each upload
       const firstData = new Uint8Array(65).fill(1) // 65 bytes
       const secondData = new Uint8Array(66).fill(2) // 66 bytes
       const thirdData = new Uint8Array(67).fill(3) // 67 bytes
 
-      // Start all uploads concurrently
+      // Start all uploads concurrently with callbacks
       const uploads = [
-        service.upload(firstData),
-        service.upload(secondData),
-        service.upload(thirdData)
+        service.upload(firstData, {
+          onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
+          onRootAdded: () => rootAddedCallbacks.push(1)
+        }),
+        service.upload(secondData, {
+          onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
+          onRootAdded: () => rootAddedCallbacks.push(2)
+        }),
+        service.upload(thirdData, {
+          onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
+          onRootAdded: () => rootAddedCallbacks.push(3)
+        })
       ]
 
       // Wait for all to complete
@@ -1189,6 +1202,212 @@ describe('StorageService', () => {
           addRootsCalls.some(call => call.commP === result.commp.toString() && call.rootId === result.rootId),
           `addRoots call for commp ${result.commp.toString()} and rootId ${result.rootId ?? 'not found'} should exist`
         )
+      }
+
+      // Verify callbacks were called
+      assert.lengthOf(uploadCompleteCallbacks, 3, 'All upload complete callbacks should be called')
+      assert.lengthOf(rootAddedCallbacks, 3, 'All root added callbacks should be called')
+      assert.deepEqual(rootAddedCallbacks.sort((a, b) => a - b), [1, 2, 3], 'All callbacks should be called')
+    })
+
+    it('should respect batch size configuration', async () => {
+      let nextRootId = 0
+      const addRootsCalls: Array<{ batchSize: number, nextRootId: number }> = []
+
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => {
+          const currentRootId = nextRootId
+          // Don't increment here, let the batch processing do it
+          return {
+            nextRootId: currentRootId,
+            clientDataSetId: 1,
+            currentRootCount: currentRootId
+          }
+        }
+      } as any
+
+      // Create service with batch size of 2
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false, uploadBatchSize: 2 })
+      const serviceAny = service as any
+
+      // Mock PDPServer methods
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
+        const commP = `baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2m${data[0]}`
+        return { commP, size: data.length }
+      }
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, rootIdStart: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
+        addRootsCalls.push({ batchSize: comms.length, nextRootId: rootIdStart })
+        nextRootId += comms.length
+        // Add a small delay to simulate network latency and allow batching
+        await new Promise(resolve => setTimeout(resolve, 10))
+        return { message: 'success' }
+      }
+
+      // Create 5 uploads - start them all synchronously to ensure batching
+      const uploads: Array<Promise<UploadResult>> = []
+      const uploadData = [
+        new Uint8Array(65).fill(0),
+        new Uint8Array(65).fill(1),
+        new Uint8Array(65).fill(2),
+        new Uint8Array(65).fill(3),
+        new Uint8Array(65).fill(4)
+      ]
+
+      // Start all uploads at once to ensure they queue up before processing begins
+      for (const data of uploadData) {
+        uploads.push(service.upload(data))
+      }
+
+      // Wait for all to complete
+      const results = await Promise.all(uploads)
+
+      assert.lengthOf(results, 5, 'All uploads should complete successfully')
+
+      // Verify batching occurred - we should have fewer calls than uploads
+      assert.isBelow(addRootsCalls.length, 5, 'Should have fewer batches than uploads')
+
+      // Verify all uploads were processed
+      const totalProcessed = addRootsCalls.reduce((sum, call) => sum + call.batchSize, 0)
+      assert.equal(totalProcessed, 5, 'All 5 uploads should be processed')
+
+      // Verify root IDs are sequential
+      assert.equal(addRootsCalls[0].nextRootId, 0, 'First batch should start at root ID 0')
+      for (let i = 1; i < addRootsCalls.length; i++) {
+        const expectedId = addRootsCalls[i - 1].nextRootId + addRootsCalls[i - 1].batchSize
+        assert.equal(addRootsCalls[i].nextRootId, expectedId, `Batch ${i} should have correct sequential root ID`)
+      }
+    })
+
+    it('should handle batch size of 1', async () => {
+      let nextRootId = 0
+      const addRootsCalls: number[] = []
+
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: nextRootId++,
+          clientDataSetId: 1,
+          currentRootCount: nextRootId
+        })
+      } as any
+
+      // Create service with batch size of 1
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false, uploadBatchSize: 1 })
+      const serviceAny = service as any
+
+      // Mock PDPServer methods
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
+        commP: `baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2m${data[0]}`,
+        size: data.length
+      })
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, _nextRootId: number, comms: any[]): Promise<any> => {
+        addRootsCalls.push(comms.length)
+        return { message: 'success' }
+      }
+
+      // Create 3 uploads
+      const uploads = [
+        service.upload(new Uint8Array(65).fill(1)),
+        service.upload(new Uint8Array(66).fill(2)),
+        service.upload(new Uint8Array(67).fill(3))
+      ]
+
+      await Promise.all(uploads)
+
+      // With batch size 1, each upload should be processed individually
+      assert.lengthOf(addRootsCalls, 3, 'Should have 3 individual calls')
+      assert.deepEqual(addRootsCalls, [1, 1, 1], 'Each call should have exactly 1 root')
+    })
+
+    it('should debounce uploads for better batching', async () => {
+      const addRootsCalls: Array<{ batchSize: number }> = []
+
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+
+      // Create service with default batch size (32)
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false })
+      const serviceAny = service as any
+
+      // Mock PDPServer methods
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
+        commP: `baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2m${data[0]}`,
+        size: data.length
+      })
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
+      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, _nextRootId: number, comms: any[]): Promise<any> => {
+        // Track batch sizes
+        addRootsCalls.push({ batchSize: comms.length })
+        return { message: 'success' }
+      }
+
+      // Create multiple uploads synchronously
+      const uploads = []
+      for (let i = 0; i < 5; i++) {
+        uploads.push(service.upload(new Uint8Array(65).fill(i)))
+      }
+
+      await Promise.all(uploads)
+
+      // With debounce, all 5 uploads should be in a single batch
+      assert.lengthOf(addRootsCalls, 1, 'Should have exactly 1 batch due to debounce')
+      assert.equal(addRootsCalls[0].batchSize, 5, 'Batch should contain all 5 uploads')
+    })
+
+    it('should handle errors in batch processing gracefully', async () => {
+      const mockPandoraService = {
+        getAddRootsInfo: async (): Promise<any> => ({
+          nextRootId: 0,
+          clientDataSetId: 1,
+          currentRootCount: 0
+        })
+      } as any
+
+      const service = new StorageService(mockSynapse, mockPandoraService, mockProvider, 123, { withCDN: false, uploadBatchSize: 2 })
+      const serviceAny = service as any
+
+      // Mock PDPServer methods
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
+        commP: `baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2m${data[0]}`,
+        size: data.length
+      })
+      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
+
+      // Make addRoots fail
+      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
+        throw new Error('Network error during addRoots')
+      }
+
+      // Create 3 uploads
+      const uploads = [
+        service.upload(new Uint8Array(65).fill(1)),
+        service.upload(new Uint8Array(66).fill(2)),
+        service.upload(new Uint8Array(67).fill(3))
+      ]
+
+      // All uploads in the batch should fail with the same error
+      const results = await Promise.allSettled(uploads)
+
+      // First two should fail together (same batch)
+      assert.equal(results[0].status, 'rejected')
+      assert.equal(results[1].status, 'rejected')
+
+      if (results[0].status === 'rejected' && results[1].status === 'rejected') {
+        assert.include(results[0].reason.message, 'Network error during addRoots')
+        assert.include(results[1].reason.message, 'Network error during addRoots')
+        // They should have the same error message (same batch)
+        assert.equal(results[0].reason.message, results[1].reason.message)
+      }
+
+      // Third upload might succeed or fail depending on timing
+      if (results[2].status === 'rejected') {
+        assert.include((results[2]).reason.message, 'Network error during addRoots')
       }
     })
 
