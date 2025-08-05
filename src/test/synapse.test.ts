@@ -521,13 +521,14 @@ describe('Synapse', () => {
         // Mock operatorApprovals (called by serviceApproval in PaymentsService)
         if (data?.startsWith('0xe3d4c69e') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bool', 'uint256', 'uint256', 'uint256', 'uint256'],
+            ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
             [
               true, // isApproved
               mockAllowances.rateAllowance,
               mockAllowances.lockupAllowance,
               mockAllowances.rateUsed,
-              mockAllowances.lockupUsed
+              mockAllowances.lockupUsed,
+              BigInt(28800) // maxLockupPeriod (10 days)
             ]
           )
         }

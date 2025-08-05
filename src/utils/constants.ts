@@ -41,10 +41,20 @@ export const CONTRACT_ABIS = {
    */
   PAYMENTS: [
     'function deposit(address token, address to, uint256 amount)',
+    'function depositWithPermit(address token, address to, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)',
+    'function depositWithPermitAndApproveOperator(address token, address to, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s, address operator, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
     'function withdraw(address token, uint256 amount)',
     'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
-    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance)',
-    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed)'
+    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
+    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 lockupAllowance, uint256 rateUsed, uint256 lockupUsed, uint256 maxLockupPeriod)',
+    'function settleRail(uint256 railId, uint256 untilEpoch) payable returns (uint256 totalSettledAmount, uint256 totalNetPayeeAmount, uint256 totalOperatorCommission, uint256 finalSettledEpoch, string note)',
+    'function settleTerminatedRailWithoutValidation(uint256 railId) payable returns (uint256 totalSettledAmount, uint256 totalNetPayeeAmount, uint256 totalOperatorCommission, uint256 finalSettledEpoch, string note)',
+    'function getRail(uint256 railId) view returns (tuple(address token, address from, address to, address operator, address validator, uint256 paymentRate, uint256 lockupPeriod, uint256 lockupFixed, uint256 settledUpTo, uint256 endEpoch, uint256 commissionRateBps, address serviceFeeRecipient) rail)',
+    'function getRailsForPayerAndToken(address payer, address token, bool includeTerminated) view returns (tuple(uint256 railId, bool isTerminated, uint256 endEpoch)[] rails)',
+    'function getRailsForPayeeAndToken(address payee, address token, bool includeTerminated) view returns (tuple(uint256 railId, bool isTerminated, uint256 endEpoch)[] rails)',
+    'function getAccountInfoIfSettled(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
+    'function getRateChangeQueueSize(uint256 railId) view returns (uint256)',
+    'function NETWORK_FEE() view returns (uint256)'
   ] as const,
 
   /**
@@ -75,15 +85,17 @@ export const CONTRACT_ABIS = {
 
     // Proof set functions
     'function getClientProofSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN)[])',
+    'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
+    'function proofSetInfo(uint256 proofSetId) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN))',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
 
-    // Mapping from rail ID to PDPVerifier proof set ID
-    'function railToProofSet(uint256 railId) external view returns (uint256 proofSetId)',
-
     // Get proof set info by ID
     'function getProofSet(uint256 id) public view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] rootMetadata, uint256 clientDataSetId, bool withCDN) info)',
+
+    // Get payment rail ID for a proof set (deployed contract)
+    'function getProofSetRailId(uint256 proofSetId) external view returns (uint256)',
 
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
