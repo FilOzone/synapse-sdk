@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+    //   "biomejs.biome",
+    //   "github.vscode-pull-request-github",
+      "yoavbls.pretty-ts-errors"
+    ]
+}
