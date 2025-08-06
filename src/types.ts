@@ -197,22 +197,6 @@ export interface PieceData {
 }
 
 /**
- * Piece metadata information from Warm Storage contract
- */
-export interface PieceMetadata {
-  /** Piece ID within the data set */
-  pieceId: number
-  /** CommP CID of the piece */
-  pieceCid: string
-  /** Raw size of the original data */
-  rawSize: number
-  /** Block height when piece was removed (null if not removed) */
-  removedBlockHeight: number | null
-  /** Whether the piece has been removed */
-  isRemoved: boolean
-}
-
-/**
  * Data set information returned from Warm Storage contract
  */
 export interface DataSetInfo {
@@ -226,8 +210,8 @@ export interface DataSetInfo {
   commissionBps: number
   /** General metadata for the data set */
   metadata: string
-  /** Array of metadata for each piece */
-  pieceMetadata: PieceMetadata[]
+  /** Array of metadata strings for each piece */
+  pieceMetadata: string[]
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: number
   /** Whether the data set is using CDN */
@@ -509,18 +493,6 @@ export interface ProviderSelectionResult {
   isNewDataSet?: boolean
   /** Whether this is an existing data set */
   isExisting?: boolean
-}
-
-/**
- * Information about a pending provider registration
- */
-export interface PendingProviderInfo {
-  /** Service URL for the provider */
-  serviceURL: string
-  /** Peer ID (UTF-8 encoded bytes) */
-  peerId: string
-  /** Block height when registered */
-  registeredAt: number
 }
 
 /**

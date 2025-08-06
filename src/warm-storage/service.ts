@@ -26,7 +26,7 @@
  */
 
 import { ethers } from 'ethers'
-import type { DataSetInfo, EnhancedDataSetInfo, ApprovedProviderInfo, PendingProviderInfo } from '../types.js'
+import type { DataSetInfo, EnhancedDataSetInfo, ApprovedProviderInfo } from '../types.js'
 import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 import { PDPVerifier } from '../pdp/verifier.js'
 import type { PDPServer, DataSetCreationStatusResponse } from '../pdp/server.js'
@@ -46,13 +46,17 @@ export interface AddPiecesInfo {
 }
 
 /**
- * Service price information per epoch
+ * Service price information
  */
 export interface ServicePriceInfo {
-  /** Price per epoch without CDN (in base units) */
-  noCDN: bigint
-  /** Price per epoch with CDN (in base units) */
-  withCDN: bigint
+  /** Price per TiB per month without CDN (in base units) */
+  pricePerTiBPerMonthNoCDN: bigint
+  /** Price per TiB per month with CDN (in base units) */
+  pricePerTiBPerMonthWithCDN: bigint
+  /** Token address for payments */
+  tokenAddress: string
+  /** Number of epochs per month */
+  epochsPerMonth: bigint
 }
 
 /**
@@ -69,24 +73,6 @@ export interface StorageCostResult {
   perMonth: bigint
   /** Whether CDN is included */
   withCDN: boolean
-}
-
-/**
- * Current proving parameters
- */
-export interface ProvingParams {
-  /** Current epoch number */
-  currentEpoch: number
-  /** Number of epochs in each proving period */
-  epochsPerPeriod: bigint
-  /** Current proving period number */
-  currentPeriod: number
-  /** Start epoch of current period */
-  periodStart: number
-  /** End epoch of current period */
-  periodEnd: number
-  /** Proving deadline epoch */
-  deadline: number
 }
 
 /**
@@ -113,6 +99,18 @@ export interface ComprehensiveDataSetStatus {
     error: string | null
     estimatedRemainingMs: number | null
   }
+}
+
+/**
+ * Information about a pending provider registration
+ */
+export interface PendingProviderInfo {
+  /** Service URL for the provider */
+  serviceURL: string
+  /** Peer ID (UTF-8 encoded bytes) */
+  peerId: string
+  /** Block height when registered */
+  registeredAt: number
 }
 
 export class WarmStorageService {
@@ -171,13 +169,7 @@ export class WarmStorageService {
         payee: ds.payee,
         commissionBps: Number(ds.commissionBps),
         metadata: ds.metadata,
-        pieceMetadata: ds.pieceMetadata.map((r: any) => ({
-          pieceId: Number(r.id),
-          pieceCid: r.cid,
-          rawSize: Number(r.rawSize),
-          removedBlockHeight: r.removedBlockHeight !== 0n ? Number(r.removedBlockHeight) : null,
-          isRemoved: r.removedBlockHeight !== 0n
-        })),
+        pieceMetadata: ds.pieceMetadata, // This is already an array of strings
         clientDataSetId: Number(ds.clientDataSetId),
         withCDN: ds.withCDN
       }))
@@ -193,22 +185,34 @@ export class WarmStorageService {
    * @param onlyManaged - If true, only return data sets managed by this Warm Storage contract
    * @returns Array of enhanced data set information
    */
-  async getClientDataSetsWithDetails (client: string, onlyManaged: boolean = true): Promise<EnhancedDataSetInfo[]> {
-    try {
-      const contract = this._getWarmStorageContract()
-      const pdpVerifier = this._getPDPVerifier()
+  async getClientDataSetsWithDetails (client: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
+    const dataSets = await this.getClientDataSets(client)
+    const pdpVerifier = this._getPDPVerifier()
+    const contract = this._getWarmStorageContract()
 
-      const dataSetsRaw = await contract.getClientDataSets(client)
+    // Process all data sets in parallel
+    const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
+      try {
+        // Get the actual PDPVerifier data set ID from the rail ID
+        const pdpVerifierDataSetId = Number(await contract.railToDataSet(dataSet.railId))
 
-      const enhancedDataSets: EnhancedDataSetInfo[] = []
+        // If railToDataSet returns 0, this rail doesn't exist in this Warm Storage contract
+        if (pdpVerifierDataSetId === 0) {
+          return onlyManaged
+            ? null // Will be filtered out
+            : {
+                ...dataSet,
+                pdpVerifierDataSetId: 0,
+                nextPieceId: 0,
+                currentPieceCount: 0,
+                isLive: false,
+                isManaged: false
+              }
+        }
 
-      for (const ds of dataSetsRaw) {
-      // Get the pdpVerifierDataSetId by mapping railId to data set ID
-        const pdpVerifierDataSetId = Number(await contract.railToDataSet(ds.pdpRailId))
-
-        // Check if the data set is live in parallel with getting the listener
-        const [isLiveResult, listenerResult] = await Promise.all([
-          pdpVerifier.dataSetLive(pdpVerifierDataSetId).catch(() => false),
+        // Parallelize independent calls
+        const [isLive, listenerResult] = await Promise.all([
+          pdpVerifier.dataSetLive(pdpVerifierDataSetId),
           pdpVerifier.getDataSetListener(pdpVerifierDataSetId).catch(() => null)
         ])
 
@@ -217,53 +221,51 @@ export class WarmStorageService {
 
         // Skip unmanaged data sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
-          continue
+          return null // Will be filtered out
         }
 
-        // Convert piece metadata
-        const pieceMetadata = ds.pieceMetadata.map((r: any) => ({
-          pieceId: Number(r.id),
-          pieceCid: r.cid,
-          rawSize: Number(r.rawSize),
-          removedBlockHeight: r.removedBlockHeight !== 0n ? Number(r.removedBlockHeight) : null,
-          isRemoved: r.removedBlockHeight !== 0n
-        }))
+        // Get next piece ID only if the data set is live
+        const nextPieceId = isLive ? await pdpVerifier.getNextPieceId(pdpVerifierDataSetId) : 0
 
-        // Count active pieces
-        const currentPieceCount = pieceMetadata.filter((r: any) => r.isRemoved === false).length
-
-        enhancedDataSets.push({
-          railId: Number(ds.pdpRailId), // Using pdpRailId from contract
-          payer: ds.payer,
-          payee: ds.payee,
-          commissionBps: ds.commissionBps,
-          metadata: ds.metadata,
-          pieceMetadata,
-          clientDataSetId: ds.clientDataSetId,
-          withCDN: ds.withCDN,
+        return {
+          ...dataSet,
           pdpVerifierDataSetId,
-          nextPieceId: pieceMetadata.length, // Simple approximation
-          isLive: isLiveResult,
-          isManaged,
-          currentPieceCount
-        })
+          nextPieceId: Number(nextPieceId),
+          currentPieceCount: Number(nextPieceId),
+          isLive,
+          isManaged
+        }
+      } catch (error) {
+        // Re-throw the error to let the caller handle it
+        throw new Error(`Failed to get details for data set with enhanced info ${dataSet.railId}: ${error instanceof Error ? error.message : String(error)}`)
       }
+    })
 
-      return enhancedDataSets
-    } catch (error) {
-      throw new Error(`Failed to get details for data set with enhanced info: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    // Wait for all promises to resolve
+    const results = await Promise.all(enhancedDataSetsPromises)
+
+    // Filter out null values (from skipped data sets when onlyManaged is true)
+    return results.filter((result): result is EnhancedDataSetInfo => result !== null)
   }
 
   /**
    * Get the next client dataset ID for a given client
-   * @param client - The client address
-   * @returns The next available dataset ID
+   * @param clientAddress - The client's wallet address
+   * @returns  next client dataset ID that will be assigned by this WarmStorage contract
    */
-  async getNextClientDataSetId (client: string): Promise<number> {
-    const contract = this._getWarmStorageContract()
-    const nextId = await contract.clientDataSetIDs(client)
-    return Number(nextId)
+  async getNextClientDataSetId (clientAddress: string): Promise<number> {
+    try {
+      const contract = this._getWarmStorageContract()
+
+      // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
+      // This is the value that will be used for the next proof set creation
+      const currentCounter = await contract.clientDataSetIDs(client)
+
+      // Return the current counter value (it will be incremented during proof set creation)
+      return Number(currentCounter)
+    } catch (error) {
+      throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**
@@ -318,8 +320,8 @@ export class WarmStorageService {
     const pdpVerifier = this._getPDPVerifier()
     const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
 
-    // Count non-removed pieces
-    const currentPieceCount = dataSet.pieceMetadata.filter(r => !r.isRemoved).length
+    // Count pieces (simple count of metadata strings)
+    const currentPieceCount = dataSet.pieceMetadata.length
 
     // For Warm Storage, the clientDataSetId is the index of this data set in the client's list
     const clientDataSetId = clientDataSets.findIndex(ds => ds.railId === matchedRailId)
@@ -533,8 +535,10 @@ export class WarmStorageService {
     const contract = this._getWarmStorageContract()
     const pricing = await contract.getServicePrice()
     return {
-      noCDN: pricing.pricePerTiBPerMonthNoCDN,
-      withCDN: pricing.pricePerTiBPerMonthWithCDN
+      pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
+      pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
+      tokenAddress: pricing.tokenAddress,
+      epochsPerMonth: pricing.epochsPerMonth
     }
   }
 
@@ -546,7 +550,7 @@ export class WarmStorageService {
    */
   async calculateStorageCost (sizeBytes: number, withCDN: boolean = false): Promise<StorageCostResult> {
     const servicePriceInfo = await this.getServicePrice()
-    const pricePerTiBPerMonth = withCDN ? servicePriceInfo.withCDN : servicePriceInfo.noCDN
+    const pricePerTiBPerMonth = withCDN ? servicePriceInfo.pricePerTiBPerMonthWithCDN : servicePriceInfo.pricePerTiBPerMonthNoCDN
 
     // Calculate monthly cost based on size
     const costPerMonth = (BigInt(sizeBytes) * pricePerTiBPerMonth) / BigInt(SIZE_CONSTANTS.TIB_IN_BYTES)
@@ -928,14 +932,5 @@ export class WarmStorageService {
     const contract = this._getWarmStorageContract()
     const window = await contract.challengeWindow()
     return Number(window)
-  }
-
-  /**
-   * Get current proving parameters
-   * @returns Current proving period information
-   */
-  async getCurrentProvingParams (): Promise<ProvingParams> {
-    // FIXME: Cannot access private _contract member - need to expose proper methods in PDPVerifier
-    throw new Error('getCurrentProvingParams not implemented - requires PDPVerifier contract access')
   }
 }

@@ -480,16 +480,16 @@ export class Synapse {
         providers: filteredProviders,
         pricing: {
           noCDN: {
-            perTiBPerMonth: calculatePricing(servicePriceInfo.noCDN, false).perTiBPerMonth,
-            perTiBPerDay: calculatePricing(servicePriceInfo.noCDN, false).perDay,
-            perTiBPerEpoch: calculatePricing(servicePriceInfo.noCDN, false).perEpoch
+            perTiBPerMonth: calculatePricing(servicePriceInfo.pricePerTiBPerMonthNoCDN, false).perTiBPerMonth,
+            perTiBPerDay: calculatePricing(servicePriceInfo.pricePerTiBPerMonthNoCDN, false).perDay,
+            perTiBPerEpoch: calculatePricing(servicePriceInfo.pricePerTiBPerMonthNoCDN, false).perEpoch
           },
           withCDN: {
-            perTiBPerMonth: calculatePricing(servicePriceInfo.withCDN, true).perTiBPerMonth,
-            perTiBPerDay: calculatePricing(servicePriceInfo.withCDN, true).perDay,
-            perTiBPerEpoch: calculatePricing(servicePriceInfo.withCDN, true).perEpoch
+            perTiBPerMonth: calculatePricing(servicePriceInfo.pricePerTiBPerMonthWithCDN, true).perTiBPerMonth,
+            perTiBPerDay: calculatePricing(servicePriceInfo.pricePerTiBPerMonthWithCDN, true).perDay,
+            perTiBPerEpoch: calculatePricing(servicePriceInfo.pricePerTiBPerMonthWithCDN, true).perEpoch
           },
-          tokenAddress: CONTRACT_ADDRESSES.USDFC[this._network],
+          tokenAddress: servicePriceInfo.tokenAddress,
           tokenSymbol: 'USDFC'
         },
         contracts: {

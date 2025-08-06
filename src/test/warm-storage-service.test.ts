@@ -230,8 +230,8 @@ describe('WarmStorageService', () => {
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].railId, 48)
       assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242)
-      assert.equal(detailedDataSets[0].nextPieceId, 0)
-      assert.equal(detailedDataSets[0].currentPieceCount, 0)
+      assert.equal(detailedDataSets[0].nextPieceId, 2)
+      assert.equal(detailedDataSets[0].currentPieceCount, 2)
       assert.isTrue(detailedDataSets[0].isLive)
       assert.isTrue(detailedDataSets[0].isManaged)
 
