@@ -46,7 +46,6 @@ describe('PDP Validation', function () {
       )
     })
 
-
     it('should reject invalid responses', function () {
       const invalidResponses = [
         null,

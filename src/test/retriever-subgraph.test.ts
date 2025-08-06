@@ -42,7 +42,7 @@ const createMockSubgraphService = (
     },
     getProviderByAddress: async (address: string): Promise<ApprovedProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : providersToReturn ?? []
-      return providers.find((p) => p.owner === address) ?? null
+      return providers.find((p) => p.storageProvider === address) ?? null
     }
   } as any
 
@@ -169,7 +169,6 @@ describe('SubgraphRetriever', () => {
       const otherProvider: ApprovedProviderInfo = {
         ...mockProvider,
         storageProvider: '0xother'
-        // pieceRetrievalUrl: 'https://otherprovider.example.com/retrieve' // Combined into serviceURL
       }
       const mockService = createMockSubgraphService([mockProvider, otherProvider]) // Service returns multiple providers
       let fetchCalledForMockProvider = false

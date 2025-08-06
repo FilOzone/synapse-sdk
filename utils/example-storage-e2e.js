@@ -109,19 +109,19 @@ async function main () {
         onProviderSelected: (provider) => {
           console.log(`✓ Selected storage provider: ${provider.storageProvider}`)
         },
-        onProofSetResolved: (info) => {
+        onDataSetResolved: (info) => {
           if (info.isExisting) {
-            console.log(`✓ Using existing proof set: ${info.proofSetId}`)
+            console.log(`✓ Using existing data set: ${info.dataSetId}`)
           } else {
-            console.log(`✓ Created new proof set: ${info.proofSetId}`)
+            console.log(`✓ Created new data set: ${info.dataSetId}`)
           }
         },
-        onProofSetCreationStarted: (transaction, statusUrl) => {
-          console.log(`  Creating proof set, tx: ${transaction.hash}`)
+        onDataSetCreationStarted: (transaction, statusUrl) => {
+          console.log(`  Creating data set, tx: ${transaction.hash}`)
         },
-        onProofSetCreationProgress: (progress) => {
-          if (progress.transactionMined && !progress.proofSetLive) {
-            console.log('  Transaction mined, waiting for proof set to be live...')
+        onDataSetCreationProgress: (progress) => {
+          if (progress.transactionMined && !progress.dataSetLive) {
+            console.log('  Transaction mined, waiting for data set to be live...')
           }
         }
       }
@@ -220,11 +220,11 @@ async function main () {
     console.log('\n--- Piece Status ---')
     const pieceStatus = await storageService.pieceStatus(uploadResult.commp)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
-    if (pieceStatus.proofSetLastProven) {
-      console.log(`Proof set last proven: ${pieceStatus.proofSetLastProven.toLocaleString()}`)
+    if (pieceStatus.dataSetLastProven) {
+      console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
     }
-    if (pieceStatus.proofSetNextProofDue) {
-      console.log(`Proof set next proof due: ${pieceStatus.proofSetNextProofDue.toLocaleString()}`)
+    if (pieceStatus.dataSetNextProofDue) {
+      console.log(`Data set next proof due: ${pieceStatus.dataSetNextProofDue.toLocaleString()}`)
     }
     if (pieceStatus.inChallengeWindow) {
       console.log('⚠️  Currently in challenge window - proof must be submitted soon!')

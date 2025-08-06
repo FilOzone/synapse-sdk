@@ -120,4 +120,28 @@ export class PDPVerifier {
   getContractAddress (): string {
     return this._contract.target as string
   }
+
+  /**
+   * Get the underlying contract instance
+   * @returns The ethers Contract instance
+   */
+  getContract (): ethers.Contract {
+    return this._contract
+  }
+
+  /**
+   * Get the maximum proving period from the contract
+   * @returns Maximum proving period in epochs
+   */
+  async getMaxProvingPeriod (): Promise<bigint> {
+    return await this._contract.getMaxProvingPeriod()
+  }
+
+  /**
+   * Get the challenge window size from the contract
+   * @returns Challenge window size in epochs
+   */
+  async getChallengeWindow (): Promise<bigint> {
+    return await this._contract.challengeWindow()
+  }
 }

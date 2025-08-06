@@ -195,9 +195,9 @@
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
         </div>
 
-        <!-- CREATE PROOF SET SECTION -->
+        <!-- CREATE DATA SET SECTION -->
         <div class="section">
-            <h2>Create Proof Set</h2>
+            <h2>Create Data Set</h2>
 
             <div class="form-group">
                 <label for="payee">Storage Provider Address:</label>
@@ -224,7 +224,7 @@
             </div>
 
             <div class="form-group">
-                <button id="createProofSetBtn" disabled>Create Proof Set</button>
+                <button id="createDataSetBtn" disabled>Create Data Set</button>
                 <button id="checkStatusBtn" disabled>Check Status</button>
                 <button id="autoMonitorBtn" disabled style="background-color: #28a745;">Auto-Monitor</button>
             </div>
@@ -235,7 +235,7 @@
             <h2>Add Pieces to Data Set</h2>
 
             <div class="form-group">
-                <label for="pdpVerifierProofSetId">Proof Set ID:</label>
+                <label for="pdpVerifierDataSetId">Data Set ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="number" id="pdpVerifierDataSetId" value="" style="flex: 1;" />
                     <button type="button" id="discoverDataSets" class="add-piece-btn" disabled>Discover</button>
@@ -250,7 +250,7 @@
                     <input type="number" id="addPiecesClientDataSetId" value="0" style="flex: 1;" />
                     <button type="button" id="autoFillAddPiecesInfo" class="add-piece-btn" disabled>Auto-fill</button>
                 </div>
-                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from proof set)</div>
+                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from data set)</div>
             </div>
 
             <div class="form-group">
@@ -284,13 +284,13 @@
             </div>
         </div>
 
-        <!-- MONITOR PROOF SET SECTION -->
+        <!-- MONITOR DATA SET SECTION -->
         <div class="section">
-            <h2>Monitor Proof Set</h2>
+            <h2>Monitor Data Set</h2>
             <div class="form-group">
                 <label for="monitorTxHash">Transaction Hash:</label>
                 <input type="text" id="monitorTxHash" placeholder="0x..." />
-                <div class="help-text">Enter a proof set creation transaction hash to monitor its status</div>
+                <div class="help-text">Enter a data set creation transaction hash to monitor its status</div>
             </div>
             <div class="form-group">
                 <button id="monitorTxBtn">Check Transaction Status</button>
@@ -502,8 +502,8 @@ Warm Storage: ${warmStorageAddress}`, 'success')
             const clientDataSetId = parseInt(document.getElementById('addPiecesClientDataSetId').value)
             const nextPieceId = parseInt(document.getElementById('nextPieceId').value)
 
-            if (isNaN(pdpVerifierProofSetId) || pdpVerifierProofSetId < 0) {
-                throw new Error('Please enter a valid proof set ID (use Discover to auto-fill)')
+            if (isNaN(pdpVerifierDataSetId) || pdpVerifierDataSetId < 0) {
+                throw new Error('Please enter a valid data set ID (use Discover to auto-fill)')
             }
 
             if (isNaN(clientDataSetId) || clientDataSetId < 0) {
@@ -547,8 +547,8 @@ Warm Storage: ${warmStorageAddress}`, 'success')
             return { pdpEndpoint, warmStorageAddress, pdpVerifierDataSetId, clientDataSetId, nextPieceId, pieceDataArray }
         }
 
-        // Create Proof Set functionality
-        document.getElementById('createProofSetBtn').addEventListener('click', async () => {
+        // Create Data Set functionality
+        document.getElementById('createDataSetBtn').addEventListener('click', async () => {
             try {
                 showStatus('Validating inputs...', 'info')
 
@@ -564,7 +564,7 @@ Warm Storage: ${warmStorageAddress}`, 'success')
                 const authHelper = new PDPAuthHelper(warmStorageAddress, connectedSigner, chainId)
                 const pdpServer = new PDPServer(authHelper, pdpEndpoint, pdpEndpoint)
 
-                showStatus('Signing and sending proof set creation...', 'info')
+                showStatus('Signing and sending data set creation...', 'info')
 
                 // Create data set using the SDK's PDPServer
                 const result = await pdpServer.createDataSet(clientDataSetId, payee, withCDN, warmStorageAddress)
@@ -573,7 +573,7 @@ Warm Storage: ${warmStorageAddress}`, 'success')
                 document.getElementById('checkStatusBtn').disabled = false
                 document.getElementById('autoMonitorBtn').disabled = false
 
-                showStatus(`Proof set creation submitted successfully!
+                showStatus(`Data set creation submitted successfully!
 Transaction Hash: ${result.txHash}
 Status URL: ${result.statusUrl}
 
@@ -583,7 +583,7 @@ Starting automatic monitoring...`, 'success')
                 startStatusPolling()
 
             } catch (error) {
-                console.error('Error creating proof set:', error)
+                console.error('Error creating data set:', error)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
@@ -624,12 +624,12 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
         // Check Status functionality with comprehensive checking
         document.getElementById('checkStatusBtn').addEventListener('click', async () => {
             if (!currentTxHash) {
-                showStatus('No transaction hash available. Create a proof set first.', 'error')
+                showStatus('No transaction hash available. Create a data set first.', 'error')
                 return
             }
 
             try {
-                showStatus('Checking comprehensive proof set creation status...', 'info')
+                showStatus('Checking comprehensive data set creation status...', 'info')
 
                 const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
@@ -644,15 +644,15 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 )
 
                 // Build detailed status message
-                let statusMessage = `🔍 Comprehensive Proof Set Status:\n\n`
+                let statusMessage = `🔍 Comprehensive Data Set Status:\n\n`
 
                 // Summary details
                 statusMessage += `📊 Overall Status: ${comprehensiveStatus.summary.isComplete ? 'Complete' : 'In Progress'}\n`
                 if (comprehensiveStatus.summary.error) {
                     statusMessage += `❌ Error: ${comprehensiveStatus.summary.error}\n`
                 }
-                if (comprehensiveStatus.summary.proofSetId) {
-                    statusMessage += `✅ Proof Set ID: ${comprehensiveStatus.summary.proofSetId}\n`
+                if (comprehensiveStatus.summary.dataSetId) {
+                    statusMessage += `✅ Data Set ID: ${comprehensiveStatus.summary.dataSetId}\n`
                 }
                 statusMessage += `\n`
 
@@ -665,9 +665,9 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
                     statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
                 }
-                if (chain.proofSetId != null) {
-                    statusMessage += `  • Proof Set ID: ${chain.proofSetId}\n`
-                    statusMessage += `  • Proof Set Live: ${chain.proofSetLive ? '✅' : '❌'}\n`
+                if (chain.dataSetId != null) {
+                    statusMessage += `  • Data Set ID: ${chain.dataSetId}\n`
+                    statusMessage += `  • Data Set Live: ${chain.dataSetLive ? '✅' : '❌'}\n`
                 }
                 if (chain.error) {
                     statusMessage += `  • Error: ${chain.error}\n`
@@ -681,9 +681,9 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     statusMessage += `  • Service: ${pdpServerStatus.service}\n`
                     statusMessage += `  • TX Status: ${pdpServerStatus.txStatus}\n`
                     statusMessage += `  • Success: ${pdpServerStatus.ok === null ? 'Pending' : (pdpServerStatus.ok ? '✅' : '❌')}\n`
-                    statusMessage += `  • Proof Set Created: ${pdpServerStatus.proofsetCreated ? '✅' : '❌'}\n`
-                    if (pdpServerStatus.proofSetId) {
-                        statusMessage += `  • Server Proof Set ID: ${pdpServerStatus.proofSetId}\n`
+                    statusMessage += `  • Data Set Created: ${pdpServerStatus.dataSetCreated ? '✅' : '❌'}\n`
+                    if (pdpServerStatus.dataSetId) {
+                        statusMessage += `  • Server Data Set ID: ${pdpServerStatus.dataSetId}\n`
                     }
                 } else {
                     statusMessage += `🖥️ PDP Server Status: Not available (using chain verification only)\n`
@@ -700,7 +700,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 if (chain.dataSetLive && chain.dataSetId != null) {
                     document.getElementById('pdpVerifierDataSetId').value = chain.dataSetId
                     
-                    // Also try to get the additional info for this new proof set
+                    // Also try to get the additional info for this new data set
                     try {
                         const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
                         const newDataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === chain.dataSetId)
@@ -709,7 +709,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                             document.getElementById('nextPieceId').value = newDataSet.nextPieceId
                         }
                     } catch (e) {
-                        // Ignore errors here, the proof set ID is the important part
+                        // Ignore errors here, the data set ID is the important part
                     }
                     
                     showStatus(statusMessage + `\n✨ Auto-populated data set ID ${chain.dataSetId} for adding pieces!`, statusType)
@@ -791,7 +791,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
             } else {
                 // Not monitoring - start it
                 if (!currentTxHash) {
-                    showStatus('No transaction to monitor. Create a proof set first.', 'error')
+                    showStatus('No transaction to monitor. Create a data set first.', 'error')
                     return
                 }
                 startStatusPolling()
@@ -817,14 +817,14 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
             }
         })
 
-        document.getElementById('discoverProofSets').addEventListener('click', async () => {
+        document.getElementById('discoverDataSets').addEventListener('click', async () => {
             try {
                 if (!warmStorageService || !connectedAddress) {
                     showStatus('Please connect your wallet first', 'error')
                     return
                 }
 
-                showStatus('Discovering your proof sets with detailed information...', 'info')
+                showStatus('Discovering your data sets with detailed information...', 'info')
                 
                 const dataSetsWithDetails = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
                 const managedDataSets = dataSetsWithDetails.filter(ps => ps.isManaged)
@@ -837,12 +837,12 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 // Get unmanaged data sets (those from other Warm Storage contracts)
                 const unmanagedDataSets = dataSetsWithDetails.filter(ps => !ps.isManaged)
 
-                let message = `Found ${proofSetsWithDetails.length} proof set(s) total:\n\n`
+                let message = `Found ${dataSetsWithDetails.length} data set(s) total:\n\n`
 
-                if (managedProofSets.length > 0) {
-                    message += `✅ YOUR PROOF SETS (${managedProofSets.length}):\n\n`
-                    managedProofSets.forEach((ps, index) => {
-                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                if (managedDataSets.length > 0) {
+                    message += `✅ YOUR DATA SETS (${managedDataSets.length}):\n\n`
+                    managedDataSets.forEach((ps, index) => {
+                        message += `${index + 1}. Data Set ID: ${ps.pdpVerifierDataSetId} (Dataset ${ps.clientDataSetId})\n`
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'}\n`
                         message += `   Current Pieces: ${ps.currentPieceCount}\n`
                         message += `   Next Piece ID: ${ps.nextPieceId}\n`
@@ -852,10 +852,10 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     })
                 }
 
-                if (unmanagedProofSets.length > 0) {
-                    message += `⚠️ OTHER PROOF SETS (${unmanagedProofSets.length}):\n\n`
-                    unmanagedProofSets.forEach((ps, index) => {
-                        message += `${index + 1}. Proof Set ID: ${ps.pdpVerifierProofSetId} (Dataset ${ps.clientDataSetId})\n`
+                if (unmanagedDataSets.length > 0) {
+                    message += `⚠️ OTHER DATA SETS (${unmanagedDataSets.length}):\n\n`
+                    unmanagedDataSets.forEach((ps, index) => {
+                        message += `${index + 1}. Data Set ID: ${ps.pdpVerifierDataSetId} (Dataset ${ps.clientDataSetId})\n`
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'} - Cannot manage from this interface\n`
                         message += `   Current Pieces: ${ps.currentPieceCount}\n`
                         message += `   Storage Provider: ${ps.payee}\n`
@@ -869,7 +869,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     message += '❌ No data sets managed by this Warm Storage contract. You cannot add pieces from this interface.'
                 }
 
-                showStatus(message, managedProofSets.length > 0 ? 'success' : 'info')
+                showStatus(message, managedDataSets.length > 0 ? 'success' : 'info')
 
                 // Auto-populate the first MANAGED data set if found
                 if (managedDataSets.length > 0) {
@@ -885,7 +885,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     document.getElementById('nextPieceId').value = ''
                 }
             } catch (error) {
-                console.error('Error discovering proof sets:', error)
+                console.error('Error discovering data sets:', error)
                 showStatus(`Error: ${error.message}`, 'error')
             }
         })
@@ -897,9 +897,9 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     return
                 }
 
-                const proofSetId = parseInt(document.getElementById('pdpVerifierProofSetId').value)
-                if (isNaN(proofSetId) || proofSetId < 0) {
-                    showStatus('Please enter a valid proof set ID first', 'error')
+                const dataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value)
+                if (isNaN(dataSetId) || dataSetId < 0) {
+                    showStatus('Please enter a valid data set ID first', 'error')
                     return
                 }
 
@@ -909,8 +909,8 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
                     const dataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === dataSetId)
                     
-                    if (!proofSet) {
-                        showStatus('Proof set not found or not owned by connected wallet', 'error')
+                    if (!dataSet) {
+                        showStatus('Data set not found or not owned by connected wallet', 'error')
                         return
                     }
                     
@@ -1045,8 +1045,8 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                 if (comprehensiveStatus.summary.error) {
                     statusMessage += `❌ Error: ${comprehensiveStatus.summary.error}\n`
                 }
-                if (comprehensiveStatus.summary.proofSetId) {
-                    statusMessage += `✅ Proof Set ID: ${comprehensiveStatus.summary.proofSetId}\n`
+                if (comprehensiveStatus.summary.dataSetId) {
+                    statusMessage += `✅ Data Set ID: ${comprehensiveStatus.summary.dataSetId}\n`
                 }
                 statusMessage += `\n`
 
@@ -1059,8 +1059,8 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                     statusMessage += `  • Block Number: ${chain.blockNumber ?? 'N/A'}\n`
                     statusMessage += `  • Gas Used: ${chain.gasUsed != null ? chain.gasUsed.toString() : 'N/A'}\n`
                 }
-                if (chain.proofSetId != null) {
-                    statusMessage += `  • Proof Set Live: ${chain.proofSetLive ? '✅' : '❌'}\n`
+                if (chain.dataSetId != null) {
+                    statusMessage += `  • Data Set Live: ${chain.dataSetLive ? '✅' : '❌'}\n`
                 }
 
                 const statusType = comprehensiveStatus.summary.error ? 'error' : (comprehensiveStatus.summary.isComplete ? 'success' : 'info')

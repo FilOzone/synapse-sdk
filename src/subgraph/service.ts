@@ -294,9 +294,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    */
   private transformProviderData (data: any): ApprovedProviderInfo {
     return {
-      owner: data.address != null && data.address !== '' ? data.address : data.id,
-      pdpUrl: data.pdpUrl,
-      pieceRetrievalUrl: data.pieceRetrievalUrl,
+      storageProvider: data.storageProvider ?? data.address ?? data.id,
+      serviceURL: data.serviceURL ?? data.pdpUrl,
+      peerId: data.peerId ?? '',
       registeredAt: this.parseTimestamp(data.registeredAt),
       approvedAt: this.parseTimestamp(data.approvedAt)
     }
@@ -345,10 +345,8 @@ export class SubgraphService implements SubgraphRetrievalService {
     return (
       data?.id != null &&
       data.id.trim() !== '' &&
-      data?.pdpUrl != null &&
-      data.pdpUrl.trim() !== '' &&
-      data?.pieceRetrievalUrl != null &&
-      data.pieceRetrievalUrl.trim() !== ''
+      data?.serviceURL != null &&
+      data.serviceURL.trim() !== ''
     )
   }
 
@@ -531,6 +529,15 @@ export class SubgraphService implements SubgraphRetrievalService {
               registeredAt: 0,
               approvedAt: 0
             },
+      storageProvider: dataSet.storageProvider != null
+        ? this.transformProviderData(dataSet.storageProvider)
+        : {
+            storageProvider: '',
+            serviceURL: '',
+            peerId: '',
+            registeredAt: 0,
+            approvedAt: 0
+          },
       rail:
         dataSet.rail != null
           ? {

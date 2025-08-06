@@ -87,15 +87,15 @@ async function runBenchmark () {
     for (let run = 1; run <= NUM_RUNS; run++) {
       console.log(`\n=== Run ${run}/${NUM_RUNS} ===`)
 
-      // Create new proof set
-      console.log('Creating new proof set...')
+      // Create new data set
+      console.log('Creating new data set...')
       const storage = await synapse.createStorage({
         providerAddress: PROVIDER_ADDRESS,
-        forceCreateProofSet: true,
+        forceCreateDataSet: true,
         withCDN: false
       })
 
-      console.log(`Proof set created: ${storage.proofSetId}`)
+      console.log(`Data set created: ${storage.dataSetId}`)
 
       // Upload 4 unique pieces
       for (let piece = 1; piece <= 4; piece++) {

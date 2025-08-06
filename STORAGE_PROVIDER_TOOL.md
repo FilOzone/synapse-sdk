@@ -8,7 +8,7 @@ Storage providers must register with the Warm Storage contract before they can p
 
 1. **Storage Provider** registers their service URLs
 2. **Contract Owner** approves the registration
-3. **Storage Provider** can then be used as a payee in proof sets
+3. **Storage Provider** can then be used as a payee in data sets
 
 ## Usage
 

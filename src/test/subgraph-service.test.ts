@@ -56,7 +56,6 @@ describe('SubgraphService', () => {
                 storageProvider: {
                   id: '0x123',
                   serviceURL: 'http://provider.url/pdp',
-                  // pieceRetrievalUrl: 'http://provider.url/piece', // Combined into serviceURL
                   status: 'Approved',
                   address: '0x123'
                 }
@@ -180,7 +179,6 @@ describe('SubgraphService', () => {
           provider: {
             id: mockAddress,
             serviceURL: 'http://provider.url/pdp'
-            // pieceRetrievalUrl: 'http://provider.url/piece' // Combined into serviceURL
           }
         }
       }
@@ -266,7 +264,6 @@ describe('SubgraphService', () => {
                 id: '0x123',
                 address: '0x123',
                 serviceURL: 'https://provider1.com',
-                // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               },
@@ -274,7 +271,6 @@ describe('SubgraphService', () => {
                 id: '0x456',
                 address: '0x456',
                 serviceURL: 'https://provider2.com',
-                // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                 registeredAt: '1640995300',
                 approvedAt: '1641081700'
               }
@@ -317,7 +313,6 @@ describe('SubgraphService', () => {
                 id: '0x123',
                 address: '0x123',
                 serviceURL: 'https://provider1.com',
-                // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                 registeredAt: '1640995200',
                 approvedAt: '1641081600'
               }
@@ -331,7 +326,7 @@ describe('SubgraphService', () => {
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'ProvidersFlexible')
-            assert.deepEqual(body.variables.where, { status: 'APPROVED', totalProofSets_gte: '5' })
+            assert.deepEqual(body.variables.where, { status: 'APPROVED', totalDataSets_gte: '5' })
             assert.equal(body.variables.first, 10)
             assert.equal(body.variables.skip, 20)
             assert.equal(body.variables.orderBy, 'approvedAt')
@@ -344,7 +339,7 @@ describe('SubgraphService', () => {
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
           const providers = await service.queryProviders({
-            where: { status: 'APPROVED', totalProofSets_gte: '5' },
+            where: { status: 'APPROVED', totalDataSets_gte: '5' },
             first: 10,
             skip: 20,
             orderBy: 'approvedAt',
@@ -393,7 +388,7 @@ describe('SubgraphService', () => {
           data: {
             dataSets: [
               {
-                id: 'proof-set-1',
+                id: 'data-set-1',
                 setId: '1',
                 listener: '0xlistener1',
                 clientAddr: '0xclient1',
@@ -416,7 +411,6 @@ describe('SubgraphService', () => {
                   id: '0x123',
                   address: '0x123',
                   serviceURL: 'https://provider1.com',
-                  // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                   registeredAt: '1640995200',
                   approvedAt: '1641081600'
                 },
@@ -451,7 +445,7 @@ describe('SubgraphService', () => {
 
           assert.isArray(dataSets)
           assert.lengthOf(dataSets, 1)
-          assert.equal(dataSets[0].id, 'proof-set-1')
+          assert.equal(dataSets[0].id, 'data-set-1')
           assert.equal(dataSets[0].setId, 1)
           assert.equal(dataSets[0].isActive, true)
           assert.equal(dataSets[0].storageProvider.storageProvider, '0x123')
@@ -462,12 +456,12 @@ describe('SubgraphService', () => {
         }
       })
 
-      it('should query proof sets with custom filters', async () => {
+      it('should query data sets with custom filters', async () => {
         const mockResponse = {
           data: {
             dataSets: [
               {
-                id: 'proof-set-active',
+                id: 'data-set-active',
                 setId: '2',
                 listener: '0xlistener2',
                 clientAddr: '0xclient2',
@@ -483,14 +477,13 @@ describe('SubgraphService', () => {
                 totalProvedPieces: '90',
                 totalFaultedPeriods: '1',
                 totalFaultedPieces: '10',
-                metadata: 'active proof set',
+                metadata: 'active data set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
                 storageProvider: {
                   id: '0x456',
                   address: '0x456',
                   serviceURL: 'https://provider2.com',
-                  // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                   registeredAt: '1640995300',
                   approvedAt: '1641081700'
                 },
@@ -553,14 +546,13 @@ describe('SubgraphService', () => {
                 createdAt: '1640995000',
                 metadata: 'piece metadata',
                 dataSet: {
-                  id: 'proof-set-1',
+                  id: 'data-set-1',
                   setId: '1',
                   isActive: true,
                   storageProvider: {
                     id: '0x123',
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
-                    // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -617,14 +609,13 @@ describe('SubgraphService', () => {
                 createdAt: '1641000000',
                 metadata: 'large piece',
                 dataSet: {
-                  id: 'proof-set-2',
+                  id: 'data-set-2',
                   setId: '2',
                   isActive: true,
                   storageProvider: {
                     id: '0x456',
                     address: '0x456',
                     serviceURL: 'https://provider2.com',
-                    // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }
@@ -683,13 +674,12 @@ describe('SubgraphService', () => {
                 deadline: '1641000000',
                 createdAt: '1640995200',
                 dataSet: {
-                  id: 'proof-set-1',
+                  id: 'data-set-1',
                   setId: '1',
                   storageProvider: {
                     id: '0x123',
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
-                    // pieceRetrievalUrl: 'https://retrieval1.com', // Combined into serviceURL
                     registeredAt: '1640995200',
                     approvedAt: '1641081600'
                   }
@@ -739,13 +729,12 @@ describe('SubgraphService', () => {
                 deadline: '1641100000',
                 createdAt: '1641000000',
                 dataSet: {
-                  id: 'proof-set-2',
+                  id: 'data-set-2',
                   setId: '2',
                   storageProvider: {
                     id: '0x456',
                     address: '0x456',
                     serviceURL: 'https://provider2.com',
-                    // pieceRetrievalUrl: 'https://retrieval2.com', // Combined into serviceURL
                     registeredAt: '1640995300',
                     approvedAt: '1641081700'
                   }

@@ -38,6 +38,10 @@ export interface SynapseOptions {
   privateKey?: PrivateKey
   /** RPC URL for Filecoin node (required with privateKey) */
   rpcURL?: string
+  /** Alternative name for rpcURL for backward compatibility */
+  rpcUrl?: string
+  /** Network type to use */
+  network?: FilecoinNetworkType
   /** Authorization header value for API authentication (e.g., Bearer token) */
   authorization?: string
   /** Ethers Provider instance (handles both reads and transactions) */
@@ -54,10 +58,16 @@ export interface SynapseOptions {
   pdpVerifierAddress?: string
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
+  /** Alternative name for pieceRetriever for backward compatibility */
+  retriever?: PieceRetriever
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
   subgraphConfig?: SubgraphConfig
+  /** Subgraph URL for backward compatibility */
+  subgraphUrl?: string
+  /** Subgraph API key for backward compatibility */
+  subgraphApiKey?: string
 }
 
 /**
@@ -187,6 +197,22 @@ export interface PieceData {
 }
 
 /**
+ * Piece metadata information from Warm Storage contract
+ */
+export interface PieceMetadata {
+  /** Piece ID within the data set */
+  pieceId: number
+  /** CommP CID of the piece */
+  pieceCid: string
+  /** Raw size of the original data */
+  rawSize: number
+  /** Block height when piece was removed (null if not removed) */
+  removedBlockHeight: number | null
+  /** Whether the piece has been removed */
+  isRemoved: boolean
+}
+
+/**
  * Data set information returned from Warm Storage contract
  */
 export interface DataSetInfo {
@@ -201,7 +227,7 @@ export interface DataSetInfo {
   /** General metadata for the data set */
   metadata: string
   /** Array of metadata for each piece */
-  pieceMetadata: string[]
+  pieceMetadata: PieceMetadata[]
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: number
   /** Whether the data set is using CDN */
@@ -228,12 +254,12 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
  * Information about an approved storage provider
  */
 export interface ApprovedProviderInfo {
-  /** Provider's wallet address */
-  owner: string
-  /** PDP server URL */
-  pdpUrl: string
-  /** Piece retrieval URL */
-  pieceRetrievalUrl: string
+  /** Storage provider address */
+  storageProvider: string
+  /** Service URL */
+  serviceURL: string
+  /** Peer ID */
+  peerId: string
   /** Timestamp when registered */
   registeredAt: number
   /** Timestamp when approved */
@@ -383,15 +409,15 @@ export interface StorageInfo {
   providers: ApprovedProviderInfo[]
 
   /** Service configuration parameters */
-  serviceParameters: {
+  contracts: {
     /** Network type (mainnet or calibration) */
-    network: FilecoinNetworkType
+    network?: FilecoinNetworkType
     /** Number of epochs in a month */
-    epochsPerMonth: bigint
+    epochsPerMonth?: bigint
     /** Number of epochs in a day */
-    epochsPerDay: bigint
+    epochsPerDay?: bigint
     /** Duration of each epoch in seconds */
-    epochDuration: number
+    epochDuration?: number
     /** Minimum allowed upload size in bytes */
     minUploadSize: number
     /** Maximum allowed upload size in bytes */
@@ -413,9 +439,11 @@ export interface StorageInfo {
     /** Maximum lockup amount allowed */
     lockupAllowance: bigint
     /** Current rate allowance used */
-    rateUsed: bigint
+    rateUsed?: bigint
     /** Current lockup allowance used */
-    lockupUsed: bigint
+    lockupUsed?: bigint
+    /** Available funds in the account */
+    availableFunds?: bigint
   } | null
 }
 
@@ -467,4 +495,143 @@ export interface PieceStatus {
   hoursUntilChallengeWindow?: number
   /** Whether the proof is overdue (past the challenge window without being submitted) */
   isProofOverdue?: boolean
+}
+
+/**
+ * Result of provider selection and data set resolution
+ */
+export interface ProviderSelectionResult {
+  /** Selected storage provider */
+  provider: ApprovedProviderInfo
+  /** Selected data set ID */
+  dataSetId: number
+  /** Whether this is a new data set that was created */
+  isNewDataSet?: boolean
+  /** Whether this is an existing data set */
+  isExisting?: boolean
+}
+
+/**
+ * Information about a pending provider registration
+ */
+export interface PendingProviderInfo {
+  /** Service URL for the provider */
+  serviceURL: string
+  /** Peer ID (UTF-8 encoded bytes) */
+  peerId: string
+  /** Block height when registered */
+  registeredAt: number
+}
+
+/**
+ * Storage cost calculation result
+ */
+export interface StorageCostResult {
+  /** Whether the calculation was successful */
+  ready: boolean
+  /** Cost breakdown */
+  costs: {
+    /** Cost per epoch in USDFC */
+    perEpoch: bigint
+    /** Cost per day in USDFC */
+    perDay: bigint
+    /** Cost per month in USDFC */
+    perMonth: bigint
+    /** Cost per TiB per month */
+    perTiBPerMonth: bigint
+    /** Cost per GiB per month */
+    perGiBPerMonth: bigint
+    /** Whether CDN is enabled */
+    withCDN: boolean
+  }
+  /** Allowance check results */
+  allowanceCheck: {
+    /** Whether allowance is sufficient */
+    sufficient: boolean
+    /** Description message */
+    message?: string
+  }
+  /** Required setup steps if any */
+  requiredSteps: Array<{
+    /** Step identifier */
+    step: string
+    /** Step description */
+    description: string
+    /** Function to execute the step */
+    execute: () => Promise<ethers.TransactionResponse>
+  }>
+}
+
+/**
+ * Piece addition status response from server
+ */
+export interface PieceAdditionStatusResponse {
+  /** Whether all pieces have been added */
+  isComplete: boolean
+  /** Number of pieces successfully added */
+  completedCount: number
+  /** Total number of pieces to add */
+  totalCount: number
+  /** Array of piece IDs that were added */
+  pieceIds: number[]
+  /** Error message if any */
+  error: string | null
+}
+
+/**
+ * Response from provider data set query
+ */
+export interface DetailedSubgraphDataSetInfo {
+  /** Data set ID */
+  id: string
+  /** Numeric data set ID */
+  setId: number
+  /** Listener contract address */
+  listener: string
+  /** Client address */
+  clientAddr: string
+  /** Whether CDN is enabled */
+  withCDN: boolean
+  /** Whether data set is active */
+  isActive: boolean
+  /** Number of leaves in merkle tree */
+  leafCount: number
+  /** Challenge range */
+  challengeRange: number
+  /** Last proven epoch */
+  lastProvenEpoch: number
+  /** Next challenge epoch */
+  nextChallengeEpoch: number
+  /** Total number of pieces */
+  totalPieces: number
+  /** Storage provider information */
+  storageProvider: {
+    /** Provider address */
+    id: string
+    /** Provider details */
+    storageProvider: string
+    /** Service URL */
+    serviceURL: string
+    /** Peer ID */
+    peerId: string
+  }
+  /** Payment rail information */
+  rail?: {
+    /** Rail ID */
+    id: string
+    /** Payer address */
+    payer: string
+    /** Payee address */
+    payee: string
+  }
+}
+
+/**
+ * Legacy piece link information
+ */
+export interface LegacyPieceLink {
+  /** Piece ID */
+  pieceId: string
+  /** Whether piece is removed */
+  isRemoved: boolean
 }

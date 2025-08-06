@@ -8,7 +8,6 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
-  type SubgraphRetrievalService,
   type CommP,
   type ApprovedProviderInfo,
   type StorageInfo
@@ -19,7 +18,7 @@ import { WarmStorageService } from './warm-storage/index.js'
 import { SubgraphService } from './subgraph/service.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
 import { asCommP, downloadAndValidateCommP } from './commp/index.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS, createError } from './utils/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
@@ -53,8 +52,9 @@ export class Synapse {
 
     if (options.privateKey != null) {
       // Handle private key input
-      if (options.rpcUrl == null) {
-        throw new Error('rpcUrl is required when using privateKey')
+      const rpcUrl = options.rpcURL ?? options.rpcUrl
+      if (rpcUrl == null) {
+        throw new Error('rpcURL or rpcUrl is required when using privateKey')
       }
 
       // Sanitize private key
@@ -64,12 +64,18 @@ export class Synapse {
       }
 
       // Create provider and wallet
-      provider = new ethers.JsonRpcProvider(options.rpcUrl)
+      provider = new ethers.JsonRpcProvider(rpcUrl)
 
       // If network wasn't explicitly set, detect it
       if (network == null) {
-        const chainId = (await provider.getNetwork()).chainId
-        network = chainId === CHAIN_IDS.FILECOIN_MAINNET ? 'mainnet' : 'calibration'
+        const chainId = Number((await provider.getNetwork()).chainId)
+        if (chainId === CHAIN_IDS.FILECOIN_MAINNET) {
+          network = 'mainnet'
+        } else if (chainId === CHAIN_IDS.FILECOIN_CALIBRATION) {
+          network = 'calibration'
+        } else {
+          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+        }
       }
 
       // Create wallet with provider - always use NonceManager unless disabled
@@ -78,20 +84,27 @@ export class Synapse {
     } else if (options.provider != null) {
       // Handle provider input
       provider = options.provider
-      const accounts = await provider.listAccounts()
-      if (accounts.length === 0) {
-        throw new Error('No accounts found in provider')
-      }
 
       // If network wasn't explicitly set, detect it
       if (network == null) {
-        const chainId = (await provider.getNetwork()).chainId
-        network = chainId === CHAIN_IDS.FILECOIN_MAINNET ? 'mainnet' : 'calibration'
+        const chainId = Number((await provider.getNetwork()).chainId)
+        if (chainId === CHAIN_IDS.FILECOIN_MAINNET) {
+          network = 'mainnet'
+        } else if (chainId === CHAIN_IDS.FILECOIN_CALIBRATION) {
+          network = 'calibration'
+        } else {
+          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+        }
       }
 
       // Get signer - apply NonceManager unless disabled
-      const baseSigner = await provider.getSigner(0)
-      signer = options.disableNonceManager === true ? baseSigner : new ethers.NonceManager(baseSigner)
+      // For ethers v6, we need to check if provider has getSigner method
+      if ('getSigner' in provider && typeof provider.getSigner === 'function') {
+        const baseSigner = await (provider as any).getSigner(0)
+        signer = options.disableNonceManager === true ? baseSigner : new ethers.NonceManager(baseSigner)
+      } else {
+        throw new Error('Provider does not support signing operations')
+      }
     } else if (options.signer != null) {
       // Handle signer input
       signer = options.signer
@@ -109,8 +122,14 @@ export class Synapse {
 
       // If network wasn't explicitly set, detect it
       if (network == null) {
-        const chainId = (await provider.getNetwork()).chainId
-        network = chainId === CHAIN_IDS.FILECOIN_MAINNET ? 'mainnet' : 'calibration'
+        const chainId = Number((await provider.getNetwork()).chainId)
+        if (chainId === CHAIN_IDS.FILECOIN_MAINNET) {
+          network = 'mainnet'
+        } else if (chainId === CHAIN_IDS.FILECOIN_CALIBRATION) {
+          network = 'calibration'
+        } else {
+          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+        }
       }
     } else {
       // This should never happen due to validation above
@@ -119,7 +138,7 @@ export class Synapse {
 
     // Final network validation
     if (network !== 'mainnet' && network !== 'calibration') {
-      throw new Error(`Invalid network: ${network}. Only 'mainnet' and 'calibration' are supported.`)
+      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
     }
 
     // Create payments service
@@ -143,29 +162,27 @@ export class Synapse {
       // Support the legacy option name for backward compatibility
       pieceRetriever = options.pieceRetriever
     } else {
-      // Create default retriever chain
-      const filCdnRetriever = new FilCdnRetriever()
-      const chainRetriever = new ChainRetriever(provider, warmStorageService, warmStorageAddress)
+      // Create default retriever chain: FilCDN wraps the base retriever
+      const chainRetriever = new ChainRetriever(warmStorageService)
 
       // Check for subgraph option
-      let subgraphRetriever: SubgraphRetrievalService | null = null
-      if (options.subgraphUrl != null || options.subgraphApiKey != null) {
-        const subgraphService = new SubgraphService(
-          options.subgraphUrl ?? CONTRACT_ADDRESSES.SUBGRAPH_URL[network],
-          options.subgraphApiKey
-        )
-        subgraphRetriever = new SubgraphRetriever(subgraphService, provider, warmStorageService)
+      let baseRetriever: PieceRetriever = chainRetriever
+      if (options.subgraphUrl != null || options.subgraphApiKey != null || options.subgraphConfig != null) {
+        let subgraphConfig
+        if (options.subgraphConfig != null) {
+          subgraphConfig = options.subgraphConfig
+        } else {
+          subgraphConfig = {
+            endpoint: options.subgraphUrl ?? CONTRACT_ADDRESSES.SUBGRAPH_URL[network],
+            apiKey: options.subgraphApiKey
+          }
+        }
+        const subgraphService = new SubgraphService(subgraphConfig)
+        baseRetriever = new SubgraphRetriever(subgraphService)
       }
 
-      // Build retriever chain: FilCDN -> Subgraph (if configured) -> Chain
-      if (subgraphRetriever != null) {
-        filCdnRetriever.setNext(subgraphRetriever)
-        subgraphRetriever.setNext(chainRetriever)
-      } else {
-        filCdnRetriever.setNext(chainRetriever)
-      }
-
-      pieceRetriever = filCdnRetriever
+      // Wrap with FilCDN retriever
+      pieceRetriever = new FilCdnRetriever(baseRetriever, network)
     }
 
     return new Synapse(
@@ -327,21 +344,23 @@ export class Synapse {
     withCDN?: boolean
   }): Promise<Uint8Array> {
     const parsedCommP = asCommP(commp)
+    if (parsedCommP == null) {
+      throw new Error(`Invalid CommP: ${String(commp)}`)
+    }
 
     // Use the withCDN setting: option > instance default
     const withCDN = options?.withCDN ?? this._withCDN
 
-    // Use the piece retriever to find and download
-    const retrieverContext = {
-      providerHint: options?.providerAddress,
-      withCDN
-    }
+    // Get the client address for the retrieval
+    const clientAddress = await this._signer.getAddress()
 
-    return await downloadAndValidateCommP(
-      parsedCommP,
-      this._pieceRetriever,
-      retrieverContext
-    )
+    // Use the piece retriever to fetch the response
+    const response = await this._pieceRetriever.fetchPiece(parsedCommP, clientAddress, {
+      providerAddress: options?.providerAddress,
+      withCDN
+    })
+
+    return await downloadAndValidateCommP(response, parsedCommP)
   }
 
   /**
@@ -350,7 +369,45 @@ export class Synapse {
    * @returns Provider information including URLs and pricing
    */
   async getProviderInfo (providerAddress: string | number): Promise<ApprovedProviderInfo> {
-    return await this._warmStorageService.getApprovedProviderByAddress(providerAddress)
+    try {
+      // Validate address format if string provided
+      if (typeof providerAddress === 'string') {
+        try {
+          ethers.getAddress(providerAddress) // Will throw if invalid
+        } catch {
+          throw new Error(`Invalid provider address: ${providerAddress}`)
+        }
+      }
+
+      const providerId = typeof providerAddress === 'string'
+        ? await this._warmStorageService.getProviderIdByAddress(providerAddress)
+        : providerAddress
+
+      // Check if provider is approved
+      if (providerId === 0) {
+        throw new Error(`Provider ${providerAddress} is not approved`)
+      }
+
+      const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
+
+      // Check if provider was found
+      if (providerInfo.storageProvider === ethers.ZeroAddress) {
+        throw new Error(`Provider ${providerAddress} not found`)
+      }
+
+      return providerInfo
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Invalid provider address')) {
+        throw error
+      }
+      if (error instanceof Error && error.message.includes('is not approved')) {
+        throw error
+      }
+      if (error instanceof Error && error.message.includes('not found')) {
+        throw error
+      }
+      throw new Error(`Failed to get provider info: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**
@@ -359,66 +416,97 @@ export class Synapse {
    * @returns Complete storage service information
    */
   async getStorageInfo (): Promise<StorageInfo> {
-    // Fetch providers, service price, and allowances in parallel
-    const [providers, servicePriceInfo, allowances] = await Promise.all([
-      this._warmStorageService.getApprovedProviders(),
-      this._warmStorageService.getServicePrice(),
-      (async () => {
-        try {
-          const approval = await this._payments.serviceApproval(
-            this._warmStorageAddress,
-            TOKENS.USDFC
-          )
-          return {
-            service: this._warmStorageAddress,
-            rateAllowance: approval.rateAllowance,
-            lockupAllowance: approval.lockupAllowance,
-            availableFunds: await this._payments.availableFunds(TOKENS.USDFC)
+    try {
+      // Fetch providers, service price, and allowances in parallel
+      const [providers, servicePriceInfo, allowances] = await Promise.all([
+        this._warmStorageService.getAllApprovedProviders(),
+        this._warmStorageService.getServicePrice(),
+        (async () => {
+          try {
+            const approval = await this._payments.serviceApproval(
+              this._warmStorageAddress,
+              TOKENS.USDFC
+            )
+            const balance = await this._payments.walletBalance(TOKENS.USDFC)
+            return {
+              service: this._warmStorageAddress,
+              rateAllowance: approval.rateAllowance,
+              lockupAllowance: approval.lockupAllowance,
+              availableFunds: balance
+            }
+          } catch {
+            // If wallet not connected or error getting approval, return null
+            return null
           }
-        } catch {
-          // If not approved yet, return zero allowances
-          return {
-            service: this._warmStorageAddress,
-            rateAllowance: 0n,
-            lockupAllowance: 0n,
-            availableFunds: await this._payments.availableFunds(TOKENS.USDFC)
-          }
-        }
-      })()
-    ])
+        })()
+      ])
 
-    // Calculate pricing based on service price
-    const calculatePricing = (epochPrice: bigint, withCDN: boolean) => {
-      const perEpoch = epochPrice
-      const perDay = perEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
-      const perMonth = perEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_MONTH)
-      const perTiBPerMonth = (perMonth * BigInt(SIZE_CONSTANTS.TIB_IN_BYTES)) / BigInt(SIZE_CONSTANTS.BYTES_PER_USDFC_PER_EPOCH)
-      const perGiBPerMonth = perTiBPerMonth / 1024n
+      // Calculate pricing based on service price (input is per TiB per month)
+      const calculatePricing = (pricePerTiBPerMonth: bigint, withCDN: boolean): {
+        withCDN: boolean
+        perEpoch: bigint
+        perDay: bigint
+        perMonth: bigint
+        perTiBPerMonth: bigint
+        perGiBPerMonth: bigint
+      } => {
+        const perTiBPerMonth = pricePerTiBPerMonth
+        const perGiBPerMonth = perTiBPerMonth / 1024n
+
+        // Calculate per-epoch price from monthly price
+        // Price is per TiB per month, so we need to calculate price per byte per epoch
+        const pricePerBytePerMonth = perTiBPerMonth / BigInt(SIZE_CONSTANTS.TIB_IN_BYTES)
+        const pricePerBytePerEpoch = pricePerBytePerMonth / BigInt(TIME_CONSTANTS.EPOCHS_PER_MONTH)
+
+        // Now calculate the price per BYTES_PER_USDFC_PER_EPOCH
+        const perEpoch = pricePerBytePerEpoch * BigInt(SIZE_CONSTANTS.BYTES_PER_USDFC_PER_EPOCH)
+        const perDay = perEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        const perMonth = perEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_MONTH)
+
+        return {
+          withCDN,
+          perEpoch,
+          perDay,
+          perMonth,
+          perTiBPerMonth,
+          perGiBPerMonth
+        }
+      }
+
+      // Filter out zero address providers
+      const filteredProviders = providers.filter(p => p.storageProvider !== ethers.ZeroAddress)
 
       return {
-        withCDN,
-        perEpoch,
-        perDay,
-        perMonth,
-        perTiBPerMonth,
-        perGiBPerMonth
+        providers: filteredProviders,
+        pricing: {
+          noCDN: {
+            perTiBPerMonth: calculatePricing(servicePriceInfo.noCDN, false).perTiBPerMonth,
+            perTiBPerDay: calculatePricing(servicePriceInfo.noCDN, false).perDay,
+            perTiBPerEpoch: calculatePricing(servicePriceInfo.noCDN, false).perEpoch
+          },
+          withCDN: {
+            perTiBPerMonth: calculatePricing(servicePriceInfo.withCDN, true).perTiBPerMonth,
+            perTiBPerDay: calculatePricing(servicePriceInfo.withCDN, true).perDay,
+            perTiBPerEpoch: calculatePricing(servicePriceInfo.withCDN, true).perEpoch
+          },
+          tokenAddress: CONTRACT_ADDRESSES.USDFC[this._network],
+          tokenSymbol: 'USDFC'
+        },
+        contracts: {
+          network: this._network,
+          epochsPerMonth: BigInt(TIME_CONSTANTS.EPOCHS_PER_MONTH),
+          epochsPerDay: BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+          epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
+          minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
+          maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
+          warmStorageAddress: this._warmStorageAddress,
+          paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
+          pdpVerifierAddress: this._pdpVerifierAddress
+        },
+        allowances
       }
-    }
-
-    return {
-      providers,
-      pricing: {
-        noCDN: calculatePricing(servicePriceInfo.noCDN, false),
-        withCDN: calculatePricing(servicePriceInfo.withCDN, true)
-      },
-      contracts: {
-        minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
-        maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-        warmStorageAddress: this._warmStorageAddress,
-        paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
-        pdpVerifierAddress: this._pdpVerifierAddress
-      },
-      allowances
+    } catch (error) {
+      throw new Error(`Failed to get storage service information: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

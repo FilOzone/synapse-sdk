@@ -164,7 +164,21 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
       throw new Error('Not implemented in mock')
     },
     getTransaction: async (hash: string) => {
-      throw new Error('Not implemented in mock')
+      // Mock a successful transaction
+      return {
+        hash,
+        blockNumber: 1000000,
+        blockHash: '0x' + Math.random().toString(16).substring(2).padEnd(64, '0'),
+        index: 0,
+        from: '0x1234567890123456789012345678901234567890',
+        to: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
+        value: 0n,
+        gasLimit: 21000n,
+        gasPrice: 20000000000n,
+        nonce: 0,
+        data: '0x',
+        confirmations: 1
+      }
     },
     getTransactionReceipt: async (hash: string) => {
       return {

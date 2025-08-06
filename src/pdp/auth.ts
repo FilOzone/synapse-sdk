@@ -339,6 +339,11 @@ export class PDPAuthHelper {
         piece: {
           data: commP.bytes // This will be a Uint8Array
         },
+        // IMPORTANT: We use toPieceSize() here to convert raw size to padded piece size.
+        // This is required because Curio records subpiece sizes as PaddedPieceSize in
+        // handlers.go:743-755, and when totaling up the sizes for addPieces operation,
+        // it sums the padded sizes, not raw sizes. We must match this behavior.
+        // See: https://github.com/FilOzone/synapse-sdk/pull/95
         rawSize: BigInt(toPieceSize(piece.rawSize))
       })
     }

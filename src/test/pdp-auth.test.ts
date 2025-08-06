@@ -21,11 +21,11 @@ const FIXTURES = {
   signerAddress: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB',
   contractAddress: '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f',
   chainId: 31337,
-  domainSeparator: '0xc8fab2af8a94242cb941b37088d380710d98d07afc2db8a90c1b74c8d47220b0',
+  domainSeparator: '0x62ef5e11007063d470b2e85638bf452adae7cc646a776144c9ecfc7a9c42a3ba',
 
   // EIP-712 domain separator components
   domain: {
-    name: 'WarmStorageService',
+    name: 'FilecoinWarmStorageService',
     version: '1',
     chainId: 31337,
     verifyingContract: '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f'
@@ -35,31 +35,31 @@ const FIXTURES = {
   signatures: {
     createDataSet: {
       signature: '0x2ade4cae25767d913085f43ce05de4d5b4b3e1f19e87c8a35f184bcf69ccbed83636027a360676212407c0b5cc5d7e33a67919d5d450e3e12644a375c38b78b01c',
-      digest: '0xa7878f0b67c3ab20ada02fc74312090f470388bcd79ec30387735386ed6b9448',
+      digest: '0x259fdf0e90ede5d9367809b4d623fa031e218536e1d87c0e38b54b38461ea0ec',
       clientDataSetId: 12345,
       payee: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       withCDN: true
     },
     addPieces: {
       signature: '0x10f2e0d044e6c459364c633c66fe9af62b5dc1ae12efb527dd5ae938d8073dc8749b7565ec36bb7e4fa1313c3e23d82787021d9fc6c592d8959f15a0168bb5791c',
-      digest: '0x754235d696d1117d5694c2b61a46386067b1253b8fb631ac28329b3b6273c1d6',
+      digest: '0x6e41b93f18edc9eab768b6c870356a2ad20a427f3246556e6be9875e3be7b263',
       clientDataSetId: 12345,
       firstAdded: 1,
-      pieceDigests: [
-        '0xfc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
-        '0xa9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f'
+      pieceCidBytes: [
+        '0x0181e203922020fc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
+        '0x0181e203922020a9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f'
       ],
       pieceSizes: [2048, 4096]
     },
-    scheduleRemovals: {
+    schedulePieceRemovals: {
       signature: '0xcb8e645f2894fde89de54d4a54eb1e0d9871901c6fa1c2ee8a0390dc3a29e6cb2244d0561e3eca6452fa59efaab3d4b18a0b5b59ab52e233b3469422556ae9c61c',
-      digest: '0x5d26947c51884a10708c5820c0c72fae6408a0ad58c127101bf854559a5644c5',
+      digest: '0xef55929f8dd724ef4b43c5759db26878608f7e1277d168e3e621d3cd4ba682dd',
       clientDataSetId: 12345,
       pieceIds: [1, 3, 5]
     },
     deleteDataSet: {
       signature: '0x94e366bd2f9bfc933a87575126715bccf128b77d9c6937e194023e13b54272eb7a74b7e6e26acf4341d9c56e141ff7ba154c37ea03e9c35b126fff1efe1a0c831c',
-      digest: '0x2d8dd51594ce9d3f4b377a8a578e331facabf86f4a400cc395dff0b448c6ab7c',
+      digest: '0x79df79ba922d913eccb0f9a91564ba3a1a81a0ea81d99a7cecf23cc3f425cafb',
       clientDataSetId: 12345
     }
   }
@@ -126,15 +126,15 @@ describe('Auth Signature Compatibility', () => {
     assert.strictEqual(recoveredSigner.toLowerCase(), FIXTURES.signerAddress.toLowerCase())
   })
 
-  it('should generate ScheduleRemovals signature matching Solidity reference', async () => {
+  it('should generate SchedulePieceRemovals signature matching Solidity reference', async () => {
     const result = await authHelper.signSchedulePieceRemovals(
-      FIXTURES.signatures.scheduleRemovals.clientDataSetId,
-      FIXTURES.signatures.scheduleRemovals.pieceIds
+      FIXTURES.signatures.schedulePieceRemovals.clientDataSetId,
+      FIXTURES.signatures.schedulePieceRemovals.pieceIds
     )
 
     // Verify signature matches exactly
-    assert.strictEqual(result.signature, FIXTURES.signatures.scheduleRemovals.signature,
-      'ScheduleRemovals signature should match Solidity reference')
+    assert.strictEqual(result.signature, FIXTURES.signatures.schedulePieceRemovals.signature,
+      'SchedulePieceRemovals signature should match Solidity reference')
 
     // Verify signed data can be used to recover signer
     // For EIP-712, signedData is already the message hash

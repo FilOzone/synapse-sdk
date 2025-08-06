@@ -15,9 +15,11 @@ export const TOKENS = {
 /**
  * Network chain IDs
  */
-export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
+export const CHAIN_IDS = {
   mainnet: 314,
-  calibration: 314159
+  calibration: 314159,
+  FILECOIN_MAINNET: 314,
+  FILECOIN_CALIBRATION: 314159
 } as const
 
 /**
@@ -62,7 +64,7 @@ export const CONTRACT_ABIS = {
     'function isProviderApproved(address provider) external view returns (bool)',
     'function getProviderIdByAddress(address provider) external view returns (uint256)',
     'function getApprovedProvider(uint256 providerId) external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
+    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
     'function approvedProviders(uint256 providerId) external view returns (address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
     'function nextServiceProviderId() external view returns (uint256)',
     'function owner() external view returns (address)',
@@ -71,10 +73,10 @@ export const CONTRACT_ABIS = {
     // Public mappings that are automatically exposed
     'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[]))',
+    'function getAllApprovedProviders() external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
 
     // Data set functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN)[])',
+    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
@@ -189,7 +191,18 @@ export const SIZE_CONSTANTS = {
    * Default number of uploads to batch together in a single addPieces transaction
    * This balances gas efficiency with reasonable transaction sizes
    */
-  DEFAULT_UPLOAD_BATCH_SIZE: 32
+  DEFAULT_UPLOAD_BATCH_SIZE: 32,
+
+  /**
+   * Bytes in 1 TiB (alias for TiB for backwards compatibility)
+   */
+  TIB_IN_BYTES: 1024n * 1024n * 1024n * 1024n,
+
+  /**
+   * Cost calculation constant: bytes per USDFC per epoch
+   * Based on contract pricing model
+   */
+  BYTES_PER_USDFC_PER_EPOCH: 1024n * 1024n * 1024n * 1024n // 1 TiB per USDFC per epoch as base rate
 } as const
 
 /**
@@ -290,6 +303,22 @@ export const CONTRACT_ADDRESSES = {
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  /**
+   * Alias for WARM_STORAGE for backward compatibility
+   */
+  WARM_STORAGE_SERVICE: {
+    mainnet: '', // TODO: Get actual mainnet address from deployment
+    calibration: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  /**
+   * Subgraph URLs (placeholder)
+   */
+  SUBGRAPH_URL: {
+    mainnet: 'https://api.thegraph.com/subgraphs/name/synapse/mainnet',
+    calibration: 'https://api.thegraph.com/subgraphs/name/synapse/calibration'
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**

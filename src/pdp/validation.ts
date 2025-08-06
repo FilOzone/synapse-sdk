@@ -142,7 +142,7 @@ export function validateDataSetCreationStatusResponse (value: unknown): DataSetC
   }
 
   // Type is already validated, return directly
-  return value as DataSetCreationStatusResponse
+  return value
 }
 
 /**

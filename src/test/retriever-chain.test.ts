@@ -36,7 +36,7 @@ const mockChildRetriever: PieceRetriever = {
   }
 }
 
-// Mock proof set
+// Mock data set
 const mockDataSet: EnhancedDataSetInfo = {
   railId: 1,
   payer: '0xClient',
@@ -319,9 +319,9 @@ describe('ChainRetriever', () => {
       }
     })
 
-    it('should fall back to child retriever when no active proof sets found', async () => {
+    it('should fall back to child retriever when no active data sets found', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [] // No proof sets
+        getClientDataSetsWithDetails: async () => [] // No data sets
       }
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
       const response = await retriever.fetchPiece(mockCommP, '0xClient')
@@ -329,9 +329,9 @@ describe('ChainRetriever', () => {
       assert.equal(await response.text(), 'data from child')
     })
 
-    it('should throw when no active proof sets found and no child retriever', async () => {
+    it('should throw when no active data sets found and no child retriever', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [] // No proof sets
+        getClientDataSetsWithDetails: async () => [] // No data sets
       }
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 

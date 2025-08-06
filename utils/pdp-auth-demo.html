@@ -145,7 +145,7 @@
     </div>
 
     <div class="container">
-        <h2>1. Create Proof Set</h2>
+        <h2>1. Create Data Set</h2>
         <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, payee address, and withCDN flag</p>
         <div class="form-group">
             <label for="createClientDataSetId">Client Data Set ID:</label>
@@ -161,8 +161,8 @@
                 With CDN
             </label>
         </div>
-        <button id="signCreateProofSet">Sign Create Proof Set</button>
-        <div id="createProofSetResult"></div>
+        <button id="signCreateDataSet">Sign Create Data Set</button>
+        <div id="createDataSetResult"></div>
     </div>
 
     <div class="container">
@@ -201,14 +201,14 @@
     </div>
 
     <div class="container">
-        <h2>4. Delete Proof Set</h2>
+        <h2>4. Delete Data Set</h2>
         <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId</p>
         <div class="form-group">
             <label for="deleteClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="deleteClientDataSetId" placeholder="12345" value="12345">
         </div>
-        <button id="signDeleteProofSet">Sign Delete Proof Set</button>
-        <div id="deleteProofSetResult"></div>
+        <button id="signDeleteDataSet">Sign Delete Data Set</button>
+        <div id="deleteDataSetResult"></div>
     </div>
 
     <!-- Load ethers and SDK -->
@@ -314,11 +314,11 @@
 
         document.getElementById('addPieceEntry').addEventListener('click', addPieceDataEntry);
 
-        // Sign Create Proof Set
-        document.getElementById('signCreateProofSet').addEventListener('click', async () => {
+        // Sign Create Data Set
+        document.getElementById('signCreateDataSet').addEventListener('click', async () => {
             try {
                 if (!authHelper) {
-                    showError('createProofSetResult', 'Please connect MetaMask and set contract address first');
+                    showError('createDataSetResult', 'Please connect MetaMask and set contract address first');
                     return;
                 }
 
@@ -327,20 +327,20 @@
                 const withCDN = document.getElementById('createWithCDN').checked;
 
                 if (!clientDataSetIdStr || !payee) {
-                    showError('createProofSetResult', 'Please fill in all fields');
+                    showError('createDataSetResult', 'Please fill in all fields');
                     return;
                 }
 
                 // Convert to number if it looks like a number, otherwise use string
                 const clientDataSetId = /^\d+$/.test(clientDataSetIdStr) ? BigInt(clientDataSetIdStr) : clientDataSetIdStr;
 
-                showInfo('createProofSetResult', 'Signing... Check MetaMask for structured data!');
+                showInfo('createDataSetResult', 'Signing... Check MetaMask for structured data!');
                 
-                const result = await authHelper.signCreateProofSet(clientDataSetId, payee, withCDN);
+                const result = await authHelper.signCreateDataSet(clientDataSetId, payee, withCDN);
                 
-                showSuccess('createProofSetResult', formatSignature(result));
+                showSuccess('createDataSetResult', formatSignature(result));
             } catch (error) {
-                showError('createProofSetResult', 'Error: ' + error.message);
+                showError('createDataSetResult', 'Error: ' + error.message);
             }
         });
 
@@ -426,31 +426,31 @@
             }
         });
 
-        // Sign Delete Proof Set
-        document.getElementById('signDeleteProofSet').addEventListener('click', async () => {
+        // Sign Delete Data Set
+        document.getElementById('signDeleteDataSet').addEventListener('click', async () => {
             try {
                 if (!authHelper) {
-                    showError('deleteProofSetResult', 'Please connect MetaMask and set contract address first');
+                    showError('deleteDataSetResult', 'Please connect MetaMask and set contract address first');
                     return;
                 }
 
                 const clientDataSetIdStr = document.getElementById('deleteClientDataSetId').value;
 
                 if (!clientDataSetIdStr) {
-                    showError('deleteProofSetResult', 'Please fill in client data set ID');
+                    showError('deleteDataSetResult', 'Please fill in client data set ID');
                     return;
                 }
 
                 // Convert to number if it looks like a number, otherwise use string
                 const clientDataSetId = /^\d+$/.test(clientDataSetIdStr) ? BigInt(clientDataSetIdStr) : clientDataSetIdStr;
 
-                showInfo('deleteProofSetResult', 'Signing... Check MetaMask for structured data!');
+                showInfo('deleteDataSetResult', 'Signing... Check MetaMask for structured data!');
                 
-                const result = await authHelper.signDeleteProofSet(clientDataSetId);
+                const result = await authHelper.signDeleteDataSet(clientDataSetId);
                 
-                showSuccess('deleteProofSetResult', formatSignature(result));
+                showSuccess('deleteDataSetResult', formatSignature(result));
             } catch (error) {
-                showError('deleteProofSetResult', 'Error: ' + error.message);
+                showError('deleteDataSetResult', 'Error: ' + error.message);
             }
         });
 

@@ -6,8 +6,6 @@ export type {
   AddPiecesResponse,
   CreateDataSetResponse,
   FindPieceResponse,
-  DataSetCreationStatusResponse,
-  PieceAdditionStatusResponse,
   UploadResponse
 } from './server.js'
 

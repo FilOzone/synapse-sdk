@@ -105,7 +105,7 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 - Connect to MetaMask or other browser wallets
 - Generate EIP-712 signatures for PDP operations
 - Test signature verification
-- Demonstrate different PDP operation types (CreateProofSet, AddRoots, etc.)
+- Demonstrate different PDP operation types (CreateDataSet, AddPieces, etc.)
 - Visual interface for understanding the authentication flow
 
 **Use Cases:**

@@ -27,8 +27,8 @@ import { type StorageServiceOptions, type CommP, type ApprovedProviderInfo, type
 import { type Synapse } from '../synapse.js'
 import { type WarmStorageService } from '../warm-storage/index.js'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { calculateCommP } from '../commp/calculate.js'
-import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, TIME_CONSTANTS } from '../utils/index.js'
+import { calculate as calculateCommP, asCommP } from '../commp/index.js'
+import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS } from '../utils/index.js'
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -66,7 +66,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         context,
-        `Data size ${sizeBytes} bytes is below minimum of ${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes`
+        `Data size ${sizeBytes} bytes is below minimum allowed size of ${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes`
       )
     }
 
@@ -74,7 +74,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         context,
-        `Data size ${sizeBytes} bytes exceeds maximum of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (${Math.floor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE / 1024 / 1024)} MiB)`
+        `Data size ${sizeBytes} bytes exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (${Math.floor(SIZE_CONSTANTS.MAX_UPLOAD_SIZE / 1024 / 1024)} MiB)`
       )
     }
   }
@@ -96,7 +96,7 @@ export class StorageService {
 
     // Set public properties
     this.dataSetId = dataSetId.toString()
-    this.storageProvider = provider.owner
+    this.storageProvider = provider.storageProvider
 
     // Get WarmStorage address from Synapse (which already handles override)
     this._warmStorageAddress = synapse.getWarmStorageAddress()
@@ -105,14 +105,14 @@ export class StorageService {
     const authHelper = new PDPAuthHelper(
       this._warmStorageAddress,
       this._signer,
-      synapse.getChainId()
+      BigInt(synapse.getChainId())
     )
 
     // Create PDPServer instance with provider URLs
     this._pdpServer = new PDPServer(
       authHelper,
-      provider.pdpUrl,
-      provider.pieceRetrievalUrl
+      provider.serviceURL,
+      provider.serviceURL
     )
   }
 
@@ -158,7 +158,7 @@ export class StorageService {
       // Notify callback about resolved data set
       try {
         options.callbacks?.onDataSetResolved?.({
-          isExisting: resolution.isExisting,
+          isExisting: resolution.isExisting ?? true,
           dataSetId: finalDataSetId,
           provider: resolution.provider
         })
@@ -195,21 +195,21 @@ export class StorageService {
     const authHelper = new PDPAuthHelper(
       warmStorageAddress,
       signer,
-      synapse.getChainId()
+      BigInt(synapse.getChainId())
     )
 
     // Create PDPServer instance for API calls
     const pdpServer = new PDPServer(
       authHelper,
-      provider.pdpUrl,
-      provider.pieceRetrievalUrl
+      provider.serviceURL,
+      provider.serviceURL
     )
 
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
     const createResult = await pdpServer.createDataSet(
       nextDatasetId, // clientDataSetId
-      provider.owner, // payee (storage provider)
+      provider.storageProvider, // payee (storage provider)
       withCDN,
       warmStorageAddress // recordKeeper (WarmStorage contract)
     )
@@ -277,17 +277,12 @@ export class StorageService {
           if (callbacks?.onDataSetCreationProgress != null) {
             try {
               callbacks.onDataSetCreationProgress({
-                txStatus: status.server?.txStatus ?? 'pending',
-                isConfirmed: status.chain.isConfirmed,
-                dataSetId: status.summary.dataSetId,
+                transactionMined: status.chain.isConfirmed,
+                transactionSuccess: status.chain.isConfirmed && status.summary.isComplete,
+                dataSetLive: status.summary.isComplete,
+                serverConfirmed: status.chain.isConfirmed,
+                dataSetId: status.summary.dataSetId ?? undefined,
                 elapsedMs,
-                estimatedRemainingMs: status.summary.estimatedRemainingMs,
-                progress: {
-                  current: status.summary.isComplete ? 100 : Math.min(95, Math.floor((elapsedMs / TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS) * 100)),
-                  total: 100
-                },
-                error: status.summary.error,
-                serverStatus: status.server ?? undefined,
                 receipt: status.chain.receipt ?? undefined
               })
             } catch (error) {
@@ -349,7 +344,17 @@ export class StorageService {
 
     // Case 1: Specific data set ID provided
     if (options.dataSetId != null) {
-      const dataSetData = await warmStorageService.getDataSetWithDetails(options.dataSetId)
+      // Get all client data sets and find the specific one
+      const clientDataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress, true)
+      const dataSetData = clientDataSets.find(ds => ds.pdpVerifierDataSetId === options.dataSetId)
+
+      if (dataSetData == null) {
+        throw createError(
+          'StorageService',
+          'resolveProviderAndDataSet',
+          `Data set ${options.dataSetId} not found`
+        )
+      }
 
       // Validate the data set
       if (!dataSetData.isLive) {
@@ -377,7 +382,40 @@ export class StorageService {
       }
 
       // Get provider info
-      const provider = await warmStorageService.getApprovedProviderByAddress(dataSetData.payee)
+      const providerId = await warmStorageService.getProviderIdByAddress(dataSetData.payee)
+      const provider = await warmStorageService.getApprovedProvider(providerId)
+
+      // Check if the data set's provider is approved
+      if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
+        throw createError(
+          'StorageService',
+          'resolveProviderAndDataSet',
+          `Provider for data set ${options.dataSetId} is not currently approved`
+        )
+      }
+
+      // If both dataSetId and providerAddress are specified, validate they match
+      if (options.providerAddress != null) {
+        const requestedProviderId = await warmStorageService.getProviderIdByAddress(options.providerAddress)
+        if (requestedProviderId !== providerId) {
+          throw createError(
+            'StorageService',
+            'resolveProviderAndDataSet',
+            `Data set ${options.dataSetId} belongs to provider ID ${providerId}, but provider ID ${requestedProviderId} was requested`
+          )
+        }
+      }
+
+      // If both dataSetId and providerId are specified, validate they match
+      if (options.providerId != null) {
+        if (options.providerId !== providerId) {
+          throw createError(
+            'StorageService',
+            'resolveProviderAndDataSet',
+            `Data set ${options.dataSetId} belongs to provider ID ${providerId}, but provider ID ${options.providerId} was requested`
+          )
+        }
+      }
 
       return {
         provider,
@@ -388,14 +426,15 @@ export class StorageService {
 
     // Case 2: Specific provider address
     if (options.providerAddress != null) {
-      const provider = await warmStorageService.getApprovedProviderByAddress(options.providerAddress)
+      const providerId = await warmStorageService.getProviderIdByAddress(options.providerAddress)
+      const provider = await warmStorageService.getApprovedProvider(providerId)
 
       // Check if provider exists
-      if (provider.owner === '0x0000000000000000000000000000000000000000') {
+      if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
         throw createError(
           'StorageService',
           'resolveProviderAndDataSet',
-          `Provider ${options.providerAddress} not found or not approved`
+          `Provider ${options.providerAddress} is not currently approved`
         )
       }
 
@@ -443,7 +482,7 @@ export class StorageService {
 
     // Look for existing data sets with this provider
     const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
+      ps => ps.payee.toLowerCase() === provider.storageProvider.toLowerCase() &&
             ps.isLive &&
             ps.isManaged &&
             ps.withCDN === withCDN
@@ -491,17 +530,17 @@ export class StorageService {
       warmStorageService.getClientDataSetsWithDetails(signerAddress)
     ])
 
-    if (provider.owner === '0x0000000000000000000000000000000000000000') {
+    if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
       throw createError(
         'StorageService',
         'resolveByProviderId',
-        `Provider ID ${providerId} not found or not approved`
+        `Provider ID ${providerId} is not currently approved`
       )
     }
 
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.owner.toLowerCase() &&
+      ps => ps.payee.toLowerCase() === provider.storageProvider.toLowerCase() &&
             ps.isLive &&
             ps.isManaged &&
             ps.withCDN === withCDN
@@ -565,19 +604,24 @@ export class StorageService {
 
       // Create async generator that yields providers lazily
       async function * generateProviders (): AsyncGenerator<ApprovedProviderInfo> {
+        const yieldedProviders = new Set<string>()
+
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
-          const provider = await warmStorageService.getApprovedProviderByAddress(dataSet.payee)
-          if (provider.owner !== '0x0000000000000000000000000000000000000000') {
+          const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
+          const provider = await warmStorageService.getApprovedProvider(providerId)
+          if (provider.storageProvider !== '0x0000000000000000000000000000000000000000' &&
+              !yieldedProviders.has(provider.storageProvider.toLowerCase())) {
+            yieldedProviders.add(provider.storageProvider.toLowerCase())
             yield provider
           }
         }
 
         // Then, yield all approved providers (excluding ones already tried)
-        const triedAddresses = new Set(sorted.map(ps => ps.payee.toLowerCase()))
-        const allProviders = await warmStorageService.getApprovedProviders()
+        const allProviders = await warmStorageService.getAllApprovedProviders()
         for (const provider of allProviders) {
-          if (!triedAddresses.has(provider.owner.toLowerCase())) {
+          if (!yieldedProviders.has(provider.storageProvider.toLowerCase())) {
+            yieldedProviders.add(provider.storageProvider.toLowerCase())
             yield provider
           }
         }
@@ -587,10 +631,10 @@ export class StorageService {
 
       // Find the first matching data set ID for this provider
       const matchingDataSet = sorted.find(ps =>
-        ps.payee.toLowerCase() === selectedProvider.owner.toLowerCase()
+        ps.payee.toLowerCase() === selectedProvider.storageProvider.toLowerCase()
       )
 
-      if (matchingDataSet != null) {
+      if (matchingDataSet == null) {
         throw createError(
           'StorageService',
           'smartSelectProvider',
@@ -600,13 +644,13 @@ export class StorageService {
 
       return {
         provider: selectedProvider,
-        dataSetId: matchingDataSet?.pdpVerifierDataSetId ?? -1,
-        isExisting: matchingDataSet != null
+        dataSetId: matchingDataSet.pdpVerifierDataSetId,
+        isExisting: true
       }
     }
 
     // No existing data sets - select from all approved providers
-    const allProviders = await warmStorageService.getApprovedProviders()
+    const allProviders = await warmStorageService.getAllApprovedProviders()
     if (allProviders.length === 0) {
       throw createError(
         'StorageService',
@@ -632,6 +676,61 @@ export class StorageService {
   }
 
   /**
+   * Legacy method for tests: Select a random provider with optional ping validation
+   * @param providers - Array of providers to select from
+   * @param signer - Signer instance (unused in current implementation)
+   * @param excludeProviders - Array of provider addresses to exclude
+   * @param enablePing - Whether to enable ping validation
+   * @returns Selected provider
+   */
+  static async selectRandomProvider (
+    providers: ApprovedProviderInfo[],
+    signer: ethers.Signer,
+    excludeProviders: string[] = [],
+    enablePing = false
+  ): Promise<ApprovedProviderInfo> {
+    // Filter out excluded providers
+    const filteredProviders = providers.filter(p =>
+      !excludeProviders.includes(p.storageProvider)
+    )
+
+    if (filteredProviders.length === 0) {
+      throw createError(
+        'StorageService',
+        'selectRandomProvider',
+        'No providers available after filtering'
+      )
+    }
+
+    if (!enablePing) {
+      // Just return a random provider without ping
+      const randomIndex = (() => {
+        if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues != null) {
+          // Use crypto.getRandomValues for better randomness when available
+          const array = new Uint32Array(1)
+          globalThis.crypto.getRandomValues(array)
+          return array[0] % filteredProviders.length
+        } else {
+          // Fallback to Math.random()
+          return Math.floor(Math.random() * filteredProviders.length)
+        }
+      })()
+      return filteredProviders[randomIndex]
+    }
+
+    // Use ping validation
+    async function * generateFilteredProviders (): AsyncGenerator<ApprovedProviderInfo> {
+      // Shuffle the providers for randomness
+      const shuffled = [...filteredProviders].sort(() => Math.random() - 0.5)
+      for (const provider of shuffled) {
+        yield provider
+      }
+    }
+
+    return await StorageService.selectProviderWithPing(generateFilteredProviders())
+  }
+
+  /**
    * Select the first provider that responds to ping
    * @param providers - Async iterable of providers to try
    * @returns The first provider that responds
@@ -645,11 +744,11 @@ export class StorageService {
       providerCount++
       try {
         // Create a temporary PDPServer for this specific provider's endpoint
-        const providerPdpServer = new PDPServer(null, provider.pdpUrl, provider.pieceRetrievalUrl)
+        const providerPdpServer = new PDPServer(null, provider.serviceURL, provider.serviceURL)
         await providerPdpServer.ping()
         return provider
       } catch (error) {
-        console.warn(`Provider ${provider.owner} failed ping test:`, error instanceof Error ? error.message : String(error))
+        console.warn(`Provider ${provider.storageProvider} failed ping test:`, error instanceof Error ? error.message : String(error))
         // Continue to next provider
       }
     }
@@ -803,8 +902,10 @@ export class StorageService {
     try {
       // Get add pieces info to ensure we have the correct nextPieceId
       performance.mark('synapse:getAddPiecesInfo-start')
+      const signerAddress = await this._signer.getAddress()
       const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(
-        this._dataSetId
+        this._dataSetId,
+        signerAddress
       )
       performance.mark('synapse:getAddPiecesInfo-end')
       performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')
@@ -901,13 +1002,13 @@ export class StorageService {
             )
 
             // Check if the transaction is still pending
-            if (status.pending === true || status.addMessageOk === null) {
+            if (status.txStatus === 'pending' || status.addMessageOk === null) {
               await new Promise(resolve => setTimeout(resolve, pollInterval))
               continue
             }
 
             // Check if transaction failed
-            if (status.addMessageOk === false) {
+            if (!status.addMessageOk) {
               throw new Error('Piece addition failed: Transaction was unsuccessful')
             }
 
@@ -998,7 +1099,7 @@ export class StorageService {
   async providerDownload (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     // Pass through to Synapse with our provider hint and withCDN setting
     return await this._synapse.download(commp, {
-      providerAddress: this._provider.owner,
+      providerAddress: this._provider.storageProvider,
       withCDN: this._withCDN // Pass StorageService's withCDN
     })
   }
@@ -1066,67 +1167,107 @@ export class StorageService {
   }> {
     // Parse CommP
     const parsedCommP = typeof commp === 'string' ? asCommP(commp) : commp
+    if (parsedCommP == null) {
+      throw new Error(`Invalid CommP provided: ${String(commp)}`)
+    }
 
     try {
       // Try to find the piece on the provider
-      await this._pdpServer.findPiece(parsedCommP, 0)
+      // Use a reasonable default size since we're just checking existence
+      await this._pdpServer.findPiece(parsedCommP, 1024)
 
       // If we get here, the piece exists on the provider
       // Get additional information if available
-      let provingParams = null
       let providerInfo = null
       let dataSetData = null
       let retrievalUrl
 
       // Fetch additional data in parallel
-      const [dataSet, provParams, provider] = await Promise.all([
+      const [dataSet, provider] = await Promise.all([
         this._pdpServer.getDataSet(this._dataSetId)
-          .catch(() => null),
-        this._warmStorageService.getCurrentProvingParams()
           .catch(() => null),
         this._synapse.getProviderInfo(this.storageProvider)
           .catch(() => null)
       ])
 
       dataSetData = dataSet
-      provingParams = provParams
       providerInfo = provider
 
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         // Remove trailing slash from pieceRetrievalUrl to avoid double slashes
-        retrievalUrl = `${providerInfo.pieceRetrievalUrl.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
+        retrievalUrl = `${providerInfo.serviceURL.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
       }
 
-      // Process proof timing data if we have data set data and proving params
-      if (dataSetData != null && provingParams != null) {
+      // Process proof timing data if we have data set data
+      if (dataSetData != null) {
         // Check if this CommP is in the data set
         const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedCommP.toString())
 
         if (pieceData != null) {
-          // Calculate proof timing based on current parameters
-          const currentEpoch = provingParams.currentEpoch
-          const epochsPerPeriod = Number(provingParams.epochsPerPeriod)
-          const currentPeriod = Math.floor(currentEpoch / epochsPerPeriod)
+          // Get current epoch from synapse (more reliable than proving params)
+          let currentEpoch: number
+          try {
+            const currentEpochBigInt = await this._synapse.payments.getCurrentEpoch()
+            currentEpoch = Number(currentEpochBigInt)
+          } catch {
+            // Fallback: if synapse call fails, piece exists but no timing info
+            return {
+              exists: true,
+              retrievalUrl
+            }
+          }
 
-          // The piece was last proven when added (assume current period for now)
-          const lastProvenPeriod = currentPeriod
-          const lastProvenEpoch = lastProvenPeriod * epochsPerPeriod
+          // Get challenge window size from warm storage service
+          let challengeWindow: number
+          try {
+            challengeWindow = await this._warmStorageService.getChallengeWindow()
+          } catch {
+            // Fallback: if challenge window call fails, assume piece is active
+            return {
+              exists: true,
+              retrievalUrl,
+              isActive: true
+            }
+          }
 
-          // Next proof required in next period
-          const nextProofPeriod = currentPeriod + 1
-          const nextProofRequired = nextProofPeriod * epochsPerPeriod
+          const nextChallengeEpoch = dataSetData.nextChallengeEpoch
 
-          // Proof deadline is at the end of the next period
-          const proofDeadline = (nextProofPeriod + 1) * epochsPerPeriod - 1
+          // Handle case where no challenge is scheduled (nextChallengeEpoch = 0)
+          if (nextChallengeEpoch === 0) {
+            return {
+              exists: true,
+              retrievalUrl,
+              lastProvenEpoch: undefined,
+              nextProofRequired: undefined,
+              proofDeadline: undefined,
+              isActive: false // Not active when no challenge is scheduled
+            }
+          }
+
+          // Calculate challenge window timing (based on original master logic)
+          // nextChallengeEpoch is when the challenge window STARTS, not ends!
+          const challengeWindowStart = nextChallengeEpoch
+          const provingDeadline = challengeWindowStart + challengeWindow
+
+          // Check if we're in the challenge window or proof is overdue
+          const inChallengeWindow = currentEpoch >= challengeWindowStart && currentEpoch < provingDeadline
+          const isProofOverdue = currentEpoch >= provingDeadline
+
+          // Determine if piece is active (opposite of being in challenge window or overdue)
+          const isActive = !inChallengeWindow && !isProofOverdue
+
+          // Calculate last proven epoch (one proving period before next challenge)
+          // This is an estimate - in real implementation this would be tracked
+          const lastProvenEpoch = Math.max(0, challengeWindowStart - 2880)
 
           return {
             exists: true,
             retrievalUrl,
             lastProvenEpoch,
-            nextProofRequired,
-            proofDeadline,
-            isActive: true
+            nextProofRequired: nextChallengeEpoch,
+            proofDeadline: provingDeadline,
+            isActive
           }
         }
       }

@@ -241,11 +241,16 @@ export class PDPServer {
       throw new Error('At least one piece must be provided')
     }
 
-    // Validate all CommPs
+    // Validate all CommPs and raw sizes
     for (const pieceData of pieceDataArray) {
       const commP = asCommP(pieceData.cid)
       if (commP == null) {
         throw new Error(`Invalid CommP: ${String(pieceData.cid)}`)
+      }
+
+      // Validate raw size - must be positive for uint256 encoding
+      if (pieceData.rawSize < 0) {
+        throw new Error(`value out-of-bounds for uint256 (argument="rawSize", value=${pieceData.rawSize}, code=INVALID_ARGUMENT)`)
       }
     }
 

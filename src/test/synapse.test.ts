@@ -93,7 +93,7 @@ describe('Synapse', () => {
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'rpcURL is required when using privateKey')
+        assert.include(error.message, 'rpcURL or rpcUrl is required when using privateKey')
       }
     })
   })
@@ -107,7 +107,7 @@ describe('Synapse', () => {
         await Synapse.create({ provider: unsupportedProvider })
         assert.fail('Should have thrown for unsupported network')
       } catch (error: any) {
-        assert.include(error.message, 'Unsupported network')
+        assert.include(error.message, 'Invalid network')
         assert.include(error.message, '999999')
       }
     })
@@ -220,7 +220,6 @@ describe('Synapse', () => {
       const expectedProviderInfo = {
         storageProvider: mockProviderAddress,
         serviceURL: 'https://pdp.example.com',
-        // pieceRetrievalUrl: 'https://retrieval.example.com', // Combined into serviceURL
         registeredAt: 1000000,
         approvedAt: 2000000
       }
@@ -554,12 +553,12 @@ describe('Synapse', () => {
         assert.equal(storageInfo.providers[1].storageProvider, mockProviders[1].storageProvider)
 
         // Check service parameters
-        assert.equal(storageInfo.serviceParameters.network, 'calibration')
-        assert.equal(storageInfo.serviceParameters.epochsPerMonth, BigInt(86400))
-        assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
-        assert.equal(storageInfo.serviceParameters.epochDuration, 30)
-        assert.equal(storageInfo.serviceParameters.minUploadSize, 65)
-        assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
+        assert.equal(storageInfo.contracts.network, 'calibration')
+        assert.equal(storageInfo.contracts.epochsPerMonth, BigInt(86400))
+        assert.equal(storageInfo.contracts.epochsPerDay, 2880n)
+        assert.equal(storageInfo.contracts.epochDuration, 30)
+        assert.equal(storageInfo.contracts.minUploadSize, 65)
+        assert.equal(storageInfo.contracts.maxUploadSize, 200 * 1024 * 1024)
 
         // Check allowances
         assert.exists(storageInfo.allowances)
@@ -624,7 +623,7 @@ describe('Synapse', () => {
         // Should still return data with null allowances
         assert.exists(storageInfo.pricing)
         assert.exists(storageInfo.providers)
-        assert.exists(storageInfo.serviceParameters)
+        assert.exists(storageInfo.contracts)
         assert.isNull(storageInfo.allowances)
       } finally {
         mockProvider.call = originalCall
@@ -644,7 +643,6 @@ describe('Synapse', () => {
         {
           storageProvider: ethers.ZeroAddress,
           serviceURL: '',
-          pieceRetrievalUrl: '',
           registeredAt: 0,
           approvedAt: 0
         }
