@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Sets Viewer - Synapse SDK</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #1976D2;
+        }
+        .error {
+            color: #f44336;
+            padding: 10px;
+            background: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #4CAF50;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: inline-block;
+            width: 180px;
+            font-weight: bold;
+        }
+        .input-group input {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 400px;
+            font-family: monospace;
+        }
+        .data-sets-container {
+            margin-top: 20px;
+        }
+        .data-set {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .data-set.not-managed {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        .data-set h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .data-set-detail {
+            margin: 5px 0;
+        }
+        .data-set-detail label {
+            font-weight: bold;
+            display: inline-block;
+            width: 200px;
+        }
+        .data-set-detail .value {
+            font-family: monospace;
+            color: #666;
+        }
+        .metadata-list {
+            margin-left: 200px;
+            padding: 5px;
+            background: #e9ecef;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .no-data-sets {
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+        .loading {
+            color: #666;
+            padding: 20px;
+            text-align: center;
+        }
+        .address-display {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-badge.live {
+            background: #4CAF50;
+            color: white;
+        }
+        .status-badge.not-live {
+            background: #f44336;
+            color: white;
+        }
+        .status-badge.managed {
+            background: #2196F3;
+            color: white;
+        }
+        .status-badge.not-managed {
+            background: #ff9800;
+            color: white;
+        }
+        .pieces-section {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        .piece-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .expandable {
+            cursor: pointer;
+            user-select: none;
+        }
+        .expandable:hover {
+            background: #e8e8e8;
+        }
+        .piece-details {
+            display: none;
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .piece-details.expanded {
+            display: block;
+        }
+        .data-set-id {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2196F3;
+            font-family: monospace;
+        }
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-width: 150px;
+        }
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data Sets Viewer</h1>
+    
+    <div class="status">
+        <strong>Status:</strong> <span id="status">Not connected</span><br>
+        <strong>Wallet:</strong> <span id="wallet">None</span><br>
+        <strong>Network:</strong> <span id="network">None</span>
+    </div>
+
+    <div class="section">
+        <h2>Connection</h2>
+        <button id="connectBtn">Connect MetaMask</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>View Data Sets</h2>
+        <div class="input-group">
+            <label>Warm Storage Contract:</label>
+            <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="" style="width: 500px;">
+            <div style="margin-top: 5px; color: #666; font-size: 12px;">Leave empty to use network default</div>
+        </div>
+        <div class="input-group">
+            <label>Client Address:</label>
+            <input type="text" id="clientAddressInput" placeholder="0x... (leave empty for connected wallet)">
+        </div>
+        <button id="reconnectBtn" disabled>Reconnect with Selected Warm Storage</button>
+        <button id="getDataSetsBtn" disabled>Get Data Sets</button>
+        <button id="getMyDataSetsBtn" disabled>Get My Data Sets</button>
+        
+        <div id="dataSetsSummary" style="margin-top: 20px;"></div>
+        <div id="dataSetsResult" class="data-sets-container"></div>
+    </div>
+
+    <!-- Load ethers.js first -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
+    <!-- Load Synapse SDK browser bundle -->
+    <script src="../dist/browser/synapse-sdk.min.js"></script>
+    
+    <script>
+        // Get the SDK components from the global window object
+        const { Synapse, WarmStorageService, CONTRACT_ADDRESSES } = window.SynapseSDK;
+        
+        let synapse = null;
+        let warmStorageService = null;
+        let connectedAddress = null;
+        let provider = null;
+
+        // Show result in a div
+        function showResult(elementId, content, isError = false) {
+            const element = document.getElementById(elementId);
+            if (isError) {
+                element.innerHTML = `<div class="error">${content}</div>`;
+            } else {
+                element.innerHTML = content;
+            }
+        }
+
+        // Update status
+        function updateStatus(message, wallet = null, network = null) {
+            document.getElementById('status').textContent = message;
+            if (wallet) document.getElementById('wallet').textContent = wallet;
+            if (network) document.getElementById('network').textContent = network;
+        }
+
+        // Enable buttons
+        function enableButtons() {
+            document.querySelectorAll('button:not(#connectBtn)').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        // Format address
+        function formatAddress(address) {
+            return `<span class="address-display">${address}</span>`;
+        }
+
+        // Get piece details for a data set
+        async function getPieceDetails(dataSetId) {
+            try {
+                // This is a placeholder - in reality, you'd need to query PDPVerifier events
+                // or have a backend service that indexes piece data
+                // For now, we'll show what info we have
+                const pieceCount = await getNextPieceId(dataSetId);
+                return {
+                    count: pieceCount,
+                    details: `${pieceCount} piece(s) added to this data set`
+                };
+            } catch (error) {
+                console.error('Error getting piece details:', error);
+                return { count: 0, details: 'Unable to fetch piece details' };
+            }
+        }
+
+        // Get next piece ID (which is the count of pieces)
+        async function getNextPieceId(dataSetId) {
+            try {
+                const network = await provider.getNetwork();
+                const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
+                const pdpVerifierAddress = CONTRACT_ADDRESSES.PDP_VERIFIER[networkName];
+                
+                const pdpVerifier = new ethers.Contract(
+                    pdpVerifierAddress,
+                    ['function getNextPieceId(uint256) view returns (uint256)'],
+                    provider
+                );
+                
+                const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId);
+                return Number(nextPieceId);
+            } catch (error) {
+                console.error('Error getting next piece ID:', error);
+                return 0;
+            }
+        }
+
+        // Display enhanced data sets
+        async function displayEnhancedDataSets(dataSets, clientAddress) {
+            if (dataSets.length === 0) {
+                return `<div class="no-data-sets">No data sets found for ${formatAddress(clientAddress)}</div>`;
+            }
+
+            // Calculate summary statistics
+            const totalDataSets = dataSets.length;
+            const managedDataSets = dataSets.filter(ps => ps.isManaged).length;
+            const liveDataSets = dataSets.filter(ps => ps.isLive).length;
+            const totalPieces = dataSets.reduce((sum, ps) => sum + ps.currentPieceCount, 0);
+
+            let summaryHtml = `
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <h4>Total Data Sets</h4>
+                        <div class="value">${totalDataSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Managed by This Warm Storage</h4>
+                        <div class="value">${managedDataSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Live Data Sets</h4>
+                        <div class="value">${liveDataSets}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Total Pieces</h4>
+                        <div class="value">${totalPieces}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('dataSetsSummary').innerHTML = summaryHtml;
+
+            let html = `<h3>Data Sets for ${formatAddress(clientAddress)}</h3>`;
+            
+            for (let index = 0; index < dataSets.length; index++) {
+                const dataSet = dataSets[index];
+                const commissionPercent = (dataSet.commissionBps / 100).toFixed(2);
+                
+                // Determine data set class based on management status
+                const dataSetClass = dataSet.isManaged ? 'data-set' : 'data-set not-managed';
+                
+                html += `
+                    <div class="${dataSetClass}">
+                        <h3>
+                            Data Set ID: <span class="data-set-id">${dataSet.pdpVerifierDataSetId}</span>
+                            <span class="status-badge ${dataSet.isLive ? 'live' : 'not-live'}">${dataSet.isLive ? 'LIVE' : 'NOT LIVE'}</span>
+                            <span class="status-badge ${dataSet.isManaged ? 'managed' : 'not-managed'}">${dataSet.isManaged ? 'MANAGED' : 'UNMANAGED'}</span>
+                        </h3>
+                        
+                        <div class="data-set-detail">
+                            <label>Client Dataset ID:</label>
+                            <span class="value">${dataSet.clientDataSetId}</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>Warm Storage Rail ID:</label>
+                            <span class="value">${dataSet.railId} (internal)</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>Client (Payer):</label>
+                            <span class="value">${formatAddress(dataSet.payer)}</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>Storage Provider:</label>
+                            <span class="value">${formatAddress(dataSet.payee)}</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>Commission:</label>
+                            <span class="value">${commissionPercent}% (${dataSet.commissionBps} bps)</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>CDN Enabled:</label>
+                            <span class="value">${dataSet.withCDN ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div class="data-set-detail">
+                            <label>Metadata:</label>
+                            <span class="value">${dataSet.metadata || '(empty)'}</span>
+                        </div>
+                        
+                        <div class="pieces-section">
+                            <h4>Pieces Information</h4>
+                            <div class="data-set-detail">
+                                <label>Current Piece Count:</label>
+                                <span class="value">${dataSet.currentPieceCount}</span>
+                            </div>
+                            <div class="data-set-detail">
+                                <label>Next Piece ID:</label>
+                                <span class="value">${dataSet.nextPieceId}</span>
+                            </div>
+                            ${dataSet.currentPieceCount > 0 ? `
+                                <div class="data-set-detail">
+                                    <label>Piece Metadata:</label>
+                                    ${dataSet.pieceMetadata && dataSet.pieceMetadata.length > 0 
+                                        ? `<div class="metadata-list">${dataSet.pieceMetadata.map((m, i) => `Piece ${i}: ${m || '(no metadata)'}`).join('<br>')}</div>`
+                                        : '<span class="value">(no metadata stored)</span>'
+                                    }
+                                </div>
+                            ` : `
+                                <div class="data-set-detail">
+                                    <span class="value" style="color: #666; font-style: italic;">No pieces added yet</span>
+                                </div>
+                            `}
+                        </div>
+                        
+                        ${!dataSet.isManaged ? `
+                            <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 4px;">
+                                <strong>Note:</strong> This data set is not managed by the current Warm Storage contract. 
+                                You cannot add pieces or modify it from this interface.
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+
+
+        // Connect to MetaMask
+        async function connectWithWarmStorage(warmStorageAddress) {
+            try {
+                if (!window.ethereum) {
+                    throw new Error('MetaMask not found! Please install MetaMask.');
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+                // Create ethers provider from MetaMask
+                provider = new ethers.BrowserProvider(window.ethereum);
+                const signer = await provider.getSigner();
+                connectedAddress = await signer.getAddress();
+                
+                // Get network
+                const network = await provider.getNetwork();
+                const networkName = network.chainId === 314159n ? 'calibration' : 
+                                   network.chainId === 314n ? 'mainnet' : 
+                                   `unknown (${network.chainId})`;
+
+                // Check if we're on a supported network
+                if (network.chainId !== 314159n && network.chainId !== 314n) {
+                    throw new Error(`Please switch to Filecoin Calibration testnet (chainId: 314159) or Mainnet (chainId: 314)`);
+                }
+                
+                // Create Synapse instance
+                synapse = await Synapse.create({
+                    signer,
+                    warmStorageAddress: warmStorageAddress || undefined
+                });
+                
+                // Create WarmStorageService instance separately
+                warmStorageService = new WarmStorageService(provider, warmStorageAddress || CONTRACT_ADDRESSES.WARM_STORAGE[networkName]);
+                
+                console.log('Using Warm Storage address:', warmStorageAddress || 'default');
+
+                updateStatus('Connected', connectedAddress, networkName);
+                showResult('connectionResult', `<div class="success">Connected to ${networkName}<br>Warm Storage: ${warmStorageAddress || 'SDK default'}</div>`);
+                
+                enableButtons();
+            } catch (error) {
+                showResult('connectionResult', error.message, true);
+                updateStatus('Connection failed');
+            }
+        }
+
+        document.getElementById('connectBtn').addEventListener('click', async () => {
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
+        });
+
+        // Reconnect with selected Warm Storage
+        document.getElementById('reconnectBtn').addEventListener('click', async () => {
+            const warmStorageAddress = document.getElementById('warmStorageAddressInput').value.trim();
+            await connectWithWarmStorage(warmStorageAddress);
+        });
+
+        // Get data sets for specified address
+        document.getElementById('getDataSetsBtn').addEventListener('click', async () => {
+            try {
+                const clientAddress = document.getElementById('clientAddressInput').value.trim();
+                if (!clientAddress) {
+                    throw new Error('Please enter a client address');
+                }
+
+                showResult('dataSetsResult', '<div class="loading">Loading data sets...</div>');
+                document.getElementById('dataSetsSummary').innerHTML = '';
+                
+                console.log('Getting enhanced data sets for:', clientAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
+                
+                // Use the enhanced method to get more details
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress);
+                console.log('Enhanced data sets result:', dataSets);
+                
+                const html = await displayEnhancedDataSets(dataSets, clientAddress);
+                showResult('dataSetsResult', html);
+                
+            } catch (error) {
+                console.error('Error getting data sets:', error);
+                showResult('dataSetsResult', error.message, true);
+                document.getElementById('dataSetsSummary').innerHTML = '';
+            }
+        });
+
+        // Get data sets for connected wallet
+        document.getElementById('getMyDataSetsBtn').addEventListener('click', async () => {
+            try {
+                if (!connectedAddress) {
+                    throw new Error('No wallet connected');
+                }
+
+                showResult('dataSetsResult', '<div class="loading">Loading your data sets...</div>');
+                document.getElementById('dataSetsSummary').innerHTML = '';
+                
+                console.log('Getting enhanced data sets for connected wallet:', connectedAddress);
+                console.log('WarmStorageService instance:', warmStorageService);
+                
+                // Use the enhanced method to get more details
+                const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress);
+                console.log('Enhanced data sets result:', dataSets);
+                
+                const html = await displayEnhancedDataSets(dataSets, connectedAddress);
+                showResult('dataSetsResult', html);
+                
+            } catch (error) {
+                console.error('Error getting data sets:', error);
+                showResult('dataSetsResult', error.message, true);
+                document.getElementById('dataSetsSummary').innerHTML = '';
+            }
+        });
+
+    </script>
+</body>
+</html>

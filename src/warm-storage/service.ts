@@ -666,86 +666,24 @@ export class WarmStorageService {
 
   // ========== Storage Provider Operations ==========
 
-  /**
-   * Get all approved storage providers
-   * @returns Array of approved provider information
-   */
-  async getApprovedProviders (): Promise<ApprovedProviderInfo[]> {
-    const contract = this._getWarmStorageContract()
-    const count = await contract.getApprovedServiceProviderCount()
-
-    const providers: ApprovedProviderInfo[] = []
-    for (let i = 0; i < Number(count); i++) {
-      const provider = await contract.getApprovedServiceProvider(i)
-      providers.push({
-        id: i,
-        owner: provider.owner,
-        pdpUrl: provider.pdpUrl,
-        pieceRetrievalUrl: provider.pieceRetrievalUrl
-      })
-    }
-
-    return providers
-  }
 
   /**
-   * Get a specific approved storage provider by ID
-   * @param providerId - The provider ID
-   * @returns Provider information
-   */
-  async getApprovedProvider (providerId: number): Promise<ApprovedProviderInfo> {
-    const contract = this._getWarmStorageContract()
-    const provider = await contract.getApprovedServiceProvider(providerId)
-    return {
-      id: providerId,
-      owner: provider.owner,
-      pdpUrl: provider.pdpUrl,
-      pieceRetrievalUrl: provider.pieceRetrievalUrl
-    }
-  }
-
-  /**
-   * Get approved provider information by address or ID
-   * @param providerAddressOrId - Provider address or ID
-   * @returns Provider information
-   */
-  async getApprovedProviderByAddress (providerAddressOrId: string | number): Promise<ApprovedProviderInfo> {
-    if (typeof providerAddressOrId === 'number') {
-      return await this.getApprovedProvider(providerAddressOrId)
-    }
-
-    // Search through all providers to find by address
-    const providers = await this.getApprovedProviders()
-    const provider = providers.find(p => p.owner.toLowerCase() === providerAddressOrId.toLowerCase())
-
-    if (provider == null) {
-      // Return null provider info
-      return {
-        id: -1,
-        owner: '0x0000000000000000000000000000000000000000',
-        pdpUrl: '',
-        pieceRetrievalUrl: ''
-      }
-    }
-
-    return provider
-  }
-
-  /**
-   * Register as a storage provider (requires owner permissions)
-   * @param signer - Signer with owner permissions
-   * @param pdpUrl - PDP service URL
-   * @param pieceRetrievalUrl - Piece retrieval URL
+   * Register as a storage provider
+   * @param signer - Signer to register as provider
+   * @param serviceURL - HTTP service URL for the provider
+   * @param peerId - Optional libp2p peer ID (pass empty string if not provided)
    * @returns Transaction response
    */
   async registerServiceProvider (
     signer: ethers.Signer,
-    pdpUrl: string,
-    pieceRetrievalUrl: string
+    serviceURL: string,
+    peerId: string = ''
   ): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.registerServiceProvider(pdpUrl, pieceRetrievalUrl)
+    // Convert peerId string to bytes (UTF-8 encoding)
+    const peerIdBytes = ethers.toUtf8Bytes(peerId)
+    return await contractWithSigner.registerServiceProvider(serviceURL, peerIdBytes)
   }
 
   /**

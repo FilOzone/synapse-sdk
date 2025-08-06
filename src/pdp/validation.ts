@@ -31,11 +31,7 @@ export function isDataSetCreationStatusResponse (value: unknown): value is DataS
   if (typeof obj.createMessageHash !== 'string') {
     return false
   }
-  // Accept both dataSetCreated and datasetCreated for compatibility
-  // NOTE: Curio currently returns "datasetCreated" (lowercase 's') but we support both formats
-  const hasDataSetCreated = typeof obj.dataSetCreated === 'boolean'
-  const hasDatasetCreated = typeof obj.datasetCreated === 'boolean'
-  if (!hasDataSetCreated && !hasDatasetCreated) {
+  if (typeof obj.dataSetCreated !== 'boolean') {
     return false
   }
   if (typeof obj.service !== 'string') {
@@ -145,25 +141,8 @@ export function validateDataSetCreationStatusResponse (value: unknown): DataSetC
     throw new Error('Invalid data set creation status response format')
   }
 
-  const obj = value as any
-
-  // Normalize the response - ensure consistent dataSetCreated field name
-  // NOTE: This provides forward compatibility - Curio currently returns "datasetCreated" (lowercase 's')
-  // but this normalization ensures the SDK interface uses "dataSetCreated" (uppercase 'S')
-  const normalized: DataSetCreationStatusResponse = {
-    createMessageHash: obj.createMessageHash,
-    dataSetCreated: obj.dataSetCreated ?? obj.datasetCreated,
-    service: obj.service,
-    txStatus: obj.txStatus,
-    ok: obj.ok
-  }
-
-  // Only include dataSetId if it's actually present
-  if (obj.dataSetId !== undefined) {
-    normalized.dataSetId = obj.dataSetId
-  }
-
-  return normalized
+  // Type is already validated, return directly
+  return value as DataSetCreationStatusResponse
 }
 
 /**

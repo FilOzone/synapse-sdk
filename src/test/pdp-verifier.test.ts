@@ -37,7 +37,7 @@ describe('PDPVerifier', () => {
   })
 
   describe('dataSetLive', () => {
-    it('should check if proof set is live', async () => {
+    it('should check if data set is live', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
         if (data?.startsWith('0xca759f27') === true) { // dataSetLive selector
@@ -67,7 +67,7 @@ describe('PDPVerifier', () => {
   })
 
   describe('getDataSetListener', () => {
-    it('should get proof set listener', async () => {
+    it('should get data set listener', async () => {
       const listenerAddress = '0x1234567890123456789012345678901234567890'
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -105,7 +105,7 @@ describe('PDPVerifier', () => {
   })
 
   describe('getDataSetLeafCount', () => {
-    it('should get proof set leaf count', async () => {
+    it('should get data set leaf count', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
         if (data?.startsWith('0xa531998c') === true) { // getDataSetLeafCount selector
@@ -120,13 +120,13 @@ describe('PDPVerifier', () => {
   })
 
   describe('extractDataSetIdFromReceipt', () => {
-    it('should extract proof set ID from receipt', async () => {
+    it('should extract data set ID from receipt', async () => {
       const mockReceipt = {
         logs: [{
           address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
           topics: [
             ethers.id('DataSetCreated(uint256,address)'),
-            ethers.zeroPadValue('0x7b', 32), // proof set ID 123
+            ethers.zeroPadValue('0x7b', 32), // data set ID 123
             ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32)
           ],
           data: '0x'

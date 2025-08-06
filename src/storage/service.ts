@@ -1043,8 +1043,8 @@ export class StorageService {
   }
 
   /**
-   * Get the list of root CIDs for this storage service's data set by querying the PDP server.
-   * @returns Array of root CIDs as CommP objects
+   * Get the list of piece CIDs for this storage service's data set by querying the PDP server.
+   * @returns Array of piece CIDs as CommP objects
    */
   async getDataSetPieces (): Promise<CommP[]> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)

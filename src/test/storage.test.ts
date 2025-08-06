@@ -219,7 +219,7 @@ describe('StorageService', () => {
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -239,7 +239,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getNextClientDataSetId: async () => 2
       } as any
 
@@ -263,7 +263,7 @@ describe('StorageService', () => {
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -298,7 +298,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = {
         getApprovedProvider: async () => mockProvider,
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getNextClientDataSetId: async () => 3
       } as any
 
@@ -370,7 +370,7 @@ describe('StorageService', () => {
         approvedAt: 1234567895
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -389,7 +389,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async (addr: string) => {
           assert.equal(addr, mockProvider.storageProvider)
           return 3
@@ -415,7 +415,7 @@ describe('StorageService', () => {
         approvedAt: 1234567897
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -442,7 +442,7 @@ describe('StorageService', () => {
           assert.equal(id, 4)
           return mockProvider
         },
-        getClientDataSetsWithDetails: async () => mockProofSets
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
@@ -475,7 +475,7 @@ describe('StorageService', () => {
         approvedAt: 1234567899
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -494,7 +494,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 5 // Different provider ID
       } as any
 
@@ -537,7 +537,7 @@ describe('StorageService', () => {
         }
       ]
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -571,7 +571,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 7,
         getApprovedProvider: async () => mockProviders[0],
         getAllApprovedProviders: async () => mockProviders
@@ -601,7 +601,7 @@ describe('StorageService', () => {
     })
 
     it.skip('should handle proof sets not managed by current WarmStorage', async () => {
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -620,7 +620,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getAllApprovedProviders: async () => [{
           storageProvider: '0x9999999999999999999999999999999999999999',
           serviceURL: 'https://pdp9.example.com',
@@ -636,11 +636,11 @@ describe('StorageService', () => {
 
       // Should have selected a provider but no existing proof set
       assert.exists(service.storageProvider)
-      assert.notEqual(service.storageProvider, mockProofSets[0].payee)
+      assert.notEqual(service.storageProvider, mockDataSets[0].payee)
     })
 
     it('should throw when proof set belongs to non-approved provider', async () => {
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -659,7 +659,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets,
+        getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 0 // Provider not approved
       } as any
 
@@ -697,7 +697,7 @@ describe('StorageService', () => {
 
     it.skip('should validate parallel fetching in resolveByProviderId', async () => {
       let getApprovedProviderCalled = false
-      let getClientProofSetsCalled = false
+      let getClientDataSetsCalled = false
       const callOrder: string[] = []
 
       const mockProvider: ApprovedProviderInfo = {
@@ -719,7 +719,7 @@ describe('StorageService', () => {
         },
         getClientDataSetsWithDetails: async () => {
           callOrder.push('getClientDataSetsWithDetails-start')
-          getClientProofSetsCalled = true
+          getClientDataSetsCalled = true
           // Simulate async work
           await new Promise(resolve => setTimeout(resolve, 10))
           callOrder.push('getClientDataSetsWithDetails-end')
@@ -731,19 +731,19 @@ describe('StorageService', () => {
       await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 12 })
 
       assert.isTrue(getApprovedProviderCalled)
-      assert.isTrue(getClientProofSetsCalled)
+      assert.isTrue(getClientDataSetsCalled)
 
       // Verify both calls started before either finished (parallel execution)
       const providerStartIndex = callOrder.indexOf('getApprovedProvider-start')
-      const proofSetsStartIndex = callOrder.indexOf('getClientDataSetsWithDetails-start')
+      const dataSetsStartIndex = callOrder.indexOf('getClientDataSetsWithDetails-start')
       const providerEndIndex = callOrder.indexOf('getApprovedProvider-end')
 
       assert.isBelow(providerStartIndex, providerEndIndex)
-      assert.isBelow(proofSetsStartIndex, providerEndIndex)
+      assert.isBelow(dataSetsStartIndex, providerEndIndex)
     })
 
     it('should use progressive loading in smart selection', async () => {
-      let getClientProofSetsCalled = false
+      let getClientDataSetsCalled = false
       let getAllApprovedProvidersCalled = false
 
       const mockProvider: ApprovedProviderInfo = {
@@ -754,7 +754,7 @@ describe('StorageService', () => {
         approvedAt: 1234567909
       }
 
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -774,8 +774,8 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = {
         getClientDataSetsWithDetails: async () => {
-          getClientProofSetsCalled = true
-          return mockProofSets
+          getClientDataSetsCalled = true
+          return mockDataSets
         },
         getProviderIdByAddress: async () => 13,
         getApprovedProvider: async () => mockProvider,
@@ -798,7 +798,7 @@ describe('StorageService', () => {
       try {
         const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
-        assert.isTrue(getClientProofSetsCalled, 'Should fetch client proof sets')
+        assert.isTrue(getClientDataSetsCalled, 'Should fetch client proof sets')
         assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
         assert.equal(service.dataSetId, '500')
       } finally {
@@ -834,7 +834,7 @@ describe('StorageService', () => {
     })
 
     it('should handle proof set not live', async () => {
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -853,7 +853,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
       try {
@@ -865,7 +865,7 @@ describe('StorageService', () => {
     })
 
     it('should handle conflict between dataSetId and providerAddress', async () => {
-      const mockProofSets = [
+      const mockDataSets = [
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
@@ -884,7 +884,7 @@ describe('StorageService', () => {
       ]
 
       const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockProofSets
+        getClientDataSetsWithDetails: async () => mockDataSets
       } as any
 
       try {
@@ -1122,19 +1122,19 @@ describe('StorageService', () => {
       }
     })
     it('should support parallel uploads', async () => {
-      // Use a counter to simulate the nextRootId changing on the contract
-      // between addRoots transactions, which might not execute in order.
-      let nextRootId = 0
-      const addRootsCalls: Array<{ commP: string, rootId: number }> = []
+      // Use a counter to simulate the nextPieceId changing on the contract
+      // between addPieces transactions, which might not execute in order.
+      let nextPieceId = 0
+      const addPiecesCalls: Array<{ commP: string, pieceId: number }> = []
 
       const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => {
-          const currentRootId = nextRootId
-          nextRootId++
+        getAddPiecesInfo: async (): Promise<any> => {
+          const currentPieceId = nextPieceId
+          nextPieceId++
           return {
-            nextRootId: currentRootId,
+            nextPieceId: currentPieceId,
             clientDataSetId: 1,
-            currentRootCount: currentRootId
+            currentPieceCount: currentPieceId
           }
         }
       } as any
@@ -1148,11 +1148,11 @@ describe('StorageService', () => {
         return { commP, size: data.length }
       }
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.addRoots = async (proofSetId: number, clientDataSetId: number, nextRootId: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
+      serviceAny._pdpServer.addPieces = async (dataSetId: number, clientDataSetId: number, nextPieceId: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
         // The mock now receives the whole batch, so we process it.
-        // We use nextRootId from the call arguments to simulate what the contract does.
+        // We use nextPieceId from the call arguments to simulate what the contract does.
         comms.forEach((comm, index) => {
-          addRootsCalls.push({ commP: comm.cid.toString(), rootId: nextRootId + index })
+          addPiecesCalls.push({ commP: comm.cid.toString(), pieceId: nextPieceId + index })
         })
         // Return a response that simulates an older server for simplicity,
         // as we are not testing the transaction tracking part here.
@@ -1161,7 +1161,7 @@ describe('StorageService', () => {
 
       // Track callbacks
       const uploadCompleteCallbacks: string[] = []
-      const rootAddedCallbacks: number[] = []
+      const pieceAddedCallbacks: number[] = []
 
       // Create distinct data for each upload
       const firstData = new Uint8Array(65).fill(1) // 65 bytes
@@ -1172,15 +1172,15 @@ describe('StorageService', () => {
       const uploads = [
         service.upload(firstData, {
           onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
-          onRootAdded: () => rootAddedCallbacks.push(1)
+          onPieceAdded: () => pieceAddedCallbacks.push(1)
         }),
         service.upload(secondData, {
           onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
-          onRootAdded: () => rootAddedCallbacks.push(2)
+          onPieceAdded: () => pieceAddedCallbacks.push(2)
         }),
         service.upload(thirdData, {
           onUploadComplete: (commp) => uploadCompleteCallbacks.push(commp.toString()),
-          onRootAdded: () => rootAddedCallbacks.push(3)
+          onPieceAdded: () => pieceAddedCallbacks.push(3)
         })
       ]
 
@@ -1190,38 +1190,38 @@ describe('StorageService', () => {
       assert.lengthOf(results, 3, 'All three uploads should complete successfully')
 
       const resultSizes = results.map(r => r.size)
-      const resultRootIds = results.map(r => r.rootId)
+      const resultPieceIds = results.map(r => r.pieceId)
 
       assert.deepEqual(resultSizes, [65, 66, 67], 'Should have one result for each data size')
-      assert.deepEqual(resultRootIds, [0, 1, 2], 'The set of assigned root IDs should be {0, 1, 2}')
+      assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
 
       // Verify the calls to the mock were made correctly
-      assert.lengthOf(addRootsCalls, 3, 'addRoots should be called three times')
+      assert.lengthOf(addPiecesCalls, 3, 'addPieces should be called three times')
       for (const result of results) {
         assert.isTrue(
-          addRootsCalls.some(call => call.commP === result.commp.toString() && call.rootId === result.rootId),
-          `addRoots call for commp ${result.commp.toString()} and rootId ${result.rootId ?? 'not found'} should exist`
+          addPiecesCalls.some(call => call.commP === result.commp.toString() && call.pieceId === result.pieceId),
+          `addPieces call for commp ${result.commp.toString()} and pieceId ${result.pieceId ?? 'not found'} should exist`
         )
       }
 
       // Verify callbacks were called
       assert.lengthOf(uploadCompleteCallbacks, 3, 'All upload complete callbacks should be called')
-      assert.lengthOf(rootAddedCallbacks, 3, 'All root added callbacks should be called')
-      assert.deepEqual(rootAddedCallbacks.sort((a, b) => a - b), [1, 2, 3], 'All callbacks should be called')
+      assert.lengthOf(pieceAddedCallbacks, 3, 'All piece added callbacks should be called')
+      assert.deepEqual(pieceAddedCallbacks.sort((a, b) => a - b), [1, 2, 3], 'All callbacks should be called')
     })
 
     it('should respect batch size configuration', async () => {
-      let nextRootId = 0
-      const addRootsCalls: Array<{ batchSize: number, nextRootId: number }> = []
+      let nextPieceId = 0
+      const addPiecesCalls: Array<{ batchSize: number, nextPieceId: number }> = []
 
       const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => {
-          const currentRootId = nextRootId
+        getAddPiecesInfo: async (): Promise<any> => {
+          const currentPieceId = nextPieceId
           // Don't increment here, let the batch processing do it
           return {
-            nextRootId: currentRootId,
+            nextPieceId: currentPieceId,
             clientDataSetId: 1,
-            currentRootCount: currentRootId
+            currentPieceCount: currentPieceId
           }
         }
       } as any
@@ -1236,9 +1236,9 @@ describe('StorageService', () => {
         return { commP, size: data.length }
       }
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, rootIdStart: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
-        addRootsCalls.push({ batchSize: comms.length, nextRootId: rootIdStart })
-        nextRootId += comms.length
+      serviceAny._pdpServer.addPieces = async (_dataSetId: number, _clientDataSetId: number, pieceIdStart: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
+        addPiecesCalls.push({ batchSize: comms.length, nextPieceId: pieceIdStart })
+        nextPieceId += comms.length
         // Add a small delay to simulate network latency and allow batching
         await new Promise(resolve => setTimeout(resolve, 10))
         return { message: 'success' }
@@ -1265,29 +1265,29 @@ describe('StorageService', () => {
       assert.lengthOf(results, 5, 'All uploads should complete successfully')
 
       // Verify batching occurred - we should have fewer calls than uploads
-      assert.isBelow(addRootsCalls.length, 5, 'Should have fewer batches than uploads')
+      assert.isBelow(addPiecesCalls.length, 5, 'Should have fewer batches than uploads')
 
       // Verify all uploads were processed
-      const totalProcessed = addRootsCalls.reduce((sum, call) => sum + call.batchSize, 0)
+      const totalProcessed = addPiecesCalls.reduce((sum, call) => sum + call.batchSize, 0)
       assert.equal(totalProcessed, 5, 'All 5 uploads should be processed')
 
-      // Verify root IDs are sequential
-      assert.equal(addRootsCalls[0].nextRootId, 0, 'First batch should start at root ID 0')
-      for (let i = 1; i < addRootsCalls.length; i++) {
-        const expectedId = addRootsCalls[i - 1].nextRootId + addRootsCalls[i - 1].batchSize
-        assert.equal(addRootsCalls[i].nextRootId, expectedId, `Batch ${i} should have correct sequential root ID`)
+      // Verify piece IDs are sequential
+      assert.equal(addPiecesCalls[0].nextPieceId, 0, 'First batch should start at piece ID 0')
+      for (let i = 1; i < addPiecesCalls.length; i++) {
+        const expectedId = addPiecesCalls[i - 1].nextPieceId + addPiecesCalls[i - 1].batchSize
+        assert.equal(addPiecesCalls[i].nextPieceId, expectedId, `Batch ${i} should have correct sequential piece ID`)
       }
     })
 
     it('should handle batch size of 1', async () => {
-      let nextRootId = 0
-      const addRootsCalls: number[] = []
+      let nextPieceId = 0
+      const addPiecesCalls: number[] = []
 
       const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: nextRootId++,
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: nextPieceId++,
           clientDataSetId: 1,
-          currentRootCount: nextRootId
+          currentPieceCount: nextPieceId
         })
       } as any
 
@@ -1301,8 +1301,8 @@ describe('StorageService', () => {
         size: data.length
       })
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, _nextRootId: number, comms: any[]): Promise<any> => {
-        addRootsCalls.push(comms.length)
+      serviceAny._pdpServer.addPieces = async (_dataSetId: number, _clientDataSetId: number, _nextPieceId: number, comms: any[]): Promise<any> => {
+        addPiecesCalls.push(comms.length)
         return { message: 'success' }
       }
 
@@ -1316,18 +1316,18 @@ describe('StorageService', () => {
       await Promise.all(uploads)
 
       // With batch size 1, each upload should be processed individually
-      assert.lengthOf(addRootsCalls, 3, 'Should have 3 individual calls')
-      assert.deepEqual(addRootsCalls, [1, 1, 1], 'Each call should have exactly 1 root')
+      assert.lengthOf(addPiecesCalls, 3, 'Should have 3 individual calls')
+      assert.deepEqual(addPiecesCalls, [1, 1, 1], 'Each call should have exactly 1 piece')
     })
 
     it('should debounce uploads for better batching', async () => {
-      const addRootsCalls: Array<{ batchSize: number }> = []
+      const addPiecesCalls: Array<{ batchSize: number }> = []
 
       const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
 
@@ -1341,9 +1341,9 @@ describe('StorageService', () => {
         size: data.length
       })
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.addRoots = async (_proofSetId: number, _clientDataSetId: number, _nextRootId: number, comms: any[]): Promise<any> => {
+      serviceAny._pdpServer.addPieces = async (_dataSetId: number, _clientDataSetId: number, _nextPieceId: number, comms: any[]): Promise<any> => {
         // Track batch sizes
-        addRootsCalls.push({ batchSize: comms.length })
+        addPiecesCalls.push({ batchSize: comms.length })
         return { message: 'success' }
       }
 
@@ -1356,16 +1356,16 @@ describe('StorageService', () => {
       await Promise.all(uploads)
 
       // With debounce, all 5 uploads should be in a single batch
-      assert.lengthOf(addRootsCalls, 1, 'Should have exactly 1 batch due to debounce')
-      assert.equal(addRootsCalls[0].batchSize, 5, 'Batch should contain all 5 uploads')
+      assert.lengthOf(addPiecesCalls, 1, 'Should have exactly 1 batch due to debounce')
+      assert.equal(addPiecesCalls[0].batchSize, 5, 'Batch should contain all 5 uploads')
     })
 
     it('should handle errors in batch processing gracefully', async () => {
       const mockPandoraService = {
-        getAddRootsInfo: async (): Promise<any> => ({
-          nextRootId: 0,
+        getAddPiecesInfo: async (): Promise<any> => ({
+          nextPieceId: 0,
           clientDataSetId: 1,
-          currentRootCount: 0
+          currentPieceCount: 0
         })
       } as any
 
@@ -1379,9 +1379,9 @@ describe('StorageService', () => {
       })
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
 
-      // Make addRoots fail
-      serviceAny._pdpServer.addRoots = async (): Promise<any> => {
-        throw new Error('Network error during addRoots')
+      // Make addPieces fail
+      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
+        throw new Error('Network error during addPieces')
       }
 
       // Create 3 uploads
@@ -1399,15 +1399,15 @@ describe('StorageService', () => {
       assert.equal(results[1].status, 'rejected')
 
       if (results[0].status === 'rejected' && results[1].status === 'rejected') {
-        assert.include(results[0].reason.message, 'Network error during addRoots')
-        assert.include(results[1].reason.message, 'Network error during addRoots')
+        assert.include(results[0].reason.message, 'Network error during addPieces')
+        assert.include(results[1].reason.message, 'Network error during addPieces')
         // They should have the same error message (same batch)
         assert.equal(results[0].reason.message, results[1].reason.message)
       }
 
       // Third upload might succeed or fail depending on timing
       if (results[2].status === 'rejected') {
-        assert.include((results[2]).reason.message, 'Network error during addRoots')
+        assert.include((results[2]).reason.message, 'Network error during addPieces')
       }
     })
 
@@ -1523,7 +1523,7 @@ describe('StorageService', () => {
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
       let uploadCompleteCallbackFired = false
-      let rootAddedCallbackFired = false
+      let pieceAddedCallbackFired = false
 
       // Mock the required services
       const serviceAny = service as any
@@ -1552,12 +1552,12 @@ describe('StorageService', () => {
           uploadCompleteCallbackFired = true
         },
         onPieceAdded: () => {
-          rootAddedCallbackFired = true
+          pieceAddedCallbackFired = true
         }
       })
 
       assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-      assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
       assert.equal(result.commp.toString(), testCommP)
     })
 
@@ -1576,9 +1576,9 @@ describe('StorageService', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       let uploadCompleteCallbackFired = false
-      let rootAddedCallbackFired = false
-      let rootConfirmedCallbackFired = false
-      let rootAddedTransaction: any = null
+      let pieceAddedCallbackFired = false
+      let pieceConfirmedCallbackFired = false
+      let pieceAddedTransaction: any = null
       let confirmedPieceIds: number[] = []
 
       // Mock the required services
@@ -1615,14 +1615,14 @@ describe('StorageService', () => {
       }
 
       // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (proofSetId: number, txHash: string): Promise<any> => {
-        assert.equal(proofSetId, 123)
+      serviceAny._pdpServer.getPieceAdditionStatus = async (dataSetId: number, txHash: string): Promise<any> => {
+        assert.equal(dataSetId, 123)
         assert.equal(txHash, mockTxHash)
         return {
           txHash: mockTxHash,
           txStatus: 'confirmed',
-          proofSetId: 123,
-          rootCount: 1,
+          dataSetId: 123,
+          pieceCount: 1,
           addMessageOk: true,
           confirmedPieceIds: [42]
         }
@@ -1635,20 +1635,20 @@ describe('StorageService', () => {
             uploadCompleteCallbackFired = true
           },
           onPieceAdded: (transaction) => {
-            rootAddedCallbackFired = true
-            rootAddedTransaction = transaction
+            pieceAddedCallbackFired = true
+            pieceAddedTransaction = transaction
           },
           onPieceConfirmed: (pieceIds: number[]) => {
-            rootConfirmedCallbackFired = true
+            pieceConfirmedCallbackFired = true
             confirmedPieceIds = pieceIds
           }
         })
 
         assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-        assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
-        assert.isTrue(rootConfirmedCallbackFired, 'onRootConfirmed should have been called')
-        assert.exists(rootAddedTransaction, 'Transaction should be passed to onPieceAdded')
-        assert.equal(rootAddedTransaction.hash, mockTxHash)
+        assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+        assert.isTrue(pieceConfirmedCallbackFired, 'onPieceConfirmed should have been called')
+        assert.exists(pieceAddedTransaction, 'Transaction should be passed to onPieceAdded')
+        assert.equal(pieceAddedTransaction.hash, mockTxHash)
         assert.deepEqual(confirmedPieceIds, [42])
         assert.equal(result.pieceId, 42)
       } finally {
@@ -1843,8 +1843,8 @@ describe('StorageService', () => {
       const testData = new Uint8Array(65).fill(42)
       const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
 
-      let rootAddedCallbackFired = false
-      let rootAddedTransaction: any
+      let pieceAddedCallbackFired = false
+      let pieceAddedTransaction: any
 
       // Mock the required services
       const serviceAny = service as any
@@ -1864,13 +1864,13 @@ describe('StorageService', () => {
 
       const result = await service.upload(testData, {
         onPieceAdded: (transaction?: ethers.TransactionResponse) => {
-          rootAddedCallbackFired = true
-          rootAddedTransaction = transaction
+          pieceAddedCallbackFired = true
+          pieceAddedTransaction = transaction
         }
       })
 
-      assert.isTrue(rootAddedCallbackFired, 'onPieceAdded should have been called')
-      assert.isUndefined(rootAddedTransaction, 'Transaction should be undefined for old servers')
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+      assert.isUndefined(pieceAddedTransaction, 'Transaction should be undefined for old servers')
       assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddPiecesInfo
     })
 
@@ -2558,7 +2558,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {} as any
       const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
         pieces: [
           {
@@ -2579,24 +2579,24 @@ describe('StorageService', () => {
 
       // Mock the PDP server getDataSet method
       const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (proofSetId: number): Promise<any> => {
-        assert.equal(proofSetId, 123)
-        return mockProofSetData
+      serviceAny._pdpServer.getDataSet = async (dataSetId: number): Promise<any> => {
+        assert.equal(dataSetId, 123)
+        return mockDataSetData
       }
 
       const result = await service.getDataSetPieces()
 
       assert.isArray(result)
       assert.equal(result.length, 2)
-      assert.equal(result[0].toString(), mockProofSetData.pieces[0].pieceCid)
-      assert.equal(result[1].toString(), mockProofSetData.pieces[1].pieceCid)
+      assert.equal(result[0].toString(), mockDataSetData.pieces[0].pieceCid)
+      assert.equal(result[1].toString(), mockDataSetData.pieces[1].pieceCid)
     })
 
     it('should handle empty proof set pieces', async () => {
       const mockWarmStorageService = {} as any
       const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
         pieces: [],
         nextChallengeEpoch: 1500
@@ -2605,7 +2605,7 @@ describe('StorageService', () => {
       // Mock the PDP server getDataSet method
       const serviceAny = service as any
       serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockProofSetData
+        return mockDataSetData
       }
 
       const result = await service.getDataSetPieces()
@@ -2618,7 +2618,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {} as any
       const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const mockProofSetData = {
+      const mockDataSetData = {
         id: 292,
         pieces: [
           {
@@ -2634,7 +2634,7 @@ describe('StorageService', () => {
       // Mock the PDP server getDataSet method
       const serviceAny = service as any
       serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockProofSetData
+        return mockDataSetData
       }
 
       const result = await service.getDataSetPieces()

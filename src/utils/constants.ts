@@ -61,9 +61,9 @@ export const CONTRACT_ABIS = {
     // Read functions
     'function isProviderApproved(address provider) external view returns (bool)',
     'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt))',
+    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
     'function pendingProviders(address provider) external view returns (string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)',
+    'function approvedProviders(uint256 providerId) external view returns (address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
     'function nextServiceProviderId() external view returns (uint256)',
     'function owner() external view returns (address)',
     'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth) pricing)',
@@ -71,7 +71,7 @@ export const CONTRACT_ABIS = {
     // Public mappings that are automatically exposed
     'function approvedProvidersMap(address) external view returns (bool)',
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address owner, string pdpUrl, string pieceRetrievalUrl, uint256 registeredAt, uint256 approvedAt)[])',
+    'function getAllApprovedProviders() external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[]))',
 
     // Data set functions
     'function getClientDataSets(address client) external view returns (tuple(uint256 railId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN)[])',
@@ -99,7 +99,7 @@ export const CONTRACT_ABIS = {
     'function getNextPieceId(uint256 setId) public view returns (uint256)',
     'function dataSetLive(uint256 setId) public view returns (bool)',
     'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getDataSetOwner(uint256 setId) public view returns (address, address)',
+    'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
     'function getDataSetListener(uint256 setId) public view returns (address)',
     'event DataSetCreated(uint256 indexed setId, address indexed owner)'
   ] as const
@@ -186,7 +186,7 @@ export const SIZE_CONSTANTS = {
   MIN_UPLOAD_SIZE: 65,
 
   /**
-   * Default number of uploads to batch together in a single addRoots transaction
+   * Default number of uploads to batch together in a single addPieces transaction
    * This balances gas efficiency with reasonable transaction sizes
    */
   DEFAULT_UPLOAD_BATCH_SIZE: 32
