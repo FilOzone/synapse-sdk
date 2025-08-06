@@ -23,7 +23,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
 - **ts-standard**: TypeScript Standard Style linter for consistent formatting, no semicolons, prefer to run `npm run lint:fix` for lint+fix,
   - **BEWARE** of common TS code, these rules will cause problems so you should either `lint:fix` regularly or avoid code that produces these: strict-boolean-expressions, no-trailing-spaces, return-await, no-unused-vars, indent
-- **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
+- **Build Scripts**: `npm run build`
 - **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
 - **Conventional Commits**: Auto-publishing enabled with semantic versioning based on commit messages. Use `feat:` for minor, `fix:`/`chore:`/`docs:`/`test:` for patch. AVOID breaking change signifiers (`!` or `BREAKING CHANGE`) even if there are actual breaking changes. See <README.md#commit-message-guidelines> for full details. IMPORTANT: only create commits if asked to by the user, prefer to provide commit messages.
 
@@ -45,7 +45,6 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ### File Structure
 ```
 src/
-├── browser-entry.ts            # Browser bundle entry point
 ├── commp/                      # CommP utilities (Piece Commitment calculations)
 ├── payments/                   # Payment contract interactions
 │   └── service.ts              # PaymentsService (formerly SynapsePayments)
@@ -82,13 +81,6 @@ src/
 - **Balance Checking**: `synapse.payments.walletBalance()` for FIL, `synapse.payments.walletBalance(TOKENS.USDFC)` for USDFC (both return bigint)
 - **BigInt Support**: All token amounts use bigint to avoid floating point precision issues
 - **Constants Organization**: All addresses in `CONTRACT_ADDRESSES`, all ABIs in `CONTRACT_ABIS`, tokens in `TOKENS`
-
-#### Browser Distribution
-- **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
-- **Minified Bundle**: `dist/browser/synapse-sdk.min.js` - Production-optimized
-- **Entry Point**: `dist/browser-entry.js` - Flattens all exports for browser use
-- **External Dependencies**: ethers.js must be loaded separately (https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js can be used)
-- **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
 ## CommPv2 Format and 32-Byte Digests
 

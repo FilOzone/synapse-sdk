@@ -17,44 +17,103 @@ Whether you're building a quick prototype or a complex application with specific
 
 ## Installation
 
+### Package Manager
+
+Install the required packages.
+
 ```bash
 npm install @filoz/synapse-sdk ethers
+```
+
+### CDN
+
+If you're using a package manager, you can use Synapse via a ESM-compatible CDN like [esm.sh](https://esm.sh). Simply add a `<script type="module">` tag to the bottom of your HTML file with the following content. Check out example in StackBlitz.  [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/hugomrdias/filecoin/tree/main/examples/synapse-script?title=Synapse%20Script%20Tag&hideExplorer=1&theme=dark)
+
+```html
+<script type="module">
+  import { Synapse, RPC_URLS } from 'https://esm.sh/@filoz/synapse-sdk'
+  import { ethers } from 'https://esm.sh/ethers'
+
+  const provider = new ethers.BrowserProvider(window.ethereum)
+  try {
+    const synapse = await Synapse.create({ provider })
+  } catch (error) {
+    console.log(error)
+  }
+
+</script>
 ```
 
 Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Installation](#installation)
-* [Recommended Usage](#recommended-usage)
-  * [Quick Start](#quick-start)
-  * [With MetaMask](#with-metamask)
-  * [Advanced Payment Control](#advanced-payment-control)
-  * [API Reference](#api-reference)
-  * [Storage Service Creation](#storage-service-creation)
-* [Using Individual Components](#using-individual-components)
-  * [Payments Service](#payments-service)
-  * [Warm Storage Service](#warm-storage-service)
-  * [Subgraph Service](#subgraph-service)
-  * [PDP Components](#pdp-components)
-  * [CommP Utilities](#commp-utilities)
-* [Network Configuration](#network-configuration)
-  * [RPC Endpoints](#rpc-endpoints)
-  * [GLIF Authorization](#glif-authorization)
-  * [Network Details](#network-details)
-* [Browser Integration](#browser-integration)
-  * [MetaMask Setup](#metamask-setup)
-* [Additional Information](#additional-information)
-  * [Type Definitions](#type-definitions)
-  * [Error Handling](#error-handling)
-* [Contributing](#contributing)
-  * [Commit Message Guidelines](#commit-message-guidelines)
-  * [Testing](#testing)
-* [Migration Guide](#migration-guide)
-  * [Transaction Return Types](#transaction-return-types-v070)
-  * [Terminology Update](#terminology-update-v0200)
-* [License](#license)
+- [Synapse SDK](#synapse-sdk)
+  - [Overview](#overview)
+  - [Installation](#installation)
+    - [Package Manager](#package-manager)
+    - [CDN](#cdn)
+  - [Table of Contents](#table-of-contents)
+  - [Recommended Usage](#recommended-usage)
+    - [Quick Start](#quick-start)
+      - [Payment Setup](#payment-setup)
+    - [With MetaMask](#with-metamask)
+    - [Advanced Payment Control](#advanced-payment-control)
+    - [API Reference](#api-reference)
+      - [Constructor Options](#constructor-options)
+      - [Synapse Methods](#synapse-methods)
+      - [Synapse.payments Methods](#synapsepayments-methods)
+    - [Storage Service Creation](#storage-service-creation)
+      - [Basic Usage](#basic-usage)
+      - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
+      - [Creation Options](#creation-options)
+      - [Storage Service Properties](#storage-service-properties)
+      - [Storage Service Methods](#storage-service-methods)
+        - [Preflight Upload](#preflight-upload)
+        - [Upload and Download](#upload-and-download)
+        - [Size Constraints](#size-constraints)
+        - [Efficient Batch Uploads](#efficient-batch-uploads)
+    - [Storage Information](#storage-information)
+    - [Download Options](#download-options)
+      - [Direct Download via Synapse](#direct-download-via-synapse)
+      - [Provider-Specific Download via StorageService](#provider-specific-download-via-storageservice)
+      - [CDN Inheritance Pattern](#cdn-inheritance-pattern)
+  - [Using Individual Components](#using-individual-components)
+    - [Payments Service](#payments-service)
+    - [Warm Storage Service](#warm-storage-service)
+    - [Subgraph Service](#subgraph-service)
+      - [Custom Subgraph Service Implementations](#custom-subgraph-service-implementations)
+    - [PDP Components](#pdp-components)
+      - [PDP Verifier](#pdp-verifier)
+      - [PDP Server](#pdp-server)
+      - [PDP Auth Helper](#pdp-auth-helper)
+    - [CommP Utilities](#commp-utilities)
+  - [Network Configuration](#network-configuration)
+    - [RPC Endpoints](#rpc-endpoints)
+    - [GLIF Authorization](#glif-authorization)
+    - [Network Details](#network-details)
+  - [Browser Integration](#browser-integration)
+    - [MetaMask Setup](#metamask-setup)
+  - [Additional Information](#additional-information)
+    - [Type Definitions](#type-definitions)
+    - [Error Handling](#error-handling)
+  - [Contributing](#contributing)
+    - [Commit Message Guidelines](#commit-message-guidelines)
+      - [Commit Message Format](#commit-message-format)
+      - [Supported Types and Version Bumps](#supported-types-and-version-bumps)
+      - [Examples](#examples)
+      - [Important Notes](#important-notes)
+    - [Testing](#testing)
+  - [Migration Guide](#migration-guide)
+    - [Transaction Return Types (v0.7.0+)](#transaction-return-types-v070)
+    - [Terminology Update (v0.24.0+)](#terminology-update-v0240)
+      - [Import Path Changes](#import-path-changes)
+      - [Type Name Changes](#type-name-changes)
+      - [Method Name Changes](#method-name-changes)
+      - [Configuration Changes](#configuration-changes)
+      - [Complete Migration Example](#complete-migration-example)
+      - [Migration Checklist](#migration-checklist)
+  - [License](#license)
 
 ---
 

@@ -1,0 +1,14 @@
+{
+	// "editor.defaultFormatter": "biomejs.biome",
+    // enable biome for this project
+	"biome.enabled": false,
+	"editor.codeActionsOnSave": {
+		"quickfix.biome": "explicit",
+		"source.organizeImports.biome": "explicit"
+	},
+    // enable format when biome is supported
+	"editor.formatOnSave": false,
+	"javascript.format.enable": false,
+	"typescript.format.enable": false,
+	"typescript.enablePromptUseWorkspaceTsdk": true
+}
