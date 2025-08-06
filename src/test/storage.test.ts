@@ -925,7 +925,7 @@ describe('StorageService', () => {
         await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 600 })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 600 is not live')
+        assert.include(error.message, 'Data set 600 not found')
       }
     })
 
@@ -1038,11 +1038,12 @@ describe('StorageService', () => {
       } as any
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const testData = new Uint8Array(1024 * 1024).fill(42) // 1 MiB
-      const preflight = await service.preflightUpload(testData)
+      const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
-      assert.isDefined(preflight.commP)
-      assert.equal(preflight.size, 1024 * 1024)
+      assert.equal(preflight.estimatedCost.perEpoch, BigInt(100))
+      assert.equal(preflight.estimatedCost.perDay, BigInt(28800))
+      assert.equal(preflight.estimatedCost.perMonth, BigInt(864000))
+      assert.isTrue(preflight.allowanceCheck.sufficient)
     })
 
     it('should calculate costs with CDN', async () => {
@@ -1065,12 +1066,13 @@ describe('StorageService', () => {
       } as any
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: true })
 
-      const testData = new Uint8Array(1024 * 1024).fill(42) // 1 MiB
-      const preflight = await service.preflightUpload(testData)
+      const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
-      // Should return commP and size
-      assert.isDefined(preflight.commP)
-      assert.equal(preflight.size, 1024 * 1024)
+      // Should use CDN costs
+      assert.equal(preflight.estimatedCost.perEpoch, BigInt(200))
+      assert.equal(preflight.estimatedCost.perDay, BigInt(57600))
+      assert.equal(preflight.estimatedCost.perMonth, BigInt(1728000))
+      assert.isTrue(preflight.allowanceCheck.sufficient)
     })
 
     it('should handle insufficient allowances', async () => {
@@ -1093,12 +1095,11 @@ describe('StorageService', () => {
       } as any
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      const testData = new Uint8Array(1024).fill(42) // 1 KiB - much smaller for faster test
-      const preflight = await service.preflightUpload(testData)
+      const preflight = await service.preflightUpload(100 * 1024 * 1024) // 100 MiB
 
-      // preflightUpload now only returns commP and size
-      assert.isDefined(preflight.commP)
-      assert.equal(preflight.size, 1024)
+      assert.isFalse(preflight.allowanceCheck.sufficient)
+      assert.include(preflight.allowanceCheck.message, 'Insufficient allowance')
+      assert.include(preflight.allowanceCheck.message, 'USDFC required')
     })
 
     it('should enforce minimum size limit in preflightUpload', async () => {
@@ -1106,7 +1107,7 @@ describe('StorageService', () => {
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
-        await service.preflightUpload(new Uint8Array(64).fill(42)) // 64 bytes (1 under minimum)
+        await service.preflightUpload(64) // 64 bytes (1 under minimum)
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'below minimum allowed size')
@@ -1120,7 +1121,7 @@ describe('StorageService', () => {
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
-        await service.preflightUpload(new Uint8Array(210 * 1024 * 1024).fill(42)) // 210 MiB
+        await service.preflightUpload(210 * 1024 * 1024) // 210 MiB
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
@@ -2418,10 +2419,16 @@ describe('StorageService', () => {
         }
 
         try {
+          // Create a mock signer for the test
+          const mockSigner = {
+            getAddress: async () => '0x1234567890123456789012345678901234567890'
+          } as any
+
           const result = await (StorageService as any).smartSelectProvider(
             '0x1234567890123456789012345678901234567890',
             false,
-            mockWarmStorageService
+            mockWarmStorageService,
+            mockSigner
           )
 
           // Should have selected one of the available providers for new data set
@@ -2483,10 +2490,16 @@ describe('StorageService', () => {
         }
 
         try {
+          // Create a mock signer for the test
+          const mockSigner = {
+            getAddress: async () => '0x1234567890123456789012345678901234567890'
+          } as any
+
           const result = await (StorageService as any).smartSelectProvider(
             '0x1234567890123456789012345678901234567890',
             false,
-            mockWarmStorageService
+            mockWarmStorageService,
+            mockSigner
           )
 
           // Should use existing provider since ping succeeded
@@ -2787,12 +2800,12 @@ describe('StorageService', () => {
       mockSynapseAny.payments.getCurrentEpoch = async () => BigInt(4000)
       mockSynapseAny.getNetwork = () => 'calibration'
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isFalse(status.exists)
-      assert.isUndefined(status.retrievalUrl)
-      assert.isUndefined(status.lastProvenEpoch)
-      assert.isUndefined(status.nextProofRequired)
+      assert.isNull(status.retrievalUrl)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
     })
 
     it('should return piece status with proof timing when piece exists', async () => {
@@ -2825,13 +2838,14 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
       assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockCommP)
-      assert.isDefined(status.lastProvenEpoch)
-      assert.isDefined(status.nextProofRequired)
-      assert.isTrue(status.isActive)
+      assert.isNotNull(status.dataSetLastProven)
+      assert.isNotNull(status.dataSetNextProofDue)
+      assert.isFalse(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
     })
 
     it('should detect when in challenge window', async () => {
@@ -2867,11 +2881,12 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      // During challenge window, piece should be marked as inactive
-      assert.isFalse(status.isActive)
+      // During challenge window
+      assert.isTrue(status.inChallengeWindow)
+      assert.isFalse(status.isProofOverdue)
     })
 
     it('should detect when proof is overdue', async () => {
@@ -2906,10 +2921,10 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.isFalse(status.isActive) // No longer active, proof is overdue
+      assert.isTrue(status.isProofOverdue)
     })
 
     it('should handle data set with nextChallengeEpoch=0', async () => {
@@ -2942,12 +2957,12 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.isUndefined(status.lastProvenEpoch) // No challenge means no proof data
-      assert.isUndefined(status.nextProofRequired)
-      assert.isFalse(status.isActive) // Not active when no challenge scheduled
+      assert.isNull(status.dataSetLastProven) // No challenge means no proof data
+      assert.isNull(status.dataSetNextProofDue)
+      assert.isFalse(status.inChallengeWindow)
     })
 
     it('should handle trailing slash in retrieval URL', async () => {
@@ -2987,7 +3002,7 @@ describe('StorageService', () => {
         throw new Error('Provider not found')
       }
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
       // Should not have double slash
@@ -3002,7 +3017,7 @@ describe('StorageService', () => {
       const service = createTestStorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
-        await service.getPieceStatus('invalid-commp')
+        await service.pieceStatus('invalid-commp')
         assert.fail('Should have thrown error for invalid CommP')
       } catch (error: any) {
         assert.include(error.message, 'Invalid CommP provided')
@@ -3039,11 +3054,11 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       assert.isTrue(status.exists)
-      assert.isTrue(status.isActive) // Should be active when before challenge window
-      // The getPieceStatus interface no longer includes hoursUntilChallengeWindow
+      assert.isFalse(status.inChallengeWindow) // Not yet in challenge window
+      assert.isTrue((status.hoursUntilChallengeWindow ?? 0) > 0)
     })
 
     it('should handle data set data fetch failure gracefully', async () => {
@@ -3069,14 +3084,14 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
-      const status = await service.getPieceStatus(mockCommP)
+      const status = await service.pieceStatus(mockCommP)
 
       // Should still return basic status even if data set data fails
       assert.isTrue(status.exists)
-      assert.isDefined(status.retrievalUrl)
-      assert.isUndefined(status.lastProvenEpoch)
-      assert.isUndefined(status.nextProofRequired)
-      // pieceId is not part of the getPieceStatus interface
+      assert.isNotNull(status.retrievalUrl)
+      assert.isNull(status.dataSetLastProven)
+      assert.isNull(status.dataSetNextProofDue)
+      assert.isUndefined(status.pieceId)
     })
   })
 })

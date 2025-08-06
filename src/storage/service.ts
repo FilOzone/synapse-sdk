@@ -23,12 +23,25 @@
  */
 
 import { ethers } from 'ethers'
-import { type StorageServiceOptions, type CommP, type ApprovedProviderInfo, type UploadCallbacks, type UploadResult, type PieceData, type StorageCreationCallbacks, type ProviderSelectionResult, type DownloadOptions } from '../types.js'
+import type {
+  StorageServiceOptions,
+  CommP,
+  ApprovedProviderInfo,
+  UploadCallbacks,
+  UploadResult,
+  PieceData,
+  StorageCreationCallbacks,
+  ProviderSelectionResult,
+  DownloadOptions,
+  PreflightInfo,
+  EnhancedDataSetInfo,
+  PieceStatus
+} from '../types.js'
 import { type Synapse } from '../synapse.js'
 import { type WarmStorageService } from '../warm-storage/index.js'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { calculate as calculateCommP, asCommP } from '../commp/index.js'
-import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS } from '../utils/index.js'
+import { asCommP } from '../commp/index.js'
+import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, epochToDate, calculateLastProofDate, timeUntilEpoch } from '../utils/index.js'
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -276,14 +289,26 @@ export class StorageService {
           // Fire progress callback
           if (callbacks?.onDataSetCreationProgress != null) {
             try {
+              // Get receipt if transaction is mined
+              let receipt: ethers.TransactionReceipt | undefined
+              if (status.chain.transactionMined && status.chain.blockNumber != null) {
+                try {
+                  // Use transaction.wait() which is more efficient than getTransactionReceipt
+                  const txReceipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+                  receipt = txReceipt ?? undefined
+                } catch (error) {
+                  console.error('Failed to fetch transaction receipt:', error)
+                }
+              }
+
               callbacks.onDataSetCreationProgress({
                 transactionMined: status.chain.transactionMined,
                 transactionSuccess: status.chain.transactionSuccess,
                 dataSetLive: status.chain.dataSetLive,
-                serverConfirmed: status.chain.transactionMined,
+                serverConfirmed: status.server?.ok === true,
                 dataSetId: status.summary.dataSetId ?? undefined,
                 elapsedMs,
-                receipt: undefined // receipt no longer available in new interface
+                receipt
               })
             } catch (error) {
               console.error('Error in onDataSetCreationProgress callback:', error)
@@ -340,174 +365,133 @@ export class StorageService {
   ): Promise<ProviderSelectionResult> {
     const signer = synapse.getSigner()
     const signerAddress = await signer.getAddress()
-    const withCDN = options.withCDN ?? false
 
-    // Case 1: Specific data set ID provided
+    // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {
-      // Get all client data sets and find the specific one
-      const clientDataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress, true)
-      const dataSetData = clientDataSets.find(ds => ds.pdpVerifierDataSetId === options.dataSetId)
-
-      if (dataSetData == null) {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Data set ${options.dataSetId} not found`
-        )
-      }
-
-      // Validate the data set
-      if (!dataSetData.isLive) {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Data set ${options.dataSetId} is not live`
-        )
-      }
-
-      if (!dataSetData.isManaged) {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Data set ${options.dataSetId} is not managed by client ${signerAddress}`
-        )
-      }
-
-      if (dataSetData.withCDN !== withCDN) {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Data set ${options.dataSetId} has CDN ${dataSetData.withCDN ? 'enabled' : 'disabled'}, but requested ${withCDN ? 'enabled' : 'disabled'}`
-        )
-      }
-
-      // Get provider info
-      const providerId = await warmStorageService.getProviderIdByAddress(dataSetData.payee)
-      const provider = await warmStorageService.getApprovedProvider(providerId)
-
-      // Check if the data set's provider is approved
-      if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Provider for data set ${options.dataSetId} is not currently approved`
-        )
-      }
-
-      // If both dataSetId and providerAddress are specified, validate they match
-      if (options.providerAddress != null) {
-        const requestedProviderId = await warmStorageService.getProviderIdByAddress(options.providerAddress)
-        if (requestedProviderId !== providerId) {
-          throw createError(
-            'StorageService',
-            'resolveProviderAndDataSet',
-            `Data set ${options.dataSetId} belongs to provider ID ${providerId}, but provider ID ${requestedProviderId} was requested`
-          )
-        }
-      }
-
-      // If both dataSetId and providerId are specified, validate they match
-      if (options.providerId != null) {
-        if (options.providerId !== providerId) {
-          throw createError(
-            'StorageService',
-            'resolveProviderAndDataSet',
-            `Data set ${options.dataSetId} belongs to provider ID ${providerId}, but provider ID ${options.providerId} was requested`
-          )
-        }
-      }
-
-      return {
-        provider,
-        dataSetId: options.dataSetId,
-        isExisting: true
-      }
-    }
-
-    // Case 2: Specific provider address
-    if (options.providerAddress != null) {
-      const providerId = await warmStorageService.getProviderIdByAddress(options.providerAddress)
-      const provider = await warmStorageService.getApprovedProvider(providerId)
-
-      // Check if provider exists
-      if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
-        throw createError(
-          'StorageService',
-          'resolveProviderAndDataSet',
-          `Provider ${options.providerAddress} is not currently approved`
-        )
-      }
-
-      return await StorageService.resolveByProviderAddress(
+      return await StorageService.resolveByDataSetId(
+        options.dataSetId,
+        warmStorageService,
         signerAddress,
-        provider,
-        withCDN,
-        warmStorageService
+        options
       )
     }
 
-    // Case 3: Specific provider ID
+    // Handle explicit provider ID selection
     if (options.providerId != null) {
       return await StorageService.resolveByProviderId(
         signerAddress,
         options.providerId,
-        withCDN,
+        options.withCDN ?? false,
         warmStorageService
       )
     }
 
-    // Case 4: Auto-select provider (most complex case)
+    // Handle explicit provider address selection
+    if (options.providerAddress != null) {
+      return await StorageService.resolveByProviderAddress(
+        options.providerAddress,
+        warmStorageService,
+        signerAddress,
+        options.withCDN ?? false
+      )
+    }
+
+    // Smart selection when no specific parameters provided
     return await StorageService.smartSelectProvider(
       signerAddress,
-      withCDN,
-      warmStorageService
+      options.withCDN ?? false,
+      warmStorageService,
+      signer
     )
   }
 
   /**
-   * Resolve using a specific provider address
+   * Resolve using a specific data set ID
    */
-  private static async resolveByProviderAddress (
+  private static async resolveByDataSetId (
+    dataSetId: number,
+    warmStorageService: WarmStorageService,
     signerAddress: string,
-    provider: ApprovedProviderInfo,
-    withCDN: boolean,
-    warmStorageService: WarmStorageService
-  ): Promise<{
-      provider: ApprovedProviderInfo
-      dataSetId: number
-      isExisting: boolean
-    }> {
-    // Get client's data sets
+    options: StorageServiceOptions
+  ): Promise<ProviderSelectionResult> {
+    // Fetch data sets to find the specific one
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
+    const dataSet = dataSets.find(ds => ds.pdpVerifierDataSetId === dataSetId)
 
-    // Look for existing data sets with this provider
-    const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.storageProvider.toLowerCase() &&
-            ps.isLive &&
-            ps.isManaged &&
-            ps.withCDN === withCDN
-    )
+    if (dataSet == null || !dataSet.isLive || !dataSet.isManaged) {
+      throw createError(
+        'StorageService',
+        'resolveByDataSetId',
+        `Data set ${dataSetId} not found, not owned by ${signerAddress}, ` +
+        'or not managed by the current WarmStorage contract'
+      )
+    }
 
-    if (providerDataSets.length > 0) {
-      // Sort by preference: data sets with pieces first, then by ID
-      const sorted = providerDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
-        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
-      })
+    // Validate consistency with other parameters if provided
+    if (options.providerId != null || options.providerAddress != null) {
+      await StorageService.validateDataSetConsistency(dataSet, options, warmStorageService)
+    }
 
-      return {
-        provider,
-        dataSetId: sorted[0].pdpVerifierDataSetId,
-        isExisting: true
+    // Look up provider by address
+    const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
+    if (providerId === 0) {
+      throw createError(
+        'StorageService',
+        'resolveByDataSetId',
+        `Provider ${dataSet.payee} for data set ${dataSetId} is not currently approved`
+      )
+    }
+
+    const provider = await warmStorageService.getApprovedProvider(providerId)
+
+    // Validate CDN settings match if specified
+    if (options.withCDN != null && dataSet.withCDN !== options.withCDN) {
+      throw createError(
+        'StorageService',
+        'resolveByDataSetId',
+        `Data set ${dataSetId} has CDN ${dataSet.withCDN ? 'enabled' : 'disabled'}, ` +
+        `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
+      )
+    }
+
+    return {
+      provider,
+      dataSetId,
+      isExisting: true
+    }
+  }
+
+  /**
+   * Validate data set consistency with provided options
+   */
+  private static async validateDataSetConsistency (
+    dataSet: EnhancedDataSetInfo,
+    options: StorageServiceOptions,
+    warmStorageService: WarmStorageService
+  ): Promise<void> {
+    // Validate provider ID if specified
+    if (options.providerId != null) {
+      const actualProviderId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
+      if (actualProviderId !== options.providerId) {
+        throw createError(
+          'StorageService',
+          'validateDataSetConsistency',
+          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${actualProviderId}, ` +
+          `but provider ID ${options.providerId} was requested`
+        )
       }
     }
 
-    // Need to create new data set
-    return {
-      provider,
-      dataSetId: -1,
-      isExisting: false
+    // Validate provider address if specified
+    if (options.providerAddress != null) {
+      if (dataSet.payee.toLowerCase() !== options.providerAddress.toLowerCase()) {
+        throw createError(
+          'StorageService',
+          'validateDataSetConsistency',
+          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${dataSet.payee}, ` +
+          `but provider ${options.providerAddress} was requested`
+        )
+      }
     }
   }
 
@@ -564,9 +548,41 @@ export class StorageService {
     // Need to create new data set
     return {
       provider,
-      dataSetId: -1,
+      dataSetId: -1, // Marker for new proof set
       isExisting: false
     }
+  }
+
+  /**
+   * Resolve using a specific provider address
+   */
+  private static async resolveByProviderAddress (
+    providerAddress: string,
+    warmStorageService: WarmStorageService,
+    signerAddress: string,
+    withCDN: boolean
+  ): Promise<{
+      provider: ApprovedProviderInfo
+      dataSetId: number
+      isExisting: boolean
+    }> {
+    // Get provider ID by address
+    const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
+    if (providerId === 0) {
+      throw createError(
+        'StorageService',
+        'resolveByProviderAddress',
+        `Provider ${providerAddress} is not currently approved`
+      )
+    }
+
+    // Use the providerId resolution logic
+    return await StorageService.resolveByProviderId(
+      signerAddress,
+      providerId,
+      withCDN,
+      warmStorageService
+    )
   }
 
   /**
@@ -576,7 +592,8 @@ export class StorageService {
   private static async smartSelectProvider (
     signerAddress: string,
     withCDN: boolean,
-    warmStorageService: WarmStorageService
+    warmStorageService: WarmStorageService,
+    signer: ethers.Signer
   ): Promise<{
       provider: ApprovedProviderInfo
       dataSetId: number
@@ -659,18 +676,12 @@ export class StorageService {
       )
     }
 
-    // Create async generator for all providers
-    async function * generateAllProviders (): AsyncGenerator<ApprovedProviderInfo> {
-      for (const provider of allProviders) {
-        yield provider
-      }
-    }
-
-    const selectedProvider = await StorageService.selectProviderWithPing(generateAllProviders())
+    // Random selection from all providers
+    const provider = await StorageService.selectRandomProvider(allProviders, signer)
 
     return {
-      provider: selectedProvider,
-      dataSetId: -1,
+      provider,
+      dataSetId: -1, // Marker for new data set
       isExisting: false
     }
   }
@@ -687,7 +698,7 @@ export class StorageService {
     providers: ApprovedProviderInfo[],
     signer: ethers.Signer,
     excludeProviders: string[] = [],
-    enablePing = false
+    enablePing = true
   ): Promise<ApprovedProviderInfo> {
     // Filter out excluded providers
     const filteredProviders = providers.filter(p =>
@@ -718,16 +729,38 @@ export class StorageService {
       return filteredProviders[randomIndex]
     }
 
-    // Use ping validation
-    async function * generateFilteredProviders (): AsyncGenerator<ApprovedProviderInfo> {
-      // Shuffle the providers for randomness
-      const shuffled = [...filteredProviders].sort(() => Math.random() - 0.5)
-      for (const provider of shuffled) {
-        yield provider
+    // Create async generator that yields providers in random order
+    async function * generateRandomProviders (): AsyncGenerator<ApprovedProviderInfo> {
+      const remaining = [...filteredProviders]
+
+      while (remaining.length > 0) {
+        let randomIndex: number
+
+        // Try crypto.getRandomValues if available (HTTPS contexts)
+        if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
+          const randomBytes = new Uint8Array(1)
+          globalThis.crypto.getRandomValues(randomBytes)
+          randomIndex = randomBytes[0] % remaining.length
+        } else {
+          // Fallback for HTTP contexts - use multiple entropy sources
+          const timestamp = Date.now()
+          const random = Math.random()
+          // Use wallet address as additional entropy
+          const addressBytes = await signer.getAddress()
+          const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+
+          // Combine sources for better distribution
+          const combined = (timestamp * random * addressSum) % remaining.length
+          randomIndex = Math.floor(Math.abs(combined))
+        }
+
+        // Remove and yield the selected provider
+        const selected = remaining.splice(randomIndex, 1)[0]
+        yield selected
       }
     }
 
-    return await StorageService.selectProviderWithPing(generateFilteredProviders())
+    return await StorageService.selectProviderWithPing(generateRandomProviders())
   }
 
   /**
@@ -767,6 +800,40 @@ export class StorageService {
       'selectProviderWithPing',
       `All ${providerCount} providers failed health check. Storage may be temporarily unavailable.`
     )
+  }
+
+  /**
+   * Run preflight checks for an upload
+   * @param size - The size of data to upload in bytes
+   * @returns Preflight information including costs and allowances
+   */
+  async preflightUpload (size: number): Promise<PreflightInfo> {
+    // Validate size before proceeding
+    StorageService.validateRawSize(size, 'preflightUpload')
+
+    // Check allowances and get costs in a single call
+    const allowanceCheck = await this._warmStorageService.checkAllowanceForStorage(
+      size,
+      this._withCDN,
+      this._synapse.payments
+    )
+
+    // Return preflight info
+    return {
+      estimatedCost: {
+        perEpoch: allowanceCheck.costs.perEpoch,
+        perDay: allowanceCheck.costs.perDay,
+        perMonth: allowanceCheck.costs.perMonth
+      },
+      allowanceCheck: {
+        sufficient: allowanceCheck.sufficient,
+        message: allowanceCheck.sufficient
+          ? undefined
+          : `Insufficient allowance. Deposit ${allowanceCheck.depositAmountNeeded} USDFC required.`
+      },
+      selectedProvider: this._provider,
+      selectedDataSetId: this._dataSetId
+    }
   }
 
   /**
@@ -1112,28 +1179,6 @@ export class StorageService {
   }
 
   /**
-   * Pre-validate data before upload
-   * @param data - The data to validate
-   * @returns Pre-calculated CommP and size that will result from upload
-   * @throws Error if data size is invalid
-   */
-  async preflightUpload (data: Uint8Array | ArrayBuffer): Promise<{ commP: CommP, size: number }> {
-    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    const sizeBytes = dataBytes.length
-
-    // Validate size
-    StorageService.validateRawSize(sizeBytes, 'preflightUpload')
-
-    // Calculate CommP
-    const commP = await calculateCommP(dataBytes)
-
-    return {
-      commP,
-      size: sizeBytes
-    }
-  }
-
-  /**
    * Get information about the storage provider used by this service
    * @returns Provider information including pricing (currently same for all providers)
    */
@@ -1151,160 +1196,126 @@ export class StorageService {
   }
 
   /**
-   * Get the status of a piece on this storage provider
-   * @param commp - The CommP identifier
-   * @returns Piece status including timing information if available
+   * Check if a piece exists on this storage provider and get its proof status.
+   * Also returns timing information about when the piece was last proven and when the next
+   * proof is due.
+   *
+   * @param commp - The CommP (piece CID) to check
+   * @returns Status information including existence, data set timing, and retrieval URL
    */
-  async getPieceStatus (commp: string | CommP): Promise<{
-    exists: boolean
-    retrievalUrl?: string
-    lastProvenEpoch?: number
-    nextProofRequired?: number
-    proofDeadline?: number
-    isActive?: boolean
-  }> {
-    // Parse CommP
-    const parsedCommP = typeof commp === 'string' ? asCommP(commp) : commp
+  async pieceStatus (commp: string | CommP): Promise<PieceStatus> {
+    const parsedCommP = asCommP(commp)
     if (parsedCommP == null) {
-      throw new Error(`Invalid CommP provided: ${String(commp)}`)
+      throw createError('StorageService', 'pieceStatus', 'Invalid CommP provided')
     }
 
-    try {
-      // Try to find the piece on the provider
-      // Use a reasonable default size since we're just checking existence
-      await this._pdpServer.findPiece(parsedCommP, 1024)
+    // Run multiple operations in parallel for better performance
+    const [pieceCheckResult, dataSetData, currentEpoch] = await Promise.all([
+      // Check if piece exists on provider
+      this._pdpServer.findPiece(parsedCommP, 0).then(() => true).catch(() => false),
+      // Get data set data
+      this._pdpServer.getDataSet(this._dataSetId).catch((error) => {
+        console.debug('Failed to get data set data:', error)
+        return null
+      }),
+      // Get current epoch
+      this._synapse.payments.getCurrentEpoch()
+    ])
 
-      // If we get here, the piece exists on the provider
-      // Get additional information if available
-      let providerInfo = null
-      let dataSetData = null
-      let retrievalUrl
+    const exists = pieceCheckResult
+    const network = this._synapse.getNetwork()
 
-      // Fetch additional data in parallel
-      const [dataSet, provider] = await Promise.all([
-        this._pdpServer.getDataSet(this._dataSetId)
-          .catch(() => null),
-        this._synapse.getProviderInfo(this.storageProvider)
-          .catch(() => null)
+    // Initialize return values
+    let retrievalUrl: string | null = null
+    let pieceId: number | undefined
+    let lastProven: Date | null = null
+    let nextProofDue: Date | null = null
+    let inChallengeWindow = false
+    let hoursUntilChallengeWindow = 0
+    let isProofOverdue = false
+
+    // If piece exists, get provider info for retrieval URL and proving params in parallel
+    if (exists) {
+      const [providerInfo, provingParams] = await Promise.all([
+        // Get provider info for retrieval URL
+        this.getProviderInfo().catch(() => null),
+        // Get proving period configuration (only if we have data set data)
+        dataSetData != null
+          ? Promise.all([
+              this._warmStorageService.getMaxProvingPeriod(),
+              this._warmStorageService.getChallengeWindow()
+            ]).then(([maxProvingPeriod, challengeWindow]) => ({ maxProvingPeriod, challengeWindow }))
+              .catch(() => null)
+          : Promise.resolve(null)
       ])
-
-      dataSetData = dataSet
-      providerInfo = provider
 
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
-        // Remove trailing slash from pieceRetrievalUrl to avoid double slashes
+        // Remove trailing slash from serviceURL to avoid double slashes
         retrievalUrl = `${providerInfo.serviceURL.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
       }
 
-      // Process proof timing data if we have data set data
-      if (dataSetData != null) {
+      // Process proof timing data if we have data set data and proving params
+      if (dataSetData != null && provingParams != null) {
         // Check if this CommP is in the data set
         const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedCommP.toString())
 
         if (pieceData != null) {
-          // Get current epoch from synapse (more reliable than proving params)
-          let currentEpoch: number
-          try {
-            const currentEpochBigInt = await this._synapse.payments.getCurrentEpoch()
-            currentEpoch = Number(currentEpochBigInt)
-          } catch {
-            // Fallback: if synapse call fails, piece exists but no timing info
-            return {
-              exists: true,
-              retrievalUrl
+          pieceId = pieceData.pieceId
+
+          // Calculate timing based on nextChallengeEpoch
+          if (dataSetData.nextChallengeEpoch > 0) {
+            // nextChallengeEpoch is when the challenge window STARTS, not ends!
+            // The proving deadline is nextChallengeEpoch + challengeWindow
+            const challengeWindowStart = dataSetData.nextChallengeEpoch
+            const provingDeadline = challengeWindowStart + provingParams.challengeWindow
+
+            // Calculate when the next proof is due (end of challenge window)
+            nextProofDue = epochToDate(provingDeadline, network)
+
+            // Calculate last proven date (one proving period before next challenge)
+            const lastProvenDate = calculateLastProofDate(
+              dataSetData.nextChallengeEpoch,
+              provingParams.maxProvingPeriod,
+              network
+            )
+            if (lastProvenDate != null) {
+              lastProven = lastProvenDate
             }
-          }
 
-          // Get challenge window size from warm storage service
-          let challengeWindow: number
-          try {
-            challengeWindow = await this._warmStorageService.getChallengeWindow()
-          } catch {
-            // Fallback: if challenge window call fails, assume piece is active
-            return {
-              exists: true,
-              retrievalUrl,
-              isActive: true
+            // Check if we're in the challenge window
+            inChallengeWindow = Number(currentEpoch) >= challengeWindowStart && Number(currentEpoch) < provingDeadline
+
+            // Check if proof is overdue (past the proving deadline)
+            isProofOverdue = Number(currentEpoch) >= provingDeadline
+
+            // Calculate hours until challenge window starts (only if before challenge window)
+            if (Number(currentEpoch) < challengeWindowStart) {
+              const timeUntil = timeUntilEpoch(challengeWindowStart, Number(currentEpoch))
+              hoursUntilChallengeWindow = timeUntil.hours
             }
-          }
-
-          const nextChallengeEpoch = dataSetData.nextChallengeEpoch
-
-          // Handle case where no challenge is scheduled (nextChallengeEpoch = 0)
-          if (nextChallengeEpoch === 0) {
-            return {
-              exists: true,
-              retrievalUrl,
-              lastProvenEpoch: undefined,
-              nextProofRequired: undefined,
-              proofDeadline: undefined,
-              isActive: false // Not active when no challenge is scheduled
-            }
-          }
-
-          // Calculate challenge window timing (based on original master logic)
-          // nextChallengeEpoch is when the challenge window STARTS, not ends!
-          const challengeWindowStart = nextChallengeEpoch
-          const provingDeadline = challengeWindowStart + challengeWindow
-
-          // Check if we're in the challenge window or proof is overdue
-          const inChallengeWindow = currentEpoch >= challengeWindowStart && currentEpoch < provingDeadline
-          const isProofOverdue = currentEpoch >= provingDeadline
-
-          // Determine if piece is active (opposite of being in challenge window or overdue)
-          const isActive = !inChallengeWindow && !isProofOverdue
-
-          // Calculate last proven epoch (one proving period before next challenge)
-          // This is an estimate - in real implementation this would be tracked
-          const lastProvenEpoch = Math.max(0, challengeWindowStart - 2880)
-
-          return {
-            exists: true,
-            retrievalUrl,
-            lastProvenEpoch,
-            nextProofRequired: nextChallengeEpoch,
-            proofDeadline: provingDeadline,
-            isActive
+          } else {
+            // If nextChallengeEpoch is 0, it might mean:
+            // 1. Proof was just submitted and system is updating
+            // 2. Data set is not active
+            // In case 1, we might have just proven, so set lastProven to very recent
+            // This is a temporary state and should resolve quickly
+            console.debug('Data set has nextChallengeEpoch=0, may have just been proven')
           }
         }
       }
-
-      // Piece exists but not in this data set
-      return {
-        exists: true,
-        retrievalUrl
-      }
-    } catch (error) {
-      // Piece not found
-      return {
-        exists: false
-      }
     }
-  }
-
-  /**
-   * Estimate storage costs for data
-   * @param data - The data to estimate costs for
-   * @returns Estimated costs per epoch, day, and month
-   */
-  async estimateCosts (data: Uint8Array | ArrayBuffer): Promise<{
-    sizeBytes: number
-    costPerEpoch: bigint
-    costPerDay: bigint
-    costPerMonth: bigint
-  }> {
-    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    const sizeBytes = dataBytes.length
-
-    const costs = await this._warmStorageService.calculateStorageCost(sizeBytes)
-    const selectedCosts = this._withCDN ? costs.withCDN : costs
 
     return {
-      sizeBytes,
-      costPerEpoch: selectedCosts.perEpoch,
-      costPerDay: selectedCosts.perDay,
-      costPerMonth: selectedCosts.perMonth
+      exists,
+      dataSetLastProven: lastProven,
+      dataSetNextProofDue: nextProofDue,
+      retrievalUrl,
+      pieceId,
+      inChallengeWindow,
+      hoursUntilChallengeWindow,
+      isProofOverdue
     }
   }
+
 }

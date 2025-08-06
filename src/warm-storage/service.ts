@@ -805,6 +805,25 @@ export class WarmStorageService {
   }
 
   /**
+   * Add a service provider directly without registration process (owner only)
+   * @param signer - Signer for the contract owner account
+   * @param providerAddress - Address of the provider to add
+   * @param pdpUrl - The PDP server URL
+   * @param pieceRetrievalUrl - The piece retrieval URL
+   * @returns Transaction response
+   */
+  async addServiceProvider (
+    signer: ethers.Signer,
+    providerAddress: string,
+    pdpUrl: string,
+    pieceRetrievalUrl: string
+  ): Promise<ethers.TransactionResponse> {
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.addServiceProvider(providerAddress, pdpUrl, pieceRetrievalUrl)
+  }
+
+  /**
    * Check if an address is an approved provider
    * @param providerAddress - Address to check
    * @returns Whether the address is an approved provider
