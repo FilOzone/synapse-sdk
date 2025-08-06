@@ -79,12 +79,20 @@ export interface StorageCostResult {
  * Result of verifying data set creation on-chain
  */
 export interface DataSetCreationVerification {
-  txHash: string
-  isConfirmed: boolean
-  isSuccessful: boolean | null
-  dataSetId: number | null
-  receipt: ethers.TransactionReceipt | null
-  error: string | null
+  /** Whether the transaction has been mined */
+  transactionMined: boolean
+  /** Whether the transaction was successful */
+  transactionSuccess: boolean
+  /** The data set ID that was created (if successful) */
+  dataSetId?: number
+  /** Whether the data set exists and is live on-chain */
+  dataSetLive: boolean
+  /** Block number where the transaction was mined (if mined) */
+  blockNumber?: number
+  /** Gas used by the transaction (if mined) */
+  gasUsed?: bigint
+  /** Error message if something went wrong */
+  error?: string
 }
 
 /**
@@ -249,7 +257,48 @@ export class WarmStorageService {
   }
 
   /**
+   * Get information for adding pieces to a data set
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns Helper information for adding pieces
+   */
+  async getAddPiecesInfo (dataSetId: number): Promise<AddPiecesInfo> {
+    try {
+      const contract = this._getWarmStorageContract()
+      const pdpVerifier = this._getPDPVerifier()
+
+      // Parallelize all independent calls
+      const [isLive, nextPieceId, listener, dataSetInfo] = await Promise.all([
+        pdpVerifier.dataSetLive(Number(dataSetId)),
+        pdpVerifier.getNextPieceId(Number(dataSetId)),
+        pdpVerifier.getDataSetListener(Number(dataSetId)),
+        contract.getDataSet(Number(dataSetId))
+      ])
+
+      // Check if data set exists and is live
+      if (!isLive) {
+        throw new Error(`Data set ${dataSetId} does not exist or is not live`)
+      }
+
+      // Verify this data set is managed by our Warm Storage contract
+      if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
+        throw new Error(`Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
+      }
+
+      const clientDataSetId = Number(dataSetInfo.clientDataSetId)
+
+      return {
+        nextPieceId: Number(nextPieceId),
+        clientDataSetId,
+        currentPieceCount: Number(nextPieceId)
+      }
+    } catch (error) {
+      throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
    * Get the next client dataset ID for a given client
+   * This reads the current counter from the WarmStorage contract
    * @param clientAddress - The client's wallet address
    * @returns  next client dataset ID that will be assigned by this WarmStorage contract
    */
@@ -259,7 +308,7 @@ export class WarmStorageService {
 
       // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
       // This is the value that will be used for the next proof set creation
-      const currentCounter = await contract.clientDataSetIDs(client)
+      const currentCounter = await contract.clientDataSetIDs(clientAddress)
 
       // Return the current counter value (it will be incremented during proof set creation)
       return Number(currentCounter)
@@ -269,149 +318,79 @@ export class WarmStorageService {
   }
 
   /**
-   * Get data set details with enhanced information
-   * @param dataSetId - The PDPVerifier data set ID
-   * @returns Enhanced data set information including management status
-   */
-  async getDataSetWithDetails (dataSetId: number): Promise<EnhancedDataSetInfo & { client: string }> {
-    const pdpVerifier = this._getPDPVerifier()
-
-    // Get listener to verify this data set is managed by our contract
-    const listener = await pdpVerifier.getDataSetListener(dataSetId)
-
-    // Verify this data set is managed by our Warm Storage contract
-    if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-      throw new Error(`Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
-    }
-
-    // For testing purposes, create a basic implementation
-    // In real usage, the client address should be provided as a parameter
-    throw new Error(`Data set ${dataSetId} not found`)
-  }
-
-  /**
-   * Get information for adding pieces to a data set
-   * @param dataSetId - The PDPVerifier data set ID
-   * @param client - The client address (owner of the data set)
-   * @returns Helper information for adding pieces
-   */
-  async getAddPiecesInfo (dataSetId: number, client: string): Promise<AddPiecesInfo> {
-    // Get all data sets for this client
-    const clientDataSets = await this.getClientDataSets(client)
-    const contract = this._getWarmStorageContract()
-
-    // Find the matching data set by mapping rail IDs to data set IDs
-    let dataSet = null
-    let matchedRailId = -1
-    for (const ds of clientDataSets) {
-      const pdpDataSetId = Number(await contract.railToDataSet(ds.railId))
-      if (pdpDataSetId === dataSetId) {
-        dataSet = ds
-        matchedRailId = ds.railId
-        break
-      }
-    }
-
-    if (dataSet == null) {
-      throw new Error(`Data set ${String(dataSetId)} not found for client ${String(client)}`)
-    }
-
-    // The next piece ID from PDPVerifier
-    const pdpVerifier = this._getPDPVerifier()
-    const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
-
-    // Count pieces (simple count of metadata strings)
-    const currentPieceCount = dataSet.pieceMetadata.length
-
-    // For Warm Storage, the clientDataSetId is the index of this data set in the client's list
-    const clientDataSetId = clientDataSets.findIndex(ds => ds.railId === matchedRailId)
-
-    if (clientDataSetId === -1) {
-      throw new Error(`Failed to find client dataset ID for data set ${dataSetId}`)
-    }
-
-    return {
-      nextPieceId,
-      clientDataSetId,
-      currentPieceCount
-    }
-  }
-
-  /**
    * Verify data set creation on-chain
    * @param txHashOrTransaction - Transaction hash or transaction object
    * @returns Verification result with data set ID if found
    */
   async verifyDataSetCreation (txHashOrTransaction: string | ethers.TransactionResponse): Promise<DataSetCreationVerification> {
-    const pdpVerifier = this._getPDPVerifier()
-
-    let transaction: ethers.TransactionResponse
-    let txHash: string
-
-    if (typeof txHashOrTransaction === 'string') {
-      txHash = txHashOrTransaction
-      const tx = await this._provider.getTransaction(txHash)
-      if (tx == null) {
-        return {
-          txHash,
-          isConfirmed: false,
-          isSuccessful: null,
-          dataSetId: null,
-          receipt: null,
-          error: 'Transaction not found'
-        }
-      }
-      transaction = tx
-    } else {
-      transaction = txHashOrTransaction
-      txHash = transaction.hash
-    }
-
-    // Wait for confirmation
     try {
-      const receipt = await transaction.wait()
+      // Get transaction hash
+      const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
+
+      // Get transaction receipt
+      let receipt: ethers.TransactionReceipt | null
+      if (typeof txHashOrTransaction === 'string') {
+        receipt = await this._provider.getTransactionReceipt(txHash)
+      } else {
+        // If we have a transaction object, use its wait method which is more efficient
+        receipt = await txHashOrTransaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+      }
+
       if (receipt == null) {
+        // Transaction not yet mined
         return {
-          txHash,
-          isConfirmed: false,
-          isSuccessful: null,
-          dataSetId: null,
-          receipt: null,
-          error: 'Receipt not available'
+          transactionMined: false,
+          transactionSuccess: false,
+          dataSetLive: false
         }
       }
 
-      const isSuccessful = receipt.status === 1
+      // Transaction is mined, check if it was successful
+      const transactionSuccess = receipt.status === 1
 
-      if (!isSuccessful) {
+      if (!transactionSuccess) {
         return {
-          txHash,
-          isConfirmed: true,
-          isSuccessful: false,
-          dataSetId: null,
-          receipt,
+          transactionMined: true,
+          transactionSuccess: false,
+          dataSetLive: false,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed,
           error: 'Transaction failed'
         }
       }
 
-      // Extract data set ID from receipt
-      const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(receipt)
+      // Extract data set ID from transaction logs
+      const pdpVerifier = this._getPDPVerifier()
+      const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
+
+      if (dataSetId == null) {
+        return {
+          transactionMined: true,
+          transactionSuccess: true,
+          dataSetLive: false,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed,
+          error: 'Could not find DataSetCreated event in transaction'
+        }
+      }
+
+      // Verify the data set exists and is live on-chain
+      const isLive = await pdpVerifier.dataSetLive(dataSetId)
 
       return {
-        txHash,
-        isConfirmed: true,
-        isSuccessful: true,
+        transactionMined: true,
+        transactionSuccess: true,
         dataSetId,
-        receipt,
-        error: null
+        dataSetLive: isLive,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed
       }
     } catch (error) {
+      // Error during verification (e.g., network issues)
       return {
-        txHash,
-        isConfirmed: false,
-        isSuccessful: null,
-        dataSetId: null,
-        receipt: null,
+        transactionMined: false,
+        transactionSuccess: false,
+        dataSetLive: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
@@ -451,11 +430,11 @@ export class WarmStorageService {
     performance.measure('synapse:verifyDataSetCreation', 'synapse:verifyDataSetCreation-start', 'synapse:verifyDataSetCreation-end')
 
     // Combine into summary
-    const isComplete = chainStatus.isConfirmed && chainStatus.isSuccessful === true && chainStatus.dataSetId != null
-    const dataSetId = serverStatus?.dataSetId ?? chainStatus.dataSetId
+    const isComplete = chainStatus.transactionMined && chainStatus.transactionSuccess && chainStatus.dataSetId != null && chainStatus.dataSetLive
+    const dataSetId = serverStatus?.dataSetId ?? chainStatus.dataSetId ?? null
 
     // Determine error from server status or chain status
-    let error: string | null = chainStatus.error
+    let error: string | null = chainStatus.error ?? null
     if (serverStatus != null && serverStatus.ok === false) {
       error = `Server reported transaction failed (status: ${serverStatus.txStatus})`
     }
@@ -512,7 +491,7 @@ export class WarmStorageService {
       }
 
       // Check for errors
-      if (status.summary.error != null && status.chain.isConfirmed) {
+      if (status.summary.error != null && status.chain.transactionMined) {
         // Transaction confirmed but failed
         throw new Error(status.summary.error)
       }
@@ -633,52 +612,88 @@ export class WarmStorageService {
 
   /**
    * Prepare for storage upload by checking balances and allowances
-   * Returns approval steps if needed
+   *
+   * This method performs a comprehensive check of the prerequisites for storage upload,
+   * including verifying sufficient funds and service allowances. It returns a list of
+   * actions that need to be executed before the upload can proceed.
+   *
+   * @param options - Configuration options for the storage upload
+   * @param options.dataSize - Size of data to store in bytes
+   * @param options.withCDN - Whether to enable CDN for faster retrieval (optional, defaults to false)
+   * @param paymentsService - Instance of PaymentsService for handling payment operations
+   *
+   * @returns Object containing:
+   *   - estimatedCost: Breakdown of storage costs (per epoch, day, and month)
+   *   - allowanceCheck: Status of service allowances with optional message
+   *   - actions: Array of required actions (deposit, approveService) that need to be executed
+   *
+   * @example
+   * ```typescript
+   * const prep = await warmStorageService.prepareStorageUpload(
+   *   { dataSize: 1024 * 1024 * 1024, withCDN: true },
+   *   paymentsService
+   * )
+   *
+   * if (prep.actions.length > 0) {
+   *   for (const action of prep.actions) {
+   *     console.log(`Executing: ${action.description}`)
+   *     await action.execute()
+   *   }
+   * }
+   * ```
    */
   async prepareStorageUpload (options: {
-    sizeBytes: number
-    withCDN: boolean
-    paymentsService: PaymentsService
-    lockupDays?: number
-  }): Promise<{
-      ready: boolean
-      costs: StorageCostResult
-      allowanceCheck: {
-        costs: StorageCostResult
-        currentAllowances: {
-          rateAllowance: bigint
-          lockupAllowance: bigint
-        }
-        sufficient: boolean
-        rateAllowanceNeeded: bigint
-        lockupAllowanceNeeded: bigint
-        depositAmountNeeded: bigint
+    dataSize: number
+    withCDN?: boolean
+  }, paymentsService: PaymentsService): Promise<{
+      estimatedCost: {
+        perEpoch: bigint
+        perDay: bigint
+        perMonth: bigint
       }
-      requiredSteps: Array<{
-        step: string
+      allowanceCheck: {
+        sufficient: boolean
+        message?: string
+      }
+      actions: Array<{
+        type: 'deposit' | 'approve' | 'approveService'
         description: string
         execute: () => Promise<ethers.TransactionResponse>
       }>
     }> {
-    const { sizeBytes, withCDN, paymentsService, lockupDays } = options
+    // Parallelize cost calculation and allowance check
+    const [costs, allowanceCheck] = await Promise.all([
+      this.calculateStorageCost(options.dataSize, options.withCDN ?? false),
+      this.checkAllowanceForStorage(
+        options.dataSize,
+        options.withCDN ?? false,
+        paymentsService
+      )
+    ])
 
-    // Calculate costs
-    const costs = await this.calculateStorageCost(sizeBytes, withCDN)
-
-    // Check allowances
-    const allowanceCheck = await this.checkAllowanceForStorage(sizeBytes, withCDN, paymentsService, lockupDays)
-
-    // Build required steps
-    const requiredSteps: Array<{
-      step: string
+    const actions: Array<{
+      type: 'deposit' | 'approve' | 'approveService'
       description: string
       execute: () => Promise<ethers.TransactionResponse>
     }> = []
 
-    // Check if we need to approve service
+    // Check if deposit is needed
+    const accountInfo = await paymentsService.accountInfo(TOKENS.USDFC)
+    const requiredBalance = costs.perMonth // Require at least 1 month of funds
+
+    if (accountInfo.availableFunds < requiredBalance) {
+      const depositAmount = requiredBalance - accountInfo.availableFunds
+      actions.push({
+        type: 'deposit',
+        description: `Deposit ${depositAmount} USDFC to payments contract`,
+        execute: async () => await paymentsService.deposit(depositAmount, TOKENS.USDFC)
+      })
+    }
+
+    // Check if service approval is needed
     if (!allowanceCheck.sufficient) {
-      requiredSteps.push({
-        step: 'approveService',
+      actions.push({
+        type: 'approveService',
         description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
         execute: async () => await paymentsService.approveService(
           this._warmStorageAddress,
@@ -689,22 +704,19 @@ export class WarmStorageService {
       })
     }
 
-    // Check available funds (use depositAmountNeeded from allowanceCheck)
-    const availableFunds = await paymentsService.walletBalance(TOKENS.USDFC)
-    if (availableFunds < allowanceCheck.depositAmountNeeded) {
-      const depositNeeded = allowanceCheck.depositAmountNeeded - availableFunds
-      requiredSteps.push({
-        step: 'deposit',
-        description: `Deposit ${depositNeeded} USDFC to payments contract`,
-        execute: async () => await paymentsService.deposit(depositNeeded, TOKENS.USDFC)
-      })
-    }
-
     return {
-      ready: requiredSteps.length === 0,
-      costs,
-      allowanceCheck,
-      requiredSteps
+      estimatedCost: {
+        perEpoch: costs.perEpoch,
+        perDay: costs.perDay,
+        perMonth: costs.perMonth
+      },
+      allowanceCheck: {
+        sufficient: allowanceCheck.sufficient,
+        message: allowanceCheck.sufficient
+          ? undefined
+          : `Insufficient allowances: rate needed ${allowanceCheck.rateAllowanceNeeded}, lockup needed ${allowanceCheck.lockupAllowanceNeeded}`
+      },
+      actions
     }
   }
 
@@ -745,33 +757,33 @@ export class WarmStorageService {
   }
 
   /**
-   * Suspend an approved storage provider (requires owner permissions)
-   * @param signer - Signer with owner permissions
-   * @param providerId - ID of provider to suspend
+   * Reject a pending service provider registration (owner only)
+   * @param signer - Signer for the contract owner account
+   * @param providerAddress - Address of the provider to reject
    * @returns Transaction response
    */
-  async suspendServiceProvider (
+  async rejectServiceProvider (
     signer: ethers.Signer,
-    providerId: number
+    providerAddress: string
   ): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.suspendServiceProvider(providerId)
+    return await contractWithSigner.rejectServiceProvider(providerAddress)
   }
 
   /**
-   * Unsuspend a suspended storage provider (requires owner permissions)
-   * @param signer - Signer with owner permissions
-   * @param providerId - ID of provider to unsuspend
+   * Remove an approved storage provider (owner only)
+   * @param signer - Signer for the contract owner account
+   * @param providerId - ID of the provider to remove
    * @returns Transaction response
    */
-  async unsuspendServiceProvider (
+  async removeServiceProvider (
     signer: ethers.Signer,
     providerId: number
   ): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.unsuspendServiceProvider(providerId)
+    return await contractWithSigner.removeServiceProvider(providerId)
   }
 
   /**

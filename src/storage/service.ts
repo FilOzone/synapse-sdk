@@ -277,13 +277,13 @@ export class StorageService {
           if (callbacks?.onDataSetCreationProgress != null) {
             try {
               callbacks.onDataSetCreationProgress({
-                transactionMined: status.chain.isConfirmed,
-                transactionSuccess: status.chain.isConfirmed && status.summary.isComplete,
-                dataSetLive: status.summary.isComplete,
-                serverConfirmed: status.chain.isConfirmed,
+                transactionMined: status.chain.transactionMined,
+                transactionSuccess: status.chain.transactionSuccess,
+                dataSetLive: status.chain.dataSetLive,
+                serverConfirmed: status.chain.transactionMined,
                 dataSetId: status.summary.dataSetId ?? undefined,
                 elapsedMs,
-                receipt: status.chain.receipt ?? undefined
+                receipt: undefined // receipt no longer available in new interface
               })
             } catch (error) {
               console.error('Error in onDataSetCreationProgress callback:', error)
@@ -902,10 +902,8 @@ export class StorageService {
     try {
       // Get add pieces info to ensure we have the correct nextPieceId
       performance.mark('synapse:getAddPiecesInfo-start')
-      const signerAddress = await this._signer.getAddress()
       const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(
-        this._dataSetId,
-        signerAddress
+        this._dataSetId
       )
       performance.mark('synapse:getAddPiecesInfo-end')
       performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')

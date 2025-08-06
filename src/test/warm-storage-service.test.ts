@@ -434,17 +434,17 @@ describe('WarmStorageService', () => {
         // getDataSet
         if (data?.startsWith('0xbdaac056') === true) {
           const info = [
-            48n, // pdpRailId
-            clientAddress,
-            '0xabc1234567890123456789012345678901234567',
-            100n,
-            'Metadata',
-            [],
-            3n, // clientDataSetId
-            false
+            48n, // railId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
+            0n, // clientDataSetId - expecting 0
+            false // withCDN
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
+            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)'],
             [info]
           )
         }
@@ -455,10 +455,10 @@ describe('WarmStorageService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId, '0x1234567890123456789012345678901234567890')
+      const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
       assert.equal(addPiecesInfo.nextPieceId, 5)
-      assert.equal(addPiecesInfo.clientDataSetId, 0) // This is the index in the client's list
-      assert.equal(addPiecesInfo.currentPieceCount, 0) // Empty pieceMetadata array
+      assert.equal(addPiecesInfo.clientDataSetId, 0)
+      assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
     })
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
@@ -511,17 +511,17 @@ describe('WarmStorageService', () => {
         // getDataSet - needed for getAddPiecesInfo
         if (data?.startsWith('0xbdaac056') === true) {
           const info = [
-            48, // railId
-            clientAddress,
-            '0xabc1234567890123456789012345678901234567',
-            100n,
-            'Metadata',
-            [],
+            48n, // railId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
             3n, // clientDataSetId
-            false
+            false // withCDN
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
+            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)'],
             [info]
           )
         }
@@ -533,10 +533,10 @@ describe('WarmStorageService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await warmStorageService.getAddPiecesInfo(dataSetId, '0x1234567890123456789012345678901234567890')
+        await warmStorageService.getAddPiecesInfo(dataSetId)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 48 not found for client')
+        assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
     })
   })
@@ -608,11 +608,13 @@ describe('WarmStorageService', () => {
 
       const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
 
-      assert.isTrue(result.isConfirmed)
-      assert.isTrue(result.isSuccessful)
+      assert.isTrue(result.transactionMined)
+      assert.isTrue(result.transactionSuccess)
       assert.equal(result.dataSetId, 123)
       assert.exists(result.dataSetId)
-      // blockNumber is not directly available in this interface
+      assert.isTrue(result.dataSetLive)
+      assert.exists(result.blockNumber)
+      assert.exists(result.gasUsed)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
       mockProvider.getTransaction = originalGetTransaction
@@ -635,9 +637,10 @@ describe('WarmStorageService', () => {
 
       const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
 
-      assert.isFalse(result.isConfirmed)
-      assert.isNull(result.isSuccessful)
-      assert.isNull(result.dataSetId)
+      assert.isFalse(result.transactionMined)
+      assert.isFalse(result.transactionSuccess)
+      assert.isUndefined(result.dataSetId)
+      assert.isFalse(result.dataSetLive)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
       mockProvider.getTransaction = originalGetTransaction
@@ -1267,19 +1270,21 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload({
-          sizeBytes: 10 * 1024 * 1024 * 1024, // 10 GiB
-          withCDN: false,
-          paymentsService: mockPaymentsService
-        })
+          dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+          withCDN: false
+        }, mockPaymentsService)
 
-        assert.exists(prep.costs)
+        assert.exists(prep.estimatedCost)
+        assert.exists(prep.estimatedCost.perEpoch)
+        assert.exists(prep.estimatedCost.perDay)
+        assert.exists(prep.estimatedCost.perMonth)
         assert.exists(prep.allowanceCheck)
-        assert.isArray(prep.requiredSteps)
+        assert.isArray(prep.actions)
 
         // Should have at least approval action (since mock has no allowances)
-        assert.isAtLeast(prep.requiredSteps.length, 1)
+        assert.isAtLeast(prep.actions.length, 1)
 
-        const approvalAction = prep.requiredSteps.find(a => a.step === 'approveService')
+        const approvalAction = prep.actions.find(a => a.type === 'approveService')
         assert.exists(approvalAction)
         assert.include(approvalAction.description, 'Approve service')
         assert.isFunction(approvalAction.execute)
@@ -1334,20 +1339,19 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload({
-          sizeBytes: 10 * 1024 * 1024 * 1024, // 10 GiB
-          withCDN: false,
-          paymentsService: mockPaymentsService
-        })
+          dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+          withCDN: false
+        }, mockPaymentsService)
 
         // Should have both deposit and approval actions
-        assert.isAtLeast(prep.requiredSteps.length, 2)
+        assert.isAtLeast(prep.actions.length, 2)
 
-        const depositAction = prep.requiredSteps.find(a => a.step === 'deposit')
+        const depositAction = prep.actions.find(a => a.type === 'deposit')
         assert.exists(depositAction)
         assert.include(depositAction.description, 'Deposit')
         assert.include(depositAction.description, 'USDFC')
 
-        const approvalAction = prep.requiredSteps.find(a => a.step === 'approveService')
+        const approvalAction = prep.actions.find(a => a.type === 'approveService')
         assert.exists(approvalAction)
 
         // Execute deposit action and verify
@@ -1392,12 +1396,11 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload({
-          sizeBytes: 1024 * 1024, // 1 MiB - small amount
-          withCDN: false,
-          paymentsService: mockPaymentsService
-        })
+          dataSize: 1024 * 1024, // 1 MiB - small amount
+          withCDN: false
+        }, mockPaymentsService)
 
-        assert.lengthOf(prep.requiredSteps, 0)
+        assert.lengthOf(prep.actions, 0)
         assert.isTrue(prep.allowanceCheck.sufficient)
       })
     })
@@ -1473,10 +1476,11 @@ describe('WarmStorageService', () => {
       assert.strictEqual(result.server?.dataSetId, 123)
 
       // Verify chain status - using correct interface properties
-      assert.isTrue(result.chain.isConfirmed)
-      assert.isTrue(result.chain.isSuccessful)
+      assert.isTrue(result.chain.transactionMined)
+      assert.isTrue(result.chain.transactionSuccess)
       assert.exists(result.chain.dataSetId)
       assert.strictEqual(result.chain.dataSetId, 123)
+      assert.isTrue(result.chain.dataSetLive)
 
       // Verify summary
       assert.isTrue(result.summary.isComplete)
@@ -1541,9 +1545,10 @@ describe('WarmStorageService', () => {
       assert.isNull(result.server)
 
       // Chain status should still work
-      assert.isTrue(result.chain.isConfirmed)
-      assert.isTrue(result.chain.isSuccessful)
+      assert.isTrue(result.chain.transactionMined)
+      assert.isTrue(result.chain.transactionSuccess)
       assert.strictEqual(result.chain.dataSetId, 123)
+      assert.isTrue(result.chain.dataSetLive)
 
       // Summary should still work based on chain data
       assert.isTrue(result.summary.isComplete)
