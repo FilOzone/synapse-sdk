@@ -496,45 +496,6 @@ export interface ProviderSelectionResult {
 }
 
 /**
- * Storage cost calculation result
- */
-export interface StorageCostResult {
-  /** Whether the calculation was successful */
-  ready: boolean
-  /** Cost breakdown */
-  costs: {
-    /** Cost per epoch in USDFC */
-    perEpoch: bigint
-    /** Cost per day in USDFC */
-    perDay: bigint
-    /** Cost per month in USDFC */
-    perMonth: bigint
-    /** Cost per TiB per month */
-    perTiBPerMonth: bigint
-    /** Cost per GiB per month */
-    perGiBPerMonth: bigint
-    /** Whether CDN is enabled */
-    withCDN: boolean
-  }
-  /** Allowance check results */
-  allowanceCheck: {
-    /** Whether allowance is sufficient */
-    sufficient: boolean
-    /** Description message */
-    message?: string
-  }
-  /** Required setup steps if any */
-  requiredSteps: Array<{
-    /** Step identifier */
-    step: string
-    /** Step description */
-    description: string
-    /** Function to execute the step */
-    execute: () => Promise<ethers.TransactionResponse>
-  }>
-}
-
-/**
  * Piece addition status response from server
  */
 export interface PieceAdditionStatusResponse {

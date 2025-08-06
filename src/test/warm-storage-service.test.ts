@@ -925,22 +925,22 @@ describe('WarmStorageService', () => {
         assert.exists(costs.perDay)
         assert.exists(costs.perMonth)
         assert.exists(costs.withCDN)
+        assert.exists(costs.withCDN.perEpoch)
+        assert.exists(costs.withCDN.perDay)
+        assert.exists(costs.withCDN.perMonth)
 
         // Verify costs are reasonable
         assert.isTrue(costs.perEpoch > 0n)
         assert.isTrue(costs.perDay > costs.perEpoch)
         assert.isTrue(costs.perMonth > costs.perDay)
 
-        // Get CDN costs to compare
-        const cdnCosts = await warmStorageService.calculateStorageCost(sizeInBytes, true)
-
         // CDN costs should be higher
-        assert.isTrue(cdnCosts.perEpoch > costs.perEpoch)
-        assert.isTrue(cdnCosts.perDay > costs.perDay)
-        assert.isTrue(cdnCosts.perMonth > costs.perMonth)
+        assert.isTrue(costs.withCDN.perEpoch > costs.perEpoch)
+        assert.isTrue(costs.withCDN.perDay > costs.perDay)
+        assert.isTrue(costs.withCDN.perMonth > costs.perMonth)
 
         // Verify CDN is 1.5x base rate (3 USDFC vs 2 USDFC per TiB/month)
-        assert.equal((cdnCosts.perEpoch * 2n) / costs.perEpoch, 3n)
+        assert.equal((costs.withCDN.perEpoch * 2n) / costs.perEpoch, 3n)
       })
 
       it('should scale costs linearly with size', async () => {
@@ -1043,8 +1043,10 @@ describe('WarmStorageService', () => {
 
         assert.exists(check.rateAllowanceNeeded)
         assert.exists(check.lockupAllowanceNeeded)
-        assert.exists(check.currentAllowances.rateAllowance)
-        assert.exists(check.currentAllowances.lockupAllowance)
+        assert.exists(check.currentRateAllowance)
+        assert.exists(check.currentLockupAllowance)
+        assert.exists(check.currentRateUsed)
+        assert.exists(check.currentLockupUsed)
         assert.exists(check.sufficient)
 
         // Check for new costs field

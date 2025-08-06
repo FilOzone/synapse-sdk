@@ -1297,13 +1297,14 @@ export class StorageService {
     const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
     const sizeBytes = dataBytes.length
 
-    const costs = await this._warmStorageService.calculateStorageCost(sizeBytes, this._withCDN)
+    const costs = await this._warmStorageService.calculateStorageCost(sizeBytes)
+    const selectedCosts = this._withCDN ? costs.withCDN : costs
 
     return {
       sizeBytes,
-      costPerEpoch: costs.perEpoch,
-      costPerDay: costs.perDay,
-      costPerMonth: costs.perMonth
+      costPerEpoch: selectedCosts.perEpoch,
+      costPerDay: selectedCosts.perDay,
+      costPerMonth: selectedCosts.perMonth
     }
   }
 }
