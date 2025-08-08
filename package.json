@@ -22,9 +22,13 @@
       "import": "./dist/payments/index.js",
       "types": "./dist/payments/index.d.ts"
     },
-    "./pandora": {
-      "import": "./dist/pandora/index.js",
-      "types": "./dist/pandora/index.d.ts"
+    "./warm-storage": {
+      "import": "./dist/warm-storage/index.js",
+      "types": "./dist/warm-storage/index.d.ts"
+    },
+    "./subgraph": {
+      "import": "./dist/subgraph/index.js",
+      "types": "./dist/subgraph/index.d.ts"
     },
     "./browser": {
       "import": "./dist/browser/synapse-sdk.esm.js",
