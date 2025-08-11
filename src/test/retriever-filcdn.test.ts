@@ -1,7 +1,7 @@
 /* globals describe it */
 import { assert } from 'chai'
 import { FilCdnRetriever } from '../retriever/filcdn.js'
-import type { PieceRetriever, CommP } from '../types.js'
+import type { PieceRetriever, CommP, CommPv2 } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Create a mock CommP for testing
@@ -14,7 +14,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (commp: CommP, client: string, options?: any) => {
+        fetchPiece: async (commp: CommP | CommPv2, client: string, options?: any) => {
           baseCalled = true
           assert.equal(commp, mockCommP)
           assert.equal(client, '0xClient')
@@ -50,7 +50,7 @@ describe('FilCdnRetriever', () => {
       let signalPropagated = false
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (commp: CommP, client: string, options?: any) => {
+        fetchPiece: async (commp: CommP | CommPv2, client: string, options?: any) => {
           if (options?.signal != null) {
             signalPropagated = true
             assert.equal(options.signal, controller.signal)
@@ -86,7 +86,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (commp: CommP, client: string, options?: any) => {
+        fetchPiece: async (commp: CommP | CommPv2, client: string, options?: any) => {
           baseCalled = true
           assert.equal(commp, mockCommP)
           assert.equal(client, '0xClient')
@@ -125,7 +125,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (commp: CommP, client: string, options?: any) => {
+        fetchPiece: async (commp: CommP | CommPv2, client: string, options?: any) => {
           baseCalled = true
           assert.equal(commp, mockCommP)
           assert.equal(client, '0xClient')
@@ -164,7 +164,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (commp: CommP, client: string, options?: any) => {
+        fetchPiece: async (commp: CommP | CommPv2, client: string, options?: any) => {
           baseCalled = true
           assert.equal(commp, mockCommP)
           assert.equal(client, '0xClient')

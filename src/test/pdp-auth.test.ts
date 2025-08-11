@@ -41,15 +41,14 @@ const FIXTURES = {
       withCDN: true
     },
     addPieces: {
-      signature: '0x95f1681cebc076f69893d83f00c97de7fd772d4ab98cdbc28b7a929d138cfde82b575c2e5a10673c217d831aa717e9d061232d6028f6ce6ccfdd7e52a8f5e0421b',
-      digest: '0x2bb8e41a8ccda2168e865e15c6224725adf67db9912488903a8336b0f8f1a6e3',
+      signature: '0x11a84c9e14c95c8e6a8efc4ee72fb3bb4b596a398fc1c0ff9d1ddec24eab6ce239964f6c75144499e56f36c7e85559b74d5c03faf0cc9843846ff05a52d928f91b',
+      digest: '0x94ed837bcb986fa8f59453cd9e42494f93227e80d4fa54aa3da458b2ffb69790',
       clientDataSetId: 12345,
       firstAdded: 1,
       pieceCidBytes: [
         '0x0181e203922020fc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
         '0x0181e203922020a9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f'
-      ],
-      pieceSizes: [2048, 4096]
+      ]
     },
     schedulePieceRemovals: {
       signature: '0xcb8e645f2894fde89de54d4a54eb1e0d9871901c6fa1c2ee8a0390dc3a29e6cb2244d0561e3eca6452fa59efaab3d4b18a0b5b59ab52e233b3469422556ae9c61c',
@@ -64,21 +63,21 @@ const FIXTURES = {
     }
   }
 }
-
 // Helper to create CommP CIDs from the test piece digests
 const PIECE_DATA: PieceData[] = [
   {
-    cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy', // digest: 0xfc7e92...
+    cid: 'bafkzcibcauan42av3szurbbscwuu3zjssvfwbpsvbjf6y3tukvlgl2nf5rha6pa',
     rawSize: 1024
   },
   {
-    cid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy', // digest: 0xa9eb89...
+    cid: 'bafkzcibcpybwiktap34inmaex4wbs6cghlq5i2j2yd2bb2zndn5ep7ralzphkdy',
     rawSize: 2048
   }
 ]
 
 describe('Auth Signature Compatibility', () => {
   let authHelper: PDPAuthHelper
+
   let signer: ethers.Wallet
 
   beforeEach(() => {

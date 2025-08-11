@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { type AuthSignature, type PieceData } from '../types.js'
-import { asCommP, toPieceSize } from '../commp/index.js'
+import { asCommP } from '../commp/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -20,17 +20,13 @@ const EIP712_TYPES = {
     { name: 'withCDN', type: 'bool' },
     { name: 'payee', type: 'address' }
   ],
-  PieceCid: [
+  Cid: [
     { name: 'data', type: 'bytes' }
-  ],
-  PieceData: [
-    { name: 'piece', type: 'PieceCid' },
-    { name: 'rawSize', type: 'uint256' }
   ],
   AddPieces: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'firstAdded', type: 'uint256' },
-    { name: 'pieceData', type: 'PieceData[]' }
+    { name: 'pieceData', type: 'Cid[]' }
   ],
   SchedulePieceRemovals: [
     { name: 'clientDataSetId', type: 'uint256' },
@@ -157,7 +153,7 @@ export class PDPAuthHelper {
     let primaryType = ''
     for (const typeName of Object.keys(types)) {
       // Skip Cid and PieceData as they are dependencies
-      if (typeName !== 'PieceCid' && typeName !== 'PieceData') {
+      if (typeName !== 'Cid' && typeName !== 'PieceData') {
         primaryType = typeName
         break
       }
@@ -329,6 +325,7 @@ export class PDPAuthHelper {
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
     for (const piece of pieceDataArray) {
+      // TODO(CIDv2): support CommPv2 in asCommP
       const commP = typeof piece.cid === 'string' ? asCommP(piece.cid) : piece.cid
       if (commP == null) {
         throw new Error(`Invalid CommP: ${String(piece.cid)}`)
@@ -336,16 +333,7 @@ export class PDPAuthHelper {
 
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedPieceData.push({
-        piece: {
-          data: commP.bytes // This will be a Uint8Array
-        },
-        // IMPORTANT: We use toPieceSize() here to convert raw size to padded piece size.
-        // This is required because Curio records subPiece sizes as PaddedPieceSize in
-        // handlers.go:743-755, and when totaling up the sizes for addPieces operation,
-        // it sums the padded sizes, not raw sizes. We must match this behavior.
-        // See: https://github.com/FilOzone/synapse-sdk/pull/95
-        // TODO: this should be undone when we switch to CommPv2 and we just go with raw size e2e.
-        rawSize: BigInt(toPieceSize(piece.rawSize))
+        data: commP.bytes // This will be a Uint8Array
       })
     }
 
@@ -360,18 +348,14 @@ export class PDPAuthHelper {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
         firstAdded: firstPieceId.toString(), // Keep as string for MetaMask display
         pieceData: formattedPieceData.map(item => ({
-          piece: {
-            data: ethers.hexlify(item.piece.data) // Convert Uint8Array to hex string for MetaMask
-          },
-          rawSize: item.rawSize.toString() // Keep as string for MetaMask display
+          data: ethers.hexlify(item.data) // Convert Uint8Array to hex string for MetaMask
         }))
       }
 
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceData: EIP712_TYPES.PieceData,
-        PieceCid: EIP712_TYPES.PieceCid
+        Cid: EIP712_TYPES.Cid
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -386,8 +370,7 @@ export class PDPAuthHelper {
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceData: EIP712_TYPES.PieceData,
-        PieceCid: EIP712_TYPES.PieceCid
+        Cid: EIP712_TYPES.Cid
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -403,8 +386,7 @@ export class PDPAuthHelper {
       this.domain,
       {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceData: EIP712_TYPES.PieceData,
-        PieceCid: EIP712_TYPES.PieceCid
+        Cid: EIP712_TYPES.Cid
       },
       {
         clientDataSetId: BigInt(clientDataSetId),

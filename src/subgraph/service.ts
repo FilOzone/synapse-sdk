@@ -29,7 +29,7 @@ import { toHex, fromHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asCommP } from '../commp/commp.js'
 import type {
-  CommP,
+  CommP, CommPv2,
   ApprovedProviderInfo,
   SubgraphRetrievalService,
   SubgraphConfig
@@ -131,7 +131,7 @@ export interface PieceInfo {
   pieceId: number
   rawSize: number
   leafCount: number
-  cid: CommP | null
+  cid: CommP | CommPv2 | null
   removed: boolean
   totalProofsSubmitted: number
   totalPeriodsFaulted: number
@@ -316,7 +316,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @param hexCid - The CID in hex format
    * @returns The CID in CommP format or null if conversion fails
    */
-  private safeConvertHexToCid (hexCid: string): CommP | null {
+  private safeConvertHexToCid (hexCid: string): CommP | CommPv2 | null {
     try {
       const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
       const cidBytes = fromHex(cleanHex)
@@ -360,7 +360,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForCommP (commP: CommP): Promise<ApprovedProviderInfo[]> {
+  async getApprovedProvidersForCommP (commP: CommP | CommPv2): Promise<ApprovedProviderInfo[]> {
     const commPParsed = asCommP(commP)
     if (commPParsed == null) {
       throw createError('SubgraphService', 'getApprovedProvidersForCommP', 'Invalid CommP')

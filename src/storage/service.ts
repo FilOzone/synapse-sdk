@@ -25,7 +25,7 @@
 import { ethers } from 'ethers'
 import type {
   StorageServiceOptions,
-  CommP,
+  CommP, CommPv2,
   ApprovedProviderInfo,
   UploadCallbacks,
   UploadResult,
@@ -1153,7 +1153,7 @@ export class StorageService {
    * Get the list of piece CIDs for this service service's data set by querying the PDP server.
    * @returns Array of piece CIDs as CommP objects
    */
-  async getDataSetPieces (): Promise<CommP[]> {
+  async getDataSetPieces (): Promise<Array<CommP | CommPv2>> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
     return dataSetData.pieces.map(piece => piece.pieceCid)
   }
@@ -1170,7 +1170,7 @@ export class StorageService {
    * @param commp - The CommP (piece CID) to check
    * @returns Status information including existence, data set timing, and retrieval URL
    */
-  async pieceStatus (commp: string | CommP): Promise<PieceStatus> {
+  async pieceStatus (commp: string | CommP | CommPv2): Promise<PieceStatus> {
     const parsedCommP = asCommP(commp)
     if (parsedCommP == null) {
       throw createError('StorageService', 'pieceStatus', 'Invalid CommP provided')

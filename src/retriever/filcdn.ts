@@ -5,7 +5,7 @@
  * to the base retriever.
  */
 
-import type { CommP, FilecoinNetworkType, PieceRetriever } from '../types.js'
+import type { CommP, CommPv2, FilecoinNetworkType, PieceRetriever } from '../types.js'
 
 export class FilCdnRetriever implements PieceRetriever {
   constructor (
@@ -20,7 +20,7 @@ export class FilCdnRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    commp: CommP,
+    commp: CommP | CommPv2,
     client: string,
     options?: {
       providerAddress?: string
