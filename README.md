@@ -1035,6 +1035,7 @@ import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 | `EnhancedProofSetInfo` | `EnhancedDataSetInfo` |
 | `ProofSetCreationStatusResponse` | `DataSetCreationStatusResponse` |
 | `RootAdditionStatusResponse` | `PieceAdditionStatusResponse` |
+| `StorageProvider` | `ServiceProvider` |
 
 #### Method Name Changes
 
@@ -1080,6 +1081,45 @@ pdpServer.createDataSet(serviceProvider, clientDataSetId)
 pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
 ```
 
+#### Interface Property Changes
+
+**ApprovedProviderInfo:**
+```typescript
+// Before (< v0.24.0)
+interface ApprovedProviderInfo {
+  owner: string           // Provider's wallet address
+  pdpUrl: string          // PDP server URL
+  pieceRetrievalUrl: string
+  // ...
+}
+
+// After (v0.24.0+)
+interface ApprovedProviderInfo {
+  serviceProvider: string  // Service provider address (renamed from 'owner')
+  serviceURL: string       // Combined service URL (replaces pdpUrl/pieceRetrievalUrl)
+  peerId: string           // Added peer ID
+  // ...
+}
+```
+
+**StorageService Properties:**
+```typescript
+// Before (< v0.24.0)
+storage.storageProvider  // Provider address property
+
+// After (v0.24.0+)
+storage.serviceProvider  // Renamed property
+```
+
+**Callback Interfaces:**
+```typescript
+// Before (< v0.24.0)
+onProofSetResolved?: (info: { proofSetId: number }) => void
+
+// After (v0.24.0+)
+onDataSetResolved?: (info: { dataSetId: number }) => void
+```
+
 #### Configuration Changes
 
 **Before (< v0.24.0):**
@@ -1103,6 +1143,7 @@ const synapse = await Synapse.create({
 **Before (< v0.24.0):**
 ```typescript
 import { PandoraService } from '@filoz/synapse-sdk/pandora'
+import type { StorageProvider } from '@filoz/synapse-sdk'
 
 const pandoraService = new PandoraService(provider, pandoraAddress)
 const proofSets = await pandoraService.getClientProofSets(client)
@@ -1110,11 +1151,22 @@ const proofSets = await pandoraService.getClientProofSets(client)
 for (const proofSet of proofSets) {
   console.log(`Proof set ${proofSet.railId} has ${proofSet.rootMetadata.length} roots`)
 }
+
+// Using storage service
+const storage = await synapse.createStorage({
+  callbacks: {
+    onProofSetResolved: (info) => {
+      console.log(`Using proof set ${info.proofSetId}`)
+    }
+  }
+})
+console.log(`Storage provider: ${storage.storageProvider}`)
 ```
 
 **After (v0.24.0+):**
 ```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+import type { ServiceProvider } from '@filoz/synapse-sdk'
 
 const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
 const dataSets = await warmStorageService.getClientDataSets(client)
@@ -1122,6 +1174,16 @@ const dataSets = await warmStorageService.getClientDataSets(client)
 for (const dataSet of dataSets) {
   console.log(`Data set ${dataSet.railId} has ${dataSet.pieceMetadata.length} pieces`)
 }
+
+// Using storage service
+const storage = await synapse.createStorage({
+  callbacks: {
+    onDataSetResolved: (info) => {
+      console.log(`Using data set ${info.dataSetId}`)
+    }
+  }
+})
+console.log(`Service provider: ${storage.serviceProvider}`)
 ```
 
 #### Migration Checklist
@@ -1129,11 +1191,21 @@ for (const dataSet of dataSets) {
 When upgrading from versions prior to v0.24.0:
 
 1. **Update imports** - Replace `@filoz/synapse-sdk/pandora` with `@filoz/synapse-sdk/warm-storage`
-2. **Update type references** - Replace all `ProofSet`/`proofSet` with `DataSet`/`dataSet` and `Root`/`root` with `Piece`/`piece`
-3. **Update method calls** - Use the new method names as shown above
-4. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
-5. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
-6. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+2. **Update type references**:
+   - Replace all `ProofSet`/`proofSet` with `DataSet`/`dataSet`
+   - Replace all `Root`/`root` with `Piece`/`piece`
+   - Replace `StorageProvider` type with `ServiceProvider`
+3. **Update interface properties**:
+   - `ApprovedProviderInfo.owner` → `ApprovedProviderInfo.serviceProvider`
+   - `ApprovedProviderInfo.pdpUrl` → `ApprovedProviderInfo.serviceURL`
+   - `storage.storageProvider` → `storage.serviceProvider`
+4. **Update callback names**:
+   - `onProofSetResolved` → `onDataSetResolved`
+   - Callback parameter `proofSetId` → `dataSetId`
+5. **Update method calls** - Use the new method names as shown above
+6. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
+7. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
+8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
 
 Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.
 

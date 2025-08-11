@@ -114,7 +114,7 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 - Debugging signature generation issues
 - Educational demonstrations
 
-### storage-provider-tool.html
+### service-provider-tool.html
 
 Browser-based interface for service provider management operations.
 
