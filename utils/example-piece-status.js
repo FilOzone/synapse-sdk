@@ -165,7 +165,7 @@ async function main () {
     console.log(`\n✅ Exists on provider: ${status.exists ? 'Yes' : 'No'}`)
 
     if (!status.exists) {
-      console.log('\n❌ This piece does not exist on the selected storage provider.')
+      console.log('\n❌ This piece does not exist on the selected service provider.')
       return
     }
 
@@ -194,13 +194,13 @@ async function main () {
       // Challenge window status
       if (status.isProofOverdue) {
         console.log('\n🚨 PROOF IS OVERDUE!')
-        console.log('   The storage provider has missed the proof deadline and may face penalties.')
+        console.log('   The service provider has missed the proof deadline and may face penalties.')
       } else if (status.inChallengeWindow) {
         // Calculate time remaining in challenge window
         const timeRemaining = status.dataSetNextProofDue.getTime() - new Date().getTime()
         const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
         console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
-        console.log(`   The storage provider has ${minutesRemaining} minutes to submit a proof.`)
+        console.log(`   The service provider has ${minutesRemaining} minutes to submit a proof.`)
       } else if (status.hoursUntilChallengeWindow !== undefined && status.hoursUntilChallengeWindow > 0) {
         console.log(`\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
       }
@@ -210,7 +210,7 @@ async function main () {
 
     // Additional info
     console.log('\n📝 Storage Details:')
-    console.log(`   Provider: ${storage.storageProvider}`)
+    console.log(`   Provider: ${storage.serviceProvider}`)
     console.log(`   Data Set: ${storage.dataSetId}`)
 
     // Summary

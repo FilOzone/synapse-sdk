@@ -653,7 +653,7 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('Storage Provider Operations', () => {
+  describe('Service Provider Operations', () => {
     it('should check if provider is approved', async () => {
       const providerAddress = '0x1234567890123456789012345678901234567890'
 
@@ -704,7 +704,7 @@ describe('WarmStorageService', () => {
         const data = transaction.data
         if (data?.startsWith('0x1c7db86a') === true) { // getApprovedProvider selector
           const providerInfo = [
-            '0x1234567890123456789012345678901234567890', // storageProvider
+            '0x1234567890123456789012345678901234567890', // serviceProvider
             'https://pdp.provider.com', // serviceURL
             ethers.hexlify(ethers.toUtf8Bytes('test-peer-id')), // peerId
             1234567890n, // registeredAt
@@ -719,7 +719,7 @@ describe('WarmStorageService', () => {
       }
 
       const info = await warmStorageService.getApprovedProvider(1)
-      assert.equal(info.storageProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
+      assert.equal(info.serviceProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
       assert.equal(info.serviceURL, 'https://pdp.provider.com')
       assert.equal(info.peerId, 'test-peer-id')
       assert.equal(info.registeredAt, 1234567890)
@@ -831,8 +831,8 @@ describe('WarmStorageService', () => {
 
       const providers = await warmStorageService.getAllApprovedProviders()
       assert.lengthOf(providers, 2)
-      assert.equal(providers[0].storageProvider.toLowerCase(), '0x1111111111111111111111111111111111111111')
-      assert.equal(providers[1].storageProvider.toLowerCase(), '0x2222222222222222222222222222222222222222')
+      assert.equal(providers[0].serviceProvider.toLowerCase(), '0x1111111111111111111111111111111111111111')
+      assert.equal(providers[1].serviceProvider.toLowerCase(), '0x2222222222222222222222222222222222222222')
     })
   })
 

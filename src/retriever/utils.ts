@@ -64,7 +64,7 @@ export async function fetchPiecesFromProviders (
         if (!findResponse.ok) {
           // Provider doesn't have the piece
           failures.push({
-            provider: provider.storageProvider,
+            provider: provider.serviceProvider,
             error: `findPiece returned ${findResponse.status}`
           })
           throw new Error('Provider does not have piece')
@@ -83,18 +83,18 @@ export async function fetchPiecesFromProviders (
 
         // Download failed
         failures.push({
-          provider: provider.storageProvider,
+          provider: provider.serviceProvider,
           error: `download returned ${response.status}`
         })
         throw new Error(`Download failed with status ${response.status}`)
       } catch (error: any) {
         // Log actual failures
         const errorMsg = error.message ?? 'Unknown error'
-        if (!failures.some((f) => f.provider === provider.storageProvider)) {
-          failures.push({ provider: provider.storageProvider, error: errorMsg })
+        if (!failures.some((f) => f.provider === provider.serviceProvider)) {
+          failures.push({ provider: provider.serviceProvider, error: errorMsg })
         }
         // TODO: remove this at some point, it might get noisy
-        console.warn(`Failed to fetch from provider ${provider.storageProvider}:`, errorMsg)
+        console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
         throw error
       }
     }

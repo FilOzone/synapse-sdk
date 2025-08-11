@@ -45,7 +45,7 @@ const EIP712_TYPES = {
  * Helper class for creating EIP-712 typed signatures for PDP operations
  *
  * This class provides methods to create cryptographic signatures required for
- * authenticating PDP (Proof of Data Possession) operations with storage providers.
+ * authenticating PDP (Proof of Data Possession) operations with service providers.
  * All signatures are EIP-712 compatible for improved security and UX.
  *
  * Can be used standalone or through the Synapse SDK.
@@ -214,12 +214,12 @@ export class PDPAuthHelper {
   /**
    * Create signature for data set creation
    *
-   * This signature authorizes a storage provider to create a new data set
+   * This signature authorizes a service provider to create a new data set
    * on behalf of the client. The signature includes the client's dataset ID,
-   * the storage provider's payment address, and CDN preference.
+   * the service provider's payment address, and CDN preference.
    *
    * @param clientDataSetId - Unique dataset ID for the client (typically starts at 0 and increments)
-   * @param payee - Storage provider's address that will receive payments
+   * @param payee - Service provider's address that will receive payments
    * @param withCDN - Whether to enable CDN service for faster retrieval (default: false)
    * @returns Promise resolving to authentication signature for data set creation
    *
@@ -228,7 +228,7 @@ export class PDPAuthHelper {
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
    * const signature = await auth.signCreateDataSet(
    *   0,                              // First dataset for this client
-   *   '0x1234...abcd',               // Storage provider address
+   *   '0x1234...abcd',               // Service provider address
    *   true                           // Enable CDN service
    * )
    * ```
@@ -298,7 +298,7 @@ export class PDPAuthHelper {
   /**
    * Create signature for adding pieces to a data set
    *
-   * This signature authorizes a storage provider to add new data pieces
+   * This signature authorizes a service provider to add new data pieces
    * to an existing data set. Each piece represents aggregated data that
    * will be proven using PDP challenges.
    *
@@ -425,7 +425,7 @@ export class PDPAuthHelper {
   /**
    * Create signature for scheduling piece removals
    *
-   * This signature authorizes a storage provider to schedule specific pieces
+   * This signature authorizes a service provider to schedule specific pieces
    * for removal from the data set. Pieces are typically removed after the
    * next successful proof submission.
    *

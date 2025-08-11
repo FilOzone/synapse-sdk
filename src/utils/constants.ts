@@ -59,15 +59,15 @@ export const CONTRACT_ABIS = {
 
     // Read functions
     'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
+    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
     'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
+    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
     'function owner() external view returns (address)',
     'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
 
     // Public mappings that are automatically exposed
     'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address storageProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
+    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
 
     // Data set functions
     'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',

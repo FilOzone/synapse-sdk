@@ -4,8 +4,8 @@
  * Post-Deployment Setup Script for Synapse/Warm Storage
  *
  * This script sets up a newly deployed Warm Storage contract by:
- * 1. Registering a storage provider with the contract
- * 2. Approving the storage provider registration (using deployer account)
+ * 1. Registering a service provider with the contract
+ * 2. Approving the service provider registration (using deployer account)
  * 3. Setting up client payment approvals for the Warm Storage contract
  *
  * === DEPLOYMENT CONTEXT ===
@@ -47,7 +47,7 @@
  * === REQUIRED ENVIRONMENT VARIABLES ===
  *
  * - DEPLOYER_PRIVATE_KEY: Private key of the Warm Storage contract deployer/owner
- * - SP_PRIVATE_KEY: Private key of the storage provider
+ * - SP_PRIVATE_KEY: Private key of the service provider
  * - CLIENT_PRIVATE_KEY: Private key of the client
  * - WARM_STORAGE_CONTRACT_ADDRESS: Address of the deployed Warm Storage contract
  *
@@ -59,7 +59,7 @@
  *
  * === WHAT THIS SCRIPT DOES ===
  *
- * 1. **Storage Provider Registration:**
+ * 1. **Service Provider Registration:**
  *    - Checks if SP is already approved
  *    - If approved, checks if URL matches the provided SP_SERVICE_URL
  *    - If URL has changed:
@@ -88,7 +88,7 @@
  * === IMPORTANT NOTES ===
  *
  * - Ensure all accounts have sufficient FIL for gas costs (expect 0.5-1 FIL per operation)
- * - Storage provider registration requires a 1 FIL fee (paid to the contract)
+ * - Service provider registration requires a 1 FIL fee (paid to the contract)
  * - Client account should have USDFC tokens for testing payments
  */
 
@@ -167,13 +167,13 @@ async function main () {
     const clientAddress = await clientSigner.getAddress()
 
     log(`Deployer address: ${deployerAddress}`)
-    log(`Storage Provider address: ${spAddress}`)
+    log(`Service Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
     const spTool = new WarmStorageService(provider, warmStorageAddress)
 
-    // === Step 1: Storage Provider Registration ===
-    log('\n📋 Step 1: Storage Provider Registration')
+    // === Step 1: Service Provider Registration ===
+    log('\n📋 Step 1: Service Provider Registration')
 
     // Check if SP is already approved
     const isAlreadyApproved = await spTool.isProviderApproved(spAddress)
@@ -186,9 +186,9 @@ async function main () {
       const urlMatches = currentInfo.serviceURL === spServiceUrl
 
       if (urlMatches) {
-        success('Storage provider is already approved with correct URL')
+        success('Service provider is already approved with correct URL')
       } else {
-        warning('Storage provider URL has changed, re-registering...')
+        warning('Service provider URL has changed, re-registering...')
         log(`  Current URL: ${currentInfo.serviceURL}`)
         log(`  New URL: ${spServiceUrl}`)
 
@@ -200,14 +200,14 @@ async function main () {
         success('Provider removed successfully')
 
         // Step 2: Register with new URL (as SP)
-        log('Registering storage provider with new URL (requires 1 FIL fee)...')
+        log('Registering service provider with new URL (requires 1 FIL fee)...')
         const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
-        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
-        success('Storage provider registered successfully')
+        success('Service provider registered successfully')
 
         // Step 3: Approve the new registration (as owner)
-        log('Approving storage provider registration...')
+        log('Approving service provider registration...')
         const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
 
         try {
@@ -225,9 +225,9 @@ async function main () {
           const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
             gasLimit: finalGasLimit
           })
-          success(`Storage provider approval transaction sent. Tx: ${approveTx.hash}`)
+          success(`Service provider approval transaction sent. Tx: ${approveTx.hash}`)
           await approveTx.wait()
-          success('Storage provider approved successfully')
+          success('Service provider approved successfully')
         } catch (approveError) {
           // Try to get more detailed error info
           try {
@@ -246,7 +246,7 @@ async function main () {
         const pendingInfo = await spTool.getPendingProvider(spAddress)
         // If we get here, there is a pending registration
         hasPendingRegistration = true
-        warning('Storage provider has pending registration')
+        warning('Service provider has pending registration')
         log(`  Service URL: ${pendingInfo.serviceURL}`)
         log(`  Registered at: ${new Date(Number(pendingInfo.registeredAt) * 1000).toISOString()}`)
       } catch (err) {
@@ -255,27 +255,27 @@ async function main () {
       }
 
       if (!hasPendingRegistration) {
-        // Register the storage provider
-        log('Registering storage provider (requires 1 FIL fee)...')
+        // Register the service provider
+        log('Registering service provider (requires 1 FIL fee)...')
         const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
-        success(`Storage provider registration transaction sent. Tx: ${registerTx.hash}`)
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
-        success('Storage provider registered successfully')
+        success('Service provider registered successfully')
       }
 
-      // === Step 2: Approve Storage Provider (as deployer) ===
-      log('\n✅ Step 2: Approve Storage Provider')
+      // === Step 2: Approve Service Provider (as deployer) ===
+      log('\n✅ Step 2: Approve Service Provider')
 
       const deployerSpTool = new WarmStorageService(provider, warmStorageAddress)
 
       // Verify deployer is contract owner
       const isOwner = await deployerSpTool.isOwner(deployerSigner)
       if (!isOwner) {
-        error('Deployer is not the contract owner. Cannot approve storage provider.')
+        error('Deployer is not the contract owner. Cannot approve service provider.')
         process.exit(1)
       }
 
-      log('Approving storage provider as contract owner...')
+      log('Approving service provider as contract owner...')
 
       // Create contract instance directly to set gas limit
       const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
@@ -296,7 +296,7 @@ async function main () {
           gasLimit: finalGasLimit
         })
         await approveTx.wait()
-        success(`Storage provider approved successfully. Tx: ${approveTx.hash}`)
+        success(`Service provider approved successfully. Tx: ${approveTx.hash}`)
       } catch (approveError) {
         // Try to get more detailed error info
         try {
@@ -406,10 +406,10 @@ async function main () {
     if (finalSpApproval) {
       const spId = await spTool.getProviderIdByAddress(spAddress)
       const spInfo = await spTool.getApprovedProvider(spId)
-      success(`✓ Storage Provider approved (ID: ${spId})`)
+      success(`✓ Service Provider approved (ID: ${spId})`)
       log(`  Service URL: ${spInfo.serviceURL}`)
     } else {
-      error('✗ Storage Provider not approved')
+      error('✗ Service Provider not approved')
     }
 
     // Client payment status

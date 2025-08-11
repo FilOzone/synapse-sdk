@@ -27,7 +27,7 @@ Post-deployment setup script for newly deployed Warm Storage contracts. This scr
 3. **Ensure accounts have sufficient funds:**
    - Deployer account: FIL for gas costs
    - Client account: USDFC tokens for payments
-   - Storage provider account: FIL for gas costs
+   - Service provider account: FIL for gas costs
 
 ### Usage
 
@@ -36,7 +36,7 @@ cd synapse-sdk
 
 # Set required environment variables
 export DEPLOYER_PRIVATE_KEY=0x...        # Contract deployer/owner
-export SP_PRIVATE_KEY=0x...              # Storage provider
+export SP_PRIVATE_KEY=0x...              # Service provider
 export CLIENT_PRIVATE_KEY=0x...          # Client account
 export WARM_STORAGE_CONTRACT_ADDRESS=0x...    # Newly deployed contract
 export NETWORK=calibration              # or 'mainnet'
@@ -49,8 +49,8 @@ node utils/post-deploy-setup.js
 
 ### What It Does
 
-1. **Storage Provider Setup:**
-   - Registers the storage provider with the Warm Storage contract
+1. **Service Provider Setup:**
+   - Registers the service provider with the Warm Storage contract
    - Approves the registration (as contract owner)
    - Validates all permissions
 
@@ -116,24 +116,24 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 
 ### storage-provider-tool.html
 
-Browser-based interface for storage provider management operations.
+Browser-based interface for service provider management operations.
 
 **Features:**
 - Connect to Warm Storage contracts
-- Register as a storage provider
+- Register as a service provider
 - Check approval status
 - View all approved providers
 - Contract owner functions (approve/reject providers)
 - Real-time status updates
 
 **Use Cases:**
-- Storage provider onboarding
+- Service provider onboarding
 - Contract administration
 - Testing provider registration flow
 - Debugging provider approval issues
 
 **Typical Workflow:**
-1. Connect wallet (storage provider or contract owner)
+1. Connect wallet (service provider or contract owner)
 2. Enter Warm Storage contract address
 3. Register as provider (if you're an SP)
 4. Approve providers (if you're the contract owner)

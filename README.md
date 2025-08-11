@@ -4,7 +4,7 @@
 
 A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
 
-> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, and **Roots** are now **Pieces**. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
 
 ## Overview
 
@@ -25,36 +25,70 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ## Table of Contents
 
-* [Overview](#overview)
-* [Installation](#installation)
-* [Recommended Usage](#recommended-usage)
-  * [Quick Start](#quick-start)
-  * [With MetaMask](#with-metamask)
-  * [Advanced Payment Control](#advanced-payment-control)
-  * [API Reference](#api-reference)
-  * [Storage Service Creation](#storage-service-creation)
-* [Using Individual Components](#using-individual-components)
-  * [Payments Service](#payments-service)
-  * [Warm Storage Service](#warm-storage-service)
-  * [Subgraph Service](#subgraph-service)
-  * [PDP Components](#pdp-components)
-  * [CommP Utilities](#commp-utilities)
-* [Network Configuration](#network-configuration)
-  * [RPC Endpoints](#rpc-endpoints)
-  * [GLIF Authorization](#glif-authorization)
-  * [Network Details](#network-details)
-* [Browser Integration](#browser-integration)
-  * [MetaMask Setup](#metamask-setup)
-* [Additional Information](#additional-information)
-  * [Type Definitions](#type-definitions)
-  * [Error Handling](#error-handling)
-* [Contributing](#contributing)
-  * [Commit Message Guidelines](#commit-message-guidelines)
-  * [Testing](#testing)
-* [Migration Guide](#migration-guide)
-  * [Transaction Return Types](#transaction-return-types-v070)
-  * [Terminology Update](#terminology-update-v0200)
-* [License](#license)
+- [Synapse SDK](#synapse-sdk)
+  - [Overview](#overview)
+  - [Installation](#installation)
+  - [Table of Contents](#table-of-contents)
+  - [Recommended Usage](#recommended-usage)
+    - [Quick Start](#quick-start)
+      - [Payment Setup](#payment-setup)
+    - [With MetaMask](#with-metamask)
+    - [Advanced Payment Control](#advanced-payment-control)
+    - [API Reference](#api-reference)
+      - [Constructor Options](#constructor-options)
+      - [Synapse Methods](#synapse-methods)
+      - [Synapse.payments Methods](#synapsepayments-methods)
+      - [Storage Service Methods](#storage-service-methods)
+    - [Storage Service Creation](#storage-service-creation)
+      - [Basic Usage](#basic-usage)
+      - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
+      - [Creation Options](#creation-options)
+      - [Storage Service Properties](#storage-service-properties)
+      - [Storage Service Methods](#storage-service-methods-1)
+        - [Preflight Upload](#preflight-upload)
+        - [Upload and Download](#upload-and-download)
+        - [Size Constraints](#size-constraints)
+        - [Efficient Batch Uploads](#efficient-batch-uploads)
+    - [Storage Information](#storage-information)
+    - [Download Options](#download-options)
+      - [Direct Download via Synapse](#direct-download-via-synapse)
+      - [Provider-Specific Download via StorageService](#provider-specific-download-via-storageservice)
+      - [CDN Inheritance Pattern](#cdn-inheritance-pattern)
+  - [Using Individual Components](#using-individual-components)
+    - [Payments Service](#payments-service)
+    - [Warm Storage Service](#warm-storage-service)
+    - [Subgraph Service](#subgraph-service)
+      - [Custom Subgraph Service Implementations](#custom-subgraph-service-implementations)
+    - [PDP Components](#pdp-components)
+      - [PDP Verifier](#pdp-verifier)
+      - [PDP Server](#pdp-server)
+      - [PDP Auth Helper](#pdp-auth-helper)
+    - [CommP Utilities](#commp-utilities)
+  - [Network Configuration](#network-configuration)
+    - [RPC Endpoints](#rpc-endpoints)
+    - [GLIF Authorization](#glif-authorization)
+    - [Network Details](#network-details)
+  - [Browser Integration](#browser-integration)
+    - [MetaMask Setup](#metamask-setup)
+  - [Additional Information](#additional-information)
+    - [Type Definitions](#type-definitions)
+    - [Error Handling](#error-handling)
+  - [Contributing](#contributing)
+    - [Commit Message Guidelines](#commit-message-guidelines)
+      - [Commit Message Format](#commit-message-format)
+      - [Supported Types and Version Bumps](#supported-types-and-version-bumps)
+      - [Examples](#examples)
+      - [Important Notes](#important-notes)
+    - [Testing](#testing)
+  - [Migration Guide](#migration-guide)
+    - [Terminology Update (v0.24.0+)](#terminology-update-v0240)
+      - [Import Path Changes](#import-path-changes)
+      - [Type Name Changes](#type-name-changes)
+      - [Method Name Changes](#method-name-changes)
+      - [Configuration Changes](#configuration-changes)
+      - [Complete Migration Example](#complete-migration-example)
+      - [Migration Checklist](#migration-checklist)
+  - [License](#license)
 
 ---
 
@@ -110,7 +144,7 @@ await synapse.payments.approveService(
   warmStorageAddress,
   ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
   ethers.parseUnits('1000', 18), // Lockup allowance: 1000 USDFC total
-  86400n                          // Max lockup period: 30 days (in epochs)
+  86400n                         // Max lockup period: 30 days (in epochs)
 )
 
 // Now you're ready to use storage!
@@ -205,22 +239,24 @@ await revokeTx.wait()
 ```typescript
 interface SynapseOptions {
   // Wallet Configuration (exactly one required)
-  privateKey?: string           // Private key for signing
-  provider?: ethers.Provider    // Browser provider (MetaMask, etc.)
-  signer?: ethers.Signer        // External signer
+  privateKey?: string             // Private key for signing
+  provider?: ethers.Provider      // Browser provider (MetaMask, etc.)
+  signer?: ethers.Signer          // External signer
 
   // Network Configuration
-  rpcURL?: string              // RPC endpoint URL
-  authorization?: string        // Authorization header (e.g., 'Bearer TOKEN')
+  rpcURL?: string                 // RPC endpoint URL
+  authorization?: string          // Authorization header (e.g., 'Bearer TOKEN')
 
   // Advanced Configuration
-  disableNonceManager?: boolean // Disable automatic nonce management
-  withCDN?: boolean             // Enable CDN for retrievals
-  warmStorageAddress?: string   // Override Warm Storage service contract address
+  withCDN?: boolean               // Enable CDN for retrievals (set a default for all new storage operations)
+  pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
+  disableNonceManager?: boolean   // Disable automatic nonce management
+  warmStorageAddress?: string     // Override Warm Storage service contract address (for testing purposes)
+  pdpVerifierAddress?: string     // Override PDPVerifier contract address (for testing purposes)
   
-  // Subgraph Integration (provide ONE of these options)
+  // Subgraph Integration (optional, provide only one of these options)
   subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
-  subgraphConfig?: SubgraphConfig // Configuration for the default SubgraphService
+  subgraphConfig?: SubgraphConfig            // Configuration for the default SubgraphService
 }
 
 interface SubgraphConfig {
@@ -236,12 +272,18 @@ interface SubgraphConfig {
 
 #### Synapse Methods
 
-- `payments` - Access payment-related functionality (see below)
-- `createStorage(options?)` - Create a storage service instance (see Storage Service Creation)
-- `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
-- `download(commp, options?)` - Download a piece directly from any provider (see Download Options)
-- `getProviderInfo(providerAddress)` - Get detailed information about a storage provider
+**Instance Properties:**
+- `payments` - PaymentsService instance for token operations (see [Payment Methods](#synapepayments-methods) below)
+
+**Core Operations:**
+- `createStorage(options?)` - Create a storage service instance (returns `StorageService`, see [Storage Service Methods](#storage-service-methods) below)
+- `download(commp, options?)` - Download a piece directly from any provider (see [Download Options](#download-options))
 - `getStorageInfo()` - Get comprehensive storage service information (pricing, providers, parameters)
+- `getProviderInfo(providerAddress)` - Get detailed information about a service provider
+
+**Network & Configuration:**
+- `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
+- `getChainId()` - Get the numeric chain ID (314 for mainnet, 314159 for calibration)
 
 #### Synapse.payments Methods
 
@@ -249,7 +291,6 @@ interface SubgraphConfig {
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance()` - Get available USDFC balance in payments contract (accounting for lockups)
 - `accountInfo()` - Get detailed USDFC account info including funds, lockup details, and available balance
-- `getCurrentEpoch()` - Get the current Filecoin epoch number
 - `decimals()` - Get token decimals (always returns 18)
 
 *Note: Currently only USDFC token is supported for payments contract operations. FIL is also supported for `walletBalance()`.*
@@ -265,13 +306,31 @@ interface SubgraphConfig {
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
+#### Storage Service Methods
+
+The `StorageService` instance returned by `synapse.createStorage()` provides methods for interacting with a specific service provider and data set.
+
+**Instance Properties:**
+- `dataSetId` - The data set ID being used (string)
+- `serviceProvider` - The service provider address (string)
+
+**Core Storage Operations:**
+- `upload(data, callbacks?)` - Upload data to the service provider, returns `UploadResult` with `commp`, `size`, and `pieceId`
+- `providerDownload(commp, options?)` - Download data from this specific provider, returns `Uint8Array`
+- `preflightUpload(dataSize)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check
+
+**Information & Status:**
+- `getProviderInfo()` - Get detailed information about the selected service provider
+- `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
+- `pieceStatus(commp)` - Get the status of a piece including data set timing information
+
 ### Storage Service Creation
 
 The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain. You just call `createStorage()` and the SDK takes care of everything.
 
 Behind the scenes, the process may be:
-- **Fast (<1 second)**: When reusing existing infrastructure
-- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure
+- **Fast (<1 second)**: When reusing existing infrastructure (i.e. an existing data set previously created)
+- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
 #### Basic Usage
 
@@ -347,8 +406,8 @@ Once created, the storage service provides access to:
 // The data set ID being used
 console.log(`Data set ID: ${storage.dataSetId}`)
 
-// The storage provider address
-console.log(`Storage provider: ${storage.storageProvider}`)
+// The service provider address
+console.log(`Service provider: ${storage.serviceProvider}`)
 ```
 
 #### Storage Service Methods
@@ -395,20 +454,12 @@ const downloaded = await storage.providerDownload(result.commp)
 const pieceCids = await storage.getDataSetPieces()
 console.log(`Piece CIDs: ${pieceCids.map(cid => cid.toString()).join(', ')}`)
 
-// Check the status of a piece on the storage provider
+// Check the status of a piece on the service provider
 const status = await storage.pieceStatus(result.commp)
 console.log(`Piece exists: ${status.exists}`)
 console.log(`Data set last proven: ${status.dataSetLastProven}`)
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 ```
-
-**Storage Service Methods:**
-- `upload(data, callbacks?)` - Upload data to the storage provider
-- `providerDownload(commp, options?)` - Download data from this specific provider
-- `preflightUpload(dataSize)` - Check if an upload is possible before attempting it
-- `getProviderInfo()` - Get detailed information about the selected storage provider
-- `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
-- `pieceStatus(commp)` - Get the status of a piece including data set timing information
 
 ##### Size Constraints
 
@@ -417,6 +468,8 @@ The storage service enforces the following size limits for uploads:
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
+
+***Note: these limits are temporary during this current pre-v1 period and will eventually be extended. You can read more in [this issue thread](https://github.com/FilOzone/synapse-sdk/issues/110)***
 
 ##### Efficient Batch Uploads
 
@@ -498,7 +551,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 
 ```javascript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true })          // Default: CDN enabled
+const synapse = await Synapse.create({ withCDN: true })          // Global default for this Synapse instance: CDN enabled
 const storage = await synapse.createStorage({ withCDN: false })  // Override: CDN disabled
 await synapse.download(commp)                                    // Uses Synapse's withCDN: true
 await storage.providerDownload(commp)                            // Uses StorageService's withCDN: false
@@ -545,7 +598,7 @@ await approveTx.wait() // Wait for confirmation
 
 ### Warm Storage Service
 
-Interact with the Warm Storage contract for data set management, storage provider operations, and storage cost calculations.
+Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
 
 ```javascript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
@@ -589,7 +642,7 @@ if (verification.dataSetLive) {
   console.log(`Data set ${verification.dataSetId} is live!`)
 }
 
-// Storage provider operations
+// Service provider operations
 const isApproved = await warmStorageService.isProviderApproved(providerAddress)
 const providers = await warmStorageService.getAllApprovedProviders()
 ```
@@ -700,7 +753,7 @@ const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https:/
 // Create a data set
 const { txHash, statusUrl } = await pdpServer.createDataSet(
   clientDataSetId,     // number
-  payee,               // string (storage provider address)
+  payee,               // string (service provider address)
   withCDN,             // boolean
   recordKeeper         // string (Warm Storage contract address)
 )
@@ -948,53 +1001,6 @@ npm run test:browser  # Browser tests only
 
 ## Migration Guide
 
-### Transaction Return Types (v0.7.0+)
-
-Starting with version 0.7.0, payment methods now return `ethers.TransactionResponse` objects instead of transaction hashes. This provides more control and aligns with standard ethers.js patterns.
-
-**Before (v0.6.x and earlier):**
-```javascript
-// Methods returned transaction hash strings
-const txHash = await synapse.payments.approve(token, spender, amount)
-console.log(`Transaction: ${txHash}`)
-// Transaction was already confirmed
-```
-
-**After (v0.7.0+):**
-```javascript
-// Methods return TransactionResponse objects
-const tx = await synapse.payments.approve(token, spender, amount)
-console.log(`Transaction: ${tx.hash}`)
-// Optional: wait for confirmation when you need it
-const receipt = await tx.wait()
-console.log(`Confirmed in block ${receipt.blockNumber}`)
-```
-
-**Affected methods:**
-- `approve()` - Returns `TransactionResponse`
-- `approveService()` - Returns `TransactionResponse`
-- `revokeService()` - Returns `TransactionResponse`
-- `withdraw()` - Returns `TransactionResponse`
-- `deposit()` - Returns `TransactionResponse`, plus new callbacks for multi-step visibility
-
-**Deposit callbacks (new):**
-```javascript
-const tx = await synapse.payments.deposit(amount, TOKENS.USDFC, {
-  onAllowanceCheck: (current, required) => {
-    console.log(`Checking allowance: ${current} vs ${required}`)
-  },
-  onApprovalTransaction: (approveTx) => {
-    console.log(`Auto-approval sent: ${approveTx.hash}`)
-  },
-  onApprovalConfirmed: (receipt) => {
-    console.log(`Approval confirmed in block ${receipt.blockNumber}`)
-  },
-  onDepositStarting: () => {
-    console.log('Starting deposit transaction...')
-  }
-})
-```
-
 ### Terminology Update (v0.24.0+)
 
 Starting with version 0.24.0, the SDK introduces comprehensive terminology changes to better align with Filecoin ecosystem conventions:
@@ -1002,6 +1008,8 @@ Starting with version 0.24.0, the SDK introduces comprehensive terminology chang
 - **Pandora** → **Warm Storage**
 - **Proof Sets** → **Data Sets**
 - **Roots** → **Pieces**
+- **Storage Providers** → **Service Providers**
+  - _Note: most service providers are, in fact, storage providers, however this language reflects the emergence of new service types on Filecoin beyond storage._
 
 This is a breaking change that affects imports, type names, method names, and configuration options throughout the SDK.
 
@@ -1053,22 +1061,22 @@ warmStorageService.getAddPiecesInfo(dataSetId)
 **PDPAuthHelper:**
 ```typescript
 // Before (< v0.24.0)
-authHelper.signCreateProofSet(storageProvider, clientDataSetId)
+authHelper.signCreateProofSet(serviceProvider, clientDataSetId)
 authHelper.signAddRoots(proofSetId, rootData)
 
 // After (v0.24.0+)
-authHelper.signCreateDataSet(storageProvider, clientDataSetId)
+authHelper.signCreateDataSet(serviceProvider, clientDataSetId)
 authHelper.signAddPieces(dataSetId, pieceData)
 ```
 
 **PDPServer:**
 ```typescript
 // Before (< v0.24.0)
-pdpServer.createProofSet(storageProvider, clientDataSetId)
+pdpServer.createProofSet(serviceProvider, clientDataSetId)
 pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
 
 // After (v0.24.0+)
-pdpServer.createDataSet(storageProvider, clientDataSetId)
+pdpServer.createDataSet(serviceProvider, clientDataSetId)
 pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
 ```
 

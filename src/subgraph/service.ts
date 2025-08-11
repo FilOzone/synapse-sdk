@@ -1,5 +1,5 @@
 /**
- * SubgraphService - A service for querying a subgraph to find storage providers for a given piece.
+ * SubgraphService - A service for querying a subgraph to find service providers for a given piece.
  *
  * This service abstracts the logic for connecting to and querying a GraphQL endpoint,
  * which can be a direct URL or a Goldsky-hosted subgraph.
@@ -110,7 +110,7 @@ export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
   nextChallengeEpoch: number
   totalFaultedPeriods: number
   metadata: string
-  storageProvider: ApprovedProviderInfo
+  serviceProvider: ApprovedProviderInfo
   rail?: {
     id: string
     railId: number
@@ -145,7 +145,7 @@ export interface PieceInfo {
     id: string
     setId: number
     isActive: boolean
-    storageProvider: ApprovedProviderInfo
+    serviceProvider: ApprovedProviderInfo
   }
 }
 
@@ -164,7 +164,7 @@ export interface FaultRecord {
   dataSet: {
     id: string
     setId: number
-    storageProvider: ApprovedProviderInfo
+    serviceProvider: ApprovedProviderInfo
   }
 }
 
@@ -294,7 +294,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    */
   private transformProviderData (data: any): ApprovedProviderInfo {
     return {
-      storageProvider: data.storageProvider ?? data.address ?? data.id,
+      serviceProvider: data.serviceProvider ?? data.address ?? data.id,
       serviceURL: data.serviceURL ?? data.pdpUrl,
       peerId: data.peerId ?? '',
       registeredAt: this.parseTimestamp(data.registeredAt),
@@ -351,7 +351,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find approved storage providers that have a specific piece (CommP).
+   * Queries the subgraph to find approved service providers that have a specific piece (CommP).
    *
    * It sends a GraphQL query to the configured endpoint and parses the response to extract
    * a list of providers, including their addresses and retrieval URLs.
@@ -379,7 +379,7 @@ export class SubgraphService implements SubgraphRetrievalService {
     }
 
     const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
-      const provider = piece.dataSet.storageProvider
+      const provider = piece.dataSet.serviceProvider
       const address = provider?.address?.toLowerCase() as string
 
       if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
@@ -402,7 +402,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find a specific approved storage provider by their address.
+   * Queries the subgraph to find a specific approved service provider by their address.
    *
    * @param address - The wallet address of the provider to search for.
    * @returns A promise that resolves to an `ApprovedProviderInfo` object if the provider is found, or `null` otherwise.
@@ -523,16 +523,16 @@ export class SubgraphService implements SubgraphRetrievalService {
         dataSet.owner != null
           ? this.transformProviderData(dataSet.owner)
           : {
-              storageProvider: '',
+              serviceProvider: '',
               serviceURL: '',
               peerId: '',
               registeredAt: 0,
               approvedAt: 0
             },
-      storageProvider: dataSet.storageProvider != null
-        ? this.transformProviderData(dataSet.storageProvider)
+      serviceProvider: dataSet.serviceProvider != null
+        ? this.transformProviderData(dataSet.serviceProvider)
         : {
-            storageProvider: '',
+            serviceProvider: '',
             serviceURL: '',
             peerId: '',
             registeredAt: 0,
@@ -609,7 +609,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        storageProvider: this.transformProviderData(piece.dataSet.storageProvider)
+        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider)
       }
     }))
   }
@@ -660,7 +660,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        storageProvider: this.transformProviderData(fault.dataSet.storageProvider)
+        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider)
       }
     }))
   }

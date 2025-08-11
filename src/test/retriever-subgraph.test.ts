@@ -10,7 +10,7 @@ const mockCommP = asCommP(
 ) as CommP
 
 const mockProvider: ApprovedProviderInfo = {
-  storageProvider: '0x1234567890123456789012345678901234567890',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
   serviceURL: 'https://provider.example.com',
   peerId: 'test-peer-id',
   registeredAt: 1000,
@@ -42,7 +42,7 @@ const createMockSubgraphService = (
     },
     getProviderByAddress: async (address: string): Promise<ApprovedProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : providersToReturn ?? []
-      return providers.find((p) => p.storageProvider === address) ?? null
+      return providers.find((p) => p.serviceProvider === address) ?? null
     }
   } as any
 
@@ -168,7 +168,7 @@ describe('SubgraphRetriever', () => {
     it('should filter by providerAddress when provided (providers from service)', async () => {
       const otherProvider: ApprovedProviderInfo = {
         ...mockProvider,
-        storageProvider: '0xother'
+        serviceProvider: '0xother'
       }
       const mockService = createMockSubgraphService([mockProvider, otherProvider]) // Service returns multiple providers
       let fetchCalledForMockProvider = false
@@ -196,7 +196,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      await retriever.fetchPiece(mockCommP, 'client1', { providerAddress: mockProvider.storageProvider })
+      await retriever.fetchPiece(mockCommP, 'client1', { providerAddress: mockProvider.serviceProvider })
 
       assert.isTrue(fetchCalledForMockProvider, 'Should have fetched from the specified provider')
       assert.isFalse(fetchCalledForOtherProvider, 'Should NOT have fetched from the other provider')

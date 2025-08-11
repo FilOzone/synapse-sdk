@@ -57,7 +57,6 @@ src/
 │   ├── verifier.ts             # PDPVerifier - contract interactions
 │   ├── download-service.ts     # PDPDownloadService - piece downloads
 │   ├── upload-service.ts       # PDPUploadService - piece uploads
-│   └── storage-provider.ts     # StorageProviderTool - SP operations
 ├── storage/                    # Storage service implementation
 │   └── service.ts              # StorageService - real PDP storage implementation
 ├── utils/                      # Shared utilities
@@ -184,7 +183,7 @@ WarmStorageService (storage coordination)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
-  - Manages storage provider whitelist via `registerServiceProvider()`
+  - Manages service whitelist via `registerServiceProvider()`
   - Creates payment rails on data set creation
   - Receives callbacks from PDPVerifier via `PDPListener` interface
   - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
@@ -259,7 +258,7 @@ WarmStorageService (storage coordination)
 
 #### Payment Flow
 1. **Warm Storage** creates payment rails during data set creation
-2. Payments flow from client to storage provider based on storage size and time
+2. Payments flow from client to service provider based on storage size and time
 3. **Warm Storage** acts as arbiter for fault-based payment adjustments
 
 ### PDP Overview

@@ -16,7 +16,7 @@
  * const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com')
  *
  * // Create a data set
- * const { txHash } = await pdpServer.createDataSet(storageProvider, clientDataSetId)
+ * const { txHash } = await pdpServer.createDataSet(serviceProvider, clientDataSetId)
  *
  * // Upload a piece
  * const { commP, size } = await pdpServer.uploadPiece(data)
@@ -141,7 +141,7 @@ export class PDPServer {
   /**
    * Create a new data set on the PDP server
    * @param clientDataSetId - Unique ID for the client's dataset
-   * @param payee - Address that will receive payments (storage provider)
+   * @param payee - Address that will receive payments (service provider)
    * @param withCDN - Whether to enable CDN services
    * @param recordKeeper - Address of the Warm Storage contract
    * @returns Promise that resolves with transaction hash and status URL
@@ -506,7 +506,7 @@ export class PDPServer {
   }
 
   /**
-   * Download a piece from a storage provider
+   * Download a piece from a service provider
    * @param commP - The CommP CID of the piece
    * @returns The downloaded data
    */
@@ -609,7 +609,7 @@ export class PDPServer {
   }
 
   /**
-   * Ping the storage provider to check connectivity
+   * Ping the service provider to check connectivity
    * @returns Promise that resolves if provider is reachable (200 response)
    * @throws Error if provider is not reachable or returns non-200 status
    */

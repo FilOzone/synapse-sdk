@@ -357,15 +357,5 @@ describe('PaymentsService', () => {
         assert.equal(balance.toString(), info.availableFunds.toString())
       })
     })
-
-    describe('getCurrentEpoch', () => {
-      it('should return block number as epoch', async () => {
-        const epoch = await payments.getCurrentEpoch()
-
-        // In Filecoin, block number is the epoch
-        // Mock provider returns block number 1000000
-        assert.equal(epoch.toString(), '1000000')
-      })
-    })
   })
 })

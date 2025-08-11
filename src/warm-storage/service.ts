@@ -3,7 +3,7 @@
  *
  * This combines functionality for:
  * - Data set management and queries
- * - Storage provider registration and management
+ * - Service provider registration and management
  * - Client dataset ID tracking
  * - Data set creation verification
  *
@@ -19,7 +19,7 @@
  * const dataSets = await warmStorageService.getClientDataSets(clientAddress)
  * console.log(`Client has ${dataSets.length} data sets`)
  *
- * // Register as a storage provider
+ * // Register as a service provider
  * const signer = await provider.getSigner()
  * await warmStorageService.registerServiceProvider(signer, pdpUrl, retrievalUrl)
  * ```
@@ -750,10 +750,10 @@ export class WarmStorageService {
     }
   }
 
-  // ========== Storage Provider Operations ==========
+  // ========== Service Provider Operations ==========
 
   /**
-   * Register as a storage provider
+   * Register as a service provider
    * Requires 1 FIL registration fee to be paid to the contract
    * @param signer - Signer to register as provider
    * @param serviceURL - HTTP service URL for the provider
@@ -775,7 +775,7 @@ export class WarmStorageService {
   }
 
   /**
-   * Approve a registered storage provider (requires owner permissions)
+   * Approve a registered service provider (requires owner permissions)
    * @param signer - Signer with owner permissions
    * @param providerAddress - Address of provider to approve
    * @returns Transaction response
@@ -805,7 +805,7 @@ export class WarmStorageService {
   }
 
   /**
-   * Remove an approved storage provider (owner only)
+   * Remove an approved service provider (owner only)
    * @param signer - Signer for the contract owner account
    * @param providerId - ID of the provider to remove
    * @returns Transaction response
@@ -852,7 +852,7 @@ export class WarmStorageService {
 
     // Map new contract structure to SDK interface with backwards compatibility
     return {
-      storageProvider: info.storageProvider,
+      serviceProvider: info.serviceProvider,
       serviceURL: info.serviceURL,
       peerId: ethers.toUtf8String(info.peerId),
       registeredAt: Number(info.registeredAt),
@@ -931,7 +931,7 @@ export class WarmStorageService {
     const providers = await contract.getAllApprovedProviders()
 
     return providers.map((p: any) => ({
-      storageProvider: p.storageProvider,
+      serviceProvider: p.serviceProvider,
       serviceURL: p.serviceURL,
       peerId: ethers.toUtf8String(p.peerId),
       registeredAt: Number(p.registeredAt),

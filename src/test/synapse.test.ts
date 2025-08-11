@@ -172,7 +172,7 @@ describe('Synapse', () => {
       const storage = await synapse.createStorage()
       assert.exists(storage)
       assert.exists(storage.dataSetId)
-      assert.exists(storage.storageProvider)
+      assert.exists(storage.serviceProvider)
       assert.isFunction(storage.upload)
       assert.isFunction(storage.download)
     })
@@ -218,7 +218,7 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
       const expectedProviderInfo = {
-        storageProvider: mockProviderAddress,
+        serviceProvider: mockProviderAddress,
         serviceURL: 'https://pdp.example.com',
         peerId: 'test-peer-id',
         registeredAt: 1000000,
@@ -240,7 +240,7 @@ describe('Synapse', () => {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)'],
             [[
-              expectedProviderInfo.storageProvider,
+              expectedProviderInfo.serviceProvider,
               expectedProviderInfo.serviceURL,
               ethers.toUtf8Bytes(expectedProviderInfo.peerId),
               expectedProviderInfo.registeredAt,
@@ -256,7 +256,7 @@ describe('Synapse', () => {
         const synapse = await Synapse.create({ signer: mockSigner })
         const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
 
-        assert.equal(providerInfo.storageProvider.toLowerCase(), mockProviderAddress.toLowerCase())
+        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
         assert.equal(providerInfo.serviceURL, expectedProviderInfo.serviceURL)
         assert.equal(providerInfo.peerId, expectedProviderInfo.peerId)
         assert.equal(providerInfo.registeredAt, expectedProviderInfo.registeredAt)
@@ -460,14 +460,14 @@ describe('Synapse', () => {
       // Mock provider data
       const mockProviders = [
         {
-          storageProvider: '0x1111111111111111111111111111111111111111',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
           serviceURL: 'https://pdp1.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         },
         {
-          storageProvider: '0x2222222222222222222222222222222222222222',
+          serviceProvider: '0x2222222222222222222222222222222222222222',
           serviceURL: 'https://pdp2.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567892,
@@ -514,7 +514,7 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.storageProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
@@ -551,8 +551,8 @@ describe('Synapse', () => {
 
         // Check providers
         assert.equal(storageInfo.providers.length, 2)
-        assert.equal(storageInfo.providers[0].storageProvider, mockProviders[0].storageProvider)
-        assert.equal(storageInfo.providers[1].storageProvider, mockProviders[1].storageProvider)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
+        assert.equal(storageInfo.providers[1].serviceProvider, mockProviders[1].serviceProvider)
 
         // Check service parameters
         assert.equal(storageInfo.serviceParameters.network, 'calibration')
@@ -606,7 +606,7 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.storageProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
@@ -636,14 +636,14 @@ describe('Synapse', () => {
       // Mock provider data with a zero address
       const mockProviders = [
         {
-          storageProvider: '0x1111111111111111111111111111111111111111',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
           serviceURL: 'https://pdp1.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         },
         {
-          storageProvider: ethers.ZeroAddress,
+          serviceProvider: ethers.ZeroAddress,
           serviceURL: '',
           peerId: '',
           registeredAt: 0,
@@ -681,7 +681,7 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.storageProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
@@ -699,7 +699,7 @@ describe('Synapse', () => {
 
         // Should filter out zero address provider
         assert.equal(storageInfo.providers.length, 1)
-        assert.equal(storageInfo.providers[0].storageProvider, mockProviders[0].storageProvider)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
       } finally {
         mockProvider.call = originalCall
       }

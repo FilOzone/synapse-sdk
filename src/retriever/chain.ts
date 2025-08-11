@@ -1,7 +1,7 @@
 /**
  * ChainRetriever - Queries on-chain data to find and retrieve pieces
  *
- * This retriever uses the Warm Storage service to find storage providers
+ * This retriever uses the Warm Storage service to find service providers
  * that have the requested piece, then attempts to download from them.
  */
 

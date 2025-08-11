@@ -53,7 +53,7 @@ describe('SubgraphService', () => {
               id: mockCommP.toString(),
               dataSet: {
                 setId: '1',
-                storageProvider: {
+                serviceProvider: {
                   id: '0x123',
                   serviceURL: 'http://provider.url/pdp',
                   status: 'Approved',
@@ -80,7 +80,7 @@ describe('SubgraphService', () => {
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
-        assert.equal(providers[0].storageProvider, '0x123')
+        assert.equal(providers[0].serviceProvider, '0x123')
       } finally {
         global.fetch = originalFetch
       }
@@ -188,7 +188,7 @@ describe('SubgraphService', () => {
       const provider = await service.getProviderByAddress(mockAddress)
 
       assert.isNotNull(provider)
-      assert.equal(provider?.storageProvider, mockAddress)
+      assert.equal(provider?.serviceProvider, mockAddress)
     })
 
     it('should return null if provider not found', async () => {
@@ -298,8 +298,8 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 2)
-          assert.equal(providers[0].storageProvider, '0x123')
-          assert.equal(providers[1].storageProvider, '0x456')
+          assert.equal(providers[0].serviceProvider, '0x123')
+          assert.equal(providers[1].serviceProvider, '0x456')
         } finally {
           global.fetch = originalFetch
         }
@@ -348,7 +348,7 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 1)
-          assert.equal(providers[0].storageProvider, '0x123')
+          assert.equal(providers[0].serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -407,7 +407,7 @@ describe('SubgraphService', () => {
                 metadata: 'test metadata',
                 createdAt: '1640995200',
                 updatedAt: '1641081600',
-                storageProvider: {
+                serviceProvider: {
                   id: '0x123',
                   address: '0x123',
                   serviceURL: 'https://provider1.com',
@@ -448,7 +448,7 @@ describe('SubgraphService', () => {
           assert.equal(dataSets[0].id, 'data-set-1')
           assert.equal(dataSets[0].setId, 1)
           assert.equal(dataSets[0].isActive, true)
-          assert.equal(dataSets[0].storageProvider.storageProvider, '0x123')
+          assert.equal(dataSets[0].serviceProvider.serviceProvider, '0x123')
           assert.isObject(dataSets[0].rail)
           assert.equal(dataSets[0].rail?.railId, 1)
         } finally {
@@ -480,7 +480,7 @@ describe('SubgraphService', () => {
                 metadata: 'active data set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
-                storageProvider: {
+                serviceProvider: {
                   id: '0x456',
                   address: '0x456',
                   serviceURL: 'https://provider2.com',
@@ -549,7 +549,7 @@ describe('SubgraphService', () => {
                   id: 'data-set-1',
                   setId: '1',
                   isActive: true,
-                  storageProvider: {
+                  serviceProvider: {
                     id: '0x123',
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
@@ -582,7 +582,7 @@ describe('SubgraphService', () => {
           assert.equal(pieces[0].id, 'piece-1')
           assert.equal(pieces[0].pieceId, 100)
           assert.equal(pieces[0].removed, false)
-          assert.equal(pieces[0].dataSet.storageProvider.storageProvider, '0x123')
+          assert.equal(pieces[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -612,7 +612,7 @@ describe('SubgraphService', () => {
                   id: 'data-set-2',
                   setId: '2',
                   isActive: true,
-                  storageProvider: {
+                  serviceProvider: {
                     id: '0x456',
                     address: '0x456',
                     serviceURL: 'https://provider2.com',
@@ -676,7 +676,7 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'data-set-1',
                   setId: '1',
-                  storageProvider: {
+                  serviceProvider: {
                     id: '0x123',
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
@@ -709,7 +709,7 @@ describe('SubgraphService', () => {
           assert.equal(faultRecords[0].id, 'fault-1')
           assert.equal(faultRecords[0].dataSetId, 1)
           assert.deepEqual(faultRecords[0].pieceIds, [100, 101, 102])
-          assert.equal(faultRecords[0].dataSet.storageProvider.storageProvider, '0x123')
+          assert.equal(faultRecords[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -731,7 +731,7 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'data-set-2',
                   setId: '2',
-                  storageProvider: {
+                  serviceProvider: {
                     id: '0x456',
                     address: '0x456',
                     serviceURL: 'https://provider2.com',

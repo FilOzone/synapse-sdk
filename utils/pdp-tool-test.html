@@ -185,12 +185,12 @@
             <div class="help-text">Address of the Warm Storage service contract</div>
         </div>
 
-        <!-- STORAGE PROVIDERS SECTION -->
+        <!-- SERVICE PROVIDERS SECTION -->
         <div class="section">
-            <h2>Storage Providers</h2>
+            <h2>Service Providers</h2>
             <div class="form-group">
                 <button id="listProvidersBtn">List Approved Providers</button>
-                <div class="help-text">View all storage providers approved to use this Warm Storage service</div>
+                <div class="help-text">View all service providers approved to use this Warm Storage service</div>
             </div>
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
         </div>
@@ -200,9 +200,9 @@
             <h2>Create Data Set</h2>
 
             <div class="form-group">
-                <label for="payee">Storage Provider Address:</label>
+                <label for="payee">Service Provider Address:</label>
                 <input type="text" id="payee" value="" placeholder="0x..." />
-                <div class="help-text">Address of the storage provider that will receive payments (must be whitelisted in Warm Storage)</div>
+                <div class="help-text">Address of the service provider that will receive payments (must be whitelisted in Warm Storage)</div>
             </div>
 
             <div class="form-group">
@@ -489,7 +489,7 @@ Warm Storage: ${warmStorageAddress}`, 'success')
             const payee = document.getElementById('payee').value
 
             if (!payee || !ethers.isAddress(payee)) {
-                throw new Error('Please enter a valid storage provider address')
+                throw new Error('Please enter a valid service provider address')
             }
 
             return { pdpEndpoint, warmStorageAddress, payee }
@@ -846,7 +846,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'}\n`
                         message += `   Current Pieces: ${ps.currentPieceCount}\n`
                         message += `   Next Piece ID: ${ps.nextPieceId}\n`
-                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   Service Provider: ${ps.payee}\n`
                         message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n`
                         message += `   Commission: ${ps.commissionBps / 100}%\n\n`
                     })
@@ -858,7 +858,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                         message += `${index + 1}. Data Set ID: ${ps.pdpVerifierDataSetId} (Dataset ${ps.clientDataSetId})\n`
                         message += `   Status: ${ps.isLive ? '🟢 Live' : '🔴 Not Live'} - Cannot manage from this interface\n`
                         message += `   Current Pieces: ${ps.currentPieceCount}\n`
-                        message += `   Storage Provider: ${ps.payee}\n`
+                        message += `   Service Provider: ${ps.payee}\n`
                         message += `   CDN: ${ps.withCDN ? 'Yes' : 'No'}\n\n`
                     })
                 }
@@ -985,11 +985,11 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                 const providers = await warmStorageService.getAllApprovedProviders()
                 
                 if (providers.length === 0) {
-                    providersDiv.textContent = 'No approved storage providers found'
+                    providersDiv.textContent = 'No approved service providers found'
                     return
                 }
 
-                let message = `Found ${providers.length} approved storage provider(s):\n\n`
+                let message = `Found ${providers.length} approved service provider(s):\n\n`
                 providers.forEach((provider, index) => {
                     message += `${index + 1}. ${provider.owner}\n`
                     message += `   PDP URL: ${provider.pdpUrl}\n`

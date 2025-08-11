@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storage Provider Tool</title>
+    <title>Service Provider Tool</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
     <script src="../dist/browser/synapse-sdk.min.js"></script>
     <style>
@@ -146,7 +146,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Storage Provider Tool</h1>
+        <h1>Service Provider Tool</h1>
         
         <div class="status info">
             <div class="input-group">
@@ -189,8 +189,8 @@
         </div>
 
         <div id="registerTab" class="tab-content active">
-            <h2>Register as Storage Provider</h2>
-            <p>Storage providers use this to register their service URLs.</p>
+            <h2>Register as Service Provider</h2>
+            <p>Service providers use this to register their service URLs.</p>
             
             <div class="input-group">
                 <label for="pdpUrl">PDP API URL:</label>
@@ -260,7 +260,7 @@
     </div>
 
     <script>
-        const { StorageProviderTool } = window.SynapseSDK;
+        const { ServiceProviderTool } = window.SynapseSDK;
         
         let tool = null;
         let provider = null;
@@ -312,7 +312,7 @@
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
                 CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
-                tool = new StorageProviderTool(CONTRACT_ADDRESS, signer);
+                tool = new ServiceProviderTool(CONTRACT_ADDRESS, signer);
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
@@ -336,7 +336,7 @@
                 provider = new ethers.JsonRpcProvider(RPC_URL);
                 signer = new ethers.Wallet(privateKey, provider);
                 CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
-                tool = new StorageProviderTool(CONTRACT_ADDRESS, signer);
+                tool = new ServiceProviderTool(CONTRACT_ADDRESS, signer);
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
@@ -379,7 +379,7 @@
             }
             
             try {
-                log('Registering storage provider...', 'info');
+                log('Registering service provider...', 'info');
                 const tx = await tool.register(pdpUrl, retrievalUrl);
                 log(`Transaction sent: ${tx.hash}`, 'info');
                 

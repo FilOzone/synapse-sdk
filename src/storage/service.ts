@@ -2,7 +2,7 @@
  * StorageService - High-level interface for storage operations with automatic provider selection
  *
  * This service provides a simplified interface for uploading and downloading data
- * to/from Filecoin storage providers. It handles:
+ * to/from Filecoin service providers. It handles:
  * - Automatic provider selection based on availability
  * - Data set creation and management
  * - CommP calculation and validation
@@ -41,7 +41,7 @@ import { type Synapse } from '../synapse.js'
 import { type WarmStorageService } from '../warm-storage/index.js'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
 import { asCommP } from '../commp/index.js'
-import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, epochToDate, calculateLastProofDate, timeUntilEpoch } from '../utils/index.js'
+import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, epochToDate, calculateLastProofDate, timeUntilEpoch, getCurrentEpoch } from '../utils/index.js'
 
 export class StorageService {
   private readonly _synapse: Synapse
@@ -66,7 +66,7 @@ export class StorageService {
 
   // Public properties from interface
   public readonly dataSetId: string
-  public readonly storageProvider: string
+  public readonly serviceProvider: string
 
   /**
    * Validate data size against minimum and maximum limits
@@ -115,7 +115,7 @@ export class StorageService {
 
     // Set public properties
     this.dataSetId = dataSetId.toString()
-    this.storageProvider = provider.storageProvider
+    this.serviceProvider = provider.serviceProvider
 
     // Get WarmStorage address from Synapse (which already handles override)
     this._warmStorageAddress = synapse.getWarmStorageAddress()
@@ -226,7 +226,7 @@ export class StorageService {
     performance.mark('synapse:pdpServer.createDataSet-start')
     const createResult = await pdpServer.createDataSet(
       nextDatasetId, // clientDataSetId
-      provider.storageProvider, // payee (storage provider)
+      provider.serviceProvider, // payee (service provider address)
       withCDN,
       warmStorageAddress // recordKeeper (WarmStorage contract)
     )
@@ -518,7 +518,7 @@ export class StorageService {
       warmStorageService.getClientDataSetsWithDetails(signerAddress)
     ])
 
-    if (provider.storageProvider === '0x0000000000000000000000000000000000000000') {
+    if (provider.serviceProvider === '0x0000000000000000000000000000000000000000') {
       throw createError(
         'StorageService',
         'resolveByProviderId',
@@ -528,7 +528,7 @@ export class StorageService {
 
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.storageProvider.toLowerCase() &&
+      ps => ps.payee.toLowerCase() === provider.serviceProvider.toLowerCase() &&
             ps.isLive &&
             ps.isManaged &&
             ps.withCDN === withCDN
@@ -635,9 +635,9 @@ export class StorageService {
             continue
           }
           const provider = await warmStorageService.getApprovedProvider(providerId)
-          if (provider.storageProvider !== '0x0000000000000000000000000000000000000000' &&
-              !yieldedProviders.has(provider.storageProvider.toLowerCase())) {
-            yieldedProviders.add(provider.storageProvider.toLowerCase())
+          if (provider.serviceProvider !== '0x0000000000000000000000000000000000000000' &&
+              !yieldedProviders.has(provider.serviceProvider.toLowerCase())) {
+            yieldedProviders.add(provider.serviceProvider.toLowerCase())
             yield provider
           }
         }
@@ -647,7 +647,7 @@ export class StorageService {
 
       // Find the first matching data set ID for this provider
       const matchingDataSet = sorted.find(ps =>
-        ps.payee.toLowerCase() === selectedProvider.storageProvider.toLowerCase()
+        ps.payee.toLowerCase() === selectedProvider.serviceProvider.toLowerCase()
       )
 
       if (matchingDataSet == null) {
@@ -671,7 +671,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         'smartSelectProvider',
-        'No approved storage providers available'
+        'No approved service providers available'
       )
     }
 
@@ -762,7 +762,7 @@ export class StorageService {
         await providerPdpServer.ping()
         return provider
       } catch (error) {
-        console.warn(`Provider ${provider.storageProvider} failed ping test:`, error instanceof Error ? error.message : String(error))
+        console.warn(`Provider ${provider.serviceProvider} failed ping test:`, error instanceof Error ? error.message : String(error))
         // Continue to next provider
       }
     }
@@ -816,7 +816,7 @@ export class StorageService {
   }
 
   /**
-   * Upload data to the storage provider
+   * Upload data to the service provider
    */
   async upload (data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
@@ -828,7 +828,7 @@ export class StorageService {
     // Validate size before proceeding
     StorageService.validateRawSize(sizeBytes, 'upload')
 
-    // Upload Phase: Upload data to storage provider
+    // Upload Phase: Upload data to service provider
     let uploadResult: { commP: CommP, size: number }
     try {
       performance.mark('synapse:pdpServer.uploadPiece-start')
@@ -841,7 +841,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         'uploadPiece',
-        'Failed to upload piece to storage provider',
+        'Failed to upload piece to service provider',
         error
       )
     }
@@ -872,7 +872,7 @@ export class StorageService {
       throw createError(
         'StorageService',
         'findPiece',
-        'Timeout waiting for piece to be parked on storage provider'
+        'Timeout waiting for piece to be parked on service provider'
       )
     }
 
@@ -1119,7 +1119,7 @@ export class StorageService {
   }
 
   /**
-   * Download data from this specific storage provider
+   * Download data from this specific service provider
    * @param commp - The CommP identifier
    * @param options - Download options (currently unused but reserved for future)
    * @returns The downloaded data
@@ -1127,13 +1127,13 @@ export class StorageService {
   async providerDownload (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
     // Pass through to Synapse with our provider hint and withCDN setting
     return await this._synapse.download(commp, {
-      providerAddress: this._provider.storageProvider,
+      providerAddress: this._provider.serviceProvider,
       withCDN: this._withCDN // Pass StorageService's withCDN
     })
   }
 
   /**
-   * Download data from the storage provider
+   * Download data from the service provider
    * @deprecated Use providerDownload() for downloads from this specific provider.
    * This method will be removed in a future version.
    */
@@ -1142,15 +1142,15 @@ export class StorageService {
   }
 
   /**
-   * Get information about the storage provider used by this service
+   * Get information about the service provider used by this service
    * @returns Provider information including pricing (currently same for all providers)
    */
   async getProviderInfo (): Promise<ApprovedProviderInfo> {
-    return await this._synapse.getProviderInfo(this.storageProvider)
+    return await this._synapse.getProviderInfo(this.serviceProvider)
   }
 
   /**
-   * Get the list of piece CIDs for this storage service's data set by querying the PDP server.
+   * Get the list of piece CIDs for this service service's data set by querying the PDP server.
    * @returns Array of piece CIDs as CommP objects
    */
   async getDataSetPieces (): Promise<CommP[]> {
@@ -1159,7 +1159,7 @@ export class StorageService {
   }
 
   /**
-   * Check if a piece exists on this storage provider and get its proof status.
+   * Check if a piece exists on this service provider and get its proof status.
    * Also returns timing information about when the piece was last proven and when the next
    * proof is due.
    *
@@ -1186,7 +1186,7 @@ export class StorageService {
         return null
       }),
       // Get current epoch
-      this._synapse.payments.getCurrentEpoch()
+      getCurrentEpoch(this._synapse.getProvider())
     ])
 
     const exists = pieceCheckResult

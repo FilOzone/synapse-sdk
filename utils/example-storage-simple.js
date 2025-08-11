@@ -41,7 +41,7 @@ async function main () {
 
   // Create storage service
   const storage = await synapse.createStorage()
-  console.log('Storage provider:', storage.storageProvider)
+  console.log('Service provider:', storage.serviceProvider)
   console.log('Data set ID:', storage.dataSetId)
 
   // Create test data (must be at least 65 bytes for CommP calculation)

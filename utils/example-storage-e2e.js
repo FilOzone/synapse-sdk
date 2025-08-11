@@ -107,7 +107,7 @@ async function main () {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`✓ Selected storage provider: ${provider.storageProvider}`)
+          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
         },
         onDataSetResolved: (info) => {
           if (info.isExisting) {
@@ -137,9 +137,9 @@ async function main () {
     */
 
     // Get detailed provider information
-    console.log('\n--- Storage Provider Details ---')
+    console.log('\n--- Service Provider Details ---')
     const providerInfo = await storageService.getProviderInfo()
-    console.log(`Storage Provider: ${providerInfo.storageProvider}`)
+    console.log(`Service Provider: ${providerInfo.serviceProvider}`)
     console.log(`Service URL: ${providerInfo.serviceURL}`)
     console.log(`Peer ID: ${providerInfo.peerId}`)
     console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
@@ -167,7 +167,7 @@ async function main () {
 
     // Step 6: Upload the file
     console.log('\n--- Uploading File ---')
-    console.log('Uploading to storage provider...')
+    console.log('Uploading to service provider...')
 
     // Note: With updated Curio servers, you'll get enhanced transaction tracking
     // The callbacks below demonstrate both old and new server compatibility
@@ -238,8 +238,8 @@ async function main () {
     console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)
     console.log(`- Data set ID: ${storageService.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
-    console.log(`- Storage provider: ${storageService.storageProvider}`)
-    console.log('\nThe storage provider will periodically prove they still have your data.')
+    console.log(`- Service provider: ${storageService.serviceProvider}`)
+    console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
     console.error('\n❌ Error:', error.message)

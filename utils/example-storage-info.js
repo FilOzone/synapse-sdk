@@ -81,8 +81,8 @@ async function main () {
     console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerDay)}`)
     console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerEpoch)}`)
 
-    // Display storage providers
-    console.log('\n--- Storage Providers ---')
+    // Display service providers
+    console.log('\n--- Service Providers ---')
     if (storageInfo.providers.length === 0) {
       console.log('No approved providers found')
     } else {
@@ -90,7 +90,7 @@ async function main () {
 
       storageInfo.providers.forEach((provider, index) => {
         console.log(`\nProvider ${index + 1}:`)
-        console.log(`  Address:    ${provider.storageProvider}`)
+        console.log(`  Address:    ${provider.serviceProvider}`)
         console.log(`  Service URL: ${provider.serviceURL}`)
         console.log(`  Peer ID:     ${provider.peerId}`)
         console.log(`  Registered: ${formatTimestamp(provider.registeredAt)}`)

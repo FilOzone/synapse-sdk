@@ -5,7 +5,7 @@
 
 import { ethers } from 'ethers'
 import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS } from '../utils/index.js'
+import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS, getCurrentEpoch } from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -126,7 +126,7 @@ export class PaymentsService {
     const [funds, lockupCurrent, lockupRate, lockupLastSettledAt] = accountData
 
     // Calculate time-based lockup
-    const currentEpoch = await this.getCurrentEpoch()
+    const currentEpoch = await getCurrentEpoch(this._provider)
     const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
     const actualLockup = BigInt(lockupCurrent) + (BigInt(lockupRate) * epochsSinceSettlement)
 
@@ -140,18 +140,6 @@ export class PaymentsService {
       lockupLastSettledAt: BigInt(lockupLastSettledAt),
       availableFunds: availableFunds > 0n ? availableFunds : 0n
     }
-  }
-
-  /**
-   * Get the current epoch from the blockchain
-   */
-  async getCurrentEpoch (): Promise<bigint> {
-    const block = await this._provider.getBlock('latest')
-    if (block == null) {
-      throw createError('PaymentsService', 'getCurrentEpoch', 'Failed to get latest block')
-    }
-    // In Filecoin, the block number is the epoch
-    return BigInt(block.number)
   }
 
   async walletBalance (token?: TokenIdentifier): Promise<bigint> {

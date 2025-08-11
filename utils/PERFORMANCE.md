@@ -102,7 +102,7 @@ The benchmark:
 **Piece Upload Timing**: Upload times are highly dependent on multiple factors:
 - **Upload bandwidth**: 100 MiB at 50 Mbps ≈ 16 seconds (theoretical), but real-world is 30-45 seconds with overhead
 - **Upload bandwidth**: 100 MiB at 1 Gbps ≈ 1 second (theoretical), likely 5-10 seconds real-world
-- **Server performance**: Storage provider server specs significantly impact processing time
+- **Server performance**: Service provider server specs significantly impact processing time
 - **Geographic distance**: Latency and routing affect throughput
 - **Piece size**: Larger pieces scale linearly with bandwidth constraints
 
@@ -111,12 +111,12 @@ The benchmark:
 - **Piece upload**: Scales linearly with size and bandwidth constraints
 - **Other operations**: Generally size-independent (transaction confirmations, server acknowledgments)
 
-**Geographic Impact**: The timing ranges above reflect real-world usage across different geographic regions. Same-region deployments (client and storage provider in the same data center or region) will see times at the lower end of these ranges, while international usage will approach the upper bounds.
+**Geographic Impact**: The timing ranges above reflect real-world usage across different geographic regions. Same-region deployments (client and service provider in the same data center or region) will see times at the lower end of these ranges, while international usage will approach the upper bounds.
 
 ### Understanding Wait Times
 
 Most operation time is spent waiting for:
 1. **Blockchain Confirmations** - Transaction finality (largest component, Filecoin's block time is 30 seconds)
-2. **Server Processing** - Storage provider internal operations
+2. **Server Processing** - Service provider internal operations
 3. **Network Propagation** - RPC node synchronization
 4. **CommP Calculation** - CPU-intensive custom hash function required on the client side to validate upload (scales linearly with piece size)

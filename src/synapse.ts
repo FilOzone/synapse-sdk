@@ -281,7 +281,7 @@ export class Synapse {
 
   /**
    * Create a storage service instance.
-   * Automatically selects the best available storage provider and creates or reuses a data set.
+   * Automatically selects the best available service provider and creates or reuses a data set.
    *
    * @param options - Optional storage configuration
    * @returns A configured StorageService instance ready for uploads/downloads
@@ -314,7 +314,7 @@ export class Synapse {
   }
 
   /**
-   * Download data from storage providers
+   * Download data from service providers
    * @param commp - The CommP identifier (string or CommP object)
    * @param options - Download options
    * @returns The downloaded data as Uint8Array
@@ -355,7 +355,7 @@ export class Synapse {
   }
 
   /**
-   * Get detailed information about a specific storage provider
+   * Get detailed information about a specific service provider
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
@@ -382,7 +382,7 @@ export class Synapse {
       const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
 
       // Check if provider was found
-      if (providerInfo.storageProvider === ethers.ZeroAddress) {
+      if (providerInfo.serviceProvider === ethers.ZeroAddress) {
         throw new Error(`Provider ${providerAddress} not found`)
       }
 
@@ -448,7 +448,7 @@ export class Synapse {
       const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
-      const validProviders = providers.filter((p: ApprovedProviderInfo) => p.storageProvider !== ethers.ZeroAddress)
+      const validProviders = providers.filter((p: ApprovedProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
 
       return {
         pricing: {

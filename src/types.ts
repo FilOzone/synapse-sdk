@@ -14,7 +14,7 @@ export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
 export type DataSetId = string
-export type StorageProvider = string
+export type ServiceProvider = string
 
 /**
  * Supported Filecoin network types
@@ -34,26 +34,36 @@ export type TokenIdentifier = 'USDFC' | string
  * 3. signer (for direct ethers.js integration)
  */
 export interface SynapseOptions {
+  // Wallet Configuration (exactly one required)
+
   /** Private key for signing transactions (requires rpcURL) */
   privateKey?: PrivateKey
-  /** RPC URL for Filecoin node (required with privateKey) */
-  rpcURL?: string
-  /** Authorization header value for API authentication (e.g., Bearer token) */
-  authorization?: string
   /** Ethers Provider instance (handles both reads and transactions) */
   provider?: ethers.Provider
   /** Ethers Signer instance (for direct ethers.js integration) */
   signer?: ethers.Signer
-  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
-  disableNonceManager?: boolean
+
+  // Network Configuration
+
+  /** RPC URL for Filecoin node (required with privateKey) */
+  rpcURL?: string
+  /** Authorization header value for API authentication (e.g., Bearer token) */
+  authorization?: string
+
+  // Advanced Configuration
+
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+  /** Optional override for piece retrieval */
+  pieceRetriever?: PieceRetriever
+  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
+  disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
   /** Override PDPVerifier contract address (defaults to network's default) */
   pdpVerifierAddress?: string
-  /** Optional override for piece retrieval */
-  pieceRetriever?: PieceRetriever
+
+  // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
@@ -66,8 +76,8 @@ export interface SynapseOptions {
 export interface StorageOptions {
   /** Existing data set ID to use (optional) */
   dataSetId?: DataSetId
-  /** Preferred storage provider (optional) */
-  storageProvider?: StorageProvider
+  /** Preferred service provider (optional) */
+  serviceProvider?: ServiceProvider
 }
 
 /**
@@ -76,8 +86,8 @@ export interface StorageOptions {
 export interface UploadTask {
   /** Get the CommP (Piece CID) once calculated */
   commp: () => Promise<CommP>
-  /** Get the storage provider once data is stored */
-  store: () => Promise<StorageProvider>
+  /** Get the service provider once data is stored */
+  store: () => Promise<ServiceProvider>
   /** Wait for the entire upload process to complete, returns transaction hash */
   done: () => Promise<string>
 }
@@ -225,11 +235,11 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
 }
 
 /**
- * Information about an approved storage provider
+ * Information about an approved service provider
  */
 export interface ApprovedProviderInfo {
-  /** Storage provider address */
-  storageProvider: string
+  /** Service provider address */
+  serviceProvider: string
   /** Service URL */
   serviceURL: string
   /** Peer ID */
@@ -245,7 +255,7 @@ export interface ApprovedProviderInfo {
  */
 export interface StorageCreationCallbacks {
   /**
-   * Called when a storage provider has been selected
+   * Called when a service provider has been selected
    * @param provider - The selected provider info
    */
   onProviderSelected?: (provider: ApprovedProviderInfo) => void
@@ -319,7 +329,7 @@ export interface PreflightInfo {
     sufficient: boolean
     message?: string
   }
-  /** Selected storage provider */
+  /** Selected service provider */
   selectedProvider: ApprovedProviderInfo
   /** Selected data set ID */
   selectedDataSetId: number
@@ -329,7 +339,7 @@ export interface PreflightInfo {
  * Upload progress callbacks
  */
 export interface UploadCallbacks {
-  /** Called when upload to storage provider completes */
+  /** Called when upload to service provider completes */
   onUploadComplete?: (commp: CommP) => void
   /** Called when piece is added to data set (with optional transaction for new servers) */
   onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
@@ -379,7 +389,7 @@ export interface StorageInfo {
     tokenSymbol: string
   }
 
-  /** List of approved storage providers */
+  /** List of approved service providers */
   providers: ApprovedProviderInfo[]
 
   /** Service configuration parameters */
@@ -451,7 +461,7 @@ export interface DataSetPieceData {
  * The timing information reflects the data set's status.
  */
 export interface PieceStatus {
-  /** Whether the piece exists on the storage provider */
+  /** Whether the piece exists on the service provider */
   exists: boolean
   /** When the data set containing this piece was last proven on-chain (null if never proven or not yet due) */
   dataSetLastProven: Date | null
@@ -473,7 +483,7 @@ export interface PieceStatus {
  * Result of provider selection and data set resolution
  */
 export interface ProviderSelectionResult {
-  /** Selected storage provider */
+  /** Selected service provider */
   provider: ApprovedProviderInfo
   /** Selected data set ID */
   dataSetId: number
