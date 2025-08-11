@@ -4,6 +4,7 @@
 
 import type {
   CommP,
+  CommPv2,
   PieceRetriever,
   ApprovedProviderInfo,
   SubgraphRetrievalService
@@ -23,7 +24,7 @@ export class SubgraphRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  async findProviders (commp: CommP, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
+  async findProviders (commp: CommP | CommPv2, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
     if (providerAddress != null) {
       const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
@@ -32,7 +33,7 @@ export class SubgraphRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    commp: CommP,
+    commp: CommP | CommPv2,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> {

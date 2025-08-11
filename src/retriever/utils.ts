@@ -2,7 +2,7 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { ApprovedProviderInfo, CommP } from '../types.js'
+import type { ApprovedProviderInfo, CommP, CommPv2 } from '../types.js'
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { createError } from '../utils/errors.js'
 
@@ -22,7 +22,7 @@ interface ProviderAttemptResult {
  */
 export async function fetchPiecesFromProviders (
   providers: ApprovedProviderInfo[],
-  commp: CommP,
+  commp: CommP | CommPv2,
   retrieverName: string,
   signal?: AbortSignal
 ): Promise<Response> {

@@ -6,10 +6,10 @@
  */
 
 import type { ethers } from 'ethers'
-import type { CommP } from './commp/index.js'
+import type { CommP, CommPv2 } from './commp/index.js'
 
 // Re-export CommP type
-export type { CommP }
+export type { CommP, CommPv2 }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
@@ -114,7 +114,7 @@ export interface PieceRetriever {
    * @returns A Response object that can be processed for the piece data
    */
   fetchPiece: (
-    commp: CommP, // Internal interface uses CommP type for validation
+    commp: CommP | CommPv2, // Internal interface uses CommP type for validation
     client: string,
     options?: {
       providerAddress?: string // Restrict to specific provider
@@ -159,7 +159,7 @@ export interface SubgraphRetrievalService {
    * @param commP - The CommP of the data segment.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    */
-  getApprovedProvidersForCommP: (commP: CommP) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForCommP: (commP: CommP | CommPv2) => Promise<ApprovedProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.
@@ -191,7 +191,7 @@ export interface AuthSignature {
  */
 export interface PieceData {
   /** The CommP CID */
-  cid: CommP | string
+  cid: CommP | CommPv2 | string
   /** The raw (unpadded) size of the original data in bytes */
   rawSize: number
 }
@@ -448,9 +448,9 @@ export interface DataSetPieceData {
   /** Piece ID within the data set */
   pieceId: number
   /** The piece CID */
-  pieceCid: CommP
+  pieceCid: CommP | CommPv2
   /** Sub-piece CID (usually same as pieceCid) */
-  subPieceCid: CommP
+  subPieceCid: CommP | CommPv2
   /** Sub-piece offset */
   subPieceOffset: number
 }

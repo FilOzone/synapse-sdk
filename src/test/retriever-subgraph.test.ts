@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import { SubgraphRetriever } from '../retriever/subgraph.js'
 import { SubgraphService } from '../subgraph/index.js' // Import SubgraphService
-import type { SubgraphConfig, PieceRetriever, ApprovedProviderInfo, CommP } from '../types.js'
+import type { SubgraphConfig, PieceRetriever, ApprovedProviderInfo, CommP, CommPv2 } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 const mockCommP = asCommP(
@@ -19,7 +19,7 @@ const mockProvider: ApprovedProviderInfo = {
 
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    commP: CommP,
+    commP: CommP | CommPv2,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> => {

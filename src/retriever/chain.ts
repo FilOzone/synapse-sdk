@@ -6,7 +6,7 @@
  */
 
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { CommP, PieceRetriever, ApprovedProviderInfo } from '../types.js'
+import type { CommP, CommPv2, PieceRetriever, ApprovedProviderInfo } from '../types.js'
 import { fetchPiecesFromProviders } from './utils.js'
 import { createError } from '../utils/index.js'
 
@@ -71,7 +71,7 @@ export class ChainRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    commp: CommP,
+    commp: CommP | CommPv2,
     client: string,
     options?: { providerAddress?: string, withCDN?: boolean, signal?: AbortSignal }
   ): Promise<Response> {

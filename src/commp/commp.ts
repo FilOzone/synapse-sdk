@@ -6,7 +6,7 @@
 
 import { CID } from 'multiformats/cid'
 import * as Digest from 'multiformats/hashes/digest'
-import { LegacyPieceLink, PieceDigest, Fr32 } from '@web3-storage/data-segment'
+import { PieceLink, LegacyPieceLink, PieceDigest, Fr32 } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 
 // Filecoin-specific constants
@@ -24,6 +24,7 @@ export const SHA2_256_TRUNC254_PADDED = 0x1012
  * content length and the height of the merkle tree.
  */
 export type CommP = LegacyPieceLink
+export type CommPv2 = PieceLink
 
 /**
  * Determine the additional bytes of zeroed padding to append to the
@@ -53,23 +54,19 @@ export function toPieceSize (payloadSize: number): number {
  * @param commpString - The CommP as a string (base32 or other multibase encoding)
  * @returns The parsed and validated CommP CID or null if invalid
  */
-function parseCommP (commpString: string): CommP | null {
+function parseCommP (commpString: string): CommP | CommPv2 | null {
   try {
     const cid = CID.parse(commpString)
 
-    // Validate it's a proper CommP
-    if (cid.code !== FIL_COMMITMENT_UNSEALED) {
-      return null
+    if (cid.code === FIL_COMMITMENT_UNSEALED && cid.multihash.code === SHA2_256_TRUNC254_PADDED) {
+      return cid as CommP
     }
-
-    if (cid.multihash.code !== SHA2_256_TRUNC254_PADDED) {
-      return null
+    if (cid.code === 0x55 && cid.multihash.code === Hasher.code) {
+      return cid as CommPv2
     }
-
-    return cid as CommP
   } catch {
-    return null
   }
+  return null
 }
 
 /**
@@ -82,23 +79,31 @@ function isValidCommP (cid: CommP | CID): cid is CommP {
          cid.multihash.code === SHA2_256_TRUNC254_PADDED
 }
 
+function isValidCommPv2 (cid: CommPv2 | CID): cid is CommPv2 {
+  return cid.code === 0x55 &&
+         cid.multihash.code === Hasher.code
+}
+
 /**
  * Convert a CommP input (string or CID) to a validated CID
  * This is the main function to use when accepting CommP inputs
  * @param commpInput - CommP as either a CID object or string
  * @returns The validated CommP CID or null if not a valid CommP
+ * // TODO(CIDv2): support CommPv2 instead of CommPv1 in asCommP
  */
-export function asCommP (commpInput: CommP | CID | string): CommP | null {
+export function asCommP (commpInput: CommP | CommPv2 | CID | string): CommP | CommPv2 | null {
   if (typeof commpInput === 'string') {
     return parseCommP(commpInput)
   }
 
-  if (typeof commpInput === 'object' && CID.asCID(commpInput) !== null) {
+  if (typeof commpInput === 'object' && CID.asCID(commpInput as CID) !== null) {
     // It's already a CID, validate it
-    if (!isValidCommP(commpInput)) {
-      return null
+    if (isValidCommP(commpInput as CID)) {
+      return commpInput as CommP
     }
-    return commpInput
+    if (isValidCommPv2(commpInput as CID)) {
+      return commpInput as CommPv2
+    }
   }
 
   return null
