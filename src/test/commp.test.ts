@@ -34,7 +34,7 @@ const zeroCommpFixture = `
   })
 
 describe('CommP utilities', () => {
-  const validCommPString = 'baga6ea4seaqjtovkwk4myyzj56eztkh5pzsk5upksan6f5outesy62bsvl4dsha'
+  const validCommPString = 'bafkzcibcaaces3nobte6ezpp4wqan2age2s5yxcatzotcvobhgcmv5wi2xh5mbi'
   const invalidCidString = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' // CIDv0, not CommP
 
   describe('asCommP', () => {

@@ -6,24 +6,25 @@
 
 import { CID } from 'multiformats/cid'
 import * as Digest from 'multiformats/hashes/digest'
-import { LegacyPieceLink, PieceDigest, Fr32 } from '@web3-storage/data-segment'
+import { PieceLink, LegacyPieceLink, PieceDigest, Fr32 } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 
 // Filecoin-specific constants
 export const FIL_COMMITMENT_UNSEALED = 0xf101
 export const SHA2_256_TRUNC254_PADDED = 0x1012
+export const RAW = 0x55
+export const FR32_SHA256_TRUNC254_PADDED = 0x1011
 
 /**
  * CommP - A constrained CID type for Piece Commitments
  * This is implemented as a Link type which is made concrete by a CID. A CommP
- * uses the fil-commitment-unsealed codec (0xf101) and
- * sha2-256-trunc254-padded multihash function (0x1012). This will eventually be
- * replaced by a CommPv2 which uses the raw codec (0x55) and the
+ * uses the the raw codec (0x55) and the
  * fr32-sha256-trunc254-padbintree multihash function (0x1011), which is a
  * specialised form of sha2-256-trunc254-padded multihash that also encodes the
  * content length and the height of the merkle tree.
  */
-export type CommP = LegacyPieceLink
+export type CommP = PieceLink
+export type CommPv1 = LegacyPieceLink
 
 /**
  * Determine the additional bytes of zeroed padding to append to the
@@ -58,11 +59,11 @@ function parseCommP (commpString: string): CommP | null {
     const cid = CID.parse(commpString)
 
     // Validate it's a proper CommP
-    if (cid.code !== FIL_COMMITMENT_UNSEALED) {
+    if (cid.code !== RAW) {
       return null
     }
 
-    if (cid.multihash.code !== SHA2_256_TRUNC254_PADDED) {
+    if (cid.multihash.code !== FR32_SHA256_TRUNC254_PADDED) {
       return null
     }
 
@@ -78,8 +79,8 @@ function parseCommP (commpString: string): CommP | null {
  * @returns True if it's a valid CommP
  */
 function isValidCommP (cid: CommP | CID): cid is CommP {
-  return cid.code === FIL_COMMITMENT_UNSEALED &&
-         cid.multihash.code === SHA2_256_TRUNC254_PADDED
+  return cid.code === RAW &&
+         cid.multihash.code === FR32_SHA256_TRUNC254_PADDED
 }
 
 /**
@@ -110,7 +111,7 @@ export function asCommP (commpInput: CommP | CID | string): CommP | null {
  * @param digest - The CommPv2 digest from the hasher
  * @returns The legacy CommPv1 CID
  */
-function commPv2ToCommPv1 (digest: PieceDigest): CommP {
+function commPv2ToCommPv1 (digest: PieceDigest): CommPv1 {
   // CommPv2 is `uvarint padding | uint8 height | 32 byte root data`
   // For now we are operating with CommPv1 which just uses the 32 byte digest at
   // the end, so we'll down-convert since @web3-storage/data-segment is designed
@@ -137,8 +138,9 @@ export function calculate (data: Uint8Array): CommP {
   for (let i = 0; i < data.length; i += chunkSize) {
     hasher.write(data.subarray(i, i + chunkSize))
   }
+
   const digest = hasher.digest()
-  return commPv2ToCommPv1(digest)
+  return CID.create(1, RAW, digest)
 }
 
 /**
@@ -163,7 +165,7 @@ export function createCommPStream (): { stream: TransformStream<Uint8Array, Uint
     flush () {
       // Calculate final CommP when stream ends
       const digest = hasher.digest()
-      commp = commPv2ToCommPv1(digest)
+      commp = CID.create(1, RAW, digest)
       finished = true
     }
   })
