@@ -87,6 +87,7 @@ function isValidCommP (cid: CommP | CID): cid is CommP {
  * This is the main function to use when accepting CommP inputs
  * @param commpInput - CommP as either a CID object or string
  * @returns The validated CommP CID or null if not a valid CommP
+ * // TODO(CIDv2): support CommPv2 instead of CommPv1 in asCommP
  */
 export function asCommP (commpInput: CommP | CID | string): CommP | null {
   if (typeof commpInput === 'string') {
