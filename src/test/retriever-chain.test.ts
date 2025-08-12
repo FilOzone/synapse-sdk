@@ -71,7 +71,7 @@ describe('ChainRetriever', () => {
 
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
-        if (url.includes('/pdp/piece?')) {
+        if (url.includes('/market/pdp/piece?')) {
           findPieceCalled = true
           return new Response('', { status: 200 })
         }
@@ -239,7 +239,7 @@ describe('ChainRetriever', () => {
         // Provider 1 is slow but successful
         if (url.includes('provider1')) {
           await new Promise(resolve => setTimeout(resolve, 50))
-          if (url.includes('/pdp/piece?')) {
+          if (url.includes('/market/pdp/piece?')) {
             return new Response('', { status: 200 })
           }
           if (url.includes('/piece/')) {
@@ -249,7 +249,7 @@ describe('ChainRetriever', () => {
 
         // Provider 2 is fast and successful
         if (url.includes('provider2')) {
-          if (url.includes('/pdp/piece?')) {
+          if (url.includes('/market/pdp/piece?')) {
             return new Response('', { status: 200 })
           }
           if (url.includes('/piece/')) {

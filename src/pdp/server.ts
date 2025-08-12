@@ -171,7 +171,7 @@ export class PDPServer {
     }
 
     // Make the POST request to create the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets`, {
+    const response = await fetch(`${this._serviceURL}/market/pdp/data-sets`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -191,8 +191,8 @@ export class PDPServer {
     }
 
     // Parse the location to extract the transaction hash
-    // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
+    // Expected format: /market/pdp/data-sets/created/{txHash}
+    const locationMatch = location.match(/\/market\/pdp\/data-sets\/created\/(.+)$/)
     if (locationMatch == null) {
       throw new Error(`Invalid Location header format: ${location}`)
     }
@@ -278,7 +278,7 @@ export class PDPServer {
     }
 
     // Make the POST request to add pieces to the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces`, {
+    const response = await fetch(`${this._serviceURL}/market/pdp/data-sets/${dataSetId}/pieces`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -297,7 +297,7 @@ export class PDPServer {
     let statusUrl: string | undefined
 
     if (location != null) {
-      // Expected format: /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
+      // Expected format: /market/pdp/data-sets/{dataSetId}/pieces/added/{txHash}
       const locationMatch = location.match(/\/pieces\/added\/([0-9a-fA-Fx]+)$/)
       if (locationMatch != null) {
         txHash = locationMatch[1]
@@ -324,7 +324,7 @@ export class PDPServer {
    * @returns Promise that resolves with the creation status
    */
   async getDataSetCreationStatus (txHash: string): Promise<DataSetCreationStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
+    const response = await fetch(`${this._serviceURL}/market/pdp/data-sets/created/${txHash}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -355,7 +355,7 @@ export class PDPServer {
     txHash: string
   ): Promise<PieceAdditionStatusResponse> {
     const response = await fetch(
-      `${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`,
+      `${this._serviceURL}/market/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`,
       {
         method: 'GET',
         headers: {
@@ -441,16 +441,16 @@ export class PDPServer {
     }
 
     // Create upload session or check if piece exists
-    performance.mark('synapse:POST.pdp.piece-start')
-    const createResponse = await fetch(`${this._serviceURL}/pdp/piece`, {
+    performance.mark('synapse:POST.market.pdp.piece-start')
+    const createResponse = await fetch(`${this._serviceURL}/market/pdp/piece`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
     })
-    performance.mark('synapse:POST.pdp.piece-end')
-    performance.measure('synapse:POST.pdp.piece', 'synapse:POST.pdp.piece-start', 'synapse:POST.pdp.piece-end')
+    performance.mark('synapse:POST.market.pdp.piece-end')
+    performance.measure('synapse:POST.market.pdp.piece', 'synapse:POST.market.pdp.piece-start', 'synapse:POST.market.pdp.piece-end')
 
     if (createResponse.status === 200) {
       // Piece already exists on server
@@ -472,8 +472,8 @@ export class PDPServer {
     }
 
     // Validate the location format and extract UUID
-    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
-    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
+    // Match /market/pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
+    const locationMatch = location.match(/\/(?:market\/pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
     if (locationMatch == null) {
       throw new Error(`Invalid Location header format: ${location}`)
     }
@@ -481,8 +481,8 @@ export class PDPServer {
     const uploadUuid = locationMatch[1] // Extract just the UUID
 
     // Upload the data
-    performance.mark('synapse:PUT.pdp.piece.upload-start')
-    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/upload/${uploadUuid}`, {
+    performance.mark('synapse:PUT.market.pdp.piece.upload-start')
+    const uploadResponse = await fetch(`${this._serviceURL}/market/pdp/piece/upload/${uploadUuid}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/octet-stream',
@@ -491,8 +491,8 @@ export class PDPServer {
       },
       body: uint8Data
     })
-    performance.mark('synapse:PUT.pdp.piece.upload-end')
-    performance.measure('synapse:PUT.pdp.piece.upload', 'synapse:PUT.pdp.piece.upload-start', 'synapse:PUT.pdp.piece.upload-end')
+    performance.mark('synapse:PUT.market.pdp.piece.upload-end')
+    performance.measure('synapse:PUT.market.pdp.piece.upload', 'synapse:PUT.market.pdp.piece.upload-start', 'synapse:PUT.market.pdp.piece.upload-end')
 
     if (uploadResponse.status !== 204) {
       const errorText = await uploadResponse.text()
@@ -533,7 +533,7 @@ export class PDPServer {
    * @returns Promise that resolves with data set data
    */
   async getDataSet (dataSetId: number): Promise<DataSetData> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}`, {
+    const response = await fetch(`${this._serviceURL}/market/pdp/data-sets/${dataSetId}`, {
       method: 'GET',
       headers: {
         Accept: 'application/json'
@@ -614,7 +614,7 @@ export class PDPServer {
    * @throws Error if provider is not reachable or returns non-200 status
    */
   async ping (): Promise<void> {
-    const response = await fetch(`${this._serviceURL}/pdp/ping`, {
+    const response = await fetch(`${this._serviceURL}/market/pdp/ping`, {
       method: 'GET',
       headers: {}
     })

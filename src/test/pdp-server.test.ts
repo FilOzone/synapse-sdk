@@ -89,7 +89,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets')
+        assert.include(url, '/market/pdp/data-sets')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
@@ -101,7 +101,7 @@ describe('PDPServer', () => {
           headers: {
             get: (header: string) => {
               if (header === 'Location') {
-                return `/pdp/data-sets/created/${mockTxHash}`
+                return `/market/pdp/data-sets/created/${mockTxHash}`
               }
               return null
             }
@@ -141,7 +141,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/pdp/data-sets/1/pieces/added/${mockTxHash}`)
+        assert.include(url, `/market/pdp/data-sets/1/pieces/added/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -286,7 +286,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/1/pieces')
+        assert.include(url, '/market/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
@@ -408,7 +408,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/1/pieces')
+        assert.include(url, '/market/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         return {
@@ -417,7 +417,7 @@ describe('PDPServer', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/data-sets/1/pieces/added/${mockTxHash}`
+                return `/market/pdp/data-sets/1/pieces/added/${mockTxHash}`
               }
               return null
             }
@@ -431,7 +431,7 @@ describe('PDPServer', () => {
         assert.isDefined(result.message)
         assert.strictEqual(result.txHash, mockTxHash)
         assert.include(result.statusUrl ?? '', mockTxHash)
-        assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
+        assert.include(result.statusUrl ?? '', '/market/pdp/data-sets/1/pieces/added/')
       } finally {
         global.fetch = originalFetch
       }
@@ -456,7 +456,7 @@ describe('PDPServer', () => {
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
+                return `/market/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
               }
               return null
             }
@@ -526,7 +526,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/pdp/data-sets/created/${mockTxHash}`)
+        assert.include(url, `/market/pdp/data-sets/created/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -577,7 +577,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/piece?')
+        assert.include(url, '/market/pdp/piece?')
         assert.include(url, 'name=sha2-256-trunc254-padded')
         assert.include(url, 'size=1048576')
         assert.strictEqual(init?.method, 'GET')
@@ -682,7 +682,7 @@ describe('PDPServer', () => {
       global.fetch = async (url: any, options: any) => {
         const urlStr = url.toString()
 
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+        if (urlStr.includes('/market/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
@@ -697,14 +697,14 @@ describe('PDPServer', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Location') {
-                  return `/pdp/piece/upload/${mockUuid}`
+                  return `/market/pdp/piece/upload/${mockUuid}`
                 }
                 return null
               }
             },
             text: async () => 'Created'
           } as any
-        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
+        } else if (urlStr.includes(`/market/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
@@ -735,7 +735,7 @@ describe('PDPServer', () => {
       global.fetch = async (url: any, options: any) => {
         const urlStr = url.toString()
 
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+        if (urlStr.includes('/market/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
@@ -750,14 +750,14 @@ describe('PDPServer', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Location') {
-                  return `/pdp/piece/upload/${mockUuid}`
+                  return `/market/pdp/piece/upload/${mockUuid}`
                 }
                 return null
               }
             },
             text: async () => 'Created'
           } as any
-        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
+        } else if (urlStr.includes(`/market/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
@@ -786,7 +786,7 @@ describe('PDPServer', () => {
       global.fetch = async (url: any, options: any) => {
         const urlStr = url.toString()
 
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+        if (urlStr.includes('/market/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
@@ -823,7 +823,7 @@ describe('PDPServer', () => {
       global.fetch = async (url: any, options: any) => {
         const urlStr = url.toString()
 
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
+        if (urlStr.includes('/market/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object even for error case
           const body = JSON.parse(options.body)
           assert.exists(body.check)
@@ -1001,7 +1001,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/ping')
+        assert.include(url, '/market/pdp/ping')
         assert.strictEqual(init?.method, 'GET')
         assert.deepEqual(init?.headers, {})
 
@@ -1117,7 +1117,7 @@ describe('PDPServer', () => {
 
       try {
         await pdpServer.ping()
-        assert.strictEqual(capturedUrl, `${serverUrl}/pdp/ping`)
+        assert.strictEqual(capturedUrl, `${serverUrl}/market/pdp/ping`)
       } finally {
         global.fetch = originalFetch
       }
@@ -1149,7 +1149,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/292')
+        assert.include(url, '/market/pdp/data-sets/292')
         assert.strictEqual(init?.method, 'GET')
         assert.strictEqual((init?.headers as any)?.Accept, 'application/json')
 

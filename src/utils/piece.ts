@@ -38,5 +38,5 @@ export function constructFindPieceUrl (apiEndpoint: string, commp: CommP, size =
     size: size.toString()
   })
 
-  return `${endpoint}/pdp/piece?${params.toString()}`
+  return `${endpoint}/market/pdp/piece?${params.toString()}`
 }
