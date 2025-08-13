@@ -64,12 +64,9 @@ function parseCommP (commpString: string): CommP | CommPv2 | null {
     if (cid.code == 0x55 && cid.multihash.code === Hasher.code) {
       return cid as CommPv2
     }
-
-
-    return cid as CommP
   } catch {
-    return null
   }
+  return null
 }
 
 /**
@@ -104,7 +101,7 @@ export function asCommP (commpInput: CommP | CommPv2 | CID | string): CommP | Co
     if (isValidCommP(commpInput as CID)) {
       return commpInput as CommP
     }
-    if (isValidCommPv2(commpInput as CommPv2)) {
+    if (isValidCommPv2(commpInput as CID)) {
       return commpInput as CommPv2
     }
   }
