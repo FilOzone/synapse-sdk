@@ -61,7 +61,7 @@ function parseCommP (commpString: string): CommP | CommPv2 | null {
     if (cid.code === FIL_COMMITMENT_UNSEALED && cid.multihash.code === SHA2_256_TRUNC254_PADDED) {
       return cid as CommP
     }
-    if (cid.code == 0x55 && cid.multihash.code === Hasher.code) {
+    if (cid.code === 0x55 && cid.multihash.code === Hasher.code) {
       return cid as CommPv2
     }
   } catch {

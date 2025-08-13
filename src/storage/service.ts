@@ -1153,7 +1153,7 @@ export class StorageService {
    * Get the list of piece CIDs for this service service's data set by querying the PDP server.
    * @returns Array of piece CIDs as CommP objects
    */
-  async getDataSetPieces (): Promise<(CommP | CommPv2)[]> {
+  async getDataSetPieces (): Promise<Array<CommP | CommPv2>> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
     return dataSetData.pieces.map(piece => piece.pieceCid)
   }

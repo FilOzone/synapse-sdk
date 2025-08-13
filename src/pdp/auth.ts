@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { type AuthSignature, type PieceData } from '../types.js'
-import { asCommP, toPieceSize } from '../commp/index.js'
+import { asCommP } from '../commp/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -333,7 +333,7 @@ export class PDPAuthHelper {
 
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedPieceData.push({
-          data: commP.bytes // This will be a Uint8Array
+        data: commP.bytes // This will be a Uint8Array
       })
     }
 
@@ -348,7 +348,7 @@ export class PDPAuthHelper {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
         firstAdded: firstPieceId.toString(), // Keep as string for MetaMask display
         pieceData: formattedPieceData.map(item => ({
-            data: ethers.hexlify(item.data) // Convert Uint8Array to hex string for MetaMask
+          data: ethers.hexlify(item.data) // Convert Uint8Array to hex string for MetaMask
         }))
       }
 
