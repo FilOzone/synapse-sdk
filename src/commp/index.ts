@@ -3,6 +3,7 @@ export {
   FIL_COMMITMENT_UNSEALED,
   SHA2_256_TRUNC254_PADDED,
   CommP,
+  CommPv2,
   asCommP,
   calculate,
   createCommPStream,

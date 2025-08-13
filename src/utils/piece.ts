@@ -5,7 +5,7 @@
  * for piece discovery and retrieval operations.
  */
 
-import type { CommP } from '../types.js'
+import type { CommP, CommPv2 } from '../types.js'
 import { toHex } from 'multiformats/bytes'
 import { MULTIHASH_CODES } from './index.js'
 
@@ -15,7 +15,7 @@ import { MULTIHASH_CODES } from './index.js'
  * @param commp - The CommP identifier
  * @returns Full URL for retrieving the piece
  */
-export function constructPieceUrl (retrievalEndpoint: string, commp: CommP): string {
+export function constructPieceUrl (retrievalEndpoint: string, commp: CommP | CommPv2): string {
   const endpoint = retrievalEndpoint.replace(/\/$/, '')
   return `${endpoint}/piece/${commp.toString()}`
 }
@@ -27,7 +27,7 @@ export function constructPieceUrl (retrievalEndpoint: string, commp: CommP): str
  * @param size - Optional size parameter (defaults to 0, as size is typically ignored for CommP in Curio)
  * @returns Full URL for finding the piece
  */
-export function constructFindPieceUrl (apiEndpoint: string, commp: CommP, size = 0): string {
+export function constructFindPieceUrl (apiEndpoint: string, commp: CommP | CommPv2, size = 0): string {
   const endpoint = apiEndpoint.replace(/\/$/, '')
   const hashBytes = commp.multihash.digest
   const hashHex = toHex(hashBytes)

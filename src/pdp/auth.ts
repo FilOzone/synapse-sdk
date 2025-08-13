@@ -153,7 +153,7 @@ export class PDPAuthHelper {
     let primaryType = ''
     for (const typeName of Object.keys(types)) {
       // Skip Cid and PieceData as they are dependencies
-      if (typeName !== 'PieceCid' && typeName !== 'PieceData') {
+      if (typeName !== 'Cid' && typeName !== 'PieceData') {
         primaryType = typeName
         break
       }
@@ -355,7 +355,7 @@ export class PDPAuthHelper {
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceCid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -370,7 +370,7 @@ export class PDPAuthHelper {
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceCid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -386,7 +386,7 @@ export class PDPAuthHelper {
       this.domain,
       {
         AddPieces: EIP712_TYPES.AddPieces,
-        PieceCid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid
       },
       {
         clientDataSetId: BigInt(clientDataSetId),

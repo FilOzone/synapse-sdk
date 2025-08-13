@@ -28,7 +28,7 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { PieceData, CommP, DataSetData } from '../types.js'
+import type { PieceData, CommP, CommPv2, DataSetData } from '../types.js'
 import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { MULTIHASH_CODES } from '../utils/index.js'
@@ -80,7 +80,7 @@ export interface AddPiecesResponse {
  */
 export interface FindPieceResponse {
   /** The piece CID that was found */
-  pieceCid: CommP
+  pieceCid: CommP | CommPv2
   /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
   piece_cid?: string
 }
@@ -383,7 +383,7 @@ export class PDPServer {
    * @param size - The original size of the piece in bytes
    * @returns Piece information if found
    */
-  async findPiece (commP: string | CommP, size: number): Promise<FindPieceResponse> {
+  async findPiece (commP: string | CommP | CommPv2, size: number): Promise<FindPieceResponse> {
     const parsedCommP = asCommP(commP)
     if (parsedCommP == null) {
       throw new Error(`Invalid CommP: ${String(commP)}`)

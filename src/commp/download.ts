@@ -5,7 +5,7 @@
  * calculate CommP during streaming, and validate it matches the expected value.
  */
 
-import type { CommP } from './commp.js'
+import type { CommP, CommPv2 } from './commp.js'
 import { asCommP, createCommPStream } from './commp.js'
 
 /**
@@ -30,7 +30,7 @@ import { asCommP, createCommPStream } from './commp.js'
  */
 export async function downloadAndValidateCommP (
   response: Response,
-  expectedCommP: string | CommP
+  expectedCommP: string | CommP | CommPv2
 ): Promise<Uint8Array> {
   // Parse and validate the expected CommP
   const parsedCommP = asCommP(expectedCommP)

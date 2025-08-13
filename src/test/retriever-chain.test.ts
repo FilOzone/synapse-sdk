@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import { ChainRetriever } from '../retriever/chain.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, CommP } from '../types.js'
+import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, CommP, CommPv2 } from '../types.js'
 import { asCommP } from '../commp/index.js'
 
 // Create a mock CommP for testing
@@ -28,7 +28,7 @@ const mockProvider2: ApprovedProviderInfo = {
 // Mock child retriever
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    commP: CommP,
+    commP: CommP | CommPv2,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> => {
