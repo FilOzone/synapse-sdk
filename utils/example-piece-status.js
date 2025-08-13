@@ -127,35 +127,83 @@ async function main () {
     const synapse = await Synapse.create(synapseOptions)
     console.log('✓ Synapse instance created')
 
-    // Create storage service
-    console.log('\nCreating storage service...')
-    const storageOptions = {}
+    // Create storage context (or let the SDK auto-manage if checking across all providers)
+    console.log('\nSetting up storage context...')
 
-    // Add provider address if specified
-    if (providerAddress) {
-      storageOptions.providerAddress = providerAddress
-    }
+    let storageContext
+    if (providerAddress || dataSetId !== undefined) {
+      // Create explicit context for specific provider/dataset
+      const storageOptions = {}
 
-    // Add data set ID if specified
-    if (dataSetId !== undefined) {
-      storageOptions.dataSetId = dataSetId
-    }
-
-    // Add callbacks to show what's happening
-    storageOptions.callbacks = {
-      onProviderSelected: (provider) => {
-        console.log(`✓ Using provider: ${provider.owner}`)
-      },
-      onDataSetResolved: (info) => {
-        console.log(`✓ Using data set: ${info.dataSetId}`)
+      // Add provider address if specified
+      if (providerAddress) {
+        storageOptions.providerAddress = providerAddress
       }
-    }
 
-    const storage = await synapse.createStorage(storageOptions)
+      // Add data set ID if specified
+      if (dataSetId !== undefined) {
+        storageOptions.dataSetId = dataSetId
+      }
+
+      // Add callbacks to show what's happening
+      storageOptions.callbacks = {
+        onProviderSelected: (provider) => {
+          console.log(`✓ Using provider: ${provider.serviceProvider}`)
+        },
+        onDataSetResolved: (info) => {
+          console.log(`✓ Using data set: ${info.dataSetId}`)
+        }
+      }
+
+      storageContext = await synapse.storage.createContext(storageOptions)
+    } else {
+      // Auto-select provider based on who has the piece
+      console.log('✓ Will auto-select provider based on piece availability')
+      // We'll create a context after finding a provider with the piece
+      storageContext = null
+    }
 
     // Check piece status
     console.log('\n--- Checking Piece Status ---')
-    const status = await storage.pieceStatus(pieceCid)
+
+    let status
+    if (storageContext) {
+      // Check on specific provider/dataset
+      status = await storageContext.pieceStatus(pieceCid)
+    } else {
+      // Find any provider with the piece and check status there
+      // First, try to find providers with the piece
+      const storageInfo = await synapse.getStorageInfo()
+
+      for (const provider of storageInfo.providers) {
+        try {
+          // Create context for this provider and check if piece exists
+          const ctx = await synapse.storage.createContext({
+            providerAddress: provider.serviceProvider,
+            callbacks: {
+              onProviderSelected: (p) => {
+                console.log(`  Checking provider: ${p.serviceProvider}`)
+              }
+            }
+          })
+          const exists = await ctx.hasPiece(pieceCid)
+          if (exists) {
+            console.log(`✓ Found piece on provider: ${provider.serviceProvider}`)
+            storageContext = ctx
+            break
+          }
+        } catch (error) {
+          // Continue to next provider
+        }
+      }
+
+      if (!storageContext) {
+        console.log('\n❌ Piece not found on any approved provider')
+        return
+      }
+
+      status = await storageContext.pieceStatus(pieceCid)
+    }
 
     // Display results
     console.log('\n📊 Piece Status Report:')
@@ -210,8 +258,10 @@ async function main () {
 
     // Additional info
     console.log('\n📝 Storage Details:')
-    console.log(`   Provider: ${storage.serviceProvider}`)
-    console.log(`   Data Set: ${storage.dataSetId}`)
+    if (storageContext) {
+      console.log(`   Provider: ${storageContext.serviceProvider}`)
+      console.log(`   Data Set: ${storageContext.dataSetId}`)
+    }
 
     // Summary
     console.log('\n' + '─'.repeat(50))

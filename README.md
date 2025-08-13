@@ -4,16 +4,16 @@
 
 A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
 
-> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. Additionally, the storage API has been improved with a new context-based architecture. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
 
 ## Overview
 
-The Synapse SDK is designed with flexibility in mind:
+The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
 
 - **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
 - **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
 
-Whether you're building a quick prototype or a complex application with specific requirements, the SDK adapts to your needs.
+The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
 
 ## Installation
 
@@ -30,7 +30,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [With MetaMask](#with-metamask)
   * [Advanced Payment Control](#advanced-payment-control)
   * [API Reference](#api-reference)
-  * [Storage Service Creation](#storage-service-creation)
+  * [Storage Context Creation](#storage-context-creation)
   * [Storage Information](#storage-information)
   * [Download Options](#download-options)
 * [PieceCID](#piececid)
@@ -75,21 +75,16 @@ const synapse = await Synapse.create({
   rpcURL: RPC_URLS.calibration.websocket  // Use calibration testnet for testing
 })
 
-// Create storage service
-const storage = await synapse.createStorage()
-
-// Upload data
-const uploadResult = await storage.upload(
+// Upload data, this auto-selects provider and creates a data set if needed
+// (your first upload will take longer than subsequent uploads due to set up)
+const uploadResult = await synapse.storage.upload(
   new TextEncoder().encode('🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍')
 )
 console.log(`Upload complete! PieceCID: ${uploadResult.pieceCid}`)
 
-// Download data from this provider
-const data = await storage.providerDownload(uploadResult.pieceCid)
+// Download data
+const data = await synapse.storage.download(uploadResult.pieceCid)
 console.log('Retrieved:', new TextDecoder().decode(data))
-
-// Or download from any provider that has the piece
-const dataFromAny = await synapse.download(uploadResult.pieceCid)
 ```
 
 #### Payment Setup
@@ -126,10 +121,9 @@ import { ethers } from 'ethers'
 const provider = new ethers.BrowserProvider(window.ethereum)
 const synapse = await Synapse.create({ provider })
 
-// Create storage and start using it immediately
-const storage = await synapse.createStorage()
+// Start uploading immediately
 const data = new TextEncoder().encode('🚀🚀 Hello Filecoin! This is decentralized storage in action.')
-const result = await storage.upload(data)
+const result = await synapse.storage.upload(data)
 console.log(`Stored with PieceCID: ${result.pieceCid}`)
 ```
 
@@ -219,7 +213,7 @@ interface SynapseOptions {
   disableNonceManager?: boolean   // Disable automatic nonce management
   warmStorageAddress?: string     // Override Warm Storage service contract address (for testing purposes)
   pdpVerifierAddress?: string     // Override PDPVerifier contract address (for testing purposes)
-  
+
   // Subgraph Integration (optional, provide only one of these options)
   subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
   subgraphConfig?: SubgraphConfig            // Configuration for the default SubgraphService
@@ -240,16 +234,44 @@ interface SubgraphConfig {
 
 **Instance Properties:**
 - `payments` - PaymentsService instance for token operations (see [Payment Methods](#synapepayments-methods) below)
+- `storage` - StorageManager instance for all storage operations (see [Storage Operations](#synapsestorage-methods) below)
 
 **Core Operations:**
-- `createStorage(options?)` - Create a storage service instance (returns `StorageService`, see [Storage Service Methods](#storage-service-methods) below)
-- `download(pieceCid, options?)` - Download a piece directly from any provider (see [Download Options](#download-options))
-- `getStorageInfo()` - Get comprehensive storage service information (pricing, providers, parameters)
+- `preflightUpload(dataSize options?)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check (with or without CDN)
 - `getProviderInfo(providerAddress)` - Get detailed information about a service provider
-
-**Network & Configuration:**
 - `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
 - `getChainId()` - Get the numeric chain ID (314 for mainnet, 314159 for calibration)
+
+#### Synapse.storage Methods
+
+**Context Management:**
+- `createContext(options?)` - Create a storage context for a specific provider + data set (returns `StorageContext`)
+- `upload(data, options?)` - Upload data using auto-managed context or route to specific context
+- `download(pieceCid, options?)` - Download from any available provider (SP-agnostic)
+
+**Upload Options:**
+```typescript
+// Simple upload (auto-creates/reuses context)
+await synapse.storage.upload(data)
+
+// Upload with specific provider
+await synapse.storage.upload(data, { providerAddress: '0x...' })
+
+// Upload with specific context (current or future multi-context)
+await synapse.storage.upload(data, { context: storageContext })
+```
+
+**Download Options:**
+```typescript
+// Download from any available provider
+await synapse.storage.download(pieceCid)
+
+// Prefer specific provider (still falls back if unavailable)
+await synapse.storage.download(pieceCid, { providerAddress: '0x...' })
+
+// Download through specific context
+await synapse.storage.download(pieceCid, { context: storageContext })
+```
 
 #### Synapse.payments Methods
 
@@ -272,27 +294,33 @@ interface SubgraphConfig {
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
-#### Storage Service Methods
+#### Storage Context Methods
 
-The `StorageService` instance returned by `synapse.createStorage()` provides methods for interacting with a specific service provider and data set.
+A `StorageContext` (previously `StorageService`) represents a connection to a specific service provider and data set. Create one with `synapse.storage.createContext()`.
+
+By using `StorageContext` directly you have efficiently deal with a specific service provider and data set for both upload and download options.
 
 **Instance Properties:**
 - `dataSetId` - The data set ID being used (string)
 - `serviceProvider` - The service provider address (string)
 
 **Core Storage Operations:**
-- `upload(data, callbacks?)` - Upload data to the service provider, returns `UploadResult` with `pieceCid`, `size`, and `pieceId`
-- `providerDownload(pieceCid, options?)` - Download data from this specific provider, returns `Uint8Array`
+- `upload(data, callbacks?)` - Upload data to this context's service provider, returns `UploadResult` with `pieceCid`, `size`, and `pieceId`
+- `download(pieceCid, options?)` - Download data from this context's specific provider, returns `Uint8Array`
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check
 
 **Information & Status:**
 - `getProviderInfo()` - Get detailed information about the selected service provider
 - `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
+- `hasPiece(pieceCid)` - Check if a piece exists on this service provider (returns boolean)
 - `pieceStatus(pieceCid)` - Get the status of a piece including data set timing information
 
-### Storage Service Creation
+### Storage Context Creation
 
-The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain. You just call `createStorage()` and the SDK takes care of everything.
+The SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain. You have two options:
+
+1. **Simple mode**: Just use `synapse.storage.upload()` directly - the SDK auto-manages contexts for you.
+2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
 
 Behind the scenes, the process may be:
 - **Fast (<1 second)**: When reusing existing infrastructure (i.e. an existing data set previously created)
@@ -301,8 +329,12 @@ Behind the scenes, the process may be:
 #### Basic Usage
 
 ```javascript
-// Simple creation with default provider selection
-const storage = await synapse.createStorage()
+// Option 1: Auto-managed context (simplest)
+await synapse.storage.upload(data)  // Context created/reused automatically
+
+// Option 2: Explicit context creation
+const context = await synapse.storage.createContext()
+await context.upload(data)  // Upload to this specific context
 ```
 
 #### Advanced Usage with Callbacks
@@ -310,9 +342,9 @@ const storage = await synapse.createStorage()
 Monitor the creation process with detailed callbacks:
 
 ```javascript
-const storage = await synapse.createStorage({
-  providerId: 1,    // Optional: use specific provider ID
-  withCDN: true,    // Optional: enable CDN for faster downloads
+const context = await synapse.storage.createContext({
+  providerAddress: '0x...', // Optional: use specific provider address
+  withCDN: true,            // Optional: enable CDN for faster downloads
   callbacks: {
     // Called when a provider is selected
     onProviderSelected: (provider) => {
@@ -364,37 +396,37 @@ interface StorageServiceOptions {
 // 3. Per-method override (set during download)
 ```
 
-#### Storage Service Properties
+#### Storage Context Properties
 
-Once created, the storage service provides access to:
+Once created, the storage context provides access to:
 
 ```javascript
 // The data set ID being used
-console.log(`Data set ID: ${storage.dataSetId}`)
+console.log(`Data set ID: ${context.dataSetId}`)
 
 // The service provider address
-console.log(`Service provider: ${storage.serviceProvider}`)
+console.log(`Service provider: ${context.serviceProvider}`)
 ```
 
-#### Storage Service Methods
+#### Storage Context Methods
 
 ##### Preflight Upload
 
 Check if an upload is possible before attempting it:
 
 ```javascript
-const preflight = await storage.preflightUpload(dataSize)
+const preflight = await context.preflightUpload(dataSize)
 console.log('Estimated costs:', preflight.estimatedCost)
 console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 ```
 
 ##### Upload and Download
 
-Upload and download data with the storage service:
+Upload and download data with the storage context:
 
 ```javascript
 // Upload with optional progress callbacks
-const result = await storage.upload(data, {
+const result = await context.upload(data, {
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
@@ -413,15 +445,15 @@ const result = await storage.upload(data, {
   }
 })
 
-// Download data from this specific provider
-const downloaded = await storage.providerDownload(result.pieceCid)
+// Download data from this context's specific provider
+const downloaded = await context.download(result.pieceCid)
 
 // Get the list of piece CIDs in the current data set by querying the provider
-const pieceCids = await storage.getDataSetPieces()
+const pieceCids = await context.getDataSetPieces()
 console.log(`Piece CIDs: ${pieceCids.map(cid => cid.toString()).join(', ')}`)
 
 // Check the status of a piece on the service provider
-const status = await storage.pieceStatus(result.pieceCid)
+const status = await context.pieceStatus(result.pieceCid)
 console.log(`Piece exists: ${status.exists}`)
 console.log(`Data set last proven: ${status.dataSetLastProven}`)
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
@@ -445,13 +477,13 @@ When uploading multiple files, the SDK automatically batches operations for effi
 // Efficient: Start all uploads without await - they'll be batched automatically
 const uploads = []
 for (const data of dataArray) {
-  uploads.push(storage.upload(data))  // No await here
+  uploads.push(context.upload(data))  // No await here
 }
 const results = await Promise.all(uploads)
 
 // Less efficient: Awaiting each upload forces sequential processing
 for (const data of dataArray) {
-  await storage.upload(data)  // Each waits for the previous to complete
+  await context.upload(data)  // Each waits for the previous to complete
 }
 ```
 
@@ -475,36 +507,37 @@ console.log('Provider PDP URL:', providerInfo.pdpUrl)
 
 ### Download Options
 
-The SDK provides flexible download options through both the main Synapse instance and StorageService:
+The SDK provides flexible download options with clear semantics:
 
-#### Direct Download via Synapse
+#### SP-Agnostic Download (from anywhere)
 
-Download pieces from any available provider:
+Download pieces from any available provider using the StorageManager:
 
 ```javascript
 // Download from any provider that has the piece
-const data = await synapse.download(pieceCid)
+const data = await synapse.storage.download(pieceCid)
 
 // Download with CDN optimization (if available)
-const dataWithCDN = await synapse.download(pieceCid, { withCDN: true })
+const dataWithCDN = await synapse.storage.download(pieceCid, { withCDN: true })
 
-// Download from a specific provider
-const dataFromProvider = await synapse.download(pieceCid, {
+// Prefer a specific provider (falls back to others if unavailable)
+const dataFromProvider = await synapse.storage.download(pieceCid, {
   providerAddress: '0x...'
 })
 ```
 
-#### Provider-Specific Download via StorageService
+#### Context-Specific Download (from this provider)
 
-When using a StorageService instance, downloads are automatically restricted to that specific provider:
+When using a StorageContext, downloads are automatically restricted to that specific provider:
 
 ```javascript
-// Downloads from the provider associated with this storage instance
-const data = await storage.providerDownload(pieceCid)
+// Downloads from the provider associated with this context
+const context = await synapse.storage.createContext({ providerAddress: '0x...' })
+const data = await context.download(pieceCid)
 
-// The storage instance passes its withCDN setting to the download
-const storage = await synapse.createStorage({ withCDN: true })
-const dataWithCDN = await storage.providerDownload(pieceCid) // Uses CDN if available
+// The context passes its withCDN setting to the download
+const contextWithCDN = await synapse.storage.createContext({ withCDN: true })
+const dataWithCDN = await contextWithCDN.download(pieceCid) // Uses CDN if available
 ```
 
 #### CDN Inheritance Pattern
@@ -517,11 +550,11 @@ The `withCDN` option follows a clear inheritance hierarchy:
 
 ```javascript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true })          // Global default for this Synapse instance: CDN enabled
-const storage = await synapse.createStorage({ withCDN: false })  // Override: CDN disabled
-await synapse.download(pieceCid)                                // Uses Synapse's withCDN: true
-await storage.providerDownload(pieceCid)                        // Uses StorageService's withCDN: false
-await synapse.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
+const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
+const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
+await synapse.storage.download(pieceCid)                                // Uses Synapse's withCDN: true
+await context.download(pieceCid)                                        // Uses context's withCDN: false
+await synapse.storage.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
 ```
 
 ---
@@ -684,7 +717,7 @@ class CustomProviderService implements SubgraphRetrievalService {
       approvedAt: Date.now()
     }]
   }
-  
+
   async getProviderByAddress(address) {
     // Your custom implementation
     // ...
@@ -1169,16 +1202,47 @@ for (const dataSet of dataSets) {
   console.log(`Data set ${dataSet.railId} has ${dataSet.pieceMetadata.length} pieces`)
 }
 
-// Using storage service
-const storage = await synapse.createStorage({
+// Using new storage context API
+const context = await synapse.storage.createContext({
   callbacks: {
     onDataSetResolved: (info) => {
       console.log(`Using data set ${info.dataSetId}`)
     }
   }
 })
-console.log(`Service provider: ${storage.serviceProvider}`)
+console.log(`Service provider: ${context.serviceProvider}`)
+
+// Downloads now use clearer method names
+const data = await context.download(pieceCid)  // Download from this context's provider
+const anyData = await synapse.storage.download(pieceCid)  // Download from any provider
 ```
+
+#### Storage Architecture Changes (v0.24.0+)
+
+The storage API has been redesigned for simplicity and clarity:
+
+**Simplified Storage API:**
+```typescript
+// Before (< v0.24.0)
+const storage = await synapse.createStorage()
+await storage.upload(data)
+await storage.providerDownload(pieceCid)  // Confusing method name
+await synapse.download(pieceCid)  // Duplicate functionality
+
+// After (v0.24.0+) - Recommended approach
+await synapse.storage.upload(data)  // Simple: auto-managed contexts
+await synapse.storage.download(pieceCid)  // Simple: download from anywhere
+
+// Advanced usage (when you need explicit control)
+const context = await synapse.storage.createContext({ providerAddress: '0x...' })
+await context.upload(data)  // Upload to specific provider
+await context.download(pieceCid)  // Download from specific provider
+```
+
+**Key improvements:**
+- Access all storage operations via `synapse.storage`
+- Automatic context management - no need to explicitly create contexts for basic usage
+- Clear separation between SP-agnostic downloads (`synapse.storage.download()`) and context-specific downloads (`context.download()`)
 
 #### Migration Checklist
 
@@ -1196,9 +1260,14 @@ When upgrading from versions prior to v0.24.0:
 4. **Update callback names**:
    - `onProofSetResolved` → `onDataSetResolved`
    - Callback parameter `proofSetId` → `dataSetId`
-5. **Update method calls** - Use the new method names as shown above
-6. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
-7. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
+5. **Simplify storage API calls**:
+   - `synapse.createStorage()` → `synapse.storage.upload()` (for simple usage)
+   - `synapse.createStorage()` → `synapse.storage.createContext()` (for advanced usage)
+   - `storage.providerDownload()` → `context.download()`
+   - `synapse.download()` → `synapse.storage.download()`
+6. **Update method calls** - Use the new method names as shown above
+7. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
+8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
 8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
 
 Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.

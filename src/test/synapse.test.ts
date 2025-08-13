@@ -163,32 +163,42 @@ describe('Synapse', () => {
     })
   })
 
-  describe('createStorage', () => {
-    it.skip('should create storage service', async () => {
-      // Skip this test as it requires real contract interactions
-      // The real StorageService needs WarmStorageService and PDPServer
-      // which require actual blockchain connections
+  describe('StorageManager access', () => {
+    it('should provide access to StorageManager via synapse.storage', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage()
-      assert.exists(storage)
-      assert.exists(storage.dataSetId)
-      assert.exists(storage.serviceProvider)
-      assert.isFunction(storage.upload)
-      assert.isFunction(storage.download)
+
+      // Should be able to access storage manager
+      assert.exists(synapse.storage)
+      assert.isObject(synapse.storage)
+
+      // Should have all storage manager methods available
+      assert.isFunction(synapse.storage.upload)
+      assert.isFunction(synapse.storage.download)
+      assert.isFunction(synapse.storage.createContext)
+      assert.isFunction(synapse.storage.getDefaultContext)
+      assert.isFunction(synapse.storage.findDataSets)
     })
 
-    it.skip('should accept custom provider ID', async () => {
-      // Skip this test as it requires real contract interactions
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage({ providerId: 1 })
-      assert.exists(storage)
+    it('should create storage manager with CDN settings', async () => {
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        withCDN: true
+      })
+
+      assert.exists(synapse.storage)
+      // The storage manager should inherit the withCDN setting
+      // We can't directly test this without accessing private properties
+      // but it will be used in upload/download operations
     })
 
-    it.skip('should enable CDN option', async () => {
-      // Skip this test as it requires real contract interactions
+    it('should return same storage manager instance', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage({ withCDN: true })
-      assert.exists(storage)
+
+      const storage1 = synapse.storage
+      const storage2 = synapse.storage
+
+      // Should be the same instance
+      assert.equal(storage1, storage2)
     })
   })
 

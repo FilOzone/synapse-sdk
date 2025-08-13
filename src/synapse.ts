@@ -14,12 +14,12 @@ import {
   type SubgraphConfig
 } from './types.js'
 import { StorageService } from './storage/index.js'
+import { StorageManager } from './storage/manager.js'
 import { PaymentsService } from './payments/index.js'
 import { WarmStorageService } from './warm-storage/index.js'
 import { SubgraphService } from './subgraph/service.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
-import { asPieceCID, downloadAndValidate } from './piece/index.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from './utils/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
@@ -31,6 +31,7 @@ export class Synapse {
   private readonly _pdpVerifierAddress: string
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
+  private readonly _storageManager: StorageManager
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -221,6 +222,14 @@ export class Synapse {
     if (this._pdpVerifierAddress === '' || this._pdpVerifierAddress === undefined) {
       throw new Error(`No PDPVerifier contract address configured for network: ${network}`)
     }
+
+    // Initialize StorageManager
+    this._storageManager = new StorageManager(
+      this,
+      this._warmStorageService,
+      this._pieceRetriever,
+      this._withCDN
+    )
   }
 
   /**
@@ -280,7 +289,17 @@ export class Synapse {
   }
 
   /**
+   * Gets the storage manager instance
+   * @returns The storage manager for all storage operations
+   */
+  get storage (): StorageManager {
+    return this._storageManager
+  }
+
+  /**
    * Create a storage service instance.
+   * @deprecated Use synapse.storage.createContext() instead. This method will be removed in a future version.
+   *
    * Automatically selects the best available service provider and creates or reuses a data set.
    *
    * @param options - Optional storage configuration
@@ -304,17 +323,13 @@ export class Synapse {
    * ```
    */
   async createStorage (options: StorageServiceOptions = {}): Promise<StorageService> {
-    // Apply default withCDN from instance if not specified
-    const finalOptions = {
-      ...options,
-      withCDN: options.withCDN ?? this._withCDN
-    }
-
-    return await StorageService.create(this, this._warmStorageService, finalOptions)
+    // Use StorageManager to create context
+    return await this._storageManager.createContext(options)
   }
 
   /**
    * Download data from service providers
+   * @deprecated Use synapse.storage.download() instead. This method will be removed in a future version.
    * @param pieceCid - The PieceCID identifier (string or PieceCID object)
    * @param options - Download options
    * @returns The downloaded data as Uint8Array
@@ -334,24 +349,8 @@ export class Synapse {
     providerAddress?: string
     withCDN?: boolean
   }): Promise<Uint8Array> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    // Use the withCDN setting: option > instance default
-    const withCDN = options?.withCDN ?? this._withCDN
-
-    // Get the client address for the retrieval
-    const clientAddress = await this._signer.getAddress()
-
-    // Use the piece retriever to fetch the response
-    const response = await this._pieceRetriever.fetchPiece(parsedPieceCid, clientAddress, {
-      providerAddress: options?.providerAddress,
-      withCDN
-    })
-
-    return await downloadAndValidate(response, parsedPieceCid)
+    console.warn('synapse.download() is deprecated. Use synapse.storage.download() instead.')
+    return await this._storageManager.download(pieceCid, options)
   }
 
   /**
@@ -404,83 +403,11 @@ export class Synapse {
   /**
    * Get comprehensive information about the storage service including
    * approved providers, pricing, contract addresses, and current allowances
+   * @deprecated Use synapse.storage.getStorageInfo() instead. This method will be removed in a future version.
    * @returns Complete storage service information
    */
   async getStorageInfo (): Promise<StorageInfo> {
-    try {
-      // Helper function to get allowances with error handling
-      const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
-        try {
-          const approval = await this._payments.serviceApproval(
-            this._warmStorageAddress,
-            TOKENS.USDFC
-          )
-          return {
-            service: this._warmStorageAddress,
-            rateAllowance: approval.rateAllowance,
-            lockupAllowance: approval.lockupAllowance,
-            rateUsed: approval.rateUsed,
-            lockupUsed: approval.lockupUsed
-          }
-        } catch (error) {
-          // Return null if wallet not connected or any error occurs
-          return null
-        }
-      }
-
-      // Fetch all data in parallel for performance
-      const [pricingData, providers, allowances] = await Promise.all([
-        this._warmStorageService.getServicePrice(),
-        this._warmStorageService.getAllApprovedProviders(),
-        getOptionalAllowances()
-      ])
-
-      // Calculate pricing per different time units
-      const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
-      const epochsPerDay = TIME_CONSTANTS.EPOCHS_PER_DAY
-
-      // Calculate per-epoch pricing
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
-
-      // Calculate per-day pricing
-      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-
-      // Filter out providers with zero addresses
-      const validProviders = providers.filter((p: ApprovedProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
-
-      return {
-        pricing: {
-          noCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
-            perTiBPerDay: noCDNPerDay,
-            perTiBPerEpoch: noCDNPerEpoch
-          },
-          withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
-            perTiBPerDay: withCDNPerDay,
-            perTiBPerEpoch: withCDNPerEpoch
-          },
-          tokenAddress: pricingData.tokenAddress,
-          tokenSymbol: 'USDFC' // Hardcoded as we know it's always USDFC
-        },
-        providers: validProviders,
-        serviceParameters: {
-          network: this._network,
-          epochsPerMonth,
-          epochsPerDay,
-          epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
-          minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
-          maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-          warmStorageAddress: this._warmStorageAddress,
-          paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[this._network],
-          pdpVerifierAddress: this._pdpVerifierAddress
-        },
-        allowances
-      }
-    } catch (error) {
-      throw new Error(`Failed to get storage service information: ${error instanceof Error ? error.message : String(error)}`)
-    }
+    console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
+    return await this._storageManager.getStorageInfo()
   }
 }

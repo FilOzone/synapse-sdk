@@ -78,7 +78,7 @@ async function runBenchmark () {
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    pandoraAddress: PANDORA_ADDRESS
+    warmStorageAddress: PANDORA_ADDRESS
   })
   console.log('Synapse instance:', synapse)
   console.log('Synapse network:', synapse.getNetwork && synapse.getNetwork())
@@ -89,20 +89,20 @@ async function runBenchmark () {
 
       // Create new data set
       console.log('Creating new data set...')
-      const storage = await synapse.createStorage({
+      const storageContext = await synapse.storage.createContext({
         providerAddress: PROVIDER_ADDRESS,
         forceCreateDataSet: true,
         withCDN: false
       })
 
-      console.log(`Data set created: ${storage.dataSetId}`)
+      console.log(`Data set created: ${storageContext.dataSetId}`)
 
       // Upload 4 unique pieces
       for (let piece = 1; piece <= 4; piece++) {
         console.log(`Uploading piece ${piece}/4...`)
         const data = await generateRandomData(PIECE_SIZE)
 
-        const result = await storage.upload(data)
+        const result = await storageContext.upload(data)
         console.log(`Piece uploaded: ${result.pieceCid}`)
       }
 

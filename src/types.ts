@@ -329,10 +329,10 @@ export interface PreflightInfo {
     sufficient: boolean
     message?: string
   }
-  /** Selected service provider */
-  selectedProvider: ApprovedProviderInfo
-  /** Selected data set ID */
-  selectedDataSetId: number
+  /** Selected service provider (null when no specific provider selected) */
+  selectedProvider: ApprovedProviderInfo | null
+  /** Selected data set ID (null when no specific dataset selected) */
+  selectedDataSetId: number | null
 }
 
 /**

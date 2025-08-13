@@ -55,10 +55,9 @@ src/
 │   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
 │   ├── server.ts               # PDPServer - Curio HTTP API client
 │   ├── verifier.ts             # PDPVerifier - contract interactions
-│   ├── download-service.ts     # PDPDownloadService - piece downloads
-│   ├── upload-service.ts       # PDPUploadService - piece uploads
-├── storage/                    # Storage service implementation
-│   └── service.ts              # StorageService - real PDP storage implementation
+├── storage/                    # Storage implementation
+│   ├── manager.ts              # StorageManager - facade for all storage operations
+│   └── context.ts              # StorageContext - specific SP + DataSet operations
 ├── utils/                      # Shared utilities
 │   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS
 │   └── errors.ts               # Error creation utilities
@@ -161,10 +160,6 @@ WarmStorageService (storage coordination)
   - Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
 - **Client Interaction**: Indirect (through Curio API)
 
-#### 2. SimplePDPService (`FilOzone-pdp/src/SimplePDPService.sol`)
-- Basic service implementation without payments
-- Tracks proving periods and faults
-- Reference implementation showing PDPListener interface
 
 #### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
@@ -187,23 +182,9 @@ WarmStorageService (storage coordination)
 - Currently deployed version is at `0x0E690D3e60B0576D01352AB03b258115eb84A047` on calibration
 
 #### 5. Curio Storage Provider (Service Node)
-- **Purpose**: HTTP API layer that orchestrates blockchain interactions and storage operations
-- **Responsibilities**:
-  - Exposes REST API for PDP operations
-  - Manages Ethereum transaction submission
-  - Handles piece storage and retrieval
-  - Provides authentication and authorization
-- **Address**: HTTP endpoint (e.g., `https://curio.provider.com`)
-- **Client Interaction**: Direct HTTP API calls
-- **Code Location**: `pdp/handlers.go` and `pdp/handlers_upload.go` in Curio codebase (may be `./filecoin-project-curio/`)
-
-#### 6. Client SDK (Application Layer)
-- **Purpose**: Developer-friendly interface for interacting with the PDP system
-- **Responsibilities**:
-  - Generates cryptographic auth signatures
-  - Provides high-level API abstractions
-  - Handles PieceCID calculations and validation
-  - Manages wallet and payment operations
+- HTTP API layer that orchestrates blockchain interactions and storage operations
+- Exposes REST API for PDP operations at provider HTTP endpoints
+- Manages Ethereum transactions, piece storage/retrieval, authentication
 
 ### Contract Interaction Flow
 
@@ -247,14 +228,10 @@ WarmStorageService (storage coordination)
 
 ### PDP Overview
 
-PDP is one of the paid on-chain services offered by Synapse, future services may be included in the future.
-
-1. Clients and providers establish a data set for data storage verification
-2. Providers add data pieces (identified by PieceCID) to the data set at the request of clients, and submit periodic proofs
-3. The system verifies these proofs using randomized challenges based on chain randomness
-4. Faults are reported when proofs fail or are not submitted
-
-All interactions with PDP contracts from clients via a PDP server (typically running Curio) use standard signed EIP-712 encoding of authentication blobs via ethers.js `signTypedData`. The SDK automatically detects whether to use MetaMask-friendly signing (for browser wallets) or standard signing (for private keys). Use PDPAuthHelper directly for signing operations.
+1. Clients and providers establish data sets for storage verification
+2. Providers add pieces (PieceCID) to data sets and submit periodic proofs
+3. System verifies proofs using randomized challenges
+4. All client operations use EIP-712 signatures via PDPAuthHelper
 
 ### Curio PDP API Endpoints
 - `POST /pdp/data-sets` - Create new data set
@@ -268,27 +245,29 @@ All interactions with PDP contracts from clients via a PDP server (typically run
 
 This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Warm Storage manages business logic and payments, and Curio provides the operational HTTP interface for clients.
 
-### Download Flow Patterns
+### Storage Operations
 
-#### Direct Download (via Synapse)
-1. **Client** calls `synapse.download(pieceCid, options)`
-2. **PieceRetriever** (ChainRetriever by default) queries data sets to find providers
-3. **ChainRetriever** filters for non-zero piece counts, validates via `findPiece` endpoint, attempts downloads from multiple providers in parallel using Promise.race() with AbortController for efficient cancellation
-4. **downloadAndValidate** verifies the downloaded data matches the expected PieceCID
+**Simple Usage (Recommended)**:
+```javascript
+// Auto-managed contexts - SDK handles everything
+await synapse.storage.upload(data)
+await synapse.storage.download(pieceCid)
+```
 
-#### Provider-Specific Download (via StorageService)
-1. **Client** calls `storage.providerDownload(pieceCid)`
-2. **StorageService** delegates to `synapse.download()` with `providerAddress` hint
-3. **ChainRetriever** skips data set lookup and directly queries the specified provider
-4. Download and validation proceed as above
+**Advanced Usage**:
+```javascript
+// Explicit context for specific provider control
+const context = await synapse.storage.createContext({ providerId: 1 })
+await context.upload(data)
+await context.download(pieceCid)  // Downloads from this specific provider
+await context.hasPiece(pieceCid)  // Check if piece exists on this provider
+```
 
-## Development Environment and External Repositories
+**Download Optimization**: StorageManager checks default context first when downloading without CDN - if piece exists there, uses fast path to avoid discovery.
 
-In development environments, the following related repositories may be available locally for reference and testing. **Local Repository Naming Convention**: Repositories should be cloned with the format `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) to avoid naming conflicts and clearly identify the source organization.
+## Development Environment
 
-### Usage Notes
-- **Local Development**: If repositories are available locally with the `{org}-{repo}` naming convention, files can be accessed directly for debugging and testing. When using local development environment, expect repositories at paths like `./filecoin-project-curio/` and `./FilOzone-pdp/` cloned to the same directory as the SDK project. This allows for easy import and testing of contract interactions but they should not be checked in if they exist.
-- **Remote Access**: Contract files can also be viewed via GitHub URLs when local copies aren't available
+**Local Repository Convention**: Clone related repos as `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) in same directory as SDK for testing. Do not check in.
 
 ### Blockchain Interaction Tools
 
@@ -310,4 +289,3 @@ In development environments, the following related repositories may be available
   - Calibration: `https://api.calibration.node.glif.io/rpc/v1`
   - Mainnet: `https://api.node.glif.io/rpc/v1`
 
-This document should be kept updated and curated as the SDK implementation progresses.

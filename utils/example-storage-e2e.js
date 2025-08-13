@@ -5,8 +5,8 @@
  *
  * This example demonstrates:
  * 1. Creating a Synapse instance with credentials
- * 2. Creating a StorageService
- * 3. Uploading a file to PDP storage
+ * 2. Using the synapse.storage API for uploads and downloads
+ * 3. Uploading a file to PDP storage with callbacks
  * 4. Downloading the file back and verifying contents
  *
  * Required environment variables:
@@ -100,9 +100,10 @@ async function main () {
     console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
     console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
 
-    // Step 4: Create storage service
-    console.log('\n--- Creating Storage Service ---')
-    const storageService = await synapse.createStorage({
+    // Step 4: Create storage context (optional - synapse.storage.upload() will auto-create if needed)
+    // We create it explicitly here to show provider selection and data set creation callbacks
+    console.log('\n--- Setting Up Storage Context ---')
+    const storageContext = await synapse.storage.createContext({
       // providerId: 123, // Optional: specify a provider ID
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
@@ -127,8 +128,8 @@ async function main () {
       }
     })
 
-    console.log(`Data set ID: ${storageService.dataSetId}`)
-    const pieceCids = await storageService.getDataSetPieces()
+    console.log(`Data set ID: ${storageContext.dataSetId}`)
+    const pieceCids = await storageContext.getDataSetPieces()
     console.log(`Data set contains ${pieceCids.length} piece CIDs`)
     /* Uncomment to see piece CIDs
     for (const cid of pieceCids) {
@@ -138,7 +139,7 @@ async function main () {
 
     // Get detailed provider information
     console.log('\n--- Service Provider Details ---')
-    const providerInfo = await storageService.getProviderInfo()
+    const providerInfo = await storageContext.getProviderInfo()
     console.log(`Service Provider: ${providerInfo.serviceProvider}`)
     console.log(`Service URL: ${providerInfo.serviceURL}`)
     console.log(`Peer ID: ${providerInfo.peerId}`)
@@ -147,7 +148,7 @@ async function main () {
 
     // Step 5: Run preflight checks
     console.log('\n--- Preflight Upload Check ---')
-    const preflight = await storageService.preflightUpload(fileData.length)
+    const preflight = await storageContext.preflightUpload(fileData.length)
 
     console.log('Estimated costs:')
     console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
@@ -172,7 +173,8 @@ async function main () {
     // Note: With updated Curio servers, you'll get enhanced transaction tracking
     // The callbacks below demonstrate both old and new server compatibility
 
-    const uploadResult = await storageService.upload(fileData, {
+    // Using the context we created earlier (could also use synapse.storage.upload directly)
+    const uploadResult = await storageContext.upload(fileData, {
       onUploadComplete: (pieceCid) => {
         console.log(`✓ Upload complete! PieceCID: ${pieceCid}`)
       },
@@ -202,7 +204,9 @@ async function main () {
     console.log('\n--- Downloading File ---')
     console.log(`Downloading piece: ${uploadResult.pieceCid}`)
 
-    const downloadedData = await synapse.download(uploadResult.pieceCid)
+    // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
+    // Could also use storageContext.download() to download from the specific provider
+    const downloadedData = await synapse.storage.download(uploadResult.pieceCid)
     console.log(`✓ Downloaded ${formatBytes(downloadedData.length)}`)
 
     // Step 8: Verify the data
@@ -218,7 +222,7 @@ async function main () {
 
     // Step 9: Check piece status
     console.log('\n--- Piece Status ---')
-    const pieceStatus = await storageService.pieceStatus(uploadResult.pieceCid)
+    const pieceStatus = await storageContext.pieceStatus(uploadResult.pieceCid)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
     if (pieceStatus.dataSetLastProven) {
       console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
@@ -235,10 +239,10 @@ async function main () {
     // Step 10: Show storage info
     console.log('\n--- Storage Information ---')
     console.log('Your file is now stored on the Filecoin network with:')
-    console.log(`- Piece CID / hash (PieceCID / CommP): ${uploadResult.pieceCid}`)
-    console.log(`- Data set ID: ${storageService.dataSetId}`)
+    console.log(`- Piece CID / hash (PieceCID): ${uploadResult.pieceCid}`)
+    console.log(`- Data set ID: ${storageContext.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
-    console.log(`- Service provider: ${storageService.serviceProvider}`)
+    console.log(`- Service provider: ${storageContext.serviceProvider}`)
     console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
