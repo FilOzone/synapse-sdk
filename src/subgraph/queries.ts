@@ -4,7 +4,7 @@
 
 export const QUERIES = {
   // queries for subgraphRetriever
-  GET_APPROVED_PROVIDERS_FOR_COMMP: `
+  GET_APPROVED_PROVIDERS_FOR_PIECE_LINK: `
     query GetApprovedProvidersForCommP($cid: Bytes!) {
       pieces(where: { cid: $cid }) {
         id

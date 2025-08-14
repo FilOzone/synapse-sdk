@@ -11,7 +11,7 @@ import type {
   FindPieceResponse
 } from './server.js'
 import type { DataSetData, DataSetPieceData } from '../types.js'
-import { asCommP } from '../commp/commp.js'
+import { asPieceCID } from '../piece/index.js'
 
 /**
  * Type guard for DataSetCreationStatusResponse
@@ -114,17 +114,12 @@ export function isFindPieceResponse (value: unknown): value is FindPieceResponse
 
   const obj = value as Record<string, unknown>
 
-  // Accept either pieceCid (new) or piece_cid (legacy)
-  const hasPieceCid = typeof obj.pieceCid === 'string'
-  const hasPieceCidLegacy = typeof obj.piece_cid === 'string'
-
-  if (!hasPieceCid && !hasPieceCidLegacy) {
+  if (typeof obj.pieceCid !== 'string') {
     return false
   }
 
-  // Validate that the piece CID is a valid CommP
-  const cidToValidate = (obj.pieceCid ?? obj.piece_cid) as string
-  if (asCommP(cidToValidate) == null) {
+  // Validate that the piece CID is a valid PieceCID
+  if (asPieceCID(obj.pieceCid) == null) {
     return false
   }
 
@@ -157,18 +152,18 @@ export function validatePieceAdditionStatusResponse (value: unknown): PieceAddit
 
 /**
  * Validates and returns a FindPieceResponse
- * Normalizes the response to always have pieceCid field as a CommP object
+ * Normalizes the response to always have pieceCid field as a PieceCID object
  * @param value - The value to validate
  * @throws Error if validation fails
  */
 export function validateFindPieceResponse (value: unknown): FindPieceResponse {
   if (!isFindPieceResponse(value)) {
-    // Check if it failed specifically due to invalid CommP
+    // Check if it failed specifically due to invalid PieceCID
     if (typeof value === 'object' && value != null) {
       const obj = value as Record<string, unknown>
       const cidStr = (obj.pieceCid ?? obj.piece_cid) as string | undefined
-      if (cidStr != null && asCommP(cidStr) == null) {
-        throw new Error('Invalid find piece response: pieceCid is not a valid CommP')
+      if (cidStr != null && asPieceCID(cidStr) == null) {
+        throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
       }
     }
     throw new Error('Invalid find piece response format')
@@ -179,16 +174,16 @@ export function validateFindPieceResponse (value: unknown): FindPieceResponse {
   // Get the CID string from either field
   const cidStr = (obj.pieceCid ?? obj.piece_cid) as string
 
-  // Convert to CommP object (we know it's valid because isFindPieceResponse already checked)
-  const commP = asCommP(cidStr)
-  if (commP == null) {
+  // Convert to PieceCID object (we know it's valid because isFindPieceResponse already checked)
+  const pieceCid = asPieceCID(cidStr)
+  if (pieceCid == null) {
     // This should never happen since we validated above, but just in case
-    throw new Error('Invalid find piece response: pieceCid is not a valid CommP')
+    throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
   }
 
-  // Return normalized response with CommP object
+  // Return normalized response with PieceCID object
   return {
-    pieceCid: commP,
+    pieceCid,
     piece_cid: obj.piece_cid // Keep legacy field if it exists
   }
 }
@@ -221,9 +216,9 @@ export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
     return null
   }
 
-  // Convert CIDs to CommP objects
-  const pieceCid = asCommP(obj.pieceCid)
-  const subPieceCid = asCommP(obj.subPieceCid)
+  // Convert CIDs to PieceCID objects
+  const pieceCid = asPieceCID(obj.pieceCid)
+  const subPieceCid = asPieceCID(obj.subPieceCid)
   if (pieceCid == null || subPieceCid == null) {
     return null
   }

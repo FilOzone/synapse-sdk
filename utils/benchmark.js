@@ -103,7 +103,7 @@ async function runBenchmark () {
         const data = await generateRandomData(PIECE_SIZE)
 
         const result = await storage.upload(data)
-        console.log(`Piece uploaded: ${result.commp}`)
+        console.log(`Piece uploaded: ${result.pieceCid}`)
       }
 
       // Print timing results for this run

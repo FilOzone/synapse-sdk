@@ -20,16 +20,16 @@
  *   }
  * });
  *
- * const providers = await subgraphService.getApprovedProvidersForCommP('baga6ea4seaq...');
+ * const providers = await subgraphService.getApprovedProvidersForPieceCID('bafkzcib...');
  * console.log(providers);
  * ```
  */
 
 import { toHex, fromHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
-import { asCommP } from '../commp/commp.js'
+import { asPieceCID } from '../piece/index.js'
 import type {
-  CommP, CommPv2,
+  PieceCID,
   ApprovedProviderInfo,
   SubgraphRetrievalService,
   SubgraphConfig
@@ -131,7 +131,7 @@ export interface PieceInfo {
   pieceId: number
   rawSize: number
   leafCount: number
-  cid: CommP | CommPv2 | null
+  cid: PieceCID | null
   removed: boolean
   totalProofsSubmitted: number
   totalPeriodsFaulted: number
@@ -312,25 +312,25 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Safely converts a hex format CID to CommP format
+   * Safely converts a hex format CID to PieceCID format
    * @param hexCid - The CID in hex format
-   * @returns The CID in CommP format or null if conversion fails
+   * @returns The CID in PieceCID format or null if conversion fails
    */
-  private safeConvertHexToCid (hexCid: string): CommP | CommPv2 | null {
+  private safeConvertHexToCid (hexCid: string): PieceCID | null {
     try {
       const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
       const cidBytes = fromHex(cleanHex)
       const cid = CID.decode(cidBytes)
-      const commp = asCommP(cid)
+      const pieceCid = asPieceCID(cid)
 
-      if (commp == null) {
-        throw new Error(`Failed to convert CID to CommP format: ${hexCid}`)
+      if (pieceCid == null) {
+        throw new Error(`Failed to convert CID to PieceCID format: ${hexCid}`)
       }
 
-      return commp
+      return pieceCid
     } catch (error) {
       console.warn(
-        `SubgraphService: queryProviders: Failed to convert CID to CommP format: ${
+        `SubgraphService: queryProviders: Failed to convert CID to PieceCID format: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
@@ -351,30 +351,30 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find approved service providers that have a specific piece (CommP).
+   * Queries the subgraph to find approved service providers that have a specific piece (PieceCID).
    *
    * It sends a GraphQL query to the configured endpoint and parses the response to extract
    * a list of providers, including their addresses and retrieval URLs.
    *
-   * @param commp - The piece commitment (CommP) to search for.
+   * @param pieceCid - The piece commitment (PieceCID) to search for.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForCommP (commP: CommP | CommPv2): Promise<ApprovedProviderInfo[]> {
-    const commPParsed = asCommP(commP)
-    if (commPParsed == null) {
-      throw createError('SubgraphService', 'getApprovedProvidersForCommP', 'Invalid CommP')
+  async getApprovedProvidersForPieceCID (pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
+    const pieceCidParsed = asPieceCID(pieceCid)
+    if (pieceCidParsed == null) {
+      throw createError('SubgraphService', 'getApprovedProvidersForPieceCID', 'Invalid PieceCID')
     }
-    const hexCommP = toHex(commPParsed.bytes)
+    const hexPieceCid = toHex(pieceCidParsed.bytes)
 
     const data = await this.executeQuery<{ pieces: any[] }>(
-      QUERIES.GET_APPROVED_PROVIDERS_FOR_COMMP,
-      { cid: hexCommP },
-      'getApprovedProvidersForCommP'
+      QUERIES.GET_APPROVED_PROVIDERS_FOR_PIECE_LINK,
+      { cid: hexPieceCid },
+      'getApprovedProvidersForPieceCID'
     )
 
     if (data?.pieces == null || data.pieces.length === 0) {
-      console.log(`SubgraphService: No providers found for CommP: ${commPParsed.toString()}`)
+      console.log(`SubgraphService: No providers found for PieceCID: ${pieceCidParsed.toString()}`)
       return []
     }
 

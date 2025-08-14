@@ -1,14 +1,14 @@
 /* globals describe, it, beforeEach, afterEach */
 import { assert } from 'chai'
 import { SubgraphService } from '../subgraph/service.js'
-import { asCommP } from '../commp/index.js'
-import type { CommP } from '../types.js'
+import { asPieceCID } from '../piece/index.js'
+import type { PieceCID } from '../types.js'
 
 describe('SubgraphService', () => {
   const mockEndpoint = 'http://localhost:8000/subgraphs/name/test'
-  const mockCommP = asCommP(
-    'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
-  ) as CommP
+  const mockPieceCID = asPieceCID(
+    'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+  ) as PieceCID
   let originalFetch: typeof global.fetch
 
   beforeEach(() => {
@@ -44,13 +44,13 @@ describe('SubgraphService', () => {
     })
   })
 
-  describe('getApprovedProvidersForCommP', () => {
-    it('should return providers for a given CommP', async () => {
+  describe('getApprovedProvidersForPieceCID', () => {
+    it('should return providers for a given PieceCID', async () => {
       const mockResponse = {
         data: {
           pieces: [
             {
-              id: mockCommP.toString(),
+              id: mockPieceCID.toString(),
               dataSet: {
                 setId: '1',
                 serviceProvider: {
@@ -76,7 +76,7 @@ describe('SubgraphService', () => {
 
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getApprovedProvidersForCommP(mockCommP)
+        const providers = await service.getApprovedProvidersForPieceCID(mockPieceCID)
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
@@ -86,7 +86,7 @@ describe('SubgraphService', () => {
       }
     })
 
-    it('should handle invalid CommP', async () => {
+    it('should handle invalid PieceCID', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url =
@@ -98,10 +98,10 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForCommP(asCommP('invalid') as CommP)
+        await service.getApprovedProvidersForPieceCID(asPieceCID('invalid') as PieceCID)
         assert.fail('should have thrown')
       } catch (err) {
-        assert.match((err as Error).message, /Invalid CommP/)
+        assert.match((err as Error).message, /Invalid PieceCID/)
       } finally {
         global.fetch = originalFetch
       }
@@ -119,7 +119,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getApprovedProvidersForCommP(mockCommP)
+        const providers = await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.isArray(providers)
         assert.lengthOf(providers, 0)
       } finally {
@@ -139,7 +139,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForCommP(mockCommP)
+        await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /GraphQL error/)
@@ -160,7 +160,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForCommP(mockCommP)
+        await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /HTTP 500: Internal Server Error/)
@@ -535,7 +535,7 @@ describe('SubgraphService', () => {
                 pieceId: '100',
                 rawSize: '1048576',
                 leafCount: '256',
-                cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
+                cid: '0x015591202480803f10ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
                 removed: false,
                 totalProofsSubmitted: '10',
                 totalPeriodsFaulted: '1',
@@ -598,7 +598,7 @@ describe('SubgraphService', () => {
                 pieceId: '200',
                 rawSize: '10485760',
                 leafCount: '2560',
-                cid: '0x0181e203922020ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
+                cid: '0x015591202480803f10ad7d9bed3fb5acbb7db4fb4feeac94c1dde689886cd1e8b64f1bbdf935eec011',
                 removed: false,
                 totalProofsSubmitted: '20',
                 totalPeriodsFaulted: '0',
@@ -651,7 +651,7 @@ describe('SubgraphService', () => {
           assert.equal(pieces[0].rawSize, 10485760)
           assert.equal(
             pieces[0].cid?.toString(),
-            'baga6ea4seaqk27m35u73llf3pw2pwt7ovskmdxpgrgegzupiwzhrxppzgxxmaei'
+            'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
           )
         } finally {
           global.fetch = originalFetch

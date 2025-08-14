@@ -46,7 +46,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ```
 src/
 ├── browser-entry.ts            # Browser bundle entry point
-├── commp/                      # CommP utilities (Piece Commitment calculations)
+├── piece/                      # PieceCID utilities (Piece Commitment calculations)
 ├── payments/                   # Payment contract interactions
 │   └── service.ts              # PaymentsService (formerly SynapsePayments)
 ├── warm-storage/               # Warm Storage contract interactions (storage coordination)
@@ -89,37 +89,24 @@ src/
 - **External Dependencies**: ethers.js must be loaded separately (https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js can be used)
 - **Global Variable**: `window.SynapseSDK` when loaded via script tag
 
-## CommPv2 Format and 32-Byte Digests
+## PieceCID Format and 32-Byte Digests
 
-**CRITICAL KNOWLEDGE**: Understanding CommPv2 is essential for proper contract integration. Reference: [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md)
+**CRITICAL KNOWLEDGE**: PieceCID (also known as CommP or Piece Commitment) is Filecoin's content-addressed identifier for data pieces. Reference: [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md)
 
-### CommPv2 Structure
-The new Piece Multihash CID format (CommPv2) has the structure:
+### PieceCID Structure (v2 format)
 ```
 uvarint padding | uint8 height | 32 byte piece data
 ```
+- **32-Byte Piece Data**: The last 32 bytes = root of binary merkle tree
+- **Contract Compatibility**: Solidity contracts expect only the 32-byte digest, not full CID
+- **SDK Extraction**: `digest.bytes.subarray(digest.bytes.length - 32)` gets the digest
 
-### Key Points
-1. **32-Byte Piece Data**: The last 32 bytes represent the root of a binary merkle tree
-2. **Height Field**: Encodes the tree height, supporting pieces up to 32 GiB (height 30)
-3. **Size Information**: The format embeds size information directly in the CID
-4. **Contract Compatibility**: Solidity contracts expect only the 32-byte piece digest
-
-### Implementation Details
-- **CommPv1 (Legacy)**: Uses fil-commitment-unsealed codec (0xf101) and sha2-256-trunc254-padded (0x1012)
-- **CommPv2 Extraction**: `digest.bytes.subarray(digest.bytes.length - 32)` extracts the 32-byte root
-- **Contract Encoding**: Solidity `PDPVerifier.PieceData` expects the 32-byte digest, not the full CID
-
-### Why This Matters
-- Smart contracts work with 32-byte digests for efficiency and gas costs
-- The SDK must extract the correct 32-byte portion from CommPv2 for contract compatibility
-- Misunderstanding this structure leads to signature verification failures
-
-### CommP Utilities
-- Available as a separate import path: `@filoz/synapse-sdk/commp` / `src/commp`
-- `calculate()`
-- `asCommP()`
-- `createCommPStream()` creates a WebStreams TransformStream for streaming CommP calculation without buffering
+### PieceCID Utilities
+- Import path: `@filoz/synapse-sdk/piece` / `src/piece`
+- `calculate()` - Compute PieceCID from data
+- `asPieceCID()` - Validate/convert to PieceCID type
+- `asLegacyPieceCID()` - Convert to v1 format for compatibility
+- `createPieceCIDStream()` - Streaming calculation without buffering
 
 ## Contract Architecture and Integration
 
@@ -215,7 +202,7 @@ WarmStorageService (storage coordination)
 - **Responsibilities**:
   - Generates cryptographic auth signatures
   - Provides high-level API abstractions
-  - Handles CommP calculations and validation
+  - Handles PieceCID calculations and validation
   - Manages wallet and payment operations
 
 ### Contract Interaction Flow
@@ -228,12 +215,9 @@ WarmStorageService (storage coordination)
    - Service contract validates signature and executes business logic
 
 2. **Critical Data Structures**:
-   ```solidity
-   struct PieceData {
-     Cids.Cid cid;      // 32-byte CommP digest
-     uint64 rawSize;    // Original data size
-   }
-   ```
+   - SDK's `PieceData` interface: `{ cid: PieceCID | string, rawSize: number }`
+   - Contract expects just the 32-byte digest from PieceCID for operations
+   - Solidity uses `Cids.Cid` struct which wraps the bytes32 digest
 
 3. **Authentication Schema**:
    - All client operations use EIP-712 typed signatures
@@ -245,7 +229,7 @@ WarmStorageService (storage coordination)
 ### Data Flow Patterns
 
 #### Piece Storage Flow
-1. **Client** calculates CommP and uploads to **Curio**
+1. **Client** calculates PieceCID and uploads to **Curio**
 2. **Curio** stores piece and creates `pdp_piecerefs` record
 3. **Client** references stored pieces when adding pieces to data sets
 4. **Curio** validates piece ownership and calls **PDPVerifier**
@@ -266,7 +250,7 @@ WarmStorageService (storage coordination)
 PDP is one of the paid on-chain services offered by Synapse, future services may be included in the future.
 
 1. Clients and providers establish a data set for data storage verification
-2. Providers add data pieces (identified by CommP) to the data set at the request of clients, and submit periodic proofs
+2. Providers add data pieces (identified by PieceCID) to the data set at the request of clients, and submit periodic proofs
 3. The system verifies these proofs using randomized challenges based on chain randomness
 4. Faults are reported when proofs fail or are not submitted
 
@@ -287,13 +271,13 @@ This architecture enables a clean separation where PDPVerifier handles the crypt
 ### Download Flow Patterns
 
 #### Direct Download (via Synapse)
-1. **Client** calls `synapse.download(commp, options)`
+1. **Client** calls `synapse.download(pieceCid, options)`
 2. **PieceRetriever** (ChainRetriever by default) queries data sets to find providers
 3. **ChainRetriever** filters for non-zero piece counts, validates via `findPiece` endpoint, attempts downloads from multiple providers in parallel using Promise.race() with AbortController for efficient cancellation
-4. **downloadAndValidateCommP** verifies the downloaded data matches the expected CommP
+4. **downloadAndValidate** verifies the downloaded data matches the expected PieceCID
 
 #### Provider-Specific Download (via StorageService)
-1. **Client** calls `storage.providerDownload(commp)`
+1. **Client** calls `storage.providerDownload(pieceCid)`
 2. **StorageService** delegates to `synapse.download()` with `providerAddress` hint
 3. **ChainRetriever** skips data set lookup and directly queries the specified provider
 4. Download and validation proceed as above

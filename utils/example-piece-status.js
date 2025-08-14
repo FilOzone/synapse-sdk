@@ -7,10 +7,10 @@
  * including whether it exists, when it was last proven, and when the next proof is due.
  *
  * Usage:
- *   node example-piece-status.js <commp> [providerAddress[, dataSetId]]
+ *   node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]
  *
  * Arguments:
- *   commp           - Required: The CommP (piece commitment) to check
+ *   pieceCid        - Required: The PieceCID (piece commitment / pieceCid) to check
  *   providerAddress - Optional: Specific provider address to check
  *   dataSetId       - Optional: Specific data set ID to use
  *
@@ -22,13 +22,13 @@
  *
  * Examples:
  *   # Check piece on any provider
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq...
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci...
  *
  *   # Check piece on specific provider
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123...
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123...
  *
  *   # Check piece with specific provider and data set
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123... 456
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123... 456
  */
 
 import { Synapse } from '@filoz/synapse-sdk'
@@ -40,20 +40,20 @@ const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const commp = args[0]
+const pieceCid = args[0]
 const providerAddress = args[1]
 const dataSetId = args[2] ? parseInt(args[2]) : undefined
 
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
-if (!commp) {
-  console.error('ERROR: CommP argument is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
+if (!pieceCid) {
+  console.error('ERROR: PieceCID argument is required')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
@@ -105,7 +105,7 @@ async function main () {
   try {
     console.log('=== Piece Status Check ===\n')
     console.log(`Date: ${formatDate(new Date())}`)
-    console.log(`\nCommP: ${commp}`)
+    console.log(`\nPieceCID: ${pieceCid}`)
     if (providerAddress) {
       console.log(`Provider: ${providerAddress}`)
     }
@@ -155,7 +155,7 @@ async function main () {
 
     // Check piece status
     console.log('\n--- Checking Piece Status ---')
-    const status = await storage.pieceStatus(commp)
+    const status = await storage.pieceStatus(pieceCid)
 
     // Display results
     console.log('\n📊 Piece Status Report:')

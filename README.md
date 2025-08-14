@@ -25,70 +25,36 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ## Table of Contents
 
-- [Synapse SDK](#synapse-sdk)
-  - [Overview](#overview)
-  - [Installation](#installation)
-  - [Table of Contents](#table-of-contents)
-  - [Recommended Usage](#recommended-usage)
-    - [Quick Start](#quick-start)
-      - [Payment Setup](#payment-setup)
-    - [With MetaMask](#with-metamask)
-    - [Advanced Payment Control](#advanced-payment-control)
-    - [API Reference](#api-reference)
-      - [Constructor Options](#constructor-options)
-      - [Synapse Methods](#synapse-methods)
-      - [Synapse.payments Methods](#synapsepayments-methods)
-      - [Storage Service Methods](#storage-service-methods)
-    - [Storage Service Creation](#storage-service-creation)
-      - [Basic Usage](#basic-usage)
-      - [Advanced Usage with Callbacks](#advanced-usage-with-callbacks)
-      - [Creation Options](#creation-options)
-      - [Storage Service Properties](#storage-service-properties)
-      - [Storage Service Methods](#storage-service-methods-1)
-        - [Preflight Upload](#preflight-upload)
-        - [Upload and Download](#upload-and-download)
-        - [Size Constraints](#size-constraints)
-        - [Efficient Batch Uploads](#efficient-batch-uploads)
-    - [Storage Information](#storage-information)
-    - [Download Options](#download-options)
-      - [Direct Download via Synapse](#direct-download-via-synapse)
-      - [Provider-Specific Download via StorageService](#provider-specific-download-via-storageservice)
-      - [CDN Inheritance Pattern](#cdn-inheritance-pattern)
-  - [Using Individual Components](#using-individual-components)
-    - [Payments Service](#payments-service)
-    - [Warm Storage Service](#warm-storage-service)
-    - [Subgraph Service](#subgraph-service)
-      - [Custom Subgraph Service Implementations](#custom-subgraph-service-implementations)
-    - [PDP Components](#pdp-components)
-      - [PDP Verifier](#pdp-verifier)
-      - [PDP Server](#pdp-server)
-      - [PDP Auth Helper](#pdp-auth-helper)
-    - [CommP Utilities](#commp-utilities)
-  - [Network Configuration](#network-configuration)
-    - [RPC Endpoints](#rpc-endpoints)
-    - [GLIF Authorization](#glif-authorization)
-    - [Network Details](#network-details)
-  - [Browser Integration](#browser-integration)
-    - [MetaMask Setup](#metamask-setup)
-  - [Additional Information](#additional-information)
-    - [Type Definitions](#type-definitions)
-    - [Error Handling](#error-handling)
-  - [Contributing](#contributing)
-    - [Commit Message Guidelines](#commit-message-guidelines)
-      - [Commit Message Format](#commit-message-format)
-      - [Supported Types and Version Bumps](#supported-types-and-version-bumps)
-      - [Examples](#examples)
-      - [Important Notes](#important-notes)
-    - [Testing](#testing)
-  - [Migration Guide](#migration-guide)
-    - [Terminology Update (v0.24.0+)](#terminology-update-v0240)
-      - [Import Path Changes](#import-path-changes)
-      - [Type Name Changes](#type-name-changes)
-      - [Method Name Changes](#method-name-changes)
-      - [Configuration Changes](#configuration-changes)
-      - [Complete Migration Example](#complete-migration-example)
-      - [Migration Checklist](#migration-checklist)
-  - [License](#license)
+* [Recommended Usage](#recommended-usage)
+  * [Quick Start](#quick-start)
+  * [With MetaMask](#with-metamask)
+  * [Advanced Payment Control](#advanced-payment-control)
+  * [API Reference](#api-reference)
+  * [Storage Service Creation](#storage-service-creation)
+  * [Storage Information](#storage-information)
+  * [Download Options](#download-options)
+* [PieceCID](#piececid)
+* [Using Individual Components](#using-individual-components)
+  * [Payments Service](#payments-service)
+  * [Warm Storage Service](#warm-storage-service)
+  * [Subgraph Service](#subgraph-service)
+  * [PDP Components](#pdp-components)
+  * [PieceCID Utilities](#piececid-utilities)
+* [Network Configuration](#network-configuration)
+  * [RPC Endpoints](#rpc-endpoints)
+  * [GLIF Authorization](#glif-authorization)
+  * [Network Details](#network-details)
+* [Browser Integration](#browser-integration)
+  * [MetaMask Setup](#metamask-setup)
+* [Additional Information](#additional-information)
+  * [Type Definitions](#type-definitions)
+  * [Error Handling](#error-handling)
+* [Contributing](#contributing)
+  * [Commit Message Guidelines](#commit-message-guidelines)
+  * [Testing](#testing)
+* [Migration Guide](#migration-guide)
+  * [Terminology Update (v0.24.0+)](#terminology-update-v0240)
+* [License](#license)
 
 ---
 
@@ -116,14 +82,14 @@ const storage = await synapse.createStorage()
 const uploadResult = await storage.upload(
   new TextEncoder().encode('🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍')
 )
-console.log(`Upload complete! CommP: ${uploadResult.commp}`)
+console.log(`Upload complete! PieceCID: ${uploadResult.pieceCid}`)
 
 // Download data from this provider
-const data = await storage.providerDownload(uploadResult.commp)
+const data = await storage.providerDownload(uploadResult.pieceCid)
 console.log('Retrieved:', new TextDecoder().decode(data))
 
 // Or download from any provider that has the piece
-const dataFromAny = await synapse.download(uploadResult.commp)
+const dataFromAny = await synapse.download(uploadResult.pieceCid)
 ```
 
 #### Payment Setup
@@ -164,7 +130,7 @@ const synapse = await Synapse.create({ provider })
 const storage = await synapse.createStorage()
 const data = new TextEncoder().encode('🚀🚀 Hello Filecoin! This is decentralized storage in action.')
 const result = await storage.upload(data)
-console.log(`Stored with CommP: ${result.commp}`)
+console.log(`Stored with PieceCID: ${result.pieceCid}`)
 ```
 
 ### Advanced Payment Control
@@ -277,7 +243,7 @@ interface SubgraphConfig {
 
 **Core Operations:**
 - `createStorage(options?)` - Create a storage service instance (returns `StorageService`, see [Storage Service Methods](#storage-service-methods) below)
-- `download(commp, options?)` - Download a piece directly from any provider (see [Download Options](#download-options))
+- `download(pieceCid, options?)` - Download a piece directly from any provider (see [Download Options](#download-options))
 - `getStorageInfo()` - Get comprehensive storage service information (pricing, providers, parameters)
 - `getProviderInfo(providerAddress)` - Get detailed information about a service provider
 
@@ -315,14 +281,14 @@ The `StorageService` instance returned by `synapse.createStorage()` provides met
 - `serviceProvider` - The service provider address (string)
 
 **Core Storage Operations:**
-- `upload(data, callbacks?)` - Upload data to the service provider, returns `UploadResult` with `commp`, `size`, and `pieceId`
-- `providerDownload(commp, options?)` - Download data from this specific provider, returns `Uint8Array`
+- `upload(data, callbacks?)` - Upload data to the service provider, returns `UploadResult` with `pieceCid`, `size`, and `pieceId`
+- `providerDownload(pieceCid, options?)` - Download data from this specific provider, returns `Uint8Array`
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check
 
 **Information & Status:**
 - `getProviderInfo()` - Get detailed information about the selected service provider
 - `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
-- `pieceStatus(commp)` - Get the status of a piece including data set timing information
+- `pieceStatus(pieceCid)` - Get the status of a piece including data set timing information
 
 ### Storage Service Creation
 
@@ -429,8 +395,8 @@ Upload and download data with the storage service:
 ```javascript
 // Upload with optional progress callbacks
 const result = await storage.upload(data, {
-  onUploadComplete: (commp) => {
-    console.log(`Upload complete! CommP: ${commp}`)
+  onUploadComplete: (pieceCid) => {
+    console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
   onPieceAdded: (transaction) => {
     // For new servers: transaction object with details
@@ -448,14 +414,14 @@ const result = await storage.upload(data, {
 })
 
 // Download data from this specific provider
-const downloaded = await storage.providerDownload(result.commp)
+const downloaded = await storage.providerDownload(result.pieceCid)
 
 // Get the list of piece CIDs in the current data set by querying the provider
 const pieceCids = await storage.getDataSetPieces()
 console.log(`Piece CIDs: ${pieceCids.map(cid => cid.toString()).join(', ')}`)
 
 // Check the status of a piece on the service provider
-const status = await storage.pieceStatus(result.commp)
+const status = await storage.pieceStatus(result.pieceCid)
 console.log(`Piece exists: ${status.exists}`)
 console.log(`Data set last proven: ${status.dataSetLastProven}`)
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
@@ -517,13 +483,13 @@ Download pieces from any available provider:
 
 ```javascript
 // Download from any provider that has the piece
-const data = await synapse.download(commp)
+const data = await synapse.download(pieceCid)
 
 // Download with CDN optimization (if available)
-const dataWithCDN = await synapse.download(commp, { withCDN: true })
+const dataWithCDN = await synapse.download(pieceCid, { withCDN: true })
 
 // Download from a specific provider
-const dataFromProvider = await synapse.download(commp, {
+const dataFromProvider = await synapse.download(pieceCid, {
   providerAddress: '0x...'
 })
 ```
@@ -534,11 +500,11 @@ When using a StorageService instance, downloads are automatically restricted to 
 
 ```javascript
 // Downloads from the provider associated with this storage instance
-const data = await storage.providerDownload(commp)
+const data = await storage.providerDownload(pieceCid)
 
 // The storage instance passes its withCDN setting to the download
 const storage = await synapse.createStorage({ withCDN: true })
-const dataWithCDN = await storage.providerDownload(commp) // Uses CDN if available
+const dataWithCDN = await storage.providerDownload(pieceCid) // Uses CDN if available
 ```
 
 #### CDN Inheritance Pattern
@@ -553,10 +519,30 @@ The `withCDN` option follows a clear inheritance hierarchy:
 // Example of inheritance
 const synapse = await Synapse.create({ withCDN: true })          // Global default for this Synapse instance: CDN enabled
 const storage = await synapse.createStorage({ withCDN: false })  // Override: CDN disabled
-await synapse.download(commp)                                    // Uses Synapse's withCDN: true
-await storage.providerDownload(commp)                            // Uses StorageService's withCDN: false
-await synapse.download(commp, { withCDN: false })                // Method override: CDN disabled
+await synapse.download(pieceCid)                                // Uses Synapse's withCDN: true
+await storage.providerDownload(pieceCid)                        // Uses StorageService's withCDN: false
+await synapse.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
 ```
+
+---
+
+## PieceCID
+
+PieceCID is Filecoin's native content address identifier, a variant of [CID](https://docs.ipfs.tech/concepts/content-addressing/). When you upload data, the SDK calculates a PieceCID—an identifier that:
+- Uniquely identifies your bytes, regardless of size, in a short string form
+- Enables retrieval from any provider storing those bytes
+- Contains embedded size information
+
+**Format Recognition:**
+
+- **PieceCID**: Starts with `bafkzcib`, 64-65 characters - this is what Synapse SDK uses
+- **LegacyPieceCID**: Starts with `baga6ea4seaq`, 64 characters - for compatibility with other Filecoin services
+
+PieceCID is also known as "CommP" or "Piece Commitment" in Filecoin documentation. The SDK exclusively uses PieceCID (v2 format) for all operations—you receive a PieceCID when uploading and use it for downloads.
+
+LegacyPieceCID (v1 format) conversion utilities are provided for interoperability with other Filecoin services that may still use the older format. See [PieceCID Utilities](#piececid-utilities) for conversion functions.
+
+**Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
 
 ---
 
@@ -676,8 +662,8 @@ const activeProviders = await subgraphService.queryProviders({
   first: 5
 })
 
-// Example: Find providers for a specific CommP
-const providers = await subgraphService.getApprovedProvidersForCommP(commp)
+// Example: Find providers for a specific PieceCID
+const providers = await subgraphService.getApprovedProvidersForPieceCID(pieceCid)
 ```
 
 #### Custom Subgraph Service Implementations
@@ -687,7 +673,7 @@ The SDK supports custom implementations of the `SubgraphRetrievalService` interf
 ```javascript
 // Example: Implementing a custom SubgraphRetrievalService
 class CustomProviderService implements SubgraphRetrievalService {
-  async getApprovedProvidersForCommP(commp) {
+  async getApprovedProvidersForPieceCID(pieceCid) {
     // Your custom implementation here
     // Could use a different data source, filtering logic, etc.
     return [{
@@ -767,7 +753,7 @@ const addResult = await pdpServer.addPieces(
   dataSetId,          // number (PDPVerifier data set ID)
   clientDataSetId,    // number
   nextPieceId,        // number (must match chain state)
-  pieceDataArray      // Array of { cid: string | CommP, rawSize: number }
+  pieceDataArray      // Array of { cid: string | PieceCID, rawSize: number }
 )
 // addResult: { message: string, txHash?: string, statusUrl?: string }
 
@@ -778,14 +764,14 @@ if (addResult.txHash) {
 }
 
 // Upload a piece
-const { commP, size } = await pdpServer.uploadPiece(data, 'my-file.dat')
+const { pieceCid, size } = await pdpServer.uploadPiece(data, 'my-file.dat')
 
 // Find existing piece
-const piece = await pdpServer.findPiece(commP, size)
+const piece = await pdpServer.findPiece(pieceCid, size)
 console.log(`Piece found: ${piece.uuid}`)
 
 // Download a piece
-const data = await pdpServer.downloadPiece(commP)
+const data = await pdpServer.downloadPiece(pieceCid)
 
 // Get data set details
 const dataSet = await pdpServer.getDataSet(dataSetId)
@@ -813,33 +799,40 @@ const createDataSetSig = await authHelper.signCreateDataSet(
 const addPiecesSig = await authHelper.signAddPieces(
   clientDataSetId,    // number
   firstPieceId,       // number
-  pieceDataArray      // Array of { cid: string | CommP, rawSize: number }
+  pieceDataArray      // Array of { cid: string | PieceCID, rawSize: number }
 )
 
 // All signatures return { signature, v, r, s, signedData }
 ```
 
-### CommP Utilities
+### PieceCID Utilities
 
-Calculate and validate Filecoin Piece Commitments without instantiating the full SDK.
+Utilities for calculating PieceCIDs and converting between formats.
 
 ```javascript
-import { calculate, asCommP, createCommPStream } from '@filoz/synapse-sdk/commp'
+import { calculate, asPieceCID, asLegacyPieceCID, createPieceCIDStream } from '@filoz/synapse-sdk/piece'
 
-// Calculate CommP from data
+// Calculate PieceCID from data
 const data = new Uint8Array([1, 2, 3, 4])
-const commp = calculate(data)
-console.log(commp.toString()) // baga6ea4seaq...
+const pieceCid = calculate(data)
+console.log(pieceCid.toString()) // bafkzcib...
 
-// Validate and convert CommP strings and CIDs
-const commp = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq')
-if (commp !== null) {
-  console.log('Valid CommP:', commp.toString())
+// Validate and convert PieceCID strings and CIDs
+const convertedPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+if (convertedPieceCid !== null) {
+  console.log('Valid PieceCID:', convertedPieceCid.toString())
 }
 
-// Stream-based CommP calculation; compatible with Web Streams API
-const { stream, getCommP } = createCommPStream()
-// Pipe data through stream, then call getCommP() for result
+// Stream-based PieceCID calculation; compatible with Web Streams API
+const { stream, getPieceCID } = createPieceCIDStream()
+// Pipe data through stream, then call getPieceCID() for result
+
+// Convert to LegacyPieceCID for compatibility with external Filecoin services
+const legacyPieceCid = asLegacyPieceCID(convertedPieceCid)
+if (legacyPieceCid !== null) {
+  console.log('Valid LegacyPieceCID:', legacyPieceCid.toString())
+  // Valid LegacyPieceCID: baga6ea4seaqdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
+}
 ```
 ---
 
@@ -918,7 +911,8 @@ await window.ethereum.request({
 
 The SDK is fully typed with TypeScript. Key types include:
 
-- `CommP` - Filecoin Piece Commitment CID
+- `PieceCID` - Filecoin Piece Commitment CID (v2)
+- `LegacyPieceCID` - Filecoin Piece Commitment CID (v1)
 - `TokenAmount` - `number | bigint` for token amounts
 - `StorageOptions` - Options for storage service creation
 - `AuthSignature` - Signature data for authenticated operations
@@ -968,7 +962,7 @@ The `(optional scope)` is used to provide additional clarity about the target of
 # Patch releases (0.x.Y)
 git commit -m "fix(payments): resolve approval race condition"
 git commit -m "docs: update storage service examples"
-git commit -m "test: add unit tests for CommP calculation"
+git commit -m "test: add unit tests for PieceCID calculation"
 git commit -m "chore: update dependencies"
 
 # Minor releases (0.X.y)

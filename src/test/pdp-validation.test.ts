@@ -153,38 +153,14 @@ describe('PDP Validation', function () {
   })
 
   describe('FindPieceResponse validation', function () {
-    it('should validate response with legacy piece_cid field', function () {
+    it('should validate response with pieceCid field', function () {
       const validResponse = {
-        piece_cid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
-      }
-
-      assert.isTrue(isFindPieceResponse(validResponse))
-      const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid.toString(), validResponse.piece_cid)
-      assert.equal(normalized.piece_cid, validResponse.piece_cid)
-    })
-
-    it('should validate response with new pieceCid field', function () {
-      const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       }
 
       assert.isTrue(isFindPieceResponse(validResponse))
       const normalized = validateFindPieceResponse(validResponse)
       assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
-      assert.isUndefined(normalized.piece_cid) // No legacy field in this case
-    })
-
-    it('should validate response with both fields', function () {
-      const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        piece_cid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
-      }
-
-      assert.isTrue(isFindPieceResponse(validResponse))
-      const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
-      assert.equal(normalized.piece_cid, validResponse.piece_cid) // Legacy field preserved
     })
 
     it('should reject invalid responses', function () {
@@ -195,14 +171,11 @@ describe('PDP Validation', function () {
         123,
         [],
         {},
-        { piece_cid: 123 }, // Wrong type
         { pieceCid: 123 }, // Wrong type
-        { randomField: 'baga...' }, // Wrong field name
-        { piece_cid: null }, // Null value
+        { randomField: 'bafk...' }, // Wrong field name
         { pieceCid: null }, // Null value
-        { pieceCid: 'not-a-commp' }, // Invalid CommP
-        { piece_cid: 'QmTest123' }, // Not a CommP (wrong codec)
-        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a CommP (wrong multihash)
+        { pieceCid: 'not-a-piece-link' }, // Invalid PieceCID
+        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a PieceCID (wrong multihash)
       ]
 
       for (const invalid of invalidResponses) {
@@ -211,28 +184,28 @@ describe('PDP Validation', function () {
       }
     })
 
-    it('should throw specific error for invalid CommP', function () {
-      const invalidCommPResponse = {
-        pieceCid: 'not-a-valid-commp'
+    it('should throw specific error for invalid PieceCID', function () {
+      const invalidPieceCidResponse = {
+        pieceCid: 'not-a-valid-piece-link'
       }
 
       assert.throws(
-        () => validateFindPieceResponse(invalidCommPResponse),
+        () => validateFindPieceResponse(invalidPieceCidResponse),
         Error,
-        'Invalid find piece response: pieceCid is not a valid CommP'
+        'Invalid find piece response: pieceCid is not a valid PieceCID'
       )
     })
 
-    it('should return a proper CommP CID object', function () {
+    it('should return a proper PieceCID CID object', function () {
       const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       }
 
       const normalized = validateFindPieceResponse(validResponse)
 
       // Verify it's a CID object with the correct properties
-      assert.equal(normalized.pieceCid.code, 0xf101) // fil-commitment-unsealed
-      assert.equal(normalized.pieceCid.multihash.code, 0x1012) // sha2-256-trunc254-padded
+      assert.equal(normalized.pieceCid.code, 0x55) // raw
+      assert.equal(normalized.pieceCid.multihash.code, 0x1011) // fr32-sha256-trunc254-padbintree
       assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
     })
   })
@@ -241,8 +214,8 @@ describe('PDP Validation', function () {
     it('should validate and convert a valid piece data object', function () {
       const validPieceData = {
         pieceId: 101,
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
         subPieceOffset: 0
       }
 
@@ -265,14 +238,14 @@ describe('PDP Validation', function () {
         { pieceId: 'not-a-number' }, // Wrong type
         {
           pieceId: 101,
-          pieceCid: 'not-a-commp',
-          subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+          pieceCid: 'not-a-piece-link',
+          subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
           subPieceOffset: 0
         },
         {
           pieceId: 101,
-          pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-          subPieceCid: 'not-a-commp',
+          pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+          subPieceCid: 'not-a-piece-link',
           subPieceOffset: 0
         }
       ]
@@ -290,8 +263,8 @@ describe('PDP Validation', function () {
         pieces: [
           {
             pieceId: 101,
-            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0
           }
         ],
@@ -315,14 +288,14 @@ describe('PDP Validation', function () {
         pieces: [
           {
             pieceId: 101,
-            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0
           },
           {
             pieceId: 102,
-            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 1024
           }
         ],
@@ -353,8 +326,8 @@ describe('PDP Validation', function () {
           pieces: [
             {
               pieceId: 101,
-              pieceCid: 'not-a-commp',
-              subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+              pieceCid: 'not-a-piece-link',
+              subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
               subPieceOffset: 0
             }
           ],

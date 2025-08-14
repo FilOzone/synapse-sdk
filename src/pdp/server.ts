@@ -19,19 +19,18 @@
  * const { txHash } = await pdpServer.createDataSet(serviceProvider, clientDataSetId)
  *
  * // Upload a piece
- * const { commP, size } = await pdpServer.uploadPiece(data)
+ * const { pieceCid, size } = await pdpServer.uploadPiece(data)
  *
  * // Download a piece
- * const data = await pdpServer.downloadPiece(commP, size)
+ * const data = await pdpServer.downloadPiece(pieceCid, size)
  * ```
  */
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { PieceData, CommP, CommPv2, DataSetData } from '../types.js'
-import { asCommP, calculate as calculateCommP, downloadAndValidateCommP } from '../commp/index.js'
-import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
-import { MULTIHASH_CODES } from '../utils/index.js'
+import type { PieceData, PieceCID, DataSetData } from '../types.js'
+import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
+import { PIECE_LINK_MULTIHASH_NAME, constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { toHex } from 'multiformats/bytes'
 import { validateDataSetCreationStatusResponse, validatePieceAdditionStatusResponse, validateFindPieceResponse, asDataSetData } from './validation.js'
 
@@ -80,7 +79,7 @@ export interface AddPiecesResponse {
  */
 export interface FindPieceResponse {
   /** The piece CID that was found */
-  pieceCid: CommP | CommPv2
+  pieceCid: PieceCID
   /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
   piece_cid?: string
 }
@@ -89,8 +88,8 @@ export interface FindPieceResponse {
  * Upload response containing piece information
  */
 export interface UploadResponse {
-  /** CommP CID of the uploaded piece */
-  commP: CommP
+  /** PieceCID CID of the uploaded piece */
+  pieceCid: PieceCID
   /** Size of the uploaded piece in bytes */
   size: number
 }
@@ -211,14 +210,14 @@ export class PDPServer {
    * @param clientDataSetId - The client's dataset ID used when creating the data set
    * @param nextPieceId - The ID to assign to the first piece being added, this should be
    *   the next available ID on chain or the signature will fail to be validated
-   * @param pieceDataArray - Array of piece data containing CommP CIDs and raw sizes
+   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
    * @returns Promise that resolves when the pieces are added (201 Created)
    * @throws Error if any CID is invalid
    *
    * @example
    * ```typescript
    * const pieceData = [{
-   *   cid: 'baga6ea4seaq...', // CommP CID
+   *   cid: 'bafkzcibcd...', // PieceCID
    *   rawSize: 1024 * 1024   // Size in bytes
    * }]
    * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
@@ -234,11 +233,11 @@ export class PDPServer {
       throw new Error('At least one piece must be provided')
     }
 
-    // Validate all CommPs and raw sizes
+    // Validate all PieceCIDs and raw sizes
     for (const pieceData of pieceDataArray) {
-      const commP = asCommP(pieceData.cid)
-      if (commP == null) {
-        throw new Error(`Invalid CommP: ${String(pieceData.cid)}`)
+      const pieceCid = asPieceCID(pieceData.cid)
+      if (pieceCid == null) {
+        throw new Error(`Invalid PieceCID: ${String(pieceData.cid)}`)
       }
 
       // Validate raw size - must be positive
@@ -378,25 +377,25 @@ export class PDPServer {
   }
 
   /**
-   * Find a piece by CommP and size
-   * @param commP - The CommP CID (as string or CommP object)
+   * Find a piece by PieceCID and size
+   * @param pieceCid - The PieceCID CID (as string or PieceCID object)
    * @param size - The original size of the piece in bytes
    * @returns Piece information if found
    */
-  async findPiece (commP: string | CommP | CommPv2, size: number): Promise<FindPieceResponse> {
-    const parsedCommP = asCommP(commP)
-    if (parsedCommP == null) {
-      throw new Error(`Invalid CommP: ${String(commP)}`)
+  async findPiece (pieceCid: string | PieceCID, size: number): Promise<FindPieceResponse> {
+    const parsedPieceCid = asPieceCID(pieceCid)
+    if (parsedPieceCid == null) {
+      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const url = constructFindPieceUrl(this._serviceURL, parsedCommP, size)
+    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid, size)
     const response = await fetch(url, {
       method: 'GET',
       headers: {}
     })
 
     if (response.status === 404) {
-      throw new Error(`Piece not found: ${parsedCommP.toString()}`)
+      throw new Error(`Piece not found: ${parsedPieceCid.toString()}`)
     }
 
     if (!response.ok) {
@@ -411,26 +410,26 @@ export class PDPServer {
   /**
    * Upload a piece to the PDP server
    * @param data - The data to upload
-   * @returns Upload response with CommP and size
+   * @returns Upload response with PieceCID and size
    */
   async uploadPiece (data: Uint8Array | ArrayBuffer): Promise<UploadResponse> {
     // Convert ArrayBuffer to Uint8Array if needed
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
-    // Calculate CommP
-    performance.mark('synapse:calculateCommP-start')
-    const commP = await calculateCommP(uint8Data)
-    performance.mark('synapse:calculateCommP-end')
-    performance.measure('synapse:calculateCommP', 'synapse:calculateCommP-start', 'synapse:calculateCommP-end')
+    // Calculate PieceCID
+    performance.mark('synapse:calculatePieceCID-start')
+    const pieceCid = await calculatePieceCID(uint8Data)
+    performance.mark('synapse:calculatePieceCID-end')
+    performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
     const size = uint8Data.length
 
-    // Extract the raw hash from the CommP CID
-    const hashBytes = commP.multihash.digest
+    // Extract the raw hash from the PieceCID CID
+    const hashBytes = pieceCid.multihash.digest
     const hashHex = toHex(hashBytes)
 
     // Create the check data as per original protocol
     const checkData = {
-      name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
+      name: PIECE_LINK_MULTIHASH_NAME,
       hash: hashHex,
       size
     }
@@ -455,7 +454,7 @@ export class PDPServer {
     if (createResponse.status === 200) {
       // Piece already exists on server
       return {
-        commP,
+        pieceCid,
         size
       }
     }
@@ -500,31 +499,31 @@ export class PDPServer {
     }
 
     return {
-      commP,
+      pieceCid,
       size
     }
   }
 
   /**
    * Download a piece from a service provider
-   * @param commP - The CommP CID of the piece
+   * @param pieceCid - The PieceCID CID of the piece
    * @returns The downloaded data
    */
   async downloadPiece (
-    commP: string | CommP
+    pieceCid: string | PieceCID
   ): Promise<Uint8Array> {
-    const parsedCommP = asCommP(commP)
-    if (parsedCommP == null) {
-      throw new Error(`Invalid CommP: ${String(commP)}`)
+    const parsedPieceCid = asPieceCID(pieceCid)
+    if (parsedPieceCid == null) {
+      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
     // Use the retrieval endpoint configured at construction time
-    const downloadUrl = constructPieceUrl(this._serviceURL, parsedCommP)
+    const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
 
     const response = await fetch(downloadUrl)
 
     // Use the shared download and validation function
-    return await downloadAndValidateCommP(response, parsedCommP)
+    return await downloadAndValidate(response, parsedPieceCid)
   }
 
   /**

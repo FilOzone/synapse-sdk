@@ -173,8 +173,8 @@ async function main () {
     // The callbacks below demonstrate both old and new server compatibility
 
     const uploadResult = await storageService.upload(fileData, {
-      onUploadComplete: (commp) => {
-        console.log(`✓ Upload complete! CommP: ${commp}`)
+      onUploadComplete: (pieceCid) => {
+        console.log(`✓ Upload complete! PieceCID: ${pieceCid}`)
       },
       onPieceAdded: (transaction) => {
         if (transaction) {
@@ -194,15 +194,15 @@ async function main () {
     })
 
     console.log('\nUpload result:')
-    console.log(`  CommP: ${uploadResult.commp}`)
+    console.log(`  PieceCID: ${uploadResult.pieceCid}`)
     console.log(`  Size: ${formatBytes(uploadResult.size)}`)
     console.log(`  Piece ID: ${uploadResult.pieceId}`)
 
     // Step 7: Download the file back
     console.log('\n--- Downloading File ---')
-    console.log(`Downloading piece: ${uploadResult.commp}`)
+    console.log(`Downloading piece: ${uploadResult.pieceCid}`)
 
-    const downloadedData = await synapse.download(uploadResult.commp)
+    const downloadedData = await synapse.download(uploadResult.pieceCid)
     console.log(`✓ Downloaded ${formatBytes(downloadedData.length)}`)
 
     // Step 8: Verify the data
@@ -218,7 +218,7 @@ async function main () {
 
     // Step 9: Check piece status
     console.log('\n--- Piece Status ---')
-    const pieceStatus = await storageService.pieceStatus(uploadResult.commp)
+    const pieceStatus = await storageService.pieceStatus(uploadResult.pieceCid)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
     if (pieceStatus.dataSetLastProven) {
       console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
@@ -235,7 +235,7 @@ async function main () {
     // Step 10: Show storage info
     console.log('\n--- Storage Information ---')
     console.log('Your file is now stored on the Filecoin network with:')
-    console.log(`- Piece CID / hash (CommP): ${uploadResult.commp}`)
+    console.log(`- Piece CID / hash (PieceCID / CommP): ${uploadResult.pieceCid}`)
     console.log(`- Data set ID: ${storageService.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
     console.log(`- Service provider: ${storageService.serviceProvider}`)

@@ -10,9 +10,9 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./commp": {
-      "import": "./dist/commp/index.js",
-      "types": "./dist/commp/index.d.ts"
+    "./piece": {
+      "import": "./dist/piece/index.js",
+      "types": "./dist/piece/index.d.ts"
     },
     "./pdp": {
       "import": "./dist/pdp/index.js",

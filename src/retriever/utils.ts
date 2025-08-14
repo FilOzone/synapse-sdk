@@ -2,7 +2,7 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { ApprovedProviderInfo, CommP, CommPv2 } from '../types.js'
+import type { ApprovedProviderInfo, PieceCID } from '../types.js'
 import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { createError } from '../utils/errors.js'
 
@@ -15,14 +15,14 @@ interface ProviderAttemptResult {
 /**
  * Attempt to fetch a piece from multiple providers in parallel
  * @param providers - List of providers to try
- * @param commp - The piece to fetch
+ * @param pieceCid - The piece to fetch
  * @param retrieverName - Name of the calling retriever for error reporting
  * @param signal - Optional abort signal
  * @returns The first successful response
  */
 export async function fetchPiecesFromProviders (
   providers: ApprovedProviderInfo[],
-  commp: CommP | CommPv2,
+  pieceCid: PieceCID,
   retrieverName: string,
   signal?: AbortSignal
 ): Promise<Response> {
@@ -56,7 +56,7 @@ export async function fetchPiecesFromProviders (
 
       try {
         // Phase 1: Check if provider has the piece
-        const findUrl = constructFindPieceUrl(provider.serviceURL, commp)
+        const findUrl = constructFindPieceUrl(provider.serviceURL, pieceCid)
         const findResponse = await fetch(findUrl, {
           signal: controller.signal
         })
@@ -71,7 +71,7 @@ export async function fetchPiecesFromProviders (
         }
 
         // Phase 2: Provider has piece, download it
-        const downloadUrl = constructPieceUrl(provider.serviceURL, commp)
+        const downloadUrl = constructPieceUrl(provider.serviceURL, pieceCid)
         const response = await fetch(downloadUrl, {
           signal: controller.signal
         })
@@ -120,7 +120,7 @@ export async function fetchPiecesFromProviders (
       throw createError(
         retrieverName,
         'fetchPiecesFromProviders',
-        `All providers failed to serve piece ${commp.toString()}. Details: ${failureDetails}`
+        `All providers failed to serve piece ${pieceCid.toString()}. Details: ${failureDetails}`
       )
     }
     // Re-throw unexpected errors

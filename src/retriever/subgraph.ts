@@ -3,8 +3,7 @@
  */
 
 import type {
-  CommP,
-  CommPv2,
+  PieceCID,
   PieceRetriever,
   ApprovedProviderInfo,
   SubgraphRetrievalService
@@ -20,39 +19,39 @@ export class SubgraphRetriever implements PieceRetriever {
 
   /**
    * Find providers that can serve pieces for a client
-   * @param commp - The piece commitment (CommP) to search for.
+   * @param pieceCid - The piece commitment (PieceCID) to search for.
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  async findProviders (commp: CommP | CommPv2, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
+  async findProviders (pieceCid: PieceCID, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
     if (providerAddress != null) {
       const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
     }
-    return await this.subgraphService.getApprovedProvidersForCommP(commp)
+    return await this.subgraphService.getApprovedProvidersForPieceCID(pieceCid)
   }
 
   async fetchPiece (
-    commp: CommP | CommPv2,
+    pieceCid: PieceCID,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string): Promise<Response> => {
       if (this.childRetriever !== undefined) {
-        return await this.childRetriever.fetchPiece(commp, client, options)
+        return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
       throw createError(
         'SubgraphRetriever',
         'fetchPiece',
-        `Failed to retrieve piece ${commp.toString()}: ${reason}`
+        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`
       )
     }
 
     // Step 1: Find providers
     let providersToTry: ApprovedProviderInfo[] = []
     try {
-      providersToTry = await this.findProviders(commp, options?.providerAddress)
+      providersToTry = await this.findProviders(pieceCid, options?.providerAddress)
     } catch (error) {
       // Provider discovery failed - this is a critical error
       return await tryChildOrThrow(
@@ -69,7 +68,7 @@ export class SubgraphRetriever implements PieceRetriever {
     try {
       return await fetchPiecesFromProviders(
         providersToTry,
-        commp,
+        pieceCid,
         'SubgraphRetriever',
         options?.signal
       )

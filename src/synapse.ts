@@ -8,7 +8,7 @@ import {
   type StorageServiceOptions,
   type FilecoinNetworkType,
   type PieceRetriever,
-  type CommP,
+  type PieceCID,
   type ApprovedProviderInfo,
   type StorageInfo,
   type SubgraphConfig
@@ -18,7 +18,7 @@ import { PaymentsService } from './payments/index.js'
 import { WarmStorageService } from './warm-storage/index.js'
 import { SubgraphService } from './subgraph/service.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
-import { asCommP, downloadAndValidateCommP } from './commp/index.js'
+import { asPieceCID, downloadAndValidate } from './piece/index.js'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from './utils/index.js'
 
 export class Synapse {
@@ -315,28 +315,28 @@ export class Synapse {
 
   /**
    * Download data from service providers
-   * @param commp - The CommP identifier (string or CommP object)
+   * @param pieceCid - The PieceCID identifier (string or PieceCID object)
    * @param options - Download options
    * @returns The downloaded data as Uint8Array
    *
    * @example
    * ```typescript
-   * // Download by CommP string
-   * const data = await synapse.download('baga6ea4seaqabc...')
+   * // Download by PieceCID string
+   * const data = await synapse.download('bafkzcib...')
    *
    * // Download from specific provider
-   * const data = await synapse.download(commp, {
+   * const data = await synapse.download(pieceCid, {
    *   providerAddress: '0x123...'
    * })
    * ```
    */
-  async download (commp: string | CommP, options?: {
+  async download (pieceCid: string | PieceCID, options?: {
     providerAddress?: string
     withCDN?: boolean
   }): Promise<Uint8Array> {
-    const parsedCommP = asCommP(commp)
-    if (parsedCommP == null) {
-      throw new Error(`Invalid CommP: ${String(commp)}`)
+    const parsedPieceCid = asPieceCID(pieceCid)
+    if (parsedPieceCid == null) {
+      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
     // Use the withCDN setting: option > instance default
@@ -346,12 +346,12 @@ export class Synapse {
     const clientAddress = await this._signer.getAddress()
 
     // Use the piece retriever to fetch the response
-    const response = await this._pieceRetriever.fetchPiece(parsedCommP, clientAddress, {
+    const response = await this._pieceRetriever.fetchPiece(parsedPieceCid, clientAddress, {
       providerAddress: options?.providerAddress,
       withCDN
     })
 
-    return await downloadAndValidateCommP(response, parsedCommP)
+    return await downloadAndValidate(response, parsedPieceCid)
   }
 
   /**

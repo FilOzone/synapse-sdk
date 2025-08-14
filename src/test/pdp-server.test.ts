@@ -10,7 +10,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
 import type { PieceData } from '../types.js'
-import { asCommP, calculate as calculateCommP } from '../commp/index.js'
+import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
 class MockPDPServer {
@@ -247,7 +247,7 @@ describe('PDPServer', () => {
 
       // Test with invalid raw size - should fail during signature generation
       const invalidRawSize: PieceData = {
-        cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+        cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
         rawSize: -1
       }
 
@@ -260,24 +260,24 @@ describe('PDPServer', () => {
         assert.include((error as Error).message, 'Size must be a positive number')
       }
 
-      // Test invalid CommP
-      const invalidCommP: PieceData = {
-        cid: 'invalid-commp-string',
+      // Test invalid PieceCID
+      const invalidPieceCid: PieceData = {
+        cid: 'invalid-piece-link-string',
         rawSize: 1024
       }
 
       try {
-        await pdpServer.addPieces(1, 0, 0, [invalidCommP])
-        assert.fail('Should have thrown error for invalid CommP')
+        await pdpServer.addPieces(1, 0, 0, [invalidPieceCid])
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid CommP')
+        assert.include((error as Error).message, 'Invalid PieceCID')
       }
     })
 
     it('should handle successful piece addition', async () => {
       const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -319,7 +319,7 @@ describe('PDPServer', () => {
     it('should handle server errors appropriately', async () => {
       const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024
         }
       ]
@@ -345,23 +345,23 @@ describe('PDPServer', () => {
     })
 
     it('should handle multiple pieces', async () => {
-      // Mix of string and CommP object inputs
-      const commP1 = asCommP('baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy')
-      const commP2 = asCommP('baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy')
-      assert.isNotNull(commP1)
-      assert.isNotNull(commP2)
+      // Mix of string and PieceCID object inputs
+      const pieceCid1 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid2 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(pieceCid1)
+      assert.isNotNull(pieceCid2)
 
-      if (commP1 == null || commP2 == null) {
-        throw new Error('Failed to parse test CommPs')
+      if (pieceCid1 == null || pieceCid2 == null) {
+        throw new Error('Failed to parse test PieceCIDs')
       }
 
       const multiplePieceData: PieceData[] = [
         {
-          cid: commP1, // Use CommP object
+          cid: pieceCid1, // Use PieceCID object
           rawSize: 1024 * 1024
         },
         {
-          cid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy', // String
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy', // String
           rawSize: 2048 * 1024
         }
       ]
@@ -398,7 +398,7 @@ describe('PDPServer', () => {
     it('should handle addPieces response with Location header', async () => {
       const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -440,7 +440,7 @@ describe('PDPServer', () => {
     it('should handle addPieces response with Location header missing 0x prefix', async () => {
       const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -476,7 +476,7 @@ describe('PDPServer', () => {
     it('should handle malformed Location header gracefully', async () => {
       const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -567,10 +567,10 @@ describe('PDPServer', () => {
 
   describe('findPiece', () => {
     it('should find a piece successfully', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576 // 1 MiB
       const mockResponse = {
-        piece_cid: mockCommP
+        pieceCid: mockPieceCid
       }
 
       // Mock fetch for this test
@@ -578,7 +578,7 @@ describe('PDPServer', () => {
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         assert.include(url, '/pdp/piece?')
-        assert.include(url, 'name=sha2-256-trunc254-padded')
+        assert.include(url, 'name=fr32-sha256-trunc254-padbintree')
         assert.include(url, 'size=1048576')
         assert.strictEqual(init?.method, 'GET')
 
@@ -590,15 +590,15 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.findPiece(mockCommP, mockSize)
-        assert.strictEqual(result.piece_cid, mockCommP)
+        const result = await pdpServer.findPiece(mockPieceCid, mockSize)
+        assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle piece not found', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return 404
@@ -612,30 +612,30 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
-        assert.include(error.message, mockCommP)
+        assert.include(error.message, mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should validate CommP input', async () => {
-      const invalidCommP = 'invalid-commp-string'
+    it('should validate PieceCID input', async () => {
+      const invalidPieceCid = 'invalid-piece-cid-string'
       const mockSize = 1048576
 
       try {
-        await pdpServer.findPiece(invalidCommP, mockSize)
-        assert.fail('Should have thrown error for invalid CommP')
+        await pdpServer.findPiece(invalidPieceCid, mockSize)
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid CommP')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
     it('should handle server errors', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return server error
@@ -650,7 +650,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to find piece')
@@ -686,7 +686,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -717,7 +717,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -739,7 +739,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -770,7 +770,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(buffer)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -779,7 +779,7 @@ describe('PDPServer', () => {
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockPieceCid = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return 200 instead of 201 for create
       const originalFetch = global.fetch
@@ -790,7 +790,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -808,7 +808,7 @@ describe('PDPServer', () => {
       try {
         // Should not throw - existing piece is OK
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -855,7 +855,7 @@ describe('PDPServer', () => {
   describe('downloadPiece', () => {
     it('should successfully download and verify piece', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -863,7 +863,7 @@ describe('PDPServer', () => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         // Verify correct URL format
-        assert.isTrue(url.endsWith(`/piece/${testCommP}`))
+        assert.isTrue(url.endsWith(`/piece/${testPieceCid}`))
 
         // Return test data as response
         return new Response(testData, {
@@ -873,7 +873,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testCommP)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         assert.deepEqual(result, testData)
       } finally {
         global.fetch = originalFetch
@@ -881,7 +881,7 @@ describe('PDPServer', () => {
     })
 
     it('should throw on download failure', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -894,7 +894,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockCommP)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Download failed')
@@ -904,18 +904,18 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should reject invalid CommP', async () => {
+    it('should reject invalid PieceCID', async () => {
       try {
-        await pdpServer.downloadPiece('invalid-commp-string')
+        await pdpServer.downloadPiece('invalid-piece-link-string')
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid CommP')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
-    it('should throw on CommP verification failure', async () => {
+    it('should throw on PieceCID verification failure', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
       // Mock fetch to return wrong data
@@ -928,17 +928,17 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(testCommP)
+        await pdpServer.downloadPiece(testPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'CommP verification failed')
+        assert.include(error.message, 'PieceCID verification failed')
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle null response body', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return response with null body
       const originalFetch = global.fetch
@@ -949,7 +949,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockCommP)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Response body is null')
@@ -960,7 +960,7 @@ describe('PDPServer', () => {
 
     it('should correctly stream and verify chunked data', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch that returns data in chunks
       const originalFetch = global.fetch
@@ -987,7 +987,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testCommP)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         // Verify we got all the data correctly reassembled
         assert.deepEqual(result, testData)
       } finally {
@@ -1131,14 +1131,14 @@ describe('PDPServer', () => {
         pieces: [
           {
             pieceId: 101,
-            pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0
           },
           {
             pieceId: 102,
-            pieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
-            subPieceCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
+            pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+            subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
             subPieceOffset: 0
           }
         ],
@@ -1279,7 +1279,7 @@ describe('PDPServer', () => {
           {
             pieceId: 101,
             pieceCid: 'invalid-cid-format',
-            subPieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0
           }
         ],

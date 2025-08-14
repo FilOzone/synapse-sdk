@@ -175,7 +175,7 @@ export const SIZE_CONSTANTS = {
 
   /**
    * Minimum upload size (65 bytes)
-   * CommP calculation requires at least 65 bytes
+   * PieceCID calculation requires at least 65 bytes
    */
   MIN_UPLOAD_SIZE: 65,
 
@@ -293,14 +293,4 @@ export const CONTRACT_ADDRESSES = {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0x1b0436f3E0CA97b5bb43727965994E6b77b8794B'
   } as const satisfies Record<FilecoinNetworkType, string>
-} as const
-
-/**
- * Multihash constants
- */
-export const MULTIHASH_CODES = {
-  /**
-   * SHA2-256 truncated to 254 bits with padding - used for Filecoin CommP
-   */
-  SHA2_256_TRUNC254_PADDED: 'sha2-256-trunc254-padded'
 } as const

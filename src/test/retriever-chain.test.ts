@@ -2,11 +2,13 @@
 import { assert } from 'chai'
 import { ChainRetriever } from '../retriever/chain.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, CommP, CommPv2 } from '../types.js'
-import { asCommP } from '../commp/index.js'
+import type { PieceRetriever, ApprovedProviderInfo, EnhancedDataSetInfo, PieceCID } from '../types.js'
+import { asPieceCID } from '../piece/index.js'
 
-// Create a mock CommP for testing
-const mockCommP = asCommP('baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq') as CommP
+// Create a mock PieceCID for testing
+const mockPieceCID = asPieceCID(
+  'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+) as PieceCID
 
 // Mock provider info
 const mockProvider1: ApprovedProviderInfo = {
@@ -28,7 +30,7 @@ const mockProvider2: ApprovedProviderInfo = {
 // Mock child retriever
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    commP: CommP | CommPv2,
+    pieceCid: PieceCID,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> => {
@@ -85,7 +87,7 @@ describe('ChainRetriever', () => {
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         const response = await retriever.fetchPiece(
-          mockCommP,
+          mockPieceCID,
           '0xClient',
           { providerAddress: mockProvider1.serviceProvider }
         )
@@ -104,7 +106,7 @@ describe('ChainRetriever', () => {
         getProviderIdByAddress: async () => 0 // Provider not found
       }
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockCommP, '0xClient', {
+      const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
         providerAddress: '0xNotApproved'
       })
       assert.equal(response.status, 200)
@@ -118,7 +120,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
-        await retriever.fetchPiece(mockCommP, '0xClient', { providerAddress: '0xNotApproved' })
+        await retriever.fetchPiece(mockPieceCID, '0xClient', { providerAddress: '0xNotApproved' })
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(
@@ -200,7 +202,7 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
 
         // Should get response from provider 2 even though provider 1 failed first
         assert.equal(response.status, 200)
@@ -262,7 +264,7 @@ describe('ChainRetriever', () => {
 
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
-        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
 
         assert.equal(response.status, 200)
         const data = await response.text()
@@ -288,7 +290,7 @@ describe('ChainRetriever', () => {
 
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
-        const response = await retriever.fetchPiece(mockCommP, '0xClient')
+        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.equal(response.status, 200)
         assert.equal(await response.text(), 'data from child')
       } finally {
@@ -307,7 +309,7 @@ describe('ChainRetriever', () => {
 
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
-        await retriever.fetchPiece(mockCommP, '0xClient')
+        await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(
@@ -324,7 +326,7 @@ describe('ChainRetriever', () => {
         getClientDataSetsWithDetails: async () => [] // No data sets
       }
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockCommP, '0xClient')
+      const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
     })
@@ -336,7 +338,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
-        await retriever.fetchPiece(mockCommP, '0xClient')
+        await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(
@@ -371,7 +373,7 @@ describe('ChainRetriever', () => {
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         await retriever.fetchPiece(
-          mockCommP,
+          mockPieceCID,
           '0xClient',
           {
             providerAddress: mockProvider1.serviceProvider,

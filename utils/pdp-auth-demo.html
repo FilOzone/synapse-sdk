@@ -167,7 +167,7 @@
 
     <div class="container">
         <h2>2. Add Pieces</h2>
-        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, firstAdded, and pieceData array with CommP CIDs and sizes</p>
+        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, firstAdded, and pieceData array with PieceCID CIDs and sizes</p>
         <div class="form-group">
             <label for="addClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="addClientDataSetId" placeholder="12345" value="12345">
@@ -301,8 +301,8 @@
             entry.className = 'piece-entry';
             entry.innerHTML = `
                 <div class="form-group">
-                    <label>Piece ${index + 1} - CommP CID:</label>
-                    <input type="text" id="pieceCid${index}" placeholder="baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq" value="${index === 0 ? 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy' : ''}" style="margin-bottom: 10px;">
+                    <label>Piece ${index + 1} - PieceCID CID:</label>
+                    <input type="text" id="pieceCid${index}" placeholder="bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace" value="${index === 0 ? 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace' : ''}" style="margin-bottom: 10px;">
                     <label>Raw Size:</label>
                     <input type="number" id="pieceSize${index}" placeholder="1024" value="${index === 0 ? '1024' : ''}">
                 </div>

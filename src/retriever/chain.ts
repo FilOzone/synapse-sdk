@@ -6,7 +6,7 @@
  */
 
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { CommP, CommPv2, PieceRetriever, ApprovedProviderInfo } from '../types.js'
+import type { PieceCID, PieceRetriever, ApprovedProviderInfo } from '../types.js'
 import { fetchPiecesFromProviders } from './utils.js'
 import { createError } from '../utils/index.js'
 
@@ -71,19 +71,19 @@ export class ChainRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    commp: CommP | CommPv2,
+    pieceCid: PieceCID,
     client: string,
     options?: { providerAddress?: string, withCDN?: boolean, signal?: AbortSignal }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string): Promise<Response> => {
       if (this.childRetriever !== undefined) {
-        return await this.childRetriever.fetchPiece(commp, client, options)
+        return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
       throw createError(
         'ChainRetriever',
         'fetchPiece',
-        `Failed to retrieve piece ${commp.toString()}: ${reason}`
+        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`
       )
     }
 
@@ -107,7 +107,7 @@ export class ChainRetriever implements PieceRetriever {
     try {
       return await fetchPiecesFromProviders(
         providersToTry,
-        commp,
+        pieceCid,
         'ChainRetriever',
         options?.signal
       )

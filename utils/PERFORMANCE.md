@@ -20,7 +20,7 @@ The SDK measures the following operations (all prefixed with `synapse:` to avoid
 
 ### upload() Timing Points
 - `synapse:upload` - Overall upload operation time
-- `synapse:calculateCommP` - CommP calculation time
+- `synapse:calculatePieceCID` - PieceCID calculation time
 - `synapse:POST.pdp.piece` - Piece upload initiation time
 - `synapse:PUT.pdp.piece.upload` - Piece upload completion time
 - `synapse:findPiece` - Time for piece to be "parked" (ready)
@@ -86,7 +86,7 @@ The benchmark:
 ## Performance Characteristics
 
 ### Typical Timing Ranges (Calibration Testnet, 100 MiB pieces)
-- **CommP Calculation**: 2-8 seconds (CPU-dependent)
+- **PieceCID Calculation**: 2-8 seconds (CPU-dependent)
 - **Data Set Creation**: 30-75 seconds total
   - Server response: 1-8 seconds
   - Transaction confirmation: 20-65 seconds (varies with block cycle timing)
@@ -107,7 +107,7 @@ The benchmark:
 - **Piece size**: Larger pieces scale linearly with bandwidth constraints
 
 **Scaling with Piece Size**: The timing data above is for 100 MiB pieces. For different piece sizes:
-- **CommP calculation**: Scales linearly (e.g., 1 GiB ≈ 20-80 seconds)
+- **PieceCID calculation**: Scales linearly (e.g., 1 GiB ≈ 20-80 seconds)
 - **Piece upload**: Scales linearly with size and bandwidth constraints
 - **Other operations**: Generally size-independent (transaction confirmations, server acknowledgments)
 
@@ -119,4 +119,4 @@ Most operation time is spent waiting for:
 1. **Blockchain Confirmations** - Transaction finality (largest component, Filecoin's block time is 30 seconds)
 2. **Server Processing** - Service provider internal operations
 3. **Network Propagation** - RPC node synchronization
-4. **CommP Calculation** - CPU-intensive custom hash function required on the client side to validate upload (scales linearly with piece size)
+4. **PieceCID Calculation** - CPU-intensive custom hash function required on the client side to validate upload (scales linearly with piece size)
