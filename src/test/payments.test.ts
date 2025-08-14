@@ -153,11 +153,12 @@ describe('PaymentsService', () => {
       assert.exists(approval.rateUsed)
       assert.exists(approval.lockupAllowance)
       assert.exists(approval.lockupUsed)
+      assert.exists(approval.maxLockupPeriod)
     })
 
     it('should throw for unsupported token in service operations', async () => {
       try {
-        await payments.approveService(serviceAddress, 100n, 1000n, 'FIL' as any)
+        await payments.approveService(serviceAddress, 100n, 1000n, 28800n, 'FIL' as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not supported')

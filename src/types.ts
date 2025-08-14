@@ -468,3 +468,61 @@ export interface PieceStatus {
   /** Whether the proof is overdue (past the challenge window without being submitted) */
   isProofOverdue?: boolean
 }
+
+/**
+ * Payment rail information
+ */
+export interface PaymentRail {
+  /** Token address for payments */
+  token: string
+  /** Address making payments */
+  from: string
+  /** Address receiving payments */
+  to: string
+  /** Operator address (if any) */
+  operator: string
+  /** Validator address for payment validation */
+  validator: string
+  /** Payment rate per epoch */
+  paymentRate: bigint
+  /** Lockup period duration */
+  lockupPeriod: bigint
+  /** Fixed lockup amount */
+  lockupFixed: bigint
+  /** Last settled epoch */
+  settledUpTo: bigint
+  /** Rail termination epoch (0 if active) */
+  endEpoch: bigint
+  /** Commission rate in basis points */
+  commissionRateBps: bigint
+  /** Address to receive operator commission */
+  serviceFeeRecipient: string
+}
+
+/**
+ * Rail reference with status
+ */
+export interface RailReference {
+  /** Rail ID */
+  railId: bigint
+  /** Whether the rail is terminated */
+  isTerminated: boolean
+  /** End epoch for terminated rails (0 for active rails) */
+  endEpoch: bigint
+}
+
+/**
+ * Settlement result from settling a payment rail
+ */
+export interface SettlementResult {
+  /** Total amount settled */
+  totalSettledAmount: bigint
+  /** Net amount to payee after commission */
+  totalNetPayeeAmount: bigint
+  /** Total operator commission */
+  totalOperatorCommission: bigint
+  /** Final settled epoch */
+  finalSettledEpoch: bigint
+  /** Settlement note (if any) */
+  note: string
+}
