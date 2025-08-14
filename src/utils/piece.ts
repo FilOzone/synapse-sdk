@@ -5,35 +5,36 @@
  * for piece discovery and retrieval operations.
  */
 
-import type { CommP, CommPv2 } from '../types.js'
+import type { PieceLink } from '../types.js'
 import { toHex } from 'multiformats/bytes'
-import { MULTIHASH_CODES } from './index.js'
+
+export const PIECE_LINK_MULTIHASH_NAME = 'fr32-sha256-trunc254-padbintree'
 
 /**
  * Construct a piece retrieval URL
  * @param retrievalEndpoint - The base retrieval endpoint URL
- * @param commp - The CommP identifier
+ * @param pieceLink - The PieceLink identifier
  * @returns Full URL for retrieving the piece
  */
-export function constructPieceUrl (retrievalEndpoint: string, commp: CommP | CommPv2): string {
+export function constructPieceUrl (retrievalEndpoint: string, pieceLink: PieceLink): string {
   const endpoint = retrievalEndpoint.replace(/\/$/, '')
-  return `${endpoint}/piece/${commp.toString()}`
+  return `${endpoint}/piece/${pieceLink.toString()}`
 }
 
 /**
  * Construct a piece discovery (findPiece) URL
  * @param apiEndpoint - The base API endpoint URL
- * @param commp - The CommP identifier
- * @param size - Optional size parameter (defaults to 0, as size is typically ignored for CommP in Curio)
+ * @param pieceLink - The PieceLink identifier
+ * @param size - Optional size parameter (defaults to 0, as size is typically ignored for PieceLink in Curio)
  * @returns Full URL for finding the piece
  */
-export function constructFindPieceUrl (apiEndpoint: string, commp: CommP | CommPv2, size = 0): string {
+export function constructFindPieceUrl (apiEndpoint: string, pieceLink: PieceLink, size = 0): string {
   const endpoint = apiEndpoint.replace(/\/$/, '')
-  const hashBytes = commp.multihash.digest
+  const hashBytes = pieceLink.multihash.digest
   const hashHex = toHex(hashBytes)
 
   const params = new URLSearchParams({
-    name: MULTIHASH_CODES.SHA2_256_TRUNC254_PADDED,
+    name: PIECE_LINK_MULTIHASH_NAME,
     hash: hashHex,
     size: size.toString()
   })

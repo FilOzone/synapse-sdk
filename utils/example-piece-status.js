@@ -7,10 +7,10 @@
  * including whether it exists, when it was last proven, and when the next proof is due.
  *
  * Usage:
- *   node example-piece-status.js <commp> [providerAddress[, dataSetId]]
+ *   node example-piece-status.js <pieceLink> [providerAddress[, dataSetId]]
  *
  * Arguments:
- *   commp           - Required: The CommP (piece commitment) to check
+ *   pieceLink       - Required: The PieceLink (piece commitment / pieceLink) to check
  *   providerAddress - Optional: Specific provider address to check
  *   dataSetId       - Optional: Specific data set ID to use
  *
@@ -40,20 +40,20 @@ const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const commp = args[0]
+const pieceLink = args[0]
 const providerAddress = args[1]
 const dataSetId = args[2] ? parseInt(args[2]) : undefined
 
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceLink> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
-if (!commp) {
-  console.error('ERROR: CommP argument is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, dataSetId]]')
+if (!pieceLink) {
+  console.error('ERROR: PieceLink argument is required')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceLink> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
@@ -105,7 +105,7 @@ async function main () {
   try {
     console.log('=== Piece Status Check ===\n')
     console.log(`Date: ${formatDate(new Date())}`)
-    console.log(`\nCommP: ${commp}`)
+    console.log(`\nPieceLink: ${pieceLink}`)
     if (providerAddress) {
       console.log(`Provider: ${providerAddress}`)
     }
@@ -155,7 +155,7 @@ async function main () {
 
     // Check piece status
     console.log('\n--- Checking Piece Status ---')
-    const status = await storage.pieceStatus(commp)
+    const status = await storage.pieceStatus(pieceLink)
 
     // Display results
     console.log('\n📊 Piece Status Report:')
