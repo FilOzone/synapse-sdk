@@ -20,16 +20,16 @@
  *   }
  * });
  *
- * const providers = await subgraphService.getApprovedProvidersForCommP('baga6ea4seaq...');
+ * const providers = await subgraphService.getApprovedProvidersForPieceLink('baga6ea4seaq...');
  * console.log(providers);
  * ```
  */
 
 import { toHex, fromHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
-import { asCommP } from '../commp/commp.js'
+import { asPieceLink } from '../piecelink/index.js'
 import type {
-  CommP, CommPv2,
+  PieceLink,
   ApprovedProviderInfo,
   SubgraphRetrievalService,
   SubgraphConfig
@@ -131,7 +131,7 @@ export interface PieceInfo {
   pieceId: number
   rawSize: number
   leafCount: number
-  cid: CommP | CommPv2 | null
+  cid: PieceLink | null
   removed: boolean
   totalProofsSubmitted: number
   totalPeriodsFaulted: number
@@ -312,25 +312,25 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Safely converts a hex format CID to CommP format
+   * Safely converts a hex format CID to PieceLink format
    * @param hexCid - The CID in hex format
-   * @returns The CID in CommP format or null if conversion fails
+   * @returns The CID in PieceLink format or null if conversion fails
    */
-  private safeConvertHexToCid (hexCid: string): CommP | CommPv2 | null {
+  private safeConvertHexToCid (hexCid: string): PieceLink | null {
     try {
       const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
       const cidBytes = fromHex(cleanHex)
       const cid = CID.decode(cidBytes)
-      const commp = asCommP(cid)
+      const pieceLink = asPieceLink(cid)
 
-      if (commp == null) {
-        throw new Error(`Failed to convert CID to CommP format: ${hexCid}`)
+      if (pieceLink == null) {
+        throw new Error(`Failed to convert CID to PieceLink format: ${hexCid}`)
       }
 
-      return commp
+      return pieceLink
     } catch (error) {
       console.warn(
-        `SubgraphService: queryProviders: Failed to convert CID to CommP format: ${
+        `SubgraphService: queryProviders: Failed to convert CID to PieceLink format: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
@@ -351,30 +351,30 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find approved service providers that have a specific piece (CommP).
+   * Queries the subgraph to find approved service providers that have a specific piece (PieceLink).
    *
    * It sends a GraphQL query to the configured endpoint and parses the response to extract
    * a list of providers, including their addresses and retrieval URLs.
    *
-   * @param commp - The piece commitment (CommP) to search for.
+   * @param pieceLink - The piece commitment (PieceLink) to search for.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForCommP (commP: CommP | CommPv2): Promise<ApprovedProviderInfo[]> {
-    const commPParsed = asCommP(commP)
-    if (commPParsed == null) {
-      throw createError('SubgraphService', 'getApprovedProvidersForCommP', 'Invalid CommP')
+  async getApprovedProvidersForPieceLink (pieceLink: PieceLink): Promise<ApprovedProviderInfo[]> {
+    const pieceLinkParsed = asPieceLink(pieceLink)
+    if (pieceLinkParsed == null) {
+      throw createError('SubgraphService', 'getApprovedProvidersForPieceLink', 'Invalid PieceLink')
     }
-    const hexCommP = toHex(commPParsed.bytes)
+    const hexPieceLink = toHex(pieceLinkParsed.bytes)
 
     const data = await this.executeQuery<{ pieces: any[] }>(
-      QUERIES.GET_APPROVED_PROVIDERS_FOR_COMMP,
-      { cid: hexCommP },
-      'getApprovedProvidersForCommP'
+      QUERIES.GET_APPROVED_PROVIDERS_FOR_PIECE_LINK,
+      { cid: hexPieceLink },
+      'getApprovedProvidersForPieceLink'
     )
 
     if (data?.pieces == null || data.pieces.length === 0) {
-      console.log(`SubgraphService: No providers found for CommP: ${commPParsed.toString()}`)
+      console.log(`SubgraphService: No providers found for PieceLink: ${pieceLinkParsed.toString()}`)
       return []
     }
 

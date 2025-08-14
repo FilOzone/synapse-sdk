@@ -5,7 +5,7 @@
  * to/from Filecoin service providers. It handles:
  * - Automatic provider selection based on availability
  * - Data set creation and management
- * - CommP calculation and validation
+ * - PieceLink calculation and validation
  * - Payment rail setup through Warm Storage
  *
  * @example
@@ -15,17 +15,17 @@
  *
  * // Upload data
  * const result = await storage.upload(data)
- * console.log('Stored at:', result.commp)
+ * console.log('Stored at:', result.pieceLink)
  *
  * // Download data
- * const retrieved = await storage.download(result.commp)
+ * const retrieved = await storage.download(result.pieceLink)
  * ```
  */
 
 import { ethers } from 'ethers'
 import type {
   StorageServiceOptions,
-  CommP, CommPv2,
+  PieceLink,
   ApprovedProviderInfo,
   UploadCallbacks,
   UploadResult,
@@ -40,7 +40,7 @@ import type {
 import { type Synapse } from '../synapse.js'
 import { type WarmStorageService } from '../warm-storage/index.js'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { asCommP } from '../commp/index.js'
+import { asPieceLink } from '../piecelink/index.js'
 import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, epochToDate, calculateLastProofDate, timeUntilEpoch, getCurrentEpoch } from '../utils/index.js'
 
 export class StorageService {
@@ -89,7 +89,7 @@ export class StorageService {
       // We can increase this in future, arbitrarily, but we first need to:
       //  - Handle streaming input.
       //  - Chunking input at size 254 MiB and make a separate piece per each chunk
-      //  - Combine the pieces using "subPieces" and an aggregate CommP in our AddRoots call
+      //  - Combine the pieces using "subPieces" and an aggregate PieceLink in our AddRoots call
       throw createError(
         'StorageService',
         context,
@@ -829,7 +829,7 @@ export class StorageService {
     StorageService.validateRawSize(sizeBytes, 'upload')
 
     // Upload Phase: Upload data to service provider
-    let uploadResult: { commP: CommP, size: number }
+    let uploadResult: { pieceLink: PieceLink, size: number }
     try {
       performance.mark('synapse:pdpServer.uploadPiece-start')
       uploadResult = await this._pdpServer.uploadPiece(dataBytes)
@@ -855,7 +855,7 @@ export class StorageService {
     performance.mark('synapse:findPiece-start')
     while (Date.now() - startTime < maxWaitTime) {
       try {
-        await this._pdpServer.findPiece(uploadResult.commP, uploadResult.size)
+        await this._pdpServer.findPiece(uploadResult.pieceLink, uploadResult.size)
         pieceReady = true
         break
       } catch {
@@ -878,12 +878,12 @@ export class StorageService {
 
     // Notify upload complete
     if (callbacks?.onUploadComplete != null) {
-      callbacks.onUploadComplete(uploadResult.commP)
+      callbacks.onUploadComplete(uploadResult.pieceLink)
     }
 
     // Add Piece Phase: Queue the AddPieces operation for sequential processing
     const pieceData: PieceData = {
-      cid: uploadResult.commP,
+      cid: uploadResult.pieceLink,
       rawSize: uploadResult.size
     }
 
@@ -909,7 +909,7 @@ export class StorageService {
     performance.mark('synapse:upload-end')
     performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
     return {
-      commp: uploadResult.commP,
+      pieceLink: uploadResult.pieceLink,
       size: uploadResult.size,
       pieceId: finalPieceId
     }
@@ -1120,13 +1120,13 @@ export class StorageService {
 
   /**
    * Download data from this specific service provider
-   * @param commp - The CommP identifier
+   * @param pieceLink - The PieceLink identifier
    * @param options - Download options (currently unused but reserved for future)
    * @returns The downloaded data
    */
-  async providerDownload (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
+  async providerDownload (pieceLink: string | PieceLink, options?: DownloadOptions): Promise<Uint8Array> {
     // Pass through to Synapse with our provider hint and withCDN setting
-    return await this._synapse.download(commp, {
+    return await this._synapse.download(pieceLink, {
       providerAddress: this._provider.serviceProvider,
       withCDN: this._withCDN // Pass StorageService's withCDN
     })
@@ -1137,8 +1137,8 @@ export class StorageService {
    * @deprecated Use providerDownload() for downloads from this specific provider.
    * This method will be removed in a future version.
    */
-  async download (commp: string | CommP, options?: DownloadOptions): Promise<Uint8Array> {
-    return await this.providerDownload(commp, options)
+  async download (pieceLink: string | PieceLink, options?: DownloadOptions): Promise<Uint8Array> {
+    return await this.providerDownload(pieceLink, options)
   }
 
   /**
@@ -1151,9 +1151,9 @@ export class StorageService {
 
   /**
    * Get the list of piece CIDs for this service service's data set by querying the PDP server.
-   * @returns Array of piece CIDs as CommP objects
+   * @returns Array of piece CIDs as PieceLink objects
    */
-  async getDataSetPieces (): Promise<Array<CommP | CommPv2>> {
+  async getDataSetPieces (): Promise<PieceLink[]> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
     return dataSetData.pieces.map(piece => piece.pieceCid)
   }
@@ -1167,19 +1167,19 @@ export class StorageService {
    * returned reflects when the data set (containing this piece) was last proven and when the next
    * proof is due.
    *
-   * @param commp - The CommP (piece CID) to check
+   * @param pieceLink - The PieceLink (piece CID) to check
    * @returns Status information including existence, data set timing, and retrieval URL
    */
-  async pieceStatus (commp: string | CommP | CommPv2): Promise<PieceStatus> {
-    const parsedCommP = asCommP(commp)
-    if (parsedCommP == null) {
-      throw createError('StorageService', 'pieceStatus', 'Invalid CommP provided')
+  async pieceStatus (pieceLink: string | PieceLink): Promise<PieceStatus> {
+    const parsedPieceLink = asPieceLink(pieceLink)
+    if (parsedPieceLink == null) {
+      throw createError('StorageService', 'pieceStatus', 'Invalid PieceLink provided')
     }
 
     // Run multiple operations in parallel for better performance
     const [pieceCheckResult, dataSetData, currentEpoch] = await Promise.all([
       // Check if piece exists on provider
-      this._pdpServer.findPiece(parsedCommP, 0).then(() => true).catch(() => false),
+      this._pdpServer.findPiece(parsedPieceLink, 0).then(() => true).catch(() => false),
       // Get data set data
       this._pdpServer.getDataSet(this._dataSetId).catch((error) => {
         console.debug('Failed to get data set data:', error)
@@ -1219,13 +1219,13 @@ export class StorageService {
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
         // Remove trailing slash from serviceURL to avoid double slashes
-        retrievalUrl = `${providerInfo.serviceURL.replace(/\/$/, '')}/piece/${parsedCommP.toString()}`
+        retrievalUrl = `${providerInfo.serviceURL.replace(/\/$/, '')}/piece/${parsedPieceLink.toString() as string}`
       }
 
       // Process proof timing data if we have data set data and proving params
       if (dataSetData != null && provingParams != null) {
-        // Check if this CommP is in the data set
-        const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedCommP.toString())
+        // Check if this PieceLink is in the data set
+        const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedPieceLink.toString())
 
         if (pieceData != null) {
           pieceId = pieceData.pieceId

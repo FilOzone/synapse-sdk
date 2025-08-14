@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { type AuthSignature, type PieceData } from '../types.js'
-import { asCommP } from '../commp/index.js'
+import { asPieceLink } from '../piecelink/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -300,14 +300,14 @@ export class PDPAuthHelper {
    *
    * @param clientDataSetId - Client's dataset ID (same as used in createDataSet)
    * @param firstPieceId - ID of the first piece being added (sequential numbering)
-   * @param pieceDataArray - Array of piece data containing CommP CIDs and raw sizes
+   * @param pieceDataArray - Array of piece data containing PieceLink CIDs and raw sizes
    * @returns Promise resolving to authentication signature for adding pieces
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
    * const pieceData = [{
-   *   cid: 'baga6ea4seaqai...', // CommP CID of aggregated data
+   *   cid: 'baga6ea4seaqai...', // PieceLink CID of aggregated data
    *   rawSize: 1024 * 1024     // Raw size in bytes before padding
    * }]
    * const signature = await auth.signAddPieces(
@@ -325,15 +325,15 @@ export class PDPAuthHelper {
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
     for (const piece of pieceDataArray) {
-      // TODO(CIDv2): support CommPv2 in asCommP
-      const commP = typeof piece.cid === 'string' ? asCommP(piece.cid) : piece.cid
-      if (commP == null) {
-        throw new Error(`Invalid CommP: ${String(piece.cid)}`)
+      // TODO(CIDv2): support PieceLinkv2 in asPieceLink
+      const pieceLink = typeof piece.cid === 'string' ? asPieceLink(piece.cid) : piece.cid
+      if (pieceLink == null) {
+        throw new Error(`Invalid PieceLink: ${String(piece.cid)}`)
       }
 
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedPieceData.push({
-        data: commP.bytes // This will be a Uint8Array
+        data: pieceLink.bytes // This will be a Uint8Array
       })
     }
 
