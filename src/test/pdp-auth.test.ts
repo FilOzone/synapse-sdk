@@ -64,7 +64,7 @@ const FIXTURES = {
   }
 }
 
-// Helper to create PieceLink CIDs from the test piece digests
+// Helper to create PieceCID CIDs from the test piece digests
 const PIECE_DATA: PieceData[] = [
   {
     cid: 'bafkzcibcauan42av3szurbbscwuu3zjssvfwbpsvbjf6y3tukvlgl2nf5rha6pa',

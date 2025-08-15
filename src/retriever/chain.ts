@@ -6,7 +6,7 @@
  */
 
 import type { WarmStorageService } from '../warm-storage/index.js'
-import type { PieceLink, PieceRetriever, ApprovedProviderInfo } from '../types.js'
+import type { PieceCID, PieceRetriever, ApprovedProviderInfo } from '../types.js'
 import { fetchPiecesFromProviders } from './utils.js'
 import { createError } from '../utils/index.js'
 
@@ -71,19 +71,19 @@ export class ChainRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    pieceLink: PieceLink,
+    pieceCid: PieceCID,
     client: string,
     options?: { providerAddress?: string, withCDN?: boolean, signal?: AbortSignal }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string): Promise<Response> => {
       if (this.childRetriever !== undefined) {
-        return await this.childRetriever.fetchPiece(pieceLink, client, options)
+        return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
       throw createError(
         'ChainRetriever',
         'fetchPiece',
-        `Failed to retrieve piece ${pieceLink.toString()}: ${reason}`
+        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`
       )
     }
 
@@ -107,7 +107,7 @@ export class ChainRetriever implements PieceRetriever {
     try {
       return await fetchPiecesFromProviders(
         providersToTry,
-        pieceLink,
+        pieceCid,
         'ChainRetriever',
         options?.signal
       )

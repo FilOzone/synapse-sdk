@@ -1,17 +1,17 @@
 /* globals describe it */
 
 /**
- * Basic tests for PieceLink utilities
+ * Basic tests for PieceCID utilities
  */
 
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import { PieceLink, asPieceLink, asLegacyPieceLink, calculate, createPieceLinkStream } from '../piecelink/index.js'
+import { PieceCID, asPieceCID, asLegacyPieceCID, calculate, createPieceCIDStream } from '../piece/index.js'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { API } from '@web3-storage/data-segment'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
-const zeroPieceLinkFixture = `
+const zeroPieceCidFixture = `
   96,128,baga6ea4seaqdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
   126,128,baga6ea4seaqdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
   127,128,baga6ea4seaqdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
@@ -35,7 +35,7 @@ const zeroPieceLinkFixture = `
     return [parseInt(parts[0], 10), parseInt(parts[1], 10), CID.parse(parts[2].trim())] as [number, number, CID]
   })
 
-function toPieceLink (size: bigint, cid: CID): PieceLink {
+function toPieceCID (size: bigint, cid: CID): PieceCID {
   const height = Size.Unpadded.toHeight(size)
   const padding = Size.Unpadded.toPadding(size)
   const root = cid.bytes.slice(-32)
@@ -43,143 +43,143 @@ function toPieceLink (size: bigint, cid: CID): PieceLink {
   return toLink(piece)
 }
 
-describe('PieceLink utilities', () => {
-  const validPieceLinkString = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-  const invalidCidString = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' // CIDv0, not PieceLink
+describe('PieceCID utilities', () => {
+  const validPieceCidString = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+  const invalidCidString = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' // CIDv0, not PieceCID
 
-  describe('asPieceLink', () => {
-    it('should accept valid PieceLink string', () => {
-      const result = asPieceLink(validPieceLinkString)
+  describe('asPieceCID', () => {
+    it('should accept valid PieceCID string', () => {
+      const result = asPieceCID(validPieceCidString)
       assert.isNotNull(result)
-      assert.strictEqual(result?.toString(), validPieceLinkString)
+      assert.strictEqual(result?.toString(), validPieceCidString)
     })
 
-    it('should accept PieceLink CID object', () => {
-      const cid = CID.parse(validPieceLinkString)
-      const result = asPieceLink(cid)
+    it('should accept PieceCID CID object', () => {
+      const cid = CID.parse(validPieceCidString)
+      const result = asPieceCID(cid)
       assert.isNotNull(result)
-      assert.strictEqual(result?.toString(), validPieceLinkString)
+      assert.strictEqual(result?.toString(), validPieceCidString)
     })
 
-    it('should return null for invalid PieceLink string', () => {
-      const result = asPieceLink(invalidCidString)
+    it('should return null for invalid PieceCID string', () => {
+      const result = asPieceCID(invalidCidString)
       assert.isNull(result)
     })
 
     it('should return null for invalid CID object', () => {
       const invalidCid = CID.parse(invalidCidString)
-      const result = asPieceLink(invalidCid)
+      const result = asPieceCID(invalidCid)
       assert.isNull(result)
     })
 
     it('should return null for malformed string', () => {
-      const result = asPieceLink('not-a-cid')
+      const result = asPieceCID('not-a-cid')
       assert.isNull(result)
     })
 
     it('should return null for null input', () => {
-      const result = asPieceLink(null as any)
+      const result = asPieceCID(null as any)
       assert.isNull(result)
     })
 
     it('should return null for undefined input', () => {
-      const result = asPieceLink(undefined as any)
+      const result = asPieceCID(undefined as any)
       assert.isNull(result)
     })
 
     it('should return null for number input', () => {
-      const result = asPieceLink(123 as any)
+      const result = asPieceCID(123 as any)
       assert.isNull(result)
     })
 
     it('should return null for object that is not a CID', () => {
-      const result = asPieceLink({} as any)
+      const result = asPieceCID({} as any)
       assert.isNull(result)
     })
   })
 
-  describe('asLegacyPieceLink', () => {
-    zeroPieceLinkFixture.forEach(([size,, v1]) => {
-      it('should down-convert PieceLink to LegacyPieceLink', () => {
-        const v2 = toPieceLink(BigInt(size), v1)
-        const actual = asLegacyPieceLink(v2)
+  describe('asLegacyPieceCID', () => {
+    zeroPieceCidFixture.forEach(([size,, v1]) => {
+      it('should down-convert PieceCID to LegacyPieceCID', () => {
+        const v2 = toPieceCID(BigInt(size), v1)
+        const actual = asLegacyPieceCID(v2)
         assert.isNotNull(actual)
         assert.strictEqual(actual.toString(), v1.toString())
 
         // Round-trip the v1
-        const fromV1 = asLegacyPieceLink(v1)
+        const fromV1 = asLegacyPieceCID(v1)
         assert.isNotNull(fromV1)
         assert.strictEqual(fromV1.toString(), v1.toString())
 
         // Round-trip the v1 as a string
-        const fromV1String = asLegacyPieceLink(v1.toString())
+        const fromV1String = asLegacyPieceCID(v1.toString())
         assert.isNotNull(fromV1String)
         assert.strictEqual(fromV1String.toString(), v1.toString())
       })
     })
 
-    it('should return null for invalid LegacyPieceLink string', () => {
-      const result = asLegacyPieceLink(invalidCidString)
+    it('should return null for invalid LegacyPieceCID string', () => {
+      const result = asLegacyPieceCID(invalidCidString)
       assert.isNull(result)
     })
 
     it('should return null for invalid CID object', () => {
       const invalidCid = CID.parse(invalidCidString)
-      const result = asLegacyPieceLink(invalidCid)
+      const result = asLegacyPieceCID(invalidCid)
       assert.isNull(result)
     })
 
     it('should return null for malformed string', () => {
-      const result = asLegacyPieceLink('not-a-cid')
+      const result = asLegacyPieceCID('not-a-cid')
       assert.isNull(result)
     })
 
     it('should return null for null input', () => {
-      const result = asLegacyPieceLink(null as any)
+      const result = asLegacyPieceCID(null as any)
       assert.isNull(result)
     })
 
     it('should return null for undefined input', () => {
-      const result = asLegacyPieceLink(undefined as any)
+      const result = asLegacyPieceCID(undefined as any)
       assert.isNull(result)
     })
 
     it('should return null for number input', () => {
-      const result = asLegacyPieceLink(123 as any)
+      const result = asLegacyPieceCID(123 as any)
       assert.isNull(result)
     })
 
     it('should return null for object that is not a CID', () => {
-      const result = asLegacyPieceLink({} as any)
+      const result = asLegacyPieceCID({} as any)
       assert.isNull(result)
     })
   })
 
   // These are not exhaustive tests, but tell us that our use of the upstream
-  // PieceLink calculation library and our transformation of the output to CIDs is
+  // PieceCID calculation library and our transformation of the output to CIDs is
   // correct. We'll defer to the upstream library for more detailed tests.
-  describe('Calculate PieceLink from fixture data', () => {
-    zeroPieceLinkFixture.forEach(([size,, expected]) => {
-      it(`should parse PieceLink for size ${size}`, () => {
-        // PieceLink for an empty byte array of given size
+  describe('Calculate PieceCID from fixture data', () => {
+    zeroPieceCidFixture.forEach(([size,, expected]) => {
+      it(`should parse PieceCID for size ${size}`, () => {
+        // PieceCID for an empty byte array of given size
         const zeroBytes = new Uint8Array(size)
         const result = calculate(zeroBytes)
         assert.isNotNull(result)
-        const v2 = toPieceLink(BigInt(size), expected)
+        const v2 = toPieceCID(BigInt(size), expected)
         assert.strictEqual(result.toString(), v2.toString())
       })
     })
   })
 
-  describe('createPieceLinkStream', () => {
-    it('should calculate same PieceLink as calculate() function', async () => {
+  describe('createPieceCIDStream', () => {
+    it('should calculate same PieceCID as calculate() function', async () => {
       const testData = new Uint8Array(4096).fill(1)
 
       // Calculate using regular function
-      const expectedPieceLink = calculate(testData)
+      const expectedPieceCid = calculate(testData)
 
       // Calculate using stream
-      const { stream, getPieceLink } = createPieceLinkStream()
+      const { stream, getPieceCID } = createPieceCIDStream()
 
       // Create a readable stream from our test data
       const readable = new ReadableStream({
@@ -189,16 +189,16 @@ describe('PieceLink utilities', () => {
         }
       })
 
-      // Pipe through PieceLink stream and consume
+      // Pipe through PieceCID stream and consume
       const reader = readable.pipeThrough(stream).getReader()
       while (true) {
         const { done } = await reader.read()
         if (done) break
       }
 
-      const streamPieceLink = getPieceLink()
-      assert.isNotNull(streamPieceLink)
-      assert.strictEqual(streamPieceLink?.toString(), expectedPieceLink.toString())
+      const streamPieceCid = getPieceCID()
+      assert.isNotNull(streamPieceCid)
+      assert.strictEqual(streamPieceCid?.toString(), expectedPieceCid.toString())
     })
 
     it('should handle chunked data correctly', async () => {
@@ -207,11 +207,11 @@ describe('PieceLink utilities', () => {
       const chunk3 = new Uint8Array(1024).fill(1)
       const fullData = new Uint8Array([...chunk1, ...chunk2, ...chunk3])
 
-      // Calculate expected PieceLink
-      const expectedPieceLink = calculate(fullData)
+      // Calculate expected PieceCID
+      const expectedPieceCid = calculate(fullData)
 
       // Calculate using stream with chunks
-      const { stream, getPieceLink } = createPieceLinkStream()
+      const { stream, getPieceCID } = createPieceCIDStream()
 
       const readable = new ReadableStream({
         start (controller) {
@@ -228,16 +228,16 @@ describe('PieceLink utilities', () => {
         if (done) break
       }
 
-      const streamPieceLink = getPieceLink()
-      assert.isNotNull(streamPieceLink)
-      assert.strictEqual(streamPieceLink?.toString(), expectedPieceLink.toString())
+      const streamPieceCid = getPieceCID()
+      assert.isNotNull(streamPieceCid)
+      assert.strictEqual(streamPieceCid?.toString(), expectedPieceCid.toString())
     })
 
     it('should return null before stream is finished', () => {
-      const { getPieceLink } = createPieceLinkStream()
+      const { getPieceCID } = createPieceCIDStream()
 
       // Should be null before any data
-      assert.isNull(getPieceLink())
+      assert.isNull(getPieceCID())
 
       // Note: We can't easily test the "during streaming" state without
       // more complex async coordination, so we keep this test simple

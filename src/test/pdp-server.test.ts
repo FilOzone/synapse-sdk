@@ -10,7 +10,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
 import type { PieceData } from '../types.js'
-import { asPieceLink, calculate as calculatePieceLink } from '../piecelink/index.js'
+import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
 class MockPDPServer {
@@ -260,17 +260,17 @@ describe('PDPServer', () => {
         assert.include((error as Error).message, 'Size must be a positive number')
       }
 
-      // Test invalid PieceLink
-      const invalidPieceLink: PieceData = {
+      // Test invalid PieceCID
+      const invalidPieceCid: PieceData = {
         cid: 'invalid-piece-link-string',
         rawSize: 1024
       }
 
       try {
-        await pdpServer.addPieces(1, 0, 0, [invalidPieceLink])
-        assert.fail('Should have thrown error for invalid PieceLink')
+        await pdpServer.addPieces(1, 0, 0, [invalidPieceCid])
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid PieceLink')
+        assert.include((error as Error).message, 'Invalid PieceCID')
       }
     })
 
@@ -345,19 +345,19 @@ describe('PDPServer', () => {
     })
 
     it('should handle multiple pieces', async () => {
-      // Mix of string and PieceLink object inputs
-      const pieceLink1 = asPieceLink('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-      const pieceLink2 = asPieceLink('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-      assert.isNotNull(pieceLink1)
-      assert.isNotNull(pieceLink2)
+      // Mix of string and PieceCID object inputs
+      const pieceCid1 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid2 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(pieceCid1)
+      assert.isNotNull(pieceCid2)
 
-      if (pieceLink1 == null || pieceLink2 == null) {
-        throw new Error('Failed to parse test PieceLinks')
+      if (pieceCid1 == null || pieceCid2 == null) {
+        throw new Error('Failed to parse test PieceCIDs')
       }
 
       const multiplePieceData: PieceData[] = [
         {
-          cid: pieceLink1, // Use PieceLink object
+          cid: pieceCid1, // Use PieceCID object
           rawSize: 1024 * 1024
         },
         {
@@ -567,10 +567,10 @@ describe('PDPServer', () => {
 
   describe('findPiece', () => {
     it('should find a piece successfully', async () => {
-      const mockPieceLink = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576 // 1 MiB
       const mockResponse = {
-        pieceCid: mockPieceLink
+        pieceCid: mockPieceCid
       }
 
       // Mock fetch for this test
@@ -590,15 +590,15 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.findPiece(mockPieceLink, mockSize)
-        assert.strictEqual(result.pieceCid.toString(), mockPieceLink)
+        const result = await pdpServer.findPiece(mockPieceCid, mockSize)
+        assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle piece not found', async () => {
-      const mockPieceLink = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return 404
@@ -612,30 +612,30 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockPieceLink, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
-        assert.include(error.message, mockPieceLink)
+        assert.include(error.message, mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should validate PieceLink input', async () => {
-      const invalidPieceLink = 'invalid-piece-link-string'
+    it('should validate PieceCID input', async () => {
+      const invalidPieceCid = 'invalid-piece-cid-string'
       const mockSize = 1048576
 
       try {
-        await pdpServer.findPiece(invalidPieceLink, mockSize)
-        assert.fail('Should have thrown error for invalid PieceLink')
+        await pdpServer.findPiece(invalidPieceCid, mockSize)
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid PieceLink')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
     it('should handle server errors', async () => {
-      const mockPieceLink = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return server error
@@ -650,7 +650,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockPieceLink, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to find piece')
@@ -717,7 +717,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.pieceLink)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -770,7 +770,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(buffer)
-        assert.exists(result.pieceLink)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -779,7 +779,7 @@ describe('PDPServer', () => {
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockPieceCid = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return 200 instead of 201 for create
       const originalFetch = global.fetch
@@ -808,7 +808,7 @@ describe('PDPServer', () => {
       try {
         // Should not throw - existing piece is OK
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.pieceLink)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -855,7 +855,7 @@ describe('PDPServer', () => {
   describe('downloadPiece', () => {
     it('should successfully download and verify piece', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testPieceLink = calculatePieceLink(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -863,7 +863,7 @@ describe('PDPServer', () => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         // Verify correct URL format
-        assert.isTrue(url.endsWith(`/piece/${testPieceLink}`))
+        assert.isTrue(url.endsWith(`/piece/${testPieceCid}`))
 
         // Return test data as response
         return new Response(testData, {
@@ -873,7 +873,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testPieceLink)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         assert.deepEqual(result, testData)
       } finally {
         global.fetch = originalFetch
@@ -881,7 +881,7 @@ describe('PDPServer', () => {
     })
 
     it('should throw on download failure', async () => {
-      const mockPieceLink = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -894,7 +894,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockPieceLink)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Download failed')
@@ -904,18 +904,18 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should reject invalid PieceLink', async () => {
+    it('should reject invalid PieceCID', async () => {
       try {
         await pdpServer.downloadPiece('invalid-piece-link-string')
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid PieceLink')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
-    it('should throw on PieceLink verification failure', async () => {
+    it('should throw on PieceCID verification failure', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testPieceLink = calculatePieceLink(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
       // Mock fetch to return wrong data
@@ -928,17 +928,17 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(testPieceLink)
+        await pdpServer.downloadPiece(testPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'PieceLink verification failed')
+        assert.include(error.message, 'PieceCID verification failed')
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle null response body', async () => {
-      const mockPieceLink = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return response with null body
       const originalFetch = global.fetch
@@ -949,7 +949,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockPieceLink)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Response body is null')
@@ -960,7 +960,7 @@ describe('PDPServer', () => {
 
     it('should correctly stream and verify chunked data', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testPieceLink = calculatePieceLink(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch that returns data in chunks
       const originalFetch = global.fetch
@@ -987,7 +987,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testPieceLink)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         // Verify we got all the data correctly reassembled
         assert.deepEqual(result, testData)
       } finally {

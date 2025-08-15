@@ -175,7 +175,7 @@ export const SIZE_CONSTANTS = {
 
   /**
    * Minimum upload size (65 bytes)
-   * PieceLink calculation requires at least 65 bytes
+   * PieceCID calculation requires at least 65 bytes
    */
   MIN_UPLOAD_SIZE: 65,
 

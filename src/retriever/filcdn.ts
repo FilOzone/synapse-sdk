@@ -5,7 +5,7 @@
  * to the base retriever.
  */
 
-import type { PieceLink, FilecoinNetworkType, PieceRetriever } from '../types.js'
+import type { PieceCID, FilecoinNetworkType, PieceRetriever } from '../types.js'
 
 export class FilCdnRetriever implements PieceRetriever {
   constructor (
@@ -20,7 +20,7 @@ export class FilCdnRetriever implements PieceRetriever {
   }
 
   async fetchPiece (
-    pieceLink: PieceLink,
+    pieceCid: PieceCID,
     client: string,
     options?: {
       providerAddress?: string
@@ -29,7 +29,7 @@ export class FilCdnRetriever implements PieceRetriever {
     }
   ): Promise<Response> {
     if (options?.withCDN === true) {
-      const cdnUrl = `https://${client}.${this.hostname()}/${pieceLink.toString()}`
+      const cdnUrl = `https://${client}.${this.hostname()}/${pieceCid.toString()}`
       try {
         const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
         if (cdnResponse.ok) {
@@ -45,6 +45,6 @@ export class FilCdnRetriever implements PieceRetriever {
     }
 
     console.log('Falling back to direct retrieval')
-    return await this.baseRetriever.fetchPiece(pieceLink, client, options)
+    return await this.baseRetriever.fetchPiece(pieceCid, client, options)
   }
 }

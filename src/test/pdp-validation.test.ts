@@ -172,10 +172,10 @@ describe('PDP Validation', function () {
         [],
         {},
         { pieceCid: 123 }, // Wrong type
-        { randomField: 'baga...' }, // Wrong field name
+        { randomField: 'bafk...' }, // Wrong field name
         { pieceCid: null }, // Null value
-        { pieceCid: 'not-a-piece-link' }, // Invalid PieceLink
-        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a PieceLink (wrong multihash)
+        { pieceCid: 'not-a-piece-link' }, // Invalid PieceCID
+        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a PieceCID (wrong multihash)
       ]
 
       for (const invalid of invalidResponses) {
@@ -184,19 +184,19 @@ describe('PDP Validation', function () {
       }
     })
 
-    it('should throw specific error for invalid PieceLink', function () {
-      const invalidPieceLinkResponse = {
+    it('should throw specific error for invalid PieceCID', function () {
+      const invalidPieceCidResponse = {
         pieceCid: 'not-a-valid-piece-link'
       }
 
       assert.throws(
-        () => validateFindPieceResponse(invalidPieceLinkResponse),
+        () => validateFindPieceResponse(invalidPieceCidResponse),
         Error,
-        'Invalid find piece response: pieceCid is not a valid PieceLink'
+        'Invalid find piece response: pieceCid is not a valid PieceCID'
       )
     })
 
-    it('should return a proper PieceLink CID object', function () {
+    it('should return a proper PieceCID CID object', function () {
       const validResponse = {
         pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       }
