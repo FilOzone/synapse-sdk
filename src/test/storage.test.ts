@@ -246,7 +246,7 @@ describe('StorageService', () => {
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       // Should use existing data set
-      assert.equal(service.dataSetId, '100')
+      assert.equal(service.dataSetId, 100)
     })
 
     it.skip('should create new data set when none exist', async () => {
@@ -305,7 +305,7 @@ describe('StorageService', () => {
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       // Should select the data set with pieces
-      assert.equal(service.dataSetId, '101')
+      assert.equal(service.dataSetId, 101)
     })
 
     it('should handle provider selection callbacks', async () => {
@@ -402,7 +402,7 @@ describe('StorageService', () => {
 
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 456 })
 
-      assert.equal(service.dataSetId, '456')
+      assert.equal(service.dataSetId, 456)
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
     })
 
@@ -450,7 +450,7 @@ describe('StorageService', () => {
       })
 
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
-      assert.equal(service.dataSetId, '789')
+      assert.equal(service.dataSetId, 789)
     })
 
     it('should throw when dataSetId not found', async () => {
@@ -606,11 +606,11 @@ describe('StorageService', () => {
       try {
         // Test with CDN = false
         const serviceNoCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: false })
-        assert.equal(serviceNoCDN.dataSetId, '200', 'Should select non-CDN data set')
+        assert.equal(serviceNoCDN.dataSetId, 200, 'Should select non-CDN data set')
 
         // Test with CDN = true
         const serviceWithCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: true })
-        assert.equal(serviceWithCDN.dataSetId, '201', 'Should select CDN data set')
+        assert.equal(serviceWithCDN.dataSetId, 201, 'Should select CDN data set')
       } finally {
         global.fetch = originalFetch
       }
@@ -826,7 +826,7 @@ describe('StorageService', () => {
 
         assert.isTrue(getClientDataSetsCalled, 'Should fetch client data sets')
         assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
-        assert.equal(service.dataSetId, '500')
+        assert.equal(service.dataSetId, 500)
       } finally {
         global.fetch = originalFetch
       }
@@ -1762,7 +1762,7 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for transaction not found')
       } catch (error: any) {
         // The error is wrapped by createError, so check for the wrapped message
-        assert.include(error.message, 'StorageService addPieces failed:')
+        assert.include(error.message, 'StorageContext addPieces failed:')
         assert.include(error.message, 'Server returned transaction hash')
         assert.include(error.message, 'but transaction was not found on-chain')
       } finally {
@@ -1827,7 +1827,7 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for verification failure')
       } catch (error: any) {
         // The error is wrapped by createError
-        assert.include(error.message, 'StorageService addPieces failed:')
+        assert.include(error.message, 'StorageContext addPieces failed:')
         assert.include(error.message, 'Failed to verify piece addition')
         assert.include(error.message, 'The transaction was confirmed on-chain but the server failed to acknowledge it')
       } finally {
@@ -1883,7 +1883,7 @@ describe('StorageService', () => {
         assert.fail('Should have thrown error for failed transaction')
       } catch (error: any) {
         // The error is wrapped twice - first by the specific throw, then by the outer catch
-        assert.include(error.message, 'StorageService addPieces failed:')
+        assert.include(error.message, 'StorageContext addPieces failed:')
         assert.include(error.message, 'Failed to add piece to data set')
       } finally {
         // Restore original method
@@ -2202,7 +2202,7 @@ describe('StorageService', () => {
           )
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          assert.include(error.message, 'StorageService selectProviderWithPing failed')
+          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
           assert.include(error.message, 'All 2 providers failed health check')
         } finally {
           global.fetch = originalFetch
@@ -2280,7 +2280,7 @@ describe('StorageService', () => {
           assert.fail('Should have thrown error')
         } catch (error: any) {
           // Should fail with selectProviderWithPing error after trying existing provider
-          assert.include(error.message, 'StorageService selectProviderWithPing failed')
+          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
           assert.include(error.message, 'All 1 providers failed health check')
           assert.isAtLeast(pingCallCount, 1, 'Should have pinged the provider from existing data set')
         } finally {
@@ -2531,12 +2531,7 @@ describe('StorageService', () => {
   })
 
   describe('getProviderInfo', () => {
-    it('should return provider info through Synapse', async () => {
-      const mockWarmStorageService = {} as any
-      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
-
-      // Mock the synapse getProviderInfo method
-      const originalGetProviderInfo = mockSynapse.getProviderInfo
+    it('should return provider info through WarmStorageService', async () => {
       const expectedProviderInfo = {
         serviceProvider: mockProvider.serviceProvider,
         serviceURL: 'https://updated-pdp.example.com',
@@ -2545,36 +2540,35 @@ describe('StorageService', () => {
         approvedAt: 1234567901
       }
 
-      mockSynapse.getProviderInfo = async (address: string) => {
-        assert.equal(address, mockProvider.serviceProvider)
-        return expectedProviderInfo
-      }
+      const mockSynapseWithProvider = {
+        ...mockSynapse,
+        getProviderInfo: async (address: string) => {
+          assert.equal(address, mockProvider.serviceProvider)
+          return expectedProviderInfo
+        }
+      } as any
+      const mockWarmStorageService = {} as any
+      const service = new StorageService(mockSynapseWithProvider, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
-      try {
-        const providerInfo = await service.getProviderInfo()
-        assert.deepEqual(providerInfo, expectedProviderInfo)
-      } finally {
-        mockSynapse.getProviderInfo = originalGetProviderInfo
-      }
+      const providerInfo = await service.getProviderInfo()
+      assert.deepEqual(providerInfo, expectedProviderInfo)
     })
 
     it('should handle errors from Synapse getProviderInfo', async () => {
+      const mockSynapseWithError = {
+        ...mockSynapse,
+        getProviderInfo: async () => {
+          throw new Error('Provider not found')
+        }
+      } as any
       const mockWarmStorageService = {} as any
-      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
-
-      // Mock the synapse getProviderInfo method to throw
-      const originalGetProviderInfo = mockSynapse.getProviderInfo
-      mockSynapse.getProviderInfo = async () => {
-        throw new Error('Provider not found')
-      }
+      const service = new StorageService(mockSynapseWithError, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.getProviderInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Provider not found')
-      } finally {
-        mockSynapse.getProviderInfo = originalGetProviderInfo
       }
     })
   })
