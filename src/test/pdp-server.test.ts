@@ -3,14 +3,14 @@
 /**
  * PDPServer tests
  *
- * Tests the PDPServer class for creating proof sets and adding roots via HTTP API
+ * Tests the PDPServer class for creating data sets and adding pieces via HTTP API
  */
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
-import type { RootData } from '../types.js'
-import { asCommP, calculate as calculateCommP } from '../commp/index.js'
+import type { PieceData } from '../types.js'
+import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
 class MockPDPServer {
@@ -54,7 +54,7 @@ describe('PDPServer', () => {
     serverUrl = await mockServer.start(0) // Use random port
 
     // Create PDPServer instance
-    pdpServer = new PDPServer(authHelper, serverUrl + '/api', serverUrl + '/retrieval')
+    pdpServer = new PDPServer(authHelper, serverUrl)
   })
 
   afterEach(async () => {
@@ -62,41 +62,34 @@ describe('PDPServer', () => {
   })
 
   describe('constructor', () => {
-    it('should create PDPServer with valid API endpoint', () => {
-      const tool = new PDPServer(authHelper, 'https://example.com/foo', 'https://example.com/bar')
-      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com/foo')
+    it('should create PDPServer with valid service URL', () => {
+      const tool = new PDPServer(authHelper, 'https://example.com/pdp')
+      assert.strictEqual(tool.getServiceURL(), 'https://example.com/pdp')
     })
 
-    it('should remove trailing slash from API endpoint', () => {
-      const tool = new PDPServer(authHelper, 'https://example.com/foo/', 'https://example.com/bar')
-      assert.strictEqual(tool.getApiEndpoint(), 'https://example.com/foo')
+    it('should remove trailing slash from service URL', () => {
+      const tool = new PDPServer(authHelper, 'https://example.com/pdp/')
+      assert.strictEqual(tool.getServiceURL(), 'https://example.com/pdp')
     })
 
-    it('should throw error for empty API endpoint', () => {
+    it('should throw error for empty service URL', () => {
       assert.throws(() => {
         // eslint-disable-next-line no-new
-        new PDPServer(authHelper, '', 'https://example.com')
-      }, 'PDP API endpoint is required')
-    })
-
-    it('should throw error for empty retrieval endpoint', () => {
-      assert.throws(() => {
-        // eslint-disable-next-line no-new
-        new PDPServer(authHelper, 'https://example.com/pdp', '')
-      }, 'PDP retrieval endpoint is required')
+        new PDPServer(authHelper, '')
+      }, 'PDP service URL is required')
     })
   })
 
-  describe('createProofSet', () => {
-    it('should handle successful proof set creation', async () => {
-      // Mock the createProofSet endpoint
+  describe('createDataSet', () => {
+    it('should handle successful data set creation', async () => {
+      // Mock the createDataSet endpoint
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets')
+        assert.include(url, '/pdp/data-sets')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
@@ -108,7 +101,7 @@ describe('PDPServer', () => {
           headers: {
             get: (header: string) => {
               if (header === 'Location') {
-                return `/pdp/proof-sets/created/${mockTxHash}`
+                return `/pdp/data-sets/created/${mockTxHash}`
               }
               return null
             }
@@ -117,7 +110,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.createProofSet(
+        const result = await pdpServer.createDataSet(
           0, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
           false, // withCDN
@@ -132,23 +125,23 @@ describe('PDPServer', () => {
     })
   })
 
-  describe('getRootAdditionStatus', () => {
+  describe('getPieceAdditionStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
       const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'confirmed',
-        proofSetId: 1,
-        rootCount: 2,
+        dataSetId: 1,
+        pieceCount: 2,
         addMessageOk: true,
-        confirmedRootIds: [101, 102]
+        confirmedPieceIds: [101, 102]
       }
 
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/api/pdp/proof-sets/1/roots/added/${mockTxHash}`)
+        assert.include(url, `/pdp/data-sets/1/pieces/added/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -158,7 +151,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
         assert.deepStrictEqual(result, mockResponse)
       } finally {
         global.fetch = originalFetch
@@ -170,10 +163,10 @@ describe('PDPServer', () => {
       const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'pending',
-        proofSetId: 1,
-        rootCount: 2,
+        dataSetId: 1,
+        pieceCount: 2,
         addMessageOk: null,
-        confirmedRootIds: undefined
+        confirmedPieceIds: undefined
       }
 
       // Mock fetch for this test
@@ -186,10 +179,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
         assert.strictEqual(result.txStatus, 'pending')
         assert.isNull(result.addMessageOk)
-        assert.isUndefined(result.confirmedRootIds)
+        assert.isUndefined(result.confirmedPieceIds)
       } finally {
         global.fetch = originalFetch
       }
@@ -207,10 +200,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        await pdpServer.getPieceAdditionStatus(1, mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
-        assert.include((error as Error).message, `Root addition not found for transaction: ${mockTxHash}`)
+        assert.include((error as Error).message, `Piece addition not found for transaction: ${mockTxHash}`)
       } finally {
         global.fetch = originalFetch
       }
@@ -230,10 +223,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getRootAdditionStatus(1, mockTxHash)
+        await pdpServer.getPieceAdditionStatus(1, mockTxHash)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to get root addition status')
+        assert.include((error as Error).message, 'Failed to get piece addition status')
         assert.include((error as Error).message, '500')
         assert.include((error as Error).message, 'Database error')
       } finally {
@@ -242,59 +235,49 @@ describe('PDPServer', () => {
     })
   })
 
-  describe('addRoots', () => {
+  describe('addPieces', () => {
     it('should validate input parameters', async () => {
-      // Test empty root entries
+      // Test empty piece entries
       try {
-        await pdpServer.addRoots(1, 0, 0, [])
-        assert.fail('Should have thrown error for empty root entries')
+        await pdpServer.addPieces(1, 0, 0, [])
+        assert.fail('Should have thrown error for empty piece entries')
       } catch (error) {
-        assert.include((error as Error).message, 'At least one root must be provided')
+        assert.include((error as Error).message, 'At least one piece must be provided')
       }
 
-      // Test with invalid raw size - mock server rejection
-      const invalidRawSize: RootData = {
-        cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+      // Test with invalid raw size - should fail during signature generation
+      const invalidRawSize: PieceData = {
+        cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
         rawSize: -1
       }
 
-      // Mock fetch to return error for negative size
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 400,
-          statusText: 'Bad Request',
-          text: async () => 'Invalid raw size'
-        } as any
-      }
-
       try {
-        await pdpServer.addRoots(1, 0, 0, [invalidRawSize])
+        await pdpServer.addPieces(1, 0, 0, [invalidRawSize])
         assert.fail('Should have thrown error for invalid raw size')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to add roots to proof set')
-      } finally {
-        global.fetch = originalFetch
+        // Negative raw size is invalid
+        assert.include((error as Error).message, 'Invalid piece size: -1')
+        assert.include((error as Error).message, 'Size must be a positive number')
       }
 
-      // Test invalid CommP
-      const invalidCommP: RootData = {
-        cid: 'invalid-commp-string',
+      // Test invalid PieceCID
+      const invalidPieceCid: PieceData = {
+        cid: 'invalid-piece-link-string',
         rawSize: 1024
       }
 
       try {
-        await pdpServer.addRoots(1, 0, 0, [invalidCommP])
-        assert.fail('Should have thrown error for invalid CommP')
+        await pdpServer.addPieces(1, 0, 0, [invalidPieceCid])
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid CommP')
+        assert.include((error as Error).message, 'Invalid PieceCID')
       }
     })
 
-    it('should handle successful root addition', async () => {
-      const validRootData: RootData[] = [
+    it('should handle successful piece addition', async () => {
+      const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -303,20 +286,20 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets/1/roots')
+        assert.include(url, '/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         const body = JSON.parse(init?.body as string)
-        assert.isDefined(body.roots)
+        assert.isDefined(body.pieces)
         assert.isDefined(body.extraData)
-        assert.strictEqual(body.roots.length, 1)
-        assert.strictEqual(body.roots[0].rootCid, validRootData[0].cid)
-        assert.strictEqual(body.roots[0].subroots.length, 1)
-        assert.strictEqual(body.roots[0].subroots[0].subrootCid, validRootData[0].cid) // Root is its own subroot
+        assert.strictEqual(body.pieces.length, 1)
+        assert.strictEqual(body.pieces[0].pieceCid, validPieceData[0].cid)
+        assert.strictEqual(body.pieces[0].subPieces.length, 1)
+        assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceData[0].cid) // Piece is its own subPiece
 
         return {
           status: 201,
-          text: async () => 'Roots added successfully',
+          text: async () => 'Pieces added successfully',
           headers: {
             get: (name: string) => null // No Location header for backward compatibility test
           }
@@ -325,7 +308,7 @@ describe('PDPServer', () => {
 
       try {
         // Should not throw
-        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -334,9 +317,9 @@ describe('PDPServer', () => {
     })
 
     it('should handle server errors appropriately', async () => {
-      const validRootData: RootData[] = [
+      const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024
         }
       ]
@@ -347,38 +330,38 @@ describe('PDPServer', () => {
         return {
           status: 400,
           statusText: 'Bad Request',
-          text: async () => 'Invalid root CID'
+          text: async () => 'Invalid piece CID'
         } as any
       }
 
       try {
-        await pdpServer.addRoots(1, 0, 0, validRootData)
+        await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to add roots to proof set: 400 Bad Request - Invalid root CID')
+        assert.include((error as Error).message, 'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should handle multiple roots', async () => {
-      // Mix of string and CommP object inputs
-      const commP1 = asCommP('baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy')
-      const commP2 = asCommP('baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy')
-      assert.isNotNull(commP1)
-      assert.isNotNull(commP2)
+    it('should handle multiple pieces', async () => {
+      // Mix of string and PieceCID object inputs
+      const pieceCid1 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const pieceCid2 = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(pieceCid1)
+      assert.isNotNull(pieceCid2)
 
-      if (commP1 == null || commP2 == null) {
-        throw new Error('Failed to parse test CommPs')
+      if (pieceCid1 == null || pieceCid2 == null) {
+        throw new Error('Failed to parse test PieceCIDs')
       }
 
-      const multipleRootData: RootData[] = [
+      const multiplePieceData: PieceData[] = [
         {
-          cid: commP1, // Use CommP object
+          cid: pieceCid1, // Use PieceCID object
           rawSize: 1024 * 1024
         },
         {
-          cid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy', // String
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy', // String
           rawSize: 2048 * 1024
         }
       ]
@@ -388,15 +371,15 @@ describe('PDPServer', () => {
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const body = JSON.parse(init?.body as string)
 
-        assert.strictEqual(body.roots.length, 2)
-        assert.strictEqual(body.roots[0].subroots.length, 1) // Each root has itself as its only subroot
-        assert.strictEqual(body.roots[1].subroots.length, 1)
-        assert.strictEqual(body.roots[0].rootCid, body.roots[0].subroots[0].subrootCid)
-        assert.strictEqual(body.roots[1].rootCid, body.roots[1].subroots[0].subrootCid)
+        assert.strictEqual(body.pieces.length, 2)
+        assert.strictEqual(body.pieces[0].subPieces.length, 1) // Each piece has itself as its only subPiece
+        assert.strictEqual(body.pieces[1].subPieces.length, 1)
+        assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subPieces[0].subPieceCid)
+        assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subPieces[0].subPieceCid)
 
         return {
           status: 201,
-          text: async () => 'Multiple roots added successfully',
+          text: async () => 'Multiple pieces added successfully',
           headers: {
             get: (name: string) => null // No Location header for backward compatibility test
           }
@@ -404,7 +387,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addRoots(1, 0, 0, multipleRootData)
+        const result = await pdpServer.addPieces(1, 0, 0, multiplePieceData)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -412,10 +395,10 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should handle addRoots response with Location header', async () => {
-      const validRootData: RootData[] = [
+    it('should handle addPieces response with Location header', async () => {
+      const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -425,16 +408,16 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/proof-sets/1/roots')
+        assert.include(url, '/pdp/data-sets/1/pieces')
         assert.strictEqual(init?.method, 'POST')
 
         return {
           status: 201,
-          text: async () => 'Roots added successfully',
+          text: async () => 'Pieces added successfully',
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/proof-sets/1/roots/added/${mockTxHash}`
+                return `/pdp/data-sets/1/pieces/added/${mockTxHash}`
               }
               return null
             }
@@ -443,21 +426,21 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.isDefined(result)
         assert.isDefined(result.message)
         assert.strictEqual(result.txHash, mockTxHash)
         assert.include(result.statusUrl ?? '', mockTxHash)
-        assert.include(result.statusUrl ?? '', '/pdp/proof-sets/1/roots/added/')
+        assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should handle addRoots response with Location header missing 0x prefix', async () => {
-      const validRootData: RootData[] = [
+    it('should handle addPieces response with Location header missing 0x prefix', async () => {
+      const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -469,11 +452,11 @@ describe('PDPServer', () => {
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         return {
           status: 201,
-          text: async () => 'Roots added successfully',
+          text: async () => 'Pieces added successfully',
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
-                return `/pdp/proof-sets/1/roots/added/${mockTxHashWithout0x}`
+                return `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
               }
               return null
             }
@@ -482,7 +465,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.isDefined(result)
         assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
       } finally {
@@ -491,9 +474,9 @@ describe('PDPServer', () => {
     })
 
     it('should handle malformed Location header gracefully', async () => {
-      const validRootData: RootData[] = [
+      const validPieceData: PieceData[] = [
         {
-          cid: 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy',
+          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
           rawSize: 1024 * 1024 // 1 MiB
         }
       ]
@@ -503,7 +486,7 @@ describe('PDPServer', () => {
       global.fetch = async () => {
         return {
           status: 201,
-          text: async () => 'Roots added successfully',
+          text: async () => 'Pieces added successfully',
           headers: {
             get: (name: string) => {
               if (name === 'Location') {
@@ -516,7 +499,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addRoots(1, 0, 0, validRootData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
         assert.isDefined(result)
         assert.isDefined(result.message)
         assert.isUndefined(result.txHash) // No txHash for malformed Location
@@ -527,23 +510,23 @@ describe('PDPServer', () => {
     })
   })
 
-  describe('getProofSetCreationStatus', () => {
+  describe('getDataSetCreationStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockResponse = {
         createMessageHash: mockTxHash,
-        proofSetCreated: true,
+        dataSetCreated: true,
         service: 'test-service',
         txStatus: 'confirmed',
         ok: true,
-        proofSetId: 123
+        dataSetId: 123
       }
 
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/api/pdp/proof-sets/created/${mockTxHash}`)
+        assert.include(url, `/pdp/data-sets/created/${mockTxHash}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -553,7 +536,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.getProofSetCreationStatus(mockTxHash)
+        const result = await pdpServer.getDataSetCreationStatus(mockTxHash)
         assert.deepStrictEqual(result, mockResponse)
       } finally {
         global.fetch = originalFetch
@@ -572,10 +555,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getProofSetCreationStatus(mockTxHash)
+        await pdpServer.getDataSetCreationStatus(mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
-        assert.include((error as Error).message, `Proof set creation not found for transaction hash: ${mockTxHash}`)
+        assert.include((error as Error).message, `Data set creation not found for transaction hash: ${mockTxHash}`)
       } finally {
         global.fetch = originalFetch
       }
@@ -584,18 +567,18 @@ describe('PDPServer', () => {
 
   describe('findPiece', () => {
     it('should find a piece successfully', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576 // 1 MiB
       const mockResponse = {
-        piece_cid: mockCommP
+        pieceCid: mockPieceCid
       }
 
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/piece?')
-        assert.include(url, 'name=sha2-256-trunc254-padded')
+        assert.include(url, '/pdp/piece?')
+        assert.include(url, 'name=fr32-sha256-trunc254-padbintree')
         assert.include(url, 'size=1048576')
         assert.strictEqual(init?.method, 'GET')
 
@@ -607,15 +590,15 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.findPiece(mockCommP, mockSize)
-        assert.strictEqual(result.piece_cid, mockCommP)
+        const result = await pdpServer.findPiece(mockPieceCid, mockSize)
+        assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle piece not found', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return 404
@@ -629,30 +612,30 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
-        assert.include(error.message, mockCommP)
+        assert.include(error.message, mockPieceCid)
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should validate CommP input', async () => {
-      const invalidCommP = 'invalid-commp-string'
+    it('should validate PieceCID input', async () => {
+      const invalidPieceCid = 'invalid-piece-cid-string'
       const mockSize = 1048576
 
       try {
-        await pdpServer.findPiece(invalidCommP, mockSize)
-        assert.fail('Should have thrown error for invalid CommP')
+        await pdpServer.findPiece(invalidPieceCid, mockSize)
+        assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid CommP')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
     it('should handle server errors', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockSize = 1048576
 
       // Mock fetch to return server error
@@ -667,7 +650,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockCommP, mockSize)
+        await pdpServer.findPiece(mockPieceCid, mockSize)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to find piece')
@@ -680,8 +663,8 @@ describe('PDPServer', () => {
   })
 
   describe('getters', () => {
-    it('should return API endpoint', () => {
-      assert.strictEqual(pdpServer.getApiEndpoint(), serverUrl + '/api')
+    it('should return service URL', () => {
+      assert.strictEqual(pdpServer.getServiceURL(), serverUrl)
     })
 
     it('should return PDPAuthHelper instance', () => {
@@ -703,7 +686,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -714,14 +697,14 @@ describe('PDPServer', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Location') {
-                  return `/api/pdp/piece/upload/${mockUuid}`
+                  return `/pdp/piece/upload/${mockUuid}`
                 }
                 return null
               }
             },
             text: async () => 'Created'
           } as any
-        } else if (urlStr.includes(`/api/pdp/piece/upload/${String(mockUuid)}`) === true) {
+        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
@@ -734,7 +717,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -756,7 +739,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -767,14 +750,14 @@ describe('PDPServer', () => {
             headers: {
               get: (name: string) => {
                 if (name === 'Location') {
-                  return `/api/pdp/piece/upload/${mockUuid}`
+                  return `/pdp/piece/upload/${mockUuid}`
                 }
                 return null
               }
             },
             text: async () => 'Created'
           } as any
-        } else if (urlStr.includes(`/api/pdp/piece/upload/${String(mockUuid)}`) === true) {
+        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
@@ -787,7 +770,7 @@ describe('PDPServer', () => {
 
       try {
         const result = await pdpServer.uploadPiece(buffer)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -796,7 +779,7 @@ describe('PDPServer', () => {
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockPieceCid = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return 200 instead of 201 for create
       const originalFetch = global.fetch
@@ -807,7 +790,7 @@ describe('PDPServer', () => {
           // Verify request body has check object
           const body = JSON.parse(options.body)
           assert.exists(body.check)
-          assert.equal(body.check.name, 'sha2-256-trunc254-padded')
+          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
           assert.exists(body.check.hash)
           assert.equal(body.check.size, 5)
 
@@ -825,7 +808,7 @@ describe('PDPServer', () => {
       try {
         // Should not throw - existing piece is OK
         const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.commP)
+        assert.exists(result.pieceCid)
         assert.equal(result.size, 5)
       } finally {
         global.fetch = originalFetch
@@ -872,7 +855,7 @@ describe('PDPServer', () => {
   describe('downloadPiece', () => {
     it('should successfully download and verify piece', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -880,7 +863,7 @@ describe('PDPServer', () => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         // Verify correct URL format
-        assert.isTrue(url.endsWith(`/piece/${testCommP}`))
+        assert.isTrue(url.endsWith(`/piece/${testPieceCid}`))
 
         // Return test data as response
         return new Response(testData, {
@@ -890,7 +873,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testCommP)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         assert.deepEqual(result, testData)
       } finally {
         global.fetch = originalFetch
@@ -898,7 +881,7 @@ describe('PDPServer', () => {
     })
 
     it('should throw on download failure', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -911,7 +894,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockCommP)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Download failed')
@@ -921,18 +904,18 @@ describe('PDPServer', () => {
       }
     })
 
-    it('should reject invalid CommP', async () => {
+    it('should reject invalid PieceCID', async () => {
       try {
-        await pdpServer.downloadPiece('invalid-commp-string')
+        await pdpServer.downloadPiece('invalid-piece-link-string')
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid CommP')
+        assert.include(error.message, 'Invalid PieceCID')
       }
     })
 
-    it('should throw on CommP verification failure', async () => {
+    it('should throw on PieceCID verification failure', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
       // Mock fetch to return wrong data
@@ -945,17 +928,17 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(testCommP)
+        await pdpServer.downloadPiece(testPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'CommP verification failed')
+        assert.include(error.message, 'PieceCID verification failed')
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should handle null response body', async () => {
-      const mockCommP = 'baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy'
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       // Mock fetch to return response with null body
       const originalFetch = global.fetch
@@ -966,7 +949,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.downloadPiece(mockCommP)
+        await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Response body is null')
@@ -977,7 +960,7 @@ describe('PDPServer', () => {
 
     it('should correctly stream and verify chunked data', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
-      const testCommP = calculateCommP(testData).toString()
+      const testPieceCid = calculatePieceCID(testData).toString()
 
       // Mock fetch that returns data in chunks
       const originalFetch = global.fetch
@@ -1004,7 +987,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.downloadPiece(testCommP)
+        const result = await pdpServer.downloadPiece(testPieceCid)
         // Verify we got all the data correctly reassembled
         assert.deepEqual(result, testData)
       } finally {
@@ -1018,7 +1001,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/api/pdp/ping')
+        assert.include(url, '/pdp/ping')
         assert.strictEqual(init?.method, 'GET')
         assert.deepEqual(init?.headers, {})
 
@@ -1134,29 +1117,29 @@ describe('PDPServer', () => {
 
       try {
         await pdpServer.ping()
-        assert.strictEqual(capturedUrl, `${serverUrl}/api/pdp/ping`)
+        assert.strictEqual(capturedUrl, `${serverUrl}/pdp/ping`)
       } finally {
         global.fetch = originalFetch
       }
     })
   })
 
-  describe('getProofSet', () => {
-    it('should successfully fetch proof set data', async () => {
-      const mockProofSetData = {
+  describe('getDataSet', () => {
+    it('should successfully fetch data set data', async () => {
+      const mockDataSetData = {
         id: 292,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceOffset: 0
           },
           {
-            rootId: 102,
-            rootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
-            subrootCid: 'baga6ea4seaqkt24j5gbf2ye2wual5gn7a5yl2tqb52v2sk4nvur4bdy7lg76cdy',
-            subrootOffset: 0
+            pieceId: 102,
+            pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+            subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+            subPieceOffset: 0
           }
         ],
         nextChallengeEpoch: 1500
@@ -1166,32 +1149,32 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/proof-sets/292')
+        assert.include(url, '/pdp/data-sets/292')
         assert.strictEqual(init?.method, 'GET')
         assert.strictEqual((init?.headers as any)?.Accept, 'application/json')
 
         return {
           status: 200,
           ok: true,
-          json: async () => mockProofSetData
+          json: async () => mockDataSetData
         } as any
       }
 
       try {
-        const result = await pdpServer.getProofSet(292)
-        assert.equal(result.id, mockProofSetData.id)
-        assert.equal(result.nextChallengeEpoch, mockProofSetData.nextChallengeEpoch)
-        assert.equal(result.roots.length, mockProofSetData.roots.length)
-        assert.equal(result.roots[0].rootId, mockProofSetData.roots[0].rootId)
-        assert.equal(result.roots[0].rootCid.toString(), mockProofSetData.roots[0].rootCid)
-        assert.equal(result.roots[0].subrootCid.toString(), mockProofSetData.roots[0].subrootCid)
-        assert.equal(result.roots[0].subrootOffset, mockProofSetData.roots[0].subrootOffset)
+        const result = await pdpServer.getDataSet(292)
+        assert.equal(result.id, mockDataSetData.id)
+        assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
+        assert.equal(result.pieces.length, mockDataSetData.pieces.length)
+        assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
+        assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
+        assert.equal(result.pieces[0].subPieceCid.toString(), mockDataSetData.pieces[0].subPieceCid)
+        assert.equal(result.pieces[0].subPieceOffset, mockDataSetData.pieces[0].subPieceOffset)
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should handle proof set not found', async () => {
+    it('should handle data set not found', async () => {
       // Mock fetch for this test
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -1202,10 +1185,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getProofSet(999)
-        assert.fail('Should have thrown error for not found proof set')
+        await pdpServer.getDataSet(999)
+        assert.fail('Should have thrown error for not found data set')
       } catch (error) {
-        assert.include((error as Error).message, 'Proof set not found: 999')
+        assert.include((error as Error).message, 'Data set not found: 999')
       } finally {
         global.fetch = originalFetch
       }
@@ -1224,10 +1207,10 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.getProofSet(292)
+        await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to fetch proof set')
+        assert.include((error as Error).message, 'Failed to fetch data set')
         assert.include((error as Error).message, '500')
         assert.include((error as Error).message, 'Database error')
       } finally {
@@ -1236,9 +1219,9 @@ describe('PDPServer', () => {
     })
 
     it('should validate response data', async () => {
-      const invalidProofSetData = {
+      const invalidDataSetData = {
         id: '292', // Should be number
-        roots: 'not-array', // Should be array
+        pieces: 'not-array', // Should be array
         nextChallengeEpoch: 'soon' // Should be number
       }
 
@@ -1248,24 +1231,24 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidProofSetData
+          json: async () => invalidDataSetData
         } as any
       }
 
       try {
-        await pdpServer.getProofSet(292)
+        await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid response data')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid proof set data response format')
+        assert.include((error as Error).message, 'Invalid data set data response format')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should handle proof set with no roots', async () => {
-      const emptyProofSetData = {
+    it('should handle data set with no pieces', async () => {
+      const emptyDataSetData = {
         id: 292,
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 1500
       }
 
@@ -1275,29 +1258,29 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => emptyProofSetData
+          json: async () => emptyDataSetData
         } as any
       }
 
       try {
-        const result = await pdpServer.getProofSet(292)
-        assert.deepStrictEqual(result, emptyProofSetData)
-        assert.isArray(result.roots)
-        assert.equal(result.roots.length, 0)
+        const result = await pdpServer.getDataSet(292)
+        assert.deepStrictEqual(result, emptyDataSetData)
+        assert.isArray(result.pieces)
+        assert.equal(result.pieces.length, 0)
       } finally {
         global.fetch = originalFetch
       }
     })
 
     it('should reject response with invalid CIDs', async () => {
-      const invalidCidProofSetData = {
+      const invalidCidDataSetData = {
         id: 292,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'invalid-cid-format',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'invalid-cid-format',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceOffset: 0
           }
         ],
         nextChallengeEpoch: 1500
@@ -1309,15 +1292,15 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidCidProofSetData
+          json: async () => invalidCidDataSetData
         } as any
       }
 
       try {
-        await pdpServer.getProofSet(292)
+        await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid CID in response')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid proof set data response format')
+        assert.include((error as Error).message, 'Invalid data set data response format')
       } finally {
         global.fetch = originalFetch
       }

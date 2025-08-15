@@ -7,28 +7,28 @@
  * including whether it exists, when it was last proven, and when the next proof is due.
  *
  * Usage:
- *   node example-piece-status.js <commp> [providerAddress[, proofSetId]]
+ *   node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]
  *
  * Arguments:
- *   commp           - Required: The CommP (piece commitment) to check
+ *   pieceCid        - Required: The PieceCID (piece commitment / pieceCid) to check
  *   providerAddress - Optional: Specific provider address to check
- *   proofSetId      - Optional: Specific proof set ID to use
+ *   dataSetId       - Optional: Specific data set ID to use
  *
  * Environment variables:
  *   PRIVATE_KEY     - Your Ethereum private key (with 0x prefix)
  *   RPC_URL         - Filecoin RPC endpoint (defaults to calibration)
- *   PANDORA_ADDRESS - Pandora service contract address (optional)
+ *   WARM_STORAGE_ADDRESS - Warm Storage service contract address (optional)
  *   LOCALE          - Date/time locale (optional, defaults to system locale)
  *
  * Examples:
  *   # Check piece on any provider
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq...
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci...
  *
  *   # Check piece on specific provider
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123...
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123...
  *
- *   # Check piece with specific provider and proof set
- *   PRIVATE_KEY=0x... node example-piece-status.js baga6ea4seaq... 0x123... 456
+ *   # Check piece with specific provider and data set
+ *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123... 456
  */
 
 import { Synapse } from '@filoz/synapse-sdk'
@@ -36,24 +36,24 @@ import { Synapse } from '@filoz/synapse-sdk'
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS // Optional
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 
 // Parse command line arguments
 const args = process.argv.slice(2)
-const commp = args[0]
+const pieceCid = args[0]
 const providerAddress = args[1]
-const proofSetId = args[2] ? parseInt(args[2]) : undefined
+const dataSetId = args[2] ? parseInt(args[2]) : undefined
 
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, proofSetId]]')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
-if (!commp) {
-  console.error('ERROR: CommP argument is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <commp> [providerAddress[, proofSetId]]')
+if (!pieceCid) {
+  console.error('ERROR: PieceCID argument is required')
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
@@ -105,12 +105,12 @@ async function main () {
   try {
     console.log('=== Piece Status Check ===\n')
     console.log(`Date: ${formatDate(new Date())}`)
-    console.log(`\nCommP: ${commp}`)
+    console.log(`\nPieceCID: ${pieceCid}`)
     if (providerAddress) {
       console.log(`Provider: ${providerAddress}`)
     }
-    if (proofSetId !== undefined) {
-      console.log(`Proof Set ID: ${proofSetId}`)
+    if (dataSetId !== undefined) {
+      console.log(`Data Set ID: ${dataSetId}`)
     }
 
     // Initialize Synapse SDK
@@ -120,42 +120,90 @@ async function main () {
       rpcURL: RPC_URL
     }
 
-    if (PANDORA_ADDRESS) {
-      synapseOptions.pandoraAddress = PANDORA_ADDRESS
+    if (WARM_STORAGE_ADDRESS) {
+      synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
     }
 
     const synapse = await Synapse.create(synapseOptions)
     console.log('✓ Synapse instance created')
 
-    // Create storage service
-    console.log('\nCreating storage service...')
-    const storageOptions = {}
+    // Create storage context (or let the SDK auto-manage if checking across all providers)
+    console.log('\nSetting up storage context...')
 
-    // Add provider address if specified
-    if (providerAddress) {
-      storageOptions.providerAddress = providerAddress
-    }
+    let storageContext
+    if (providerAddress || dataSetId !== undefined) {
+      // Create explicit context for specific provider/dataset
+      const storageOptions = {}
 
-    // Add proof set ID if specified
-    if (proofSetId !== undefined) {
-      storageOptions.proofSetId = proofSetId
-    }
-
-    // Add callbacks to show what's happening
-    storageOptions.callbacks = {
-      onProviderSelected: (provider) => {
-        console.log(`✓ Using provider: ${provider.owner}`)
-      },
-      onProofSetResolved: (info) => {
-        console.log(`✓ Using proof set: ${info.proofSetId}`)
+      // Add provider address if specified
+      if (providerAddress) {
+        storageOptions.providerAddress = providerAddress
       }
-    }
 
-    const storage = await synapse.createStorage(storageOptions)
+      // Add data set ID if specified
+      if (dataSetId !== undefined) {
+        storageOptions.dataSetId = dataSetId
+      }
+
+      // Add callbacks to show what's happening
+      storageOptions.callbacks = {
+        onProviderSelected: (provider) => {
+          console.log(`✓ Using provider: ${provider.serviceProvider}`)
+        },
+        onDataSetResolved: (info) => {
+          console.log(`✓ Using data set: ${info.dataSetId}`)
+        }
+      }
+
+      storageContext = await synapse.storage.createContext(storageOptions)
+    } else {
+      // Auto-select provider based on who has the piece
+      console.log('✓ Will auto-select provider based on piece availability')
+      // We'll create a context after finding a provider with the piece
+      storageContext = null
+    }
 
     // Check piece status
     console.log('\n--- Checking Piece Status ---')
-    const status = await storage.pieceStatus(commp)
+
+    let status
+    if (storageContext) {
+      // Check on specific provider/dataset
+      status = await storageContext.pieceStatus(pieceCid)
+    } else {
+      // Find any provider with the piece and check status there
+      // First, try to find providers with the piece
+      const storageInfo = await synapse.getStorageInfo()
+
+      for (const provider of storageInfo.providers) {
+        try {
+          // Create context for this provider and check if piece exists
+          const ctx = await synapse.storage.createContext({
+            providerAddress: provider.serviceProvider,
+            callbacks: {
+              onProviderSelected: (p) => {
+                console.log(`  Checking provider: ${p.serviceProvider}`)
+              }
+            }
+          })
+          const exists = await ctx.hasPiece(pieceCid)
+          if (exists) {
+            console.log(`✓ Found piece on provider: ${provider.serviceProvider}`)
+            storageContext = ctx
+            break
+          }
+        } catch (error) {
+          // Continue to next provider
+        }
+      }
+
+      if (!storageContext) {
+        console.log('\n❌ Piece not found on any approved provider')
+        return
+      }
+
+      status = await storageContext.pieceStatus(pieceCid)
+    }
 
     // Display results
     console.log('\n📊 Piece Status Report:')
@@ -165,7 +213,7 @@ async function main () {
     console.log(`\n✅ Exists on provider: ${status.exists ? 'Yes' : 'No'}`)
 
     if (!status.exists) {
-      console.log('\n❌ This piece does not exist on the selected storage provider.')
+      console.log('\n❌ This piece does not exist on the selected service provider.')
       return
     }
 
@@ -174,44 +222,46 @@ async function main () {
       console.log(`\n🔗 Retrieval URL: ${status.retrievalUrl}`)
     }
 
-    // Root ID
-    if (status.rootId !== undefined) {
-      console.log(`\n🆔 Root ID: ${status.rootId}`)
+    // Piece ID
+    if (status.pieceId !== undefined) {
+      console.log(`\n🆔 Piece ID: ${status.pieceId}`)
     }
 
     // Proof timing
-    console.log('\n⏱️  Proof Set Timing (proofs cover all pieces in the set):')
+    console.log('\n⏱️  Data Set Timing (proofs cover all pieces in the set):')
 
-    if (status.proofSetLastProven) {
-      console.log(`   Proof set last proven: ${formatDate(status.proofSetLastProven)} (${formatTimeDiff(status.proofSetLastProven)})`)
+    if (status.dataSetLastProven) {
+      console.log(`   Data set last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`)
     } else {
-      console.log('   Proof set last proven: Never (proof set not yet proven)')
+      console.log('   Data set last proven: Never (data set not yet proven)')
     }
 
-    if (status.proofSetNextProofDue) {
-      console.log(`   Proof set next proof due: ${formatDate(status.proofSetNextProofDue)} (${formatTimeDiff(status.proofSetNextProofDue)})`)
+    if (status.dataSetNextProofDue) {
+      console.log(`   Data set next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`)
 
       // Challenge window status
       if (status.isProofOverdue) {
         console.log('\n🚨 PROOF IS OVERDUE!')
-        console.log('   The storage provider has missed the proof deadline and may face penalties.')
+        console.log('   The service provider has missed the proof deadline and may face penalties.')
       } else if (status.inChallengeWindow) {
         // Calculate time remaining in challenge window
-        const timeRemaining = status.proofSetNextProofDue.getTime() - new Date().getTime()
+        const timeRemaining = status.dataSetNextProofDue.getTime() - new Date().getTime()
         const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
         console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
-        console.log(`   The storage provider has ${minutesRemaining} minutes to submit a proof.`)
+        console.log(`   The service provider has ${minutesRemaining} minutes to submit a proof.`)
       } else if (status.hoursUntilChallengeWindow !== undefined && status.hoursUntilChallengeWindow > 0) {
         console.log(`\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
       }
     } else {
-      console.log('   Proof set next proof due: Not scheduled')
+      console.log('   Data set next proof due: Not scheduled')
     }
 
     // Additional info
     console.log('\n📝 Storage Details:')
-    console.log(`   Provider: ${storage.storageProvider}`)
-    console.log(`   Proof Set: ${storage.proofSetId}`)
+    if (storageContext) {
+      console.log(`   Provider: ${storageContext.serviceProvider}`)
+      console.log(`   Data Set: ${storageContext.dataSetId}`)
+    }
 
     // Summary
     console.log('\n' + '─'.repeat(50))
@@ -221,7 +271,7 @@ async function main () {
       console.log('⚠️  Status: Proof urgently needed')
     } else if (status.hoursUntilChallengeWindow && status.hoursUntilChallengeWindow < 24) {
       console.log('⏰ Status: Proof needed soon')
-    } else if (status.proofSetNextProofDue) {
+    } else if (status.dataSetNextProofDue) {
       console.log('✅ Status: All good')
     } else {
       console.log('❓ Status: Unknown (no proof schedule)')

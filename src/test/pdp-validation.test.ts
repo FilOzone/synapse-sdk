@@ -1,31 +1,31 @@
 /* globals describe it */
 import { assert } from 'chai'
 import {
-  isProofSetCreationStatusResponse,
-  isRootAdditionStatusResponse,
+  isDataSetCreationStatusResponse,
+  isPieceAdditionStatusResponse,
   isFindPieceResponse,
-  validateProofSetCreationStatusResponse,
-  validateRootAdditionStatusResponse,
+  validateDataSetCreationStatusResponse,
+  validatePieceAdditionStatusResponse,
   validateFindPieceResponse,
-  asProofSetRootData,
-  asProofSetData
+  asDataSetPieceData,
+  asDataSetData
 } from '../pdp/validation.js'
 
 describe('PDP Validation', function () {
-  describe('ProofSetCreationStatusResponse validation', function () {
+  describe('DataSetCreationStatusResponse validation', function () {
     it('should validate a valid response', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
-        proofSetCreated: true,
-        service: 'pandora',
+        dataSetCreated: true,
+        service: 'warmStorage',
         txStatus: 'confirmed',
         ok: true,
-        proofSetId: 123
+        dataSetId: 123
       }
 
-      assert.isTrue(isProofSetCreationStatusResponse(validResponse))
+      assert.isTrue(isDataSetCreationStatusResponse(validResponse))
       assert.deepEqual(
-        validateProofSetCreationStatusResponse(validResponse),
+        validateDataSetCreationStatusResponse(validResponse),
         validResponse
       )
     })
@@ -33,60 +33,17 @@ describe('PDP Validation', function () {
     it('should validate response with null ok field', function () {
       const validResponse = {
         createMessageHash: '0x123abc',
-        proofSetCreated: false,
-        service: 'pandora',
+        dataSetCreated: false,
+        service: 'warmStorage',
         txStatus: 'pending',
         ok: null
       }
 
-      assert.isTrue(isProofSetCreationStatusResponse(validResponse))
+      assert.isTrue(isDataSetCreationStatusResponse(validResponse))
       assert.deepEqual(
-        validateProofSetCreationStatusResponse(validResponse),
+        validateDataSetCreationStatusResponse(validResponse),
         validResponse
       )
-    })
-
-    it('should validate response with lowercase proofsetCreated field (Curio compatibility)', function () {
-      // NOTE: This test ensures forward compatibility with Curio
-      // Curio currently returns "proofsetCreated" (lowercase 's') but this SDK normalizes to "proofSetCreated" (uppercase 'S')
-      const curioResponse = {
-        createMessageHash: '0x6a599b48ec4624250b4629c7bfeb4c1a0f51cdc9bd05a5993caf1e873e924f09',
-        proofsetCreated: true, // NOTE: lowercase 's' - this is what Curio currently returns
-        service: 'public',
-        txStatus: 'confirmed',
-        ok: true,
-        proofSetId: 481
-      }
-
-      assert.isTrue(isProofSetCreationStatusResponse(curioResponse))
-      const normalized = validateProofSetCreationStatusResponse(curioResponse)
-
-      // Verify normalization - should have uppercase 'S' in final response
-      assert.equal(normalized.proofSetCreated, true)
-      assert.equal(normalized.createMessageHash, curioResponse.createMessageHash)
-      assert.equal(normalized.service, curioResponse.service)
-      assert.equal(normalized.txStatus, curioResponse.txStatus)
-      assert.equal(normalized.ok, curioResponse.ok)
-      assert.equal(normalized.proofSetId, curioResponse.proofSetId)
-    })
-
-    it('should validate response with both proofSetCreated and proofsetCreated fields', function () {
-      // Edge case: if both fields are present, prefer proofSetCreated
-      const mixedResponse = {
-        createMessageHash: '0x123abc',
-        proofSetCreated: true,
-        proofsetCreated: false, // This should be ignored
-        service: 'pandora',
-        txStatus: 'confirmed',
-        ok: true,
-        proofSetId: 123
-      }
-
-      assert.isTrue(isProofSetCreationStatusResponse(mixedResponse))
-      const normalized = validateProofSetCreationStatusResponse(mixedResponse)
-
-      // Should prefer proofSetCreated over proofsetCreated
-      assert.equal(normalized.proofSetCreated, true)
     })
 
     it('should reject invalid responses', function () {
@@ -98,47 +55,47 @@ describe('PDP Validation', function () {
         [],
         {}, // Empty object
         { createMessageHash: 123 }, // Wrong type
-        { createMessageHash: '0x123', proofSetCreated: 'yes' }, // Wrong type
-        { createMessageHash: '0x123', proofsetCreated: 'yes' }, // Wrong type (lowercase field)
-        { createMessageHash: '0x123', service: 'pandora', txStatus: 'pending', ok: null }, // Missing both proofSetCreated and proofsetCreated
+        { createMessageHash: '0x123', dataSetCreated: 'yes' }, // Wrong type
+        { createMessageHash: '0x123', datasetCreated: 'yes' }, // Wrong type (lowercase field)
+        { createMessageHash: '0x123', service: 'warmStorage', txStatus: 'pending', ok: null }, // Missing both dataSetCreated and datasetCreated
         {
           createMessageHash: '0x123',
-          proofSetCreated: true,
-          service: 'pandora',
+          dataSetCreated: true,
+          service: 'warmStorage',
           txStatus: 'pending'
           // Missing ok field
         },
         {
           createMessageHash: '0x123',
-          proofSetCreated: true,
-          service: 'pandora',
+          dataSetCreated: true,
+          service: 'warmStorage',
           txStatus: 'pending',
           ok: null,
-          proofSetId: 'abc' // Wrong type
+          dataSetId: 'abc' // Wrong type
         }
       ]
 
       for (const invalid of invalidResponses) {
-        assert.isFalse(isProofSetCreationStatusResponse(invalid))
-        assert.throws(() => validateProofSetCreationStatusResponse(invalid))
+        assert.isFalse(isDataSetCreationStatusResponse(invalid))
+        assert.throws(() => validateDataSetCreationStatusResponse(invalid))
       }
     })
   })
 
-  describe('RootAdditionStatusResponse validation', function () {
+  describe('PieceAdditionStatusResponse validation', function () {
     it('should validate a valid response', function () {
       const validResponse = {
         txHash: '0x456def',
         txStatus: 'confirmed',
-        proofSetId: 123,
-        rootCount: 5,
+        dataSetId: 123,
+        pieceCount: 5,
         addMessageOk: true,
-        confirmedRootIds: [1, 2, 3, 4, 5]
+        confirmedPieceIds: [1, 2, 3, 4, 5]
       }
 
-      assert.isTrue(isRootAdditionStatusResponse(validResponse))
+      assert.isTrue(isPieceAdditionStatusResponse(validResponse))
       assert.deepEqual(
-        validateRootAdditionStatusResponse(validResponse),
+        validatePieceAdditionStatusResponse(validResponse),
         validResponse
       )
     })
@@ -147,14 +104,14 @@ describe('PDP Validation', function () {
       const validResponse = {
         txHash: '0x456def',
         txStatus: 'pending',
-        proofSetId: 123,
-        rootCount: 5,
+        dataSetId: 123,
+        pieceCount: 5,
         addMessageOk: null
       }
 
-      assert.isTrue(isRootAdditionStatusResponse(validResponse))
+      assert.isTrue(isPieceAdditionStatusResponse(validResponse))
       assert.deepEqual(
-        validateRootAdditionStatusResponse(validResponse),
+        validatePieceAdditionStatusResponse(validResponse),
         validResponse
       )
     })
@@ -166,68 +123,44 @@ describe('PDP Validation', function () {
         {
           txHash: '0x456def',
           txStatus: 'pending',
-          proofSetId: '123', // Wrong type
-          rootCount: 5,
+          dataSetId: '123', // Wrong type
+          pieceCount: 5,
           addMessageOk: null
         },
         {
           txHash: '0x456def',
           txStatus: 'pending',
-          proofSetId: 123,
-          rootCount: 5,
+          dataSetId: 123,
+          pieceCount: 5,
           addMessageOk: null,
-          confirmedRootIds: 'not-array' // Wrong type
+          confirmedPieceIds: 'not-array' // Wrong type
         },
         {
           txHash: '0x456def',
           txStatus: 'pending',
-          proofSetId: 123,
-          rootCount: 5,
+          dataSetId: 123,
+          pieceCount: 5,
           addMessageOk: null,
-          confirmedRootIds: [1, 2, 'three'] // Wrong element type
+          confirmedPieceIds: [1, 2, 'three'] // Wrong element type
         }
       ]
 
       for (const invalid of invalidResponses) {
-        assert.isFalse(isRootAdditionStatusResponse(invalid))
-        assert.throws(() => validateRootAdditionStatusResponse(invalid))
+        assert.isFalse(isPieceAdditionStatusResponse(invalid))
+        assert.throws(() => validatePieceAdditionStatusResponse(invalid))
       }
     })
   })
 
   describe('FindPieceResponse validation', function () {
-    it('should validate response with legacy piece_cid field', function () {
+    it('should validate response with pieceCid field', function () {
       const validResponse = {
-        piece_cid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
-      }
-
-      assert.isTrue(isFindPieceResponse(validResponse))
-      const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid.toString(), validResponse.piece_cid)
-      assert.equal(normalized.piece_cid, validResponse.piece_cid)
-    })
-
-    it('should validate response with new pieceCid field', function () {
-      const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       }
 
       assert.isTrue(isFindPieceResponse(validResponse))
       const normalized = validateFindPieceResponse(validResponse)
       assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
-      assert.isUndefined(normalized.piece_cid) // No legacy field in this case
-    })
-
-    it('should validate response with both fields', function () {
-      const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        piece_cid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
-      }
-
-      assert.isTrue(isFindPieceResponse(validResponse))
-      const normalized = validateFindPieceResponse(validResponse)
-      assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
-      assert.equal(normalized.piece_cid, validResponse.piece_cid) // Legacy field preserved
     })
 
     it('should reject invalid responses', function () {
@@ -238,14 +171,11 @@ describe('PDP Validation', function () {
         123,
         [],
         {},
-        { piece_cid: 123 }, // Wrong type
         { pieceCid: 123 }, // Wrong type
-        { randomField: 'baga...' }, // Wrong field name
-        { piece_cid: null }, // Null value
+        { randomField: 'bafk...' }, // Wrong field name
         { pieceCid: null }, // Null value
-        { pieceCid: 'not-a-commp' }, // Invalid CommP
-        { piece_cid: 'QmTest123' }, // Not a CommP (wrong codec)
-        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a CommP (wrong multihash)
+        { pieceCid: 'not-a-piece-link' }, // Invalid PieceCID
+        { pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi' } // Not a PieceCID (wrong multihash)
       ]
 
       for (const invalid of invalidResponses) {
@@ -254,50 +184,50 @@ describe('PDP Validation', function () {
       }
     })
 
-    it('should throw specific error for invalid CommP', function () {
-      const invalidCommPResponse = {
-        pieceCid: 'not-a-valid-commp'
+    it('should throw specific error for invalid PieceCID', function () {
+      const invalidPieceCidResponse = {
+        pieceCid: 'not-a-valid-piece-link'
       }
 
       assert.throws(
-        () => validateFindPieceResponse(invalidCommPResponse),
+        () => validateFindPieceResponse(invalidPieceCidResponse),
         Error,
-        'Invalid find piece response: pieceCid is not a valid CommP'
+        'Invalid find piece response: pieceCid is not a valid PieceCID'
       )
     })
 
-    it('should return a proper CommP CID object', function () {
+    it('should return a proper PieceCID CID object', function () {
       const validResponse = {
-        pieceCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq'
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       }
 
       const normalized = validateFindPieceResponse(validResponse)
 
       // Verify it's a CID object with the correct properties
-      assert.equal(normalized.pieceCid.code, 0xf101) // fil-commitment-unsealed
-      assert.equal(normalized.pieceCid.multihash.code, 0x1012) // sha2-256-trunc254-padded
+      assert.equal(normalized.pieceCid.code, 0x55) // raw
+      assert.equal(normalized.pieceCid.multihash.code, 0x1011) // fr32-sha256-trunc254-padbintree
       assert.equal(normalized.pieceCid.toString(), validResponse.pieceCid)
     })
   })
 
-  describe('ProofSetRootData validation', function () {
-    it('should validate and convert a valid root data object', function () {
-      const validRootData = {
-        rootId: 101,
-        rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-        subrootOffset: 0
+  describe('DataSetPieceData validation', function () {
+    it('should validate and convert a valid piece data object', function () {
+      const validPieceData = {
+        pieceId: 101,
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        subPieceOffset: 0
       }
 
-      const converted = asProofSetRootData(validRootData)
+      const converted = asDataSetPieceData(validPieceData)
       assert.isNotNull(converted)
-      assert.equal(converted?.rootId, validRootData.rootId)
-      assert.equal(converted?.rootCid.toString(), validRootData.rootCid)
-      assert.equal(converted?.subrootCid.toString(), validRootData.subrootCid)
-      assert.equal(converted?.subrootOffset, validRootData.subrootOffset)
+      assert.equal(converted?.pieceId, validPieceData.pieceId)
+      assert.equal(converted?.pieceCid.toString(), validPieceData.pieceCid)
+      assert.equal(converted?.subPieceCid.toString(), validPieceData.subPieceCid)
+      assert.equal(converted?.subPieceOffset, validPieceData.subPieceOffset)
     })
 
-    it('should return null for invalid root data', function () {
+    it('should return null for invalid piece data', function () {
       const invalidCases = [
         null,
         undefined,
@@ -305,79 +235,79 @@ describe('PDP Validation', function () {
         123,
         [],
         {}, // Empty object
-        { rootId: 'not-a-number' }, // Wrong type
+        { pieceId: 'not-a-number' }, // Wrong type
         {
-          rootId: 101,
-          rootCid: 'not-a-commp',
-          subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-          subrootOffset: 0
+          pieceId: 101,
+          pieceCid: 'not-a-piece-link',
+          subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+          subPieceOffset: 0
         },
         {
-          rootId: 101,
-          rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-          subrootCid: 'not-a-commp',
-          subrootOffset: 0
+          pieceId: 101,
+          pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+          subPieceCid: 'not-a-piece-link',
+          subPieceOffset: 0
         }
       ]
 
       for (const invalid of invalidCases) {
-        assert.isNull(asProofSetRootData(invalid))
+        assert.isNull(asDataSetPieceData(invalid))
       }
     })
   })
 
-  describe('ProofSetData validation', function () {
-    it('should validate and convert valid proof set data', function () {
-      const validProofSetData = {
+  describe('DataSetData validation', function () {
+    it('should validate and convert valid data set data', function () {
+      const validDataSetData = {
         id: 123,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceOffset: 0
           }
         ],
         nextChallengeEpoch: 456
       }
 
-      const converted = asProofSetData(validProofSetData)
+      const converted = asDataSetData(validDataSetData)
       assert.isNotNull(converted)
-      assert.equal(converted?.id, validProofSetData.id)
-      assert.equal(converted?.nextChallengeEpoch, validProofSetData.nextChallengeEpoch)
-      assert.equal(converted?.roots.length, validProofSetData.roots.length)
-      assert.equal(converted?.roots[0].rootId, validProofSetData.roots[0].rootId)
-      assert.equal(converted?.roots[0].rootCid.toString(), validProofSetData.roots[0].rootCid)
-      assert.equal(converted?.roots[0].subrootCid.toString(), validProofSetData.roots[0].subrootCid)
-      assert.equal(converted?.roots[0].subrootOffset, validProofSetData.roots[0].subrootOffset)
+      assert.equal(converted?.id, validDataSetData.id)
+      assert.equal(converted?.nextChallengeEpoch, validDataSetData.nextChallengeEpoch)
+      assert.equal(converted?.pieces.length, validDataSetData.pieces.length)
+      assert.equal(converted?.pieces[0].pieceId, validDataSetData.pieces[0].pieceId)
+      assert.equal(converted?.pieces[0].pieceCid.toString(), validDataSetData.pieces[0].pieceCid)
+      assert.equal(converted?.pieces[0].subPieceCid.toString(), validDataSetData.pieces[0].subPieceCid)
+      assert.equal(converted?.pieces[0].subPieceOffset, validDataSetData.pieces[0].subPieceOffset)
     })
 
-    it('should validate and convert proof set data with multiple roots', function () {
-      const validProofSetData = {
+    it('should validate and convert data set data with multiple pieces', function () {
+      const validDataSetData = {
         id: 123,
-        roots: [
+        pieces: [
           {
-            rootId: 101,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 0
+            pieceId: 101,
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceOffset: 0
           },
           {
-            rootId: 102,
-            rootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-            subrootOffset: 1024
+            pieceId: 102,
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceOffset: 1024
           }
         ],
         nextChallengeEpoch: 456
       }
 
-      const converted = asProofSetData(validProofSetData)
+      const converted = asDataSetData(validDataSetData)
       assert.isNotNull(converted)
-      assert.equal(converted?.roots.length, 2)
+      assert.equal(converted?.pieces.length, 2)
     })
 
-    it('should return null for invalid proof set data', function () {
+    it('should return null for invalid data set data', function () {
       const invalidCases = [
         null,
         undefined,
@@ -388,17 +318,17 @@ describe('PDP Validation', function () {
         { id: 'not-a-number' }, // Wrong type
         {
           id: 123,
-          roots: 'not-an-array',
+          pieces: 'not-an-array',
           nextChallengeEpoch: 456
         },
         {
           id: 123,
-          roots: [
+          pieces: [
             {
-              rootId: 101,
-              rootCid: 'not-a-commp',
-              subrootCid: 'baga6ea4seaqh5lmkfwaovjuigyp4hzclc6hqnhoqcm3re3ipumhp3kfka7wdvjq',
-              subrootOffset: 0
+              pieceId: 101,
+              pieceCid: 'not-a-piece-link',
+              subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+              subPieceOffset: 0
             }
           ],
           nextChallengeEpoch: 456
@@ -406,24 +336,24 @@ describe('PDP Validation', function () {
       ]
 
       for (const invalid of invalidCases) {
-        assert.isNull(asProofSetData(invalid))
+        assert.isNull(asDataSetData(invalid))
       }
     })
 
-    it('should throw error when validating invalid proof set data', function () {
-      const invalidProofSetData = {
+    it('should throw error when validating invalid data set data', function () {
+      const invalidDataSetData = {
         id: 'not-a-number',
-        roots: [],
+        pieces: [],
         nextChallengeEpoch: 456
       }
 
       assert.throws(
         () => {
-          const converted = asProofSetData(invalidProofSetData)
-          if (converted == null) throw new Error('Invalid proof set data response format')
+          const converted = asDataSetData(invalidDataSetData)
+          if (converted == null) throw new Error('Invalid data set data response format')
         },
         Error,
-        'Invalid proof set data response format'
+        'Invalid data set data response format'
       )
     })
   })

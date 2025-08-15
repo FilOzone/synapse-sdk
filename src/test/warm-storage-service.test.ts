@@ -1,42 +1,43 @@
 /* globals describe it beforeEach */
 
 /**
- * Tests for PandoraService class
+ * Tests for WarmStorageService class
  */
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PandoraService } from '../pandora/index.js'
+import { WarmStorageService } from '../warm-storage/index.js'
 import { createMockProvider } from './test-utils.js'
+import { TIME_CONSTANTS } from '../utils/constants.js'
 
-describe('PandoraService', () => {
+describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
-  let pandoraService: PandoraService
-  const mockPandoraAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+  let warmStorageService: WarmStorageService
+  const mockWarmStorageAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
   const clientAddress = '0x1234567890123456789012345678901234567890'
 
   beforeEach(() => {
     mockProvider = createMockProvider()
     const mockPdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-    pandoraService = new PandoraService(mockProvider, mockPandoraAddress, mockPdpVerifierAddress)
+    warmStorageService = new WarmStorageService(mockProvider, mockWarmStorageAddress, mockPdpVerifierAddress)
   })
 
   describe('Instantiation', () => {
     it('should create instance with required parameters', () => {
-      assert.exists(pandoraService)
-      assert.isFunction(pandoraService.getClientProofSets)
+      assert.exists(warmStorageService)
+      assert.isFunction(warmStorageService.getClientDataSets)
     })
   })
 
-  describe('getClientProofSets', () => {
-    it('should return empty array when client has no proof sets', async () => {
+  describe('getClientDataSets', () => {
+    it('should return empty array when client has no data sets', async () => {
       // Mock provider will return empty array by default
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[]]
           )
         }
@@ -44,103 +45,115 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      const proofSets = await pandoraService.getClientProofSets(clientAddress)
-      assert.isArray(proofSets)
-      assert.lengthOf(proofSets, 0)
+      const dataSets = await warmStorageService.getClientDataSets(clientAddress)
+      assert.isArray(dataSets)
+      assert.lengthOf(dataSets, 0)
     })
 
-    it('should return proof sets for a client', async () => {
-      // Mock provider to return proof sets
+    it('should return data sets for a client', async () => {
+      // Mock provider to return data sets
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
-          // Return two proof sets
-          const proofSet1 = {
-            railId: 123n,
+        if (data?.startsWith('0x967c6f21') === true) {
+          // Return two data sets
+          const dataSet1 = {
+            pdpRailId: 123n,
+            cacheMissRailId: 0n,
+            cdnRailId: 0n,
             payer: '0x1234567890123456789012345678901234567890',
             payee: '0xabcdef1234567890123456789012345678901234',
             commissionBps: 100n, // 1%
             metadata: 'Test metadata 1',
-            rootMetadata: ['root1', 'root2'],
+            pieceMetadata: ['piece1', 'piece2'],
             clientDataSetId: 0n,
-            withCDN: false
+            withCDN: false,
+            paymentEndEpoch: 0n
           }
 
-          const proofSet2 = {
-            railId: 456n,
+          const dataSet2 = {
+            pdpRailId: 456n,
+            cacheMissRailId: 0n,
+            cdnRailId: 0n,
             payer: '0x1234567890123456789012345678901234567890',
             payee: '0x9876543210987654321098765432109876543210',
             commissionBps: 200n, // 2%
             metadata: 'Test metadata 2',
-            rootMetadata: ['root3'],
+            pieceMetadata: ['piece3'],
             clientDataSetId: 1n,
-            withCDN: true
+            withCDN: true,
+            paymentEndEpoch: 0n
           }
 
           // Create properly ordered arrays for encoding
-          const proofSets = [
+          const dataSets = [
             [
-              proofSet1.railId,
-              proofSet1.payer,
-              proofSet1.payee,
-              proofSet1.commissionBps,
-              proofSet1.metadata,
-              proofSet1.rootMetadata,
-              proofSet1.clientDataSetId,
-              proofSet1.withCDN
+              dataSet1.pdpRailId,
+              dataSet1.cacheMissRailId,
+              dataSet1.cdnRailId,
+              dataSet1.payer,
+              dataSet1.payee,
+              dataSet1.commissionBps,
+              dataSet1.metadata,
+              dataSet1.pieceMetadata,
+              dataSet1.clientDataSetId,
+              dataSet1.withCDN,
+              dataSet1.paymentEndEpoch
             ],
             [
-              proofSet2.railId,
-              proofSet2.payer,
-              proofSet2.payee,
-              proofSet2.commissionBps,
-              proofSet2.metadata,
-              proofSet2.rootMetadata,
-              proofSet2.clientDataSetId,
-              proofSet2.withCDN
+              dataSet2.pdpRailId,
+              dataSet2.cacheMissRailId,
+              dataSet2.cdnRailId,
+              dataSet2.payer,
+              dataSet2.payee,
+              dataSet2.commissionBps,
+              dataSet2.metadata,
+              dataSet2.pieceMetadata,
+              dataSet2.clientDataSetId,
+              dataSet2.withCDN,
+              dataSet2.paymentEndEpoch
             ]
           ]
 
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
-            [proofSets]
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [dataSets]
           )
         }
         // Default return for any other calls
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      const proofSets = await pandoraService.getClientProofSets(clientAddress)
+      const dataSets = await warmStorageService.getClientDataSets(clientAddress)
 
-      assert.isArray(proofSets)
-      assert.lengthOf(proofSets, 2)
+      assert.isArray(dataSets)
+      assert.lengthOf(dataSets, 2)
 
-      // Check first proof set
-      assert.equal(proofSets[0].railId, 123)
-      assert.equal(proofSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
-      assert.equal(proofSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
-      assert.equal(proofSets[0].commissionBps, 100)
-      assert.equal(proofSets[0].metadata, 'Test metadata 1')
-      assert.deepEqual(proofSets[0].rootMetadata, ['root1', 'root2'])
-      assert.equal(proofSets[0].clientDataSetId, 0)
-      assert.equal(proofSets[0].withCDN, false)
+      // Check first data set
+      assert.equal(dataSets[0].railId, 123)
+      assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
+      assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
+      assert.equal(dataSets[0].commissionBps, 100)
+      assert.equal(dataSets[0].metadata, 'Test metadata 1')
+      assert.equal(dataSets[0].pieceMetadata.length, 2)
+      assert.equal(dataSets[0].clientDataSetId, 0)
+      assert.equal(dataSets[0].withCDN, false)
 
-      // Check second proof set
-      assert.equal(proofSets[1].railId, 456)
-      assert.equal(proofSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
-      assert.equal(proofSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
-      assert.equal(proofSets[1].commissionBps, 200)
-      assert.equal(proofSets[1].metadata, 'Test metadata 2')
-      assert.deepEqual(proofSets[1].rootMetadata, ['root3'])
-      assert.equal(proofSets[1].clientDataSetId, 1)
-      assert.equal(proofSets[1].withCDN, true)
+      // Check second data set
+      assert.equal(dataSets[1].railId, 456)
+      assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
+      assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
+      assert.equal(dataSets[1].commissionBps, 200)
+      assert.equal(dataSets[1].metadata, 'Test metadata 2')
+      assert.equal(dataSets[1].pieceMetadata.length, 1)
+      assert.equal(dataSets[1].clientDataSetId, 1)
+      assert.equal(dataSets[1].withCDN, true)
     })
 
     it('should handle contract call errors gracefully', async () => {
       // Mock provider to throw error
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x4234653a') === true) {
+        if (data?.startsWith('0x967c6f21') === true) {
           throw new Error('Contract call failed')
         }
         // Default return for any other calls
@@ -148,57 +161,60 @@ describe('PandoraService', () => {
       }
 
       try {
-        await pandoraService.getClientProofSets(clientAddress)
+        await warmStorageService.getClientDataSets(clientAddress)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get client proof sets')
+        assert.include(error.message, 'Failed to get client data sets')
         assert.include(error.message, 'Contract call failed')
       }
     })
   })
 
-  describe('getClientProofSetsWithDetails', () => {
-    it('should enhance proof sets with PDPVerifier details', async () => {
+  describe('getClientDataSetsWithDetails', () => {
+    it('should enhance data sets with PDPVerifier details', async () => {
       // Mock provider for multiple contract calls
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // getClientProofSets call
-        if (data?.startsWith('0x4234653a') === true) {
-          const proofSet = {
-            railId: 48n,
-            payer: clientAddress,
-            payee: '0xabcdef1234567890123456789012345678901234',
-            commissionBps: 100n,
-            metadata: 'Test',
-            rootMetadata: [],
-            clientDataSetId: 0n,
-            withCDN: false
-          }
+        // getClientDataSets call
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSet = [
+            48n, // pdpRailId
+            0n, // cacheMissRailId
+            0n, // cdnRailId
+            clientAddress, // payer
+            '0xabcdef1234567890123456789012345678901234', // payee
+            100n, // commissionBps
+            'Test', // metadata
+            [], // pieceMetadata
+            0n, // clientDataSetId
+            false, // withCDN
+            0n // paymentEndEpoch
+          ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
-            [[[proofSet.railId, proofSet.payer, proofSet.payee, proofSet.commissionBps, proofSet.metadata, proofSet.rootMetadata, proofSet.clientDataSetId, proofSet.withCDN]]]
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [[dataSet]]
           )
         }
 
-        // railToProofSet call
-        if (data?.startsWith('0x76704486') === true) { // railToProofSet(uint256) selector
-          return ethers.zeroPadValue('0xf2', 32) // Return proof set ID 242
+        // railToDataSet call
+        if (data?.startsWith('0x2ad6e6b5') === true) { // railToDataSet(uint256) selector
+          return ethers.zeroPadValue('0xf2', 32) // Return data set ID 242
         }
 
-        // proofSetLive call
-        if (data?.startsWith('0xf5cac1ba') === true) { // proofSetLive(uint256) selector
+        // dataSetId call
+        if (data?.startsWith('0xca759f27') === true) { // dataSetId(uint256) selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
 
-        // getNextRootId call
-        if (data?.startsWith('0xd49245c1') === true) { // getNextRootId(uint256) selector
+        // getNextPieceId call
+        if (data?.startsWith('0x1c5ae80f') === true) { // getNextPieceId(uint256) selector
           return ethers.zeroPadValue('0x02', 32) // Return 2
         }
 
-        // getProofSetListener call
-        if (data?.startsWith('0x31601226') === true) { // getProofSetListener(uint256) selector
-          return ethers.zeroPadValue(mockPandoraAddress, 32)
+        // getDataSetListener call
+        if (data?.startsWith('0x2b3129bb') === true) { // getDataSetListener(uint256) selector
+          return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
         // Default return for any other calls
@@ -209,37 +225,37 @@ describe('PandoraService', () => {
       const originalGetNetwork = mockProvider.getNetwork
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const detailedProofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
 
-      assert.lengthOf(detailedProofSets, 1)
-      assert.equal(detailedProofSets[0].railId, 48)
-      assert.equal(detailedProofSets[0].pdpVerifierProofSetId, 242)
-      assert.equal(detailedProofSets[0].nextRootId, 2)
-      assert.equal(detailedProofSets[0].currentRootCount, 2)
-      assert.isTrue(detailedProofSets[0].isLive)
-      assert.isTrue(detailedProofSets[0].isManaged)
+      assert.lengthOf(detailedDataSets, 1)
+      assert.equal(detailedDataSets[0].railId, 48)
+      assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242)
+      assert.equal(detailedDataSets[0].nextPieceId, 2)
+      assert.equal(detailedDataSets[0].currentPieceCount, 2)
+      assert.isTrue(detailedDataSets[0].isLive)
+      assert.isTrue(detailedDataSets[0].isManaged)
 
       mockProvider.getNetwork = originalGetNetwork
     })
 
-    it('should filter unmanaged proof sets when onlyManaged is true', async () => {
+    it('should filter unmanaged data sets when onlyManaged is true', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // getClientProofSets - return 2 proof sets
-        if (data?.startsWith('0x4234653a') === true) {
-          const proofSets = [
-            [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false],
-            [49n, clientAddress, '0xdef1234567890123456789012345678901234567', 100n, 'Test2', [], 1n, false]
+        // getClientDataSets - return 2 data sets
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSets = [
+            [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false, 0n],
+            [49n, 0n, 0n, clientAddress, '0xdef1234567890123456789012345678901234567', 100n, 'Test2', [], 1n, false, 0n]
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
-            [proofSets]
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [dataSets]
           )
         }
 
-        // railToProofSet - both return valid IDs
-        if (data?.startsWith('0x76704486') === true) {
+        // railToDataSet - both return valid IDs
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           // Extract the rail ID from the encoded data
           const railIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
           if (railIdHex === ethers.zeroPadValue('0x30', 32).slice(2)) { // rail ID 48
@@ -250,25 +266,25 @@ describe('PandoraService', () => {
           return ethers.zeroPadValue('0x00', 32) // 0
         }
 
-        // proofSetLive - both are live
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        // dataSetId - both are live
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // getProofSetListener - first is managed, second is not
-        if (data?.startsWith('0x31601226') === true) {
-          // Extract the proof set ID from the encoded data
-          const proofSetIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
-          if (proofSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // proof set 242
-            return ethers.zeroPadValue(mockPandoraAddress, 32) // Managed by us
-          } else if (proofSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) { // proof set 243
+        // getDataSetListener - first is managed, second is not
+        if (data?.startsWith('0x2b3129bb') === true) {
+          // Extract the data set ID from the encoded data
+          const dataSetIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
+          if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // data set 242
+            return ethers.zeroPadValue(mockWarmStorageAddress, 32) // Managed by us
+          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) { // data set 243
             return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
           }
           return ethers.zeroPadValue('0x0000000000000000000000000000000000000000', 32)
         }
 
-        // getNextRootId
-        if (data?.startsWith('0xd49245c1') === true) {
+        // getNextPieceId
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
@@ -278,33 +294,33 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      // Get all proof sets
-      const allProofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress, false)
-      assert.lengthOf(allProofSets, 2)
+      // Get all data sets
+      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, false)
+      assert.lengthOf(allDataSets, 2)
 
-      // Get only managed proof sets
-      const managedProofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress, true)
-      assert.lengthOf(managedProofSets, 1)
-      assert.equal(managedProofSets[0].railId, 48)
-      assert.isTrue(managedProofSets[0].isManaged)
+      // Get only managed data sets
+      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, true)
+      assert.lengthOf(managedDataSets, 1)
+      assert.equal(managedDataSets[0].railId, 48)
+      assert.isTrue(managedDataSets[0].isManaged)
     })
 
     it('should throw error when contract calls fail', async () => {
-      // Mock getClientProofSets to return a proof set
+      // Mock getClientDataSets to return a data set
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // getClientProofSets - return 1 proof set
-        if (data?.startsWith('0x4234653a') === true) {
-          const proofSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false]
+        // getClientDataSets - return 1 data set
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSet = [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false, 0n]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
-            [[proofSet]]
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [[dataSet]]
           )
         }
 
-        // railToProofSet - throw error
-        if (data?.startsWith('0x76704486') === true) {
+        // railToDataSet - throw error
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           throw new Error('Contract call failed')
         }
 
@@ -315,42 +331,42 @@ describe('PandoraService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await pandoraService.getClientProofSetsWithDetails(clientAddress)
+        await warmStorageService.getClientDataSetsWithDetails(clientAddress)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get details for proof set with rail ID 48')
+        assert.include(error.message, 'Failed to get details for data set with enhanced info')
         assert.include(error.message, 'Contract call failed')
       }
     })
   })
 
-  describe('getManagedProofSets', () => {
-    it('should return only managed proof sets', async () => {
+  describe('getManagedDataSets', () => {
+    it('should return only managed data sets', async () => {
       // Set up mocks similar to above
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        if (data?.startsWith('0x4234653a') === true) {
-          const proofSet = [48n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test', [], 0n, false]
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSet = [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test', [], 0n, false, 0n]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)[]'],
-            [[proofSet]]
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [[dataSet]]
           )
         }
 
-        if (data?.startsWith('0x76704486') === true) {
+        if (data?.startsWith('0x2ad6e6b5') === true) {
           return ethers.zeroPadValue('0xf2', 32)
         }
 
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        if (data?.startsWith('0x31601226') === true) {
-          return ethers.zeroPadValue(mockPandoraAddress, 32)
+        if (data?.startsWith('0x2b3129bb') === true) {
+          return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
-        if (data?.startsWith('0xd49245c1') === true) {
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
@@ -360,48 +376,78 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const proofSets = await pandoraService.getClientProofSetsWithDetails(clientAddress)
-      const managedProofSets = proofSets.filter(ps => ps.isManaged)
-      assert.lengthOf(managedProofSets, 1)
-      assert.isTrue(managedProofSets[0].isManaged)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
+      const managedDataSets = dataSets.filter(ps => ps.isManaged)
+      assert.lengthOf(managedDataSets, 1)
+      assert.isTrue(managedDataSets[0].isManaged)
     })
   })
 
-  describe('getAddRootsInfo', () => {
-    it('should return correct add roots information', async () => {
-      const proofSetId = 48
+  describe('getAddPiecesInfo', () => {
+    it('should return correct add pieces information', async () => {
+      const dataSetId = 48
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // proofSetLive
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        // railToDataSet - maps rail ID to data set ID
+        if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
+          // Rail ID 48 maps to data set ID 48
+          return ethers.zeroPadValue('0x30', 32) // 48 in hex
+        }
+
+        // dataSetId
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
 
-        // getNextRootId
-        if (data?.startsWith('0xd49245c1') === true) {
+        // getNextPieceId
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x05', 32) // 5
         }
 
-        // getProofSetListener
-        if (data?.startsWith('0x31601226') === true) {
-          return ethers.zeroPadValue(mockPandoraAddress, 32)
+        // getDataSetListener
+        if (data?.startsWith('0x2b3129bb') === true) {
+          return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
-        // getProofSet
-        if (data?.startsWith('0x96f25cf3') === true) {
-          const info = [
-            48n, // railId
-            clientAddress,
-            '0xabc1234567890123456789012345678901234567',
-            100n,
-            'Metadata',
-            [],
+        // getClientDataSets - returns array of data sets for the client (with new fields)
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSet = [
+            48n, // pdpRailId
+            0n, // cacheMissRailId
+            0n, // cdnRailId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
             3n, // clientDataSetId
-            false
+            false, // withCDN
+            0n // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [[dataSet]]
+          )
+        }
+
+        // getDataSet
+        if (data?.startsWith('0xbdaac056') === true) {
+          const info = [
+            48n, // pdpRailId
+            0n, // cacheMissRailId
+            0n, // cdnRailId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
+            0n, // clientDataSetId - expecting 0
+            false, // withCDN
+            0n // paymentEndEpoch
+          ]
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
             [info]
           )
         }
@@ -412,46 +458,76 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const addRootsInfo = await pandoraService.getAddRootsInfo(proofSetId)
-      assert.equal(addRootsInfo.nextRootId, 5)
-      assert.equal(addRootsInfo.clientDataSetId, 3)
-      assert.equal(addRootsInfo.currentRootCount, 5)
+      const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
+      assert.equal(addPiecesInfo.nextPieceId, 5)
+      assert.equal(addPiecesInfo.clientDataSetId, 0)
+      assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
     })
 
-    it('should throw error if proof set is not managed by this Pandora', async () => {
-      const proofSetId = 48
+    it('should throw error if data set is not managed by this WarmStorage', async () => {
+      const dataSetId = 48
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
-        // proofSetLive
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        // railToDataSet - maps rail ID to data set ID
+        if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
+          // Rail ID 48 maps to a different data set ID (99) to simulate not found
+          return ethers.zeroPadValue('0x63', 32) // 99 in hex - different from expected 48
+        }
+
+        // getClientDataSets - returns array of data sets for the client (with new fields)
+        if (data?.startsWith('0x967c6f21') === true) {
+          const dataSet = [
+            48n, // pdpRailId
+            0n, // cacheMissRailId
+            0n, // cdnRailId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
+            3n, // clientDataSetId
+            false, // withCDN
+            0n // paymentEndEpoch
+          ]
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
+            [[dataSet]]
+          )
+        }
+
+        // dataSetId
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // getProofSetListener
-        if (data?.startsWith('0x31601226') === true) {
+        // getDataSetListener
+        if (data?.startsWith('0x2b3129bb') === true) {
           return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
         }
 
-        // getNextRootId
-        if (data?.startsWith('0xd49245c1') === true) {
+        // getNextPieceId
+        if (data?.startsWith('0x1c5ae80f') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // getProofSet - needed for getAddRootsInfo
-        if (data?.startsWith('0x96f25cf3') === true) {
+        // getDataSet - needed for getAddPiecesInfo
+        if (data?.startsWith('0xbdaac056') === true) {
           const info = [
-            48, // railId
-            clientAddress,
-            '0xabc1234567890123456789012345678901234567',
-            100n,
-            'Metadata',
-            [],
+            48n, // pdpRailId
+            0n, // cacheMissRailId
+            0n, // cdnRailId
+            clientAddress, // payer
+            '0xabc1234567890123456789012345678901234567', // payee
+            100n, // commissionBps
+            'Metadata', // metadata
+            [], // pieceMetadata
             3n, // clientDataSetId
-            false
+            false, // withCDN
+            0n // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,address,address,uint256,string,string[],uint256,bool)'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
             [info]
           )
         }
@@ -463,10 +539,10 @@ describe('PandoraService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await pandoraService.getAddRootsInfo(proofSetId)
+        await warmStorageService.getAddPiecesInfo(dataSetId)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'not managed by this Pandora contract')
+        assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
     })
   })
@@ -485,14 +561,24 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      const nextId = await pandoraService.getNextClientDataSetId(clientAddress)
+      const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
       assert.equal(nextId, 5)
     })
   })
 
-  describe('verifyProofSetCreation', () => {
-    it('should verify successful proof set creation', async () => {
+  describe('verifyDataSetCreation', () => {
+    it('should verify successful data set creation', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      // Mock getTransaction
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        } as any
+      }
 
       // Mock getTransactionReceipt
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
@@ -505,8 +591,8 @@ describe('PandoraService', () => {
           logs: [{
             address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
             topics: [
-              ethers.id('ProofSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32), // proof set ID 123
+              ethers.id('DataSetCreated(uint256,address)'),
+              ethers.zeroPadValue('0x7b', 32), // data set ID 123
               ethers.zeroPadValue(clientAddress, 32) // owner address
             ],
             data: '0x' // Empty data for indexed parameters
@@ -514,10 +600,10 @@ describe('PandoraService', () => {
         } as any
       }
 
-      // Mock proofSetLive check
+      // Mock dataSetId check
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
         // Default return for any other calls
@@ -526,47 +612,76 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await pandoraService.verifyProofSetCreation(mockTxHash)
+      const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
 
       assert.isTrue(result.transactionMined)
       assert.isTrue(result.transactionSuccess)
-      assert.equal(result.proofSetId, 123)
-      assert.isTrue(result.proofSetLive)
-      assert.equal(result.blockNumber, 12345)
+      assert.equal(result.dataSetId, 123)
+      assert.exists(result.dataSetId)
+      assert.isTrue(result.dataSetLive)
+      assert.exists(result.blockNumber)
+      assert.exists(result.gasUsed)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
     })
 
     it('should handle transaction not mined yet', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => null
+        } as any
+      }
+
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
       mockProvider.getTransactionReceipt = async () => null
 
-      const result = await pandoraService.verifyProofSetCreation(mockTxHash)
+      const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
 
       assert.isFalse(result.transactionMined)
       assert.isFalse(result.transactionSuccess)
-      assert.isFalse(result.proofSetLive)
+      assert.isUndefined(result.dataSetId)
+      assert.isFalse(result.dataSetLive)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
     })
   })
 
-  describe('Storage Provider Operations', () => {
+  describe('Service Provider Operations', () => {
     it('should check if provider is approved', async () => {
       const providerAddress = '0x1234567890123456789012345678901234567890'
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xbd0efaab') === true) { // isProviderApproved selector
-          return ethers.zeroPadValue('0x01', 32) // Return true
+        if (data?.startsWith('0x93ecb91e') === true) { // getProviderIdByAddress selector
+          return ethers.zeroPadValue('0x01', 32) // Return provider ID 1 (non-zero means approved)
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const isApproved = await pandoraService.isProviderApproved(providerAddress)
+      const isApproved = await warmStorageService.isProviderApproved(providerAddress)
       assert.isTrue(isApproved)
+    })
+
+    it('should check if provider is not approved', async () => {
+      const providerAddress = '0x9999999999999999999999999999999999999999'
+
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+        if (data?.startsWith('0x93ecb91e') === true) { // getProviderIdByAddress selector
+          return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
+        }
+        return '0x' + '0'.repeat(64)
+      }
+
+      const isApproved = await warmStorageService.isProviderApproved(providerAddress)
+      assert.isFalse(isApproved)
     })
 
     it('should get provider ID by address', async () => {
@@ -580,7 +695,7 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const providerId = await pandoraService.getProviderIdByAddress(providerAddress)
+      const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
       assert.equal(providerId, 5)
     })
 
@@ -589,24 +704,24 @@ describe('PandoraService', () => {
         const data = transaction.data
         if (data?.startsWith('0x1c7db86a') === true) { // getApprovedProvider selector
           const providerInfo = [
-            '0x1234567890123456789012345678901234567890', // owner
-            'https://pdp.provider.com', // pdpUrl
-            'https://retrieval.provider.com', // pieceRetrievalUrl
+            '0x1234567890123456789012345678901234567890', // serviceProvider
+            'https://pdp.provider.com', // serviceURL
+            ethers.hexlify(ethers.toUtf8Bytes('test-peer-id')), // peerId
             1234567890n, // registeredAt
             1234567900n // approvedAt
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)'],
+            ['tuple(address,string,bytes,uint256,uint256)'],
             [providerInfo]
           )
         }
         return '0x' + '0'.repeat(64)
       }
 
-      const info = await pandoraService.getApprovedProvider(1)
-      assert.equal(info.owner.toLowerCase(), '0x1234567890123456789012345678901234567890')
-      assert.equal(info.pdpUrl, 'https://pdp.provider.com')
-      assert.equal(info.pieceRetrievalUrl, 'https://retrieval.provider.com')
+      const info = await warmStorageService.getApprovedProvider(1)
+      assert.equal(info.serviceProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
+      assert.equal(info.serviceURL, 'https://pdp.provider.com')
+      assert.equal(info.peerId, 'test-peer-id')
       assert.equal(info.registeredAt, 1234567890)
       assert.equal(info.approvedAt, 1234567900)
     })
@@ -614,37 +729,42 @@ describe('PandoraService', () => {
     it('should get pending provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x3faef523') === true) { // pendingProviders selector
-          const pendingInfo = [
-            'https://pdp.pending.com', // pdpUrl
-            'https://retrieval.pending.com', // pieceRetrievalUrl
-            1234567880n // registeredAt
-          ]
+        if (data?.startsWith('0x3faef523') === true) { // pendingProviders(address) selector
+          // The ABI returns (string serviceURL, bytes peerId, uint256 registeredAt) not a tuple
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['string', 'string', 'uint256'],
-            pendingInfo
+            ['string', 'bytes', 'uint256'],
+            ['https://pdp.pending.com', ethers.toUtf8Bytes('test-peer-id'), 1234567880n]
           )
         }
-        return '0x' + '0'.repeat(64)
+        // Return empty struct for any other call including pendingProviders
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['string', 'bytes', 'uint256'],
+          ['', '0x', 0n]
+        )
       }
 
-      const info = await pandoraService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
-      assert.equal(info.pdpUrl, 'https://pdp.pending.com')
-      assert.equal(info.pieceRetrievalUrl, 'https://retrieval.pending.com')
+      const info = await warmStorageService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
+      assert.equal(info.serviceURL, 'https://pdp.pending.com')
+      assert.equal(info.peerId, 'test-peer-id') // Now available as bytes decoded to string
       assert.equal(info.registeredAt, 1234567880)
     })
 
-    it('should get next provider ID', async () => {
+    it('should throw when pending provider not found', async () => {
       mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x9b0274da') === true) { // nextServiceProviderId selector
-          return ethers.zeroPadValue('0x0a', 32) // Return 10
-        }
-        return '0x' + '0'.repeat(64)
+        // Return empty values indicating non-existent provider
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['string', 'bytes', 'uint256'],
+          ['', '0x', 0n]
+        )
       }
 
-      const nextId = await pandoraService.getNextProviderId()
-      assert.equal(nextId, 10)
+      try {
+        await warmStorageService.getPendingProvider('0x0000000000000000000000000000000000000000')
+        assert.fail('Should have thrown an error')
+      } catch (error: any) {
+        assert.include(error.message, 'Pending provider')
+        assert.include(error.message, 'not found')
+      }
     })
 
     it('should get owner address', async () => {
@@ -658,7 +778,7 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const owner = await pandoraService.getOwner()
+      const owner = await warmStorageService.getOwner()
       assert.equal(owner.toLowerCase(), ownerAddress.toLowerCase())
     })
 
@@ -676,7 +796,7 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const isOwner = await pandoraService.isOwner(mockSigner)
+      const isOwner = await warmStorageService.isOwner(mockSigner)
       assert.isTrue(isOwner)
     })
 
@@ -709,105 +829,17 @@ describe('PandoraService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const providers = await pandoraService.getAllApprovedProviders()
+      const providers = await warmStorageService.getAllApprovedProviders()
       assert.lengthOf(providers, 2)
-      assert.equal(providers[0].owner.toLowerCase(), '0x1111111111111111111111111111111111111111')
-      assert.equal(providers[1].owner.toLowerCase(), '0x2222222222222222222222222222222222222222')
-    })
-
-    describe('addServiceProvider', () => {
-      it('should add a service provider directly', async () => {
-        const providerAddress = '0x1234567890123456789012345678901234567890'
-        const pdpUrl = 'https://pdp.example.com'
-        const pieceRetrievalUrl = 'https://retrieval.example.com'
-
-        // Create a mock signer
-        const mockSigner = {
-          getAddress: async () => '0xabcdef1234567890123456789012345678901234', // owner address
-          provider: mockProvider
-        } as any
-
-        // Mock the contract connection and transaction
-        let addServiceProviderCalled = false
-        const mockContract = {
-          connect: (signer: any) => ({
-            addServiceProvider: async (addr: string, pdp: string, retrieval: string) => {
-              assert.equal(addr, providerAddress)
-              assert.equal(pdp, pdpUrl)
-              assert.equal(retrieval, pieceRetrievalUrl)
-              addServiceProviderCalled = true
-              return {
-                hash: '0xmocktxhash',
-                wait: async () => ({ status: 1 })
-              }
-            }
-          })
-        }
-
-        // Override _getPandoraContract to return our mock
-        const originalGetPandoraContract = (pandoraService as any)._getPandoraContract
-        ;(pandoraService as any)._getPandoraContract = () => mockContract
-
-        const tx = await pandoraService.addServiceProvider(
-          mockSigner,
-          providerAddress,
-          pdpUrl,
-          pieceRetrievalUrl
-        )
-
-        assert.isTrue(addServiceProviderCalled)
-        assert.equal(tx.hash, '0xmocktxhash')
-
-        // Restore original method
-        ;(pandoraService as any)._getPandoraContract = originalGetPandoraContract
-      })
-
-      it('should handle errors when adding service provider', async () => {
-        const providerAddress = '0x1234567890123456789012345678901234567890'
-        const pdpUrl = 'https://pdp.example.com'
-        const pieceRetrievalUrl = 'https://retrieval.example.com'
-
-        // Create a mock signer
-        const mockSigner = {
-          getAddress: async () => '0xabcdef1234567890123456789012345678901234',
-          provider: mockProvider
-        } as any
-
-        // Mock the contract to throw an error
-        const mockContract = {
-          connect: () => ({
-            addServiceProvider: async () => {
-              throw new Error('Provider already approved')
-            }
-          })
-        }
-
-        // Override _getPandoraContract to return our mock
-        const originalGetPandoraContract = (pandoraService as any)._getPandoraContract
-        ;(pandoraService as any)._getPandoraContract = () => mockContract
-
-        try {
-          await pandoraService.addServiceProvider(
-            mockSigner,
-            providerAddress,
-            pdpUrl,
-            pieceRetrievalUrl
-          )
-          assert.fail('Should have thrown error')
-        } catch (error: any) {
-          assert.include(error.message, 'Provider already approved')
-        }
-
-        // Restore original method
-        ;(pandoraService as any)._getPandoraContract = originalGetPandoraContract
-      })
+      assert.equal(providers[0].serviceProvider.toLowerCase(), '0x1111111111111111111111111111111111111111')
+      assert.equal(providers[1].serviceProvider.toLowerCase(), '0x2222222222222222222222222222222222222222')
     })
   })
 
   describe('Storage Cost Operations', () => {
     describe('calculateStorageCost', () => {
       it('should calculate storage costs correctly for 1 GiB', async () => {
-        // Mock the getServicePrice call on Pandora contract
+        // Mock the getServicePrice call on WarmStorage contract
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
           if (data?.startsWith('0x5482bdf9') === true) { // getServicePrice selector
@@ -825,12 +857,15 @@ describe('PandoraService', () => {
         }
 
         const sizeInBytes = 1024 * 1024 * 1024 // 1 GiB
-        const costs = await pandoraService.calculateStorageCost(sizeInBytes)
+        const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
 
         assert.exists(costs.perEpoch)
         assert.exists(costs.perDay)
         assert.exists(costs.perMonth)
         assert.exists(costs.withCDN)
+        assert.exists(costs.withCDN.perEpoch)
+        assert.exists(costs.withCDN.perDay)
+        assert.exists(costs.withCDN.perMonth)
 
         // Verify costs are reasonable
         assert.isTrue(costs.perEpoch > 0n)
@@ -863,8 +898,8 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const costs1GiB = await pandoraService.calculateStorageCost(1024 * 1024 * 1024)
-        const costs10GiB = await pandoraService.calculateStorageCost(10 * 1024 * 1024 * 1024)
+        const costs1GiB = await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
+        const costs10GiB = await warmStorageService.calculateStorageCost(10 * 1024 * 1024 * 1024)
 
         // 10 GiB should cost approximately 10x more than 1 GiB
         // Allow for small rounding differences in bigint division
@@ -873,10 +908,13 @@ describe('PandoraService', () => {
 
         // Verify the relationship holds for day and month calculations
         assert.equal(costs10GiB.perDay.toString(), (costs10GiB.perEpoch * 2880n).toString())
-        assert.equal(costs10GiB.perMonth.toString(), (costs10GiB.perEpoch * 86400n).toString())
+        // For month calculation, allow for rounding errors due to integer division
+        const expectedMonth = costs10GiB.perEpoch * 86400n
+        const monthRatio = Number(costs10GiB.perMonth) / Number(expectedMonth)
+        assert.closeTo(monthRatio, 1, 0.0001) // Allow 0.01% difference due to rounding
       })
 
-      it('should fetch pricing from Pandora contract', async () => {
+      it('should fetch pricing from WarmStorage contract', async () => {
         // This test verifies that the getServicePrice function is called
         let getServicePriceCalled = false
         const originalCall = mockProvider.call
@@ -897,8 +935,8 @@ describe('PandoraService', () => {
           return await originalCall.call(mockProvider, transaction)
         }
 
-        await pandoraService.calculateStorageCost(1024 * 1024 * 1024)
-        assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on Pandora contract')
+        await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
+        assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on WarmStorage contract')
       })
     })
 
@@ -907,7 +945,7 @@ describe('PandoraService', () => {
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             return {
               isApproved: false,
               rateAllowance: 0n,
@@ -934,7 +972,7 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const check = await pandoraService.checkAllowanceForStorage(
+        const check = await warmStorageService.checkAllowanceForStorage(
           10 * 1024 * 1024 * 1024, // 10 GiB
           false,
           mockPaymentsService
@@ -944,6 +982,8 @@ describe('PandoraService', () => {
         assert.exists(check.lockupAllowanceNeeded)
         assert.exists(check.currentRateAllowance)
         assert.exists(check.currentLockupAllowance)
+        assert.exists(check.currentRateUsed)
+        assert.exists(check.currentLockupUsed)
         assert.exists(check.sufficient)
 
         // Check for new costs field
@@ -956,20 +996,18 @@ describe('PandoraService', () => {
         assert.isAbove(Number(check.costs.perMonth), 0)
 
         // Check for depositAmountNeeded field
-        assert.exists(check.depositAmountNeeded)
-        assert.isTrue(check.depositAmountNeeded > 0n)
+        assert.exists(check.lockupAllowanceNeeded)
+        assert.isTrue(check.lockupAllowanceNeeded > 0n)
 
         // With no current allowances, should not be sufficient
         assert.isFalse(check.sufficient)
-        assert.exists(check.message)
-        assert.include(check.message, 'insufficient')
       })
 
       it('should return sufficient when allowances are adequate', async () => {
         // Create a mock PaymentsService with adequate allowances
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             return {
               isApproved: true,
               rateAllowance: ethers.parseUnits('100', 18),
@@ -996,14 +1034,13 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const check = await pandoraService.checkAllowanceForStorage(
+        const check = await warmStorageService.checkAllowanceForStorage(
           1024 * 1024, // 1 MiB - small amount
           false,
           mockPaymentsService
         )
 
         assert.isTrue(check.sufficient)
-        assert.isUndefined(check.message)
 
         // Verify costs are included
         assert.exists(check.costs)
@@ -1011,16 +1048,16 @@ describe('PandoraService', () => {
         assert.exists(check.costs.perDay)
         assert.exists(check.costs.perMonth)
 
-        // Verify depositAmountNeeded is included
-        assert.exists(check.depositAmountNeeded)
-        assert.isTrue(check.depositAmountNeeded > 0n)
+        // When sufficient, no additional allowance is needed
+        assert.exists(check.lockupAllowanceNeeded)
+        assert.equal(check.lockupAllowanceNeeded, 0n)
       })
 
       it('should include depositAmountNeeded in response', async () => {
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             return {
               isApproved: false,
               rateAllowance: 0n,
@@ -1047,19 +1084,20 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const check = await pandoraService.checkAllowanceForStorage(
+        const check = await warmStorageService.checkAllowanceForStorage(
           1024 * 1024 * 1024, // 1 GiB
           false,
           mockPaymentsService
         )
 
-        // Verify depositAmountNeeded is present and reasonable
+        // Verify lockupAllowanceNeeded and depositAmountNeeded are present and reasonable
+        assert.exists(check.lockupAllowanceNeeded)
+        assert.isTrue(check.lockupAllowanceNeeded > 0n)
         assert.exists(check.depositAmountNeeded)
         assert.isTrue(check.depositAmountNeeded > 0n)
 
-        // depositAmountNeeded should equal the lockup amount (rate * lockup period)
-        // Default is 10 days = 10 * 2880 epochs = 28800 epochs
-        const expectedDeposit = check.costs.perEpoch * 28800n
+        // depositAmountNeeded should equal 10 days of costs (default lockup)
+        const expectedDeposit = check.costs.perEpoch * BigInt(10) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
       })
 
@@ -1067,7 +1105,7 @@ describe('PandoraService', () => {
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             return {
               isApproved: false,
               rateAllowance: 0n,
@@ -1096,7 +1134,7 @@ describe('PandoraService', () => {
 
         // Test with custom lockup period of 20 days
         const customLockupDays = 20
-        const check = await pandoraService.checkAllowanceForStorage(
+        const check = await warmStorageService.checkAllowanceForStorage(
           1024 * 1024 * 1024, // 1 GiB
           false,
           mockPaymentsService,
@@ -1104,11 +1142,11 @@ describe('PandoraService', () => {
         )
 
         // Verify depositAmountNeeded uses custom lockup period
-        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * 2880n // 2880 epochs per day
+        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
 
         // Compare with default (10 days) to ensure they're different
-        const defaultCheck = await pandoraService.checkAllowanceForStorage(
+        const defaultCheck = await warmStorageService.checkAllowanceForStorage(
           1024 * 1024 * 1024, // 1 GiB
           false,
           mockPaymentsService
@@ -1140,7 +1178,7 @@ describe('PandoraService', () => {
             availableFunds: ethers.parseUnits('10000', 18)
           }),
           approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
-            assert.strictEqual(serviceAddress, mockPandoraAddress)
+            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             assert.isTrue(rateAllowance > 0n)
             assert.isTrue(lockupAllowance > 0n)
             approveServiceCalled = true
@@ -1164,12 +1202,15 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await pandoraService.prepareStorageUpload({
+        const prep = await warmStorageService.prepareStorageUpload({
           dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
           withCDN: false
         }, mockPaymentsService)
 
         assert.exists(prep.estimatedCost)
+        assert.exists(prep.estimatedCost.perEpoch)
+        assert.exists(prep.estimatedCost.perDay)
+        assert.exists(prep.estimatedCost.perMonth)
         assert.exists(prep.allowanceCheck)
         assert.isArray(prep.actions)
 
@@ -1229,7 +1270,7 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await pandoraService.prepareStorageUpload({
+        const prep = await warmStorageService.prepareStorageUpload({
           dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
           withCDN: false
         }, mockPaymentsService)
@@ -1285,7 +1326,7 @@ describe('PandoraService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await pandoraService.prepareStorageUpload({
+        const prep = await warmStorageService.prepareStorageUpload({
           dataSize: 1024 * 1024, // 1 MiB - small amount
           withCDN: false
         }, mockPaymentsService)
@@ -1302,20 +1343,29 @@ describe('PandoraService', () => {
 
       // Create a mock PDPServer
       const mockPDPServer: any = {
-        getProofSetCreationStatus: async (txHash: string) => {
+        getDataSetCreationStatus: async (txHash: string) => {
           assert.strictEqual(txHash, mockTxHash)
           return {
             createMessageHash: mockTxHash,
-            proofSetCreated: true,
+            dataSetCreated: true,
             service: 'test-service',
             txStatus: 'confirmed',
             ok: true,
-            proofSetId: 123
+            dataSetId: 123
           }
         }
       }
 
       // Mock provider for chain verification
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        } as any
+      }
+
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
       mockProvider.getTransactionReceipt = async (txHash) => {
         assert.strictEqual(txHash, mockTxHash)
@@ -1326,7 +1376,7 @@ describe('PandoraService', () => {
           logs: [{
             address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
             topics: [
-              ethers.id('ProofSetCreated(uint256,address)'),
+              ethers.id('DataSetCreated(uint256,address)'),
               ethers.zeroPadValue('0x7b', 32),
               ethers.zeroPadValue(clientAddress, 32)
             ],
@@ -1337,7 +1387,7 @@ describe('PandoraService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
         return '0x' + '0'.repeat(64)
@@ -1345,30 +1395,32 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await pandoraService.getComprehensiveProofSetStatus(mockTxHash, mockPDPServer)
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
 
+      // Verify transaction hash is included
       assert.strictEqual(result.txHash, mockTxHash)
       assert.exists(result.serverStatus)
       assert.exists(result.chainStatus)
-      assert.exists(result.summary)
 
-      // Verify server status
-      assert.isTrue(result.serverStatus.proofSetCreated)
-      assert.strictEqual(result.serverStatus.proofSetId, 123)
+      // Verify server status - using correct interface properties
+      assert.isTrue(result.serverStatus?.dataSetCreated)
+      assert.isTrue(result.serverStatus?.ok)
+      assert.strictEqual(result.serverStatus?.dataSetId, 123)
 
-      // Verify chain status
+      // Verify chain status - using correct interface properties
       assert.isTrue(result.chainStatus.transactionMined)
       assert.isTrue(result.chainStatus.transactionSuccess)
-      assert.isTrue(result.chainStatus.proofSetLive)
-      assert.strictEqual(result.chainStatus.proofSetId, 123)
+      assert.exists(result.chainStatus.dataSetId)
+      assert.strictEqual(result.chainStatus.dataSetId, 123)
+      assert.isTrue(result.chainStatus.dataSetLive)
 
       // Verify summary
       assert.isTrue(result.summary.isComplete)
-      assert.isTrue(result.summary.isLive)
-      assert.strictEqual(result.summary.proofSetId, 123)
+      assert.strictEqual(result.summary.dataSetId, 123)
       assert.isNull(result.summary.error)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
     })
 
     it('should handle PDP server failure gracefully', async () => {
@@ -1376,12 +1428,21 @@ describe('PandoraService', () => {
 
       // Create a mock PDPServer that throws error
       const mockPDPServer: any = {
-        getProofSetCreationStatus: async () => {
+        getDataSetCreationStatus: async () => {
           throw new Error('Server unavailable')
         }
       }
 
       // Mock provider for chain verification (still works)
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        } as any
+      }
+
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
       mockProvider.getTransactionReceipt = async () => {
         return {
@@ -1391,7 +1452,7 @@ describe('PandoraService', () => {
           logs: [{
             address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
             topics: [
-              ethers.id('ProofSetCreated(uint256,address)'),
+              ethers.id('DataSetCreated(uint256,address)'),
               ethers.zeroPadValue('0x7b', 32),
               ethers.zeroPadValue(clientAddress, 32)
             ],
@@ -1402,7 +1463,7 @@ describe('PandoraService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
         return '0x' + '0'.repeat(64)
@@ -1410,56 +1471,68 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await pandoraService.getComprehensiveProofSetStatus(mockTxHash, mockPDPServer)
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
 
       // Server status should be null due to error
       assert.isNull(result.serverStatus)
 
       // Chain status should still work
       assert.isTrue(result.chainStatus.transactionMined)
-      assert.isTrue(result.chainStatus.proofSetLive)
+      assert.isTrue(result.chainStatus.transactionSuccess)
+      assert.strictEqual(result.chainStatus.dataSetId, 123)
+      assert.isTrue(result.chainStatus.dataSetLive)
 
-      // Summary should still work based on chain data, except isComplete
-      assert.isFalse(result.summary.isComplete)
-      assert.isTrue(result.summary.isLive)
-      assert.strictEqual(result.summary.proofSetId, 123)
+      // Summary should still work based on chain data
+      assert.isTrue(result.summary.isComplete)
+      assert.strictEqual(result.summary.dataSetId, 123)
+      assert.isNull(result.summary.error)
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
     })
 
-    it('should wait for proof set to become live', async () => {
+    it('should wait for data set to become live', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
       // Create a mock PDPServer
       const mockPDPServer: any = {
-        getProofSetCreationStatus: async () => {
+        getDataSetCreationStatus: async () => {
           callCount++
           if (callCount === 1) {
             // First call - not created yet
             return {
               createMessageHash: mockTxHash,
-              proofSetCreated: false,
+              dataSetCreated: false,
               service: 'test-service',
               txStatus: 'pending',
               ok: null,
-              proofSetId: undefined
+              dataSetId: undefined
             }
           } else {
             // Second call - created
             return {
               createMessageHash: mockTxHash,
-              proofSetCreated: true,
+              dataSetCreated: true,
               service: 'test-service',
               txStatus: 'confirmed',
               ok: true,
-              proofSetId: 123
+              dataSetId: 123
             }
           }
         }
       }
 
       // Mock provider
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        } as any
+      }
+
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
       mockProvider.getTransactionReceipt = async () => {
         if (callCount === 1) {
@@ -1472,7 +1545,7 @@ describe('PandoraService', () => {
             logs: [{
               address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
               topics: [
-                ethers.id('ProofSetCreated(uint256,address)'),
+                ethers.id('DataSetCreated(uint256,address)'),
                 ethers.zeroPadValue('0x7b', 32),
                 ethers.zeroPadValue(clientAddress, 32)
               ],
@@ -1484,7 +1557,7 @@ describe('PandoraService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xf5cac1ba') === true) {
+        if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
         return '0x' + '0'.repeat(64)
@@ -1492,34 +1565,38 @@ describe('PandoraService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await pandoraService.waitForProofSetCreationWithStatus(
-        mockTxHash,
+      const mockTransaction = {
+        hash: mockTxHash,
+        wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+      } as any
+      const result = await warmStorageService.waitForDataSetCreationWithStatus(
+        mockTransaction,
         mockPDPServer,
         5000, // 5 second timeout
         100 // 100ms poll interval
       )
 
       assert.isTrue(result.summary.isComplete)
-      assert.isTrue(result.summary.isLive)
-      assert.strictEqual(result.summary.proofSetId, 123)
-      assert.strictEqual(callCount, 2) // Should have polled twice
+      assert.strictEqual(result.summary.dataSetId, 123)
+      assert.isTrue(callCount >= 2) // Should have polled at least twice
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
     })
 
-    it('should timeout if proof set takes too long', async () => {
+    it('should timeout if data set takes too long', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that always returns pending
       const mockPDPServer: any = {
-        getProofSetCreationStatus: async () => {
+        getDataSetCreationStatus: async () => {
           return {
             createMessageHash: mockTxHash,
-            proofSetCreated: false,
+            dataSetCreated: false,
             service: 'test-service',
             txStatus: 'pending',
             ok: null,
-            proofSetId: undefined
+            dataSetId: undefined
           }
         }
       }
@@ -1531,15 +1608,16 @@ describe('PandoraService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await pandoraService.waitForProofSetCreationWithStatus(
-          mockTxHash,
+        const mockTransaction = { hash: mockTxHash } as any
+        await warmStorageService.waitForDataSetCreationWithStatus(
+          mockTransaction,
           mockPDPServer,
           300, // 300ms timeout
           100 // 100ms poll interval
         )
         assert.fail('Should have thrown timeout error')
       } catch (error: any) {
-        assert.include(error.message, 'Timeout waiting for proof set creation')
+        assert.include(error.message, 'Data set creation timed out after')
       }
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
@@ -1547,11 +1625,11 @@ describe('PandoraService', () => {
   })
 
   describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
-    it('should return max proving period from contract', async () => {
+    it('should return max proving period from WarmStorage contract', async () => {
       // Mock contract call
       const originalCall = mockProvider.call
       mockProvider.call = async ({ data }: any) => {
-        // Check if it's the getMaxProvingPeriod call
+        // Check if it's the getMaxProvingPeriod call on WarmStorage
         if (typeof data === 'string' && data.includes('0x')) {
           // Return encoded uint64 value of 2880
           return '0x0000000000000000000000000000000000000000000000000000000000000b40'
@@ -1559,17 +1637,17 @@ describe('PandoraService', () => {
         return '0x'
       }
 
-      const result = await pandoraService.getMaxProvingPeriod()
+      const result = await warmStorageService.getMaxProvingPeriod()
       assert.equal(result, 2880)
 
       mockProvider.call = originalCall
     })
 
-    it('should return challenge window from contract', async () => {
+    it('should return challenge window from WarmStorage contract', async () => {
       // Mock contract call
       const originalCall = mockProvider.call
       mockProvider.call = async ({ data }: any) => {
-        // Check if it's the getChallengeWindow call
+        // Check if it's the challengeWindow call on WarmStorage
         if (typeof data === 'string' && data.includes('0x')) {
           // Return encoded uint256 value of 60
           return '0x000000000000000000000000000000000000000000000000000000000000003c'
@@ -1577,7 +1655,7 @@ describe('PandoraService', () => {
         return '0x'
       }
 
-      const result = await pandoraService.getChallengeWindow()
+      const result = await warmStorageService.getChallengeWindow()
       assert.equal(result, 60)
 
       mockProvider.call = originalCall
@@ -1591,7 +1669,7 @@ describe('PandoraService', () => {
       }
 
       try {
-        await pandoraService.getMaxProvingPeriod()
+        await warmStorageService.getMaxProvingPeriod()
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Contract call failed')

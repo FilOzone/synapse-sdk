@@ -2,24 +2,24 @@
 import { assert } from 'chai'
 import { SubgraphRetriever } from '../retriever/subgraph.js'
 import { SubgraphService } from '../subgraph/index.js' // Import SubgraphService
-import type { SubgraphConfig, PieceRetriever, ApprovedProviderInfo, CommP } from '../types.js'
-import { asCommP } from '../commp/index.js'
+import type { SubgraphConfig, PieceRetriever, ApprovedProviderInfo, PieceCID } from '../types.js'
+import { asPieceCID } from '../piece/index.js'
 
-const mockCommP = asCommP(
-  'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
-) as CommP
+const mockPieceCID = asPieceCID(
+  'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+) as PieceCID
 
 const mockProvider: ApprovedProviderInfo = {
-  owner: '0x1234567890123456789012345678901234567890',
-  pdpUrl: 'https://provider.example.com/pdp',
-  pieceRetrievalUrl: 'https://provider.example.com/retrieve',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
+  serviceURL: 'https://provider.example.com',
+  peerId: 'test-peer-id',
   registeredAt: 1000,
   approvedAt: 2000
 }
 
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    commP: CommP,
+    pieceCid: PieceCID,
     client: string,
     options?: { providerAddress?: string, signal?: AbortSignal }
   ): Promise<Response> => {
@@ -34,7 +34,7 @@ const createMockSubgraphService = (
   // This creates a mock that satisfies the SubgraphService interface for testing purposes.
   // We cast to 'any' first to bypass checks for private/protected members.
   const mockService = {
-    getApprovedProvidersForCommP: async (commP: CommP): Promise<ApprovedProviderInfo[]> => {
+    getApprovedProvidersForPieceCID: async (pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> => {
       if (providersToReturn instanceof Error) {
         throw providersToReturn
       }
@@ -42,7 +42,7 @@ const createMockSubgraphService = (
     },
     getProviderByAddress: async (address: string): Promise<ApprovedProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : providersToReturn ?? []
-      return providers.find((p) => p.owner === address) ?? null
+      return providers.find((p) => p.serviceProvider === address) ?? null
     }
   } as any
 
@@ -114,17 +114,19 @@ describe('SubgraphRetriever', () => {
       ): Promise<Response> => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-        if (url.includes(mockProvider.pdpUrl)) {
+        if (url.includes(mockProvider.serviceURL)) {
+          // Check if it's a piece retrieval
+          if (url.includes('/piece/')) {
+            return new Response('piece data', { status: 200 })
+          }
+          // Otherwise it's a findPiece call
           return new Response(null, { status: 200 })
-        }
-        if (url.includes(mockProvider.pieceRetrievalUrl)) {
-          return new Response('piece data', { status: 200 })
         }
         throw new Error(`Unexpected fetch call to ${url}`)
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      const response = await retriever.fetchPiece(mockCommP, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'piece data')
@@ -135,7 +137,7 @@ describe('SubgraphRetriever', () => {
       // No fetch mock needed if child is fully mocked and service returns no providers
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockCommP, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -150,14 +152,14 @@ describe('SubgraphRetriever', () => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         // Mock provider failure
-        if (url.includes(mockProvider.pdpUrl) || url.includes(mockProvider.pieceRetrievalUrl)) {
+        if (url.includes(mockProvider.serviceURL) || url.includes(mockProvider.serviceURL)) {
           return new Response('provider error', { status: 500 })
         }
         throw new Error(`Unexpected fetch call to ${url}`)
       }
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockCommP, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -166,8 +168,7 @@ describe('SubgraphRetriever', () => {
     it('should filter by providerAddress when provided (providers from service)', async () => {
       const otherProvider: ApprovedProviderInfo = {
         ...mockProvider,
-        owner: '0xother',
-        pieceRetrievalUrl: 'https://otherprovider.example.com/retrieve'
+        serviceProvider: '0xother'
       }
       const mockService = createMockSubgraphService([mockProvider, otherProvider]) // Service returns multiple providers
       let fetchCalledForMockProvider = false
@@ -179,11 +180,11 @@ describe('SubgraphRetriever', () => {
       ): Promise<Response> => {
         const url =
           typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-        if (url.includes(mockProvider.pieceRetrievalUrl)) {
+        if (url.includes(mockProvider.serviceURL)) {
           fetchCalledForMockProvider = true
           return new Response('piece data', { status: 200 })
         }
-        if (url.includes(otherProvider.pieceRetrievalUrl)) {
+        if (url.includes(otherProvider.serviceURL)) {
           fetchCalledForOtherProvider = true
           return new Response('other piece data', { status: 200 })
         }
@@ -195,7 +196,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      await retriever.fetchPiece(mockCommP, 'client1', { providerAddress: mockProvider.owner })
+      await retriever.fetchPiece(mockPieceCID, 'client1', { providerAddress: mockProvider.serviceProvider })
 
       assert.isTrue(fetchCalledForMockProvider, 'Should have fetched from the specified provider')
       assert.isFalse(fetchCalledForOtherProvider, 'Should NOT have fetched from the other provider')
@@ -213,7 +214,7 @@ describe('SubgraphRetriever', () => {
 
       const retriever = new SubgraphRetriever(mockService)
       try {
-        await retriever.fetchPiece(mockCommP, 'client1')
+        await retriever.fetchPiece(mockPieceCID, 'client1')
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -226,7 +227,7 @@ describe('SubgraphRetriever', () => {
 
       const retriever = new SubgraphRetriever(mockService) // No child retriever
       try {
-        await retriever.fetchPiece(mockCommP, 'client1')
+        await retriever.fetchPiece(mockPieceCID, 'client1')
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -239,7 +240,7 @@ describe('SubgraphRetriever', () => {
       const mockService = createMockSubgraphService([])
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockCommP, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')

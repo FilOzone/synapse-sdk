@@ -8,14 +8,17 @@
 /**
  * Simple Storage Example - Minimal upload/download demonstration
  *
+ * This example shows the simplest way to use Synapse SDK's storage API.
+ * The SDK automatically handles provider selection and data set creation.
+ *
  * Usage:
- *   PRIVATE_KEY=0x... PANDORA_ADDRESS=0x... node example-storage-simple.js
+ *   PRIVATE_KEY=0x... WARM_STORAGE_ADDRESS=0x... node example-storage-simple.js
  */
 
 import { Synapse } from '@filoz/synapse-sdk'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 
 if (!PRIVATE_KEY) {
@@ -23,8 +26,8 @@ if (!PRIVATE_KEY) {
   process.exit(1)
 }
 
-if (!PANDORA_ADDRESS) {
-  console.error('ERROR: PANDORA_ADDRESS environment variable is required')
+if (!WARM_STORAGE_ADDRESS) {
+  console.error('ERROR: WARM_STORAGE_ADDRESS environment variable is required')
   console.error('For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5')
   process.exit(1)
 }
@@ -34,29 +37,31 @@ async function main () {
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    pandoraAddress: PANDORA_ADDRESS
+    warmStorageAddress: WARM_STORAGE_ADDRESS
   })
 
   console.log('Connected to:', RPC_URL)
 
-  // Create storage service
-  const storage = await synapse.createStorage()
-  console.log('Storage provider:', storage.storageProvider)
-  console.log('Proof set ID:', storage.proofSetId)
+  // The synapse.storage API auto-manages contexts for you
+  // No need to explicitly create a storage context unless you need specific control
+  console.log('Storage API ready. Will auto-select provider on first upload.')
 
-  // Create test data (must be at least 65 bytes for CommP calculation)
-  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for CommP calculation.\n'
+  // Create test data (must be at least 65 bytes for PieceCID calculation)
+  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 
-  // Upload
-  const result = await storage.upload(testData)
+  // Upload - the SDK will automatically:
+  // 1. Select a provider
+  // 2. Create or reuse a data set
+  // 3. Upload the data
+  const result = await synapse.storage.upload(testData)
   console.log('Upload complete!')
-  console.log('CommP:', result.commp)
+  console.log('PieceCID:', result.pieceCid)
 
-  // Download
+  // Download - finds any provider with the piece
   console.log('\nDownloading...')
-  const downloaded = await storage.download(result.commp)
+  const downloaded = await synapse.storage.download(result.pieceCid)
 
   // Verify
   const downloadedText = new TextDecoder().decode(downloaded)

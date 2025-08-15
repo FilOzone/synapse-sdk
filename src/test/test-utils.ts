@@ -48,8 +48,8 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
       const to = transaction.to?.toLowerCase()
       if (data == null) return '0x'
 
-      // Mock getServicePrice response for Pandora contract - function selector: 0x7bca0328
-      // Check both the function selector and that it's to the Pandora contract address
+      // Mock getServicePrice response for WarmStorage contract - function selector: 0x7bca0328
+      // Check both the function selector and that it's to the WarmStorage contract address
       if (data?.startsWith('0x7bca0328') === true &&
           (to === '0x394feca6bcb84502d93c0c5c03c620ba8897e8f4' || // calibration address
            to === '0xbfdc4454c2b573079c6c5ea1ddef6b8defc03dd5')) { // might be used in some tests
@@ -142,9 +142,10 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         const rateUsed = 0n
         const lockupAllowance = 0n
         const lockupUsed = 0n
+        const maxLockupPeriod = 86400n // 30 days
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['bool', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed]
+          ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed, maxLockupPeriod]
         )
       }
       return '0x'
