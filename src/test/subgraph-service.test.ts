@@ -1,14 +1,14 @@
 /* globals describe, it, beforeEach, afterEach */
 import { assert } from 'chai'
 import { SubgraphService } from '../subgraph/service.js'
-import { asPieceLink } from '../piecelink/index.js'
-import type { PieceLink } from '../types.js'
+import { asPieceCID } from '../piece/index.js'
+import type { PieceCID } from '../types.js'
 
 describe('SubgraphService', () => {
   const mockEndpoint = 'http://localhost:8000/subgraphs/name/test'
-  const mockPieceLink = asPieceLink(
+  const mockPieceCID = asPieceCID(
     'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
-  ) as PieceLink
+  ) as PieceCID
   let originalFetch: typeof global.fetch
 
   beforeEach(() => {
@@ -44,13 +44,13 @@ describe('SubgraphService', () => {
     })
   })
 
-  describe('getApprovedProvidersForPieceLink', () => {
-    it('should return providers for a given PieceLink', async () => {
+  describe('getApprovedProvidersForPieceCID', () => {
+    it('should return providers for a given PieceCID', async () => {
       const mockResponse = {
         data: {
           pieces: [
             {
-              id: mockPieceLink.toString(),
+              id: mockPieceCID.toString(),
               dataSet: {
                 setId: '1',
                 serviceProvider: {
@@ -76,7 +76,7 @@ describe('SubgraphService', () => {
 
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getApprovedProvidersForPieceLink(mockPieceLink)
+        const providers = await service.getApprovedProvidersForPieceCID(mockPieceCID)
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
@@ -86,7 +86,7 @@ describe('SubgraphService', () => {
       }
     })
 
-    it('should handle invalid PieceLink', async () => {
+    it('should handle invalid PieceCID', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url =
@@ -98,10 +98,10 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForPieceLink(asPieceLink('invalid') as PieceLink)
+        await service.getApprovedProvidersForPieceCID(asPieceCID('invalid') as PieceCID)
         assert.fail('should have thrown')
       } catch (err) {
-        assert.match((err as Error).message, /Invalid PieceLink/)
+        assert.match((err as Error).message, /Invalid PieceCID/)
       } finally {
         global.fetch = originalFetch
       }
@@ -119,7 +119,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        const providers = await service.getApprovedProvidersForPieceLink(mockPieceLink)
+        const providers = await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.isArray(providers)
         assert.lengthOf(providers, 0)
       } finally {
@@ -139,7 +139,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForPieceLink(mockPieceLink)
+        await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /GraphQL error/)
@@ -160,7 +160,7 @@ describe('SubgraphService', () => {
       }
       try {
         const service = new SubgraphService({ endpoint: mockEndpoint })
-        await service.getApprovedProvidersForPieceLink(mockPieceLink)
+        await service.getApprovedProvidersForPieceCID(mockPieceCID)
         assert.fail('should have thrown')
       } catch (err) {
         assert.match((err as Error).message, /HTTP 500: Internal Server Error/)

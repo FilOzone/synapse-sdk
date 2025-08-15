@@ -20,16 +20,16 @@
  *   }
  * });
  *
- * const providers = await subgraphService.getApprovedProvidersForPieceLink('baga6ea4seaq...');
+ * const providers = await subgraphService.getApprovedProvidersForPieceCID('bafkzcib...');
  * console.log(providers);
  * ```
  */
 
 import { toHex, fromHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
-import { asPieceLink } from '../piecelink/index.js'
+import { asPieceCID } from '../piece/index.js'
 import type {
-  PieceLink,
+  PieceCID,
   ApprovedProviderInfo,
   SubgraphRetrievalService,
   SubgraphConfig
@@ -131,7 +131,7 @@ export interface PieceInfo {
   pieceId: number
   rawSize: number
   leafCount: number
-  cid: PieceLink | null
+  cid: PieceCID | null
   removed: boolean
   totalProofsSubmitted: number
   totalPeriodsFaulted: number
@@ -312,25 +312,25 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Safely converts a hex format CID to PieceLink format
+   * Safely converts a hex format CID to PieceCID format
    * @param hexCid - The CID in hex format
-   * @returns The CID in PieceLink format or null if conversion fails
+   * @returns The CID in PieceCID format or null if conversion fails
    */
-  private safeConvertHexToCid (hexCid: string): PieceLink | null {
+  private safeConvertHexToCid (hexCid: string): PieceCID | null {
     try {
       const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
       const cidBytes = fromHex(cleanHex)
       const cid = CID.decode(cidBytes)
-      const pieceLink = asPieceLink(cid)
+      const pieceCid = asPieceCID(cid)
 
-      if (pieceLink == null) {
-        throw new Error(`Failed to convert CID to PieceLink format: ${hexCid}`)
+      if (pieceCid == null) {
+        throw new Error(`Failed to convert CID to PieceCID format: ${hexCid}`)
       }
 
-      return pieceLink
+      return pieceCid
     } catch (error) {
       console.warn(
-        `SubgraphService: queryProviders: Failed to convert CID to PieceLink format: ${
+        `SubgraphService: queryProviders: Failed to convert CID to PieceCID format: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`
       )
@@ -351,30 +351,30 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Queries the subgraph to find approved service providers that have a specific piece (PieceLink).
+   * Queries the subgraph to find approved service providers that have a specific piece (PieceCID).
    *
    * It sends a GraphQL query to the configured endpoint and parses the response to extract
    * a list of providers, including their addresses and retrieval URLs.
    *
-   * @param pieceLink - The piece commitment (PieceLink) to search for.
+   * @param pieceCid - The piece commitment (PieceCID) to search for.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForPieceLink (pieceLink: PieceLink): Promise<ApprovedProviderInfo[]> {
-    const pieceLinkParsed = asPieceLink(pieceLink)
-    if (pieceLinkParsed == null) {
-      throw createError('SubgraphService', 'getApprovedProvidersForPieceLink', 'Invalid PieceLink')
+  async getApprovedProvidersForPieceCID (pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
+    const pieceCidParsed = asPieceCID(pieceCid)
+    if (pieceCidParsed == null) {
+      throw createError('SubgraphService', 'getApprovedProvidersForPieceCID', 'Invalid PieceCID')
     }
-    const hexPieceLink = toHex(pieceLinkParsed.bytes)
+    const hexPieceCid = toHex(pieceCidParsed.bytes)
 
     const data = await this.executeQuery<{ pieces: any[] }>(
       QUERIES.GET_APPROVED_PROVIDERS_FOR_PIECE_LINK,
-      { cid: hexPieceLink },
-      'getApprovedProvidersForPieceLink'
+      { cid: hexPieceCid },
+      'getApprovedProvidersForPieceCID'
     )
 
     if (data?.pieces == null || data.pieces.length === 0) {
-      console.log(`SubgraphService: No providers found for PieceLink: ${pieceLinkParsed.toString()}`)
+      console.log(`SubgraphService: No providers found for PieceCID: ${pieceCidParsed.toString()}`)
       return []
     }
 

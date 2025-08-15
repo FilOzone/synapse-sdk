@@ -44,19 +44,19 @@ async function main () {
   console.log('Service provider:', storage.serviceProvider)
   console.log('Data set ID:', storage.dataSetId)
 
-  // Create test data (must be at least 65 bytes for PieceLink calculation)
-  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceLink calculation.\n'
+  // Create test data (must be at least 65 bytes for PieceCID calculation)
+  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 
   // Upload
   const result = await storage.upload(testData)
   console.log('Upload complete!')
-  console.log('PieceLink:', result.pieceLink)
+  console.log('PieceCID:', result.pieceCid)
 
   // Download
   console.log('\nDownloading...')
-  const downloaded = await storage.download(result.pieceLink)
+  const downloaded = await storage.download(result.pieceCid)
 
   // Verify
   const downloadedText = new TextDecoder().decode(downloaded)

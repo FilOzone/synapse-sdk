@@ -347,20 +347,20 @@ describe('Synapse', () => {
   })
 
   describe('download', () => {
-    it('should validate PieceLink input', async () => {
+    it('should validate PieceCID input', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
 
       try {
         await synapse.download('invalid-piece-link')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid PieceLink')
+        assert.include(error.message, 'Invalid PieceCID')
         assert.include(error.message, 'invalid-piece-link')
       }
     })
 
-    it('should accept valid PieceLink string', async () => {
-      // Create test data that matches the expected PieceLink
+    it('should accept valid PieceCID string', async () => {
+      // Create test data that matches the expected PieceCID
       const testData = new TextEncoder().encode('test data')
 
       // Mock the piece retriever
@@ -374,9 +374,9 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      // Use the actual PieceLink for 'test data'
-      const testPieceLink = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
-      const data = await synapse.download(testPieceLink)
+      // Use the actual PieceCID for 'test data'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const data = await synapse.download(testPieceCid)
 
       // Should return Uint8Array
       assert.isTrue(data instanceof Uint8Array)
@@ -387,7 +387,7 @@ describe('Synapse', () => {
       let cdnOptionReceived: boolean | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (pieceLink: any, client: string, options?: any) => {
+        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           cdnOptionReceived = options?.withCDN
           return new Response(testData)
         }
@@ -399,14 +399,14 @@ describe('Synapse', () => {
         withCDN: false // Instance default
       })
 
-      const testPieceLink = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       // Test with explicit withCDN
-      await synapse.download(testPieceLink, { withCDN: true })
+      await synapse.download(testPieceCid, { withCDN: true })
       assert.equal(cdnOptionReceived, true, 'Should pass explicit withCDN')
 
       // Test without explicit withCDN (should use instance default)
-      await synapse.download(testPieceLink)
+      await synapse.download(testPieceCid)
       assert.equal(cdnOptionReceived, false, 'Should use instance default')
     })
 
@@ -414,7 +414,7 @@ describe('Synapse', () => {
       let providerAddressReceived: string | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (pieceLink: any, client: string, options?: any) => {
+        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           providerAddressReceived = options?.providerAddress
           return new Response(testData)
         }
@@ -425,10 +425,10 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      const testPieceLink = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const testProvider = '0x1234567890123456789012345678901234567890'
 
-      await synapse.download(testPieceLink, { providerAddress: testProvider })
+      await synapse.download(testPieceCid, { providerAddress: testProvider })
       assert.equal(providerAddressReceived, testProvider)
     })
 
@@ -444,10 +444,10 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      const testPieceLink = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       try {
-        await synapse.download(testPieceLink)
+        await synapse.download(testPieceCid)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Network error')

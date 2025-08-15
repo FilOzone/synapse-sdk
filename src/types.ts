@@ -6,10 +6,10 @@
  */
 
 import type { ethers } from 'ethers'
-import type { PieceLink } from './piecelink/index.js'
+import type { PieceCID } from './piece/index.js'
 
-// Re-export PieceLink type
-export type { PieceLink }
+// Re-export PieceCID type
+export type { PieceCID }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
@@ -84,8 +84,8 @@ export interface StorageOptions {
  * Upload task tracking
  */
 export interface UploadTask {
-  /** Get the PieceLink (Piece CID) once calculated */
-  piecelink: () => Promise<PieceLink>
+  /** Get the PieceCID (Piece CID) once calculated */
+  pieceCid: () => Promise<PieceCID>
   /** Get the service provider once data is stored */
   store: () => Promise<ServiceProvider>
   /** Wait for the entire upload process to complete, returns transaction hash */
@@ -108,13 +108,13 @@ export interface DownloadOptions {
 export interface PieceRetriever {
   /**
    * Fetch a piece from available sources
-   * @param pieceLink - The PieceLink identifier of the piece (validated internally)
+   * @param pieceCid - The PieceCID identifier of the piece (validated internally)
    * @param client - The client address requesting the piece
    * @param options - Optional retrieval parameters
    * @returns A Response object that can be processed for the piece data
    */
   fetchPiece: (
-    pieceLink: PieceLink, // Internal interface uses PieceLink type for validation
+    pieceCid: PieceCID, // Internal interface uses PieceCID type for validation
     client: string,
     options?: {
       providerAddress?: string // Restrict to specific provider
@@ -154,12 +154,12 @@ export interface SubgraphConfig {
  */
 export interface SubgraphRetrievalService {
   /**
-   * Finds providers that have registered a specific data segment (PieceLink).
+   * Finds providers that have registered a specific data segment (PieceCID).
    *
-   * @param pieceLink - The PieceLink of the data segment.
+   * @param pieceCid - The PieceCID of the data segment.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    */
-  getApprovedProvidersForPieceLink: (pieceLink: PieceLink) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ApprovedProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.
@@ -190,8 +190,8 @@ export interface AuthSignature {
  * Piece data for adding to data sets
  */
 export interface PieceData {
-  /** The PieceLink CID */
-  cid: PieceLink | string
+  /** The PieceCID CID */
+  cid: PieceCID | string
   /** The raw (unpadded) size of the original data in bytes */
   rawSize: number
 }
@@ -340,7 +340,7 @@ export interface PreflightInfo {
  */
 export interface UploadCallbacks {
   /** Called when upload to service provider completes */
-  onUploadComplete?: (pieceLink: PieceLink) => void
+  onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when piece is added to data set (with optional transaction for new servers) */
   onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
   /** Called when piece addition is confirmed on-chain (new servers only) */
@@ -351,8 +351,8 @@ export interface UploadCallbacks {
  * Upload result information
  */
 export interface UploadResult {
-  /** PieceLink of the uploaded data */
-  pieceLink: PieceLink
+  /** PieceCID of the uploaded data */
+  pieceCid: PieceCID
   /** Size of the original data */
   size: number
   /** Piece ID in the data set */
@@ -448,9 +448,9 @@ export interface DataSetPieceData {
   /** Piece ID within the data set */
   pieceId: number
   /** The piece CID */
-  pieceCid: PieceLink
+  pieceCid: PieceCID
   /** Sub-piece CID (usually same as pieceCid) */
-  subPieceCid: PieceLink
+  subPieceCid: PieceCID
   /** Sub-piece offset */
   subPieceOffset: number
 }
