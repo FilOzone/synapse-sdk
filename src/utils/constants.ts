@@ -275,7 +275,7 @@ export const CONTRACT_ADDRESSES = {
    */
   PAYMENTS: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xeA4bAF593364B108fB3E016bC8f562f1Cc794579'
+    calibration: '0x0899Ada121867BF6546FFe3a6749f3D5c2ECB943'
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -283,7 +283,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xfa564144f183E4E7B8FEdCfbAa412afc83D5aE3d'
+    calibration: '0x11f133c0a0a548066df79c11b4A95F1fE34c7d9C'
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -291,6 +291,6 @@ export const CONTRACT_ADDRESSES = {
    */
   PDP_VERIFIER: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xf9f521c6e11A1680ead3eDD8a2757Ea731458617'
+    calibration: '0xB4f855c12EAA7533C609eFc3cC7F85fd923A3071'
   } as const satisfies Record<FilecoinNetworkType, string>
 } as const

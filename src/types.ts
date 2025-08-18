@@ -187,16 +187,6 @@ export interface AuthSignature {
 }
 
 /**
- * Piece data for adding to data sets
- */
-export interface PieceData {
-  /** The PieceCID CID */
-  cid: PieceCID | string
-  /** The raw (unpadded) size of the original data in bytes */
-  rawSize: number
-}
-
-/**
  * Data set information returned from Warm Storage contract
  */
 export interface DataSetInfo {

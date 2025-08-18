@@ -28,10 +28,9 @@
 
 import { ethers } from 'ethers'
 import type { PDPAuthHelper } from './auth.js'
-import type { PieceData, PieceCID, DataSetData } from '../types.js'
+import type { PieceCID, DataSetData } from '../types.js'
 import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
-import { PIECE_LINK_MULTIHASH_NAME, constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
-import { toHex } from 'multiformats/bytes'
+import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { validateDataSetCreationStatusResponse, validatePieceAdditionStatusResponse, validateFindPieceResponse, asDataSetData } from './validation.js'
 
 /**
@@ -216,10 +215,7 @@ export class PDPServer {
    *
    * @example
    * ```typescript
-   * const pieceData = [{
-   *   cid: 'bafkzcibcd...', // PieceCID
-   *   rawSize: 1024 * 1024   // Size in bytes
-   * }]
+   * const pieceData = ['bafkzcibcd...']
    * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
    * ```
    */
@@ -227,22 +223,17 @@ export class PDPServer {
     dataSetId: number,
     clientDataSetId: number,
     nextPieceId: number,
-    pieceDataArray: PieceData[]
+    pieceDataArray: PieceCID[] | string[]
   ): Promise<AddPiecesResponse> {
     if (pieceDataArray.length === 0) {
       throw new Error('At least one piece must be provided')
     }
 
-    // Validate all PieceCIDs and raw sizes
+    // Validate all PieceCIDs
     for (const pieceData of pieceDataArray) {
-      const pieceCid = asPieceCID(pieceData.cid)
+      const pieceCid = asPieceCID(pieceData)
       if (pieceCid == null) {
-        throw new Error(`Invalid PieceCID: ${String(pieceData.cid)}`)
-      }
-
-      // Validate raw size - must be positive
-      if (pieceData.rawSize < 0) {
-        throw new Error(`Invalid piece size: ${pieceData.rawSize}. Size must be a positive number`)
+        throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
       }
     }
 
@@ -265,7 +256,7 @@ export class PDPServer {
     const requestBody = {
       pieces: pieceDataArray.map(pieceData => {
         // Convert to string for JSON serialization
-        const cidString = typeof pieceData.cid === 'string' ? pieceData.cid : pieceData.cid.toString()
+        const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
         return {
           pieceCid: cidString,
           subPieces: [{
@@ -382,13 +373,13 @@ export class PDPServer {
    * @param size - The original size of the piece in bytes
    * @returns Piece information if found
    */
-  async findPiece (pieceCid: string | PieceCID, size: number): Promise<FindPieceResponse> {
+  async findPiece (pieceCid: string | PieceCID): Promise<FindPieceResponse> {
     const parsedPieceCid = asPieceCID(pieceCid)
     if (parsedPieceCid == null) {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid, size)
+    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid)
     const response = await fetch(url, {
       method: 'GET',
       headers: {}
@@ -423,19 +414,8 @@ export class PDPServer {
     performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
     const size = uint8Data.length
 
-    // Extract the raw hash from the PieceCID CID
-    const hashBytes = pieceCid.multihash.digest
-    const hashHex = toHex(hashBytes)
-
-    // Create the check data as per original protocol
-    const checkData = {
-      name: PIECE_LINK_MULTIHASH_NAME,
-      hash: hashHex,
-      size
-    }
-
     const requestBody = {
-      check: checkData
+      pieceCid: pieceCid.toString()
       // No notify URL needed
     }
 
@@ -551,6 +531,7 @@ export class PDPServer {
     const data = await response.json()
     const converted = asDataSetData(data)
     if (converted == null) {
+      console.error('Invalid data set data response:', data)
       throw new Error('Invalid data set data response format')
     }
     return converted

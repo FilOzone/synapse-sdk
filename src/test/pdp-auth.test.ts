@@ -11,7 +11,6 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPAuthHelper } from '../pdp/auth.js'
-import type { PieceData } from '../types.js'
 
 // Test fixtures generated from Solidity reference implementation
 // These signatures are verified against WarmStorage contract
@@ -65,15 +64,9 @@ const FIXTURES = {
 }
 
 // Helper to create PieceCID CIDs from the test piece digests
-const PIECE_DATA: PieceData[] = [
-  {
-    cid: 'bafkzcibcauan42av3szurbbscwuu3zjssvfwbpsvbjf6y3tukvlgl2nf5rha6pa',
-    rawSize: 1024
-  },
-  {
-    cid: 'bafkzcibcpybwiktap34inmaex4wbs6cghlq5i2j2yd2bb2zndn5ep7ralzphkdy',
-    rawSize: 2048
-  }
+const PIECE_DATA: string[] = [
+  'bafkzcibcauan42av3szurbbscwuu3zjssvfwbpsvbjf6y3tukvlgl2nf5rha6pa',
+  'bafkzcibcpybwiktap34inmaex4wbs6cghlq5i2j2yd2bb2zndn5ep7ralzphkdy'
 ]
 
 describe('Auth Signature Compatibility', () => {

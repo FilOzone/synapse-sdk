@@ -9,7 +9,6 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
-import type { PieceData } from '../types.js'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
@@ -245,26 +244,8 @@ describe('PDPServer', () => {
         assert.include((error as Error).message, 'At least one piece must be provided')
       }
 
-      // Test with invalid raw size - should fail during signature generation
-      const invalidRawSize: PieceData = {
-        cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-        rawSize: -1
-      }
-
-      try {
-        await pdpServer.addPieces(1, 0, 0, [invalidRawSize])
-        assert.fail('Should have thrown error for invalid raw size')
-      } catch (error) {
-        // Negative raw size is invalid
-        assert.include((error as Error).message, 'Invalid piece size: -1')
-        assert.include((error as Error).message, 'Size must be a positive number')
-      }
-
       // Test invalid PieceCID
-      const invalidPieceCid: PieceData = {
-        cid: 'invalid-piece-link-string',
-        rawSize: 1024
-      }
+      const invalidPieceCid = 'invalid-piece-link-string'
 
       try {
         await pdpServer.addPieces(1, 0, 0, [invalidPieceCid])
@@ -275,12 +256,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle successful piece addition', async () => {
-      const validPieceData: PieceData[] = [
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-          rawSize: 1024 * 1024 // 1 MiB
-        }
-      ]
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
       // Mock fetch for this test
       const originalFetch = global.fetch
@@ -293,9 +269,9 @@ describe('PDPServer', () => {
         assert.isDefined(body.pieces)
         assert.isDefined(body.extraData)
         assert.strictEqual(body.pieces.length, 1)
-        assert.strictEqual(body.pieces[0].pieceCid, validPieceData[0].cid)
+        assert.strictEqual(body.pieces[0].pieceCid, validPieceCid[0])
         assert.strictEqual(body.pieces[0].subPieces.length, 1)
-        assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceData[0].cid) // Piece is its own subPiece
+        assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
 
         return {
           status: 201,
@@ -308,7 +284,7 @@ describe('PDPServer', () => {
 
       try {
         // Should not throw
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -317,12 +293,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle server errors appropriately', async () => {
-      const validPieceData: PieceData[] = [
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-          rawSize: 1024 * 1024
-        }
-      ]
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
       // Mock fetch to return error
       const originalFetch = global.fetch
@@ -335,7 +306,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.addPieces(1, 0, 0, validPieceData)
+        await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.include((error as Error).message, 'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID')
@@ -355,16 +326,7 @@ describe('PDPServer', () => {
         throw new Error('Failed to parse test PieceCIDs')
       }
 
-      const multiplePieceData: PieceData[] = [
-        {
-          cid: pieceCid1, // Use PieceCID object
-          rawSize: 1024 * 1024
-        },
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy', // String
-          rawSize: 2048 * 1024
-        }
-      ]
+      const multiplePieceCid = [pieceCid1, pieceCid2]
 
       // Mock fetch for this test
       const originalFetch = global.fetch
@@ -387,7 +349,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addPieces(1, 0, 0, multiplePieceData)
+        const result = await pdpServer.addPieces(1, 0, 0, multiplePieceCid)
         assert.isDefined(result)
         assert.isDefined(result.message)
       } finally {
@@ -396,12 +358,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle addPieces response with Location header', async () => {
-      const validPieceData: PieceData[] = [
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-          rawSize: 1024 * 1024 // 1 MiB
-        }
-      ]
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
       const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
 
       // Mock fetch for this test
@@ -426,7 +383,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.isDefined(result)
         assert.isDefined(result.message)
         assert.strictEqual(result.txHash, mockTxHash)
@@ -438,12 +395,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle addPieces response with Location header missing 0x prefix', async () => {
-      const validPieceData: PieceData[] = [
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-          rawSize: 1024 * 1024 // 1 MiB
-        }
-      ]
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
       const mockTxHashWithout0x = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
       const mockTxHashWith0x = '0x' + mockTxHashWithout0x
 
@@ -465,7 +417,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.isDefined(result)
         assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
       } finally {
@@ -474,12 +426,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle malformed Location header gracefully', async () => {
-      const validPieceData: PieceData[] = [
-        {
-          cid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-          rawSize: 1024 * 1024 // 1 MiB
-        }
-      ]
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
       // Mock fetch for this test
       const originalFetch = global.fetch
@@ -499,7 +446,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceData)
+        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.isDefined(result)
         assert.isDefined(result.message)
         assert.isUndefined(result.txHash) // No txHash for malformed Location
@@ -568,7 +515,6 @@ describe('PDPServer', () => {
   describe('findPiece', () => {
     it('should find a piece successfully', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      const mockSize = 1048576 // 1 MiB
       const mockResponse = {
         pieceCid: mockPieceCid
       }
@@ -578,8 +524,7 @@ describe('PDPServer', () => {
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         assert.include(url, '/pdp/piece?')
-        assert.include(url, 'name=fr32-sha256-trunc254-padbintree')
-        assert.include(url, 'size=1048576')
+        assert.include(url, 'pieceCid=' + mockPieceCid)
         assert.strictEqual(init?.method, 'GET')
 
         return {
@@ -590,7 +535,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        const result = await pdpServer.findPiece(mockPieceCid, mockSize)
+        const result = await pdpServer.findPiece(mockPieceCid)
         assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
       } finally {
         global.fetch = originalFetch
@@ -599,7 +544,6 @@ describe('PDPServer', () => {
 
     it('should handle piece not found', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      const mockSize = 1048576
 
       // Mock fetch to return 404
       const originalFetch = global.fetch
@@ -612,7 +556,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockPieceCid, mockSize)
+        await pdpServer.findPiece(mockPieceCid)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
@@ -624,10 +568,9 @@ describe('PDPServer', () => {
 
     it('should validate PieceCID input', async () => {
       const invalidPieceCid = 'invalid-piece-cid-string'
-      const mockSize = 1048576
 
       try {
-        await pdpServer.findPiece(invalidPieceCid, mockSize)
+        await pdpServer.findPiece(invalidPieceCid)
         assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error: any) {
         assert.include(error.message, 'Invalid PieceCID')
@@ -636,7 +579,6 @@ describe('PDPServer', () => {
 
     it('should handle server errors', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      const mockSize = 1048576
 
       // Mock fetch to return server error
       const originalFetch = global.fetch
@@ -650,7 +592,7 @@ describe('PDPServer', () => {
       }
 
       try {
-        await pdpServer.findPiece(mockPieceCid, mockSize)
+        await pdpServer.findPiece(mockPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to find piece')
@@ -685,10 +627,7 @@ describe('PDPServer', () => {
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
-          assert.exists(body.check)
-          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
-          assert.exists(body.check.hash)
-          assert.equal(body.check.size, 5)
+          assert.exists(body.pieceCid)
 
           // Create upload session - return 201 with Location header
           return {
@@ -738,10 +677,7 @@ describe('PDPServer', () => {
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
-          assert.exists(body.check)
-          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
-          assert.exists(body.check.hash)
-          assert.equal(body.check.size, 5)
+          assert.exists(body.pieceCid)
 
           // Create upload session - return 201 with Location header
           return {
@@ -789,16 +725,13 @@ describe('PDPServer', () => {
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object
           const body = JSON.parse(options.body)
-          assert.exists(body.check)
-          assert.equal(body.check.name, 'fr32-sha256-trunc254-padbintree')
-          assert.exists(body.check.hash)
-          assert.equal(body.check.size, 5)
+          assert.exists(body.pieceCid)
 
           // Return 200 OK (piece already exists)
           return {
             ok: true,
             status: 200,
-            json: async () => ({ pieceCID: mockPieceCid })
+            json: async () => ({ pieceCid: mockPieceCid })
           } as any
         }
 
@@ -826,7 +759,7 @@ describe('PDPServer', () => {
         if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
           // Verify request body has check object even for error case
           const body = JSON.parse(options.body)
-          assert.exists(body.check)
+          assert.exists(body.pieceCid)
 
           return {
             ok: false,
