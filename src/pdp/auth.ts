@@ -3,8 +3,8 @@
  */
 
 import { ethers } from 'ethers'
-import { type AuthSignature, type PieceData } from '../types.js'
-import { asPieceCID } from '../piece/index.js'
+import { type AuthSignature } from '../types.js'
+import { asPieceCID, PieceCID } from '../piece/index.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -320,15 +320,15 @@ export class PDPAuthHelper {
   async signAddPieces (
     clientDataSetId: number | bigint,
     firstPieceId: number | bigint,
-    pieceDataArray: PieceData[]
+    pieceDataArray: PieceCID[] | string[]
   ): Promise<AuthSignature> {
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
     for (const piece of pieceDataArray) {
       // TODO(CIDv2): support PieceCIDv2 in asPieceCID
-      const pieceCid = typeof piece.cid === 'string' ? asPieceCID(piece.cid) : piece.cid
+      const pieceCid = typeof piece === 'string' ? asPieceCID(piece) : piece
       if (pieceCid == null) {
-        throw new Error(`Invalid PieceCID: ${String(piece.cid)}`)
+        throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
       }
 
       // Format as nested structure matching Solidity's Cids.Cid struct

@@ -1209,11 +1209,11 @@ describe('StorageService', () => {
         return { pieceCid, size: data.length }
       }
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({ uuid: 'test-uuid' })
-      serviceAny._pdpServer.addPieces = async (dataSetId: number, clientDataSetId: number, nextPieceId: number, comms: Array<{ cid: { toString: () => string } }>): Promise<any> => {
+      serviceAny._pdpServer.addPieces = async (dataSetId: number, clientDataSetId: number, nextPieceId: number, pieceCids: Array<{ toString: () => string }>): Promise<any> => {
         // The mock now receives the whole batch, so we process it.
         // We use nextPieceId from the call arguments to simulate what the contract does.
-        comms.forEach((comm, index) => {
-          addPiecesCalls.push({ pieceCid: comm.cid.toString(), pieceId: nextPieceId + index })
+        pieceCids.forEach((pieceCid, index) => {
+          addPiecesCalls.push({ pieceCid: pieceCid.toString(), pieceId: nextPieceId + index })
         })
         // Return a response that simulates an older server for simplicity,
         // as we are not testing the transaction tracking part here.

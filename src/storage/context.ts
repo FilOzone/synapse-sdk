@@ -29,7 +29,6 @@ import type {
   ApprovedProviderInfo,
   UploadCallbacks,
   UploadResult,
-  PieceData,
   StorageCreationCallbacks,
   ProviderSelectionResult,
   DownloadOptions,
@@ -57,7 +56,7 @@ export class StorageContext {
 
   // AddPieces batching state
   private _pendingPieces: Array<{
-    pieceData: PieceData
+    pieceData: PieceCID
     resolve: (pieceId: number) => void
     reject: (error: Error) => void
     callbacks?: UploadCallbacks
@@ -896,7 +895,7 @@ export class StorageContext {
     performance.mark('synapse:findPiece-start')
     while (Date.now() - startTime < maxWaitTime) {
       try {
-        await this._pdpServer.findPiece(uploadResult.pieceCid, uploadResult.size)
+        await this._pdpServer.findPiece(uploadResult.pieceCid)
         pieceReady = true
         break
       } catch {
@@ -923,10 +922,7 @@ export class StorageContext {
     }
 
     // Add Piece Phase: Queue the AddPieces operation for sequential processing
-    const pieceData: PieceData = {
-      cid: uploadResult.pieceCid,
-      rawSize: uploadResult.size
-    }
+    const pieceData = uploadResult.pieceCid
 
     const finalPieceId = await new Promise<number>((resolve, reject) => {
       // Add to pending batch
@@ -980,7 +976,7 @@ export class StorageContext {
       performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')
 
       // Create piece data array from the batch
-      const pieceDataArray: PieceData[] = batch.map((item) => item.pieceData)
+      const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
 
       // Add pieces to the data set
       performance.mark('synapse:pdpServer.addPieces-start')
@@ -1213,7 +1209,7 @@ export class StorageContext {
     }
 
     try {
-      await this._pdpServer.findPiece(parsedPieceCID, 0)
+      await this._pdpServer.findPiece(parsedPieceCID)
       return true
     } catch {
       return false
