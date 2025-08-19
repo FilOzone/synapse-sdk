@@ -145,7 +145,7 @@ describe('Synapse', () => {
         provider: calibrationProvider
       })
       assert.exists(synapse)
-      assert.equal(synapse.getPDPVerifierAddress(), '0xB4f855c12EAA7533C609eFc3cC7F85fd923A3071') // Calibration default
+      assert.equal(synapse.getPDPVerifierAddress(), '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9') // Calibration default
     })
 
     it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
@@ -495,7 +495,7 @@ describe('Synapse', () => {
 
       // Mock allowances
       const mockAllowances = {
-        service: '0x11f133c0a0a548066df79c11b4A95F1fE34c7d9C',
+        service: '0x7A605Ad01F7812F5C5e78aa16D795fc0be75974E',
         rateAllowance: BigInt(1000000),
         lockupAllowance: BigInt(10000000),
         rateUsed: BigInt(500000),
