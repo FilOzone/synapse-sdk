@@ -424,7 +424,14 @@ export class WarmStorageService {
     performance.measure('synapse:verifyDataSetCreation', 'synapse:verifyDataSetCreation-start', 'synapse:verifyDataSetCreation-end')
 
     // Combine into summary
-    const isComplete = chainStatus.transactionMined && chainStatus.transactionSuccess && chainStatus.dataSetId != null && chainStatus.dataSetLive
+    // isComplete should be true only when BOTH chain and server have confirmed the data set creation
+    const isComplete = chainStatus.transactionMined &&
+                      chainStatus.transactionSuccess &&
+                      chainStatus.dataSetId != null &&
+                      chainStatus.dataSetLive &&
+                      serverStatus != null &&
+                      serverStatus.ok === true &&
+                      serverStatus.dataSetCreated
     const dataSetId = serverStatus?.dataSetId ?? chainStatus.dataSetId ?? null
 
     // Determine error from server status or chain status

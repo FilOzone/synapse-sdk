@@ -1482,10 +1482,78 @@ describe('WarmStorageService', () => {
       assert.strictEqual(result.chainStatus.dataSetId, 123)
       assert.isTrue(result.chainStatus.dataSetLive)
 
-      // Summary should still work based on chain data
-      assert.isTrue(result.summary.isComplete)
+      // Summary should reflect that completion requires BOTH chain AND server confirmation
+      // Since server status is null (unavailable), isComplete should be false
+      assert.isFalse(result.summary.isComplete, 'isComplete should be false when server status is unavailable')
       assert.strictEqual(result.summary.dataSetId, 123)
       assert.isNull(result.summary.error)
+
+      mockProvider.getTransactionReceipt = originalGetTransactionReceipt
+      mockProvider.getTransaction = originalGetTransaction
+    })
+
+    it('should NOT mark as complete when server has not caught up yet', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      // Create a mock PDPServer that returns null (server hasn't caught up)
+      const mockPDPServer: any = {
+        getDataSetCreationStatus: async () => {
+          throw new Error('Data set creation status not found')
+        }
+      }
+
+      // Mock provider for chain verification (transaction succeeded on chain)
+      const originalGetTransaction = mockProvider.getTransaction
+      mockProvider.getTransaction = async (txHash: string) => {
+        assert.strictEqual(txHash, mockTxHash)
+        return {
+          hash: mockTxHash,
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        } as any
+      }
+
+      const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
+      mockProvider.getTransactionReceipt = async () => {
+        return {
+          status: 1,
+          blockNumber: 12345,
+          gasUsed: 100000n,
+          logs: [{
+            address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+            topics: [
+              ethers.id('DataSetCreated(uint256,address)'),
+              ethers.zeroPadValue('0x7b', 32),
+              ethers.zeroPadValue(clientAddress, 32)
+            ],
+            data: '0x'
+          }]
+        } as any
+      }
+
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+        if (data?.startsWith('0xca759f27') === true) {
+          return ethers.zeroPadValue('0x01', 32) // isLive = true
+        }
+        return '0x' + '0'.repeat(64)
+      }
+
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
+
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
+
+      // Chain status should show success
+      assert.isTrue(result.chainStatus.transactionMined)
+      assert.isTrue(result.chainStatus.transactionSuccess)
+      assert.isTrue(result.chainStatus.dataSetLive)
+      assert.strictEqual(result.chainStatus.dataSetId, 123)
+
+      // Server status should be null (server hasn't caught up)
+      assert.isNull(result.serverStatus)
+
+      // IMPORTANT: isComplete should be FALSE because server hasn't confirmed yet
+      // This test will FAIL with the current implementation, proving the bug
+      assert.isFalse(result.summary.isComplete, 'isComplete should be false when server has not caught up')
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
       mockProvider.getTransaction = originalGetTransaction
