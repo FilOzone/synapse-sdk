@@ -107,7 +107,7 @@ describe('Synapse', () => {
         await Synapse.create({ provider: unsupportedProvider })
         assert.fail('Should have thrown for unsupported network')
       } catch (error: any) {
-        assert.include(error.message, 'Unsupported network')
+        assert.include(error.message, 'Invalid network')
         assert.include(error.message, '999999')
       }
     })
@@ -118,11 +118,11 @@ describe('Synapse', () => {
       assert.exists(synapse)
     })
 
-    it('should accept mainnet with custom pandora address', async () => {
+    it('should accept mainnet with custom warmStorage address', async () => {
       const mainnetProvider = createMockProvider(314)
       const synapse = await Synapse.create({
         provider: mainnetProvider,
-        pandoraAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
+        warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
         pdpVerifierAddress: '0x9876543210987654321098765432109876543210' // Custom PDPVerifier address for mainnet
       })
       assert.exists(synapse)
@@ -145,50 +145,60 @@ describe('Synapse', () => {
         provider: calibrationProvider
       })
       assert.exists(synapse)
-      assert.equal(synapse.getPDPVerifierAddress(), '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC') // Calibration default
+      assert.equal(synapse.getPDPVerifierAddress(), '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9') // Calibration default
     })
 
-    it('should accept both custom pandoraAddress and pdpVerifierAddress', async () => {
+    it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
       const mainnetProvider = createMockProvider(314)
-      const customPandoraAddress = '0x1111111111111111111111111111111111111111'
+      const customWarmStorageAddress = '0x1111111111111111111111111111111111111111'
       const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
       const synapse = await Synapse.create({
         provider: mainnetProvider,
-        pandoraAddress: customPandoraAddress,
+        warmStorageAddress: customWarmStorageAddress,
         pdpVerifierAddress: customPDPVerifierAddress
       })
       assert.exists(synapse)
-      assert.equal(synapse.getPandoraAddress(), customPandoraAddress)
+      assert.equal(synapse.getWarmStorageAddress(), customWarmStorageAddress)
       assert.equal(synapse.getPDPVerifierAddress(), customPDPVerifierAddress)
     })
   })
 
-  describe('createStorage', () => {
-    it.skip('should create storage service', async () => {
-      // Skip this test as it requires real contract interactions
-      // The real StorageService needs PandoraService and PDPServer
-      // which require actual blockchain connections
+  describe('StorageManager access', () => {
+    it('should provide access to StorageManager via synapse.storage', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage()
-      assert.exists(storage)
-      assert.exists(storage.proofSetId)
-      assert.exists(storage.storageProvider)
-      assert.isFunction(storage.upload)
-      assert.isFunction(storage.download)
+
+      // Should be able to access storage manager
+      assert.exists(synapse.storage)
+      assert.isObject(synapse.storage)
+
+      // Should have all storage manager methods available
+      assert.isFunction(synapse.storage.upload)
+      assert.isFunction(synapse.storage.download)
+      assert.isFunction(synapse.storage.createContext)
+      assert.isFunction(synapse.storage.getDefaultContext)
+      assert.isFunction(synapse.storage.findDataSets)
     })
 
-    it.skip('should accept custom provider ID', async () => {
-      // Skip this test as it requires real contract interactions
-      const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage({ providerId: 1 })
-      assert.exists(storage)
+    it('should create storage manager with CDN settings', async () => {
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        withCDN: true
+      })
+
+      assert.exists(synapse.storage)
+      // The storage manager should inherit the withCDN setting
+      // We can't directly test this without accessing private properties
+      // but it will be used in upload/download operations
     })
 
-    it.skip('should enable CDN option', async () => {
-      // Skip this test as it requires real contract interactions
+    it('should return same storage manager instance', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
-      const storage = await synapse.createStorage({ withCDN: true })
-      assert.exists(storage)
+
+      const storage1 = synapse.storage
+      const storage2 = synapse.storage
+
+      // Should be the same instance
+      assert.equal(storage1, storage2)
     })
   })
 
@@ -218,14 +228,14 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
       const expectedProviderInfo = {
-        owner: mockProviderAddress,
-        pdpUrl: 'https://pdp.example.com',
-        pieceRetrievalUrl: 'https://retrieval.example.com',
+        serviceProvider: mockProviderAddress,
+        serviceURL: 'https://pdp.example.com',
+        peerId: 'test-peer-id',
         registeredAt: 1000000,
         approvedAt: 2000000
       }
 
-      // Mock PandoraService calls
+      // Mock WarmStorageService calls
       const originalCall = mockProvider.call
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -238,11 +248,11 @@ describe('Synapse', () => {
         // Mock getApprovedProvider
         if (data?.startsWith('0x1c7db86a') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)'],
+            ['tuple(address,string,bytes,uint256,uint256)'],
             [[
-              expectedProviderInfo.owner,
-              expectedProviderInfo.pdpUrl,
-              expectedProviderInfo.pieceRetrievalUrl,
+              expectedProviderInfo.serviceProvider,
+              expectedProviderInfo.serviceURL,
+              ethers.toUtf8Bytes(expectedProviderInfo.peerId),
               expectedProviderInfo.registeredAt,
               expectedProviderInfo.approvedAt
             ]]
@@ -256,9 +266,9 @@ describe('Synapse', () => {
         const synapse = await Synapse.create({ signer: mockSigner })
         const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
 
-        assert.equal(providerInfo.owner.toLowerCase(), mockProviderAddress.toLowerCase())
-        assert.equal(providerInfo.pdpUrl, expectedProviderInfo.pdpUrl)
-        assert.equal(providerInfo.pieceRetrievalUrl, expectedProviderInfo.pieceRetrievalUrl)
+        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
+        assert.equal(providerInfo.serviceURL, expectedProviderInfo.serviceURL)
+        assert.equal(providerInfo.peerId, expectedProviderInfo.peerId)
         assert.equal(providerInfo.registeredAt, expectedProviderInfo.registeredAt)
         assert.equal(providerInfo.approvedAt, expectedProviderInfo.approvedAt)
       } finally {
@@ -280,7 +290,7 @@ describe('Synapse', () => {
     it('should throw for non-approved provider', async () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
 
-      // Mock PandoraService to return 0 for provider ID (not approved)
+      // Mock WarmStorageService to return 0 for provider ID (not approved)
       const originalCall = mockProvider.call
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -307,7 +317,7 @@ describe('Synapse', () => {
     it('should throw when provider not found', async () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
 
-      // Mock PandoraService calls
+      // Mock WarmStorageService calls
       const originalCall = mockProvider.call
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -320,11 +330,11 @@ describe('Synapse', () => {
         // Mock getApprovedProvider returning zero address (not found)
         if (data?.startsWith('0x1c7db86a') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)'],
+            ['tuple(address,string,bytes,uint256,uint256)'],
             [[
               ethers.ZeroAddress,
               '',
-              '',
+              ethers.toUtf8Bytes(''),
               0,
               0
             ]]
@@ -347,20 +357,20 @@ describe('Synapse', () => {
   })
 
   describe('download', () => {
-    it('should validate CommP input', async () => {
+    it('should validate PieceCID input', async () => {
       const synapse = await Synapse.create({ signer: mockSigner })
 
       try {
-        await synapse.download('invalid-commp')
+        await synapse.download('invalid-piece-link')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid CommP')
-        assert.include(error.message, 'invalid-commp')
+        assert.include(error.message, 'Invalid PieceCID')
+        assert.include(error.message, 'invalid-piece-link')
       }
     })
 
-    it('should accept valid CommP string', async () => {
-      // Create test data that matches the expected CommP
+    it('should accept valid PieceCID string', async () => {
+      // Create test data that matches the expected PieceCID
       const testData = new TextEncoder().encode('test data')
 
       // Mock the piece retriever
@@ -374,9 +384,9 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      // Use the actual CommP for 'test data'
-      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
-      const data = await synapse.download(testCommP)
+      // Use the actual PieceCID for 'test data'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const data = await synapse.download(testPieceCid)
 
       // Should return Uint8Array
       assert.isTrue(data instanceof Uint8Array)
@@ -387,7 +397,7 @@ describe('Synapse', () => {
       let cdnOptionReceived: boolean | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (commp: any, client: string, options?: any) => {
+        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           cdnOptionReceived = options?.withCDN
           return new Response(testData)
         }
@@ -399,14 +409,14 @@ describe('Synapse', () => {
         withCDN: false // Instance default
       })
 
-      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       // Test with explicit withCDN
-      await synapse.download(testCommP, { withCDN: true })
+      await synapse.download(testPieceCid, { withCDN: true })
       assert.equal(cdnOptionReceived, true, 'Should pass explicit withCDN')
 
       // Test without explicit withCDN (should use instance default)
-      await synapse.download(testCommP)
+      await synapse.download(testPieceCid)
       assert.equal(cdnOptionReceived, false, 'Should use instance default')
     })
 
@@ -414,7 +424,7 @@ describe('Synapse', () => {
       let providerAddressReceived: string | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (commp: any, client: string, options?: any) => {
+        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           providerAddressReceived = options?.providerAddress
           return new Response(testData)
         }
@@ -425,10 +435,10 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      const testCommP = 'baga6ea4seaqm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const testProvider = '0x1234567890123456789012345678901234567890'
 
-      await synapse.download(testCommP, { providerAddress: testProvider })
+      await synapse.download(testPieceCid, { providerAddress: testProvider })
       assert.equal(providerAddressReceived, testProvider)
     })
 
@@ -444,10 +454,10 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever
       })
 
-      const testCommP = 'baga6ea4seaqao7s73y24kcutaosvacpdjgfe5pw76ooefnyqw4ynr3d2y6x2mpq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       try {
-        await synapse.download(testCommP)
+        await synapse.download(testPieceCid)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Network error')
@@ -460,16 +470,16 @@ describe('Synapse', () => {
       // Mock provider data
       const mockProviders = [
         {
-          owner: '0x1111111111111111111111111111111111111111',
-          pdpUrl: 'https://pdp1.example.com',
-          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
+          serviceURL: 'https://pdp1.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         },
         {
-          owner: '0x2222222222222222222222222222222222222222',
-          pdpUrl: 'https://pdp2.example.com',
-          pieceRetrievalUrl: 'https://retrieve2.example.com',
+          serviceProvider: '0x2222222222222222222222222222222222222222',
+          serviceURL: 'https://pdp2.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567892,
           approvedAt: 1234567893
         }
@@ -485,7 +495,7 @@ describe('Synapse', () => {
 
       // Mock allowances
       const mockAllowances = {
-        service: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5',
+        service: '0x7A605Ad01F7812F5C5e78aa16D795fc0be75974E',
         rateAllowance: BigInt(1000000),
         lockupAllowance: BigInt(10000000),
         rateUsed: BigInt(500000),
@@ -513,21 +523,22 @@ describe('Synapse', () => {
         // Mock getAllApprovedProviders
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.owner, p.pdpUrl, p.pieceRetrievalUrl, p.registeredAt, p.approvedAt])]
+            ['tuple(address,string,bytes,uint256,uint256)[]'],
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
         // Mock operatorApprovals (called by serviceApproval in PaymentsService)
         if (data?.startsWith('0xe3d4c69e') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['bool', 'uint256', 'uint256', 'uint256', 'uint256'],
+            ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
             [
               true, // isApproved
               mockAllowances.rateAllowance,
               mockAllowances.lockupAllowance,
               mockAllowances.rateUsed,
-              mockAllowances.lockupUsed
+              mockAllowances.lockupUsed,
+              86400n // maxLockupPeriod: 30 days
             ]
           )
         }
@@ -550,8 +561,8 @@ describe('Synapse', () => {
 
         // Check providers
         assert.equal(storageInfo.providers.length, 2)
-        assert.equal(storageInfo.providers[0].owner, mockProviders[0].owner)
-        assert.equal(storageInfo.providers[1].owner, mockProviders[1].owner)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
+        assert.equal(storageInfo.providers[1].serviceProvider, mockProviders[1].serviceProvider)
 
         // Check service parameters
         assert.equal(storageInfo.serviceParameters.network, 'calibration')
@@ -604,8 +615,8 @@ describe('Synapse', () => {
         // Mock getAllApprovedProviders
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.owner, p.pdpUrl, p.pieceRetrievalUrl, p.registeredAt, p.approvedAt])]
+            ['tuple(address,string,bytes,uint256,uint256)[]'],
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
@@ -635,16 +646,16 @@ describe('Synapse', () => {
       // Mock provider data with a zero address
       const mockProviders = [
         {
-          owner: '0x1111111111111111111111111111111111111111',
-          pdpUrl: 'https://pdp1.example.com',
-          pieceRetrievalUrl: 'https://retrieve1.example.com',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
+          serviceURL: 'https://pdp1.example.com',
+          peerId: 'test-peer-id',
           registeredAt: 1234567890,
           approvedAt: 1234567891
         },
         {
-          owner: ethers.ZeroAddress,
-          pdpUrl: '',
-          pieceRetrievalUrl: '',
+          serviceProvider: ethers.ZeroAddress,
+          serviceURL: '',
+          peerId: '',
           registeredAt: 0,
           approvedAt: 0
         }
@@ -679,8 +690,8 @@ describe('Synapse', () => {
         // Mock getAllApprovedProviders
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address,string,string,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.owner, p.pdpUrl, p.pieceRetrievalUrl, p.registeredAt, p.approvedAt])]
+            ['tuple(address,string,bytes,uint256,uint256)[]'],
+            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
           )
         }
 
@@ -698,7 +709,7 @@ describe('Synapse', () => {
 
         // Should filter out zero address provider
         assert.equal(storageInfo.providers.length, 1)
-        assert.equal(storageInfo.providers[0].owner, mockProviders[0].owner)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
       } finally {
         mockProvider.call = originalCall
       }
