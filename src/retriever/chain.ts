@@ -62,12 +62,32 @@ export class ChainRetriever implements PieceRetriever {
     const uniqueProviders = [...new Set(validDataSets.map(ds => ds.payee))]
     const providerInfos = await Promise.all(
       uniqueProviders.map(async (addr) => {
-        const id = await this.warmStorageService.getProviderIdByAddress(addr)
-        return await this.warmStorageService.getApprovedProvider(id)
+        try {
+          const id = await this.warmStorageService.getProviderIdByAddress(addr)
+          if (id === 0) {
+            // Provider not found (removed or never existed), skip silently
+            return null
+          }
+          return await this.warmStorageService.getApprovedProvider(id)
+        } catch (error) {
+          // Failed to get provider info (may have been removed), skip silently
+          return null
+        }
       })
     )
 
-    return providerInfos
+    // Filter out null values (removed/invalid providers)
+    const validProviderInfos = providerInfos.filter((info): info is ApprovedProviderInfo => info !== null)
+
+    if (validProviderInfos.length === 0) {
+      throw createError(
+        'ChainRetriever',
+        'findProviders',
+        'No valid providers found (all providers may have been removed or are inaccessible)'
+      )
+    }
+
+    return validProviderInfos
   }
 
   async fetchPiece (
