@@ -349,6 +349,177 @@ describe('ChainRetriever', () => {
     })
   })
 
+  describe('removed provider handling', () => {
+    it('should gracefully skip removed providers and use valid ones', async () => {
+      // Setup: 3 data sets, 2 with removed providers, 1 with valid provider
+      const removedProvider1 = '0xRemovedProvider1'
+      const removedProvider2 = '0xRemovedProvider2'
+      const validProvider = '0xValidProvider'
+
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [
+          // Data set with removed provider
+          {
+            ...mockDataSet,
+            payee: removedProvider1,
+            currentPieceCount: 5
+          },
+          // Another data set with removed provider
+          {
+            ...mockDataSet,
+            payee: removedProvider2,
+            currentPieceCount: 3
+          },
+          // Data set with valid provider
+          {
+            ...mockDataSet,
+            payee: validProvider,
+            currentPieceCount: 2
+          }
+        ],
+        getProviderIdByAddress: async (addr: string) => {
+          // Removed providers return 0
+          if (addr === removedProvider1 || addr === removedProvider2) return 0
+          if (addr === validProvider) return 3
+          return 0
+        },
+        getApprovedProvider: async (id: number) => {
+          if (id === 3) {
+            return {
+              ...mockProvider1,
+              serviceProvider: validProvider,
+              serviceURL: 'https://valid-provider.com'
+            }
+          }
+          throw new Error('Provider not found')
+        }
+      }
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
+
+        if (url.includes('valid-provider')) {
+          if (url.includes('/pdp/piece?')) {
+            return new Response('', { status: 200 })
+          }
+          if (url.includes('/piece/')) {
+            return new Response('data from valid provider', { status: 200 })
+          }
+        }
+
+        throw new Error(`Unexpected URL: ${url}`)
+      }
+
+      try {
+        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
+        assert.equal(response.status, 200)
+        assert.equal(await response.text(), 'data from valid provider')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should throw clear error when all providers are removed', async () => {
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [
+          {
+            ...mockDataSet,
+            payee: '0xRemovedProvider',
+            currentPieceCount: 5
+          }
+        ],
+        getProviderIdByAddress: async () => 0, // All providers removed
+        getApprovedProvider: async () => {
+          throw new Error('Provider not found')
+        }
+      }
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+
+      try {
+        await retriever.fetchPiece(mockPieceCID, '0xClient')
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        // The error from findProviders gets wrapped in tryChildOrThrow
+        assert.include(
+          error.message,
+          'Provider discovery failed and no additional retriever method was configured'
+        )
+      }
+    })
+
+    it('should handle mixed provider states with some throwing errors', async () => {
+      const errorProvider = '0xErrorProvider'
+      const validProvider = '0xValidProvider'
+
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [
+          {
+            ...mockDataSet,
+            payee: errorProvider,
+            currentPieceCount: 5
+          },
+          {
+            ...mockDataSet,
+            payee: validProvider,
+            currentPieceCount: 2
+          }
+        ],
+        getProviderIdByAddress: async (addr: string) => {
+          if (addr === errorProvider) return 1
+          if (addr === validProvider) return 2
+          return 0
+        },
+        getApprovedProvider: async (id: number) => {
+          if (id === 1) {
+            // This provider causes an error
+            throw new Error('Database connection failed')
+          }
+          if (id === 2) {
+            return {
+              ...mockProvider1,
+              serviceProvider: validProvider,
+              serviceURL: 'https://valid-provider.com'
+            }
+          }
+          throw new Error('Provider not found')
+        }
+      }
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+
+      // Mock fetch
+      const originalFetch = global.fetch
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url)
+
+        if (url.includes('valid-provider')) {
+          if (url.includes('/pdp/piece?')) {
+            return new Response('', { status: 200 })
+          }
+          if (url.includes('/piece/')) {
+            return new Response('data from valid provider', { status: 200 })
+          }
+        }
+
+        throw new Error(`Unexpected URL: ${url}`)
+      }
+
+      try {
+        // Should still work with the valid provider
+        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
+        assert.equal(response.status, 200)
+        assert.equal(await response.text(), 'data from valid provider')
+      } finally {
+        global.fetch = originalFetch
+      }
+    })
+  })
+
   describe('abort signal handling', () => {
     it('should propagate abort signal to fetch requests', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
