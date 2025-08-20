@@ -325,7 +325,6 @@ export class PDPAuthHelper {
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
     for (const piece of pieceDataArray) {
-      // TODO(CIDv2): support PieceCIDv2 in asPieceCID
       const pieceCid = typeof piece === 'string' ? asPieceCID(piece) : piece
       if (pieceCid == null) {
         throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
