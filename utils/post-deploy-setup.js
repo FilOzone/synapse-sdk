@@ -22,8 +22,8 @@
  * ```
  *
  * Common contract addresses for Calibration testnet:
- * - PDP_VERIFIER_ADDRESS: 0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC
- * - PAYMENTS_CONTRACT_ADDRESS: 0x0E690D3e60B0576D01352AB03b258115eb84A047
+ * - PDP_VERIFIER_ADDRESS: 0x3ce3C62C4D405d69738530A6A65E4b13E8700C48
+ * - PAYMENTS_CONTRACT_ADDRESS: 0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0
  * - USDFC_TOKEN_ADDRESS: 0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0
  *
  * The deployment script will output the newly deployed Warm Storage contract address,
@@ -170,7 +170,15 @@ async function main() {
     log(`Service Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
-    const spTool = new WarmStorageService(provider, warmStorageAddress)
+    // Get contract addresses - use env vars if provided, otherwise use defaults for network
+    const pdpVerifierAddress = process.env.PDP_VERIFIER_ADDRESS || CONTRACT_ADDRESSES.PDP_VERIFIER[network]
+
+    if (!pdpVerifierAddress) {
+      error('PDP_VERIFIER_ADDRESS must be set or available in constants')
+      process.exit(1)
+    }
+
+    const spTool = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
 
     // === Step 1: Service Provider Registration ===
     log('\n📋 Step 1: Service Provider Registration')
@@ -266,7 +274,7 @@ async function main() {
       // === Step 2: Approve Service Provider (as deployer) ===
       log('\n✅ Step 2: Approve Service Provider')
 
-      const deployerSpTool = new WarmStorageService(provider, warmStorageAddress)
+      const deployerSpTool = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
 
       // Verify deployer is contract owner
       const isOwner = await deployerSpTool.isOwner(deployerSigner)

@@ -1205,7 +1205,7 @@ console.log(`Storage provider: ${storage.storageProvider}`)
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 import type { ServiceProvider } from '@filoz/synapse-sdk'
 
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
+const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
 const dataSets = await warmStorageService.getClientDataSets(client)
 
 for (const dataSet of dataSets) {

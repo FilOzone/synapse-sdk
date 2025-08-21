@@ -59,6 +59,13 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       const to = transaction.to?.toLowerCase()
       if (data == null) return '0x'
 
+      // Mock viewContractAddress response - function selector: 0x7a9ebc15
+      if (data?.startsWith('0x7a9ebc15') === true) {
+        // Return a mock view contract address (not zero address!)
+        const viewAddress = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' // Use a real-looking address
+        return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [viewAddress])
+      }
+
       // Mock getServicePrice response for WarmStorage contract - function selector: 0x7bca0328
       // Check both the function selector and that it's to the WarmStorage contract address
       if (
