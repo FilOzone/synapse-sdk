@@ -153,8 +153,9 @@ export class Synapse {
 
     // Create Warm Storage service for the retriever
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
+    const warmStorageViewAddress = options.warmStorageViewAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE_VIEW[network]
     const pdpVerifierAddress = options.pdpVerifierAddress ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-    const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+    const warmStorageService = new WarmStorageService(provider, warmStorageAddress, warmStorageViewAddress, pdpVerifierAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever

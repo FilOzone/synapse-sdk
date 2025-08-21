@@ -13,7 +13,7 @@
  * import { ethers } from 'ethers'
  *
  * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+ * const warmStorageService = new WarmStorageService(provider, warmStorageAddress, warmStorageViewAddress, pdpVerifierAddress)
  *
  * // Get data sets for a client
  * const dataSets = await warmStorageService.getClientDataSets(clientAddress)
@@ -117,13 +117,16 @@ export interface ComprehensiveDataSetStatus {
 export class WarmStorageService {
   private readonly _provider: ethers.Provider
   private readonly _warmStorageAddress: string
+  private readonly _warmStorageViewAddress: string
   private readonly _pdpVerifierAddress: string
   private _warmStorageContract: ethers.Contract | null = null
+  private _warmStorageViewContract: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
-  constructor (provider: ethers.Provider, warmStorageAddress: string, pdpVerifierAddress: string) {
+  constructor (provider: ethers.Provider, warmStorageAddress: string, warmStorageViewAddress: string, pdpVerifierAddress: string) {
     this._provider = provider
     this._warmStorageAddress = warmStorageAddress
+    this._warmStorageViewAddress = warmStorageViewAddress
     this._pdpVerifierAddress = pdpVerifierAddress
   }
 
@@ -139,6 +142,20 @@ export class WarmStorageService {
       )
     }
     return this._warmStorageContract
+  }
+
+  /**
+   * Get cached Warm Storage View contract instance or create new one
+   */
+  private _getWarmStorageViewContract (): ethers.Contract {
+    if (this._warmStorageViewContract == null) {
+      this._warmStorageViewContract = new ethers.Contract(
+        this._warmStorageViewAddress,
+        CONTRACT_ABIS.WARM_STORAGE_VIEW,
+        this._provider
+      )
+    }
+    return this._warmStorageViewContract
   }
 
   /**
@@ -160,7 +177,7 @@ export class WarmStorageService {
    */
   async getClientDataSets (clientAddress: string): Promise<DataSetInfo[]> {
     try {
-      const contract = this._getWarmStorageContract()
+      const contract = this._getWarmStorageViewContract()
       const dataSetData = await contract.getClientDataSets(clientAddress)
 
       // Convert from on-chain format to our interface
@@ -189,13 +206,13 @@ export class WarmStorageService {
   async getClientDataSetsWithDetails (client: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
     const dataSets = await this.getClientDataSets(client)
     const pdpVerifier = this._getPDPVerifier()
-    const contract = this._getWarmStorageContract()
+    const viewContract = this._getWarmStorageViewContract()
 
     // Process all data sets in parallel
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
       try {
         // Get the actual PDPVerifier data set ID from the rail ID
-        const pdpVerifierDataSetId = Number(await contract.railToDataSet(dataSet.railId))
+        const pdpVerifierDataSetId = Number(await viewContract.railToDataSet(dataSet.railId))
 
         // If railToDataSet returns 0, this rail doesn't exist in this Warm Storage contract
         if (pdpVerifierDataSetId === 0) {
@@ -256,7 +273,7 @@ export class WarmStorageService {
    */
   async getAddPiecesInfo (dataSetId: number): Promise<AddPiecesInfo> {
     try {
-      const contract = this._getWarmStorageContract()
+      const viewContract = this._getWarmStorageViewContract()
       const pdpVerifier = this._getPDPVerifier()
 
       // Parallelize all independent calls
@@ -264,7 +281,7 @@ export class WarmStorageService {
         pdpVerifier.dataSetLive(Number(dataSetId)),
         pdpVerifier.getNextPieceId(Number(dataSetId)),
         pdpVerifier.getDataSetListener(Number(dataSetId)),
-        contract.getDataSet(Number(dataSetId))
+        viewContract.getDataSet(Number(dataSetId))
       ])
 
       // Check if data set exists and is live
@@ -297,11 +314,11 @@ export class WarmStorageService {
    */
   async getNextClientDataSetId (clientAddress: string): Promise<number> {
     try {
-      const contract = this._getWarmStorageContract()
+      const viewContract = this._getWarmStorageViewContract()
 
       // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
       // This is the value that will be used for the next data set creation
-      const currentCounter = await contract.clientDataSetIDs(clientAddress)
+      const currentCounter = await viewContract.clientDataSetIDs(clientAddress)
 
       // Return the current counter value (it will be incremented during data set creation)
       return Number(currentCounter)
@@ -953,8 +970,8 @@ export class WarmStorageService {
    * @returns Maximum proving period in epochs
    */
   async getMaxProvingPeriod (): Promise<number> {
-    const contract = this._getWarmStorageContract()
-    const maxPeriod = await contract.getMaxProvingPeriod()
+    const viewContract = this._getWarmStorageViewContract()
+    const maxPeriod = await viewContract.getMaxProvingPeriod()
     return Number(maxPeriod)
   }
 
@@ -963,8 +980,8 @@ export class WarmStorageService {
    * @returns Challenge window size in epochs
    */
   async getChallengeWindow (): Promise<number> {
-    const contract = this._getWarmStorageContract()
-    const window = await contract.challengeWindow()
+    const viewContract = this._getWarmStorageViewContract()
+    const window = await viewContract.challengeWindow()
     return Number(window)
   }
 }

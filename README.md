@@ -212,6 +212,7 @@ interface SynapseOptions {
   pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
   disableNonceManager?: boolean   // Disable automatic nonce management
   warmStorageAddress?: string     // Override Warm Storage service contract address (for testing purposes)
+  warmStorageViewAddress?: string // Override Warm Storage View contract address (for testing purposes)
   pdpVerifierAddress?: string     // Override PDPVerifier contract address (for testing purposes)
 
   // Subgraph Integration (optional, provide only one of these options)
@@ -623,7 +624,12 @@ Interact with the Warm Storage contract for data set management, service provide
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
 // Deployed contract addresses are available in CONTRACT_ADDRESSES
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+const warmStorageService = new WarmStorageService(
+  provider,
+  warmStorageAddress,
+  warmStorageViewAddress,  // View contract for read-only methods
+  pdpVerifierAddress
+)
 
 // Storage cost calculations
 const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
@@ -1195,7 +1201,7 @@ console.log(`Storage provider: ${storage.storageProvider}`)
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 import type { ServiceProvider } from '@filoz/synapse-sdk'
 
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
+const warmStorageService = new WarmStorageService(provider, warmStorageAddress, warmStorageViewAddress, pdpVerifierAddress)
 const dataSets = await warmStorageService.getClientDataSets(client)
 
 for (const dataSet of dataSets) {
@@ -1267,8 +1273,9 @@ When upgrading from versions prior to v0.24.0:
    - `synapse.download()` → `synapse.storage.download()`
 6. **Update method calls** - Use the new method names as shown above
 7. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
-8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
-8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`, add `WARM_STORAGE_VIEW_ADDRESS` for the view contract
+9. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+10. **Add view contract address** - The Warm Storage contract has been refactored to separate view methods into a dedicated view contract. You must now provide both `warmStorageAddress` and `warmStorageViewAddress` when creating a `WarmStorageService` instance.
 
 Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.
 
