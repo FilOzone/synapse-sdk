@@ -48,45 +48,6 @@ export const CONTRACT_ABIS = {
   ] as const,
 
   /**
-   * Warm Storage ABI - includes both PDP functions and service provider management
-   */
-  WARM_STORAGE: [
-    // Write functions
-    'function registerServiceProvider(string serviceURL, bytes peerId) external payable',
-    'function approveServiceProvider(address provider) external',
-    'function rejectServiceProvider(address provider) external',
-    'function removeServiceProvider(uint256 providerId) external',
-
-    // Read functions
-    'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
-    'function owner() external view returns (address)',
-    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
-
-    // Public mappings that are automatically exposed
-    'function providerToId(address) external view returns (uint256)',
-    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
-
-    // Data set functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
-
-    // Client dataset ID counter
-    'function clientDataSetIDs(address client) external view returns (uint256)',
-
-    // Mapping from rail ID to PDPVerifier data set ID
-    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
-
-    // Get data set info by ID
-    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch))',
-
-    // Proving period and timing functions
-    'function getMaxProvingPeriod() external view returns (uint64)',
-    'function challengeWindow() external view returns (uint256)',
-  ] as const,
-
-  /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
   PDP_VERIFIER: [
@@ -96,6 +57,51 @@ export const CONTRACT_ABIS = {
     'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
     'function getDataSetListener(uint256 setId) public view returns (address)',
     'event DataSetCreated(uint256 indexed setId, address indexed owner)',
+  ] as const,
+
+  /**
+   * Warm Storage ABI - write functions and service provider management
+   * View methods are in the WARM_STORAGE_VIEW contract
+   */
+  WARM_STORAGE: [
+    // Write functions
+    'function registerServiceProvider(string serviceURL, bytes peerId) external payable',
+    'function approveServiceProvider(address provider) external',
+    'function rejectServiceProvider(address provider) external',
+    'function removeServiceProvider(uint256 providerId) external',
+
+    // Service provider read functions (temporarily in main contract)
+    'function getProviderIdByAddress(address provider) external view returns (uint256)',
+    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
+    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
+    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
+    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
+
+    // Other read functions
+    'function owner() external view returns (address)',
+    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
+    'function providerToId(address) external view returns (uint256)',
+    'function viewContractAddress() external view returns (address)',
+  ] as const,
+
+  /**
+   * Warm Storage View contract ABI - read-only view methods separated from main contract
+   * These methods were moved from the main Warm Storage contract to reduce contract size
+   */
+  WARM_STORAGE_VIEW: [
+    // Data set view functions
+    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
+    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch))',
+
+    // Client dataset ID counter
+    'function clientDataSetIDs(address client) external view returns (uint256)',
+
+    // Mapping from rail ID to PDPVerifier data set ID
+    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
+
+    // Proving period and timing functions
+    'function getMaxProvingPeriod() external view returns (uint64)',
+    'function challengeWindow() external view returns (uint256)',
   ] as const,
 } as const
 
@@ -275,15 +281,7 @@ export const CONTRACT_ADDRESSES = {
    */
   PAYMENTS: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xbB0592e7f0c8db5A4908C1c79BE913f19857682A',
-  } as const satisfies Record<FilecoinNetworkType, string>,
-
-  /**
-   * Warm Storage service contract addresses
-   */
-  WARM_STORAGE: {
-    mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x7A605Ad01F7812F5C5e78aa16D795fc0be75974E',
+    calibration: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -291,6 +289,14 @@ export const CONTRACT_ADDRESSES = {
    */
   PDP_VERIFIER: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9',
+    calibration: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  /**
+   * Warm Storage service contract addresses
+   */
+  WARM_STORAGE: {
+    mainnet: '', // TODO: Get actual mainnet address from deployment
+    calibration: '0xA94C1139412da84d3bBb152dac22B0943332fD78',
   } as const satisfies Record<FilecoinNetworkType, string>,
 } as const

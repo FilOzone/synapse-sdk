@@ -42,6 +42,12 @@ This document serves as context for LLM agent sessions working with the Synapse 
    - Storage costs/allowances via WarmStorageService (separate instantiation)
    - Strict network validation - only supports Filecoin mainnet and calibration
 
+### Contract Addresses
+The SDK uses the following contract addresses (defined in `src/utils/constants.ts`):
+- `WARM_STORAGE`: Main Warm Storage contract
+- `PDP_VERIFIER`: PDPVerifier contract
+- `PAYMENTS`: Payments contract
+
 ### File Structure
 ```
 src/
@@ -163,6 +169,9 @@ WarmStorageService (storage coordination)
 
 #### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
+- **Architecture**: Split into two contracts:
+  - Main contract: Write operations and service provider management
+  - View contract (`FilecoinWarmStorageServiceStateView.sol`): Read-only view methods for contract size optimization
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
   - Manages service whitelist via `registerServiceProvider()`

@@ -14,7 +14,16 @@ describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
   let warmStorageService: WarmStorageService
   const mockWarmStorageAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+  const mockViewAddress = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'
   const clientAddress = '0x1234567890123456789012345678901234567890'
+
+  // Helper to handle viewContractAddress calls
+  const handleViewContractAddress = (data: string | undefined): string | null => {
+    if (data?.startsWith('0x7a9ebc15') === true) {
+      return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [mockViewAddress])
+    }
+    return null
+  }
 
   beforeEach(() => {
     mockProvider = createMockProvider()
@@ -34,6 +43,11 @@ describe('WarmStorageService', () => {
       // Mock provider will return empty array by default
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
           return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -54,6 +68,11 @@ describe('WarmStorageService', () => {
       // Mock provider to return data sets
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x967c6f21') === true) {
           // Return two data sets
           const dataSet1 = {
@@ -153,6 +172,11 @@ describe('WarmStorageService', () => {
       // Mock provider to throw error
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x967c6f21') === true) {
           throw new Error('Contract call failed')
         }
@@ -175,6 +199,10 @@ describe('WarmStorageService', () => {
       // Mock provider for multiple contract calls
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         // getClientDataSets call
         if (data?.startsWith('0x967c6f21') === true) {
@@ -245,6 +273,10 @@ describe('WarmStorageService', () => {
     it('should filter unmanaged data sets when onlyManaged is true', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         // getClientDataSets - return 2 data sets
         if (data?.startsWith('0x967c6f21') === true) {
@@ -342,6 +374,10 @@ describe('WarmStorageService', () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         // getClientDataSets - return 1 data set
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [
@@ -389,6 +425,10 @@ describe('WarmStorageService', () => {
       // Set up mocks similar to above
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [
@@ -444,6 +484,10 @@ describe('WarmStorageService', () => {
       const dataSetId = 48
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         // railToDataSet - maps rail ID to data set ID
         if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
@@ -524,6 +568,10 @@ describe('WarmStorageService', () => {
       const dataSetId = 48
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         // railToDataSet - maps rail ID to data set ID
         if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
@@ -608,6 +656,10 @@ describe('WarmStorageService', () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
 
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         // clientDataSetIDs mapping call
         if (data?.startsWith('0x196ed89b') === true) {
           return ethers.zeroPadValue('0x05', 32) // Return 5
@@ -661,6 +713,11 @@ describe('WarmStorageService', () => {
       // Mock dataSetId check
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
@@ -717,6 +774,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x01', 32) // Return provider ID 1 (non-zero means approved)
@@ -733,6 +795,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
@@ -749,6 +816,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x05', 32) // Return ID 5
@@ -763,6 +835,11 @@ describe('WarmStorageService', () => {
     it('should get approved provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x1c7db86a') === true) {
           // getApprovedProvider selector
           const providerInfo = [
@@ -791,6 +868,11 @@ describe('WarmStorageService', () => {
     it('should get pending provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x3faef523') === true) {
           // pendingProviders(address) selector
           // The ABI returns (string serviceURL, bytes peerId, uint256 registeredAt) not a tuple
@@ -810,7 +892,13 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw when pending provider not found', async () => {
-      mockProvider.call = async (_transaction: any) => {
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         // Return empty values indicating non-existent provider
         return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
@@ -829,6 +917,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x8da5cb5b') === true) {
           // owner selector
           return ethers.zeroPadValue(ownerAddress, 32)
@@ -848,6 +941,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0x8da5cb5b') === true) {
           // owner selector
           return ethers.zeroPadValue(signerAddress, 32)
@@ -862,6 +960,10 @@ describe('WarmStorageService', () => {
     it('should get all approved providers', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
 
         // getAllApprovedProviders
         if (data?.startsWith('0x0af14754') === true) {
@@ -901,6 +1003,11 @@ describe('WarmStorageService', () => {
         // Mock the getServicePrice call on WarmStorage contract
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             // getServicePrice selector
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
@@ -945,6 +1052,11 @@ describe('WarmStorageService', () => {
         // Mock the getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -980,6 +1092,11 @@ describe('WarmStorageService', () => {
         const originalCall = mockProvider.call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             getServicePriceCalled = true
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
@@ -1019,6 +1136,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1081,6 +1203,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1131,6 +1258,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1179,6 +1311,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1249,6 +1386,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1320,6 +1462,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1379,6 +1526,11 @@ describe('WarmStorageService', () => {
         // Mock getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
+
+          // Handle viewContractAddress
+          const viewResult = handleViewContractAddress(data)
+          if (viewResult != null) return viewResult
+
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
@@ -1458,6 +1610,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
@@ -1536,6 +1693,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
@@ -1607,6 +1769,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
@@ -1702,6 +1869,11 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
+
+        // Handle viewContractAddress
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
