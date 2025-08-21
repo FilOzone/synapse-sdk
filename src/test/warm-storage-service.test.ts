@@ -14,12 +14,13 @@ describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
   let warmStorageService: WarmStorageService
   const mockWarmStorageAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
+  const mockWarmStorageViewAddress = '0x0000000000000000000000000000000000000001'
   const clientAddress = '0x1234567890123456789012345678901234567890'
 
   beforeEach(() => {
     mockProvider = createMockProvider()
     const mockPdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-    warmStorageService = new WarmStorageService(mockProvider, mockWarmStorageAddress, mockPdpVerifierAddress)
+    warmStorageService = new WarmStorageService(mockProvider, mockWarmStorageAddress, mockWarmStorageViewAddress, mockPdpVerifierAddress)
   })
 
   describe('Instantiation', () => {

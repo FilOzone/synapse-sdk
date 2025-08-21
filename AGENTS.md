@@ -15,7 +15,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ### Key Components
 - `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
 - `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
-- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier.
+- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier; requires both main and view contract addresses.
 - `StorageService`: Storage implementation with upload/download.
 - `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
 
@@ -41,6 +41,13 @@ This document serves as context for LLM agent sessions working with the Synapse 
    - Payment methods via `synapse.payments.*` (PaymentsService)
    - Storage costs/allowances via WarmStorageService (separate instantiation)
    - Strict network validation - only supports Filecoin mainnet and calibration
+
+### Contract Addresses
+The SDK uses the following contract addresses (defined in `src/utils/constants.ts`):
+- `WARM_STORAGE`: Main Warm Storage contract
+- `WARM_STORAGE_VIEW`: View contract for read-only methods (required)
+- `PDP_VERIFIER`: PDPVerifier contract
+- `PAYMENTS`: Payments contract
 
 ### File Structure
 ```
@@ -163,6 +170,9 @@ WarmStorageService (storage coordination)
 
 #### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
 - **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
+- **Architecture**: Split into two contracts:
+  - Main contract: Write operations and service provider management
+  - View contract (`FilecoinWarmStorageServiceStateView.sol`): Read-only view methods for gas optimization
 - **Responsibilities**:
   - Validates client authentication signatures (EIP-712)
   - Manages service whitelist via `registerServiceProvider()`
