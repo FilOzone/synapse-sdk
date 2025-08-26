@@ -4,8 +4,19 @@
  */
 
 import { ethers } from 'ethers'
-import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS, getCurrentEpoch } from '../utils/index.js'
+import type {
+  FilecoinNetworkType,
+  TokenAmount,
+  TokenIdentifier,
+} from '../types.js'
+import {
+  CONTRACT_ABIS,
+  CONTRACT_ADDRESSES,
+  createError,
+  getCurrentEpoch,
+  TIMING_CONSTANTS,
+  TOKENS,
+} from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -30,7 +41,7 @@ export class PaymentsService {
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
 
-  constructor (
+  constructor(
     provider: ethers.Provider,
     signer: ethers.Signer,
     network: FilecoinNetworkType,
@@ -45,13 +56,19 @@ export class PaymentsService {
   /**
    * Get cached USDFC contract instance or create new one
    */
-  private _getUsdfcContract (): ethers.Contract {
+  private _getUsdfcContract(): ethers.Contract {
     if (this._usdfcContract == null) {
       const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
       if (usdfcAddress == null) {
-        throw new Error(`USDFC contract not deployed on ${this._network} network`)
+        throw new Error(
+          `USDFC contract not deployed on ${this._network} network`
+        )
       }
-      this._usdfcContract = new ethers.Contract(usdfcAddress, CONTRACT_ABIS.ERC20, this._signer)
+      this._usdfcContract = new ethers.Contract(
+        usdfcAddress,
+        CONTRACT_ABIS.ERC20,
+        this._signer
+      )
     }
     return this._usdfcContract
   }
@@ -59,18 +76,24 @@ export class PaymentsService {
   /**
    * Get cached payments contract instance or create new one
    */
-  private _getPaymentsContract (): ethers.Contract {
+  private _getPaymentsContract(): ethers.Contract {
     if (this._paymentsContract == null) {
       const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[this._network]
       if (paymentsAddress == null || paymentsAddress === '') {
-        throw new Error(`Payments contract not deployed on ${this._network} network. Currently only Calibration testnet is supported.`)
+        throw new Error(
+          `Payments contract not deployed on ${this._network} network. Currently only Calibration testnet is supported.`
+        )
       }
-      this._paymentsContract = new ethers.Contract(paymentsAddress, CONTRACT_ABIS.PAYMENTS, this._signer)
+      this._paymentsContract = new ethers.Contract(
+        paymentsAddress,
+        CONTRACT_ABIS.PAYMENTS,
+        this._signer
+      )
     }
     return this._paymentsContract
   }
 
-  async balance (token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
+  async balance(token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
     // For now, only support USDFC balance
     if (token !== TOKENS.USDFC) {
       throw createError(
@@ -89,7 +112,7 @@ export class PaymentsService {
    * @param token - The token to get account info for (defaults to USDFC)
    * @returns Account information including funds, lockup details, and available balance
    */
-  async accountInfo (token: TokenIdentifier = TOKENS.USDFC): Promise<{
+  async accountInfo(token: TokenIdentifier = TOKENS.USDFC): Promise<{
     funds: bigint
     lockupCurrent: bigint
     lockupRate: bigint
@@ -128,7 +151,8 @@ export class PaymentsService {
     // Calculate time-based lockup
     const currentEpoch = await getCurrentEpoch(this._provider)
     const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
-    const actualLockup = BigInt(lockupCurrent) + (BigInt(lockupRate) * epochsSinceSettlement)
+    const actualLockup =
+      BigInt(lockupCurrent) + BigInt(lockupRate) * epochsSinceSettlement
 
     // Calculate available funds
     const availableFunds = BigInt(funds) - actualLockup
@@ -138,11 +162,11 @@ export class PaymentsService {
       lockupCurrent: BigInt(lockupCurrent),
       lockupRate: BigInt(lockupRate),
       lockupLastSettledAt: BigInt(lockupLastSettledAt),
-      availableFunds: availableFunds > 0n ? availableFunds : 0n
+      availableFunds: availableFunds > 0n ? availableFunds : 0n,
     }
   }
 
-  async walletBalance (token?: TokenIdentifier): Promise<bigint> {
+  async walletBalance(token?: TokenIdentifier): Promise<bigint> {
     // If no token specified or FIL is requested, return native wallet balance
     if (token == null || token === TOKENS.FIL) {
       try {
@@ -184,7 +208,7 @@ export class PaymentsService {
     )
   }
 
-  decimals (token: TokenIdentifier = TOKENS.USDFC): number {
+  decimals(token: TokenIdentifier = TOKENS.USDFC): number {
     // Both FIL and USDFC use 18 decimals
     return 18
   }
@@ -195,16 +219,23 @@ export class PaymentsService {
    * @param spender - The address to check allowance for
    * @returns The current allowance amount as bigint
    */
-  async allowance (token: TokenIdentifier, spender: string): Promise<bigint> {
+  async allowance(token: TokenIdentifier, spender: string): Promise<bigint> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'allowance', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'allowance',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
     const usdfcContract = this._getUsdfcContract()
 
     try {
-      const currentAllowance = await usdfcContract.allowance(signerAddress, spender)
+      const currentAllowance = await usdfcContract.allowance(
+        signerAddress,
+        spender
+      )
       return currentAllowance
     } catch (error) {
       throw createError(
@@ -223,14 +254,26 @@ export class PaymentsService {
    * @param amount - The amount to approve
    * @returns Transaction response object
    */
-  async approve (token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<ethers.TransactionResponse> {
+  async approve(
+    token: TokenIdentifier,
+    spender: string,
+    amount: TokenAmount
+  ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'approve', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'approve',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const approveAmount = typeof amount === 'bigint' ? amount : BigInt(amount)
     if (approveAmount < 0n) {
-      throw createError('PaymentsService', 'approve', 'Approval amount cannot be negative')
+      throw createError(
+        'PaymentsService',
+        'approve',
+        'Approval amount cannot be negative'
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -239,12 +282,19 @@ export class PaymentsService {
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
     if (this._disableNonceManager) {
-      const approvalNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      const approvalNonce = await this._provider.getTransactionCount(
+        signerAddress,
+        'pending'
+      )
       txOptions.nonce = approvalNonce
     }
 
     try {
-      const approveTx = await usdfcContract.approve(spender, approveAmount, txOptions)
+      const approveTx = await usdfcContract.approve(
+        spender,
+        approveAmount,
+        txOptions
+      )
       return approveTx
     } catch (error) {
       throw createError(
@@ -267,7 +317,7 @@ export class PaymentsService {
    * @param token - The token to approve for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async approveService (
+  async approveService(
     service: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
@@ -275,15 +325,34 @@ export class PaymentsService {
     token: TokenIdentifier = TOKENS.USDFC
   ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'approveService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'approveService',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
-    const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
-    const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
-    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
+    const rateAllowanceBigint =
+      typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
+    const lockupAllowanceBigint =
+      typeof lockupAllowance === 'bigint'
+        ? lockupAllowance
+        : BigInt(lockupAllowance)
+    const maxLockupPeriodBigint =
+      typeof maxLockupPeriod === 'bigint'
+        ? maxLockupPeriod
+        : BigInt(maxLockupPeriod)
 
-    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
-      throw createError('PaymentsService', 'approveService', 'Allowance values cannot be negative')
+    if (
+      rateAllowanceBigint < 0n ||
+      lockupAllowanceBigint < 0n ||
+      maxLockupPeriodBigint < 0n
+    ) {
+      throw createError(
+        'PaymentsService',
+        'approveService',
+        'Allowance values cannot be negative'
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -293,7 +362,10 @@ export class PaymentsService {
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
     if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      const currentNonce = await this._provider.getTransactionCount(
+        signerAddress,
+        'pending'
+      )
       txOptions.nonce = currentNonce
     }
 
@@ -324,9 +396,16 @@ export class PaymentsService {
    * @param token - The token to revoke approval for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async revokeService (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async revokeService(
+    service: string,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'revokeService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'revokeService',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -336,7 +415,10 @@ export class PaymentsService {
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
     if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      const currentNonce = await this._provider.getTransactionCount(
+        signerAddress,
+        'pending'
+      )
       txOptions.nonce = currentNonce
     }
 
@@ -367,7 +449,10 @@ export class PaymentsService {
    * @param token - The token to check approval for (defaults to USDFC)
    * @returns Approval status and allowances
    */
-  async serviceApproval (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<{
+  async serviceApproval(
+    service: string,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<{
     isApproved: boolean
     rateAllowance: bigint
     rateUsed: bigint
@@ -376,7 +461,11 @@ export class PaymentsService {
     maxLockupPeriod: bigint
   }> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'serviceApproval', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'serviceApproval',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -384,14 +473,18 @@ export class PaymentsService {
     const paymentsContract = this._getPaymentsContract()
 
     try {
-      const approval = await paymentsContract.operatorApprovals(usdfcAddress, signerAddress, service)
+      const approval = await paymentsContract.operatorApprovals(
+        usdfcAddress,
+        signerAddress,
+        service
+      )
       return {
         isApproved: approval[0],
         rateAllowance: approval[1],
         lockupAllowance: approval[2],
         rateUsed: approval[3],
         lockupUsed: approval[4],
-        maxLockupPeriod: approval[5]
+        maxLockupPeriod: approval[5],
       }
     } catch (error) {
       throw createError(
@@ -403,13 +496,22 @@ export class PaymentsService {
     }
   }
 
-  async deposit (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC, callbacks?: DepositCallbacks): Promise<ethers.TransactionResponse> {
+  async deposit(
+    amount: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC,
+    callbacks?: DepositCallbacks
+  ): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'deposit', `Unsupported token: ${token}`)
+      throw createError(
+        'PaymentsService',
+        'deposit',
+        `Unsupported token: ${token}`
+      )
     }
 
-    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
+    const depositAmountBigint =
+      typeof amount === 'bigint' ? amount : BigInt(amount)
     if (depositAmountBigint <= 0n) {
       throw createError('PaymentsService', 'deposit', 'Invalid amount')
     }
@@ -436,7 +538,11 @@ export class PaymentsService {
     // Check and update allowance if needed
     const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[this._network]
     if (paymentsAddress == null) {
-      throw createError('PaymentsService', 'deposit', `Payments contract not deployed on ${this._network}`)
+      throw createError(
+        'PaymentsService',
+        'deposit',
+        `Payments contract not deployed on ${this._network}`
+      )
     }
 
     const currentAllowance = await this.allowance(token, paymentsAddress)
@@ -444,11 +550,17 @@ export class PaymentsService {
 
     if (currentAllowance < depositAmountBigint) {
       // Golden path: automatically approve the exact amount needed
-      const approveTx = await this.approve(token, paymentsAddress, depositAmountBigint)
+      const approveTx = await this.approve(
+        token,
+        paymentsAddress,
+        depositAmountBigint
+      )
       callbacks?.onApprovalTransaction?.(approveTx)
 
       // Wait for approval to be mined before proceeding
-      const approvalReceipt = await approveTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
+      const approvalReceipt = await approveTx.wait(
+        TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS
+      )
       if (approvalReceipt != null) {
         callbacks?.onApprovalConfirmed?.(approvalReceipt)
       }
@@ -462,7 +574,10 @@ export class PaymentsService {
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
     if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      const currentNonce = await this._provider.getTransactionCount(
+        signerAddress,
+        'pending'
+      )
       txOptions.nonce = currentNonce
     }
 
@@ -476,13 +591,21 @@ export class PaymentsService {
     return depositTx
   }
 
-  async withdraw (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async withdraw(
+    amount: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'withdraw', `Unsupported token: ${token}`)
+      throw createError(
+        'PaymentsService',
+        'withdraw',
+        `Unsupported token: ${token}`
+      )
     }
 
-    const withdrawAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
+    const withdrawAmountBigint =
+      typeof amount === 'bigint' ? amount : BigInt(amount)
 
     if (withdrawAmountBigint <= 0n) {
       throw createError('PaymentsService', 'withdraw', 'Invalid amount')
@@ -507,11 +630,18 @@ export class PaymentsService {
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
     if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      const currentNonce = await this._provider.getTransactionCount(
+        signerAddress,
+        'pending'
+      )
       txOptions.nonce = currentNonce
     }
 
-    const withdrawTx = await paymentsContract.withdraw(usdfcAddress, withdrawAmountBigint, txOptions)
+    const withdrawTx = await paymentsContract.withdraw(
+      usdfcAddress,
+      withdrawAmountBigint,
+      txOptions
+    )
 
     return withdrawTx
   }

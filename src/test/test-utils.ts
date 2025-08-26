@@ -5,34 +5,48 @@
 import { ethers } from 'ethers'
 
 // Mock signer factory
-export function createMockSigner (address: string = '0x1234567890123456789012345678901234567890', provider?: any): ethers.Signer {
+export function createMockSigner(
+  address: string = '0x1234567890123456789012345678901234567890',
+  provider?: any
+): ethers.Signer {
   const signer = {
     provider: provider ?? null,
-    async getAddress () { return address },
-    async signTransaction () { return '0xsignedtransaction' },
-    async signMessage () { return '0xsignedmessage' },
-    async signTypedData () { return '0xsignedtypeddata' },
-    connect (newProvider: any) {
+    async getAddress() {
+      return address
+    },
+    async signTransaction() {
+      return '0xsignedtransaction'
+    },
+    async signMessage() {
+      return '0xsignedmessage'
+    },
+    async signTypedData() {
+      return '0xsignedtypeddata'
+    },
+    connect(newProvider: any) {
       return createMockSigner(address, newProvider)
     },
-    async sendTransaction (transaction: any) {
+    async sendTransaction(transaction: any) {
       if (provider != null) {
         return provider.sendTransaction(transaction)
       }
       throw new Error('No provider for sendTransaction')
-    }
+    },
   }
   return signer as unknown as ethers.Signer
 }
 
 // Mock provider factory
-export function createMockProvider (chainId: number = 314159): ethers.Provider {
+export function createMockProvider(chainId: number = 314159): ethers.Provider {
   const network = new ethers.Network('test', chainId)
 
   const provider: any = {
     getNetwork: async () => network,
     getSigner: async function () {
-      return createMockSigner('0x1234567890123456789012345678901234567890', this)
+      return createMockSigner(
+        '0x1234567890123456789012345678901234567890',
+        this
+      )
     },
     getBalance: async (address: string) => ethers.parseEther('100'),
     getTransactionCount: async (address: string, blockTag?: string) => 0,
@@ -40,7 +54,7 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
       return {
         number: 1000000,
         timestamp: Math.floor(Date.now() / 1000),
-        hash: '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
+        hash: '0x' + Math.random().toString(16).substring(2).padEnd(64, '0'),
       }
     },
     call: async (transaction: any) => {
@@ -50,9 +64,12 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
 
       // Mock getServicePrice response for WarmStorage contract - function selector: 0x7bca0328
       // Check both the function selector and that it's to the WarmStorage contract address
-      if (data?.startsWith('0x7bca0328') === true &&
-          (to === '0x394feca6bcb84502d93c0c5c03c620ba8897e8f4' || // calibration address
-           to === '0xbfdc4454c2b573079c6c5ea1ddef6b8defc03dd5')) { // might be used in some tests
+      if (
+        data?.startsWith('0x7bca0328') === true &&
+        (to === '0x394feca6bcb84502d93c0c5c03c620ba8897e8f4' || // calibration address
+          to === '0xbfdc4454c2b573079c6c5ea1ddef6b8defc03dd5')
+      ) {
+        // might be used in some tests
         // Return mock pricing data: 2 USDFC per TiB per month, USDFC address, 86400 epochs per month
         const pricePerTiBPerMonth = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
         const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' // Mock USDFC address
@@ -63,7 +80,10 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         )
       }
       if (data.includes('70a08231') === true) {
-        return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
+        return ethers.zeroPadValue(
+          ethers.toBeHex(ethers.parseUnits('1000', 18)),
+          32
+        )
       }
       if (data.includes('313ce567') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(18), 32)
@@ -93,7 +113,14 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         const epochsPerMonth = 86400n
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(uint256,uint256,address,uint256)'],
-          [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
+          [
+            [
+              pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN,
+              tokenAddress,
+              epochsPerMonth,
+            ],
+          ]
         )
       }
       // Mock getRailsByPayer response - function selector: 0x89c6a46f
@@ -127,12 +154,40 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
           lockupPeriod: 28800n, // 10 days
           settledUpTo: 1000000,
           endEpoch: 0n, // Active rail
-          commissionRateBps: 100n // 1%
+          commissionRateBps: 100n, // 1%
         }
         // The getRail function returns a struct, encode all fields in order
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['address', 'address', 'address', 'address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [rail.token, rail.from, rail.to, rail.operator, rail.arbiter, rail.paymentRate, rail.paymentRateNew, rail.rateChangeEpoch, rail.lockupFixed, rail.lockupPeriod, rail.settledUpTo, rail.endEpoch, rail.commissionRateBps]
+          [
+            'address',
+            'address',
+            'address',
+            'address',
+            'address',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+            'uint256',
+          ],
+          [
+            rail.token,
+            rail.from,
+            rail.to,
+            rail.operator,
+            rail.arbiter,
+            rail.paymentRate,
+            rail.paymentRateNew,
+            rail.rateChangeEpoch,
+            rail.lockupFixed,
+            rail.lockupPeriod,
+            rail.settledUpTo,
+            rail.endEpoch,
+            rail.commissionRateBps,
+          ]
         )
       }
       // Mock operatorApprovals response
@@ -145,7 +200,14 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         const maxLockupPeriod = 86400n // 30 days
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed, maxLockupPeriod]
+          [
+            isApproved,
+            rateAllowance,
+            rateUsed,
+            lockupAllowance,
+            lockupUsed,
+            maxLockupPeriod,
+          ]
         )
       }
       return '0x'
@@ -153,11 +215,12 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
     getBlockNumber: async () => 1000000,
     getCode: async (address: string) => '0x1234',
     estimateGas: async (transaction: any) => 21000n,
-    getFeeData: async () => new ethers.FeeData(
-      ethers.parseUnits('1', 'gwei'),
-      ethers.parseUnits('1', 'gwei'),
-      ethers.parseUnits('1', 'gwei')
-    ),
+    getFeeData: async () =>
+      new ethers.FeeData(
+        ethers.parseUnits('1', 'gwei'),
+        ethers.parseUnits('1', 'gwei'),
+        ethers.parseUnits('1', 'gwei')
+      ),
     getLogs: async (filter: any) => [],
     resolveName: async (name: string) => null,
     lookupAddress: async (address: string) => null,
@@ -183,14 +246,19 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
         blockHash: '',
         blockNumber: 1000000,
         logs: [],
-        status: 1
+        status: 1,
       }
     },
-    waitForTransaction: async (hash: string, confirmations?: number, timeout?: number) => {
+    waitForTransaction: async (
+      hash: string,
+      confirmations?: number,
+      timeout?: number
+    ) => {
       throw new Error('Not implemented in mock')
     },
     sendTransaction: async (transaction: any) => {
-      const hash = '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
+      const hash =
+        '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
       return {
         hash,
         from: transaction.from ?? '',
@@ -216,10 +284,10 @@ export function createMockProvider (chainId: number = 314159): ethers.Provider {
           blockHash: '',
           blockNumber: 1000000,
           logs: [],
-          status: 1
-        })
+          status: 1,
+        }),
       } as any
-    }
+    },
   }
 
   return provider as ethers.Provider

@@ -3,8 +3,8 @@
  */
 
 import type { ApprovedProviderInfo, PieceCID } from '../types.js'
-import { constructPieceUrl, constructFindPieceUrl } from '../utils/piece.js'
 import { createError } from '../utils/errors.js'
+import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
 
 // Define the type for provider attempt results (internal to this function)
 interface ProviderAttemptResult {
@@ -20,14 +20,14 @@ interface ProviderAttemptResult {
  * @param signal - Optional abort signal
  * @returns The first successful response
  */
-export async function fetchPiecesFromProviders (
+export async function fetchPiecesFromProviders(
   providers: ApprovedProviderInfo[],
   pieceCid: PieceCID,
   retrieverName: string,
   signal?: AbortSignal
 ): Promise<Response> {
   // Track failures for error reporting
-  const failures: Array<{ provider: string, error: string }> = []
+  const failures: Array<{ provider: string; error: string }> = []
 
   // Create individual abort controllers for each provider
   const abortControllers: AbortController[] = []
@@ -58,14 +58,14 @@ export async function fetchPiecesFromProviders (
         // Phase 1: Check if provider has the piece
         const findUrl = constructFindPieceUrl(provider.serviceURL, pieceCid)
         const findResponse = await fetch(findUrl, {
-          signal: controller.signal
+          signal: controller.signal,
         })
 
         if (!findResponse.ok) {
           // Provider doesn't have the piece
           failures.push({
             provider: provider.serviceProvider,
-            error: `findPiece returned ${findResponse.status}`
+            error: `findPiece returned ${findResponse.status}`,
           })
           throw new Error('Provider does not have piece')
         }
@@ -73,7 +73,7 @@ export async function fetchPiecesFromProviders (
         // Phase 2: Provider has piece, download it
         const downloadUrl = constructPieceUrl(provider.serviceURL, pieceCid)
         const response = await fetch(downloadUrl, {
-          signal: controller.signal
+          signal: controller.signal,
         })
 
         if (response.ok) {
@@ -84,7 +84,7 @@ export async function fetchPiecesFromProviders (
         // Download failed
         failures.push({
           provider: provider.serviceProvider,
-          error: `download returned ${response.status}`
+          error: `download returned ${response.status}`,
         })
         throw new Error(`Download failed with status ${response.status}`)
       } catch (error: any) {
@@ -94,7 +94,10 @@ export async function fetchPiecesFromProviders (
           failures.push({ provider: provider.serviceProvider, error: errorMsg })
         }
         // TODO: remove this at some point, it might get noisy
-        console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
+        console.warn(
+          `Failed to fetch from provider ${provider.serviceProvider}:`,
+          errorMsg
+        )
         throw error
       }
     }
@@ -116,7 +119,9 @@ export async function fetchPiecesFromProviders (
     // Promise.any throws AggregateError when all promises reject
     if (error instanceof AggregateError) {
       // All providers failed
-      const failureDetails = failures.map((f) => `${f.provider}: ${f.error}`).join('; ')
+      const failureDetails = failures
+        .map((f) => `${f.provider}: ${f.error}`)
+        .join('; ')
       throw createError(
         retrieverName,
         'fetchPiecesFromProviders',

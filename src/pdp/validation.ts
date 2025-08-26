@@ -5,13 +5,13 @@
  * match the expected format before using them in the SDK.
  */
 
+import { asPieceCID } from '../piece/index.js'
+import type { DataSetData, DataSetPieceData } from '../types.js'
 import type {
   DataSetCreationStatusResponse,
+  FindPieceResponse,
   PieceAdditionStatusResponse,
-  FindPieceResponse
 } from './server.js'
-import type { DataSetData, DataSetPieceData } from '../types.js'
-import { asPieceCID } from '../piece/index.js'
 
 /**
  * Type guard for DataSetCreationStatusResponse
@@ -20,7 +20,9 @@ import { asPieceCID } from '../piece/index.js'
  * @param value - The value to validate
  * @returns True if the value matches DataSetCreationStatusResponse interface
  */
-export function isDataSetCreationStatusResponse (value: unknown): value is DataSetCreationStatusResponse {
+export function isDataSetCreationStatusResponse(
+  value: unknown
+): value is DataSetCreationStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -59,7 +61,9 @@ export function isDataSetCreationStatusResponse (value: unknown): value is DataS
  * @param value - The value to validate
  * @returns True if the value matches PieceAdditionStatusResponse interface
  */
-export function isPieceAdditionStatusResponse (value: unknown): value is PieceAdditionStatusResponse {
+export function isPieceAdditionStatusResponse(
+  value: unknown
+): value is PieceAdditionStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -107,7 +111,9 @@ export function isPieceAdditionStatusResponse (value: unknown): value is PieceAd
  * @param value - The value to validate
  * @returns True if the value matches FindPieceResponse interface
  */
-export function isFindPieceResponse (value: unknown): value is FindPieceResponse {
+export function isFindPieceResponse(
+  value: unknown
+): value is FindPieceResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -131,7 +137,9 @@ export function isFindPieceResponse (value: unknown): value is FindPieceResponse
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validateDataSetCreationStatusResponse (value: unknown): DataSetCreationStatusResponse {
+export function validateDataSetCreationStatusResponse(
+  value: unknown
+): DataSetCreationStatusResponse {
   if (!isDataSetCreationStatusResponse(value)) {
     throw new Error('Invalid data set creation status response format')
   }
@@ -143,7 +151,9 @@ export function validateDataSetCreationStatusResponse (value: unknown): DataSetC
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validatePieceAdditionStatusResponse (value: unknown): PieceAdditionStatusResponse {
+export function validatePieceAdditionStatusResponse(
+  value: unknown
+): PieceAdditionStatusResponse {
   if (!isPieceAdditionStatusResponse(value)) {
     throw new Error('Invalid piece addition status response format')
   }
@@ -156,14 +166,16 @@ export function validatePieceAdditionStatusResponse (value: unknown): PieceAddit
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validateFindPieceResponse (value: unknown): FindPieceResponse {
+export function validateFindPieceResponse(value: unknown): FindPieceResponse {
   if (!isFindPieceResponse(value)) {
     // Check if it failed specifically due to invalid PieceCID
     if (typeof value === 'object' && value != null) {
       const obj = value as Record<string, unknown>
       const cidStr = (obj.pieceCid ?? obj.piece_cid) as string | undefined
       if (cidStr != null && asPieceCID(cidStr) == null) {
-        throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
+        throw new Error(
+          'Invalid find piece response: pieceCid is not a valid PieceCID'
+        )
       }
     }
     throw new Error('Invalid find piece response format')
@@ -178,13 +190,15 @@ export function validateFindPieceResponse (value: unknown): FindPieceResponse {
   const pieceCid = asPieceCID(cidStr)
   if (pieceCid == null) {
     // This should never happen since we validated above, but just in case
-    throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
+    throw new Error(
+      'Invalid find piece response: pieceCid is not a valid PieceCID'
+    )
   }
 
   // Return normalized response with PieceCID object
   return {
     pieceCid,
-    piece_cid: obj.piece_cid // Keep legacy field if it exists
+    piece_cid: obj.piece_cid, // Keep legacy field if it exists
   }
 }
 
@@ -195,7 +209,7 @@ export function validateFindPieceResponse (value: unknown): FindPieceResponse {
  * @param value - The value to validate and convert
  * @returns Converted DataSetPieceData or null if invalid
  */
-export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
+export function asDataSetPieceData(value: unknown): DataSetPieceData | null {
   if (typeof value !== 'object' || value == null) {
     return null
   }
@@ -227,7 +241,7 @@ export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
     pieceId: obj.pieceId,
     pieceCid,
     subPieceCid,
-    subPieceOffset: obj.subPieceOffset
+    subPieceOffset: obj.subPieceOffset,
   }
 }
 
@@ -238,7 +252,7 @@ export function asDataSetPieceData (value: unknown): DataSetPieceData | null {
  * @param value - The value to validate and convert
  * @returns Converted DataSetData or null if invalid
  */
-export function asDataSetData (value: unknown): DataSetData | null {
+export function asDataSetData(value: unknown): DataSetData | null {
   if (typeof value !== 'object' || value == null) {
     return null
   }
@@ -272,6 +286,6 @@ export function asDataSetData (value: unknown): DataSetData | null {
   return {
     id: obj.id,
     pieces: convertedPieces,
-    nextChallengeEpoch: obj.nextChallengeEpoch
+    nextChallengeEpoch: obj.nextChallengeEpoch,
   }
 }

@@ -6,8 +6,8 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { Synapse } from '../synapse.js'
 import { PaymentsService } from '../payments/index.js'
+import { Synapse } from '../synapse.js'
 import { createMockProvider, createMockSigner } from './test-utils.js'
 
 describe('Synapse', () => {
@@ -16,7 +16,10 @@ describe('Synapse', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    mockSigner = createMockSigner(
+      '0x1234567890123456789012345678901234567890',
+      mockProvider
+    )
   })
 
   describe('Instantiation', () => {
@@ -51,14 +54,20 @@ describe('Synapse', () => {
     })
 
     it('should allow disabling NonceManager', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner, disableNonceManager: true })
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        disableNonceManager: true,
+      })
       assert.exists(synapse)
       // We can't directly check if NonceManager is not applied, but we can verify the instance is created
     })
 
     it.skip('should allow enabling CDN', async () => {
       // Skip this test as it requires real contract interactions
-      const synapse = await Synapse.create({ signer: mockSigner, withCDN: true })
+      const synapse = await Synapse.create({
+        signer: mockSigner,
+        withCDN: true,
+      })
       const storageService = await synapse.createStorage()
       assert.exists(storageService)
       // CDN is part of the storage service configuration
@@ -78,7 +87,7 @@ describe('Synapse', () => {
         await Synapse.create({
           privateKey: '0x123',
           provider: mockProvider,
-          rpcURL: 'https://example.com'
+          rpcURL: 'https://example.com',
         } as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -89,11 +98,15 @@ describe('Synapse', () => {
     it('should reject privateKey without rpcURL', async () => {
       try {
         await Synapse.create({
-          privateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          privateKey:
+            '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'rpcURL is required when using privateKey')
+        assert.include(
+          error.message,
+          'rpcURL is required when using privateKey'
+        )
       }
     })
   })
@@ -123,17 +136,18 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({
         provider: mainnetProvider,
         warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
-        pdpVerifierAddress: '0x9876543210987654321098765432109876543210' // Custom PDPVerifier address for mainnet
+        pdpVerifierAddress: '0x9876543210987654321098765432109876543210', // Custom PDPVerifier address for mainnet
       })
       assert.exists(synapse)
     })
 
     it('should accept custom pdpVerifierAddress', async () => {
       const calibrationProvider = createMockProvider(314159)
-      const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
+      const customPDPVerifierAddress =
+        '0xabcdef1234567890123456789012345678901234'
       const synapse = await Synapse.create({
         provider: calibrationProvider,
-        pdpVerifierAddress: customPDPVerifierAddress
+        pdpVerifierAddress: customPDPVerifierAddress,
       })
       assert.exists(synapse)
       assert.equal(synapse.getPDPVerifierAddress(), customPDPVerifierAddress)
@@ -142,20 +156,25 @@ describe('Synapse', () => {
     it('should use default pdpVerifierAddress when not provided', async () => {
       const calibrationProvider = createMockProvider(314159)
       const synapse = await Synapse.create({
-        provider: calibrationProvider
+        provider: calibrationProvider,
       })
       assert.exists(synapse)
-      assert.equal(synapse.getPDPVerifierAddress(), '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9') // Calibration default
+      assert.equal(
+        synapse.getPDPVerifierAddress(),
+        '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9'
+      ) // Calibration default
     })
 
     it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
       const mainnetProvider = createMockProvider(314)
-      const customWarmStorageAddress = '0x1111111111111111111111111111111111111111'
-      const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
+      const customWarmStorageAddress =
+        '0x1111111111111111111111111111111111111111'
+      const customPDPVerifierAddress =
+        '0x2222222222222222222222222222222222222222'
       const synapse = await Synapse.create({
         provider: mainnetProvider,
         warmStorageAddress: customWarmStorageAddress,
-        pdpVerifierAddress: customPDPVerifierAddress
+        pdpVerifierAddress: customPDPVerifierAddress,
       })
       assert.exists(synapse)
       assert.equal(synapse.getWarmStorageAddress(), customWarmStorageAddress)
@@ -182,7 +201,7 @@ describe('Synapse', () => {
     it('should create storage manager with CDN settings', async () => {
       const synapse = await Synapse.create({
         signer: mockSigner,
-        withCDN: true
+        withCDN: true,
       })
 
       assert.exists(synapse.storage)
@@ -218,7 +237,10 @@ describe('Synapse', () => {
       assert.isFunction(synapse.payments.decimals)
 
       // payments property should be read-only (getter only)
-      const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(synapse), 'payments')
+      const descriptor = Object.getOwnPropertyDescriptor(
+        Object.getPrototypeOf(synapse),
+        'payments'
+      )
       assert.exists(descriptor?.get)
       assert.notExists(descriptor?.set)
     })
@@ -232,7 +254,7 @@ describe('Synapse', () => {
         serviceURL: 'https://pdp.example.com',
         peerId: 'test-peer-id',
         registeredAt: 1000000,
-        approvedAt: 2000000
+        approvedAt: 2000000,
       }
 
       // Mock WarmStorageService calls
@@ -249,13 +271,15 @@ describe('Synapse', () => {
         if (data?.startsWith('0x1c7db86a') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)'],
-            [[
-              expectedProviderInfo.serviceProvider,
-              expectedProviderInfo.serviceURL,
-              ethers.toUtf8Bytes(expectedProviderInfo.peerId),
-              expectedProviderInfo.registeredAt,
-              expectedProviderInfo.approvedAt
-            ]]
+            [
+              [
+                expectedProviderInfo.serviceProvider,
+                expectedProviderInfo.serviceURL,
+                ethers.toUtf8Bytes(expectedProviderInfo.peerId),
+                expectedProviderInfo.registeredAt,
+                expectedProviderInfo.approvedAt,
+              ],
+            ]
           )
         }
 
@@ -266,10 +290,16 @@ describe('Synapse', () => {
         const synapse = await Synapse.create({ signer: mockSigner })
         const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
 
-        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
+        assert.equal(
+          providerInfo.serviceProvider.toLowerCase(),
+          mockProviderAddress.toLowerCase()
+        )
         assert.equal(providerInfo.serviceURL, expectedProviderInfo.serviceURL)
         assert.equal(providerInfo.peerId, expectedProviderInfo.peerId)
-        assert.equal(providerInfo.registeredAt, expectedProviderInfo.registeredAt)
+        assert.equal(
+          providerInfo.registeredAt,
+          expectedProviderInfo.registeredAt
+        )
         assert.equal(providerInfo.approvedAt, expectedProviderInfo.approvedAt)
       } finally {
         mockProvider.call = originalCall
@@ -331,13 +361,7 @@ describe('Synapse', () => {
         if (data?.startsWith('0x1c7db86a') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)'],
-            [[
-              ethers.ZeroAddress,
-              '',
-              ethers.toUtf8Bytes(''),
-              0,
-              0
-            ]]
+            [[ethers.ZeroAddress, '', ethers.toUtf8Bytes(''), 0, 0]]
           )
         }
 
@@ -376,16 +400,17 @@ describe('Synapse', () => {
       // Mock the piece retriever
       const mockResponse = new Response(testData, { status: 200 })
       const mockRetriever = {
-        fetchPiece: async () => mockResponse
+        fetchPiece: async () => mockResponse,
       }
 
       const synapse = await Synapse.create({
         signer: mockSigner,
-        pieceRetriever: mockRetriever
+        pieceRetriever: mockRetriever,
       })
 
       // Use the actual PieceCID for 'test data'
-      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid =
+        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const data = await synapse.download(testPieceCid)
 
       // Should return Uint8Array
@@ -400,16 +425,17 @@ describe('Synapse', () => {
         fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           cdnOptionReceived = options?.withCDN
           return new Response(testData)
-        }
+        },
       }
 
       const synapse = await Synapse.create({
         signer: mockSigner,
         pieceRetriever: mockRetriever,
-        withCDN: false // Instance default
+        withCDN: false, // Instance default
       })
 
-      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid =
+        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       // Test with explicit withCDN
       await synapse.download(testPieceCid, { withCDN: true })
@@ -427,15 +453,16 @@ describe('Synapse', () => {
         fetchPiece: async (pieceCid: any, client: string, options?: any) => {
           providerAddressReceived = options?.providerAddress
           return new Response(testData)
-        }
+        },
       }
 
       const synapse = await Synapse.create({
         signer: mockSigner,
-        pieceRetriever: mockRetriever
+        pieceRetriever: mockRetriever,
       })
 
-      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid =
+        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const testProvider = '0x1234567890123456789012345678901234567890'
 
       await synapse.download(testPieceCid, { providerAddress: testProvider })
@@ -446,15 +473,16 @@ describe('Synapse', () => {
       const mockRetriever = {
         fetchPiece: async () => {
           throw new Error('Network error')
-        }
+        },
       }
 
       const synapse = await Synapse.create({
         signer: mockSigner,
-        pieceRetriever: mockRetriever
+        pieceRetriever: mockRetriever,
       })
 
-      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid =
+        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       try {
         await synapse.download(testPieceCid)
@@ -474,15 +502,15 @@ describe('Synapse', () => {
           serviceURL: 'https://pdp1.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567890,
-          approvedAt: 1234567891
+          approvedAt: 1234567891,
         },
         {
           serviceProvider: '0x2222222222222222222222222222222222222222',
           serviceURL: 'https://pdp2.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567892,
-          approvedAt: 1234567893
-        }
+          approvedAt: 1234567893,
+        },
       ]
 
       // Mock pricing data
@@ -490,7 +518,7 @@ describe('Synapse', () => {
         pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18), // 2 USDFC per TiB per month
         pricePerTiBPerMonthWithCDN: ethers.parseUnits('3', 18), // 3 USDFC per TiB per month
         tokenAddress: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-        epochsPerMonth: 86400
+        epochsPerMonth: 86400,
       }
 
       // Mock allowances
@@ -499,7 +527,7 @@ describe('Synapse', () => {
         rateAllowance: BigInt(1000000),
         lockupAllowance: BigInt(10000000),
         rateUsed: BigInt(500000),
-        lockupUsed: BigInt(5000000)
+        lockupUsed: BigInt(5000000),
       }
 
       // Mock provider call responses
@@ -511,12 +539,14 @@ describe('Synapse', () => {
         if (data?.startsWith('0x5482bdf9') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,address,uint256)'],
-            [[
-              mockPricingData.pricePerTiBPerMonthNoCDN,
-              mockPricingData.pricePerTiBPerMonthWithCDN,
-              mockPricingData.tokenAddress,
-              mockPricingData.epochsPerMonth
-            ]]
+            [
+              [
+                mockPricingData.pricePerTiBPerMonthNoCDN,
+                mockPricingData.pricePerTiBPerMonthWithCDN,
+                mockPricingData.tokenAddress,
+                mockPricingData.epochsPerMonth,
+              ],
+            ]
           )
         }
 
@@ -524,7 +554,15 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [
+              mockProviders.map((p) => [
+                p.serviceProvider,
+                p.serviceURL,
+                ethers.toUtf8Bytes(p.peerId),
+                p.registeredAt,
+                p.approvedAt,
+              ]),
+            ]
           )
         }
 
@@ -538,7 +576,7 @@ describe('Synapse', () => {
               mockAllowances.lockupAllowance,
               mockAllowances.rateUsed,
               mockAllowances.lockupUsed,
-              86400n // maxLockupPeriod: 30 days
+              86400n, // maxLockupPeriod: 30 days
             ]
           )
         }
@@ -557,26 +595,47 @@ describe('Synapse', () => {
 
         // Verify pricing calculations (2 USDFC per TiB per month)
         const expectedNoCDNMonthly = ethers.parseUnits('2', 18) // 2 USDFC
-        assert.equal(storageInfo.pricing.noCDN.perTiBPerMonth, expectedNoCDNMonthly)
+        assert.equal(
+          storageInfo.pricing.noCDN.perTiBPerMonth,
+          expectedNoCDNMonthly
+        )
 
         // Check providers
         assert.equal(storageInfo.providers.length, 2)
-        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
-        assert.equal(storageInfo.providers[1].serviceProvider, mockProviders[1].serviceProvider)
+        assert.equal(
+          storageInfo.providers[0].serviceProvider,
+          mockProviders[0].serviceProvider
+        )
+        assert.equal(
+          storageInfo.providers[1].serviceProvider,
+          mockProviders[1].serviceProvider
+        )
 
         // Check service parameters
         assert.equal(storageInfo.serviceParameters.network, 'calibration')
-        assert.equal(storageInfo.serviceParameters.epochsPerMonth, BigInt(86400))
+        assert.equal(
+          storageInfo.serviceParameters.epochsPerMonth,
+          BigInt(86400)
+        )
         assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
         assert.equal(storageInfo.serviceParameters.epochDuration, 30)
         assert.equal(storageInfo.serviceParameters.minUploadSize, 65)
-        assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
+        assert.equal(
+          storageInfo.serviceParameters.maxUploadSize,
+          200 * 1024 * 1024
+        )
 
         // Check allowances
         assert.exists(storageInfo.allowances)
         assert.equal(storageInfo.allowances?.service, mockAllowances.service)
-        assert.equal(storageInfo.allowances?.rateAllowance, mockAllowances.rateAllowance)
-        assert.equal(storageInfo.allowances?.lockupAllowance, mockAllowances.lockupAllowance)
+        assert.equal(
+          storageInfo.allowances?.rateAllowance,
+          mockAllowances.rateAllowance
+        )
+        assert.equal(
+          storageInfo.allowances?.lockupAllowance,
+          mockAllowances.lockupAllowance
+        )
       } finally {
         mockProvider.call = originalCall
       }
@@ -591,7 +650,7 @@ describe('Synapse', () => {
         pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18), // 2 USDFC per TiB per month
         pricePerTiBPerMonthWithCDN: ethers.parseUnits('3', 18), // 3 USDFC per TiB per month
         tokenAddress: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-        epochsPerMonth: 86400
+        epochsPerMonth: 86400,
       }
 
       // Mock provider call responses
@@ -603,12 +662,14 @@ describe('Synapse', () => {
         if (data?.startsWith('0x5482bdf9') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,address,uint256)'],
-            [[
-              mockPricingData.pricePerTiBPerMonthNoCDN,
-              mockPricingData.pricePerTiBPerMonthWithCDN,
-              mockPricingData.tokenAddress,
-              mockPricingData.epochsPerMonth
-            ]]
+            [
+              [
+                mockPricingData.pricePerTiBPerMonthNoCDN,
+                mockPricingData.pricePerTiBPerMonthWithCDN,
+                mockPricingData.tokenAddress,
+                mockPricingData.epochsPerMonth,
+              ],
+            ]
           )
         }
 
@@ -616,7 +677,15 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [
+              mockProviders.map((p) => [
+                p.serviceProvider,
+                p.serviceURL,
+                ethers.toUtf8Bytes(p.peerId),
+                p.registeredAt,
+                p.approvedAt,
+              ]),
+            ]
           )
         }
 
@@ -650,15 +719,15 @@ describe('Synapse', () => {
           serviceURL: 'https://pdp1.example.com',
           peerId: 'test-peer-id',
           registeredAt: 1234567890,
-          approvedAt: 1234567891
+          approvedAt: 1234567891,
         },
         {
           serviceProvider: ethers.ZeroAddress,
           serviceURL: '',
           peerId: '',
           registeredAt: 0,
-          approvedAt: 0
-        }
+          approvedAt: 0,
+        },
       ]
 
       // Mock pricing data
@@ -666,7 +735,7 @@ describe('Synapse', () => {
         pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18), // 2 USDFC per TiB per month
         pricePerTiBPerMonthWithCDN: ethers.parseUnits('3', 18), // 3 USDFC per TiB per month
         tokenAddress: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-        epochsPerMonth: 86400
+        epochsPerMonth: 86400,
       }
 
       // Mock provider call responses
@@ -678,12 +747,14 @@ describe('Synapse', () => {
         if (data?.startsWith('0x5482bdf9') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,address,uint256)'],
-            [[
-              mockPricingData.pricePerTiBPerMonthNoCDN,
-              mockPricingData.pricePerTiBPerMonthWithCDN,
-              mockPricingData.tokenAddress,
-              mockPricingData.epochsPerMonth
-            ]]
+            [
+              [
+                mockPricingData.pricePerTiBPerMonthNoCDN,
+                mockPricingData.pricePerTiBPerMonthWithCDN,
+                mockPricingData.tokenAddress,
+                mockPricingData.epochsPerMonth,
+              ],
+            ]
           )
         }
 
@@ -691,7 +762,15 @@ describe('Synapse', () => {
         if (data?.startsWith('0x0af14754') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)[]'],
-            [mockProviders.map(p => [p.serviceProvider, p.serviceURL, ethers.toUtf8Bytes(p.peerId), p.registeredAt, p.approvedAt])]
+            [
+              mockProviders.map((p) => [
+                p.serviceProvider,
+                p.serviceURL,
+                ethers.toUtf8Bytes(p.peerId),
+                p.registeredAt,
+                p.approvedAt,
+              ]),
+            ]
           )
         }
 
@@ -709,7 +788,10 @@ describe('Synapse', () => {
 
         // Should filter out zero address provider
         assert.equal(storageInfo.providers.length, 1)
-        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
+        assert.equal(
+          storageInfo.providers[0].serviceProvider,
+          mockProviders[0].serviceProvider
+        )
       } finally {
         mockProvider.call = originalCall
       }
@@ -727,7 +809,10 @@ describe('Synapse', () => {
         await synapse.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get storage service information')
+        assert.include(
+          error.message,
+          'Failed to get storage service information'
+        )
         assert.include(error.message, 'RPC error')
       } finally {
         mockProvider.call = originalCall

@@ -97,9 +97,7 @@ export interface UploadTask {
  * Currently empty, reserved for future options
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface DownloadOptions {
-  // Reserved for future options
-}
+export type DownloadOptions = {}
 
 /**
  * PieceRetriever interface for fetching pieces from various sources
@@ -159,7 +157,9 @@ export interface SubgraphRetrievalService {
    * @param pieceCid - The PieceCID of the data segment.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    */
-  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForPieceCID: (
+    pieceCid: PieceCID
+  ) => Promise<ApprovedProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.
@@ -167,7 +167,9 @@ export interface SubgraphRetrievalService {
    * @param address - The unique address (ID) of the provider.
    * @returns A promise that resolves to `ApprovedProviderInfo` if found, otherwise `null`.
    */
-  getProviderByAddress: (address: string) => Promise<ApprovedProviderInfo | null>
+  getProviderByAddress: (
+    address: string
+  ) => Promise<ApprovedProviderInfo | null>
 }
 
 /**
@@ -266,7 +268,10 @@ export interface StorageCreationCallbacks {
    * @param transaction - Transaction response object
    * @param statusUrl - URL to check status (optional)
    */
-  onDataSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
+  onDataSetCreationStarted?: (
+    transaction: ethers.TransactionResponse,
+    statusUrl?: string
+  ) => void
 
   /**
    * Called periodically during data set creation

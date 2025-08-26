@@ -3,8 +3,8 @@
  */
 
 import { ethers } from 'ethers'
-import { type AuthSignature } from '../types.js'
-import { asPieceCID, PieceCID } from '../piece/index.js'
+import { asPieceCID, type PieceCID } from '../piece/index.js'
+import type { AuthSignature } from '../types.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -18,23 +18,19 @@ const EIP712_TYPES = {
   CreateDataSet: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'withCDN', type: 'bool' },
-    { name: 'payee', type: 'address' }
+    { name: 'payee', type: 'address' },
   ],
-  Cid: [
-    { name: 'data', type: 'bytes' }
-  ],
+  Cid: [{ name: 'data', type: 'bytes' }],
   AddPieces: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'firstAdded', type: 'uint256' },
-    { name: 'pieceData', type: 'Cid[]' }
+    { name: 'pieceData', type: 'Cid[]' },
   ],
   SchedulePieceRemovals: [
     { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'pieceIds', type: 'uint256[]' }
+    { name: 'pieceIds', type: 'uint256[]' },
   ],
-  DeleteDataSet: [
-    { name: 'clientDataSetId', type: 'uint256' }
-  ]
+  DeleteDataSet: [{ name: 'clientDataSetId', type: 'uint256' }],
 }
 
 /**
@@ -68,7 +64,11 @@ export class PDPAuthHelper {
   private readonly signer: ethers.Signer
   private readonly domain: ethers.TypedDataDomain
 
-  constructor (serviceContractAddress: string, signer: ethers.Signer, chainId: bigint) {
+  constructor(
+    serviceContractAddress: string,
+    signer: ethers.Signer,
+    chainId: bigint
+  ) {
     this.signer = signer
 
     // EIP-712 domain
@@ -76,16 +76,19 @@ export class PDPAuthHelper {
       name: 'FilecoinWarmStorageService',
       version: '1',
       chainId: Number(chainId),
-      verifyingContract: serviceContractAddress
+      verifyingContract: serviceContractAddress,
     }
   }
 
   /**
    * Get the actual signer, unwrapping NonceManager if needed
    */
-  private getUnderlyingSigner (): ethers.Signer {
+  private getUnderlyingSigner(): ethers.Signer {
     // Check if this is a NonceManager-wrapped signer
-    if ('signer' in this.signer && this.signer.constructor.name === 'NonceManager') {
+    if (
+      'signer' in this.signer &&
+      this.signer.constructor.name === 'NonceManager'
+    ) {
       // Access the underlying signer for signTypedData support
       return (this.signer as any).signer
     }
@@ -95,7 +98,7 @@ export class PDPAuthHelper {
   /**
    * Check if the signer is a browser provider (MetaMask, etc)
    */
-  private async isMetaMaskSigner (): Promise<boolean> {
+  private async isMetaMaskSigner(): Promise<boolean> {
     try {
       // Get the actual signer (unwrap NonceManager if needed)
       const actualSigner = this.getUnderlyingSigner()
@@ -138,8 +141,8 @@ export class PDPAuthHelper {
    * Sign typed data with MetaMask-friendly display
    * This bypasses ethers.js conversion to show human-readable values in MetaMask
    */
-  private async signWithMetaMask (
-    types: Record<string, Array<{ name: string, type: string }>>,
+  private async signWithMetaMask(
+    types: Record<string, Array<{ name: string; type: string }>>,
     value: any
   ): Promise<string> {
     const provider = this.signer.provider
@@ -166,13 +169,13 @@ export class PDPAuthHelper {
           { name: 'name', type: 'string' },
           { name: 'version', type: 'string' },
           { name: 'chainId', type: 'uint256' },
-          { name: 'verifyingContract', type: 'address' }
+          { name: 'verifyingContract', type: 'address' },
         ],
-        ...types
+        ...types,
       },
       primaryType,
       domain: this.domain,
-      message: value
+      message: value,
     }
 
     // For ethers v6, we need to access the underlying EIP-1193 provider
@@ -194,13 +197,13 @@ export class PDPAuthHelper {
       // Use EIP-1193 request method
       signature = await eip1193Provider.request({
         method: 'eth_signTypedData_v4',
-        params: [signerAddress.toLowerCase(), JSON.stringify(typedData)]
+        params: [signerAddress.toLowerCase(), JSON.stringify(typedData)],
       })
     } else {
       // Fallback to send method
       signature = await (provider as any).send('eth_signTypedData_v4', [
         signerAddress.toLowerCase(),
-        JSON.stringify(typedData)
+        JSON.stringify(typedData),
       ])
     }
 
@@ -229,7 +232,7 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signCreateDataSet (
+  async signCreateDataSet(
     clientDataSetId: number | bigint,
     payee: string,
     withCDN: boolean = false
@@ -244,7 +247,7 @@ export class PDPAuthHelper {
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
         withCDN,
-        payee
+        payee,
       }
 
       signature = await this.signWithMetaMask(
@@ -256,7 +259,7 @@ export class PDPAuthHelper {
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
         withCDN,
-        payee
+        payee,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -278,7 +281,7 @@ export class PDPAuthHelper {
       {
         clientDataSetId: BigInt(clientDataSetId),
         withCDN,
-        payee
+        payee,
       }
     )
 
@@ -287,7 +290,7 @@ export class PDPAuthHelper {
       v: sig.v,
       r: sig.r,
       s: sig.s,
-      signedData
+      signedData,
     }
   }
 
@@ -317,7 +320,7 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signAddPieces (
+  async signAddPieces(
     clientDataSetId: number | bigint,
     firstPieceId: number | bigint,
     pieceDataArray: PieceCID[] | string[]
@@ -332,7 +335,7 @@ export class PDPAuthHelper {
 
       // Format as nested structure matching Solidity's Cids.Cid struct
       formattedPieceData.push({
-        data: pieceCid.bytes // This will be a Uint8Array
+        data: pieceCid.bytes, // This will be a Uint8Array
       })
     }
 
@@ -346,15 +349,15 @@ export class PDPAuthHelper {
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
         firstAdded: firstPieceId.toString(), // Keep as string for MetaMask display
-        pieceData: formattedPieceData.map(item => ({
-          data: ethers.hexlify(item.data) // Convert Uint8Array to hex string for MetaMask
-        }))
+        pieceData: formattedPieceData.map((item) => ({
+          data: ethers.hexlify(item.data), // Convert Uint8Array to hex string for MetaMask
+        })),
       }
 
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid,
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -363,13 +366,13 @@ export class PDPAuthHelper {
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
         firstAdded: BigInt(firstPieceId),
-        pieceData: formattedPieceData
+        pieceData: formattedPieceData,
       }
 
       // Define the complete type structure
       const types = {
         AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -385,12 +388,12 @@ export class PDPAuthHelper {
       this.domain,
       {
         AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid
+        Cid: EIP712_TYPES.Cid,
       },
       {
         clientDataSetId: BigInt(clientDataSetId),
         firstAdded: BigInt(firstPieceId),
-        pieceData: formattedPieceData
+        pieceData: formattedPieceData,
       }
     )
 
@@ -399,7 +402,7 @@ export class PDPAuthHelper {
       v: sig.v,
       r: sig.r,
       s: sig.s,
-      signedData
+      signedData,
     }
   }
 
@@ -423,12 +426,12 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signSchedulePieceRemovals (
+  async signSchedulePieceRemovals(
     clientDataSetId: number | bigint,
     pieceIds: Array<number | bigint>
   ): Promise<AuthSignature> {
     // Convert pieceIds to BigInt array for proper encoding
-    const pieceIdsBigInt = pieceIds.map(id => BigInt(id))
+    const pieceIdsBigInt = pieceIds.map((id) => BigInt(id))
 
     let signature: string
 
@@ -439,7 +442,7 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing for better UX
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        pieceIds: pieceIdsBigInt.map(id => id.toString()) // Convert to string array for display
+        pieceIds: pieceIdsBigInt.map((id) => id.toString()), // Convert to string array for display
       }
 
       signature = await this.signWithMetaMask(
@@ -450,7 +453,7 @@ export class PDPAuthHelper {
       // Use standard ethers.js signing with BigInt values
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        pieceIds: pieceIdsBigInt
+        pieceIds: pieceIdsBigInt,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -470,7 +473,7 @@ export class PDPAuthHelper {
       { SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals },
       {
         clientDataSetId: BigInt(clientDataSetId),
-        pieceIds: pieceIdsBigInt
+        pieceIds: pieceIdsBigInt,
       }
     )
 
@@ -479,7 +482,7 @@ export class PDPAuthHelper {
       v: sig.v,
       r: sig.r,
       s: sig.s,
-      signedData
+      signedData,
     }
   }
 
@@ -501,7 +504,7 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signDeleteDataSet (
+  async signDeleteDataSet(
     clientDataSetId: number | bigint
   ): Promise<AuthSignature> {
     let signature: string
@@ -512,7 +515,7 @@ export class PDPAuthHelper {
     if (useMetaMask) {
       // Use MetaMask-friendly signing for better UX
       const value = {
-        clientDataSetId: clientDataSetId.toString() // Keep as string for MetaMask display
+        clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
       }
 
       signature = await this.signWithMetaMask(
@@ -522,7 +525,7 @@ export class PDPAuthHelper {
     } else {
       // Use standard ethers.js signing
       const value = {
-        clientDataSetId: BigInt(clientDataSetId)
+        clientDataSetId: BigInt(clientDataSetId),
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -541,7 +544,7 @@ export class PDPAuthHelper {
       this.domain,
       { DeleteDataSet: EIP712_TYPES.DeleteDataSet },
       {
-        clientDataSetId: BigInt(clientDataSetId)
+        clientDataSetId: BigInt(clientDataSetId),
       }
     )
 
@@ -550,7 +553,7 @@ export class PDPAuthHelper {
       v: sig.v,
       r: sig.r,
       s: sig.s,
-      signedData
+      signedData,
     }
   }
 
@@ -558,7 +561,7 @@ export class PDPAuthHelper {
    * Get the address of the signer
    * @returns Promise resolving to the signer's Ethereum address
    */
-  async getSignerAddress (): Promise<string> {
+  async getSignerAddress(): Promise<string> {
     return await this.signer.getAddress()
   }
 }

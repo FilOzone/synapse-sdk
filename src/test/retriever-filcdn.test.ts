@@ -1,8 +1,8 @@
 /* globals describe it */
 import { assert } from 'chai'
-import { FilCdnRetriever } from '../retriever/filcdn.js'
-import type { PieceRetriever, PieceCID } from '../types.js'
 import { asPieceCID } from '../piece/index.js'
+import { FilCdnRetriever } from '../retriever/filcdn.js'
+import type { PieceCID, PieceRetriever } from '../types.js'
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID(
@@ -16,13 +16,17 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (
+          pieceCid: PieceCID,
+          client: string,
+          options?: any
+        ) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
           assert.equal(options?.withCDN, false)
           return baseResponse
-        }
+        },
       }
 
       const originalFetch = global.fetch
@@ -31,12 +35,15 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilCdnRetriever(
+          mockBaseRetriever,
+          'calibration'
+        )
         const response = await cdnRetriever.fetchPiece(
           mockPieceCID,
           '0xClient',
           {
-            withCDN: false
+            withCDN: false,
           }
         )
 
@@ -52,13 +59,17 @@ describe('FilCdnRetriever', () => {
       let signalPropagated = false
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (
+          pieceCid: PieceCID,
+          client: string,
+          options?: any
+        ) => {
           if (options?.signal != null) {
             signalPropagated = true
             assert.equal(options.signal, controller.signal)
           }
           return new Response('test data')
-        }
+        },
       }
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -67,14 +78,10 @@ describe('FilCdnRetriever', () => {
 
       try {
         const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
-        await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            signal: controller.signal,
-            withCDN: false
-          }
-        )
+        await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          signal: controller.signal,
+          withCDN: false,
+        })
 
         assert.isTrue(signalPropagated, 'Signal should be propagated')
       } finally {
@@ -88,13 +95,17 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (
+          pieceCid: PieceCID,
+          client: string,
+          options?: any
+        ) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
-        }
+        },
       }
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -104,12 +115,15 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilCdnRetriever(
+          mockBaseRetriever,
+          'calibration'
+        )
         const response = await cdnRetriever.fetchPiece(
           mockPieceCID,
           '0xClient',
           {
-            withCDN: true
+            withCDN: true,
           }
         )
 
@@ -127,13 +141,17 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (
+          pieceCid: PieceCID,
+          client: string,
+          options?: any
+        ) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
-        }
+        },
       }
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -143,12 +161,15 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilCdnRetriever(
+          mockBaseRetriever,
+          'calibration'
+        )
         const response = await cdnRetriever.fetchPiece(
           mockPieceCID,
           '0xClient',
           {
-            withCDN: true
+            withCDN: true,
           }
         )
 
@@ -166,13 +187,17 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (
+          pieceCid: PieceCID,
+          client: string,
+          options?: any
+        ) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
           assert.equal(options?.withCDN, true)
           return baseResponse
-        }
+        },
       }
       const originalFetch = global.fetch
       global.fetch = async () => {
@@ -181,12 +206,15 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilCdnRetriever(
+          mockBaseRetriever,
+          'calibration'
+        )
         const response = await cdnRetriever.fetchPiece(
           mockPieceCID,
           '0xClient',
           {
-            withCDN: true
+            withCDN: true,
           }
         )
 
@@ -209,10 +237,10 @@ describe('FilCdnRetriever', () => {
         fetchPiece: async () => {
           baseCalled = true
           throw new Error()
-        }
+        },
       }
       const originalFetch = global.fetch
-      global.fetch = async url => {
+      global.fetch = async (url) => {
         cdnCalled = true
         assert.strictEqual(
           url,
@@ -223,12 +251,15 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilCdnRetriever(
+          mockBaseRetriever,
+          'calibration'
+        )
         const response = await cdnRetriever.fetchPiece(
           mockPieceCID,
           '0xClient',
           {
-            withCDN: true
+            withCDN: true,
           }
         )
 
@@ -244,7 +275,7 @@ describe('FilCdnRetriever', () => {
   describe('network handling', () => {
     it('should accept mainnet network', () => {
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async () => new Response()
+        fetchPiece: async () => new Response(),
       }
 
       const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
@@ -254,7 +285,7 @@ describe('FilCdnRetriever', () => {
 
     it('should accept calibration network', () => {
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async () => new Response()
+        fetchPiece: async () => new Response(),
       }
 
       const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')

@@ -13,7 +13,10 @@ import type { PieceCID } from '../types.js'
  * @param pieceCid - The PieceCID identifier
  * @returns Full URL for retrieving the piece
  */
-export function constructPieceUrl (retrievalEndpoint: string, pieceCid: PieceCID): string {
+export function constructPieceUrl(
+  retrievalEndpoint: string,
+  pieceCid: PieceCID
+): string {
   const endpoint = retrievalEndpoint.replace(/\/$/, '')
   return `${endpoint}/piece/${pieceCid.toString()}`
 }
@@ -24,7 +27,10 @@ export function constructPieceUrl (retrievalEndpoint: string, pieceCid: PieceCID
  * @param pieceCid - The PieceCID identifier
  * @returns Full URL for finding the piece
  */
-export function constructFindPieceUrl (apiEndpoint: string, pieceCid: PieceCID): string {
+export function constructFindPieceUrl(
+  apiEndpoint: string,
+  pieceCid: PieceCID
+): string {
   const endpoint = apiEndpoint.replace(/\/$/, '')
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
   return `${endpoint}/pdp/piece?${params.toString()}`

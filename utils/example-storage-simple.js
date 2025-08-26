@@ -19,7 +19,8 @@ import { Synapse } from '@filoz/synapse-sdk'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
-const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const RPC_URL =
+  process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
@@ -28,16 +29,18 @@ if (!PRIVATE_KEY) {
 
 if (!WARM_STORAGE_ADDRESS) {
   console.error('ERROR: WARM_STORAGE_ADDRESS environment variable is required')
-  console.error('For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5')
+  console.error(
+    'For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
+  )
   process.exit(1)
 }
 
-async function main () {
+async function main() {
   // Create Synapse instance
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    warmStorageAddress: WARM_STORAGE_ADDRESS
+    warmStorageAddress: WARM_STORAGE_ADDRESS,
   })
 
   console.log('Connected to:', RPC_URL)
@@ -47,7 +50,8 @@ async function main () {
   console.log('Storage API ready. Will auto-select provider on first upload.')
 
   // Create test data (must be at least 65 bytes for PieceCID calculation)
-  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
+  const testMessage =
+    'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 

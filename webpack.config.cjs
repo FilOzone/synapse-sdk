@@ -10,9 +10,9 @@ module.exports = {
       name: 'SynapseSDK',
       type: 'umd',
       export: 'default',
-      umdNamedDefine: true
+      umdNamedDefine: true,
     },
-    globalObject: 'this'
+    globalObject: 'this',
   },
   resolve: {
     extensions: ['.js'],
@@ -26,8 +26,8 @@ module.exports = {
       os: false,
       url: false,
       buffer: false,
-      process: false
-    }
+      process: false,
+    },
   },
   externals: {
     // Don't bundle ethers - users should provide it
@@ -35,10 +35,10 @@ module.exports = {
       commonjs: 'ethers',
       commonjs2: 'ethers',
       amd: 'ethers',
-      root: 'ethers'
-    }
+      root: 'ethers',
+    },
   },
   optimization: {
-    minimize: true
-  }
+    minimize: true,
+  },
 }
