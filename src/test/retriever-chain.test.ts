@@ -2,18 +2,11 @@
 import { assert } from 'chai'
 import { asPieceCID } from '../piece/index.js'
 import { ChainRetriever } from '../retriever/chain.js'
-import type {
-  ApprovedProviderInfo,
-  EnhancedDataSetInfo,
-  PieceCID,
-  PieceRetriever,
-} from '../types.js'
+import type { ApprovedProviderInfo, EnhancedDataSetInfo, PieceCID, PieceRetriever } from '../types.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
 
 // Create a mock PieceCID for testing
-const mockPieceCID = asPieceCID(
-  'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-) as PieceCID
+const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 
 // Mock provider info
 const mockProvider1: ApprovedProviderInfo = {
@@ -64,8 +57,7 @@ describe('ChainRetriever', () => {
   describe('fetchPiece with specific provider', () => {
     it('should fetch from specific provider when providerAddress is given', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async (addr: string) =>
-          addr === mockProvider1.serviceProvider ? 1 : 0,
+        getProviderIdByAddress: async (addr: string) => (addr === mockProvider1.serviceProvider ? 1 : 0),
         getApprovedProvider: async (id: number) => {
           if (id === 1) return mockProvider1
           throw new Error('Provider not found')
@@ -77,16 +69,8 @@ describe('ChainRetriever', () => {
       let findPieceCalled = false
       let downloadCalled = false
 
-      global.fetch = async (
-        input: string | URL | Request,
-        init?: RequestInit
-      ) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/pdp/piece?')) {
           findPieceCalled = true
           return new Response('', { status: 200 })
@@ -99,9 +83,7 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(
-          mockWarmStorage as WarmStorageService
-        )
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
           providerAddress: mockProvider1.serviceProvider,
         })
@@ -119,10 +101,7 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getProviderIdByAddress: async () => 0, // Provider not found
       }
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService,
-        mockChildRetriever
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
       const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
         providerAddress: '0xNotApproved',
       })
@@ -134,9 +113,7 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getProviderIdByAddress: async () => 0, // Provider not found
       }
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient', {
@@ -144,10 +121,7 @@ describe('ChainRetriever', () => {
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Provider discovery failed and no additional retriever method was configured'
-        )
+        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
       }
     })
   })
@@ -199,21 +173,12 @@ describe('ChainRetriever', () => {
         },
       }
 
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       // Mock fetch
       const originalFetch = global.fetch
-      global.fetch = async (
-        input: string | URL | Request
-      ): Promise<Response> => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         // Provider 1 fails immediately
         if (url.includes('pdp1.example.com')) {
@@ -270,16 +235,8 @@ describe('ChainRetriever', () => {
       const originalFetch = global.fetch
       const fetchCalls: string[] = []
 
-      global.fetch = async (
-        input: string | URL | Request,
-        init?: RequestInit
-      ) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         fetchCalls.push(url)
 
         // Provider 1 is slow but successful
@@ -307,9 +264,7 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(
-          mockWarmStorage as WarmStorageService
-        )
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
 
         assert.equal(response.status, 200)
@@ -335,10 +290,7 @@ describe('ChainRetriever', () => {
       global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
 
       try {
-        const retriever = new ChainRetriever(
-          mockWarmStorage as WarmStorageService,
-          mockChildRetriever
-        )
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.equal(response.status, 200)
         assert.equal(await response.text(), 'data from child')
@@ -357,9 +309,7 @@ describe('ChainRetriever', () => {
       global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
 
       try {
-        const retriever = new ChainRetriever(
-          mockWarmStorage as WarmStorageService
-        )
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -376,10 +326,7 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [], // No data sets
       }
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService,
-        mockChildRetriever
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
       const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -389,18 +336,13 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [], // No data sets
       }
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Provider discovery failed and no additional retriever method was configured'
-        )
+        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
       }
     })
   })
@@ -451,22 +393,12 @@ describe('ChainRetriever', () => {
         },
       }
 
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       // Mock fetch
       const originalFetch = global.fetch
-      global.fetch = async (
-        input: string | URL | Request,
-        init?: RequestInit
-      ) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         if (url.includes('valid-provider')) {
           if (url.includes('/pdp/piece?')) {
@@ -504,19 +436,14 @@ describe('ChainRetriever', () => {
         },
       }
 
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
         // The error from findProviders gets wrapped in tryChildOrThrow
-        assert.include(
-          error.message,
-          'Provider discovery failed and no additional retriever method was configured'
-        )
+        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
       }
     })
 
@@ -558,22 +485,12 @@ describe('ChainRetriever', () => {
         },
       }
 
-      const retriever = new ChainRetriever(
-        mockWarmStorage as WarmStorageService
-      )
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
 
       // Mock fetch
       const originalFetch = global.fetch
-      global.fetch = async (
-        input: string | URL | Request,
-        init?: RequestInit
-      ) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         if (url.includes('valid-provider')) {
           if (url.includes('/pdp/piece?')) {
@@ -609,10 +526,7 @@ describe('ChainRetriever', () => {
       const originalFetch = global.fetch
       let signalReceived = false
 
-      global.fetch = async (
-        input: string | URL | Request,
-        init?: RequestInit
-      ) => {
+      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         if (init?.signal != null) {
           signalReceived = true
           // Abort immediately
@@ -623,9 +537,7 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(
-          mockWarmStorage as WarmStorageService
-        )
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
         await retriever.fetchPiece(mockPieceCID, '0xClient', {
           providerAddress: mockProvider1.serviceProvider,
           signal: controller.signal,

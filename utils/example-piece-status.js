@@ -35,8 +35,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL =
-  process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 
 // Parse command line arguments
@@ -48,25 +47,18 @@ const dataSetId = args[2] ? parseInt(args[2]) : undefined
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error(
-    'Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]'
-  )
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
 if (!pieceCid) {
   console.error('ERROR: PieceCID argument is required')
-  console.error(
-    'Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]'
-  )
+  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
   process.exit(1)
 }
 
 // Get user's locale or fallback to en-US
-const userLocale =
-  process.env.LOCALE ||
-  Intl.DateTimeFormat().resolvedOptions().locale ||
-  'en-US'
+const userLocale = process.env.LOCALE || Intl.DateTimeFormat().resolvedOptions().locale || 'en-US'
 
 // Date formatting options
 const dateTimeOptions = {
@@ -196,9 +188,7 @@ async function main() {
           })
           const exists = await ctx.hasPiece(pieceCid)
           if (exists) {
-            console.log(
-              `✓ Found piece on provider: ${provider.serviceProvider}`
-            )
+            console.log(`✓ Found piece on provider: ${provider.serviceProvider}`)
             storageContext = ctx
             break
           }
@@ -223,9 +213,7 @@ async function main() {
     console.log(`\n✅ Exists on provider: ${status.exists ? 'Yes' : 'No'}`)
 
     if (!status.exists) {
-      console.log(
-        '\n❌ This piece does not exist on the selected service provider.'
-      )
+      console.log('\n❌ This piece does not exist on the selected service provider.')
       return
     }
 
@@ -258,25 +246,15 @@ async function main() {
       // Challenge window status
       if (status.isProofOverdue) {
         console.log('\n🚨 PROOF IS OVERDUE!')
-        console.log(
-          '   The service provider has missed the proof deadline and may face penalties.'
-        )
+        console.log('   The service provider has missed the proof deadline and may face penalties.')
       } else if (status.inChallengeWindow) {
         // Calculate time remaining in challenge window
-        const timeRemaining =
-          status.dataSetNextProofDue.getTime() - new Date().getTime()
+        const timeRemaining = status.dataSetNextProofDue.getTime() - new Date().getTime()
         const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
         console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
-        console.log(
-          `   The service provider has ${minutesRemaining} minutes to submit a proof.`
-        )
-      } else if (
-        status.hoursUntilChallengeWindow !== undefined &&
-        status.hoursUntilChallengeWindow > 0
-      ) {
-        console.log(
-          `\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`
-        )
+        console.log(`   The service provider has ${minutesRemaining} minutes to submit a proof.`)
+      } else if (status.hoursUntilChallengeWindow !== undefined && status.hoursUntilChallengeWindow > 0) {
+        console.log(`\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
       }
     } else {
       console.log('   Data set next proof due: Not scheduled')
@@ -295,10 +273,7 @@ async function main() {
       console.log('🚨 Status: PROOF OVERDUE - Penalties may apply')
     } else if (status.inChallengeWindow) {
       console.log('⚠️  Status: Proof urgently needed')
-    } else if (
-      status.hoursUntilChallengeWindow &&
-      status.hoursUntilChallengeWindow < 24
-    ) {
+    } else if (status.hoursUntilChallengeWindow && status.hoursUntilChallengeWindow < 24) {
       console.log('⏰ Status: Proof needed soon')
     } else if (status.dataSetNextProofDue) {
       console.log('✅ Status: All good')

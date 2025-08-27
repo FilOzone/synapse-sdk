@@ -17,16 +17,8 @@ describe('PaymentsService', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner(
-      '0x1234567890123456789012345678901234567890',
-      mockProvider
-    )
-    payments = new PaymentsService(
-      mockProvider,
-      mockSigner,
-      'calibration',
-      false
-    )
+    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    payments = new PaymentsService(mockProvider, mockSigner, 'calibration', false)
   })
 
   describe('Instantiation', () => {
@@ -167,13 +159,7 @@ describe('PaymentsService', () => {
 
     it('should throw for unsupported token in service operations', async () => {
       try {
-        await payments.approveService(
-          serviceAddress,
-          100n,
-          1000n,
-          86400n,
-          'FIL' as any
-        )
+        await payments.approveService(serviceAddress, 100n, 1000n, 86400n, 'FIL' as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not supported')
@@ -205,22 +191,14 @@ describe('PaymentsService', () => {
         throw new Error('Contract execution failed')
       }
 
-      const errorSigner = createMockSigner(
-        '0x1234567890123456789012345678901234567890',
-        errorProvider
-      )
+      const errorSigner = createMockSigner('0x1234567890123456789012345678901234567890', errorProvider)
 
       // Also make the signer's sendTransaction throw
       errorSigner.sendTransaction = async () => {
         throw new Error('Transaction failed')
       }
 
-      const errorPayments = new PaymentsService(
-        errorProvider,
-        errorSigner,
-        'calibration',
-        false
-      )
+      const errorPayments = new PaymentsService(errorProvider, errorSigner, 'calibration', false)
 
       try {
         // Try deposit which uses sendTransaction
@@ -340,10 +318,7 @@ describe('PaymentsService', () => {
         assert.exists(info.availableFunds)
 
         // Check that funds is correct (500 USDFC)
-        assert.equal(
-          info.funds.toString(),
-          ethers.parseUnits('500', 18).toString()
-        )
+        assert.equal(info.funds.toString(), ethers.parseUnits('500', 18).toString())
         // With no lockup, available funds should equal total funds
         assert.equal(info.availableFunds.toString(), info.funds.toString())
       })
@@ -372,10 +347,7 @@ describe('PaymentsService', () => {
         // availableFunds = 500 - 60 = 440
         const expectedAvailable = ethers.parseUnits('440', 18)
 
-        assert.equal(
-          info.availableFunds.toString(),
-          expectedAvailable.toString()
-        )
+        assert.equal(info.availableFunds.toString(), expectedAvailable.toString())
       })
 
       it('should use accountInfo in balance() method', async () => {

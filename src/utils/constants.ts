@@ -247,10 +247,7 @@ export const TIMING_CONSTANTS = {
 /**
  * Recommended RPC endpoints for Filecoin networks
  */
-export const RPC_URLS: Record<
-  FilecoinNetworkType,
-  { http: string; websocket: string }
-> = {
+export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: string }> = {
   mainnet: {
     http: 'https://api.node.glif.io/rpc/v1',
     websocket: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1',

@@ -4,10 +4,7 @@
  * Helper functions for working with Filecoin Piece CIDs
  */
 
-import type {
-  LegacyPieceLink as LegacyPieceCIDType,
-  PieceLink as PieceCIDType,
-} from '@web3-storage/data-segment'
+import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
@@ -92,13 +89,8 @@ function isValidPieceCID(cid: PieceCID | CID): cid is PieceCID {
  * @param cid - The CID to check
  * @returns True if it's a valid LegacyPieceCID
  */
-function isValidLegacyPieceCID(
-  cid: LegacyPieceCID | CID
-): cid is LegacyPieceCID {
-  return (
-    cid.code === FIL_COMMITMENT_UNSEALED &&
-    cid.multihash.code === SHA2_256_TRUNC254_PADDED
-  )
+function isValidLegacyPieceCID(cid: LegacyPieceCID | CID): cid is LegacyPieceCID {
+  return cid.code === FIL_COMMITMENT_UNSEALED && cid.multihash.code === SHA2_256_TRUNC254_PADDED
 }
 
 /**
@@ -107,17 +99,12 @@ function isValidLegacyPieceCID(
  * @param pieceCidInput - PieceCID as either a CID object or string
  * @returns The validated PieceCID CID or null if not a valid PieceCID
  */
-export function asPieceCID(
-  pieceCidInput: PieceCID | CID | string
-): PieceCID | null {
+export function asPieceCID(pieceCidInput: PieceCID | CID | string): PieceCID | null {
   if (typeof pieceCidInput === 'string') {
     return parsePieceCID(pieceCidInput)
   }
 
-  if (
-    typeof pieceCidInput === 'object' &&
-    CID.asCID(pieceCidInput as CID) !== null
-  ) {
+  if (typeof pieceCidInput === 'object' && CID.asCID(pieceCidInput as CID) !== null) {
     // It's already a CID, validate it
     if (isValidPieceCID(pieceCidInput as CID)) {
       return pieceCidInput as PieceCID
@@ -135,16 +122,11 @@ export function asPieceCID(
  * @param pieceCidInput - LegacyPieceCID as either a CID object or string
  * @returns The validated LegacyPieceCID CID or null if not a valid LegacyPieceCID
  */
-export function asLegacyPieceCID(
-  pieceCidInput: PieceCID | LegacyPieceCID | CID | string
-): LegacyPieceCID | null {
+export function asLegacyPieceCID(pieceCidInput: PieceCID | LegacyPieceCID | CID | string): LegacyPieceCID | null {
   const pieceCid = asPieceCID(pieceCidInput as CID | string)
   if (pieceCid != null) {
     // downgrade to LegacyPieceCID
-    const digest = Digest.create(
-      SHA2_256_TRUNC254_PADDED,
-      pieceCid.multihash.digest.subarray(-32)
-    )
+    const digest = Digest.create(SHA2_256_TRUNC254_PADDED, pieceCid.multihash.digest.subarray(-32))
     return Link.create(FIL_COMMITMENT_UNSEALED, digest) as LegacyPieceCID
   }
 
@@ -152,10 +134,7 @@ export function asLegacyPieceCID(
     return parseLegacyPieceCID(pieceCidInput)
   }
 
-  if (
-    typeof pieceCidInput === 'object' &&
-    CID.asCID(pieceCidInput as CID) !== null
-  ) {
+  if (typeof pieceCidInput === 'object' && CID.asCID(pieceCidInput as CID) !== null) {
     // It's already a CID, validate it
     if (isValidLegacyPieceCID(pieceCidInput as CID)) {
       return pieceCidInput as LegacyPieceCID
@@ -200,10 +179,7 @@ export function createPieceCIDStream(): {
   let pieceCid: PieceCID | null = null
 
   const stream = new TransformStream<Uint8Array, Uint8Array>({
-    transform(
-      chunk: Uint8Array,
-      controller: TransformStreamDefaultController<Uint8Array>
-    ) {
+    transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
       // Write chunk to hasher
       hasher.write(chunk)
       // Pass chunk through unchanged

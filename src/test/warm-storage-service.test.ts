@@ -19,11 +19,7 @@ describe('WarmStorageService', () => {
   beforeEach(() => {
     mockProvider = createMockProvider()
     const mockPdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-    warmStorageService = new WarmStorageService(
-      mockProvider,
-      mockWarmStorageAddress,
-      mockPdpVerifierAddress
-    )
+    warmStorageService = new WarmStorageService(mockProvider, mockWarmStorageAddress, mockPdpVerifierAddress)
   })
 
   describe('Instantiation', () => {
@@ -41,9 +37,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[]]
           )
         }
@@ -121,9 +115,7 @@ describe('WarmStorageService', () => {
           ]
 
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [dataSets]
           )
         }
@@ -138,14 +130,8 @@ describe('WarmStorageService', () => {
 
       // Check first data set
       assert.equal(dataSets[0].railId, 123)
-      assert.equal(
-        dataSets[0].payer.toLowerCase(),
-        '0x1234567890123456789012345678901234567890'.toLowerCase()
-      )
-      assert.equal(
-        dataSets[0].payee.toLowerCase(),
-        '0xabcdef1234567890123456789012345678901234'.toLowerCase()
-      )
+      assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
+      assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
       assert.equal(dataSets[0].commissionBps, 100)
       assert.equal(dataSets[0].metadata, 'Test metadata 1')
       assert.equal(dataSets[0].pieceMetadata.length, 2)
@@ -154,14 +140,8 @@ describe('WarmStorageService', () => {
 
       // Check second data set
       assert.equal(dataSets[1].railId, 456)
-      assert.equal(
-        dataSets[1].payer.toLowerCase(),
-        '0x1234567890123456789012345678901234567890'.toLowerCase()
-      )
-      assert.equal(
-        dataSets[1].payee.toLowerCase(),
-        '0x9876543210987654321098765432109876543210'.toLowerCase()
-      )
+      assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
+      assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
       assert.equal(dataSets[1].commissionBps, 200)
       assert.equal(dataSets[1].metadata, 'Test metadata 2')
       assert.equal(dataSets[1].pieceMetadata.length, 1)
@@ -212,9 +192,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -249,11 +227,9 @@ describe('WarmStorageService', () => {
 
       // Mock network for PDPVerifier address
       const originalGetNetwork = mockProvider.getNetwork
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const detailedDataSets =
-        await warmStorageService.getClientDataSetsWithDetails(clientAddress)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
 
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].railId, 48)
@@ -301,9 +277,7 @@ describe('WarmStorageService', () => {
             ],
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [dataSets]
           )
         }
@@ -334,19 +308,11 @@ describe('WarmStorageService', () => {
           if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) {
             // data set 242
             return ethers.zeroPadValue(mockWarmStorageAddress, 32) // Managed by us
-          } else if (
-            dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)
-          ) {
+          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) {
             // data set 243
-            return ethers.zeroPadValue(
-              '0x1234567890123456789012345678901234567890',
-              32
-            ) // Different address
+            return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
           }
-          return ethers.zeroPadValue(
-            '0x0000000000000000000000000000000000000000',
-            32
-          )
+          return ethers.zeroPadValue('0x0000000000000000000000000000000000000000', 32)
         }
 
         // getNextPieceId
@@ -358,22 +324,14 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       // Get all data sets
-      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(
-        clientAddress,
-        false
-      )
+      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, false)
       assert.lengthOf(allDataSets, 2)
 
       // Get only managed data sets
-      const managedDataSets =
-        await warmStorageService.getClientDataSetsWithDetails(
-          clientAddress,
-          true
-        )
+      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress, true)
       assert.lengthOf(managedDataSets, 1)
       assert.equal(managedDataSets[0].railId, 48)
       assert.isTrue(managedDataSets[0].isManaged)
@@ -400,9 +358,7 @@ describe('WarmStorageService', () => {
             0n,
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -416,17 +372,13 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
         await warmStorageService.getClientDataSetsWithDetails(clientAddress)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Failed to get details for data set with enhanced info'
-        )
+        assert.include(error.message, 'Failed to get details for data set with enhanced info')
         assert.include(error.message, 'Contract call failed')
       }
     })
@@ -453,9 +405,7 @@ describe('WarmStorageService', () => {
             0n,
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -480,11 +430,9 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const dataSets =
-        await warmStorageService.getClientDataSetsWithDetails(clientAddress)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
       const managedDataSets = dataSets.filter((ps) => ps.isManaged)
       assert.lengthOf(managedDataSets, 1)
       assert.isTrue(managedDataSets[0].isManaged)
@@ -498,10 +446,7 @@ describe('WarmStorageService', () => {
         const data = transaction.data
 
         // railToDataSet - maps rail ID to data set ID
-        if (
-          data?.includes('railToDataSet') === true ||
-          data?.startsWith('0x2ad6e6b5') === true
-        ) {
+        if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
           // Rail ID 48 maps to data set ID 48
           return ethers.zeroPadValue('0x30', 32) // 48 in hex
         }
@@ -537,9 +482,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -560,9 +503,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
             [info]
           )
         }
@@ -571,8 +512,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
       assert.equal(addPiecesInfo.nextPieceId, 5)
@@ -586,10 +526,7 @@ describe('WarmStorageService', () => {
         const data = transaction.data
 
         // railToDataSet - maps rail ID to data set ID
-        if (
-          data?.includes('railToDataSet') === true ||
-          data?.startsWith('0x2ad6e6b5') === true
-        ) {
+        if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
           // Rail ID 48 maps to a different data set ID (99) to simulate not found
           return ethers.zeroPadValue('0x63', 32) // 99 in hex - different from expected 48
         }
@@ -610,9 +547,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -624,10 +559,7 @@ describe('WarmStorageService', () => {
 
         // getDataSetListener
         if (data?.startsWith('0x2b3129bb') === true) {
-          return ethers.zeroPadValue(
-            '0x1234567890123456789012345678901234567890',
-            32
-          ) // Different address
+          return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
         }
 
         // getNextPieceId
@@ -651,9 +583,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            [
-              'tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)',
-            ],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
             [info]
           )
         }
@@ -662,17 +592,13 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
         await warmStorageService.getAddPiecesInfo(dataSetId)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'is not managed by this WarmStorage contract'
-        )
+        assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
     })
   })
@@ -691,16 +617,14 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      const nextId =
-        await warmStorageService.getNextClientDataSetId(clientAddress)
+      const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
       assert.equal(nextId, 5)
     })
   })
 
   describe('verifyDataSetCreation', () => {
     it('should verify successful data set creation', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock getTransaction
       const originalGetTransaction = mockProvider.getTransaction
@@ -708,8 +632,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () =>
-            await mockProvider.getTransactionReceipt(mockTxHash),
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -745,8 +668,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
 
@@ -763,8 +685,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle transaction not mined yet', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       const originalGetTransaction = mockProvider.getTransaction
       mockProvider.getTransaction = async (txHash: string) => {
@@ -803,8 +724,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const isApproved =
-        await warmStorageService.isProviderApproved(providerAddress)
+      const isApproved = await warmStorageService.isProviderApproved(providerAddress)
       assert.isTrue(isApproved)
     })
 
@@ -820,8 +740,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const isApproved =
-        await warmStorageService.isProviderApproved(providerAddress)
+      const isApproved = await warmStorageService.isProviderApproved(providerAddress)
       assert.isFalse(isApproved)
     })
 
@@ -837,8 +756,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      const providerId =
-        await warmStorageService.getProviderIdByAddress(providerAddress)
+      const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
       assert.equal(providerId, 5)
     })
 
@@ -863,10 +781,7 @@ describe('WarmStorageService', () => {
       }
 
       const info = await warmStorageService.getApprovedProvider(1)
-      assert.equal(
-        info.serviceProvider.toLowerCase(),
-        '0x1234567890123456789012345678901234567890'
-      )
+      assert.equal(info.serviceProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
       assert.equal(info.serviceURL, 'https://pdp.provider.com')
       assert.equal(info.peerId, 'test-peer-id')
       assert.equal(info.registeredAt, 1234567890)
@@ -881,23 +796,14 @@ describe('WarmStorageService', () => {
           // The ABI returns (string serviceURL, bytes peerId, uint256 registeredAt) not a tuple
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['string', 'bytes', 'uint256'],
-            [
-              'https://pdp.pending.com',
-              ethers.toUtf8Bytes('test-peer-id'),
-              1234567880n,
-            ]
+            ['https://pdp.pending.com', ethers.toUtf8Bytes('test-peer-id'), 1234567880n]
           )
         }
         // Return empty struct for any other call including pendingProviders
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'bytes', 'uint256'],
-          ['', '0x', 0n]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
 
-      const info = await warmStorageService.getPendingProvider(
-        '0xabcdef1234567890123456789012345678901234'
-      )
+      const info = await warmStorageService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
       assert.equal(info.serviceURL, 'https://pdp.pending.com')
       assert.equal(info.peerId, 'test-peer-id') // Now available as bytes decoded to string
       assert.equal(info.registeredAt, 1234567880)
@@ -906,16 +812,11 @@ describe('WarmStorageService', () => {
     it('should throw when pending provider not found', async () => {
       mockProvider.call = async (transaction: any) => {
         // Return empty values indicating non-existent provider
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'bytes', 'uint256'],
-          ['', '0x', 0n]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
 
       try {
-        await warmStorageService.getPendingProvider(
-          '0x0000000000000000000000000000000000000000'
-        )
+        await warmStorageService.getPendingProvider('0x0000000000000000000000000000000000000000')
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Pending provider')
@@ -989,14 +890,8 @@ describe('WarmStorageService', () => {
 
       const providers = await warmStorageService.getAllApprovedProviders()
       assert.lengthOf(providers, 2)
-      assert.equal(
-        providers[0].serviceProvider.toLowerCase(),
-        '0x1111111111111111111111111111111111111111'
-      )
-      assert.equal(
-        providers[1].serviceProvider.toLowerCase(),
-        '0x2222222222222222222222222222222222222222'
-      )
+      assert.equal(providers[0].serviceProvider.toLowerCase(), '0x1111111111111111111111111111111111111111')
+      assert.equal(providers[1].serviceProvider.toLowerCase(), '0x2222222222222222222222222222222222222222')
     })
   })
 
@@ -1015,14 +910,7 @@ describe('WarmStorageService', () => {
             // Encode as a tuple (struct)
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1064,25 +952,14 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
         }
 
-        const costs1GiB = await warmStorageService.calculateStorageCost(
-          1024 * 1024 * 1024
-        )
-        const costs10GiB = await warmStorageService.calculateStorageCost(
-          10 * 1024 * 1024 * 1024
-        )
+        const costs1GiB = await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
+        const costs10GiB = await warmStorageService.calculateStorageCost(10 * 1024 * 1024 * 1024)
 
         // 10 GiB should cost approximately 10x more than 1 GiB
         // Allow for small rounding differences in bigint division
@@ -1090,10 +967,7 @@ describe('WarmStorageService', () => {
         assert.closeTo(ratio, 10, 0.01)
 
         // Verify the relationship holds for day and month calculations
-        assert.equal(
-          costs10GiB.perDay.toString(),
-          (costs10GiB.perEpoch * 2880n).toString()
-        )
+        assert.equal(costs10GiB.perDay.toString(), (costs10GiB.perEpoch * 2880n).toString())
         // For month calculation, allow for rounding errors due to integer division
         const expectedMonth = costs10GiB.perEpoch * 86400n
         const monthRatio = Number(costs10GiB.perMonth) / Number(expectedMonth)
@@ -1115,24 +989,14 @@ describe('WarmStorageService', () => {
             // Encode as a tuple (struct)
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return await originalCall.call(mockProvider, transaction)
         }
 
         await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
-        assert.isTrue(
-          getServicePriceCalled,
-          'Should have called getServicePrice on WarmStorage contract'
-        )
+        assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on WarmStorage contract')
       })
     })
 
@@ -1162,14 +1026,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1231,14 +1088,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1288,14 +1138,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1314,14 +1157,8 @@ describe('WarmStorageService', () => {
         assert.isTrue(check.depositAmountNeeded > 0n)
 
         // depositAmountNeeded should equal 10 days of costs (default lockup)
-        const expectedDeposit =
-          check.costs.perEpoch *
-          BigInt(10) *
-          BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
-        assert.equal(
-          check.depositAmountNeeded.toString(),
-          expectedDeposit.toString()
-        )
+        const expectedDeposit = check.costs.perEpoch * BigInt(10) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
       })
 
       it('should use custom lockup days when provided', async () => {
@@ -1349,14 +1186,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1372,14 +1202,8 @@ describe('WarmStorageService', () => {
         )
 
         // Verify depositAmountNeeded uses custom lockup period
-        const expectedDeposit =
-          check.costs.perEpoch *
-          BigInt(customLockupDays) *
-          BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
-        assert.equal(
-          check.depositAmountNeeded.toString(),
-          expectedDeposit.toString()
-        )
+        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
 
         // Compare with default (10 days) to ensure they're different
         const defaultCheck = await warmStorageService.checkAllowanceForStorage(
@@ -1389,10 +1213,7 @@ describe('WarmStorageService', () => {
         )
 
         // Custom should be exactly 2x default (20 days vs 10 days)
-        assert.equal(
-          check.depositAmountNeeded.toString(),
-          (defaultCheck.depositAmountNeeded * 2n).toString()
-        )
+        assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
       })
     })
 
@@ -1416,11 +1237,7 @@ describe('WarmStorageService', () => {
             lockupLastSettledAt: 1000000,
             availableFunds: ethers.parseUnits('10000', 18),
           }),
-          approveService: async (
-            serviceAddress: string,
-            rateAllowance: bigint,
-            lockupAllowance: bigint
-          ) => {
+          approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
             assert.strictEqual(serviceAddress, mockWarmStorageAddress)
             assert.isTrue(rateAllowance > 0n)
             assert.isTrue(lockupAllowance > 0n)
@@ -1439,14 +1256,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1470,9 +1280,7 @@ describe('WarmStorageService', () => {
         // Should have at least approval action (since mock has no allowances)
         assert.isAtLeast(prep.actions.length, 1)
 
-        const approvalAction = prep.actions.find(
-          (a) => a.type === 'approveService'
-        )
+        const approvalAction = prep.actions.find((a) => a.type === 'approveService')
         assert.exists(approvalAction)
         assert.include(approvalAction.description, 'Approve service')
         assert.isFunction(approvalAction.execute)
@@ -1519,14 +1327,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1548,9 +1349,7 @@ describe('WarmStorageService', () => {
         assert.include(depositAction.description, 'Deposit')
         assert.include(depositAction.description, 'USDFC')
 
-        const approvalAction = prep.actions.find(
-          (a) => a.type === 'approveService'
-        )
+        const approvalAction = prep.actions.find((a) => a.type === 'approveService')
         assert.exists(approvalAction)
 
         // Execute deposit action and verify
@@ -1587,14 +1386,7 @@ describe('WarmStorageService', () => {
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
-              [
-                [
-                  pricePerTiBPerMonthNoCDN,
-                  pricePerTiBPerMonthWithCDN,
-                  tokenAddress,
-                  epochsPerMonth,
-                ],
-              ]
+              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
           return '0x' + '0'.repeat(64)
@@ -1616,8 +1408,7 @@ describe('WarmStorageService', () => {
 
   describe('Comprehensive Status Methods', () => {
     it('should combine PDP server and chain verification status', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer
       const mockPDPServer: any = {
@@ -1640,8 +1431,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () =>
-            await mockProvider.getTransactionReceipt(mockTxHash),
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1674,13 +1464,9 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await warmStorageService.getComprehensiveDataSetStatus(
-        mockTxHash,
-        mockPDPServer
-      )
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
 
       // Verify transaction hash is included
       assert.strictEqual(result.txHash, mockTxHash)
@@ -1709,8 +1495,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle PDP server failure gracefully', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that throws error
       const mockPDPServer: any = {
@@ -1725,8 +1510,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () =>
-            await mockProvider.getTransactionReceipt(mockTxHash),
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1758,13 +1542,9 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await warmStorageService.getComprehensiveDataSetStatus(
-        mockTxHash,
-        mockPDPServer
-      )
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
 
       // Server status should be null due to error
       assert.isNull(result.serverStatus)
@@ -1777,10 +1557,7 @@ describe('WarmStorageService', () => {
 
       // Summary should reflect that completion requires BOTH chain AND server confirmation
       // Since server status is null (unavailable), isComplete should be false
-      assert.isFalse(
-        result.summary.isComplete,
-        'isComplete should be false when server status is unavailable'
-      )
+      assert.isFalse(result.summary.isComplete, 'isComplete should be false when server status is unavailable')
       assert.strictEqual(result.summary.dataSetId, 123)
       assert.isNull(result.summary.error)
 
@@ -1789,8 +1566,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should NOT mark as complete when server has not caught up yet', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that returns null (server hasn't caught up)
       const mockPDPServer: any = {
@@ -1805,8 +1581,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () =>
-            await mockProvider.getTransactionReceipt(mockTxHash),
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1838,13 +1613,9 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const result = await warmStorageService.getComprehensiveDataSetStatus(
-        mockTxHash,
-        mockPDPServer
-      )
+      const result = await warmStorageService.getComprehensiveDataSetStatus(mockTxHash, mockPDPServer)
 
       // Chain status should show success
       assert.isTrue(result.chainStatus.transactionMined)
@@ -1857,18 +1628,14 @@ describe('WarmStorageService', () => {
 
       // IMPORTANT: isComplete should be FALSE because server hasn't confirmed yet
       // This test will FAIL with the current implementation, proving the bug
-      assert.isFalse(
-        result.summary.isComplete,
-        'isComplete should be false when server has not caught up'
-      )
+      assert.isFalse(result.summary.isComplete, 'isComplete should be false when server has not caught up')
 
       mockProvider.getTransactionReceipt = originalGetTransactionReceipt
       mockProvider.getTransaction = originalGetTransaction
     })
 
     it('should wait for data set to become live', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
       // Create a mock PDPServer
@@ -1905,8 +1672,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () =>
-            await mockProvider.getTransactionReceipt(mockTxHash),
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1942,8 +1708,7 @@ describe('WarmStorageService', () => {
         return '0x' + '0'.repeat(64)
       }
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       const mockTransaction = {
         hash: mockTxHash,
@@ -1965,8 +1730,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should timeout if data set takes too long', async () => {
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that always returns pending
       const mockPDPServer: any = {
@@ -1986,8 +1750,7 @@ describe('WarmStorageService', () => {
       const originalGetTransactionReceipt = mockProvider.getTransactionReceipt
       mockProvider.getTransactionReceipt = async () => null
 
-      mockProvider.getNetwork = async () =>
-        ({ chainId: 314159n, name: 'calibration' }) as any
+      mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
         const mockTransaction = { hash: mockTxHash } as any

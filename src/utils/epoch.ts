@@ -106,9 +106,7 @@ export function calculateLastProofDate(
  * @param provider - The ethers provider to query
  * @returns The current epoch as a bigint
  */
-export async function getCurrentEpoch(
-  provider: ethers.Provider
-): Promise<bigint> {
+export async function getCurrentEpoch(provider: ethers.Provider): Promise<bigint> {
   const block = await provider.getBlock('latest')
   if (block == null) {
     throw createError('epoch', 'getCurrentEpoch', 'Failed to get latest block')

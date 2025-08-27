@@ -16,10 +16,7 @@ describe('Synapse', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner(
-      '0x1234567890123456789012345678901234567890',
-      mockProvider
-    )
+    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
   })
 
   describe('Instantiation', () => {
@@ -98,15 +95,11 @@ describe('Synapse', () => {
     it('should reject privateKey without rpcURL', async () => {
       try {
         await Synapse.create({
-          privateKey:
-            '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+          privateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'rpcURL is required when using privateKey'
-        )
+        assert.include(error.message, 'rpcURL is required when using privateKey')
       }
     })
   })
@@ -143,8 +136,7 @@ describe('Synapse', () => {
 
     it('should accept custom pdpVerifierAddress', async () => {
       const calibrationProvider = createMockProvider(314159)
-      const customPDPVerifierAddress =
-        '0xabcdef1234567890123456789012345678901234'
+      const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
       const synapse = await Synapse.create({
         provider: calibrationProvider,
         pdpVerifierAddress: customPDPVerifierAddress,
@@ -159,18 +151,13 @@ describe('Synapse', () => {
         provider: calibrationProvider,
       })
       assert.exists(synapse)
-      assert.equal(
-        synapse.getPDPVerifierAddress(),
-        '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9'
-      ) // Calibration default
+      assert.equal(synapse.getPDPVerifierAddress(), '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9') // Calibration default
     })
 
     it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
       const mainnetProvider = createMockProvider(314)
-      const customWarmStorageAddress =
-        '0x1111111111111111111111111111111111111111'
-      const customPDPVerifierAddress =
-        '0x2222222222222222222222222222222222222222'
+      const customWarmStorageAddress = '0x1111111111111111111111111111111111111111'
+      const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
       const synapse = await Synapse.create({
         provider: mainnetProvider,
         warmStorageAddress: customWarmStorageAddress,
@@ -237,10 +224,7 @@ describe('Synapse', () => {
       assert.isFunction(synapse.payments.decimals)
 
       // payments property should be read-only (getter only)
-      const descriptor = Object.getOwnPropertyDescriptor(
-        Object.getPrototypeOf(synapse),
-        'payments'
-      )
+      const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(synapse), 'payments')
       assert.exists(descriptor?.get)
       assert.notExists(descriptor?.set)
     })
@@ -290,16 +274,10 @@ describe('Synapse', () => {
         const synapse = await Synapse.create({ signer: mockSigner })
         const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
 
-        assert.equal(
-          providerInfo.serviceProvider.toLowerCase(),
-          mockProviderAddress.toLowerCase()
-        )
+        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
         assert.equal(providerInfo.serviceURL, expectedProviderInfo.serviceURL)
         assert.equal(providerInfo.peerId, expectedProviderInfo.peerId)
-        assert.equal(
-          providerInfo.registeredAt,
-          expectedProviderInfo.registeredAt
-        )
+        assert.equal(providerInfo.registeredAt, expectedProviderInfo.registeredAt)
         assert.equal(providerInfo.approvedAt, expectedProviderInfo.approvedAt)
       } finally {
         mockProvider.call = originalCall
@@ -409,8 +387,7 @@ describe('Synapse', () => {
       })
 
       // Use the actual PieceCID for 'test data'
-      const testPieceCid =
-        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const data = await synapse.download(testPieceCid)
 
       // Should return Uint8Array
@@ -434,8 +411,7 @@ describe('Synapse', () => {
         withCDN: false, // Instance default
       })
 
-      const testPieceCid =
-        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       // Test with explicit withCDN
       await synapse.download(testPieceCid, { withCDN: true })
@@ -461,8 +437,7 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever,
       })
 
-      const testPieceCid =
-        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
       const testProvider = '0x1234567890123456789012345678901234567890'
 
       await synapse.download(testPieceCid, { providerAddress: testProvider })
@@ -481,8 +456,7 @@ describe('Synapse', () => {
         pieceRetriever: mockRetriever,
       })
 
-      const testPieceCid =
-        'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
+      const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
 
       try {
         await synapse.download(testPieceCid)
@@ -595,47 +569,26 @@ describe('Synapse', () => {
 
         // Verify pricing calculations (2 USDFC per TiB per month)
         const expectedNoCDNMonthly = ethers.parseUnits('2', 18) // 2 USDFC
-        assert.equal(
-          storageInfo.pricing.noCDN.perTiBPerMonth,
-          expectedNoCDNMonthly
-        )
+        assert.equal(storageInfo.pricing.noCDN.perTiBPerMonth, expectedNoCDNMonthly)
 
         // Check providers
         assert.equal(storageInfo.providers.length, 2)
-        assert.equal(
-          storageInfo.providers[0].serviceProvider,
-          mockProviders[0].serviceProvider
-        )
-        assert.equal(
-          storageInfo.providers[1].serviceProvider,
-          mockProviders[1].serviceProvider
-        )
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
+        assert.equal(storageInfo.providers[1].serviceProvider, mockProviders[1].serviceProvider)
 
         // Check service parameters
         assert.equal(storageInfo.serviceParameters.network, 'calibration')
-        assert.equal(
-          storageInfo.serviceParameters.epochsPerMonth,
-          BigInt(86400)
-        )
+        assert.equal(storageInfo.serviceParameters.epochsPerMonth, BigInt(86400))
         assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
         assert.equal(storageInfo.serviceParameters.epochDuration, 30)
         assert.equal(storageInfo.serviceParameters.minUploadSize, 65)
-        assert.equal(
-          storageInfo.serviceParameters.maxUploadSize,
-          200 * 1024 * 1024
-        )
+        assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
 
         // Check allowances
         assert.exists(storageInfo.allowances)
         assert.equal(storageInfo.allowances?.service, mockAllowances.service)
-        assert.equal(
-          storageInfo.allowances?.rateAllowance,
-          mockAllowances.rateAllowance
-        )
-        assert.equal(
-          storageInfo.allowances?.lockupAllowance,
-          mockAllowances.lockupAllowance
-        )
+        assert.equal(storageInfo.allowances?.rateAllowance, mockAllowances.rateAllowance)
+        assert.equal(storageInfo.allowances?.lockupAllowance, mockAllowances.lockupAllowance)
       } finally {
         mockProvider.call = originalCall
       }
@@ -788,10 +741,7 @@ describe('Synapse', () => {
 
         // Should filter out zero address provider
         assert.equal(storageInfo.providers.length, 1)
-        assert.equal(
-          storageInfo.providers[0].serviceProvider,
-          mockProviders[0].serviceProvider
-        )
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
       } finally {
         mockProvider.call = originalCall
       }
@@ -809,10 +759,7 @@ describe('Synapse', () => {
         await synapse.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Failed to get storage service information'
-        )
+        assert.include(error.message, 'Failed to get storage service information')
         assert.include(error.message, 'RPC error')
       } finally {
         mockProvider.call = originalCall

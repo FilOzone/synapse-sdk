@@ -23,25 +23,20 @@ import { readFile } from 'fs/promises'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL =
-  process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
 
 // Validate inputs
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error(
-    'Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>'
-  )
+  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>')
   process.exit(1)
 }
 
 const filePath = process.argv[2]
 if (!filePath) {
   console.error('ERROR: File path argument is required')
-  console.error(
-    'Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>'
-  )
+  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>')
   process.exit(1)
 }
 
@@ -72,9 +67,7 @@ async function main() {
     // Check size limit (200 MiB)
     const MAX_SIZE = 200 * 1024 * 1024
     if (fileData.length > MAX_SIZE) {
-      throw new Error(
-        `File size exceeds maximum allowed size of ${formatBytes(MAX_SIZE)}`
-      )
+      throw new Error(`File size exceeds maximum allowed size of ${formatBytes(MAX_SIZE)}`)
     }
 
     // Step 2: Create Synapse instance
@@ -115,9 +108,7 @@ async function main() {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(
-            `✓ Selected service provider: ${provider.serviceProvider}`
-          )
+          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
         },
         onDataSetResolved: (info) => {
           if (info.isExisting) {
@@ -131,9 +122,7 @@ async function main() {
         },
         onDataSetCreationProgress: (progress) => {
           if (progress.transactionMined && !progress.dataSetLive) {
-            console.log(
-              '  Transaction mined, waiting for data set to be live...'
-            )
+            console.log('  Transaction mined, waiting for data set to be live...')
           }
         },
       },
@@ -154,28 +143,20 @@ async function main() {
     console.log(`Service Provider: ${providerInfo.serviceProvider}`)
     console.log(`Service URL: ${providerInfo.serviceURL}`)
     console.log(`Peer ID: ${providerInfo.peerId}`)
-    console.log(
-      `Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`
-    )
-    console.log(
-      `Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`
-    )
+    console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
+    console.log(`Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`)
 
     // Step 5: Run preflight checks
     console.log('\n--- Preflight Upload Check ---')
     const preflight = await storageContext.preflightUpload(fileData.length)
 
     console.log('Estimated costs:')
-    console.log(
-      `  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`
-    )
+    console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
     console.log(`  Per day: ${formatUSDFC(preflight.estimatedCost.perDay)}`)
     console.log(`  Per month: ${formatUSDFC(preflight.estimatedCost.perMonth)}`)
 
     if (!preflight.allowanceCheck.sufficient) {
-      console.error(
-        `\n❌ Insufficient allowances: ${preflight.allowanceCheck.message}`
-      )
+      console.error(`\n❌ Insufficient allowances: ${preflight.allowanceCheck.message}`)
       console.error('\nPlease ensure you have:')
       console.error('1. Sufficient USDFC balance')
       console.error('2. Approved USDFC spending for the Payments contract')
@@ -200,9 +181,7 @@ async function main() {
       onPieceAdded: (transaction) => {
         if (transaction) {
           // New enhanced callback with transaction info
-          console.log(
-            `✓ Piece addition transaction submitted: ${transaction.hash}`
-          )
+          console.log(`✓ Piece addition transaction submitted: ${transaction.hash}`)
           console.log('  Waiting for confirmation...')
         } else {
           // Fallback for old servers
@@ -246,26 +225,15 @@ async function main() {
     const pieceStatus = await storageContext.pieceStatus(uploadResult.pieceCid)
     console.log(`Piece exists on provider: ${pieceStatus.exists}`)
     if (pieceStatus.dataSetLastProven) {
-      console.log(
-        `Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`
-      )
+      console.log(`Data set last proven: ${pieceStatus.dataSetLastProven.toLocaleString()}`)
     }
     if (pieceStatus.dataSetNextProofDue) {
-      console.log(
-        `Data set next proof due: ${pieceStatus.dataSetNextProofDue.toLocaleString()}`
-      )
+      console.log(`Data set next proof due: ${pieceStatus.dataSetNextProofDue.toLocaleString()}`)
     }
     if (pieceStatus.inChallengeWindow) {
-      console.log(
-        '⚠️  Currently in challenge window - proof must be submitted soon!'
-      )
-    } else if (
-      pieceStatus.hoursUntilChallengeWindow &&
-      pieceStatus.hoursUntilChallengeWindow > 0
-    ) {
-      console.log(
-        `Hours until challenge window: ${pieceStatus.hoursUntilChallengeWindow.toFixed(1)}`
-      )
+      console.log('⚠️  Currently in challenge window - proof must be submitted soon!')
+    } else if (pieceStatus.hoursUntilChallengeWindow && pieceStatus.hoursUntilChallengeWindow > 0) {
+      console.log(`Hours until challenge window: ${pieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
     }
 
     // Step 10: Show storage info
@@ -275,9 +243,7 @@ async function main() {
     console.log(`- Data set ID: ${storageContext.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
     console.log(`- Service provider: ${storageContext.serviceProvider}`)
-    console.log(
-      '\nThe service provider will periodically prove they still have your data.'
-    )
+    console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
     console.error('\n❌ Error:', error.message)

@@ -43,10 +43,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
   const provider: any = {
     getNetwork: async () => network,
     getSigner: async function () {
-      return createMockSigner(
-        '0x1234567890123456789012345678901234567890',
-        this
-      )
+      return createMockSigner('0x1234567890123456789012345678901234567890', this)
     },
     getBalance: async (address: string) => ethers.parseEther('100'),
     getTransactionCount: async (address: string, blockTag?: string) => 0,
@@ -80,10 +77,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         )
       }
       if (data.includes('70a08231') === true) {
-        return ethers.zeroPadValue(
-          ethers.toBeHex(ethers.parseUnits('1000', 18)),
-          32
-        )
+        return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
       }
       if (data.includes('313ce567') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(18), 32)
@@ -113,31 +107,18 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         const epochsPerMonth = 86400n
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(uint256,uint256,address,uint256)'],
-          [
-            [
-              pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN,
-              tokenAddress,
-              epochsPerMonth,
-            ],
-          ]
+          [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
         )
       }
       // Mock getRailsByPayer response - function selector: 0x89c6a46f
       if (data.includes('89c6a46f') === true) {
         // Return array of rail IDs
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['uint256[]'],
-          [[1n, 2n]]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1n, 2n]])
       }
       // Mock getRailsByPayee response - function selector: 0x7a8fa2f1
       if (data.includes('7a8fa2f1') === true) {
         // Return array of rail IDs
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['uint256[]'],
-          [[3n, 4n]]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[3n, 4n]])
       }
       // Mock getRail response - function selector: 0x0e64d1e0
       if (data.includes('0e64d1e0') === true) {
@@ -200,14 +181,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         const maxLockupPeriod = 86400n // 30 days
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [
-            isApproved,
-            rateAllowance,
-            rateUsed,
-            lockupAllowance,
-            lockupUsed,
-            maxLockupPeriod,
-          ]
+          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed, maxLockupPeriod]
         )
       }
       return '0x'
@@ -249,16 +223,11 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         status: 1,
       }
     },
-    waitForTransaction: async (
-      hash: string,
-      confirmations?: number,
-      timeout?: number
-    ) => {
+    waitForTransaction: async (hash: string, confirmations?: number, timeout?: number) => {
       throw new Error('Not implemented in mock')
     },
     sendTransaction: async (transaction: any) => {
-      const hash =
-        '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
+      const hash = '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
       return {
         hash,
         from: transaction.from ?? '',

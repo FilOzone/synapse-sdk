@@ -2,12 +2,7 @@
  * SubgraphRetriever - Uses a SubgraphService to find and retrieve pieces.
  */
 
-import type {
-  ApprovedProviderInfo,
-  PieceCID,
-  PieceRetriever,
-  SubgraphRetrievalService,
-} from '../types.js'
+import type { ApprovedProviderInfo, PieceCID, PieceRetriever, SubgraphRetrievalService } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { fetchPiecesFromProviders } from './utils.js'
 
@@ -23,13 +18,9 @@ export class SubgraphRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  async findProviders(
-    pieceCid: PieceCID,
-    providerAddress?: string
-  ): Promise<ApprovedProviderInfo[]> {
+  async findProviders(pieceCid: PieceCID, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
     if (providerAddress != null) {
-      const provider =
-        await this.subgraphService.getProviderByAddress(providerAddress)
+      const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
     }
     return await this.subgraphService.getApprovedProvidersForPieceCID(pieceCid)
@@ -45,42 +36,26 @@ export class SubgraphRetriever implements PieceRetriever {
       if (this.childRetriever !== undefined) {
         return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
-      throw createError(
-        'SubgraphRetriever',
-        'fetchPiece',
-        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`
-      )
+      throw createError('SubgraphRetriever', 'fetchPiece', `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`)
     }
 
     // Step 1: Find providers
     let providersToTry: ApprovedProviderInfo[] = []
     try {
-      providersToTry = await this.findProviders(
-        pieceCid,
-        options?.providerAddress
-      )
+      providersToTry = await this.findProviders(pieceCid, options?.providerAddress)
     } catch (error) {
       // Provider discovery failed - this is a critical error
-      return await tryChildOrThrow(
-        'Provider discovery failed and no additional retriever method was configured'
-      )
+      return await tryChildOrThrow('Provider discovery failed and no additional retriever method was configured')
     }
 
     // Step 2: If no providers found, try child retriever
     if (providersToTry.length === 0) {
-      return await tryChildOrThrow(
-        'No providers found and no additional retriever method was configured'
-      )
+      return await tryChildOrThrow('No providers found and no additional retriever method was configured')
     }
 
     // Step 3: Try to fetch from providers
     try {
-      return await fetchPiecesFromProviders(
-        providersToTry,
-        pieceCid,
-        'SubgraphRetriever',
-        options?.signal
-      )
+      return await fetchPiecesFromProviders(providersToTry, pieceCid, 'SubgraphRetriever', options?.signal)
     } catch (fetchError) {
       // All provider attempts failed
       return await tryChildOrThrow(

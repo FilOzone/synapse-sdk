@@ -104,24 +104,16 @@ describe('StorageService', () => {
         getClientDataSetsWithDetails: async () => dataSets,
         getNextClientDataSetId: async () => 3,
         getProviderIdByAddress: async (address: string) => {
-          const idx = mockProviders.findIndex(
-            (p) => p.serviceProvider.toLowerCase() === address.toLowerCase()
-          )
+          const idx = mockProviders.findIndex((p) => p.serviceProvider.toLowerCase() === address.toLowerCase())
           return idx >= 0 ? idx + 1 : 0
         },
-        getApprovedProvider: async (id: number) =>
-          mockProviders[id - 1] ?? null,
+        getApprovedProvider: async (id: number) => mockProviders[id - 1] ?? null,
       } as any
 
       // Mock fetch for ping validation
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/ping')) {
           return { status: 200, statusText: 'OK' } as any
         }
@@ -130,11 +122,7 @@ describe('StorageService', () => {
 
       try {
         // Create storage service without specifying providerId
-        const service = await StorageService.create(
-          mockSynapse,
-          mockWarmStorageService,
-          {}
-        )
+        const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
         // Should have selected one of the providers
         assert.isTrue(
@@ -183,11 +171,7 @@ describe('StorageService', () => {
       } as any
 
       // Create storage service with specific providerId
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        { providerId: 3 }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
     })
@@ -224,10 +208,7 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Provider ID 999 is not currently approved'
-        )
+        assert.include(error.message, 'Provider ID 999 is not currently approved')
       }
     })
 
@@ -264,11 +245,7 @@ describe('StorageService', () => {
         getNextClientDataSetId: async () => 2,
       } as any
 
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        { providerId: 3 }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       // Should use existing data set
       assert.equal(service.dataSetId, 100)
@@ -327,11 +304,7 @@ describe('StorageService', () => {
         getNextClientDataSetId: async () => 3,
       } as any
 
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        { providerId: 3 }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { providerId: 3 })
 
       // Should select the data set with pieces
       assert.equal(service.dataSetId, 101)
@@ -388,14 +361,8 @@ describe('StorageService', () => {
         },
       })
 
-      assert.isTrue(
-        providerCallbackFired,
-        'onProviderSelected should have been called'
-      )
-      assert.isTrue(
-        dataSetCallbackFired,
-        'onDataSetResolved should have been called'
-      )
+      assert.isTrue(providerCallbackFired, 'onProviderSelected should have been called')
+      assert.isTrue(dataSetCallbackFired, 'onDataSetResolved should have been called')
     })
 
     it('should select by explicit dataSetId', async () => {
@@ -437,11 +404,7 @@ describe('StorageService', () => {
         },
       } as any
 
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        { dataSetId: 456 }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, { dataSetId: 456 })
 
       assert.equal(service.dataSetId, 456)
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
@@ -476,10 +439,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = {
         getProviderIdByAddress: async (addr: string) => {
-          assert.equal(
-            addr.toLowerCase(),
-            mockProvider.serviceProvider.toLowerCase()
-          )
+          assert.equal(addr.toLowerCase(), mockProvider.serviceProvider.toLowerCase())
           return 4
         },
         getApprovedProvider: async (id: number) => {
@@ -489,13 +449,9 @@ describe('StorageService', () => {
         getClientDataSetsWithDetails: async () => mockDataSets,
       } as any
 
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        {
-          providerAddress: mockProvider.serviceProvider,
-        }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
+        providerAddress: mockProvider.serviceProvider,
+      })
 
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
       assert.equal(service.dataSetId, 789)
@@ -646,12 +602,7 @@ describe('StorageService', () => {
       // Mock fetch for ping validation
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/ping')) {
           return { status: 200, statusText: 'OK' } as any
         }
@@ -660,28 +611,12 @@ describe('StorageService', () => {
 
       try {
         // Test with CDN = false
-        const serviceNoCDN = await StorageService.create(
-          mockSynapse,
-          mockWarmStorageService,
-          { withCDN: false }
-        )
-        assert.equal(
-          serviceNoCDN.dataSetId,
-          200,
-          'Should select non-CDN data set'
-        )
+        const serviceNoCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: false })
+        assert.equal(serviceNoCDN.dataSetId, 200, 'Should select non-CDN data set')
 
         // Test with CDN = true
-        const serviceWithCDN = await StorageService.create(
-          mockSynapse,
-          mockWarmStorageService,
-          { withCDN: true }
-        )
-        assert.equal(
-          serviceWithCDN.dataSetId,
-          201,
-          'Should select CDN data set'
-        )
+        const serviceWithCDN = await StorageService.create(mockSynapse, mockWarmStorageService, { withCDN: true })
+        assert.equal(serviceWithCDN.dataSetId, 201, 'Should select CDN data set')
       } finally {
         global.fetch = originalFetch
       }
@@ -721,11 +656,7 @@ describe('StorageService', () => {
       } as any
 
       // Should create new data set since existing one is not managed
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        {}
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
       // Should have selected a provider but no existing data set
       assert.exists(service.serviceProvider)
@@ -792,13 +723,9 @@ describe('StorageService', () => {
         getNextClientDataSetId: async () => 1,
       } as any
 
-      const service = await StorageService.create(
-        mockSynapse,
-        mockWarmStorageService,
-        {
-          providerId: 11,
-        }
-      )
+      const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
+        providerId: 11,
+      })
 
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
       // Note: actual data set creation is skipped in tests
@@ -846,9 +773,7 @@ describe('StorageService', () => {
 
       // Verify both calls started before either finished (parallel execution)
       const providerStartIndex = callOrder.indexOf('getApprovedProvider-start')
-      const dataSetsStartIndex = callOrder.indexOf(
-        'getClientDataSetsWithDetails-start'
-      )
+      const dataSetsStartIndex = callOrder.indexOf('getClientDataSetsWithDetails-start')
       const providerEndIndex = callOrder.indexOf('getApprovedProvider-end')
 
       assert.isBelow(providerStartIndex, providerEndIndex)
@@ -901,12 +826,7 @@ describe('StorageService', () => {
       // Mock fetch for ping validation - existing provider should succeed
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request) => {
-        const url =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/ping')) {
           return { status: 200, statusText: 'OK' } as any
         }
@@ -914,17 +834,10 @@ describe('StorageService', () => {
       }
 
       try {
-        const service = await StorageService.create(
-          mockSynapse,
-          mockWarmStorageService,
-          {}
-        )
+        const service = await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
         assert.isTrue(getClientDataSetsCalled, 'Should fetch client data sets')
-        assert.isFalse(
-          getAllApprovedProvidersCalled,
-          'Should NOT fetch all providers'
-        )
+        assert.isFalse(getAllApprovedProvidersCalled, 'Should NOT fetch all providers')
         assert.equal(service.dataSetId, 500)
       } finally {
         global.fetch = originalFetch
@@ -955,10 +868,7 @@ describe('StorageService', () => {
 
       await StorageService.create(mockSynapse, mockWarmStorageService, {})
 
-      assert.isTrue(
-        getAllApprovedProvidersCalled,
-        'Should fetch all providers when no data sets'
-      )
+      assert.isTrue(getAllApprovedProvidersCalled, 'Should fetch all providers when no data sets')
     })
 
     it('should handle data set not live', async () => {
@@ -1101,13 +1011,7 @@ describe('StorageService', () => {
           },
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
@@ -1135,13 +1039,7 @@ describe('StorageService', () => {
           },
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: true }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: true })
 
       const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
 
@@ -1171,36 +1069,18 @@ describe('StorageService', () => {
           },
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const preflight = await service.preflightUpload(100 * 1024 * 1024) // 100 MiB
 
       assert.isFalse(preflight.allowanceCheck.sufficient)
-      assert.include(
-        preflight.allowanceCheck.message,
-        'Rate allowance insufficient'
-      )
-      assert.include(
-        preflight.allowanceCheck.message,
-        'Lockup allowance insufficient'
-      )
+      assert.include(preflight.allowanceCheck.message, 'Rate allowance insufficient')
+      assert.include(preflight.allowanceCheck.message, 'Lockup allowance insufficient')
     })
 
     it('should enforce minimum size limit in preflightUpload', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.preflightUpload(64) // 64 bytes (1 under minimum)
@@ -1214,13 +1094,7 @@ describe('StorageService', () => {
 
     it('should enforce maximum size limit in preflightUpload', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.preflightUpload(210 * 1024 * 1024) // 210 MiB
@@ -1236,8 +1110,7 @@ describe('StorageService', () => {
   describe('download', () => {
     it('should download and verify a piece', async () => {
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Create a mock Synapse with custom download
       const mockSynapseWithDownload = {
@@ -1251,21 +1124,16 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapseWithDownload,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapseWithDownload, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+      })
 
       const downloaded = await service.download(testPieceCID)
       assert.deepEqual(downloaded, testData)
     })
 
     it('should handle download errors', async () => {
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Create a mock Synapse that throws error
       const mockSynapseWithError = {
@@ -1276,13 +1144,9 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapseWithError,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapseWithError, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+      })
 
       try {
         await service.download(testPieceCID)
@@ -1294,8 +1158,7 @@ describe('StorageService', () => {
 
     it('should accept empty download options', async () => {
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Create a mock Synapse with custom download
       const mockSynapseWithOptions = {
@@ -1310,13 +1173,9 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapseWithOptions,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapseWithOptions, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+      })
 
       // Test with and without empty options object
       const downloaded1 = await service.download(testPieceCID)
@@ -1330,13 +1189,7 @@ describe('StorageService', () => {
   describe('upload', () => {
     it('should enforce 65 byte minimum size limit', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that is below the minimum
       const undersizedData = new Uint8Array(64) // 64 bytes (1 byte under minimum)
@@ -1367,19 +1220,11 @@ describe('StorageService', () => {
           }
         },
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const serviceAny = service as any
 
       // Mock PDPServer methods to track calls
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => {
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
         // Use the first byte to create a unique pieceCid for each upload
         const pieceCid = `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`
         return { pieceCid, size: data.length }
@@ -1418,18 +1263,15 @@ describe('StorageService', () => {
       // Start all uploads concurrently with callbacks
       const uploads = [
         service.upload(firstData, {
-          onUploadComplete: (pieceCid: PieceCID) =>
-            uploadCompleteCallbacks.push(pieceCid.toString()),
+          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
           onPieceAdded: () => pieceAddedCallbacks.push(1),
         }),
         service.upload(secondData, {
-          onUploadComplete: (pieceCid: PieceCID) =>
-            uploadCompleteCallbacks.push(pieceCid.toString()),
+          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
           onPieceAdded: () => pieceAddedCallbacks.push(2),
         }),
         service.upload(thirdData, {
-          onUploadComplete: (pieceCid: PieceCID) =>
-            uploadCompleteCallbacks.push(pieceCid.toString()),
+          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
           onPieceAdded: () => pieceAddedCallbacks.push(3),
         }),
       ]
@@ -1437,54 +1279,28 @@ describe('StorageService', () => {
       // Wait for all to complete
       const results = await Promise.all(uploads)
 
-      assert.lengthOf(
-        results,
-        3,
-        'All three uploads should complete successfully'
-      )
+      assert.lengthOf(results, 3, 'All three uploads should complete successfully')
 
       const resultSizes = results.map((r) => r.size)
       const resultPieceIds = results.map((r) => r.pieceId)
 
-      assert.deepEqual(
-        resultSizes,
-        [65, 66, 67],
-        'Should have one result for each data size'
-      )
-      assert.deepEqual(
-        resultPieceIds,
-        [0, 1, 2],
-        'The set of assigned piece IDs should be {0, 1, 2}'
-      )
+      assert.deepEqual(resultSizes, [65, 66, 67], 'Should have one result for each data size')
+      assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
 
       // Verify the calls to the mock were made correctly
-      assert.lengthOf(
-        addPiecesCalls,
-        3,
-        'addPieces should be called three times'
-      )
+      assert.lengthOf(addPiecesCalls, 3, 'addPieces should be called three times')
       for (const result of results) {
         assert.isTrue(
           addPiecesCalls.some(
-            (call) =>
-              call.pieceCid === result.pieceCid.toString() &&
-              call.pieceId === result.pieceId
+            (call) => call.pieceCid === result.pieceCid.toString() && call.pieceId === result.pieceId
           ),
           `addPieces call for pieceCid ${String(result.pieceCid)} and pieceId ${result.pieceId != null ? String(result.pieceId) : 'not found'} should exist`
         )
       }
 
       // Verify callbacks were called
-      assert.lengthOf(
-        uploadCompleteCallbacks,
-        3,
-        'All upload complete callbacks should be called'
-      )
-      assert.lengthOf(
-        pieceAddedCallbacks,
-        3,
-        'All piece added callbacks should be called'
-      )
+      assert.lengthOf(uploadCompleteCallbacks, 3, 'All upload complete callbacks should be called')
+      assert.lengthOf(pieceAddedCallbacks, 3, 'All piece added callbacks should be called')
       assert.deepEqual(
         pieceAddedCallbacks.sort((a, b) => a - b),
         [1, 2, 3],
@@ -1494,8 +1310,7 @@ describe('StorageService', () => {
 
     it('should respect batch size configuration', async () => {
       let nextPieceId = 0
-      const addPiecesCalls: Array<{ batchSize: number; nextPieceId: number }> =
-        []
+      const addPiecesCalls: Array<{ batchSize: number; nextPieceId: number }> = []
 
       const mockWarmStorageService = {
         getAddPiecesInfo: async (): Promise<any> => {
@@ -1510,19 +1325,14 @@ describe('StorageService', () => {
       } as any
 
       // Create service with batch size of 2
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false, uploadBatchSize: 2 }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+        uploadBatchSize: 2,
+      })
       const serviceAny = service as any
 
       // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => {
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
         const pieceCid = `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`
         return { pieceCid, size: data.length }
       }
@@ -1566,33 +1376,17 @@ describe('StorageService', () => {
       assert.lengthOf(results, 5, 'All uploads should complete successfully')
 
       // Verify batching occurred - we should have fewer calls than uploads
-      assert.isBelow(
-        addPiecesCalls.length,
-        5,
-        'Should have fewer batches than uploads'
-      )
+      assert.isBelow(addPiecesCalls.length, 5, 'Should have fewer batches than uploads')
 
       // Verify all uploads were processed
-      const totalProcessed = addPiecesCalls.reduce(
-        (sum, call) => sum + call.batchSize,
-        0
-      )
+      const totalProcessed = addPiecesCalls.reduce((sum, call) => sum + call.batchSize, 0)
       assert.equal(totalProcessed, 5, 'All 5 uploads should be processed')
 
       // Verify piece IDs are sequential
-      assert.equal(
-        addPiecesCalls[0].nextPieceId,
-        0,
-        'First batch should start at piece ID 0'
-      )
+      assert.equal(addPiecesCalls[0].nextPieceId, 0, 'First batch should start at piece ID 0')
       for (let i = 1; i < addPiecesCalls.length; i++) {
-        const expectedId =
-          addPiecesCalls[i - 1].nextPieceId + addPiecesCalls[i - 1].batchSize
-        assert.equal(
-          addPiecesCalls[i].nextPieceId,
-          expectedId,
-          `Batch ${i} should have correct sequential piece ID`
-        )
+        const expectedId = addPiecesCalls[i - 1].nextPieceId + addPiecesCalls[i - 1].batchSize
+        assert.equal(addPiecesCalls[i].nextPieceId, expectedId, `Batch ${i} should have correct sequential piece ID`)
       }
     })
 
@@ -1609,19 +1403,14 @@ describe('StorageService', () => {
       } as any
 
       // Create service with batch size of 1
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false, uploadBatchSize: 1 }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+        uploadBatchSize: 1,
+      })
       const serviceAny = service as any
 
       // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => ({
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
         pieceCid: `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`,
         size: data.length,
       })
@@ -1649,11 +1438,7 @@ describe('StorageService', () => {
 
       // With batch size 1, each upload should be processed individually
       assert.lengthOf(addPiecesCalls, 3, 'Should have 3 individual calls')
-      assert.deepEqual(
-        addPiecesCalls,
-        [1, 1, 1],
-        'Each call should have exactly 1 piece'
-      )
+      assert.deepEqual(addPiecesCalls, [1, 1, 1], 'Each call should have exactly 1 piece')
     })
 
     it('should debounce uploads for better batching', async () => {
@@ -1668,19 +1453,11 @@ describe('StorageService', () => {
       } as any
 
       // Create service with default batch size (32)
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const serviceAny = service as any
 
       // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => ({
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
         pieceCid: `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy${data[0]}`,
         size: data.length,
       })
@@ -1707,16 +1484,8 @@ describe('StorageService', () => {
       await Promise.all(uploads)
 
       // With debounce, all 5 uploads should be in a single batch
-      assert.lengthOf(
-        addPiecesCalls,
-        1,
-        'Should have exactly 1 batch due to debounce'
-      )
-      assert.equal(
-        addPiecesCalls[0].batchSize,
-        5,
-        'Batch should contain all 5 uploads'
-      )
+      assert.lengthOf(addPiecesCalls, 1, 'Should have exactly 1 batch due to debounce')
+      assert.equal(addPiecesCalls[0].batchSize, 5, 'Batch should contain all 5 uploads')
     })
 
     it('should handle errors in batch processing gracefully', async () => {
@@ -1728,19 +1497,14 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false, uploadBatchSize: 2 }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+        uploadBatchSize: 2,
+      })
       const serviceAny = service as any
 
       // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => ({
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
         pieceCid: `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`,
         size: data.length,
       })
@@ -1767,40 +1531,22 @@ describe('StorageService', () => {
       assert.equal(results[0].status, 'rejected')
       assert.equal(results[1].status, 'rejected')
 
-      if (
-        results[0].status === 'rejected' &&
-        results[1].status === 'rejected'
-      ) {
-        assert.include(
-          results[0].reason.message,
-          'Network error during addPieces'
-        )
-        assert.include(
-          results[1].reason.message,
-          'Network error during addPieces'
-        )
+      if (results[0].status === 'rejected' && results[1].status === 'rejected') {
+        assert.include(results[0].reason.message, 'Network error during addPieces')
+        assert.include(results[1].reason.message, 'Network error during addPieces')
         // They should have the same error message (same batch)
         assert.equal(results[0].reason.message, results[1].reason.message)
       }
 
       // Third upload might succeed or fail depending on timing
       if (results[2].status === 'rejected') {
-        assert.include(
-          results[2].reason.message,
-          'Network error during addPieces'
-        )
+        assert.include(results[2].reason.message, 'Network error during addPieces')
       }
     })
 
     it('should enforce 200 MiB size limit', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that exceeds the limit
       const oversizedData = new Uint8Array(210 * 1024 * 1024) // 210 MiB
@@ -1823,26 +1569,17 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data at exactly the minimum
       const minSizeData = new Uint8Array(65) // 65 bytes
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
 
       // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => {
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
         assert.equal(data.length, 65)
         return { pieceCid: testPieceCID, size: data.length }
       }
@@ -1870,26 +1607,17 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data at exactly the limit
       const maxSizeData = new Uint8Array(200 * 1024 * 1024) // 200 MiB
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
 
       // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => {
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
         assert.equal(data.length, 200 * 1024 * 1024)
         return { pieceCid: testPieceCID, size: data.length }
       }
@@ -1921,18 +1649,11 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create data that meets minimum size (65 bytes)
       const testData = new Uint8Array(65).fill(42) // 65 bytes of value 42
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       let uploadCompleteCallbackFired = false
       let pieceAddedCallbackFired = false
@@ -1968,14 +1689,8 @@ describe('StorageService', () => {
         },
       })
 
-      assert.isTrue(
-        uploadCompleteCallbackFired,
-        'onUploadComplete should have been called'
-      )
-      assert.isTrue(
-        pieceAddedCallbackFired,
-        'onPieceAdded should have been called'
-      )
+      assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
       assert.equal(result.pieceCid.toString(), testPieceCID)
     })
 
@@ -1987,19 +1702,11 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       let uploadCompleteCallbackFired = false
       let pieceAddedCallbackFired = false
@@ -2041,10 +1748,7 @@ describe('StorageService', () => {
       }
 
       // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (
-        dataSetId: number,
-        txHash: string
-      ): Promise<any> => {
+      serviceAny._pdpServer.getPieceAdditionStatus = async (dataSetId: number, txHash: string): Promise<any> => {
         assert.equal(dataSetId, 123)
         assert.equal(txHash, mockTxHash)
         return {
@@ -2073,22 +1777,10 @@ describe('StorageService', () => {
           },
         })
 
-        assert.isTrue(
-          uploadCompleteCallbackFired,
-          'onUploadComplete should have been called'
-        )
-        assert.isTrue(
-          pieceAddedCallbackFired,
-          'onPieceAdded should have been called'
-        )
-        assert.isTrue(
-          pieceConfirmedCallbackFired,
-          'onPieceConfirmed should have been called'
-        )
-        assert.exists(
-          pieceAddedTransaction,
-          'Transaction should be passed to onPieceAdded'
-        )
+        assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
+        assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+        assert.isTrue(pieceConfirmedCallbackFired, 'onPieceConfirmed should have been called')
+        assert.exists(pieceAddedTransaction, 'Transaction should be passed to onPieceAdded')
         assert.equal(pieceAddedTransaction.hash, mockTxHash)
         assert.deepEqual(confirmedPieceIds, [42])
         assert.equal(result.pieceId, 42)
@@ -2107,19 +1799,11 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2168,19 +1852,11 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2225,10 +1901,7 @@ describe('StorageService', () => {
         // The error is wrapped by createError
         assert.include(error.message, 'StorageContext addPieces failed:')
         assert.include(error.message, 'Failed to verify piece addition')
-        assert.include(
-          error.message,
-          'The transaction was confirmed on-chain but the server failed to acknowledge it'
-        )
+        assert.include(error.message, 'The transaction was confirmed on-chain but the server failed to acknowledge it')
       } finally {
         // Restore original method
         mockEthProvider.getTransaction = originalGetTransaction
@@ -2243,19 +1916,11 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash =
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2306,17 +1971,10 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42)
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       let pieceAddedCallbackFired = false
       let pieceAddedTransaction: any
@@ -2344,14 +2002,8 @@ describe('StorageService', () => {
         },
       })
 
-      assert.isTrue(
-        pieceAddedCallbackFired,
-        'onPieceAdded should have been called'
-      )
-      assert.isUndefined(
-        pieceAddedTransaction,
-        'Transaction should be undefined for old servers'
-      )
+      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
+      assert.isUndefined(pieceAddedTransaction, 'Transaction should be undefined for old servers')
       assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddPiecesInfo
     })
 
@@ -2363,13 +2015,7 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Create ArrayBuffer instead of Uint8Array
       const buffer = new ArrayBuffer(1024)
@@ -2378,16 +2024,13 @@ describe('StorageService', () => {
         view[i] = i % 256
       }
 
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
 
       // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (
-        data: Uint8Array
-      ): Promise<any> => {
+      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
         assert.instanceOf(data, Uint8Array)
         assert.equal(data.length, 1024)
         return { pieceCid: testPieceCID, size: data.length }
@@ -2414,17 +2057,10 @@ describe('StorageService', () => {
     it.skip('should handle piece parking timeout', async () => {
       // Skip this test as it's timing-sensitive and causes issues in CI
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2440,8 +2076,7 @@ describe('StorageService', () => {
       }
 
       // Temporarily reduce timeout for faster test
-      const originalTimeout = (service as any).constructor
-        .PIECE_PARKING_TIMEOUT_MS
+      const originalTimeout = (service as any).constructor.PIECE_PARKING_TIMEOUT_MS
       Object.defineProperty(service.constructor, 'PIECE_PARKING_TIMEOUT_MS', {
         value: 100, // 100ms for test
         configurable: true,
@@ -2463,13 +2098,7 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
 
       // Mock uploadPiece to fail
@@ -2482,10 +2111,7 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown upload error')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'Failed to upload piece to service provider'
-        )
+        assert.include(error.message, 'Failed to upload piece to service provider')
       }
     })
 
@@ -2497,16 +2123,9 @@ describe('StorageService', () => {
           currentPieceCount: 0,
         }),
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2541,16 +2160,9 @@ describe('StorageService', () => {
           throw new Error('Data set not managed by this WarmStorage')
         },
       } as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
       const testData = new Uint8Array(65).fill(42) // 65 bytes to meet minimum
-      const testPieceCID =
-        'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
       const serviceAny = service as any
@@ -2598,12 +2210,7 @@ describe('StorageService', () => {
         let pingCallCount = 0
         const originalFetch = global.fetch
         global.fetch = async (input: string | URL | Request) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.toString()
-                : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
           if (url.includes('/ping')) {
             pingCallCount++
@@ -2623,17 +2230,11 @@ describe('StorageService', () => {
         }
 
         try {
-          const result = await (StorageService as any).selectRandomProvider(
-            testProviders
-          )
+          const result = await (StorageService as any).selectRandomProvider(testProviders)
 
           // Should have selected the second provider (first one failed ping)
           assert.equal(result.serviceProvider, testProviders[1].serviceProvider)
-          assert.isAtLeast(
-            pingCallCount,
-            1,
-            'Should have called ping at least once'
-          )
+          assert.isAtLeast(pingCallCount, 1, 'Should have called ping at least once')
         } finally {
           global.fetch = originalFetch
         }
@@ -2673,10 +2274,7 @@ describe('StorageService', () => {
           await (StorageService as any).selectRandomProvider(testProviders)
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          assert.include(
-            error.message,
-            'StorageContext selectProviderWithPing failed'
-          )
+          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
           assert.include(error.message, 'All 2 providers failed health check')
         } finally {
           global.fetch = originalFetch
@@ -2725,24 +2323,16 @@ describe('StorageService', () => {
           getClientDataSetsWithDetails: async () => dataSets,
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async (address: string) => {
-            const idx = testProviders.findIndex(
-              (p) => p.serviceProvider.toLowerCase() === address.toLowerCase()
-            )
+            const idx = testProviders.findIndex((p) => p.serviceProvider.toLowerCase() === address.toLowerCase())
             return idx >= 0 ? idx + 1 : 0
           },
-          getApprovedProvider: async (id: number) =>
-            testProviders[id - 1] ?? null,
+          getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null,
         } as any
 
         let pingCallCount = 0
         const originalFetch = global.fetch
         global.fetch = async (input: string | URL | Request) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.toString()
-                : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
           if (url.includes('/ping')) {
             pingCallCount++
@@ -2766,16 +2356,9 @@ describe('StorageService', () => {
           assert.fail('Should have thrown error')
         } catch (error: any) {
           // Should fail with selectProviderWithPing error after trying existing provider
-          assert.include(
-            error.message,
-            'StorageContext selectProviderWithPing failed'
-          )
+          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
           assert.include(error.message, 'All 1 providers failed health check')
-          assert.isAtLeast(
-            pingCallCount,
-            1,
-            'Should have pinged the provider from existing data set'
-          )
+          assert.isAtLeast(pingCallCount, 1, 'Should have pinged the provider from existing data set')
         } finally {
           global.fetch = originalFetch
         }
@@ -2809,12 +2392,7 @@ describe('StorageService', () => {
         let pingCallCount = 0
         const originalFetch = global.fetch
         global.fetch = async (input: string | URL | Request) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.toString()
-                : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
           if (url.includes('/ping')) {
             pingCallCount++
@@ -2832,8 +2410,7 @@ describe('StorageService', () => {
         try {
           // Create a mock signer for the test
           const mockSigner = {
-            getAddress: async () =>
-              '0x1234567890123456789012345678901234567890',
+            getAddress: async () => '0x1234567890123456789012345678901234567890',
           } as any
 
           const result = await (StorageService as any).smartSelectProvider(
@@ -2845,18 +2422,12 @@ describe('StorageService', () => {
 
           // Should have selected one of the available providers for new data set
           assert.isTrue(
-            testProviders.some(
-              (p) => p.serviceProvider === result.provider.serviceProvider
-            ),
+            testProviders.some((p) => p.serviceProvider === result.provider.serviceProvider),
             'Should have selected one of the available providers'
           )
           assert.equal(result.dataSetId, -1) // New data set marker
           assert.isFalse(result.isExisting)
-          assert.isAtLeast(
-            pingCallCount,
-            1,
-            'Should have pinged at least one provider'
-          )
+          assert.isAtLeast(pingCallCount, 1, 'Should have pinged at least one provider')
         } finally {
           global.fetch = originalFetch
         }
@@ -2898,12 +2469,7 @@ describe('StorageService', () => {
 
         const originalFetch = global.fetch
         global.fetch = async (input: string | URL | Request) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.toString()
-                : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
           if (url.includes('/ping')) {
             return { status: 200, statusText: 'OK' } as any
@@ -2915,8 +2481,7 @@ describe('StorageService', () => {
         try {
           // Create a mock signer for the test
           const mockSigner = {
-            getAddress: async () =>
-              '0x1234567890123456789012345678901234567890',
+            getAddress: async () => '0x1234567890123456789012345678901234567890',
           } as any
 
           const result = await (StorageService as any).smartSelectProvider(
@@ -2927,10 +2492,7 @@ describe('StorageService', () => {
           )
 
           // Should use existing provider since ping succeeded
-          assert.equal(
-            result.provider.serviceProvider,
-            testProvider.serviceProvider
-          )
+          assert.equal(result.provider.serviceProvider, testProvider.serviceProvider)
           assert.equal(result.dataSetId, 100)
           assert.isTrue(result.isExisting)
         } finally {
@@ -3010,12 +2572,7 @@ describe('StorageService', () => {
         let pingCount = 0
         const originalFetch = global.fetch
         global.fetch = async (input: string | URL | Request) => {
-          const url =
-            typeof input === 'string'
-              ? input
-              : input instanceof URL
-                ? input.toString()
-                : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
           if (url.includes('/ping')) {
             pingCount++
@@ -3039,11 +2596,7 @@ describe('StorageService', () => {
           assert.fail('Should have thrown error')
         } catch (error: any) {
           // Verify we only pinged once despite having three data sets with the same provider
-          assert.equal(
-            pingCount,
-            1,
-            'Should only ping each unique provider once'
-          )
+          assert.equal(pingCount, 1, 'Should only ping each unique provider once')
           // The error should come from selectProviderWithPing failing, not from getAllApprovedProviders
           assert.include(error.message, 'All 1 providers failed health check')
         } finally {
@@ -3071,13 +2624,9 @@ describe('StorageService', () => {
         },
       } as any
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapseWithProvider,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapseWithProvider, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+      })
 
       const providerInfo = await service.getProviderInfo()
       assert.deepEqual(providerInfo, expectedProviderInfo)
@@ -3091,13 +2640,9 @@ describe('StorageService', () => {
         },
       } as any
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapseWithError,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapseWithError, mockWarmStorageService, mockProvider, 123, {
+        withCDN: false,
+      })
 
       try {
         await service.getProviderInfo()
@@ -3111,31 +2656,21 @@ describe('StorageService', () => {
   describe('getDataSetPieces', () => {
     it('should successfully fetch data set pieces', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const mockDataSetData = {
         id: 292,
         pieces: [
           {
             pieceId: 101,
-            pieceCid:
-              'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-            subPieceCid:
-              'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+            pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+            subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
             subPieceOffset: 0,
           },
           {
             pieceId: 102,
-            pieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0,
           },
         ],
@@ -3144,9 +2679,7 @@ describe('StorageService', () => {
 
       // Mock the PDP server getDataSet method
       const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (
-        dataSetId: number
-      ): Promise<any> => {
+      serviceAny._pdpServer.getDataSet = async (dataSetId: number): Promise<any> => {
         assert.equal(dataSetId, 123)
         return mockDataSetData
       }
@@ -3161,13 +2694,7 @@ describe('StorageService', () => {
 
     it('should handle empty data set pieces', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const mockDataSetData = {
         id: 292,
@@ -3189,13 +2716,7 @@ describe('StorageService', () => {
 
     it('should handle invalid CID in response', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       const mockDataSetData = {
         id: 292,
@@ -3203,8 +2724,7 @@ describe('StorageService', () => {
           {
             pieceId: 101,
             pieceCid: 'invalid-cid-format',
-            subPieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0,
           },
         ],
@@ -3225,13 +2745,7 @@ describe('StorageService', () => {
 
     it('should handle PDP server errors', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock the PDP server getDataSet method to throw error
       const serviceAny = service as any
@@ -3249,8 +2763,7 @@ describe('StorageService', () => {
   })
 
   describe('pieceStatus()', () => {
-    const mockPieceCID =
-      'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+    const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
     it('should return exists=false when piece not found on provider', async () => {
       const mockWarmStorageService = {
@@ -3258,13 +2771,7 @@ describe('StorageService', () => {
         getChallengeWindow: async () => 60,
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3305,13 +2812,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3341,10 +2842,7 @@ describe('StorageService', () => {
       const status = await service.pieceStatus(mockPieceCID)
 
       assert.isTrue(status.exists)
-      assert.equal(
-        status.retrievalUrl,
-        'https://pdp.example.com/piece/' + mockPieceCID
-      )
+      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockPieceCID)
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -3361,13 +2859,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3415,13 +2907,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3466,13 +2952,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3521,13 +3001,9 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProviderWithSlash,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProviderWithSlash, 123, {
+        withCDN: false,
+      })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3559,10 +3035,7 @@ describe('StorageService', () => {
 
       assert.isTrue(status.exists)
       // Should not have double slash
-      assert.equal(
-        status.retrievalUrl,
-        'https://pdp.example.com/piece/' + mockPieceCID
-      )
+      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockPieceCID)
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')
@@ -3570,13 +3043,7 @@ describe('StorageService', () => {
 
     it('should handle invalid PieceCID', async () => {
       const mockWarmStorageService = {} as any
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       try {
         await service.pieceStatus('invalid-pieceCid')
@@ -3596,13 +3063,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any
@@ -3646,13 +3107,7 @@ describe('StorageService', () => {
         }),
       } as any
 
-      const service = new StorageService(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        { withCDN: false }
-      )
+      const service = new StorageService(mockSynapse, mockWarmStorageService, mockProvider, 123, { withCDN: false })
 
       // Mock PDP server methods
       const serviceAny = service as any

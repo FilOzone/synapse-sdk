@@ -8,13 +8,7 @@ import type { API } from '@web3-storage/data-segment'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import {
-  asLegacyPieceCID,
-  asPieceCID,
-  calculate,
-  createPieceCIDStream,
-  type PieceCID,
-} from '../piece/index.js'
+import { asLegacyPieceCID, asPieceCID, calculate, createPieceCIDStream, type PieceCID } from '../piece/index.js'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -41,11 +35,7 @@ const zeroPieceCidFixture = `
   .split('\n')
   .map((line) => {
     const parts = line.trim().split(',')
-    return [
-      parseInt(parts[0], 10),
-      parseInt(parts[1], 10),
-      CID.parse(parts[2].trim()),
-    ] as [number, number, CID]
+    return [parseInt(parts[0], 10), parseInt(parts[1], 10), CID.parse(parts[2].trim())] as [number, number, CID]
   })
 
 function toPieceCID(size: bigint, cid: CID): PieceCID {
@@ -57,8 +47,7 @@ function toPieceCID(size: bigint, cid: CID): PieceCID {
 }
 
 describe('PieceCID utilities', () => {
-  const validPieceCidString =
-    'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+  const validPieceCidString = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
   const invalidCidString = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG' // CIDv0, not PieceCID
 
   describe('asPieceCID', () => {
@@ -212,10 +201,7 @@ describe('PieceCID utilities', () => {
 
       const streamPieceCid = getPieceCID()
       assert.isNotNull(streamPieceCid)
-      assert.strictEqual(
-        streamPieceCid?.toString(),
-        expectedPieceCid.toString()
-      )
+      assert.strictEqual(streamPieceCid?.toString(), expectedPieceCid.toString())
     })
 
     it('should handle chunked data correctly', async () => {
@@ -247,10 +233,7 @@ describe('PieceCID utilities', () => {
 
       const streamPieceCid = getPieceCID()
       assert.isNotNull(streamPieceCid)
-      assert.strictEqual(
-        streamPieceCid?.toString(),
-        expectedPieceCid.toString()
-      )
+      assert.strictEqual(streamPieceCid?.toString(), expectedPieceCid.toString())
     })
 
     it('should return null before stream is finished', () => {

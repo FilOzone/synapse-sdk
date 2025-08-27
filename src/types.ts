@@ -157,9 +157,7 @@ export interface SubgraphRetrievalService {
    * @param pieceCid - The PieceCID of the data segment.
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    */
-  getApprovedProvidersForPieceCID: (
-    pieceCid: PieceCID
-  ) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ApprovedProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.
@@ -167,9 +165,7 @@ export interface SubgraphRetrievalService {
    * @param address - The unique address (ID) of the provider.
    * @returns A promise that resolves to `ApprovedProviderInfo` if found, otherwise `null`.
    */
-  getProviderByAddress: (
-    address: string
-  ) => Promise<ApprovedProviderInfo | null>
+  getProviderByAddress: (address: string) => Promise<ApprovedProviderInfo | null>
 }
 
 /**
@@ -256,11 +252,7 @@ export interface StorageCreationCallbacks {
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: {
-    isExisting: boolean
-    dataSetId: number
-    provider: ApprovedProviderInfo
-  }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ApprovedProviderInfo }) => void
 
   /**
    * Called when data set creation transaction is submitted
@@ -268,10 +260,7 @@ export interface StorageCreationCallbacks {
    * @param transaction - Transaction response object
    * @param statusUrl - URL to check status (optional)
    */
-  onDataSetCreationStarted?: (
-    transaction: ethers.TransactionResponse,
-    statusUrl?: string
-  ) => void
+  onDataSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
 
   /**
    * Called periodically during data set creation

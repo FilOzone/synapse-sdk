@@ -28,12 +28,7 @@
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asPieceCID } from '../piece/index.js'
-import type {
-  ApprovedProviderInfo,
-  PieceCID,
-  SubgraphConfig,
-  SubgraphRetrievalService,
-} from '../types.js'
+import type { ApprovedProviderInfo, PieceCID, SubgraphConfig, SubgraphRetrievalService } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { QUERIES } from './queries.js'
 
@@ -199,9 +194,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Builds Goldsky endpoint URL
    */
-  private buildGoldskyEndpoint(
-    goldsky: NonNullable<SubgraphConfig['goldsky']>
-  ): string {
+  private buildGoldskyEndpoint(goldsky: NonNullable<SubgraphConfig['goldsky']>): string {
     const { projectId, subgraphName, version } = goldsky
 
     if (
@@ -252,11 +245,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Executes a GraphQL query
    */
-  private async executeQuery<T>(
-    query: string,
-    variables: Record<string, any>,
-    operation: string
-  ): Promise<T> {
+  private async executeQuery<T>(query: string, variables: Record<string, any>, operation: string): Promise<T> {
     try {
       const response = await fetch(this.endpoint, {
         method: 'POST',
@@ -266,22 +255,14 @@ export class SubgraphService implements SubgraphRetrievalService {
 
       if (!response.ok) {
         const errorText = await response.text()
-        throw createError(
-          'SubgraphService',
-          operation,
-          `HTTP ${response.status}: ${errorText}`
-        )
+        throw createError('SubgraphService', operation, `HTTP ${response.status}: ${errorText}`)
       }
 
       const result = (await response.json()) as GraphQLResponse<T>
 
       if (result.errors != null && result.errors.length > 0) {
         const errorMsg = result.errors.map((e) => e.message).join('; ')
-        throw createError(
-          'SubgraphService',
-          operation,
-          `GraphQL errors: ${errorMsg}`
-        )
+        throw createError('SubgraphService', operation, `GraphQL errors: ${errorMsg}`)
       }
 
       return result.data as T
@@ -290,12 +271,9 @@ export class SubgraphService implements SubgraphRetrievalService {
         throw error
       }
 
-      throw createError(
-        'SubgraphService',
-        operation,
-        `Query execution failed: ${(error as Error).message}`,
-        { cause: error }
-      )
+      throw createError('SubgraphService', operation, `Query execution failed: ${(error as Error).message}`, {
+        cause: error,
+      })
     }
   }
 
@@ -352,12 +330,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Validates provider data completeness
    */
   private isValidProviderData(data: any): boolean {
-    return (
-      data?.id != null &&
-      data.id.trim() !== '' &&
-      data?.serviceURL != null &&
-      data.serviceURL.trim() !== ''
-    )
+    return data?.id != null && data.id.trim() !== '' && data?.serviceURL != null && data.serviceURL.trim() !== ''
   }
 
   /**
@@ -370,16 +343,10 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForPieceCID(
-    pieceCid: PieceCID
-  ): Promise<ApprovedProviderInfo[]> {
+  async getApprovedProvidersForPieceCID(pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
     const pieceCidParsed = asPieceCID(pieceCid)
     if (pieceCidParsed == null) {
-      throw createError(
-        'SubgraphService',
-        'getApprovedProvidersForPieceCID',
-        'Invalid PieceCID'
-      )
+      throw createError('SubgraphService', 'getApprovedProvidersForPieceCID', 'Invalid PieceCID')
     }
     const hexPieceCid = toHex(pieceCidParsed.bytes)
 
@@ -390,44 +357,29 @@ export class SubgraphService implements SubgraphRetrievalService {
     )
 
     if (data?.pieces == null || data.pieces.length === 0) {
-      console.log(
-        `SubgraphService: No providers found for PieceCID: ${pieceCidParsed.toString()}`
-      )
+      console.log(`SubgraphService: No providers found for PieceCID: ${pieceCidParsed.toString()}`)
       return []
     }
 
-    const uniqueProviderMap = data.pieces.reduce(
-      (acc: Map<string, any>, piece: any) => {
-        const provider = piece.dataSet.serviceProvider
-        const address = provider?.address?.toLowerCase() as string
+    const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
+      const provider = piece.dataSet.serviceProvider
+      const address = provider?.address?.toLowerCase() as string
 
-        if (
-          provider?.status !== 'Approved' ||
-          address == null ||
-          address === '' ||
-          acc.has(address)
-        ) {
-          return acc
-        }
-
-        if (!this.isValidProviderData(provider)) {
-          console.warn(
-            'SubgraphService: Skipping incomplete provider data for approved provider:',
-            provider
-          )
-          return acc
-        }
-
-        acc.set(address, provider)
-
+      if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
         return acc
-      },
-      new Map<string, any>()
-    )
+      }
 
-    return Array.from(uniqueProviderMap.values()).map((provider) =>
-      this.transformProviderData(provider)
-    )
+      if (!this.isValidProviderData(provider)) {
+        console.warn('SubgraphService: Skipping incomplete provider data for approved provider:', provider)
+        return acc
+      }
+
+      acc.set(address, provider)
+
+      return acc
+    }, new Map<string, any>())
+
+    return Array.from(uniqueProviderMap.values()).map((provider) => this.transformProviderData(provider))
   }
 
   /**
@@ -436,9 +388,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @param address - The wallet address of the provider to search for.
    * @returns A promise that resolves to an `ApprovedProviderInfo` object if the provider is found, or `null` otherwise.
    */
-  async getProviderByAddress(
-    address: string
-  ): Promise<ApprovedProviderInfo | null> {
+  async getProviderByAddress(address: string): Promise<ApprovedProviderInfo | null> {
     const data = await this.executeQuery<{ provider: any | null }>(
       QUERIES.GET_PROVIDER_BY_ADDRESS,
       { providerId: address },
@@ -476,9 +426,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryProviders(
-    options: QueryOptions = {}
-  ): Promise<ApprovedProviderInfo[]> {
+  async queryProviders(options: QueryOptions = {}): Promise<ApprovedProviderInfo[]> {
     const data = await this.executeQuery<{ providers: any[] }>(
       QUERIES.GET_PROVIDERS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -520,9 +468,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryDataSets(
-    options: QueryOptions = {}
-  ): Promise<DetailedSubgraphDataSetInfo[]> {
+  async queryDataSets(options: QueryOptions = {}): Promise<DetailedSubgraphDataSetInfo[]> {
     const data = await this.executeQuery<{ dataSets: any[] }>(
       QUERIES.GET_DATA_SETS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -645,9 +591,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        serviceProvider: this.transformProviderData(
-          piece.dataSet.serviceProvider
-        ),
+        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider),
       },
     }))
   }
@@ -682,9 +626,7 @@ export class SubgraphService implements SubgraphRetrievalService {
     )
 
     if (data?.faultRecords == null || data?.faultRecords?.length === 0) {
-      console.log(
-        'SubgraphService: No fault records found for the given criteria'
-      )
+      console.log('SubgraphService: No fault records found for the given criteria')
       return []
     }
 
@@ -700,9 +642,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        serviceProvider: this.transformProviderData(
-          fault.dataSet.serviceProvider
-        ),
+        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider),
       },
     }))
   }

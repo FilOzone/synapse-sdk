@@ -94,12 +94,7 @@
 
 import { ethers } from 'ethers'
 import { Synapse } from '../dist/index.js'
-import {
-  CONTRACT_ABIS,
-  CONTRACT_ADDRESSES,
-  RPC_URLS,
-  TOKENS,
-} from '../dist/utils/constants.js'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 import { WarmStorageService } from '../dist/warm-storage/index.js'
 
 // Constants for payment approvals
@@ -145,8 +140,7 @@ async function main() {
 
     const network = process.env.NETWORK || 'calibration'
     const customRpcUrl = process.env.RPC_URL
-    const spServiceUrl =
-      process.env.SP_SERVICE_URL || 'https://service.example.com'
+    const spServiceUrl = process.env.SP_SERVICE_URL || 'https://service.example.com'
 
     // Validate network
     if (network !== 'mainnet' && network !== 'calibration') {
@@ -200,41 +194,25 @@ async function main() {
 
         // Step 1: Remove the existing provider (as owner)
         log('Removing existing provider registration...')
-        const removeTx = await spTool.removeServiceProvider(
-          deployerSigner,
-          spId
-        )
+        const removeTx = await spTool.removeServiceProvider(deployerSigner, spId)
         success(`Provider removal transaction sent. Tx: ${removeTx.hash}`)
         await removeTx.wait()
         success('Provider removed successfully')
 
         // Step 2: Register with new URL (as SP)
         log('Registering service provider with new URL (requires 1 FIL fee)...')
-        const registerTx = await spTool.registerServiceProvider(
-          spSigner,
-          spServiceUrl,
-          ''
-        )
-        success(
-          `Service provider registration transaction sent. Tx: ${registerTx.hash}`
-        )
+        const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
         success('Service provider registered successfully')
 
         // Step 3: Approve the new registration (as owner)
         log('Approving service provider registration...')
-        const warmStorageContract = new ethers.Contract(
-          warmStorageAddress,
-          CONTRACT_ABIS.WARM_STORAGE,
-          deployerSigner
-        )
+        const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
 
         try {
           // Estimate gas first
-          const gasEstimate =
-            await warmStorageContract.approveServiceProvider.estimateGas(
-              spAddress
-            )
+          const gasEstimate = await warmStorageContract.approveServiceProvider.estimateGas(spAddress)
           log(`Gas estimate: ${gasEstimate}`)
 
           // Add 50% buffer for Filecoin network
@@ -244,28 +222,19 @@ async function main() {
 
           log(`Using gas limit: ${finalGasLimit}`)
 
-          const approveTx = await warmStorageContract.approveServiceProvider(
-            spAddress,
-            {
-              gasLimit: finalGasLimit,
-            }
-          )
-          success(
-            `Service provider approval transaction sent. Tx: ${approveTx.hash}`
-          )
+          const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
+            gasLimit: finalGasLimit,
+          })
+          success(`Service provider approval transaction sent. Tx: ${approveTx.hash}`)
           await approveTx.wait()
           success('Service provider approved successfully')
         } catch (approveError) {
           // Try to get more detailed error info
           try {
-            await warmStorageContract.approveServiceProvider.staticCall(
-              spAddress
-            )
+            await warmStorageContract.approveServiceProvider.staticCall(spAddress)
             throw approveError // Re-throw original if static call works
           } catch (staticError) {
-            error(
-              `Contract call would revert: ${staticError.reason || staticError.message}`
-            )
+            error(`Contract call would revert: ${staticError.reason || staticError.message}`)
             throw staticError
           }
         }
@@ -279,9 +248,7 @@ async function main() {
         hasPendingRegistration = true
         warning('Service provider has pending registration')
         log(`  Service URL: ${pendingInfo.serviceURL}`)
-        log(
-          `  Registered at: ${new Date(Number(pendingInfo.registeredAt) * 1000).toISOString()}`
-        )
+        log(`  Registered at: ${new Date(Number(pendingInfo.registeredAt) * 1000).toISOString()}`)
       } catch (err) {
         // No pending registration found (this is expected for new providers)
         hasPendingRegistration = false
@@ -290,14 +257,8 @@ async function main() {
       if (!hasPendingRegistration) {
         // Register the service provider
         log('Registering service provider (requires 1 FIL fee)...')
-        const registerTx = await spTool.registerServiceProvider(
-          spSigner,
-          spServiceUrl,
-          ''
-        )
-        success(
-          `Service provider registration transaction sent. Tx: ${registerTx.hash}`
-        )
+        const registerTx = await spTool.registerServiceProvider(spSigner, spServiceUrl, '')
+        success(`Service provider registration transaction sent. Tx: ${registerTx.hash}`)
         await registerTx.wait()
         success('Service provider registered successfully')
       }
@@ -305,35 +266,23 @@ async function main() {
       // === Step 2: Approve Service Provider (as deployer) ===
       log('\n✅ Step 2: Approve Service Provider')
 
-      const deployerSpTool = new WarmStorageService(
-        provider,
-        warmStorageAddress
-      )
+      const deployerSpTool = new WarmStorageService(provider, warmStorageAddress)
 
       // Verify deployer is contract owner
       const isOwner = await deployerSpTool.isOwner(deployerSigner)
       if (!isOwner) {
-        error(
-          'Deployer is not the contract owner. Cannot approve service provider.'
-        )
+        error('Deployer is not the contract owner. Cannot approve service provider.')
         process.exit(1)
       }
 
       log('Approving service provider as contract owner...')
 
       // Create contract instance directly to set gas limit
-      const warmStorageContract = new ethers.Contract(
-        warmStorageAddress,
-        CONTRACT_ABIS.WARM_STORAGE,
-        deployerSigner
-      )
+      const warmStorageContract = new ethers.Contract(warmStorageAddress, CONTRACT_ABIS.WARM_STORAGE, deployerSigner)
 
       try {
         // Estimate gas first
-        const gasEstimate =
-          await warmStorageContract.approveServiceProvider.estimateGas(
-            spAddress
-          )
+        const gasEstimate = await warmStorageContract.approveServiceProvider.estimateGas(spAddress)
         log(`Gas estimate: ${gasEstimate}`)
 
         // Add 50% buffer for Filecoin network
@@ -343,12 +292,9 @@ async function main() {
 
         log(`Using gas limit: ${finalGasLimit}`)
 
-        const approveTx = await warmStorageContract.approveServiceProvider(
-          spAddress,
-          {
-            gasLimit: finalGasLimit,
-          }
-        )
+        const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
+          gasLimit: finalGasLimit,
+        })
         await approveTx.wait()
         success(`Service provider approved successfully. Tx: ${approveTx.hash}`)
       } catch (approveError) {
@@ -357,9 +303,7 @@ async function main() {
           await warmStorageContract.approveServiceProvider.staticCall(spAddress)
           throw approveError // Re-throw original if static call works
         } catch (staticError) {
-          error(
-            `Contract call would revert: ${staticError.reason || staticError.message}`
-          )
+          error(`Contract call would revert: ${staticError.reason || staticError.message}`)
           throw staticError
         }
       }
@@ -383,82 +327,49 @@ async function main() {
 
     // Check current USDFC allowance for payments contract
     log('Checking USDFC allowance for payments contract...')
-    const currentAllowance = await clientSynapse.payments.allowance(
-      TOKENS.USDFC,
-      paymentsAddress
-    )
+    const currentAllowance = await clientSynapse.payments.allowance(TOKENS.USDFC, paymentsAddress)
     const requiredAllowance = RATE_ALLOWANCE_PER_EPOCH * 100n // 100 epochs worth
 
     if (currentAllowance < requiredAllowance) {
-      log(
-        `Current allowance: ${ethers.formatUnits(currentAllowance, 18)} USDFC`
-      )
-      log(
-        `Required allowance: ${ethers.formatUnits(requiredAllowance, 18)} USDFC`
-      )
+      log(`Current allowance: ${ethers.formatUnits(currentAllowance, 18)} USDFC`)
+      log(`Required allowance: ${ethers.formatUnits(requiredAllowance, 18)} USDFC`)
       log('Approving USDFC spending for payments contract...')
 
-      const approveTx = await clientSynapse.payments.approve(
-        TOKENS.USDFC,
-        paymentsAddress,
-        requiredAllowance
-      )
+      const approveTx = await clientSynapse.payments.approve(TOKENS.USDFC, paymentsAddress, requiredAllowance)
       success(`USDFC approval transaction sent. Tx: ${approveTx.hash}`)
       await approveTx.wait()
       success('USDFC approval confirmed')
     } else {
-      success(
-        `USDFC allowance already sufficient: ${ethers.formatUnits(currentAllowance, 18)} USDFC`
-      )
+      success(`USDFC allowance already sufficient: ${ethers.formatUnits(currentAllowance, 18)} USDFC`)
     }
 
     // Check and deposit USDFC into Payments contract
     log('Checking USDFC balance in Payments contract...')
     const currentBalance = await clientSynapse.payments.balance(TOKENS.USDFC)
-    log(
-      `Current deposit balance: ${ethers.formatUnits(currentBalance, 18)} USDFC`
-    )
+    log(`Current deposit balance: ${ethers.formatUnits(currentBalance, 18)} USDFC`)
 
     if (currentBalance < INITIAL_DEPOSIT_AMOUNT) {
-      log(
-        `Depositing ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC into Payments contract...`
-      )
+      log(`Depositing ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC into Payments contract...`)
 
       // Check wallet has enough USDFC
-      const walletBalance = await clientSynapse.payments.walletBalance(
-        TOKENS.USDFC
-      )
+      const walletBalance = await clientSynapse.payments.walletBalance(TOKENS.USDFC)
       if (walletBalance < INITIAL_DEPOSIT_AMOUNT) {
-        error(
-          `Insufficient USDFC balance in wallet: ${ethers.formatUnits(walletBalance, 18)} USDFC`
-        )
-        error(
-          `Need at least ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC`
-        )
+        error(`Insufficient USDFC balance in wallet: ${ethers.formatUnits(walletBalance, 18)} USDFC`)
+        error(`Need at least ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC`)
         process.exit(1)
       }
 
-      const depositTx = await clientSynapse.payments.deposit(
-        INITIAL_DEPOSIT_AMOUNT,
-        TOKENS.USDFC
-      )
+      const depositTx = await clientSynapse.payments.deposit(INITIAL_DEPOSIT_AMOUNT, TOKENS.USDFC)
       success(`USDFC deposit transaction sent. Tx: ${depositTx.hash}`)
       await depositTx.wait()
-      success(
-        `Deposited ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC successfully`
-      )
+      success(`Deposited ${ethers.formatUnits(INITIAL_DEPOSIT_AMOUNT, 18)} USDFC successfully`)
     } else {
-      success(
-        `USDFC deposit already sufficient: ${ethers.formatUnits(currentBalance, 18)} USDFC`
-      )
+      success(`USDFC deposit already sufficient: ${ethers.formatUnits(currentBalance, 18)} USDFC`)
     }
 
     // Check current operator approval for Warm Storage contract
     log('Checking operator approval for Warm Storage contract...')
-    const currentApproval = await clientSynapse.payments.serviceApproval(
-      warmStorageAddress,
-      TOKENS.USDFC
-    )
+    const currentApproval = await clientSynapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
 
     const needsUpdate =
       !currentApproval.isApproved ||
@@ -468,12 +379,8 @@ async function main() {
     if (needsUpdate) {
       log('Current approval status:')
       log(`  Approved: ${currentApproval.isApproved}`)
-      log(
-        `  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`
-      )
-      log(
-        `  Lockup allowance: ${ethers.formatUnits(currentApproval.lockupAllowance, 18)} USDFC`
-      )
+      log(`  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`)
+      log(`  Lockup allowance: ${ethers.formatUnits(currentApproval.lockupAllowance, 18)} USDFC`)
 
       log('Setting operator approval for Warm Storage contract...')
       const approveServiceTx = await clientSynapse.payments.approveService(
@@ -483,19 +390,13 @@ async function main() {
         MAX_LOCKUP_PERIOD,
         TOKENS.USDFC
       )
-      success(
-        `Operator approval transaction sent. Tx: ${approveServiceTx.hash}`
-      )
+      success(`Operator approval transaction sent. Tx: ${approveServiceTx.hash}`)
       await approveServiceTx.wait()
       success('Operator approval confirmed')
     } else {
       success('Operator approval already configured correctly')
-      log(
-        `  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`
-      )
-      log(
-        `  Lockup allowance: ${ethers.formatUnits(currentApproval.lockupAllowance, 18)} USDFC`
-      )
+      log(`  Rate allowance: ${ethers.formatUnits(currentApproval.rateAllowance, 18)} USDFC/epoch`)
+      log(`  Lockup allowance: ${ethers.formatUnits(currentApproval.lockupAllowance, 18)} USDFC`)
     }
 
     // === Final Status Report ===
@@ -513,47 +414,23 @@ async function main() {
     }
 
     // Client payment status
-    const finalAllowance = await clientSynapse.payments.allowance(
-      TOKENS.USDFC,
-      paymentsAddress
-    )
-    const finalApproval = await clientSynapse.payments.serviceApproval(
-      warmStorageAddress,
-      TOKENS.USDFC
-    )
-    const finalDepositBalance = await clientSynapse.payments.balance(
-      TOKENS.USDFC
-    )
+    const finalAllowance = await clientSynapse.payments.allowance(TOKENS.USDFC, paymentsAddress)
+    const finalApproval = await clientSynapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
+    const finalDepositBalance = await clientSynapse.payments.balance(TOKENS.USDFC)
 
-    success(
-      `✓ Client USDFC allowance: ${ethers.formatUnits(finalAllowance, 18)} USDFC`
-    )
-    success(
-      `✓ Client USDFC deposit balance: ${ethers.formatUnits(finalDepositBalance, 18)} USDFC`
-    )
+    success(`✓ Client USDFC allowance: ${ethers.formatUnits(finalAllowance, 18)} USDFC`)
+    success(`✓ Client USDFC deposit balance: ${ethers.formatUnits(finalDepositBalance, 18)} USDFC`)
     success(`✓ Client operator approval: ${finalApproval.isApproved}`)
-    log(
-      `  Rate allowance: ${ethers.formatUnits(finalApproval.rateAllowance, 18)} USDFC/epoch`
-    )
-    log(
-      `  Lockup allowance: ${ethers.formatUnits(finalApproval.lockupAllowance, 18)} USDFC`
-    )
-    log(
-      `  Max lockup period: ${finalApproval.maxLockupPeriod} epochs (${finalApproval.maxLockupPeriod / 2880n} days)`
-    )
+    log(`  Rate allowance: ${ethers.formatUnits(finalApproval.rateAllowance, 18)} USDFC/epoch`)
+    log(`  Lockup allowance: ${ethers.formatUnits(finalApproval.lockupAllowance, 18)} USDFC`)
+    log(`  Max lockup period: ${finalApproval.maxLockupPeriod} epochs (${finalApproval.maxLockupPeriod / 2880n} days)`)
 
     // Check client USDFC balance
-    const clientBalance = await clientSynapse.payments.walletBalance(
-      TOKENS.USDFC
-    )
-    log(
-      `\n💳 Client USDFC balance: ${ethers.formatUnits(clientBalance, 18)} USDFC`
-    )
+    const clientBalance = await clientSynapse.payments.walletBalance(TOKENS.USDFC)
+    log(`\n💳 Client USDFC balance: ${ethers.formatUnits(clientBalance, 18)} USDFC`)
 
     if (clientBalance < LOCKUP_ALLOWANCE) {
-      warning(
-        'Client USDFC balance is low. Consider funding with more USDFC for testing.'
-      )
+      warning('Client USDFC balance is low. Consider funding with more USDFC for testing.')
       log(`USDFC contract address: ${CONTRACT_ADDRESSES.USDFC[network]}`)
     }
 

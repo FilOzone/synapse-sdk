@@ -4,11 +4,7 @@
 
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.js'
-import {
-  ChainRetriever,
-  FilCdnRetriever,
-  SubgraphRetriever,
-} from './retriever/index.js'
+import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
 import type { StorageService } from './storage/index.js'
 import { StorageManager } from './storage/manager.js'
 import { SubgraphService } from './subgraph/service.js'
@@ -44,15 +40,9 @@ export class Synapse {
    */
   static async create(options: SynapseOptions): Promise<Synapse> {
     // Validate options
-    const providedOptions = [
-      options.privateKey,
-      options.provider,
-      options.signer,
-    ].filter(Boolean).length
+    const providedOptions = [options.privateKey, options.provider, options.signer].filter(Boolean).length
     if (providedOptions !== 1) {
-      throw new Error(
-        'Must provide exactly one of: privateKey, provider, or signer'
-      )
+      throw new Error('Must provide exactly one of: privateKey, provider, or signer')
     }
 
     // Detect network from chain
@@ -94,10 +84,7 @@ export class Synapse {
 
       // Create wallet with provider - always use NonceManager unless disabled
       const wallet = new ethers.Wallet(privateKey, provider)
-      signer =
-        options.disableNonceManager === true
-          ? wallet
-          : new ethers.NonceManager(wallet)
+      signer = options.disableNonceManager === true ? wallet : new ethers.NonceManager(wallet)
     } else if (options.provider != null) {
       // Handle provider input
       provider = options.provider
@@ -120,10 +107,7 @@ export class Synapse {
       // For ethers v6, we need to check if provider has getSigner method
       if ('getSigner' in provider && typeof provider.getSigner === 'function') {
         const baseSigner = await (provider as any).getSigner(0)
-        signer =
-          options.disableNonceManager === true
-            ? baseSigner
-            : new ethers.NonceManager(baseSigner)
+        signer = options.disableNonceManager === true ? baseSigner : new ethers.NonceManager(baseSigner)
       } else {
         throw new Error('Provider does not support signing operations')
       }
@@ -132,10 +116,7 @@ export class Synapse {
       signer = options.signer
 
       // Apply NonceManager wrapper unless disabled
-      if (
-        options.disableNonceManager !== true &&
-        !(signer instanceof ethers.NonceManager)
-      ) {
+      if (options.disableNonceManager !== true && !(signer instanceof ethers.NonceManager)) {
         signer = new ethers.NonceManager(signer)
       }
 
@@ -165,29 +146,16 @@ export class Synapse {
 
     // Final network validation
     if (network !== 'mainnet' && network !== 'calibration') {
-      throw new Error(
-        `Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`
-      )
+      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
     }
 
     // Create payments service
-    const payments = new PaymentsService(
-      provider,
-      signer,
-      network,
-      options.disableNonceManager === true
-    )
+    const payments = new PaymentsService(provider, signer, network, options.disableNonceManager === true)
 
     // Create Warm Storage service for the retriever
-    const warmStorageAddress =
-      options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    const pdpVerifierAddress =
-      options.pdpVerifierAddress ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-    const warmStorageService = new WarmStorageService(
-      provider,
-      warmStorageAddress,
-      pdpVerifierAddress
-    )
+    const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
+    const pdpVerifierAddress = options.pdpVerifierAddress ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
+    const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -246,36 +214,19 @@ export class Synapse {
     this._pieceRetriever = pieceRetriever
 
     // Set Warm Storage address (use override or default for network)
-    this._warmStorageAddress =
-      warmStorageAddressOverride ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    if (
-      this._warmStorageAddress === '' ||
-      this._warmStorageAddress === undefined
-    ) {
-      throw new Error(
-        `No Warm Storage service address configured for network: ${network}`
-      )
+    this._warmStorageAddress = warmStorageAddressOverride ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
+    if (this._warmStorageAddress === '' || this._warmStorageAddress === undefined) {
+      throw new Error(`No Warm Storage service address configured for network: ${network}`)
     }
 
     // Set PDPVerifier address (use override or default for network)
-    this._pdpVerifierAddress =
-      pdpVerifierAddressOverride ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-    if (
-      this._pdpVerifierAddress === '' ||
-      this._pdpVerifierAddress === undefined
-    ) {
-      throw new Error(
-        `No PDPVerifier contract address configured for network: ${network}`
-      )
+    this._pdpVerifierAddress = pdpVerifierAddressOverride ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
+    if (this._pdpVerifierAddress === '' || this._pdpVerifierAddress === undefined) {
+      throw new Error(`No PDPVerifier contract address configured for network: ${network}`)
     }
 
     // Initialize StorageManager
-    this._storageManager = new StorageManager(
-      this,
-      this._warmStorageService,
-      this._pieceRetriever,
-      this._withCDN
-    )
+    this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
   }
 
   /**
@@ -307,9 +258,7 @@ export class Synapse {
    * @returns The numeric chain ID
    */
   getChainId(): number {
-    return this._network === 'mainnet'
-      ? CHAIN_IDS.mainnet
-      : CHAIN_IDS.calibration
+    return this._network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration
   }
 
   /**
@@ -370,9 +319,7 @@ export class Synapse {
    * })
    * ```
    */
-  async createStorage(
-    options: StorageServiceOptions = {}
-  ): Promise<StorageService> {
+  async createStorage(options: StorageServiceOptions = {}): Promise<StorageService> {
     // Use StorageManager to create context
     return await this._storageManager.createContext(options)
   }
@@ -402,9 +349,7 @@ export class Synapse {
       withCDN?: boolean
     }
   ): Promise<Uint8Array> {
-    console.warn(
-      'synapse.download() is deprecated. Use synapse.storage.download() instead.'
-    )
+    console.warn('synapse.download() is deprecated. Use synapse.storage.download() instead.')
     return await this._storageManager.download(pieceCid, options)
   }
 
@@ -413,9 +358,7 @@ export class Synapse {
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
-  async getProviderInfo(
-    providerAddress: string | number
-  ): Promise<ApprovedProviderInfo> {
+  async getProviderInfo(providerAddress: string | number): Promise<ApprovedProviderInfo> {
     try {
       // Validate address format if string provided
       if (typeof providerAddress === 'string') {
@@ -428,9 +371,7 @@ export class Synapse {
 
       const providerId =
         typeof providerAddress === 'string'
-          ? await this._warmStorageService.getProviderIdByAddress(
-              providerAddress
-            )
+          ? await this._warmStorageService.getProviderIdByAddress(providerAddress)
           : providerAddress
 
       // Check if provider is approved
@@ -438,8 +379,7 @@ export class Synapse {
         throw new Error(`Provider ${providerAddress} is not approved`)
       }
 
-      const providerInfo =
-        await this._warmStorageService.getApprovedProvider(providerId)
+      const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
 
       // Check if provider was found
       if (providerInfo.serviceProvider === ethers.ZeroAddress) {
@@ -448,10 +388,7 @@ export class Synapse {
 
       return providerInfo
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes('Invalid provider address')
-      ) {
+      if (error instanceof Error && error.message.includes('Invalid provider address')) {
         throw error
       }
       if (error instanceof Error && error.message.includes('is not approved')) {
@@ -460,9 +397,7 @@ export class Synapse {
       if (error instanceof Error && error.message.includes('not found')) {
         throw error
       }
-      throw new Error(
-        `Failed to get provider info: ${error instanceof Error ? error.message : String(error)}`
-      )
+      throw new Error(`Failed to get provider info: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -473,9 +408,7 @@ export class Synapse {
    * @returns Complete storage service information
    */
   async getStorageInfo(): Promise<StorageInfo> {
-    console.warn(
-      'synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.'
-    )
+    console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
     return await this._storageManager.getStorageInfo()
   }
 }

@@ -4,8 +4,7 @@ import { Synapse } from '../dist/synapse.js'
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL =
-  process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 const PROVIDER_ADDRESS = process.env.PROVIDER_ADDRESS
 const PIECE_SIZE = 100 * 1024 * 1024 // 100 MiB
 const NUM_RUNS = 4
@@ -36,9 +35,7 @@ obs.observe({ entryTypes: ['measure'] })
 function printTimingResults() {
   console.log('\n=== TIMING RESULTS ===')
 
-  const sortedTimings = Array.from(timings.entries()).sort(([a], [b]) =>
-    a.localeCompare(b)
-  )
+  const sortedTimings = Array.from(timings.entries()).sort(([a], [b]) => a.localeCompare(b))
 
   for (const [name, measurements] of sortedTimings) {
     console.log(`\n${name}:`)
@@ -51,9 +48,7 @@ function printTimingResults() {
       const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
       const min = Math.min(...durations)
       const max = Math.max(...durations)
-      console.log(
-        `  Average: ${avg.toFixed(2)}ms, Min: ${min.toFixed(2)}ms, Max: ${max.toFixed(2)}ms`
-      )
+      console.log(`  Average: ${avg.toFixed(2)}ms, Min: ${min.toFixed(2)}ms, Max: ${max.toFixed(2)}ms`)
     }
   }
 

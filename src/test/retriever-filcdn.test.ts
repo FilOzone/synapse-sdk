@@ -5,9 +5,7 @@ import { FilCdnRetriever } from '../retriever/filcdn.js'
 import type { PieceCID, PieceRetriever } from '../types.js'
 
 // Create a mock PieceCID for testing
-const mockPieceCID = asPieceCID(
-  'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-) as PieceCID
+const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 
 describe('FilCdnRetriever', () => {
   describe('pass-through behavior', () => {
@@ -16,11 +14,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (
-          pieceCid: PieceCID,
-          client: string,
-          options?: any
-        ) => {
+        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
@@ -35,17 +29,10 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(
-          mockBaseRetriever,
-          'calibration'
-        )
-        const response = await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            withCDN: false,
-          }
-        )
+        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: false,
+        })
 
         assert.isTrue(baseCalled, 'Base retriever should be called')
         assert.equal(response, baseResponse)
@@ -59,11 +46,7 @@ describe('FilCdnRetriever', () => {
       let signalPropagated = false
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (
-          pieceCid: PieceCID,
-          client: string,
-          options?: any
-        ) => {
+        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
           if (options?.signal != null) {
             signalPropagated = true
             assert.equal(options.signal, controller.signal)
@@ -95,11 +78,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (
-          pieceCid: PieceCID,
-          client: string,
-          options?: any
-        ) => {
+        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
@@ -115,17 +94,10 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(
-          mockBaseRetriever,
-          'calibration'
-        )
-        const response = await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            withCDN: true,
-          }
-        )
+        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: true,
+        })
 
         assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
         assert.isTrue(baseCalled, 'Base retriever should be called')
@@ -141,11 +113,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (
-          pieceCid: PieceCID,
-          client: string,
-          options?: any
-        ) => {
+        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
@@ -161,17 +129,10 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(
-          mockBaseRetriever,
-          'calibration'
-        )
-        const response = await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            withCDN: true,
-          }
-        )
+        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: true,
+        })
 
         assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
         assert.isTrue(baseCalled, 'Base retriever should be called')
@@ -187,11 +148,7 @@ describe('FilCdnRetriever', () => {
       const baseResponse = new Response('test data', { status: 200 })
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (
-          pieceCid: PieceCID,
-          client: string,
-          options?: any
-        ) => {
+        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
           baseCalled = true
           assert.equal(pieceCid, mockPieceCID)
           assert.equal(client, '0xClient')
@@ -206,17 +163,10 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(
-          mockBaseRetriever,
-          'calibration'
-        )
-        const response = await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            withCDN: true,
-          }
-        )
+        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: true,
+        })
 
         assert.isTrue(cdnCalled, 'CDN fetch should be attempted')
         assert.isTrue(baseCalled, 'Base retriever should be called')
@@ -251,17 +201,10 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(
-          mockBaseRetriever,
-          'calibration'
-        )
-        const response = await cdnRetriever.fetchPiece(
-          mockPieceCID,
-          '0xClient',
-          {
-            withCDN: true,
-          }
-        )
+        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: true,
+        })
 
         assert.isTrue(cdnCalled, 'CDN fetch should be called')
         assert.isFalse(baseCalled, 'Base retriever should not be called')

@@ -87,8 +87,7 @@ describe('PDPVerifier', () => {
   describe('getDataSetStorageProvider', () => {
     it('should get data set storage provider', async () => {
       const storageProvider = '0x1234567890123456789012345678901234567890'
-      const proposedStorageProvider =
-        '0xabcdef1234567890123456789012345678901234'
+      const proposedStorageProvider = '0xabcdef1234567890123456789012345678901234'
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
@@ -103,14 +102,8 @@ describe('PDPVerifier', () => {
       }
 
       const result = await pdpVerifier.getDataSetStorageProvider(123)
-      assert.equal(
-        result.storageProvider.toLowerCase(),
-        storageProvider.toLowerCase()
-      )
-      assert.equal(
-        result.proposedStorageProvider.toLowerCase(),
-        proposedStorageProvider.toLowerCase()
-      )
+      assert.equal(result.storageProvider.toLowerCase(), storageProvider.toLowerCase())
+      assert.equal(result.proposedStorageProvider.toLowerCase(), proposedStorageProvider.toLowerCase())
     })
   })
 
@@ -146,10 +139,7 @@ describe('PDPVerifier', () => {
 
       // Mock the interface to parse logs
       ;(pdpVerifier as any)._contract.interface.parseLog = (log: any) => {
-        if (
-          log.topics[0] ===
-          '0x1234567890123456789012345678901234567890123456789012345678901234'
-        ) {
+        if (log.topics[0] === '0x1234567890123456789012345678901234567890123456789012345678901234') {
           return {
             name: 'DataSetCreated',
             args: {

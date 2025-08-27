@@ -24,20 +24,14 @@ describe('Epoch Utilities', () => {
     it('should calculate correct date for future epochs', () => {
       const epochsPerDay = 24 * 60 * 2 // 2880 epochs per day
       const date = epochToDate(epochsPerDay, 'mainnet')
-      const expectedTime =
-        (GENESIS_TIMESTAMPS.mainnet +
-          epochsPerDay * TIME_CONSTANTS.EPOCH_DURATION) *
-        1000
+      const expectedTime = (GENESIS_TIMESTAMPS.mainnet + epochsPerDay * TIME_CONSTANTS.EPOCH_DURATION) * 1000
       assert.equal(date.getTime(), expectedTime)
     })
 
     it('should handle large epoch numbers', () => {
       const largeEpoch = 1000000
       const date = epochToDate(largeEpoch, 'calibration')
-      const expectedTime =
-        (GENESIS_TIMESTAMPS.calibration +
-          largeEpoch * TIME_CONSTANTS.EPOCH_DURATION) *
-        1000
+      const expectedTime = (GENESIS_TIMESTAMPS.calibration + largeEpoch * TIME_CONSTANTS.EPOCH_DURATION) * 1000
       assert.equal(date.getTime(), expectedTime)
     })
   })
@@ -62,9 +56,7 @@ describe('Epoch Utilities', () => {
     })
 
     it('should round down to nearest epoch', () => {
-      const partialEpochDate = new Date(
-        (GENESIS_TIMESTAMPS.calibration + 45) * 1000
-      ) // 1.5 epochs
+      const partialEpochDate = new Date((GENESIS_TIMESTAMPS.calibration + 45) * 1000) // 1.5 epochs
       const epoch = dateToEpoch(partialEpochDate, 'calibration')
       assert.equal(epoch, 1) // Should round down
     })
@@ -130,11 +122,7 @@ describe('Epoch Utilities', () => {
     it('should calculate correct last proof date', () => {
       const nextChallengeEpoch = 5760 // 2 days worth of epochs
       const maxProvingPeriod = 2880 // 1 day
-      const result = calculateLastProofDate(
-        nextChallengeEpoch,
-        maxProvingPeriod,
-        'mainnet'
-      )
+      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, 'mainnet')
 
       assert.isNotNull(result)
       // Last proof should be at epoch 2880 (5760 - 2880)
@@ -145,11 +133,7 @@ describe('Epoch Utilities', () => {
     it('should handle edge case at proving period boundary', () => {
       const nextChallengeEpoch = 2880
       const maxProvingPeriod = 2880
-      const result = calculateLastProofDate(
-        nextChallengeEpoch,
-        maxProvingPeriod,
-        'mainnet'
-      )
+      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, 'mainnet')
 
       // Should return null since lastProofEpoch would be 0
       assert.isNull(result)

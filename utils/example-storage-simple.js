@@ -19,8 +19,7 @@ import { Synapse } from '@filoz/synapse-sdk'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
-const RPC_URL =
-  process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
@@ -29,9 +28,7 @@ if (!PRIVATE_KEY) {
 
 if (!WARM_STORAGE_ADDRESS) {
   console.error('ERROR: WARM_STORAGE_ADDRESS environment variable is required')
-  console.error(
-    'For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'
-  )
+  console.error('For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5')
   process.exit(1)
 }
 

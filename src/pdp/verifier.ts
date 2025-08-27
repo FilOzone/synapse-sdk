@@ -29,11 +29,7 @@ export class PDPVerifier {
   constructor(provider: ethers.Provider, contractAddress: string) {
     this._provider = provider
     this._contractAddress = contractAddress
-    this._contract = new ethers.Contract(
-      this._contractAddress,
-      CONTRACT_ABIS.PDP_VERIFIER,
-      this._provider
-    )
+    this._contract = new ethers.Contract(this._contractAddress, CONTRACT_ABIS.PDP_VERIFIER, this._provider)
   }
 
   /**
@@ -72,8 +68,7 @@ export class PDPVerifier {
   async getDataSetStorageProvider(
     dataSetId: number
   ): Promise<{ storageProvider: string; proposedStorageProvider: string }> {
-    const [storageProvider, proposedStorageProvider] =
-      await this._contract.getDataSetStorageProvider(dataSetId)
+    const [storageProvider, proposedStorageProvider] = await this._contract.getDataSetStorageProvider(dataSetId)
     return { storageProvider, proposedStorageProvider }
   }
 
@@ -92,9 +87,7 @@ export class PDPVerifier {
    * @param receipt - Transaction receipt
    * @returns Data set ID if found, null otherwise
    */
-  extractDataSetIdFromReceipt(
-    receipt: ethers.TransactionReceipt
-  ): number | null {
+  extractDataSetIdFromReceipt(receipt: ethers.TransactionReceipt): number | null {
     try {
       // Parse logs looking for DataSetCreated event
       for (const log of receipt.logs) {

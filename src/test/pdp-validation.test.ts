@@ -24,10 +24,7 @@ describe('PDP Validation', () => {
       }
 
       assert.isTrue(isDataSetCreationStatusResponse(validResponse))
-      assert.deepEqual(
-        validateDataSetCreationStatusResponse(validResponse),
-        validResponse
-      )
+      assert.deepEqual(validateDataSetCreationStatusResponse(validResponse), validResponse)
     })
 
     it('should validate response with null ok field', () => {
@@ -40,10 +37,7 @@ describe('PDP Validation', () => {
       }
 
       assert.isTrue(isDataSetCreationStatusResponse(validResponse))
-      assert.deepEqual(
-        validateDataSetCreationStatusResponse(validResponse),
-        validResponse
-      )
+      assert.deepEqual(validateDataSetCreationStatusResponse(validResponse), validResponse)
     })
 
     it('should reject invalid responses', () => {
@@ -99,10 +93,7 @@ describe('PDP Validation', () => {
       }
 
       assert.isTrue(isPieceAdditionStatusResponse(validResponse))
-      assert.deepEqual(
-        validatePieceAdditionStatusResponse(validResponse),
-        validResponse
-      )
+      assert.deepEqual(validatePieceAdditionStatusResponse(validResponse), validResponse)
     })
 
     it('should validate response with null addMessageOk', () => {
@@ -115,10 +106,7 @@ describe('PDP Validation', () => {
       }
 
       assert.isTrue(isPieceAdditionStatusResponse(validResponse))
-      assert.deepEqual(
-        validatePieceAdditionStatusResponse(validResponse),
-        validResponse
-      )
+      assert.deepEqual(validatePieceAdditionStatusResponse(validResponse), validResponse)
     })
 
     it('should reject invalid responses', () => {
@@ -160,8 +148,7 @@ describe('PDP Validation', () => {
   describe('FindPieceResponse validation', () => {
     it('should validate response with pieceCid field', () => {
       const validResponse = {
-        pieceCid:
-          'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
       }
 
       assert.isTrue(isFindPieceResponse(validResponse))
@@ -182,8 +169,7 @@ describe('PDP Validation', () => {
         { pieceCid: null }, // Null value
         { pieceCid: 'not-a-piece-link' }, // Invalid PieceCID
         {
-          pieceCid:
-            'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+          pieceCid: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
         }, // Not a PieceCID (wrong multihash)
       ]
 
@@ -207,8 +193,7 @@ describe('PDP Validation', () => {
 
     it('should return a proper PieceCID CID object', () => {
       const validResponse = {
-        pieceCid:
-          'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
       }
 
       const normalized = validateFindPieceResponse(validResponse)
@@ -224,10 +209,8 @@ describe('PDP Validation', () => {
     it('should validate and convert a valid piece data object', () => {
       const validPieceData = {
         pieceId: 101,
-        pieceCid:
-          'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-        subPieceCid:
-          'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+        subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
         subPieceOffset: 0,
       }
 
@@ -235,10 +218,7 @@ describe('PDP Validation', () => {
       assert.isNotNull(converted)
       assert.equal(converted?.pieceId, validPieceData.pieceId)
       assert.equal(converted?.pieceCid.toString(), validPieceData.pieceCid)
-      assert.equal(
-        converted?.subPieceCid.toString(),
-        validPieceData.subPieceCid
-      )
+      assert.equal(converted?.subPieceCid.toString(), validPieceData.subPieceCid)
       assert.equal(converted?.subPieceOffset, validPieceData.subPieceOffset)
     })
 
@@ -254,14 +234,12 @@ describe('PDP Validation', () => {
         {
           pieceId: 101,
           pieceCid: 'not-a-piece-link',
-          subPieceCid:
-            'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+          subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
           subPieceOffset: 0,
         },
         {
           pieceId: 101,
-          pieceCid:
-            'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+          pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
           subPieceCid: 'not-a-piece-link',
           subPieceOffset: 0,
         },
@@ -280,10 +258,8 @@ describe('PDP Validation', () => {
         pieces: [
           {
             pieceId: 101,
-            pieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0,
           },
         ],
@@ -293,27 +269,12 @@ describe('PDP Validation', () => {
       const converted = asDataSetData(validDataSetData)
       assert.isNotNull(converted)
       assert.equal(converted?.id, validDataSetData.id)
-      assert.equal(
-        converted?.nextChallengeEpoch,
-        validDataSetData.nextChallengeEpoch
-      )
+      assert.equal(converted?.nextChallengeEpoch, validDataSetData.nextChallengeEpoch)
       assert.equal(converted?.pieces.length, validDataSetData.pieces.length)
-      assert.equal(
-        converted?.pieces[0].pieceId,
-        validDataSetData.pieces[0].pieceId
-      )
-      assert.equal(
-        converted?.pieces[0].pieceCid.toString(),
-        validDataSetData.pieces[0].pieceCid
-      )
-      assert.equal(
-        converted?.pieces[0].subPieceCid.toString(),
-        validDataSetData.pieces[0].subPieceCid
-      )
-      assert.equal(
-        converted?.pieces[0].subPieceOffset,
-        validDataSetData.pieces[0].subPieceOffset
-      )
+      assert.equal(converted?.pieces[0].pieceId, validDataSetData.pieces[0].pieceId)
+      assert.equal(converted?.pieces[0].pieceCid.toString(), validDataSetData.pieces[0].pieceCid)
+      assert.equal(converted?.pieces[0].subPieceCid.toString(), validDataSetData.pieces[0].subPieceCid)
+      assert.equal(converted?.pieces[0].subPieceOffset, validDataSetData.pieces[0].subPieceOffset)
     })
 
     it('should validate and convert data set data with multiple pieces', () => {
@@ -322,18 +283,14 @@ describe('PDP Validation', () => {
         pieces: [
           {
             pieceId: 101,
-            pieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 0,
           },
           {
             pieceId: 102,
-            pieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceCid:
-              'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceOffset: 1024,
           },
         ],
@@ -365,8 +322,7 @@ describe('PDP Validation', () => {
             {
               pieceId: 101,
               pieceCid: 'not-a-piece-link',
-              subPieceCid:
-                'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+              subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
               subPieceOffset: 0,
             },
           ],
@@ -389,8 +345,7 @@ describe('PDP Validation', () => {
       assert.throws(
         () => {
           const converted = asDataSetData(invalidDataSetData)
-          if (converted == null)
-            throw new Error('Invalid data set data response format')
+          if (converted == null) throw new Error('Invalid data set data response format')
         },
         Error,
         'Invalid data set data response format'

@@ -7,11 +7,7 @@
 
 import { asPieceCID } from '../piece/index.js'
 import type { DataSetData, DataSetPieceData } from '../types.js'
-import type {
-  DataSetCreationStatusResponse,
-  FindPieceResponse,
-  PieceAdditionStatusResponse,
-} from './server.js'
+import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server.js'
 
 /**
  * Type guard for DataSetCreationStatusResponse
@@ -20,9 +16,7 @@ import type {
  * @param value - The value to validate
  * @returns True if the value matches DataSetCreationStatusResponse interface
  */
-export function isDataSetCreationStatusResponse(
-  value: unknown
-): value is DataSetCreationStatusResponse {
+export function isDataSetCreationStatusResponse(value: unknown): value is DataSetCreationStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -61,9 +55,7 @@ export function isDataSetCreationStatusResponse(
  * @param value - The value to validate
  * @returns True if the value matches PieceAdditionStatusResponse interface
  */
-export function isPieceAdditionStatusResponse(
-  value: unknown
-): value is PieceAdditionStatusResponse {
+export function isPieceAdditionStatusResponse(value: unknown): value is PieceAdditionStatusResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -111,9 +103,7 @@ export function isPieceAdditionStatusResponse(
  * @param value - The value to validate
  * @returns True if the value matches FindPieceResponse interface
  */
-export function isFindPieceResponse(
-  value: unknown
-): value is FindPieceResponse {
+export function isFindPieceResponse(value: unknown): value is FindPieceResponse {
   if (typeof value !== 'object' || value == null) {
     return false
   }
@@ -137,9 +127,7 @@ export function isFindPieceResponse(
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validateDataSetCreationStatusResponse(
-  value: unknown
-): DataSetCreationStatusResponse {
+export function validateDataSetCreationStatusResponse(value: unknown): DataSetCreationStatusResponse {
   if (!isDataSetCreationStatusResponse(value)) {
     throw new Error('Invalid data set creation status response format')
   }
@@ -151,9 +139,7 @@ export function validateDataSetCreationStatusResponse(
  * @param value - The value to validate
  * @throws Error if validation fails
  */
-export function validatePieceAdditionStatusResponse(
-  value: unknown
-): PieceAdditionStatusResponse {
+export function validatePieceAdditionStatusResponse(value: unknown): PieceAdditionStatusResponse {
   if (!isPieceAdditionStatusResponse(value)) {
     throw new Error('Invalid piece addition status response format')
   }
@@ -173,9 +159,7 @@ export function validateFindPieceResponse(value: unknown): FindPieceResponse {
       const obj = value as Record<string, unknown>
       const cidStr = (obj.pieceCid ?? obj.piece_cid) as string | undefined
       if (cidStr != null && asPieceCID(cidStr) == null) {
-        throw new Error(
-          'Invalid find piece response: pieceCid is not a valid PieceCID'
-        )
+        throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
       }
     }
     throw new Error('Invalid find piece response format')
@@ -190,9 +174,7 @@ export function validateFindPieceResponse(value: unknown): FindPieceResponse {
   const pieceCid = asPieceCID(cidStr)
   if (pieceCid == null) {
     // This should never happen since we validated above, but just in case
-    throw new Error(
-      'Invalid find piece response: pieceCid is not a valid PieceCID'
-    )
+    throw new Error('Invalid find piece response: pieceCid is not a valid PieceCID')
   }
 
   // Return normalized response with PieceCID object

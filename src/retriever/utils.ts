@@ -32,76 +32,71 @@ export async function fetchPiecesFromProviders(
   // Create individual abort controllers for each provider
   const abortControllers: AbortController[] = []
 
-  const providerAttempts: Array<Promise<ProviderAttemptResult>> = providers.map(
-    async (provider, index) => {
-      // Create a dedicated controller for this provider
-      const controller = new AbortController()
-      abortControllers[index] = controller
+  const providerAttempts: Array<Promise<ProviderAttemptResult>> = providers.map(async (provider, index) => {
+    // Create a dedicated controller for this provider
+    const controller = new AbortController()
+    abortControllers[index] = controller
 
-      // If parent signal is provided, propagate abort to this controller
-      if (signal != null) {
-        signal.addEventListener(
-          'abort',
-          () => {
-            controller.abort(signal.reason)
-          },
-          { once: true }
-        )
-
-        // If parent is already aborted, abort immediately
-        if (signal.aborted) {
+    // If parent signal is provided, propagate abort to this controller
+    if (signal != null) {
+      signal.addEventListener(
+        'abort',
+        () => {
           controller.abort(signal.reason)
-        }
-      }
+        },
+        { once: true }
+      )
 
-      try {
-        // Phase 1: Check if provider has the piece
-        const findUrl = constructFindPieceUrl(provider.serviceURL, pieceCid)
-        const findResponse = await fetch(findUrl, {
-          signal: controller.signal,
-        })
-
-        if (!findResponse.ok) {
-          // Provider doesn't have the piece
-          failures.push({
-            provider: provider.serviceProvider,
-            error: `findPiece returned ${findResponse.status}`,
-          })
-          throw new Error('Provider does not have piece')
-        }
-
-        // Phase 2: Provider has piece, download it
-        const downloadUrl = constructPieceUrl(provider.serviceURL, pieceCid)
-        const response = await fetch(downloadUrl, {
-          signal: controller.signal,
-        })
-
-        if (response.ok) {
-          // Don't cancel here! Let Promise.race decide the winner
-          return { response, index }
-        }
-
-        // Download failed
-        failures.push({
-          provider: provider.serviceProvider,
-          error: `download returned ${response.status}`,
-        })
-        throw new Error(`Download failed with status ${response.status}`)
-      } catch (error: any) {
-        // Log actual failures
-        const errorMsg = error.message ?? 'Unknown error'
-        if (!failures.some((f) => f.provider === provider.serviceProvider)) {
-          failures.push({ provider: provider.serviceProvider, error: errorMsg })
-        }
-        // TODO: remove this at some point, it might get noisy
-        console.warn(
-          `Failed to fetch from provider ${provider.serviceProvider}:`,
-          errorMsg
-        )
-        throw error
+      // If parent is already aborted, abort immediately
+      if (signal.aborted) {
+        controller.abort(signal.reason)
       }
     }
-  )
+
+    try {
+      // Phase 1: Check if provider has the piece
+      const findUrl = constructFindPieceUrl(provider.serviceURL, pieceCid)
+      const findResponse = await fetch(findUrl, {
+        signal: controller.signal,
+      })
+
+      if (!findResponse.ok) {
+        // Provider doesn't have the piece
+        failures.push({
+          provider: provider.serviceProvider,
+          error: `findPiece returned ${findResponse.status}`,
+        })
+        throw new Error('Provider does not have piece')
+      }
+
+      // Phase 2: Provider has piece, download it
+      const downloadUrl = constructPieceUrl(provider.serviceURL, pieceCid)
+      const response = await fetch(downloadUrl, {
+        signal: controller.signal,
+      })
+
+      if (response.ok) {
+        // Don't cancel here! Let Promise.race decide the winner
+        return { response, index }
+      }
+
+      // Download failed
+      failures.push({
+        provider: provider.serviceProvider,
+        error: `download returned ${response.status}`,
+      })
+      throw new Error(`Download failed with status ${response.status}`)
+    } catch (error: any) {
+      // Log actual failures
+      const errorMsg = error.message ?? 'Unknown error'
+      if (!failures.some((f) => f.provider === provider.serviceProvider)) {
+        failures.push({ provider: provider.serviceProvider, error: errorMsg })
+      }
+      // TODO: remove this at some point, it might get noisy
+      console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
+      throw error
+    }
+  })
 
   try {
     // Use Promise.any to get the first successful response
@@ -119,9 +114,7 @@ export async function fetchPiecesFromProviders(
     // Promise.any throws AggregateError when all promises reject
     if (error instanceof AggregateError) {
       // All providers failed
-      const failureDetails = failures
-        .map((f) => `${f.provider}: ${f.error}`)
-        .join('; ')
+      const failureDetails = failures.map((f) => `${f.provider}: ${f.error}`).join('; ')
       throw createError(
         retrieverName,
         'fetchPiecesFromProviders',

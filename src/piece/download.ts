@@ -40,9 +40,7 @@ export async function downloadAndValidate(
 
   // Check response is OK
   if (!response.ok) {
-    throw new Error(
-      `Download failed: ${response.status} ${response.statusText}`
-    )
+    throw new Error(`Download failed: ${response.status} ${response.statusText}`)
   }
 
   if (response.body == null) {
@@ -55,19 +53,14 @@ export async function downloadAndValidate(
   // Create a stream that collects all chunks into an array
   const chunks: Uint8Array[] = []
   const collectStream = new TransformStream<Uint8Array, Uint8Array>({
-    transform(
-      chunk: Uint8Array,
-      controller: TransformStreamDefaultController<Uint8Array>
-    ) {
+    transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
       chunks.push(chunk)
       controller.enqueue(chunk)
     },
   })
 
   // Pipe the response through both streams
-  const pipelineStream = response.body
-    .pipeThrough(pieceCidStream)
-    .pipeThrough(collectStream)
+  const pipelineStream = response.body.pipeThrough(pieceCidStream).pipeThrough(collectStream)
 
   // Consume the stream to completion
   const reader = pipelineStream.getReader()
