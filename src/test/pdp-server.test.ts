@@ -8,6 +8,8 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
+import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
 
@@ -32,6 +34,8 @@ class MockPDPServer {
   }
 }
 
+const server = setup([])
+
 describe('PDPServer', () => {
   let pdpServer: PDPServer
   let authHelper: PDPAuthHelper
@@ -42,14 +46,24 @@ describe('PDPServer', () => {
   const TEST_CONTRACT_ADDRESS = '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f'
   const TEST_CHAIN_ID = 31337
 
-  beforeEach(async () => {
+  before(async () => {
+    await server.start({ quiet: true })
+  })
+
+  after(() => {
+    server.stop()
+  })
+
+  beforeEach(() => {
+    server.resetHandlers()
+
     // Create test signer and auth helper
     const signer = new ethers.Wallet(TEST_PRIVATE_KEY)
     authHelper = new PDPAuthHelper(TEST_CONTRACT_ADDRESS, signer, BigInt(TEST_CHAIN_ID))
 
     // Start mock server
     mockServer = new MockPDPServer()
-    serverUrl = await mockServer.start(0) // Use random port
+    serverUrl = 'http://pdp.local'
 
     // Create PDPServer instance
     pdpServer = new PDPServer(authHelper, serverUrl)
@@ -83,43 +97,24 @@ describe('PDPServer', () => {
       // Mock the createDataSet endpoint
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets')
-        assert.strictEqual(init?.method, 'POST')
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
+          })
+        })
+      )
 
-        const body = JSON.parse(init?.body as string)
-        assert.isDefined(body.recordKeeper)
-        assert.isDefined(body.extraData)
+      const result = await pdpServer.createDataSet(
+        0, // clientDataSetId
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        false, // withCDN
+        TEST_CONTRACT_ADDRESS // recordKeeper
+      )
 
-        return {
-          status: 201,
-          headers: {
-            get: (header: string) => {
-              if (header === 'Location') {
-                return `/pdp/data-sets/created/${mockTxHash}`
-              }
-              return null
-            },
-          },
-        } as any
-      }
-
-      try {
-        const result = await pdpServer.createDataSet(
-          0, // clientDataSetId
-          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          false, // withCDN
-          TEST_CONTRACT_ADDRESS // recordKeeper
-        )
-
-        assert.strictEqual(result.txHash, mockTxHash)
-        assert.include(result.statusUrl, mockTxHash)
-      } finally {
-        global.fetch = originalFetch
-      }
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.include(result.statusUrl, mockTxHash)
     })
   })
 
@@ -135,25 +130,19 @@ describe('PDPServer', () => {
         confirmedPieceIds: [101, 102],
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/pdp/data-sets/1/pieces/added/${mockTxHash}`)
-        assert.strictEqual(init?.method, 'GET')
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', ({ params }) => {
+          assert.strictEqual(params.id, '1')
+          assert.strictEqual(params.txHash, mockTxHash)
 
-        return {
-          status: 200,
-          json: async () => mockResponse,
-        } as any
-      }
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
 
-      try {
-        const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
-        assert.deepStrictEqual(result, mockResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
+      assert.deepStrictEqual(result, mockResponse)
     })
 
     it('should handle pending status', async () => {
@@ -167,58 +156,50 @@ describe('PDPServer', () => {
         confirmedPieceIds: undefined,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 200,
-          json: async () => mockResponse,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', ({ params }) => {
+          assert.strictEqual(params.id, '1')
+          assert.strictEqual(params.txHash, mockTxHash)
 
-      try {
-        const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
-        assert.strictEqual(result.txStatus, 'pending')
-        assert.isNull(result.addMessageOk)
-        assert.isUndefined(result.confirmedPieceIds)
-      } finally {
-        global.fetch = originalFetch
-      }
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
+
+      const result = await pdpServer.getPieceAdditionStatus(1, mockTxHash)
+      assert.strictEqual(result.txStatus, 'pending')
+      assert.isNull(result.addMessageOk)
+      assert.isUndefined(result.confirmedPieceIds)
     })
 
     it('should handle not found status', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 404,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
+          return new HttpResponse(null, {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.getPieceAdditionStatus(1, mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
         assert.include((error as Error).message, `Piece addition not found for transaction: ${mockTxHash}`)
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should handle server errors', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 500,
-          statusText: 'Internal Server Error',
-          text: async () => 'Database error',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/:id/pieces/added/:txHash', () => {
+          return HttpResponse.text('Database error', {
+            status: 500,
+          })
+        })
+      )
 
       try {
         await pdpServer.getPieceAdditionStatus(1, mockTxHash)
@@ -227,8 +208,6 @@ describe('PDPServer', () => {
         assert.include((error as Error).message, 'Failed to get piece addition status')
         assert.include((error as Error).message, '500')
         assert.include((error as Error).message, 'Database error')
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })
@@ -257,52 +236,53 @@ describe('PDPServer', () => {
     it('should handle successful piece addition', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/1/pieces')
-        assert.strictEqual(init?.method, 'POST')
-
-        const body = JSON.parse(init?.body as string)
-        assert.isDefined(body.pieces)
-        assert.isDefined(body.extraData)
-        assert.strictEqual(body.pieces.length, 1)
-        assert.strictEqual(body.pieces[0].pieceCid, validPieceCid[0])
-        assert.strictEqual(body.pieces[0].subPieces.length, 1)
-        assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
-
-        return {
-          status: 201,
-          text: async () => 'Pieces added successfully',
-          headers: {
-            get: (_name: string) => null, // No Location header for backward compatibility test
-          },
-        } as any
+      interface Body {
+        pieces: {
+          pieceCid: string
+          subPieces: {
+            subPieceCid: string
+          }[]
+        }[]
+        extraData: string
       }
+      server.use(
+        http.post<{ id: string }, Body>('http://pdp.local/pdp/data-sets/:id/pieces', async ({ request }) => {
+          try {
+            const body = await request.json()
+            assert.isDefined(body.pieces)
+            assert.isDefined(body.extraData)
+            assert.strictEqual(body.pieces.length, 1)
+            assert.strictEqual(body.pieces[0].pieceCid, validPieceCid[0])
+            assert.strictEqual(body.pieces[0].subPieces.length, 1)
+            assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
+            return HttpResponse.text('Pieces added successfully', {
+              status: 201,
+            })
+          } catch (error) {
+            return HttpResponse.text((error as Error).message, {
+              status: 400,
+            })
+          }
+        })
+      )
 
-      try {
-        // Should not throw
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
-        assert.isDefined(result)
-        assert.isDefined(result.message)
-      } finally {
-        global.fetch = originalFetch
-      }
+      // Should not throw
+      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      assert.isDefined(result)
+      assert.isDefined(result.message)
     })
 
     it('should handle server errors appropriately', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      // Mock fetch to return error
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 400,
-          statusText: 'Bad Request',
-          text: async () => 'Invalid piece CID',
-        } as any
-      }
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', () => {
+          return HttpResponse.text('Invalid piece CID', {
+            status: 400,
+            statusText: 'Bad Request',
+          })
+        })
+      )
 
       try {
         await pdpServer.addPieces(1, 0, 0, validPieceCid)
@@ -312,8 +292,6 @@ describe('PDPServer', () => {
           (error as Error).message,
           'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID'
         )
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
