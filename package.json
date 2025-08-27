@@ -43,7 +43,7 @@
     "lint": "tsc && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
     "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test:ci": "npm run test",
-    "test": "npm run test:node && npm run test:browser",
+    "test": "npm run lint && npm run test:node && npm run test:browser",
     "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
     "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}'",
     "test:watch": "npm test:node --watch",
