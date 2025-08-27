@@ -20,25 +20,25 @@
  * ```
  */
 
+import { ethers } from 'ethers'
+import { asPieceCID, downloadAndValidate } from '../piece/index.js'
+import type { Synapse } from '../synapse.js'
 import type {
-  StorageServiceOptions,
-  PieceCID,
-  UploadResult,
-  UploadCallbacks,
-  StorageCreationCallbacks,
-  PieceRetriever,
+  ApprovedProviderInfo,
   DownloadOptions,
   EnhancedDataSetInfo,
+  PieceCID,
+  PieceRetriever,
+  PreflightInfo,
+  StorageCreationCallbacks,
   StorageInfo,
-  ApprovedProviderInfo,
-  PreflightInfo
+  StorageServiceOptions,
+  UploadCallbacks,
+  UploadResult,
 } from '../types.js'
-import type { Synapse } from '../synapse.js'
+import { CONTRACT_ADDRESSES, createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
-import { ethers } from 'ethers'
 import { StorageContext } from './context.js'
-import { asPieceCID, downloadAndValidate } from '../piece/index.js'
-import { createError, TOKENS, TIME_CONSTANTS, SIZE_CONSTANTS, CONTRACT_ADDRESSES } from '../utils/index.js'
 
 // Combined callbacks type that can include both creation and upload callbacks
 type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks
@@ -70,7 +70,7 @@ export class StorageManager {
   private readonly _withCDN: boolean
   private _defaultContext?: StorageContext
 
-  constructor (
+  constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
@@ -87,10 +87,7 @@ export class StorageManager {
    * If context is provided, routes to context.upload()
    * Otherwise creates/reuses default context
    */
-  async upload (
-    data: Uint8Array | ArrayBuffer,
-    options?: StorageManagerUploadOptions
-  ): Promise<UploadResult> {
+  async upload(data: Uint8Array | ArrayBuffer, options?: StorageManagerUploadOptions): Promise<UploadResult> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null) {
       const invalidOptions = []
@@ -102,21 +99,26 @@ export class StorageManager {
       if (options.uploadBatchSize !== undefined) invalidOptions.push('uploadBatchSize')
 
       if (invalidOptions.length > 0) {
-        throw createError('StorageManager', 'upload',
-          `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`)
+        throw createError(
+          'StorageManager',
+          'upload',
+          `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`
+        )
       }
     }
 
     // Get the context to use
-    const context = options?.context ?? await this.createContext({
-      providerId: options?.providerId,
-      providerAddress: options?.providerAddress,
-      dataSetId: options?.dataSetId,
-      withCDN: options?.withCDN,
-      forceCreateDataSet: options?.forceCreateDataSet,
-      uploadBatchSize: options?.uploadBatchSize,
-      callbacks: options?.callbacks
-    })
+    const context =
+      options?.context ??
+      (await this.createContext({
+        providerId: options?.providerId,
+        providerAddress: options?.providerAddress,
+        dataSetId: options?.dataSetId,
+        withCDN: options?.withCDN,
+        forceCreateDataSet: options?.forceCreateDataSet,
+        uploadBatchSize: options?.uploadBatchSize,
+        callbacks: options?.callbacks,
+      }))
 
     // Upload using the context
     return await context.upload(data, options?.callbacks)
@@ -127,10 +129,7 @@ export class StorageManager {
    * If context is provided, routes to context.download()
    * Otherwise performs SP-agnostic download
    */
-  async download (
-    pieceCid: string | PieceCID,
-    options?: StorageManagerDownloadOptions
-  ): Promise<Uint8Array> {
+  async download(pieceCid: string | PieceCID, options?: StorageManagerDownloadOptions): Promise<Uint8Array> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null) {
       const invalidOptions = []
@@ -138,8 +137,11 @@ export class StorageManager {
       if (options.withCDN !== undefined) invalidOptions.push('withCDN')
 
       if (invalidOptions.length > 0) {
-        throw createError('StorageManager', 'download',
-          `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`)
+        throw createError(
+          'StorageManager',
+          'download',
+          `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`
+        )
       }
 
       // Route to specific context
@@ -157,9 +159,7 @@ export class StorageManager {
 
     // Fast path: If we have a default context with CDN disabled and no specific provider requested,
     // check if the piece exists on the default context's provider first
-    if (this._defaultContext != null &&
-        !withCDN &&
-        options?.providerAddress == null) {
+    if (this._defaultContext != null && !withCDN && options?.providerAddress == null) {
       // Check if the default context has CDN disabled
       const defaultHasCDN = (this._defaultContext as any)._withCDN ?? this._withCDN
       if (defaultHasCDN === false) {
@@ -178,7 +178,7 @@ export class StorageManager {
     // Use piece retriever to fetch
     const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
       providerAddress: options?.providerAddress,
-      withCDN
+      withCDN,
     })
 
     return await downloadAndValidate(response, parsedPieceCID)
@@ -190,26 +190,18 @@ export class StorageManager {
    * @param options - Optional settings including withCDN flag
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload (
-    size: number,
-    options?: { withCDN?: boolean }
-  ): Promise<PreflightInfo> {
+  async preflightUpload(size: number, options?: { withCDN?: boolean }): Promise<PreflightInfo> {
     // Use withCDN setting: option > manager default
     const withCDN = options?.withCDN ?? this._withCDN
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(
-      size,
-      withCDN,
-      this._warmStorageService,
-      this._synapse.payments
-    )
+    return await StorageContext.performPreflightCheck(size, withCDN, this._warmStorageService, this._synapse.payments)
   }
 
   /**
    * Create a new storage context with specified options
    */
-  async createContext (options?: StorageServiceOptions): Promise<StorageContext> {
+  async createContext(options?: StorageServiceOptions): Promise<StorageContext> {
     // Determine the effective withCDN setting
     const effectiveWithCDN = options?.withCDN ?? this._withCDN
 
@@ -217,13 +209,13 @@ export class StorageManager {
     // We can use the default if:
     // 1. No options provided, OR
     // 2. Only withCDN and/or callbacks are provided (callbacks can fire for cached context)
-    const canUseDefault = options == null || (
-      options.providerId == null &&
-      options.providerAddress == null &&
-      options.dataSetId == null &&
-      options.forceCreateDataSet !== true &&
-      options.uploadBatchSize == null
-    )
+    const canUseDefault =
+      options == null ||
+      (options.providerId == null &&
+        options.providerAddress == null &&
+        options.dataSetId == null &&
+        options.forceCreateDataSet !== true &&
+        options.uploadBatchSize == null)
 
     if (canUseDefault) {
       // Check if we have a default context with matching CDN setting
@@ -243,7 +235,7 @@ export class StorageManager {
               options.callbacks.onDataSetResolved?.({
                 isExisting: true, // Always true for cached context
                 dataSetId: this._defaultContext.dataSetId,
-                provider: this._defaultContext.provider
+                provider: this._defaultContext.provider,
               })
             } catch (error) {
               console.error('Error in onDataSetResolved callback:', error)
@@ -254,27 +246,25 @@ export class StorageManager {
       }
 
       // Create new default context with current CDN setting
-      const context = await StorageContext.create(
-        this._synapse,
-        this._warmStorageService,
-        { withCDN: effectiveWithCDN, callbacks: options?.callbacks }
-      )
+      const context = await StorageContext.create(this._synapse, this._warmStorageService, {
+        withCDN: effectiveWithCDN,
+        callbacks: options?.callbacks,
+      })
       this._defaultContext = context
       return context
     }
 
     // Create a new context with specific options (not cached)
-    return await StorageContext.create(
-      this._synapse,
-      this._warmStorageService,
-      { ...options, withCDN: effectiveWithCDN }
-    )
+    return await StorageContext.create(this._synapse, this._warmStorageService, {
+      ...options,
+      withCDN: effectiveWithCDN,
+    })
   }
 
   /**
    * Get or create the default context
    */
-  async getDefaultContext (): Promise<StorageContext> {
+  async getDefaultContext(): Promise<StorageContext> {
     return await this.createContext()
   }
 
@@ -283,8 +273,8 @@ export class StorageManager {
    * @param clientAddress - Optional client address, defaults to current signer
    * @returns Array of enhanced data set information including management status
    */
-  async findDataSets (clientAddress?: string): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? await this._synapse.getSigner().getAddress()
+  async findDataSets(clientAddress?: string): Promise<EnhancedDataSetInfo[]> {
+    const address = clientAddress ?? (await this._synapse.getSigner().getAddress())
     return await this._warmStorageService.getClientDataSetsWithDetails(address)
   }
 
@@ -293,22 +283,19 @@ export class StorageManager {
    * approved providers, pricing, contract addresses, and current allowances
    * @returns Complete storage service information
    */
-  async getStorageInfo (): Promise<StorageInfo> {
+  async getStorageInfo(): Promise<StorageInfo> {
     try {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
           const warmStorageAddress = this._synapse.getWarmStorageAddress()
-          const approval = await this._synapse.payments.serviceApproval(
-            warmStorageAddress,
-            TOKENS.USDFC
-          )
+          const approval = await this._synapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
           return {
             service: warmStorageAddress,
             rateAllowance: approval.rateAllowance,
             lockupAllowance: approval.lockupAllowance,
             rateUsed: approval.rateUsed,
-            lockupUsed: approval.lockupUsed
+            lockupUsed: approval.lockupUsed,
           }
         } catch (error) {
           // Return null if wallet not connected or any error occurs
@@ -320,7 +307,7 @@ export class StorageManager {
       const [pricingData, providers, allowances] = await Promise.all([
         this._warmStorageService.getServicePrice(),
         this._warmStorageService.getAllApprovedProviders(),
-        getOptionalAllowances()
+        getOptionalAllowances(),
       ])
 
       // Calculate pricing per different time units
@@ -344,15 +331,15 @@ export class StorageManager {
           noCDN: {
             perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
             perTiBPerDay: noCDNPerDay,
-            perTiBPerEpoch: noCDNPerEpoch
+            perTiBPerEpoch: noCDNPerEpoch,
           },
           withCDN: {
             perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
             perTiBPerDay: withCDNPerDay,
-            perTiBPerEpoch: withCDNPerEpoch
+            perTiBPerEpoch: withCDNPerEpoch,
           },
           tokenAddress: pricingData.tokenAddress,
-          tokenSymbol: 'USDFC' // Hardcoded as we know it's always USDFC
+          tokenSymbol: 'USDFC', // Hardcoded as we know it's always USDFC
         },
         providers: validProviders,
         serviceParameters: {
@@ -364,12 +351,14 @@ export class StorageManager {
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
           warmStorageAddress: this._synapse.getWarmStorageAddress(),
           paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[network],
-          pdpVerifierAddress: this._synapse.getPDPVerifierAddress()
+          pdpVerifierAddress: this._synapse.getPDPVerifierAddress(),
         },
-        allowances
+        allowances,
       }
     } catch (error) {
-      throw new Error(`Failed to get storage service information: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `Failed to get storage service information: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 }

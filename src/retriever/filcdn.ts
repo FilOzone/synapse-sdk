@@ -5,21 +5,19 @@
  * to the base retriever.
  */
 
-import type { PieceCID, FilecoinNetworkType, PieceRetriever } from '../types.js'
+import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.js'
 
 export class FilCdnRetriever implements PieceRetriever {
-  constructor (
+  constructor(
     private readonly baseRetriever: PieceRetriever,
     private readonly network: FilecoinNetworkType
   ) {}
 
-  hostname (): string {
-    return this.network === 'mainnet'
-      ? 'filcdn.io'
-      : 'calibration.filcdn.io'
+  hostname(): string {
+    return this.network === 'mainnet' ? 'filcdn.io' : 'calibration.filcdn.io'
   }
 
-  async fetchPiece (
+  async fetchPiece(
     pieceCid: PieceCID,
     client: string,
     options?: {
@@ -35,7 +33,9 @@ export class FilCdnRetriever implements PieceRetriever {
         if (cdnResponse.ok) {
           return cdnResponse
         } else if (cdnResponse.status === 402) {
-          console.warn('CDN requires payment. Please initialise Synapse SDK with the option `withCDN: true` and re-upload your files.')
+          console.warn(
+            'CDN requires payment. Please initialise Synapse SDK with the option `withCDN: true` and re-upload your files.'
+          )
         } else {
           console.warn('CDN fetch failed with status:', cdnResponse.status)
         }

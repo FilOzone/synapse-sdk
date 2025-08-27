@@ -5,13 +5,13 @@
  * that have the requested piece, then attempts to download from them.
  */
 
-import type { WarmStorageService } from '../warm-storage/index.js'
-import type { PieceCID, PieceRetriever, ApprovedProviderInfo } from '../types.js'
-import { fetchPiecesFromProviders } from './utils.js'
+import type { ApprovedProviderInfo, PieceCID, PieceRetriever } from '../types.js'
 import { createError } from '../utils/index.js'
+import type { WarmStorageService } from '../warm-storage/index.js'
+import { fetchPiecesFromProviders } from './utils.js'
 
 export class ChainRetriever implements PieceRetriever {
-  constructor (
+  constructor(
     private readonly warmStorageService: WarmStorageService,
     private readonly childRetriever?: PieceRetriever
   ) {}
@@ -22,19 +22,12 @@ export class ChainRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  private async findProviders (
-    client: string,
-    providerAddress?: string
-  ): Promise<ApprovedProviderInfo[]> {
+  private async findProviders(client: string, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
       const providerId = await this.warmStorageService.getProviderIdByAddress(providerAddress)
       if (providerId === 0) {
-        throw createError(
-          'ChainRetriever',
-          'findProviders',
-          `Provider ${providerAddress} not found or not approved`
-        )
+        throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found or not approved`)
       }
       const provider = await this.warmStorageService.getApprovedProvider(providerId)
       return [provider]
@@ -45,21 +38,14 @@ export class ChainRetriever implements PieceRetriever {
     const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
 
     // 2. Filter for live data sets with pieces
-    const validDataSets = dataSets.filter(ds =>
-      ds.isLive &&
-      ds.currentPieceCount > 0
-    )
+    const validDataSets = dataSets.filter((ds) => ds.isLive && ds.currentPieceCount > 0)
 
     if (validDataSets.length === 0) {
-      throw createError(
-        'ChainRetriever',
-        'findProviders',
-        `No active data sets with data found for client ${client}`
-      )
+      throw createError('ChainRetriever', 'findProviders', `No active data sets with data found for client ${client}`)
     }
 
     // 3. Get unique providers and fetch info
-    const uniqueProviders = [...new Set(validDataSets.map(ds => ds.payee))]
+    const uniqueProviders = [...new Set(validDataSets.map((ds) => ds.payee))]
     const providerInfos = await Promise.all(
       uniqueProviders.map(async (addr) => {
         try {
@@ -90,21 +76,21 @@ export class ChainRetriever implements PieceRetriever {
     return validProviderInfos
   }
 
-  async fetchPiece (
+  async fetchPiece(
     pieceCid: PieceCID,
     client: string,
-    options?: { providerAddress?: string, withCDN?: boolean, signal?: AbortSignal }
+    options?: {
+      providerAddress?: string
+      withCDN?: boolean
+      signal?: AbortSignal
+    }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string): Promise<Response> => {
       if (this.childRetriever !== undefined) {
         return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
-      throw createError(
-        'ChainRetriever',
-        'fetchPiece',
-        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`
-      )
+      throw createError('ChainRetriever', 'fetchPiece', `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`)
     }
 
     // Step 1: Find providers
@@ -113,9 +99,7 @@ export class ChainRetriever implements PieceRetriever {
       providersToTry = await this.findProviders(client, options?.providerAddress)
     } catch (error) {
       // Provider discovery failed - this is a critical error
-      return await tryChildOrThrow(
-        'Provider discovery failed and no additional retriever method was configured'
-      )
+      return await tryChildOrThrow('Provider discovery failed and no additional retriever method was configured')
     }
 
     // Step 2: If no providers found, try child retriever
@@ -125,12 +109,7 @@ export class ChainRetriever implements PieceRetriever {
 
     // Step 3: Try to fetch from providers
     try {
-      return await fetchPiecesFromProviders(
-        providersToTry,
-        pieceCid,
-        'ChainRetriever',
-        options?.signal
-      )
+      return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', options?.signal)
     } catch (fetchError) {
       // All provider attempts failed
       return await tryChildOrThrow(

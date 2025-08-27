@@ -1,24 +1,23 @@
 // Export PDP components
 export { PDPAuthHelper } from './auth.js'
-export { PDPVerifier } from './verifier.js'
-export { PDPServer } from './server.js'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
   DataSetCreationStatusResponse,
   FindPieceResponse,
   PieceAdditionStatusResponse,
-  UploadResponse
+  UploadResponse,
 } from './server.js'
-
+export { PDPServer } from './server.js'
 // Export validation utilities for advanced use
 export {
-  isDataSetCreationStatusResponse,
-  isPieceAdditionStatusResponse,
-  isFindPieceResponse,
-  validateDataSetCreationStatusResponse,
-  validatePieceAdditionStatusResponse,
-  validateFindPieceResponse,
+  asDataSetData,
   asDataSetPieceData,
-  asDataSetData
+  isDataSetCreationStatusResponse,
+  isFindPieceResponse,
+  isPieceAdditionStatusResponse,
+  validateDataSetCreationStatusResponse,
+  validateFindPieceResponse,
+  validatePieceAdditionStatusResponse,
 } from './validation.js'
+export { PDPVerifier } from './verifier.js'

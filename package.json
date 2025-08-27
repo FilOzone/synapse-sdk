@@ -40,15 +40,18 @@
     "build": "tsc",
     "build:browser": "npm run build && webpack --config webpack.config.cjs && webpack --config webpack.config.esm.cjs",
     "watch": "tsc -w",
-    "lint": "ts-standard src/ utils/",
-    "lint:fix": "ts-standard src/ utils/ --fix",
-    "test": "npm run lint && npm run build && npm run test:node && npm run test:browser",
+    "lint": "tsc && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test:ci": "npm run test",
-    "test:node": "mocha 'dist/test/**/*.js'",
-    "test:browser": "polendina --page --cleanup dist/test/**/*.test.js",
-    "test:watch": "npm run build && mocha 'dist/test/**/*.js' --watch",
+    "test": "npm run lint && npm run test:node && npm run test:browser",
+    "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
+    "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}'",
+    "test:watch": "npm test:node --watch",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build && npm run build:browser"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
   },
   "repository": {
     "type": "git",
@@ -70,6 +73,7 @@
     "multiformats": "^13.3.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.2.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/git": "^10.0.1",
@@ -82,8 +86,8 @@
     "chai": "^6.0.1",
     "conventional-changelog-conventionalcommits": "^9.0.0",
     "mocha": "^11.5.0",
-    "polendina": "^3.2.10",
-    "ts-standard": "^12.0.2",
+    "playwright-test": "^14.1.12",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^5.8.3",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1"

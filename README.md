@@ -1016,6 +1016,16 @@ BREAKING CHANGE: The createStorage method now requires explicit provider selecti
 - **Changelog generation**: Commit messages are used to generate release notes
 - **Standard JS**: We follow [Standard JS](https://standardjs.com/) code style
 
+### Git hooks
+
+This repo uses [simple-git-hooks](https://github.com/toplenboren/simple-git-hooks) to manage git hooks, usage is optional and can be enable by running:
+
+```bash
+npx simple-git-hooks
+```
+
+Current configuration run [biome](https://biomejs.dev/guides/getting-started/) on staged files.
+
 ### Testing
 
 Run the test suite:

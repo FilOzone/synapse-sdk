@@ -4,8 +4,15 @@
  */
 
 import { ethers } from 'ethers'
-import type { TokenAmount, TokenIdentifier, FilecoinNetworkType } from '../types.js'
-import { createError, CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, TIMING_CONSTANTS, getCurrentEpoch } from '../utils/index.js'
+import type { FilecoinNetworkType, TokenAmount, TokenIdentifier } from '../types.js'
+import {
+  CONTRACT_ABIS,
+  CONTRACT_ADDRESSES,
+  createError,
+  getCurrentEpoch,
+  TIMING_CONSTANTS,
+  TOKENS,
+} from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -30,7 +37,7 @@ export class PaymentsService {
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
 
-  constructor (
+  constructor(
     provider: ethers.Provider,
     signer: ethers.Signer,
     network: FilecoinNetworkType,
@@ -45,7 +52,7 @@ export class PaymentsService {
   /**
    * Get cached USDFC contract instance or create new one
    */
-  private _getUsdfcContract (): ethers.Contract {
+  private _getUsdfcContract(): ethers.Contract {
     if (this._usdfcContract == null) {
       const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
       if (usdfcAddress == null) {
@@ -59,18 +66,20 @@ export class PaymentsService {
   /**
    * Get cached payments contract instance or create new one
    */
-  private _getPaymentsContract (): ethers.Contract {
+  private _getPaymentsContract(): ethers.Contract {
     if (this._paymentsContract == null) {
       const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[this._network]
       if (paymentsAddress == null || paymentsAddress === '') {
-        throw new Error(`Payments contract not deployed on ${this._network} network. Currently only Calibration testnet is supported.`)
+        throw new Error(
+          `Payments contract not deployed on ${this._network} network. Currently only Calibration testnet is supported.`
+        )
       }
       this._paymentsContract = new ethers.Contract(paymentsAddress, CONTRACT_ABIS.PAYMENTS, this._signer)
     }
     return this._paymentsContract
   }
 
-  async balance (token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
+  async balance(token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
     // For now, only support USDFC balance
     if (token !== TOKENS.USDFC) {
       throw createError(
@@ -89,7 +98,7 @@ export class PaymentsService {
    * @param token - The token to get account info for (defaults to USDFC)
    * @returns Account information including funds, lockup details, and available balance
    */
-  async accountInfo (token: TokenIdentifier = TOKENS.USDFC): Promise<{
+  async accountInfo(token: TokenIdentifier = TOKENS.USDFC): Promise<{
     funds: bigint
     lockupCurrent: bigint
     lockupRate: bigint
@@ -128,7 +137,7 @@ export class PaymentsService {
     // Calculate time-based lockup
     const currentEpoch = await getCurrentEpoch(this._provider)
     const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
-    const actualLockup = BigInt(lockupCurrent) + (BigInt(lockupRate) * epochsSinceSettlement)
+    const actualLockup = BigInt(lockupCurrent) + BigInt(lockupRate) * epochsSinceSettlement
 
     // Calculate available funds
     const availableFunds = BigInt(funds) - actualLockup
@@ -138,11 +147,11 @@ export class PaymentsService {
       lockupCurrent: BigInt(lockupCurrent),
       lockupRate: BigInt(lockupRate),
       lockupLastSettledAt: BigInt(lockupLastSettledAt),
-      availableFunds: availableFunds > 0n ? availableFunds : 0n
+      availableFunds: availableFunds > 0n ? availableFunds : 0n,
     }
   }
 
-  async walletBalance (token?: TokenIdentifier): Promise<bigint> {
+  async walletBalance(token?: TokenIdentifier): Promise<bigint> {
     // If no token specified or FIL is requested, return native wallet balance
     if (token == null || token === TOKENS.FIL) {
       try {
@@ -184,7 +193,7 @@ export class PaymentsService {
     )
   }
 
-  decimals (token: TokenIdentifier = TOKENS.USDFC): number {
+  decimals(token: TokenIdentifier = TOKENS.USDFC): number {
     // Both FIL and USDFC use 18 decimals
     return 18
   }
@@ -195,9 +204,13 @@ export class PaymentsService {
    * @param spender - The address to check allowance for
    * @returns The current allowance amount as bigint
    */
-  async allowance (token: TokenIdentifier, spender: string): Promise<bigint> {
+  async allowance(token: TokenIdentifier, spender: string): Promise<bigint> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'allowance', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'allowance',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -223,9 +236,13 @@ export class PaymentsService {
    * @param amount - The amount to approve
    * @returns Transaction response object
    */
-  async approve (token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<ethers.TransactionResponse> {
+  async approve(token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'approve', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'approve',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const approveAmount = typeof amount === 'bigint' ? amount : BigInt(amount)
@@ -267,7 +284,7 @@ export class PaymentsService {
    * @param token - The token to approve for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async approveService (
+  async approveService(
     service: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
@@ -275,7 +292,11 @@ export class PaymentsService {
     token: TokenIdentifier = TOKENS.USDFC
   ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'approveService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'approveService',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
@@ -324,9 +345,13 @@ export class PaymentsService {
    * @param token - The token to revoke approval for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async revokeService (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async revokeService(service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'revokeService', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'revokeService',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -367,7 +392,10 @@ export class PaymentsService {
    * @param token - The token to check approval for (defaults to USDFC)
    * @returns Approval status and allowances
    */
-  async serviceApproval (service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<{
+  async serviceApproval(
+    service: string,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<{
     isApproved: boolean
     rateAllowance: bigint
     rateUsed: bigint
@@ -376,7 +404,11 @@ export class PaymentsService {
     maxLockupPeriod: bigint
   }> {
     if (token !== TOKENS.USDFC) {
-      throw createError('PaymentsService', 'serviceApproval', `Token "${token}" is not supported. Currently only USDFC token is supported.`)
+      throw createError(
+        'PaymentsService',
+        'serviceApproval',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
     }
 
     const signerAddress = await this._signer.getAddress()
@@ -391,7 +423,7 @@ export class PaymentsService {
         lockupAllowance: approval[2],
         rateUsed: approval[3],
         lockupUsed: approval[4],
-        maxLockupPeriod: approval[5]
+        maxLockupPeriod: approval[5],
       }
     } catch (error) {
       throw createError(
@@ -403,7 +435,11 @@ export class PaymentsService {
     }
   }
 
-  async deposit (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC, callbacks?: DepositCallbacks): Promise<ethers.TransactionResponse> {
+  async deposit(
+    amount: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC,
+    callbacks?: DepositCallbacks
+  ): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'deposit', `Unsupported token: ${token}`)
@@ -427,9 +463,7 @@ export class PaymentsService {
       throw createError(
         'PaymentsService',
         'deposit',
-        `Insufficient USDFC: have ${BigInt(
-          usdfcBalance
-        ).toString()}, need ${depositAmountBigint.toString()}`
+        `Insufficient USDFC: have ${BigInt(usdfcBalance).toString()}, need ${depositAmountBigint.toString()}`
       )
     }
 
@@ -466,17 +500,12 @@ export class PaymentsService {
       txOptions.nonce = currentNonce
     }
 
-    const depositTx = await paymentsContract.deposit(
-      usdfcAddress,
-      signerAddress,
-      depositAmountBigint,
-      txOptions
-    )
+    const depositTx = await paymentsContract.deposit(usdfcAddress, signerAddress, depositAmountBigint, txOptions)
 
     return depositTx
   }
 
-  async withdraw (amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async withdraw(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'withdraw', `Unsupported token: ${token}`)

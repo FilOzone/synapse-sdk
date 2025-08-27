@@ -68,17 +68,17 @@ const dateTimeOptions = {
   hour: 'numeric',
   minute: '2-digit',
   second: '2-digit',
-  hour12: true
+  hour12: true,
 }
 
 // Helper to format dates in user's locale
-function formatDate (date) {
+function formatDate(date) {
   if (!date) return 'N/A'
   return date.toLocaleString(userLocale, dateTimeOptions)
 }
 
 // Helper to format time differences
-function formatTimeDiff (date) {
+function formatTimeDiff(date) {
   if (!date) return 'N/A'
 
   const now = new Date()
@@ -101,7 +101,7 @@ function formatTimeDiff (date) {
   return diff > 0 ? `in ${timeStr}` : `${timeStr} ago`
 }
 
-async function main () {
+async function main() {
   try {
     console.log('=== Piece Status Check ===\n')
     console.log(`Date: ${formatDate(new Date())}`)
@@ -117,7 +117,7 @@ async function main () {
     console.log('\nInitializing Synapse SDK...')
     const synapseOptions = {
       privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL
+      rpcURL: RPC_URL,
     }
 
     if (WARM_STORAGE_ADDRESS) {
@@ -152,7 +152,7 @@ async function main () {
         },
         onDataSetResolved: (info) => {
           console.log(`✓ Using data set: ${info.dataSetId}`)
-        }
+        },
       }
 
       storageContext = await synapse.storage.createContext(storageOptions)
@@ -183,8 +183,8 @@ async function main () {
             callbacks: {
               onProviderSelected: (p) => {
                 console.log(`  Checking provider: ${p.serviceProvider}`)
-              }
-            }
+              },
+            },
           })
           const exists = await ctx.hasPiece(pieceCid)
           if (exists) {
@@ -231,13 +231,17 @@ async function main () {
     console.log('\n⏱️  Data Set Timing (proofs cover all pieces in the set):')
 
     if (status.dataSetLastProven) {
-      console.log(`   Data set last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`)
+      console.log(
+        `   Data set last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`
+      )
     } else {
       console.log('   Data set last proven: Never (data set not yet proven)')
     }
 
     if (status.dataSetNextProofDue) {
-      console.log(`   Data set next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`)
+      console.log(
+        `   Data set next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`
+      )
 
       // Challenge window status
       if (status.isProofOverdue) {

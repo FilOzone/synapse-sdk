@@ -4,11 +4,11 @@
  * Basic tests for PieceCID utilities
  */
 
+import type { API } from '@web3-storage/data-segment'
+import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import { PieceCID, asPieceCID, asLegacyPieceCID, calculate, createPieceCIDStream } from '../piece/index.js'
-import { Size, toLink } from '@web3-storage/data-segment/piece'
-import { API } from '@web3-storage/data-segment'
+import { asLegacyPieceCID, asPieceCID, calculate, createPieceCIDStream, type PieceCID } from '../piece/index.js'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -30,12 +30,15 @@ const zeroPieceCidFixture = `
   1016,1024,baga6ea4seaqb66wjlfkrbye6uqoemcyxmqylwmrm235uclwfpsyx3ge2imidoly
   1017,2048,baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy
   1024,2048,baga6ea4seaqpy7usqklokfx2vxuynmupslkeutzexe2uqurdg5vhtebhxqmpqmy
-`.trim().split('\n').map((line) => {
+`
+  .trim()
+  .split('\n')
+  .map((line) => {
     const parts = line.trim().split(',')
     return [parseInt(parts[0], 10), parseInt(parts[1], 10), CID.parse(parts[2].trim())] as [number, number, CID]
   })
 
-function toPieceCID (size: bigint, cid: CID): PieceCID {
+function toPieceCID(size: bigint, cid: CID): PieceCID {
   const height = Size.Unpadded.toHeight(size)
   const padding = Size.Unpadded.toPadding(size)
   const root = cid.bytes.slice(-32)
@@ -99,7 +102,7 @@ describe('PieceCID utilities', () => {
   })
 
   describe('asLegacyPieceCID', () => {
-    zeroPieceCidFixture.forEach(([size,, v1]) => {
+    zeroPieceCidFixture.forEach(([size, , v1]) => {
       it('should down-convert PieceCID to LegacyPieceCID', () => {
         const v2 = toPieceCID(BigInt(size), v1)
         const actual = asLegacyPieceCID(v2)
@@ -159,7 +162,7 @@ describe('PieceCID utilities', () => {
   // PieceCID calculation library and our transformation of the output to CIDs is
   // correct. We'll defer to the upstream library for more detailed tests.
   describe('Calculate PieceCID from fixture data', () => {
-    zeroPieceCidFixture.forEach(([size,, expected]) => {
+    zeroPieceCidFixture.forEach(([size, , expected]) => {
       it(`should parse PieceCID for size ${size}`, () => {
         // PieceCID for an empty byte array of given size
         const zeroBytes = new Uint8Array(size)
@@ -183,10 +186,10 @@ describe('PieceCID utilities', () => {
 
       // Create a readable stream from our test data
       const readable = new ReadableStream({
-        start (controller) {
+        start(controller) {
           controller.enqueue(testData)
           controller.close()
-        }
+        },
       })
 
       // Pipe through PieceCID stream and consume
@@ -214,12 +217,12 @@ describe('PieceCID utilities', () => {
       const { stream, getPieceCID } = createPieceCIDStream()
 
       const readable = new ReadableStream({
-        start (controller) {
+        start(controller) {
           controller.enqueue(chunk1)
           controller.enqueue(chunk2)
           controller.enqueue(chunk3)
           controller.close()
-        }
+        },
       })
 
       const reader = readable.pipeThrough(stream).getReader()

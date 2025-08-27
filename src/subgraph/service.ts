@@ -25,15 +25,10 @@
  * ```
  */
 
-import { toHex, fromHex } from 'multiformats/bytes'
+import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asPieceCID } from '../piece/index.js'
-import type {
-  PieceCID,
-  ApprovedProviderInfo,
-  SubgraphRetrievalService,
-  SubgraphConfig
-} from '../types.js'
+import type { ApprovedProviderInfo, PieceCID, SubgraphConfig, SubgraphRetrievalService } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { QUERIES } from './queries.js'
 
@@ -172,7 +167,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   private readonly endpoint: string
   private readonly headers: Record<string, string>
 
-  constructor (subgraphConfig: SubgraphConfig) {
+  constructor(subgraphConfig: SubgraphConfig) {
     this.endpoint = this.resolveEndpoint(subgraphConfig)
     this.headers = this.buildHeaders(subgraphConfig.apiKey)
   }
@@ -180,7 +175,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Resolves the GraphQL endpoint from configuration
    */
-  private resolveEndpoint (config: SubgraphConfig): string {
+  private resolveEndpoint(config: SubgraphConfig): string {
     if (config.endpoint != null && config.endpoint.trim() !== '') {
       return config.endpoint.trim()
     }
@@ -199,7 +194,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Builds Goldsky endpoint URL
    */
-  private buildGoldskyEndpoint (goldsky: NonNullable<SubgraphConfig['goldsky']>): string {
+  private buildGoldskyEndpoint(goldsky: NonNullable<SubgraphConfig['goldsky']>): string {
     const { projectId, subgraphName, version } = goldsky
 
     if (
@@ -223,7 +218,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Builds HTTP headers for requests
    */
-  private buildHeaders (apiKey?: string): Record<string, string> {
+  private buildHeaders(apiKey?: string): Record<string, string> {
     const headers = { 'Content-Type': 'application/json' }
 
     if (apiKey != null && apiKey !== '') {
@@ -236,30 +231,26 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Normalizes query options with defaults
    */
-  private normalizeQueryOptions (options: QueryOptions = {}): QueryOptions {
+  private normalizeQueryOptions(options: QueryOptions = {}): QueryOptions {
     return {
       where: {},
       first: 10,
       skip: 0,
       orderBy: 'createdAt',
       orderDirection: 'desc',
-      ...options
+      ...options,
     } as const
   }
 
   /**
    * Executes a GraphQL query
    */
-  private async executeQuery<T>(
-    query: string,
-    variables: Record<string, any>,
-    operation: string
-  ): Promise<T> {
+  private async executeQuery<T>(query: string, variables: Record<string, any>, operation: string): Promise<T> {
     try {
       const response = await fetch(this.endpoint, {
         method: 'POST',
         headers: this.headers,
-        body: JSON.stringify({ query, variables })
+        body: JSON.stringify({ query, variables }),
       })
 
       if (!response.ok) {
@@ -280,32 +271,29 @@ export class SubgraphService implements SubgraphRetrievalService {
         throw error
       }
 
-      throw createError(
-        'SubgraphService',
-        operation,
-        `Query execution failed: ${(error as Error).message}`,
-        { cause: error }
-      )
+      throw createError('SubgraphService', operation, `Query execution failed: ${(error as Error).message}`, {
+        cause: error,
+      })
     }
   }
 
   /**
    * Transforms provider data to ApprovedProviderInfo
    */
-  private transformProviderData (data: any): ApprovedProviderInfo {
+  private transformProviderData(data: any): ApprovedProviderInfo {
     return {
       serviceProvider: data.serviceProvider ?? data.address ?? data.id,
       serviceURL: data.serviceURL ?? data.pdpUrl,
       peerId: data.peerId ?? '',
       registeredAt: this.parseTimestamp(data.registeredAt),
-      approvedAt: this.parseTimestamp(data.approvedAt)
+      approvedAt: this.parseTimestamp(data.approvedAt),
     }
   }
 
   /**
    * Safely parses timestamp values
    */
-  private parseTimestamp (value?: number | string): number {
+  private parseTimestamp(value?: number | string): number {
     if (value == null) return 0
     const parsed = Number(value)
     return isNaN(parsed) ? 0 : parsed
@@ -316,7 +304,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @param hexCid - The CID in hex format
    * @returns The CID in PieceCID format or null if conversion fails
    */
-  private safeConvertHexToCid (hexCid: string): PieceCID | null {
+  private safeConvertHexToCid(hexCid: string): PieceCID | null {
     try {
       const cleanHex = hexCid.startsWith('0x') ? hexCid.slice(2) : hexCid
       const cidBytes = fromHex(cleanHex)
@@ -341,13 +329,8 @@ export class SubgraphService implements SubgraphRetrievalService {
   /**
    * Validates provider data completeness
    */
-  private isValidProviderData (data: any): boolean {
-    return (
-      data?.id != null &&
-      data.id.trim() !== '' &&
-      data?.serviceURL != null &&
-      data.serviceURL.trim() !== ''
-    )
+  private isValidProviderData(data: any): boolean {
+    return data?.id != null && data.id.trim() !== '' && data?.serviceURL != null && data.serviceURL.trim() !== ''
   }
 
   /**
@@ -360,7 +343,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForPieceCID (pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
+  async getApprovedProvidersForPieceCID(pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
     const pieceCidParsed = asPieceCID(pieceCid)
     if (pieceCidParsed == null) {
       throw createError('SubgraphService', 'getApprovedProvidersForPieceCID', 'Invalid PieceCID')
@@ -396,9 +379,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       return acc
     }, new Map<string, any>())
 
-    return Array.from(uniqueProviderMap.values()).map((provider) =>
-      this.transformProviderData(provider)
-    )
+    return Array.from(uniqueProviderMap.values()).map((provider) => this.transformProviderData(provider))
   }
 
   /**
@@ -407,7 +388,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @param address - The wallet address of the provider to search for.
    * @returns A promise that resolves to an `ApprovedProviderInfo` object if the provider is found, or `null` otherwise.
    */
-  async getProviderByAddress (address: string): Promise<ApprovedProviderInfo | null> {
+  async getProviderByAddress(address: string): Promise<ApprovedProviderInfo | null> {
     const data = await this.executeQuery<{ provider: any | null }>(
       QUERIES.GET_PROVIDER_BY_ADDRESS,
       { providerId: address },
@@ -445,7 +426,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryProviders (options: QueryOptions = {}): Promise<ApprovedProviderInfo[]> {
+  async queryProviders(options: QueryOptions = {}): Promise<ApprovedProviderInfo[]> {
     const data = await this.executeQuery<{ providers: any[] }>(
       QUERIES.GET_PROVIDERS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -487,7 +468,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryDataSets (options: QueryOptions = {}): Promise<DetailedSubgraphDataSetInfo[]> {
+  async queryDataSets(options: QueryOptions = {}): Promise<DetailedSubgraphDataSetInfo[]> {
     const data = await this.executeQuery<{ dataSets: any[] }>(
       QUERIES.GET_DATA_SETS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -527,17 +508,18 @@ export class SubgraphService implements SubgraphRetrievalService {
               serviceURL: '',
               peerId: '',
               registeredAt: 0,
-              approvedAt: 0
+              approvedAt: 0,
             },
-      serviceProvider: dataSet.serviceProvider != null
-        ? this.transformProviderData(dataSet.serviceProvider)
-        : {
-            serviceProvider: '',
-            serviceURL: '',
-            peerId: '',
-            registeredAt: 0,
-            approvedAt: 0
-          },
+      serviceProvider:
+        dataSet.serviceProvider != null
+          ? this.transformProviderData(dataSet.serviceProvider)
+          : {
+              serviceProvider: '',
+              serviceURL: '',
+              peerId: '',
+              registeredAt: 0,
+              approvedAt: 0,
+            },
       rail:
         dataSet.rail != null
           ? {
@@ -547,9 +529,9 @@ export class SubgraphService implements SubgraphRetrievalService {
               paymentRate: this.parseTimestamp(dataSet.rail.paymentRate),
               lockupPeriod: this.parseTimestamp(dataSet.rail.lockupPeriod),
               settledUpto: this.parseTimestamp(dataSet.rail.settledUpto),
-              endEpoch: this.parseTimestamp(dataSet.rail.endEpoch)
+              endEpoch: this.parseTimestamp(dataSet.rail.endEpoch),
             }
-          : undefined
+          : undefined,
     }))
   }
 
@@ -577,7 +559,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryPieces (options: QueryOptions = {}): Promise<PieceInfo[]> {
+  async queryPieces(options: QueryOptions = {}): Promise<PieceInfo[]> {
     const data = await this.executeQuery<{ pieces: any[] }>(
       QUERIES.GET_PIECES_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -609,8 +591,8 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider)
-      }
+        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider),
+      },
     }))
   }
 
@@ -636,7 +618,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryFaultRecords (options: QueryOptions = {}): Promise<FaultRecord[]> {
+  async queryFaultRecords(options: QueryOptions = {}): Promise<FaultRecord[]> {
     const data = await this.executeQuery<{ faultRecords: any[] }>(
       QUERIES.GET_FAULT_RECORDS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -660,8 +642,8 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider)
-      }
+        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider),
+      },
     }))
   }
 }

@@ -26,12 +26,12 @@
  */
 
 import { ethers } from 'ethers'
-import type { DataSetInfo, EnhancedDataSetInfo, ApprovedProviderInfo } from '../types.js'
-import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
+import type { PaymentsService } from '../payments/service.js'
+import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.js'
 import { PDPVerifier } from '../pdp/verifier.js'
-import type { PDPServer, DataSetCreationStatusResponse } from '../pdp/server.js'
-import { PaymentsService } from '../payments/service.js'
+import type { ApprovedProviderInfo, DataSetInfo, EnhancedDataSetInfo } from '../types.js'
 import { SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
+import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
 
 /**
  * Helper information for adding pieces to a data set
@@ -121,7 +121,7 @@ export class WarmStorageService {
   private _warmStorageContract: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
-  constructor (provider: ethers.Provider, warmStorageAddress: string, pdpVerifierAddress: string) {
+  constructor(provider: ethers.Provider, warmStorageAddress: string, pdpVerifierAddress: string) {
     this._provider = provider
     this._warmStorageAddress = warmStorageAddress
     this._pdpVerifierAddress = pdpVerifierAddress
@@ -130,7 +130,7 @@ export class WarmStorageService {
   /**
    * Get cached Warm Storage contract instance or create new one
    */
-  private _getWarmStorageContract (): ethers.Contract {
+  private _getWarmStorageContract(): ethers.Contract {
     if (this._warmStorageContract == null) {
       this._warmStorageContract = new ethers.Contract(
         this._warmStorageAddress,
@@ -144,7 +144,7 @@ export class WarmStorageService {
   /**
    * Get cached PDPVerifier instance or create new one
    */
-  private _getPDPVerifier (): PDPVerifier {
+  private _getPDPVerifier(): PDPVerifier {
     if (this._pdpVerifier == null) {
       this._pdpVerifier = new PDPVerifier(this._provider, this._pdpVerifierAddress)
     }
@@ -158,7 +158,7 @@ export class WarmStorageService {
    * @param clientAddress - The client address
    * @returns Array of data set information
    */
-  async getClientDataSets (clientAddress: string): Promise<DataSetInfo[]> {
+  async getClientDataSets(clientAddress: string): Promise<DataSetInfo[]> {
     try {
       const contract = this._getWarmStorageContract()
       const dataSetData = await contract.getClientDataSets(clientAddress)
@@ -172,7 +172,7 @@ export class WarmStorageService {
         metadata: ds.metadata,
         pieceMetadata: ds.pieceMetadata, // This is already an array of strings
         clientDataSetId: Number(ds.clientDataSetId),
-        withCDN: ds.withCDN
+        withCDN: ds.withCDN,
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -186,7 +186,7 @@ export class WarmStorageService {
    * @param onlyManaged - If true, only return data sets managed by this Warm Storage contract
    * @returns Array of enhanced data set information
    */
-  async getClientDataSetsWithDetails (client: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
+  async getClientDataSetsWithDetails(client: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
     const dataSets = await this.getClientDataSets(client)
     const pdpVerifier = this._getPDPVerifier()
     const contract = this._getWarmStorageContract()
@@ -207,18 +207,19 @@ export class WarmStorageService {
                 nextPieceId: 0,
                 currentPieceCount: 0,
                 isLive: false,
-                isManaged: false
+                isManaged: false,
               }
         }
 
         // Parallelize independent calls
         const [isLive, listenerResult] = await Promise.all([
           pdpVerifier.dataSetLive(pdpVerifierDataSetId),
-          pdpVerifier.getDataSetListener(pdpVerifierDataSetId).catch(() => null)
+          pdpVerifier.getDataSetListener(pdpVerifierDataSetId).catch(() => null),
         ])
 
         // Check if this data set is managed by our Warm Storage contract
-        const isManaged = listenerResult != null && listenerResult.toLowerCase() === this._warmStorageAddress.toLowerCase()
+        const isManaged =
+          listenerResult != null && listenerResult.toLowerCase() === this._warmStorageAddress.toLowerCase()
 
         // Skip unmanaged data sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
@@ -234,11 +235,13 @@ export class WarmStorageService {
           nextPieceId: Number(nextPieceId),
           currentPieceCount: Number(nextPieceId),
           isLive,
-          isManaged
+          isManaged,
         }
       } catch (error) {
         // Re-throw the error to let the caller handle it
-        throw new Error(`Failed to get details for data set with enhanced info ${dataSet.railId}: ${error instanceof Error ? error.message : String(error)}`)
+        throw new Error(
+          `Failed to get details for data set with enhanced info ${dataSet.railId}: ${error instanceof Error ? error.message : String(error)}`
+        )
       }
     })
 
@@ -254,7 +257,7 @@ export class WarmStorageService {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns Helper information for adding pieces
    */
-  async getAddPiecesInfo (dataSetId: number): Promise<AddPiecesInfo> {
+  async getAddPiecesInfo(dataSetId: number): Promise<AddPiecesInfo> {
     try {
       const contract = this._getWarmStorageContract()
       const pdpVerifier = this._getPDPVerifier()
@@ -264,7 +267,7 @@ export class WarmStorageService {
         pdpVerifier.dataSetLive(Number(dataSetId)),
         pdpVerifier.getNextPieceId(Number(dataSetId)),
         pdpVerifier.getDataSetListener(Number(dataSetId)),
-        contract.getDataSet(Number(dataSetId))
+        contract.getDataSet(Number(dataSetId)),
       ])
 
       // Check if data set exists and is live
@@ -274,7 +277,9 @@ export class WarmStorageService {
 
       // Verify this data set is managed by our Warm Storage contract
       if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-        throw new Error(`Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`)
+        throw new Error(
+          `Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`
+        )
       }
 
       const clientDataSetId = Number(dataSetInfo.clientDataSetId)
@@ -282,7 +287,7 @@ export class WarmStorageService {
       return {
         nextPieceId: Number(nextPieceId),
         clientDataSetId,
-        currentPieceCount: Number(nextPieceId)
+        currentPieceCount: Number(nextPieceId),
       }
     } catch (error) {
       throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
@@ -295,7 +300,7 @@ export class WarmStorageService {
    * @param clientAddress - The client's wallet address
    * @returns  next client dataset ID that will be assigned by this WarmStorage contract
    */
-  async getNextClientDataSetId (clientAddress: string): Promise<number> {
+  async getNextClientDataSetId(clientAddress: string): Promise<number> {
     try {
       const contract = this._getWarmStorageContract()
 
@@ -316,7 +321,9 @@ export class WarmStorageService {
    * @param txHashOrTransaction - Transaction hash or transaction object
    * @returns Verification result with data set ID if found
    */
-  async verifyDataSetCreation (txHashOrTransaction: string | ethers.TransactionResponse): Promise<DataSetCreationVerification> {
+  async verifyDataSetCreation(
+    txHashOrTransaction: string | ethers.TransactionResponse
+  ): Promise<DataSetCreationVerification> {
     try {
       // Get transaction hash
       const txHash = typeof txHashOrTransaction === 'string' ? txHashOrTransaction : txHashOrTransaction.hash
@@ -335,7 +342,7 @@ export class WarmStorageService {
         return {
           transactionMined: false,
           transactionSuccess: false,
-          dataSetLive: false
+          dataSetLive: false,
         }
       }
 
@@ -349,7 +356,7 @@ export class WarmStorageService {
           dataSetLive: false,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed,
-          error: 'Transaction failed'
+          error: 'Transaction failed',
         }
       }
 
@@ -364,7 +371,7 @@ export class WarmStorageService {
           dataSetLive: false,
           blockNumber: receipt.blockNumber,
           gasUsed: receipt.gasUsed,
-          error: 'Could not find DataSetCreated event in transaction'
+          error: 'Could not find DataSetCreated event in transaction',
         }
       }
 
@@ -377,7 +384,7 @@ export class WarmStorageService {
         dataSetId,
         dataSetLive: isLive,
         blockNumber: receipt.blockNumber,
-        gasUsed: receipt.gasUsed
+        gasUsed: receipt.gasUsed,
       }
     } catch (error) {
       // Error during verification (e.g., network issues)
@@ -385,7 +392,7 @@ export class WarmStorageService {
         transactionMined: false,
         transactionSuccess: false,
         dataSetLive: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       }
     }
   }
@@ -396,7 +403,7 @@ export class WarmStorageService {
    * @param pdpServer - PDP server instance for status checks
    * @returns Combined status information
    */
-  async getComprehensiveDataSetStatus (
+  async getComprehensiveDataSetStatus(
     txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer?: PDPServer
   ): Promise<ComprehensiveDataSetStatus> {
@@ -409,10 +416,18 @@ export class WarmStorageService {
         performance.mark('synapse:pdpServer.getDataSetCreationStatus-start')
         serverStatus = await pdpServer.getDataSetCreationStatus(txHash)
         performance.mark('synapse:pdpServer.getDataSetCreationStatus-end')
-        performance.measure('synapse:pdpServer.getDataSetCreationStatus', 'synapse:pdpServer.getDataSetCreationStatus-start', 'synapse:pdpServer.getDataSetCreationStatus-end')
+        performance.measure(
+          'synapse:pdpServer.getDataSetCreationStatus',
+          'synapse:pdpServer.getDataSetCreationStatus-start',
+          'synapse:pdpServer.getDataSetCreationStatus-end'
+        )
       } catch (error) {
         performance.mark('synapse:pdpServer.getDataSetCreationStatus-end')
-        performance.measure('synapse:pdpServer.getDataSetCreationStatus', 'synapse:pdpServer.getDataSetCreationStatus-start', 'synapse:pdpServer.getDataSetCreationStatus-end')
+        performance.measure(
+          'synapse:pdpServer.getDataSetCreationStatus',
+          'synapse:pdpServer.getDataSetCreationStatus-start',
+          'synapse:pdpServer.getDataSetCreationStatus-end'
+        )
         // Server doesn't have status yet or error occurred
       }
     }
@@ -421,17 +436,22 @@ export class WarmStorageService {
     performance.mark('synapse:verifyDataSetCreation-start')
     const chainStatus = await this.verifyDataSetCreation(txHashOrTransaction)
     performance.mark('synapse:verifyDataSetCreation-end')
-    performance.measure('synapse:verifyDataSetCreation', 'synapse:verifyDataSetCreation-start', 'synapse:verifyDataSetCreation-end')
+    performance.measure(
+      'synapse:verifyDataSetCreation',
+      'synapse:verifyDataSetCreation-start',
+      'synapse:verifyDataSetCreation-end'
+    )
 
     // Combine into summary
     // isComplete should be true only when BOTH chain and server have confirmed the data set creation
-    const isComplete = chainStatus.transactionMined &&
-                      chainStatus.transactionSuccess &&
-                      chainStatus.dataSetId != null &&
-                      chainStatus.dataSetLive &&
-                      serverStatus != null &&
-                      serverStatus.ok === true &&
-                      serverStatus.dataSetCreated
+    const isComplete =
+      chainStatus.transactionMined &&
+      chainStatus.transactionSuccess &&
+      chainStatus.dataSetId != null &&
+      chainStatus.dataSetLive &&
+      serverStatus != null &&
+      serverStatus.ok === true &&
+      serverStatus.dataSetCreated
     const dataSetId = serverStatus?.dataSetId ?? chainStatus.dataSetId ?? null
 
     // Determine error from server status or chain status
@@ -448,8 +468,8 @@ export class WarmStorageService {
         isComplete,
         isLive: chainStatus.dataSetLive,
         dataSetId,
-        error
-      }
+        error,
+      },
     }
   }
 
@@ -462,7 +482,7 @@ export class WarmStorageService {
    * @param onProgress - Optional progress callback
    * @returns Final comprehensive status
    */
-  async waitForDataSetCreationWithStatus (
+  async waitForDataSetCreationWithStatus(
     txHashOrTransaction: string | ethers.TransactionResponse,
     pdpServer: PDPServer,
     maxWaitTime: number = TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
@@ -497,7 +517,7 @@ export class WarmStorageService {
       }
 
       // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, pollInterval))
+      await new Promise((resolve) => setTimeout(resolve, pollInterval))
     }
 
     // Timeout
@@ -510,14 +530,14 @@ export class WarmStorageService {
    * Get the current service price per TiB per month
    * @returns Service price information for both CDN and non-CDN options
    */
-  async getServicePrice (): Promise<ServicePriceInfo> {
+  async getServicePrice(): Promise<ServicePriceInfo> {
     const contract = this._getWarmStorageContract()
     const pricing = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
       pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
       tokenAddress: pricing.tokenAddress,
-      epochsPerMonth: pricing.epochsPerMonth
+      epochsPerMonth: pricing.epochsPerMonth,
     }
   }
 
@@ -526,24 +546,26 @@ export class WarmStorageService {
    * @param sizeInBytes - Size of data to store in bytes
    * @returns Cost estimates per epoch, day, and month for both CDN and non-CDN
    */
-  async calculateStorageCost (
-    sizeInBytes: number
-  ): Promise<{
+  async calculateStorageCost(sizeInBytes: number): Promise<{
+    perEpoch: bigint
+    perDay: bigint
+    perMonth: bigint
+    withCDN: {
       perEpoch: bigint
       perDay: bigint
       perMonth: bigint
-      withCDN: {
-        perEpoch: bigint
-        perDay: bigint
-        perMonth: bigint
-      }
-    }> {
+    }
+  }> {
     const servicePriceInfo = await this.getServicePrice()
 
     // Calculate price per byte per epoch
     const sizeInBytesBigint = BigInt(sizeInBytes)
-    const pricePerEpochNoCDN = (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) / (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-    const pricePerEpochWithCDN = (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) / (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
+    const pricePerEpochNoCDN =
+      (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
+      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
+    const pricePerEpochWithCDN =
+      (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) /
+      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
     return {
       perEpoch: pricePerEpochNoCDN,
@@ -552,8 +574,8 @@ export class WarmStorageService {
       withCDN: {
         perEpoch: pricePerEpochWithCDN,
         perDay: pricePerEpochWithCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth
-      }
+        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth,
+      },
     }
   }
 
@@ -565,38 +587,39 @@ export class WarmStorageService {
    * @param lockupDays - Number of days for lockup period (defaults to 10)
    * @returns Allowance requirement details and storage costs
    */
-  async checkAllowanceForStorage (
+  async checkAllowanceForStorage(
     sizeInBytes: number,
     withCDN: boolean,
     paymentsService: PaymentsService,
     lockupDays?: number
   ): Promise<{
-      rateAllowanceNeeded: bigint
-      lockupAllowanceNeeded: bigint
-      currentRateAllowance: bigint
-      currentLockupAllowance: bigint
-      currentRateUsed: bigint
-      currentLockupUsed: bigint
-      sufficient: boolean
-      message?: string
-      costs: {
-        perEpoch: bigint
-        perDay: bigint
-        perMonth: bigint
-      }
-      depositAmountNeeded: bigint
-    }> {
+    rateAllowanceNeeded: bigint
+    lockupAllowanceNeeded: bigint
+    currentRateAllowance: bigint
+    currentLockupAllowance: bigint
+    currentRateUsed: bigint
+    currentLockupUsed: bigint
+    sufficient: boolean
+    message?: string
+    costs: {
+      perEpoch: bigint
+      perDay: bigint
+      perMonth: bigint
+    }
+    depositAmountNeeded: bigint
+  }> {
     // Get current allowances and calculate costs in parallel
     const [approval, costs] = await Promise.all([
       paymentsService.serviceApproval(this._warmStorageAddress, TOKENS.USDFC),
-      this.calculateStorageCost(sizeInBytes)
+      this.calculateStorageCost(sizeInBytes),
     ])
 
     const selectedCosts = withCDN ? costs.withCDN : costs
     const rateNeeded = selectedCosts.perEpoch
 
     // Calculate lockup period based on provided days (default: 10)
-    const lockupPeriod = BigInt(lockupDays ?? Number(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS)) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+    const lockupPeriod =
+      BigInt(lockupDays ?? Number(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS)) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
     const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
@@ -607,13 +630,10 @@ export class WarmStorageService {
     const sufficient = approval.rateAllowance >= totalRateNeeded && approval.lockupAllowance >= totalLockupNeeded
 
     // Calculate how much more is needed
-    const rateAllowanceNeeded = totalRateNeeded > approval.rateAllowance
-      ? totalRateNeeded - approval.rateAllowance
-      : 0n
+    const rateAllowanceNeeded = totalRateNeeded > approval.rateAllowance ? totalRateNeeded - approval.rateAllowance : 0n
 
-    const lockupAllowanceNeeded = totalLockupNeeded > approval.lockupAllowance
-      ? totalLockupNeeded - approval.lockupAllowance
-      : 0n
+    const lockupAllowanceNeeded =
+      totalLockupNeeded > approval.lockupAllowance ? totalLockupNeeded - approval.lockupAllowance : 0n
 
     // Build optional message
     let message: string | undefined
@@ -639,7 +659,7 @@ export class WarmStorageService {
       sufficient,
       message,
       costs: selectedCosts,
-      depositAmountNeeded: lockupNeeded
+      depositAmountNeeded: lockupNeeded,
     }
   }
 
@@ -675,33 +695,32 @@ export class WarmStorageService {
    * }
    * ```
    */
-  async prepareStorageUpload (options: {
-    dataSize: number
-    withCDN?: boolean
-  }, paymentsService: PaymentsService): Promise<{
-      estimatedCost: {
-        perEpoch: bigint
-        perDay: bigint
-        perMonth: bigint
-      }
-      allowanceCheck: {
-        sufficient: boolean
-        message?: string
-      }
-      actions: Array<{
-        type: 'deposit' | 'approve' | 'approveService'
-        description: string
-        execute: () => Promise<ethers.TransactionResponse>
-      }>
-    }> {
+  async prepareStorageUpload(
+    options: {
+      dataSize: number
+      withCDN?: boolean
+    },
+    paymentsService: PaymentsService
+  ): Promise<{
+    estimatedCost: {
+      perEpoch: bigint
+      perDay: bigint
+      perMonth: bigint
+    }
+    allowanceCheck: {
+      sufficient: boolean
+      message?: string
+    }
+    actions: Array<{
+      type: 'deposit' | 'approve' | 'approveService'
+      description: string
+      execute: () => Promise<ethers.TransactionResponse>
+    }>
+  }> {
     // Parallelize cost calculation and allowance check
     const [costs, allowanceCheck] = await Promise.all([
       this.calculateStorageCost(options.dataSize),
-      this.checkAllowanceForStorage(
-        options.dataSize,
-        options.withCDN ?? false,
-        paymentsService
-      )
+      this.checkAllowanceForStorage(options.dataSize, options.withCDN ?? false, paymentsService),
     ])
 
     // Select the appropriate costs based on CDN option
@@ -722,7 +741,7 @@ export class WarmStorageService {
       actions.push({
         type: 'deposit',
         description: `Deposit ${depositAmount} USDFC to payments contract`,
-        execute: async () => await paymentsService.deposit(depositAmount, TOKENS.USDFC)
+        execute: async () => await paymentsService.deposit(depositAmount, TOKENS.USDFC),
       })
     }
 
@@ -731,13 +750,14 @@ export class WarmStorageService {
       actions.push({
         type: 'approveService',
         description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
-        execute: async () => await paymentsService.approveService(
-          this._warmStorageAddress,
-          allowanceCheck.rateAllowanceNeeded,
-          allowanceCheck.lockupAllowanceNeeded,
-          86400n, // 30 days max lockup period
-          TOKENS.USDFC
-        )
+        execute: async () =>
+          await paymentsService.approveService(
+            this._warmStorageAddress,
+            allowanceCheck.rateAllowanceNeeded,
+            allowanceCheck.lockupAllowanceNeeded,
+            86400n, // 30 days max lockup period
+            TOKENS.USDFC
+          ),
       })
     }
 
@@ -745,15 +765,15 @@ export class WarmStorageService {
       estimatedCost: {
         perEpoch: selectedCosts.perEpoch,
         perDay: selectedCosts.perDay,
-        perMonth: selectedCosts.perMonth
+        perMonth: selectedCosts.perMonth,
       },
       allowanceCheck: {
         sufficient: allowanceCheck.sufficient,
         message: allowanceCheck.sufficient
           ? undefined
-          : `Insufficient allowances: rate needed ${allowanceCheck.rateAllowanceNeeded}, lockup needed ${allowanceCheck.lockupAllowanceNeeded}`
+          : `Insufficient allowances: rate needed ${allowanceCheck.rateAllowanceNeeded}, lockup needed ${allowanceCheck.lockupAllowanceNeeded}`,
       },
-      actions
+      actions,
     }
   }
 
@@ -767,7 +787,7 @@ export class WarmStorageService {
    * @param peerId - Optional libp2p peer ID (pass empty string if not provided)
    * @returns Transaction response
    */
-  async registerServiceProvider (
+  async registerServiceProvider(
     signer: ethers.Signer,
     serviceURL: string,
     peerId: string = ''
@@ -787,10 +807,7 @@ export class WarmStorageService {
    * @param providerAddress - Address of provider to approve
    * @returns Transaction response
    */
-  async approveServiceProvider (
-    signer: ethers.Signer,
-    providerAddress: string
-  ): Promise<ethers.TransactionResponse> {
+  async approveServiceProvider(signer: ethers.Signer, providerAddress: string): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
     return await contractWithSigner.approveServiceProvider(providerAddress)
@@ -802,10 +819,7 @@ export class WarmStorageService {
    * @param providerAddress - Address of the provider to reject
    * @returns Transaction response
    */
-  async rejectServiceProvider (
-    signer: ethers.Signer,
-    providerAddress: string
-  ): Promise<ethers.TransactionResponse> {
+  async rejectServiceProvider(signer: ethers.Signer, providerAddress: string): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
     return await contractWithSigner.rejectServiceProvider(providerAddress)
@@ -817,10 +831,7 @@ export class WarmStorageService {
    * @param providerId - ID of the provider to remove
    * @returns Transaction response
    */
-  async removeServiceProvider (
-    signer: ethers.Signer,
-    providerId: number
-  ): Promise<ethers.TransactionResponse> {
+  async removeServiceProvider(signer: ethers.Signer, providerId: number): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
     return await contractWithSigner.removeServiceProvider(providerId)
@@ -831,7 +842,7 @@ export class WarmStorageService {
    * @param providerAddress - Address to check
    * @returns Whether the address is an approved provider
    */
-  async isProviderApproved (providerAddress: string): Promise<boolean> {
+  async isProviderApproved(providerAddress: string): Promise<boolean> {
     const contract = this._getWarmStorageContract()
     const providerId = await contract.getProviderIdByAddress(providerAddress)
     return BigInt(providerId) !== 0n
@@ -842,7 +853,7 @@ export class WarmStorageService {
    * @param providerAddress - Address of the provider
    * @returns Provider ID (0 if not approved)
    */
-  async getProviderIdByAddress (providerAddress: string): Promise<number> {
+  async getProviderIdByAddress(providerAddress: string): Promise<number> {
     const contract = this._getWarmStorageContract()
     const id = await contract.getProviderIdByAddress(providerAddress)
     return Number(id)
@@ -853,7 +864,7 @@ export class WarmStorageService {
    * @param providerId - ID of the provider
    * @returns Provider information
    */
-  async getApprovedProvider (providerId: number): Promise<ApprovedProviderInfo> {
+  async getApprovedProvider(providerId: number): Promise<ApprovedProviderInfo> {
     const contract = this._getWarmStorageContract()
     const info = await contract.getApprovedProvider(providerId)
 
@@ -863,7 +874,7 @@ export class WarmStorageService {
       serviceURL: info.serviceURL,
       peerId: ethers.toUtf8String(info.peerId),
       registeredAt: Number(info.registeredAt),
-      approvedAt: Number(info.approvedAt)
+      approvedAt: Number(info.approvedAt),
     }
   }
 
@@ -872,7 +883,7 @@ export class WarmStorageService {
    * @param providerAddress - Address of the pending provider
    * @returns Pending provider information
    */
-  async getPendingProvider (providerAddress: string): Promise<PendingProviderInfo> {
+  async getPendingProvider(providerAddress: string): Promise<PendingProviderInfo> {
     const contract = this._getWarmStorageContract()
     const result = await contract.pendingProviders(providerAddress)
 
@@ -900,7 +911,7 @@ export class WarmStorageService {
     return {
       serviceURL,
       peerId,
-      registeredAt: Number(registeredAt)
+      registeredAt: Number(registeredAt),
     }
   }
 
@@ -913,7 +924,7 @@ export class WarmStorageService {
    * Get the contract owner address
    * @returns Owner address
    */
-  async getOwner (): Promise<string> {
+  async getOwner(): Promise<string> {
     const contract = this._getWarmStorageContract()
     return await contract.owner()
   }
@@ -923,7 +934,7 @@ export class WarmStorageService {
    * @param signer - Signer to check
    * @returns Whether the signer is the owner
    */
-  async isOwner (signer: ethers.Signer): Promise<boolean> {
+  async isOwner(signer: ethers.Signer): Promise<boolean> {
     const signerAddress = await signer.getAddress()
     const ownerAddress = await this.getOwner()
     return signerAddress.toLowerCase() === ownerAddress.toLowerCase()
@@ -933,7 +944,7 @@ export class WarmStorageService {
    * Get all approved providers
    * @returns Array of all approved providers
    */
-  async getAllApprovedProviders (): Promise<ApprovedProviderInfo[]> {
+  async getAllApprovedProviders(): Promise<ApprovedProviderInfo[]> {
     const contract = this._getWarmStorageContract()
     const providers = await contract.getAllApprovedProviders()
 
@@ -942,7 +953,7 @@ export class WarmStorageService {
       serviceURL: p.serviceURL,
       peerId: ethers.toUtf8String(p.peerId),
       registeredAt: Number(p.registeredAt),
-      approvedAt: Number(p.approvedAt)
+      approvedAt: Number(p.approvedAt),
     }))
   }
 
@@ -952,7 +963,7 @@ export class WarmStorageService {
    * Get the maximum proving period from the WarmStorage contract
    * @returns Maximum proving period in epochs
    */
-  async getMaxProvingPeriod (): Promise<number> {
+  async getMaxProvingPeriod(): Promise<number> {
     const contract = this._getWarmStorageContract()
     const maxPeriod = await contract.getMaxProvingPeriod()
     return Number(maxPeriod)
@@ -962,7 +973,7 @@ export class WarmStorageService {
    * Get the challenge window size from the WarmStorage contract
    * @returns Challenge window size in epochs
    */
-  async getChallengeWindow (): Promise<number> {
+  async getChallengeWindow(): Promise<number> {
     const contract = this._getWarmStorageContract()
     const window = await contract.challengeWindow()
     return Number(window)

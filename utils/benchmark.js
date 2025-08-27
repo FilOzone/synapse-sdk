@@ -25,14 +25,14 @@ const obs = new PerformanceObserver((items) => {
     }
     timings.get(entry.name).push({
       duration: entry.duration,
-      startTime: entry.startTime
+      startTime: entry.startTime,
     })
   })
 })
 
 obs.observe({ entryTypes: ['measure'] })
 
-function printTimingResults () {
+function printTimingResults() {
   console.log('\n=== TIMING RESULTS ===')
 
   const sortedTimings = Array.from(timings.entries()).sort(([a], [b]) => a.localeCompare(b))
@@ -44,7 +44,7 @@ function printTimingResults () {
     })
 
     if (measurements.length > 1) {
-      const durations = measurements.map(m => m.duration)
+      const durations = measurements.map((m) => m.duration)
       const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length
       const min = Math.min(...durations)
       const max = Math.max(...durations)
@@ -55,11 +55,11 @@ function printTimingResults () {
   console.log('\n=====================\n')
 }
 
-function clearTimings () {
+function clearTimings() {
   timings.clear()
 }
 
-async function generateRandomData (size) {
+async function generateRandomData(size) {
   const data = new Uint8Array(size)
   for (let i = 0; i < size; i++) {
     data[i] = Math.floor(Math.random() * 256)
@@ -67,7 +67,7 @@ async function generateRandomData (size) {
   return data
 }
 
-async function runBenchmark () {
+async function runBenchmark() {
   console.log('Starting Synapse SDK Benchmark')
   console.log(`Provider: ${PROVIDER_ADDRESS}`)
   console.log(`Piece size: ${PIECE_SIZE / (1024 * 1024)} MiB`)
@@ -78,7 +78,7 @@ async function runBenchmark () {
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    warmStorageAddress: PANDORA_ADDRESS
+    warmStorageAddress: PANDORA_ADDRESS,
   })
   console.log('Synapse instance:', synapse)
   console.log('Synapse network:', synapse.getNetwork && synapse.getNetwork())
@@ -92,7 +92,7 @@ async function runBenchmark () {
       const storageContext = await synapse.storage.createContext({
         providerAddress: PROVIDER_ADDRESS,
         forceCreateDataSet: true,
-        withCDN: false
+        withCDN: false,
       })
 
       console.log(`Data set created: ${storageContext.dataSetId}`)

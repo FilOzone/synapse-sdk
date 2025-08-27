@@ -1,14 +1,12 @@
 /* globals describe, it, beforeEach, afterEach */
 import { assert } from 'chai'
-import { SubgraphService } from '../subgraph/service.js'
 import { asPieceCID } from '../piece/index.js'
+import { SubgraphService } from '../subgraph/service.js'
 import type { PieceCID } from '../types.js'
 
 describe('SubgraphService', () => {
   const mockEndpoint = 'http://localhost:8000/subgraphs/name/test'
-  const mockPieceCID = asPieceCID(
-    'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
-  ) as PieceCID
+  const mockPieceCID = asPieceCID('bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq') as PieceCID
   let originalFetch: typeof global.fetch
 
   beforeEach(() => {
@@ -30,8 +28,8 @@ describe('SubgraphService', () => {
         goldsky: {
           projectId: 'test-project',
           subgraphName: 'test-subgraph',
-          version: 'v1'
-        }
+          version: 'v1',
+        },
       })
       assert.isNotNull(service)
     })
@@ -57,17 +55,16 @@ describe('SubgraphService', () => {
                   id: '0x123',
                   serviceURL: 'http://provider.url/pdp',
                   status: 'Approved',
-                  address: '0x123'
-                }
-              }
-            }
-          ]
-        }
+                  address: '0x123',
+                },
+              },
+            },
+          ],
+        },
       }
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify(mockResponse))
         }
@@ -89,8 +86,7 @@ describe('SubgraphService', () => {
     it('should handle invalid PieceCID', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { pieces: [] } }))
         }
@@ -110,8 +106,7 @@ describe('SubgraphService', () => {
     it('should handle no providers found', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { pieces: [] } }))
         }
@@ -130,8 +125,7 @@ describe('SubgraphService', () => {
     it('should handle GraphQL errors', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ errors: [{ message: 'GraphQL error' }] }))
         }
@@ -151,8 +145,7 @@ describe('SubgraphService', () => {
     it('should handle HTTP errors', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response('Internal Server Error', { status: 500 })
         }
@@ -178,9 +171,9 @@ describe('SubgraphService', () => {
         data: {
           provider: {
             id: mockAddress,
-            serviceURL: 'http://provider.url/pdp'
-          }
-        }
+            serviceURL: 'http://provider.url/pdp',
+          },
+        },
       }
       global.fetch = async () => new Response(JSON.stringify(mockResponse))
 
@@ -194,8 +187,7 @@ describe('SubgraphService', () => {
     it('should return null if provider not found', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { provider: null } }))
         }
@@ -214,8 +206,7 @@ describe('SubgraphService', () => {
     it('should handle GraphQL errors', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ errors: [{ message: 'GraphQL error' }] }))
         }
@@ -235,8 +226,7 @@ describe('SubgraphService', () => {
     it('should handle HTTP errors', async () => {
       const originalFetch = global.fetch
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url =
-          typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response('Internal Server Error', { status: 500 })
         }
@@ -265,22 +255,21 @@ describe('SubgraphService', () => {
                 address: '0x123',
                 serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
-                approvedAt: '1641081600'
+                approvedAt: '1641081600',
               },
               {
                 id: '0x456',
                 address: '0x456',
                 serviceURL: 'https://provider2.com',
                 registeredAt: '1640995300',
-                approvedAt: '1641081700'
-              }
-            ]
-          }
+                approvedAt: '1641081700',
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'ProvidersFlexible')
@@ -314,19 +303,21 @@ describe('SubgraphService', () => {
                 address: '0x123',
                 serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
-                approvedAt: '1641081600'
-              }
-            ]
-          }
+                approvedAt: '1641081600',
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'ProvidersFlexible')
-            assert.deepEqual(body.variables.where, { status: 'APPROVED', totalDataSets_gte: '5' })
+            assert.deepEqual(body.variables.where, {
+              status: 'APPROVED',
+              totalDataSets_gte: '5',
+            })
             assert.equal(body.variables.first, 10)
             assert.equal(body.variables.skip, 20)
             assert.equal(body.variables.orderBy, 'approvedAt')
@@ -343,7 +334,7 @@ describe('SubgraphService', () => {
             first: 10,
             skip: 20,
             orderBy: 'approvedAt',
-            orderDirection: 'desc'
+            orderDirection: 'desc',
           })
 
           assert.isArray(providers)
@@ -357,13 +348,12 @@ describe('SubgraphService', () => {
       it('should return empty array when no providers found', async () => {
         const mockResponse = {
           data: {
-            providers: []
-          }
+            providers: [],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockResponse))
           }
@@ -372,7 +362,9 @@ describe('SubgraphService', () => {
 
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
-          const providers = await service.queryProviders({ where: { status: 'NONEXISTENT' } })
+          const providers = await service.queryProviders({
+            where: { status: 'NONEXISTENT' },
+          })
 
           assert.isArray(providers)
           assert.lengthOf(providers, 0)
@@ -412,7 +404,7 @@ describe('SubgraphService', () => {
                   address: '0x123',
                   serviceURL: 'https://provider1.com',
                   registeredAt: '1640995200',
-                  approvedAt: '1641081600'
+                  approvedAt: '1641081600',
                 },
                 rail: {
                   id: 'rail-1',
@@ -421,16 +413,15 @@ describe('SubgraphService', () => {
                   paymentRate: '1000',
                   lockupPeriod: '86400',
                   settledUpto: '1000',
-                  endEpoch: '2000'
-                }
-              }
-            ]
-          }
+                  endEpoch: '2000',
+                },
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'DataSetsFlexible')
@@ -485,21 +476,23 @@ describe('SubgraphService', () => {
                   address: '0x456',
                   serviceURL: 'https://provider2.com',
                   registeredAt: '1640995300',
-                  approvedAt: '1641081700'
+                  approvedAt: '1641081700',
                 },
-                rail: null
-              }
-            ]
-          }
+                rail: null,
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'DataSetsFlexible')
-            assert.deepEqual(body.variables.where, { isActive: true, totalDataSize_gte: '1000000' })
+            assert.deepEqual(body.variables.where, {
+              isActive: true,
+              totalDataSize_gte: '1000000',
+            })
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -511,7 +504,7 @@ describe('SubgraphService', () => {
             where: { isActive: true, totalDataSize_gte: '1000000' },
             first: 20,
             orderBy: 'totalDataSize',
-            orderDirection: 'desc'
+            orderDirection: 'desc',
           })
 
           assert.isArray(dataSets)
@@ -554,17 +547,16 @@ describe('SubgraphService', () => {
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
-                    approvedAt: '1641081600'
-                  }
-                }
-              }
-            ]
-          }
+                    approvedAt: '1641081600',
+                  },
+                },
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'PiecesFlexible')
@@ -617,21 +609,23 @@ describe('SubgraphService', () => {
                     address: '0x456',
                     serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
-                    approvedAt: '1641081700'
-                  }
-                }
-              }
-            ]
-          }
+                    approvedAt: '1641081700',
+                  },
+                },
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'PiecesFlexible')
-            assert.deepEqual(body.variables.where, { removed: false, rawSize_gte: '5000000' })
+            assert.deepEqual(body.variables.where, {
+              removed: false,
+              rawSize_gte: '5000000',
+            })
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -643,16 +637,13 @@ describe('SubgraphService', () => {
             where: { removed: false, rawSize_gte: '5000000' },
             first: 50,
             orderBy: 'rawSize',
-            orderDirection: 'desc'
+            orderDirection: 'desc',
           })
 
           assert.isArray(pieces)
           assert.lengthOf(pieces, 1)
           assert.equal(pieces[0].rawSize, 10485760)
-          assert.equal(
-            pieces[0].cid?.toString(),
-            'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-          )
+          assert.equal(pieces[0].cid?.toString(), 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace')
         } finally {
           global.fetch = originalFetch
         }
@@ -681,17 +672,16 @@ describe('SubgraphService', () => {
                     address: '0x123',
                     serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
-                    approvedAt: '1641081600'
-                  }
-                }
-              }
-            ]
-          }
+                    approvedAt: '1641081600',
+                  },
+                },
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'FaultRecordsFlexible')
@@ -736,21 +726,22 @@ describe('SubgraphService', () => {
                     address: '0x456',
                     serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
-                    approvedAt: '1641081700'
-                  }
-                }
-              }
-            ]
-          }
+                    approvedAt: '1641081700',
+                  },
+                },
+              },
+            ],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             const body = JSON.parse(init?.body as string)
             assert.include(body.query, 'FaultRecordsFlexible')
-            assert.deepEqual(body.variables.where, { createdAt_gte: '1640995200' })
+            assert.deepEqual(body.variables.where, {
+              createdAt_gte: '1640995200',
+            })
             return new Response(JSON.stringify(mockResponse))
           }
           throw new Error(`Unexpected URL: ${url}`)
@@ -762,7 +753,7 @@ describe('SubgraphService', () => {
             where: { createdAt_gte: '1640995200' },
             first: 25,
             orderBy: 'createdAt',
-            orderDirection: 'desc'
+            orderDirection: 'desc',
           })
 
           assert.isArray(faultRecords)
@@ -776,13 +767,12 @@ describe('SubgraphService', () => {
       it('should handle empty fault records response', async () => {
         const mockResponse = {
           data: {
-            faultRecords: []
-          }
+            faultRecords: [],
+          },
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockResponse))
           }
@@ -792,7 +782,7 @@ describe('SubgraphService', () => {
         try {
           const service = new SubgraphService({ endpoint: mockEndpoint })
           const faultRecords = await service.queryFaultRecords({
-            where: { dataSetId: '999' }
+            where: { dataSetId: '999' },
           })
 
           assert.isArray(faultRecords)
@@ -806,12 +796,11 @@ describe('SubgraphService', () => {
     describe('error handling for flexible queries', () => {
       it('should handle GraphQL errors in queryProviders', async () => {
         const mockErrorResponse = {
-          errors: [{ message: 'Invalid where clause' }]
+          errors: [{ message: 'Invalid where clause' }],
         }
 
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockErrorResponse))
           }
@@ -831,8 +820,7 @@ describe('SubgraphService', () => {
 
       it('should handle HTTP errors in queryDataSets', async () => {
         global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-          const url =
-            typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+          const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response('Bad Request', { status: 400 })
           }

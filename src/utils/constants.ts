@@ -9,7 +9,7 @@ import type { FilecoinNetworkType } from '../types.js'
  */
 export const TOKENS = {
   USDFC: 'USDFC' as const,
-  FIL: 'FIL' as const
+  FIL: 'FIL' as const,
 } as const
 
 /**
@@ -17,7 +17,7 @@ export const TOKENS = {
  */
 export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
   mainnet: 314,
-  calibration: 314159
+  calibration: 314159,
 } as const
 
 /**
@@ -33,7 +33,7 @@ export const CONTRACT_ABIS = {
     'function symbol() view returns (string)',
     'function approve(address spender, uint256 amount) returns (bool)',
     'function allowance(address owner, address spender) view returns (uint256)',
-    'function transfer(address to, uint256 amount) returns (bool)'
+    'function transfer(address to, uint256 amount) returns (bool)',
   ] as const,
 
   /**
@@ -44,7 +44,7 @@ export const CONTRACT_ABIS = {
     'function withdraw(address token, uint256 amount)',
     'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
     'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
-    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed, uint256 maxLockupPeriod)'
+    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed, uint256 maxLockupPeriod)',
   ] as const,
 
   /**
@@ -83,7 +83,7 @@ export const CONTRACT_ABIS = {
 
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
-    'function challengeWindow() external view returns (uint256)'
+    'function challengeWindow() external view returns (uint256)',
   ] as const,
 
   /**
@@ -95,8 +95,8 @@ export const CONTRACT_ABIS = {
     'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
     'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
     'function getDataSetListener(uint256 setId) public view returns (address)',
-    'event DataSetCreated(uint256 indexed setId, address indexed owner)'
-  ] as const
+    'event DataSetCreated(uint256 indexed setId, address indexed owner)',
+  ] as const,
 } as const
 
 /**
@@ -126,7 +126,7 @@ export const TIME_CONSTANTS = {
   /**
    * Default lockup period in days
    */
-  DEFAULT_LOCKUP_DAYS: 10n
+  DEFAULT_LOCKUP_DAYS: 10n,
 } as const
 
 /**
@@ -140,7 +140,7 @@ export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
   /**
    * Calibration testnet genesis: November 1, 2022 18:13:00 UTC
    */
-  calibration: 1667326380
+  calibration: 1667326380,
 } as const
 
 /**
@@ -183,7 +183,7 @@ export const SIZE_CONSTANTS = {
    * Default number of uploads to batch together in a single addPieces transaction
    * This balances gas efficiency with reasonable transaction sizes
    */
-  DEFAULT_UPLOAD_BATCH_SIZE: 32
+  DEFAULT_UPLOAD_BATCH_SIZE: 32,
 } as const
 
 /**
@@ -241,21 +241,21 @@ export const TIMING_CONSTANTS = {
   /**
    * How often to poll for piece addition status
    */
-  PIECE_ADDITION_POLL_INTERVAL_MS: 1000 // 1 second
+  PIECE_ADDITION_POLL_INTERVAL_MS: 1000, // 1 second
 } as const
 
 /**
  * Recommended RPC endpoints for Filecoin networks
  */
-export const RPC_URLS: Record<FilecoinNetworkType, { http: string, websocket: string }> = {
+export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: string }> = {
   mainnet: {
     http: 'https://api.node.glif.io/rpc/v1',
-    websocket: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1'
+    websocket: 'wss://wss.node.glif.io/apigw/lotus/rpc/v1',
   },
   calibration: {
     http: 'https://api.calibration.node.glif.io/rpc/v1',
-    websocket: 'wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1'
-  }
+    websocket: 'wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1',
+  },
 } as const
 
 /**
@@ -267,7 +267,7 @@ export const CONTRACT_ADDRESSES = {
    */
   USDFC: {
     mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
-    calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+    calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -275,7 +275,7 @@ export const CONTRACT_ADDRESSES = {
    */
   PAYMENTS: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xbB0592e7f0c8db5A4908C1c79BE913f19857682A'
+    calibration: '0xbB0592e7f0c8db5A4908C1c79BE913f19857682A',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -283,7 +283,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x7A605Ad01F7812F5C5e78aa16D795fc0be75974E'
+    calibration: '0x7A605Ad01F7812F5C5e78aa16D795fc0be75974E',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -291,6 +291,6 @@ export const CONTRACT_ADDRESSES = {
    */
   PDP_VERIFIER: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9'
-  } as const satisfies Record<FilecoinNetworkType, string>
+    calibration: '0x07074aDd0364e79a1fEC01c128c1EFfa19C184E9',
+  } as const satisfies Record<FilecoinNetworkType, string>,
 } as const

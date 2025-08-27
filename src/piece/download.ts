@@ -28,7 +28,7 @@ import { asPieceCID, createPieceCIDStream } from './index.js'
  * const data = await downloadAndValidate(response, 'bafkzcib...')
  * ```
  */
-export async function downloadAndValidate (
+export async function downloadAndValidate(
   response: Response,
   expectedPieceCid: string | PieceCID
 ): Promise<Uint8Array> {
@@ -53,16 +53,14 @@ export async function downloadAndValidate (
   // Create a stream that collects all chunks into an array
   const chunks: Uint8Array[] = []
   const collectStream = new TransformStream<Uint8Array, Uint8Array>({
-    transform (chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
+    transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
       chunks.push(chunk)
       controller.enqueue(chunk)
-    }
+    },
   })
 
   // Pipe the response through both streams
-  const pipelineStream = response.body
-    .pipeThrough(pieceCidStream)
-    .pipeThrough(collectStream)
+  const pipelineStream = response.body.pipeThrough(pieceCidStream).pipeThrough(collectStream)
 
   // Consume the stream to completion
   const reader = pipelineStream.getReader()
@@ -119,7 +117,7 @@ export async function downloadAndValidate (
  * )
  * ```
  */
-export async function downloadAndValidateFromUrl (
+export async function downloadAndValidateFromUrl(
   url: string,
   expectedPieceCid: string | PieceCID
 ): Promise<Uint8Array> {

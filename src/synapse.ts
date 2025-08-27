@@ -3,23 +3,23 @@
  */
 
 import { ethers } from 'ethers'
-import {
-  type SynapseOptions,
-  type StorageServiceOptions,
-  type FilecoinNetworkType,
-  type PieceRetriever,
-  type PieceCID,
-  type ApprovedProviderInfo,
-  type StorageInfo,
-  type SubgraphConfig
-} from './types.js'
-import { StorageService } from './storage/index.js'
-import { StorageManager } from './storage/manager.js'
 import { PaymentsService } from './payments/index.js'
-import { WarmStorageService } from './warm-storage/index.js'
-import { SubgraphService } from './subgraph/service.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
+import type { StorageService } from './storage/index.js'
+import { StorageManager } from './storage/manager.js'
+import { SubgraphService } from './subgraph/service.js'
+import type {
+  ApprovedProviderInfo,
+  FilecoinNetworkType,
+  PieceCID,
+  PieceRetriever,
+  StorageInfo,
+  StorageServiceOptions,
+  SubgraphConfig,
+  SynapseOptions,
+} from './types.js'
 import { CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
+import { WarmStorageService } from './warm-storage/index.js'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
@@ -38,7 +38,7 @@ export class Synapse {
    * @param options - Configuration options for Synapse
    * @returns A fully initialized Synapse instance
    */
-  static async create (options: SynapseOptions): Promise<Synapse> {
+  static async create(options: SynapseOptions): Promise<Synapse> {
     // Validate options
     const providedOptions = [options.privateKey, options.provider, options.signer].filter(Boolean).length
     if (providedOptions !== 1) {
@@ -76,7 +76,9 @@ export class Synapse {
         } else if (chainId === CHAIN_IDS.calibration) {
           network = 'calibration'
         } else {
-          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+          throw new Error(
+            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
+          )
         }
       }
 
@@ -95,7 +97,9 @@ export class Synapse {
         } else if (chainId === CHAIN_IDS.calibration) {
           network = 'calibration'
         } else {
-          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+          throw new Error(
+            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
+          )
         }
       }
 
@@ -130,7 +134,9 @@ export class Synapse {
         } else if (chainId === CHAIN_IDS.calibration) {
           network = 'calibration'
         } else {
-          throw new Error(`Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`)
+          throw new Error(
+            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
+          )
         }
       }
     } else {
@@ -144,12 +150,7 @@ export class Synapse {
     }
 
     // Create payments service
-    const payments = new PaymentsService(
-      provider,
-      signer,
-      network,
-      options.disableNonceManager === true
-    )
+    const payments = new PaymentsService(provider, signer, network, options.disableNonceManager === true)
 
     // Create Warm Storage service for the retriever
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
@@ -167,9 +168,10 @@ export class Synapse {
       // Check for subgraph option
       let baseRetriever: PieceRetriever = chainRetriever
       if (options.subgraphConfig != null || options.subgraphService != null) {
-        const subgraphService = options.subgraphService != null
-          ? options.subgraphService
-          : new SubgraphService(options.subgraphConfig as SubgraphConfig)
+        const subgraphService =
+          options.subgraphService != null
+            ? options.subgraphService
+            : new SubgraphService(options.subgraphConfig as SubgraphConfig)
         baseRetriever = new SubgraphRetriever(subgraphService)
       }
 
@@ -191,7 +193,7 @@ export class Synapse {
     )
   }
 
-  private constructor (
+  private constructor(
     signer: ethers.Signer,
     provider: ethers.Provider,
     network: FilecoinNetworkType,
@@ -224,19 +226,14 @@ export class Synapse {
     }
 
     // Initialize StorageManager
-    this._storageManager = new StorageManager(
-      this,
-      this._warmStorageService,
-      this._pieceRetriever,
-      this._withCDN
-    )
+    this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
   }
 
   /**
    * Gets the current network type
    * @returns The network type ('mainnet' or 'calibration')
    */
-  getNetwork (): FilecoinNetworkType {
+  getNetwork(): FilecoinNetworkType {
     return this._network
   }
 
@@ -244,7 +241,7 @@ export class Synapse {
    * Gets the signer instance
    * @returns The ethers signer
    */
-  getSigner (): ethers.Signer {
+  getSigner(): ethers.Signer {
     return this._signer
   }
 
@@ -252,7 +249,7 @@ export class Synapse {
    * Gets the provider instance
    * @returns The ethers provider
    */
-  getProvider (): ethers.Provider {
+  getProvider(): ethers.Provider {
     return this._provider
   }
 
@@ -260,7 +257,7 @@ export class Synapse {
    * Gets the current chain ID
    * @returns The numeric chain ID
    */
-  getChainId (): number {
+  getChainId(): number {
     return this._network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration
   }
 
@@ -268,7 +265,7 @@ export class Synapse {
    * Gets the Warm Storage service address for the current network
    * @returns The Warm Storage service address
    */
-  getWarmStorageAddress (): string {
+  getWarmStorageAddress(): string {
     return this._warmStorageAddress
   }
 
@@ -276,7 +273,7 @@ export class Synapse {
    * Gets the PDPVerifier contract address for the current network
    * @returns The PDPVerifier contract address
    */
-  getPDPVerifierAddress (): string {
+  getPDPVerifierAddress(): string {
     return this._pdpVerifierAddress
   }
 
@@ -284,7 +281,7 @@ export class Synapse {
    * Gets the payment service instance
    * @returns The payment service
    */
-  get payments (): PaymentsService {
+  get payments(): PaymentsService {
     return this._payments
   }
 
@@ -292,7 +289,7 @@ export class Synapse {
    * Gets the storage manager instance
    * @returns The storage manager for all storage operations
    */
-  get storage (): StorageManager {
+  get storage(): StorageManager {
     return this._storageManager
   }
 
@@ -322,7 +319,7 @@ export class Synapse {
    * })
    * ```
    */
-  async createStorage (options: StorageServiceOptions = {}): Promise<StorageService> {
+  async createStorage(options: StorageServiceOptions = {}): Promise<StorageService> {
     // Use StorageManager to create context
     return await this._storageManager.createContext(options)
   }
@@ -345,10 +342,13 @@ export class Synapse {
    * })
    * ```
    */
-  async download (pieceCid: string | PieceCID, options?: {
-    providerAddress?: string
-    withCDN?: boolean
-  }): Promise<Uint8Array> {
+  async download(
+    pieceCid: string | PieceCID,
+    options?: {
+      providerAddress?: string
+      withCDN?: boolean
+    }
+  ): Promise<Uint8Array> {
     console.warn('synapse.download() is deprecated. Use synapse.storage.download() instead.')
     return await this._storageManager.download(pieceCid, options)
   }
@@ -358,7 +358,7 @@ export class Synapse {
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
-  async getProviderInfo (providerAddress: string | number): Promise<ApprovedProviderInfo> {
+  async getProviderInfo(providerAddress: string | number): Promise<ApprovedProviderInfo> {
     try {
       // Validate address format if string provided
       if (typeof providerAddress === 'string') {
@@ -369,9 +369,10 @@ export class Synapse {
         }
       }
 
-      const providerId = typeof providerAddress === 'string'
-        ? await this._warmStorageService.getProviderIdByAddress(providerAddress)
-        : providerAddress
+      const providerId =
+        typeof providerAddress === 'string'
+          ? await this._warmStorageService.getProviderIdByAddress(providerAddress)
+          : providerAddress
 
       // Check if provider is approved
       if (providerId === 0) {
@@ -406,7 +407,7 @@ export class Synapse {
    * @deprecated Use synapse.storage.getStorageInfo() instead. This method will be removed in a future version.
    * @returns Complete storage service information
    */
-  async getStorageInfo (): Promise<StorageInfo> {
+  async getStorageInfo(): Promise<StorageInfo> {
     console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
     return await this._storageManager.getStorageInfo()
   }

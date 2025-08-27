@@ -295,7 +295,7 @@ describe('PaymentsService', () => {
         },
         onDepositStarting: () => {
           depositStarted = true
-        }
+        },
       })
 
       assert.exists(tx)

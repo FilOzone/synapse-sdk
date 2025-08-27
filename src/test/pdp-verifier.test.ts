@@ -39,7 +39,8 @@ describe('PDPVerifier', () => {
     it('should check if data set is live', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xca759f27') === true) { // dataSetLive selector
+        if (data?.startsWith('0xca759f27') === true) {
+          // dataSetLive selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
         return '0x' + '0'.repeat(64)
@@ -54,7 +55,8 @@ describe('PDPVerifier', () => {
     it('should get next piece ID', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x1c5ae80f') === true) { // getNextPieceId selector
+        if (data?.startsWith('0x1c5ae80f') === true) {
+          // getNextPieceId selector
           return ethers.zeroPadValue('0x05', 32) // Return 5
         }
         return '0x' + '0'.repeat(64)
@@ -70,7 +72,8 @@ describe('PDPVerifier', () => {
       const listenerAddress = '0x1234567890123456789012345678901234567890'
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x2b3129bb') === true) { // getDataSetListener selector
+        if (data?.startsWith('0x2b3129bb') === true) {
+          // getDataSetListener selector
           return ethers.zeroPadValue(listenerAddress, 32)
         }
         return '0x' + '0'.repeat(64)
@@ -88,7 +91,8 @@ describe('PDPVerifier', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x21b7cd1c') === true) { // getDataSetStorageProvider selector
+        if (data?.startsWith('0x21b7cd1c') === true) {
+          // getDataSetStorageProvider selector
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['address', 'address'],
             [storageProvider, proposedStorageProvider]
@@ -107,7 +111,8 @@ describe('PDPVerifier', () => {
     it('should get data set leaf count', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0xa531998c') === true) { // getDataSetLeafCount selector
+        if (data?.startsWith('0xa531998c') === true) {
+          // getDataSetLeafCount selector
           return ethers.zeroPadValue('0x0a', 32) // Return 10
         }
         return '0x' + '0'.repeat(64)
@@ -125,11 +130,11 @@ describe('PDPVerifier', () => {
           {
             topics: [
               '0x1234567890123456789012345678901234567890123456789012345678901234', // Event signature
-              ethers.zeroPadValue('0x7b', 32) // Data set ID = 123
+              ethers.zeroPadValue('0x7b', 32), // Data set ID = 123
             ],
-            data: '0x' + '0'.repeat(64)
-          }
-        ]
+            data: '0x' + '0'.repeat(64),
+          },
+        ],
       } as any
 
       // Mock the interface to parse logs
@@ -138,11 +143,11 @@ describe('PDPVerifier', () => {
           return {
             name: 'DataSetCreated',
             args: {
-              setId: BigInt(123)
+              setId: BigInt(123),
             },
             fragment: {} as any,
             signature: 'DataSetCreated(uint256)',
-            topic: log.topics[0]
+            topic: log.topics[0],
           } as any
         }
         return null
@@ -154,7 +159,7 @@ describe('PDPVerifier', () => {
 
     it('should return null if no DataSetCreated event found', () => {
       const mockReceipt = {
-        logs: []
+        logs: [],
       } as any
 
       const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(mockReceipt)

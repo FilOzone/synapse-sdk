@@ -25,27 +25,27 @@ if (!PRIVATE_KEY) {
 }
 
 // Helper to format USDFC amounts (18 decimals)
-function formatUSDFC (amount) {
+function formatUSDFC(amount) {
   const usdfc = Number(amount) / 1e18
   return usdfc.toFixed(6) + ' USDFC'
 }
 
 // Helper to format bytes for display
-function formatBytes (bytes) {
+function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i]
 }
 
 // Helper to format timestamp
-function formatTimestamp (timestamp) {
+function formatTimestamp(timestamp) {
   if (!timestamp || timestamp === 0) return 'N/A'
   return new Date(timestamp * 1000).toLocaleString()
 }
 
-async function main () {
+async function main() {
   try {
     console.log('=== Synapse SDK Storage Info Example ===\n')
 
@@ -55,7 +55,7 @@ async function main () {
 
     const synapse = await Synapse.create({
       privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL
+      rpcURL: RPC_URL,
     })
     console.log('✓ Synapse instance created')
 
@@ -118,11 +118,15 @@ async function main () {
       console.log('\nRate:')
       console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.rateAllowance)}`)
       console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.rateUsed)}`)
-      console.log(`  Available:  ${formatUSDFC(storageInfo.allowances.rateAllowance - storageInfo.allowances.rateUsed)}`)
+      console.log(
+        `  Available:  ${formatUSDFC(storageInfo.allowances.rateAllowance - storageInfo.allowances.rateUsed)}`
+      )
       console.log('\nLockup:')
       console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.lockupAllowance)}`)
       console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.lockupUsed)}`)
-      console.log(`  Available:  ${formatUSDFC(storageInfo.allowances.lockupAllowance - storageInfo.allowances.lockupUsed)}`)
+      console.log(
+        `  Available:  ${formatUSDFC(storageInfo.allowances.lockupAllowance - storageInfo.allowances.lockupUsed)}`
+      )
     } else {
       console.log('No allowances found (wallet may not be connected or no approvals set)')
     }

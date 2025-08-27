@@ -5,14 +5,14 @@
 
 // Import everything we need
 import * as SynapseSDKExports from './index.js'
-import * as pieceCidExports from './piece/index.js'
 import * as pdpExports from './pdp/index.js'
+import * as pieceCidExports from './piece/index.js'
 
 // Create a flat default export with all exports for UMD builds
 const allExports = {
   ...SynapseSDKExports,
   ...pieceCidExports,
-  ...pdpExports
+  ...pdpExports,
 }
 
 export default allExports

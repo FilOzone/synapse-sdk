@@ -22,26 +22,34 @@
  * ```
  */
 
-import { ethers } from 'ethers'
-import type {
-  StorageServiceOptions,
-  PieceCID,
-  ApprovedProviderInfo,
-  UploadCallbacks,
-  UploadResult,
-  StorageCreationCallbacks,
-  ProviderSelectionResult,
-  DownloadOptions,
-  PreflightInfo,
-  EnhancedDataSetInfo,
-  PieceStatus
-} from '../types.js'
-import { type Synapse } from '../synapse.js'
-import { type WarmStorageService } from '../warm-storage/index.js'
-import { type PaymentsService } from '../payments/index.js'
+import type { ethers } from 'ethers'
+import type { PaymentsService } from '../payments/index.js'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
 import { asPieceCID } from '../piece/index.js'
-import { createError, SIZE_CONSTANTS, TIMING_CONSTANTS, epochToDate, calculateLastProofDate, timeUntilEpoch, getCurrentEpoch } from '../utils/index.js'
+import type { Synapse } from '../synapse.js'
+import type {
+  ApprovedProviderInfo,
+  DownloadOptions,
+  EnhancedDataSetInfo,
+  PieceCID,
+  PieceStatus,
+  PreflightInfo,
+  ProviderSelectionResult,
+  StorageCreationCallbacks,
+  StorageServiceOptions,
+  UploadCallbacks,
+  UploadResult,
+} from '../types.js'
+import {
+  calculateLastProofDate,
+  createError,
+  epochToDate,
+  getCurrentEpoch,
+  SIZE_CONSTANTS,
+  TIMING_CONSTANTS,
+  timeUntilEpoch,
+} from '../utils/index.js'
+import type { WarmStorageService } from '../warm-storage/index.js'
 
 export class StorageContext {
   private readonly _synapse: Synapse
@@ -69,12 +77,12 @@ export class StorageContext {
   public readonly serviceProvider: string
 
   // Getter for withCDN
-  get withCDN (): boolean {
+  get withCDN(): boolean {
     return this._withCDN
   }
 
   // Getter for provider info
-  get provider (): ApprovedProviderInfo {
+  get provider(): ApprovedProviderInfo {
     return this._provider
   }
 
@@ -84,7 +92,7 @@ export class StorageContext {
    * @param context - Context for error messages (e.g., 'upload', 'preflightUpload')
    * @throws Error if size is outside allowed limits
    */
-  private static validateRawSize (sizeBytes: number, context: string): void {
+  private static validateRawSize(sizeBytes: number, context: string): void {
     if (sizeBytes < SIZE_CONSTANTS.MIN_UPLOAD_SIZE) {
       throw createError(
         'StorageContext',
@@ -108,7 +116,7 @@ export class StorageContext {
     }
   }
 
-  constructor (
+  constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     provider: ApprovedProviderInfo,
@@ -131,34 +139,23 @@ export class StorageContext {
     this._warmStorageAddress = synapse.getWarmStorageAddress()
 
     // Create PDPAuthHelper for signing operations
-    const authHelper = new PDPAuthHelper(
-      this._warmStorageAddress,
-      this._signer,
-      BigInt(synapse.getChainId())
-    )
+    const authHelper = new PDPAuthHelper(this._warmStorageAddress, this._signer, BigInt(synapse.getChainId()))
 
     // Create PDPServer instance with provider URL
-    this._pdpServer = new PDPServer(
-      authHelper,
-      provider.serviceURL
-    )
+    this._pdpServer = new PDPServer(authHelper, provider.serviceURL)
   }
 
   /**
    * Static factory method to create a StorageContext
    * Handles provider selection and data set selection/creation
    */
-  static async create (
+  static async create(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     options: StorageServiceOptions = {}
   ): Promise<StorageContext> {
     // Resolve provider and data set based on options
-    const resolution = await StorageContext.resolveProviderAndDataSet(
-      synapse,
-      warmStorageService,
-      options
-    )
+    const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, options)
 
     // Notify callback about provider selection
     try {
@@ -188,7 +185,7 @@ export class StorageContext {
         options.callbacks?.onDataSetResolved?.({
           isExisting: resolution.isExisting ?? true,
           dataSetId: finalDataSetId,
-          provider: resolution.provider
+          provider: resolution.provider,
         })
       } catch (error) {
         console.error('Error in onDataSetResolved callback:', error)
@@ -201,7 +198,7 @@ export class StorageContext {
   /**
    * Create a new data set with the selected provider
    */
-  private static async createDataSet (
+  private static async createDataSet(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     provider: ApprovedProviderInfo,
@@ -220,17 +217,10 @@ export class StorageContext {
 
     // Create auth helper for signing
     const warmStorageAddress = synapse.getWarmStorageAddress()
-    const authHelper = new PDPAuthHelper(
-      warmStorageAddress,
-      signer,
-      BigInt(synapse.getChainId())
-    )
+    const authHelper = new PDPAuthHelper(warmStorageAddress, signer, BigInt(synapse.getChainId()))
 
     // Create PDPServer instance for API calls
-    const pdpServer = new PDPServer(
-      authHelper,
-      provider.serviceURL
-    )
+    const pdpServer = new PDPServer(authHelper, provider.serviceURL)
 
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
@@ -241,7 +231,11 @@ export class StorageContext {
       warmStorageAddress // recordKeeper (WarmStorage contract)
     )
     performance.mark('synapse:pdpServer.createDataSet-end')
-    performance.measure('synapse:pdpServer.createDataSet', 'synapse:pdpServer.createDataSet-start', 'synapse:pdpServer.createDataSet-end')
+    performance.measure(
+      'synapse:pdpServer.createDataSet',
+      'synapse:pdpServer.createDataSet-start',
+      'synapse:pdpServer.createDataSet-end'
+    )
 
     // createDataSet returns CreateDataSetResponse with txHash and statusUrl
     const { txHash, statusUrl } = createResult
@@ -268,7 +262,7 @@ export class StorageContext {
       }
 
       // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, txPropagationPollInterval))
+      await new Promise((resolve) => setTimeout(resolve, txPropagationPollInterval))
     }
     performance.mark('synapse:getTransaction-end')
     performance.measure('synapse:getTransaction', 'synapse:getTransaction-start', 'synapse:getTransaction-end')
@@ -322,7 +316,7 @@ export class StorageContext {
                 serverConfirmed: status.serverStatus?.ok === true,
                 dataSetId: status.summary.dataSetId ?? undefined,
                 elapsedMs,
-                receipt
+                receipt,
               })
             } catch (error) {
               console.error('Error in onDataSetCreationProgress callback:', error)
@@ -332,7 +326,11 @@ export class StorageContext {
       )
     } catch (error) {
       performance.mark('synapse:waitForDataSetCreationWithStatus-end')
-      performance.measure('synapse:waitForDataSetCreationWithStatus', 'synapse:waitForDataSetCreationWithStatus-start', 'synapse:waitForDataSetCreationWithStatus-end')
+      performance.measure(
+        'synapse:waitForDataSetCreationWithStatus',
+        'synapse:waitForDataSetCreationWithStatus-start',
+        'synapse:waitForDataSetCreationWithStatus-end'
+      )
       throw createError(
         'StorageContext',
         'waitForDataSetCreation',
@@ -340,7 +338,11 @@ export class StorageContext {
       )
     }
     performance.mark('synapse:waitForDataSetCreationWithStatus-end')
-    performance.measure('synapse:waitForDataSetCreationWithStatus', 'synapse:waitForDataSetCreationWithStatus-start', 'synapse:waitForDataSetCreationWithStatus-end')
+    performance.measure(
+      'synapse:waitForDataSetCreationWithStatus',
+      'synapse:waitForDataSetCreationWithStatus-start',
+      'synapse:waitForDataSetCreationWithStatus-end'
+    )
 
     if (!finalStatus.summary.isComplete || finalStatus.summary.dataSetId == null) {
       throw createError(
@@ -357,7 +359,7 @@ export class StorageContext {
       callbacks?.onDataSetResolved?.({
         isExisting: false,
         dataSetId,
-        provider
+        provider,
       })
     } catch (error) {
       console.error('Error in onDataSetResolved callback:', error)
@@ -372,7 +374,7 @@ export class StorageContext {
    * Resolve provider and data set based on provided options
    * Uses lazy loading to minimize RPC calls
    */
-  private static async resolveProviderAndDataSet (
+  private static async resolveProviderAndDataSet(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     options: StorageServiceOptions
@@ -382,12 +384,7 @@ export class StorageContext {
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {
-      return await StorageContext.resolveByDataSetId(
-        options.dataSetId,
-        warmStorageService,
-        signerAddress,
-        options
-      )
+      return await StorageContext.resolveByDataSetId(options.dataSetId, warmStorageService, signerAddress, options)
     }
 
     // Handle explicit provider ID selection
@@ -411,18 +408,13 @@ export class StorageContext {
     }
 
     // Smart selection when no specific parameters provided
-    return await StorageContext.smartSelectProvider(
-      signerAddress,
-      options.withCDN ?? false,
-      warmStorageService,
-      signer
-    )
+    return await StorageContext.smartSelectProvider(signerAddress, options.withCDN ?? false, warmStorageService, signer)
   }
 
   /**
    * Resolve using a specific data set ID
    */
-  private static async resolveByDataSetId (
+  private static async resolveByDataSetId(
     dataSetId: number,
     warmStorageService: WarmStorageService,
     signerAddress: string,
@@ -430,14 +422,14 @@ export class StorageContext {
   ): Promise<ProviderSelectionResult> {
     // Fetch data sets to find the specific one
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
-    const dataSet = dataSets.find(ds => ds.pdpVerifierDataSetId === dataSetId)
+    const dataSet = dataSets.find((ds) => ds.pdpVerifierDataSetId === dataSetId)
 
     if (dataSet == null || !dataSet.isLive || !dataSet.isManaged) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
         `Data set ${dataSetId} not found, not owned by ${signerAddress}, ` +
-        'or not managed by the current WarmStorage contract'
+          'or not managed by the current WarmStorage contract'
       )
     }
 
@@ -464,21 +456,21 @@ export class StorageContext {
         'StorageContext',
         'resolveByDataSetId',
         `Data set ${dataSetId} has CDN ${dataSet.withCDN ? 'enabled' : 'disabled'}, ` +
-        `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
+          `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
       )
     }
 
     return {
       provider,
       dataSetId,
-      isExisting: true
+      isExisting: true,
     }
   }
 
   /**
    * Validate data set consistency with provided options
    */
-  private static async validateDataSetConsistency (
+  private static async validateDataSetConsistency(
     dataSet: EnhancedDataSetInfo,
     options: StorageServiceOptions,
     warmStorageService: WarmStorageService
@@ -491,7 +483,7 @@ export class StorageContext {
           'StorageContext',
           'validateDataSetConsistency',
           `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${actualProviderId}, ` +
-          `but provider ID ${options.providerId} was requested`
+            `but provider ID ${options.providerId} was requested`
         )
       }
     }
@@ -503,7 +495,7 @@ export class StorageContext {
           'StorageContext',
           'validateDataSetConsistency',
           `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${dataSet.payee}, ` +
-          `but provider ${options.providerAddress} was requested`
+            `but provider ${options.providerAddress} was requested`
         )
       }
     }
@@ -512,36 +504,33 @@ export class StorageContext {
   /**
    * Resolve using a specific provider ID
    */
-  private static async resolveByProviderId (
+  private static async resolveByProviderId(
     signerAddress: string,
     providerId: number,
     withCDN: boolean,
     warmStorageService: WarmStorageService
   ): Promise<{
-      provider: ApprovedProviderInfo
-      dataSetId: number
-      isExisting: boolean
-    }> {
+    provider: ApprovedProviderInfo
+    dataSetId: number
+    isExisting: boolean
+  }> {
     // Fetch provider info and data sets in parallel
     const [provider, dataSets] = await Promise.all([
       warmStorageService.getApprovedProvider(providerId),
-      warmStorageService.getClientDataSetsWithDetails(signerAddress)
+      warmStorageService.getClientDataSetsWithDetails(signerAddress),
     ])
 
     if (provider.serviceProvider === '0x0000000000000000000000000000000000000000') {
-      throw createError(
-        'StorageContext',
-        'resolveByProviderId',
-        `Provider ID ${providerId} is not currently approved`
-      )
+      throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} is not currently approved`)
     }
 
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
-      ps => ps.payee.toLowerCase() === provider.serviceProvider.toLowerCase() &&
-            ps.isLive &&
-            ps.isManaged &&
-            ps.withCDN === withCDN
+      (ps) =>
+        ps.payee.toLowerCase() === provider.serviceProvider.toLowerCase() &&
+        ps.isLive &&
+        ps.isManaged &&
+        ps.withCDN === withCDN
     )
 
     if (providerDataSets.length > 0) {
@@ -555,7 +544,7 @@ export class StorageContext {
       return {
         provider,
         dataSetId: sorted[0].pdpVerifierDataSetId,
-        isExisting: true
+        isExisting: true,
       }
     }
 
@@ -563,23 +552,23 @@ export class StorageContext {
     return {
       provider,
       dataSetId: -1, // Marker for new data set
-      isExisting: false
+      isExisting: false,
     }
   }
 
   /**
    * Resolve using a specific provider address
    */
-  private static async resolveByProviderAddress (
+  private static async resolveByProviderAddress(
     providerAddress: string,
     warmStorageService: WarmStorageService,
     signerAddress: string,
     withCDN: boolean
   ): Promise<{
-      provider: ApprovedProviderInfo
-      dataSetId: number
-      isExisting: boolean
-    }> {
+    provider: ApprovedProviderInfo
+    dataSetId: number
+    isExisting: boolean
+  }> {
     // Get provider ID by address
     const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
     if (providerId === 0) {
@@ -591,28 +580,23 @@ export class StorageContext {
     }
 
     // Use the providerId resolution logic
-    return await StorageContext.resolveByProviderId(
-      signerAddress,
-      providerId,
-      withCDN,
-      warmStorageService
-    )
+    return await StorageContext.resolveByProviderId(signerAddress, providerId, withCDN, warmStorageService)
   }
 
   /**
    * Smart provider selection algorithm
    * Prioritizes existing data sets and provider health
    */
-  private static async smartSelectProvider (
+  private static async smartSelectProvider(
     signerAddress: string,
     withCDN: boolean,
     warmStorageService: WarmStorageService,
     signer: ethers.Signer
   ): Promise<{
-      provider: ApprovedProviderInfo
-      dataSetId: number
-      isExisting: boolean
-    }> {
+    provider: ApprovedProviderInfo
+    dataSetId: number
+    isExisting: boolean
+  }> {
     // Strategy:
     // 1. Try to find existing data sets first
     // 2. If no existing data sets, find a healthy provider
@@ -621,9 +605,7 @@ export class StorageContext {
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
     // Filter for managed data sets with matching CDN setting
-    const managedDataSets = dataSets.filter(
-      ps => ps.isLive && ps.isManaged && ps.withCDN === withCDN
-    )
+    const managedDataSets = dataSets.filter((ps) => ps.isLive && ps.isManaged && ps.withCDN === withCDN)
 
     if (managedDataSets.length > 0) {
       // Prefer data sets with pieces, sort by ID (older first)
@@ -634,19 +616,23 @@ export class StorageContext {
       })
 
       // Create async generator that yields providers lazily
-      async function * generateProviders (): AsyncGenerator<ApprovedProviderInfo> {
+      async function* generateProviders(): AsyncGenerator<ApprovedProviderInfo> {
         const yieldedProviders = new Set<string>()
 
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
           const providerId = await warmStorageService.getProviderIdByAddress(dataSet.payee)
           if (providerId === 0) {
-            console.warn(`Provider ${dataSet.payee} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`)
+            console.warn(
+              `Provider ${dataSet.payee} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
+            )
             continue
           }
           const provider = await warmStorageService.getApprovedProvider(providerId)
-          if (provider.serviceProvider !== '0x0000000000000000000000000000000000000000' &&
-              !yieldedProviders.has(provider.serviceProvider.toLowerCase())) {
+          if (
+            provider.serviceProvider !== '0x0000000000000000000000000000000000000000' &&
+            !yieldedProviders.has(provider.serviceProvider.toLowerCase())
+          ) {
             yieldedProviders.add(provider.serviceProvider.toLowerCase())
             yield provider
           }
@@ -656,33 +642,25 @@ export class StorageContext {
       const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
       // Find the first matching data set ID for this provider
-      const matchingDataSet = sorted.find(ps =>
-        ps.payee.toLowerCase() === selectedProvider.serviceProvider.toLowerCase()
+      const matchingDataSet = sorted.find(
+        (ps) => ps.payee.toLowerCase() === selectedProvider.serviceProvider.toLowerCase()
       )
 
       if (matchingDataSet == null) {
-        throw createError(
-          'StorageContext',
-          'smartSelectProvider',
-          'Selected provider not found in data sets'
-        )
+        throw createError('StorageContext', 'smartSelectProvider', 'Selected provider not found in data sets')
       }
 
       return {
         provider: selectedProvider,
         dataSetId: matchingDataSet.pdpVerifierDataSetId,
-        isExisting: true
+        isExisting: true,
       }
     }
 
     // No existing data sets - select from all approved providers
     const allProviders = await warmStorageService.getAllApprovedProviders()
     if (allProviders.length === 0) {
-      throw createError(
-        'StorageContext',
-        'smartSelectProvider',
-        'No approved service providers available'
-      )
+      throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
     }
 
     // Random selection from all providers
@@ -691,7 +669,7 @@ export class StorageContext {
     return {
       provider,
       dataSetId: -1, // Marker for new data set
-      isExisting: false
+      isExisting: false,
     }
   }
 
@@ -701,20 +679,16 @@ export class StorageContext {
    * @param signer - Signer for additional entropy
    * @returns Selected provider
    */
-  private static async selectRandomProvider (
+  private static async selectRandomProvider(
     providers: ApprovedProviderInfo[],
     signer?: ethers.Signer
   ): Promise<ApprovedProviderInfo> {
     if (providers.length === 0) {
-      throw createError(
-        'StorageContext',
-        'selectRandomProvider',
-        'No providers available'
-      )
+      throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
     }
 
     // Create async generator that yields providers in random order
-    async function * generateRandomProviders (): AsyncGenerator<ApprovedProviderInfo> {
+    async function* generateRandomProviders(): AsyncGenerator<ApprovedProviderInfo> {
       const remaining = [...providers]
 
       while (remaining.length > 0) {
@@ -760,7 +734,9 @@ export class StorageContext {
    * @returns The first provider that responds
    * @throws If all providers fail
    */
-  private static async selectProviderWithPing (providers: AsyncIterable<ApprovedProviderInfo>): Promise<ApprovedProviderInfo> {
+  private static async selectProviderWithPing(
+    providers: AsyncIterable<ApprovedProviderInfo>
+  ): Promise<ApprovedProviderInfo> {
     let providerCount = 0
 
     // Try providers in order until we find one that responds to ping
@@ -772,18 +748,17 @@ export class StorageContext {
         await providerPdpServer.ping()
         return provider
       } catch (error) {
-        console.warn(`Provider ${provider.serviceProvider} failed ping test:`, error instanceof Error ? error.message : String(error))
+        console.warn(
+          `Provider ${provider.serviceProvider} failed ping test:`,
+          error instanceof Error ? error.message : String(error)
+        )
         // Continue to next provider
       }
     }
 
     // All providers failed ping test
     if (providerCount === 0) {
-      throw createError(
-        'StorageContext',
-        'selectProviderWithPing',
-        'No providers available to select from'
-      )
+      throw createError('StorageContext', 'selectProviderWithPing', 'No providers available to select from')
     }
 
     throw createError(
@@ -801,7 +776,7 @@ export class StorageContext {
    * @param paymentsService - PaymentsService instance
    * @returns Preflight check results without provider/dataSet specifics
    */
-  static async performPreflightCheck (
+  static async performPreflightCheck(
     size: number,
     withCDN: boolean,
     warmStorageService: WarmStorageService,
@@ -811,25 +786,21 @@ export class StorageContext {
     StorageContext.validateRawSize(size, 'preflightUpload')
 
     // Check allowances and get costs in a single call
-    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(
-      size,
-      withCDN,
-      paymentsService
-    )
+    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(size, withCDN, paymentsService)
 
     // Return preflight info
     return {
       estimatedCost: {
         perEpoch: allowanceCheck.costs.perEpoch,
         perDay: allowanceCheck.costs.perDay,
-        perMonth: allowanceCheck.costs.perMonth
+        perMonth: allowanceCheck.costs.perMonth,
       },
       allowanceCheck: {
         sufficient: allowanceCheck.sufficient,
-        message: allowanceCheck.message
+        message: allowanceCheck.message,
       },
       selectedProvider: null,
-      selectedDataSetId: null
+      selectedDataSetId: null,
     }
   }
 
@@ -838,7 +809,7 @@ export class StorageContext {
    * @param size - The size of data to upload in bytes
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload (size: number): Promise<PreflightInfo> {
+  async preflightUpload(size: number): Promise<PreflightInfo> {
     // Use the static method for core logic
     const preflightResult = await StorageContext.performPreflightCheck(
       size,
@@ -851,14 +822,14 @@ export class StorageContext {
     return {
       ...preflightResult,
       selectedProvider: this._provider,
-      selectedDataSetId: this._dataSetId
+      selectedDataSetId: this._dataSetId,
     }
   }
 
   /**
    * Upload data to the service provider
    */
-  async upload (data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): Promise<UploadResult> {
+  async upload(data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size
@@ -869,21 +840,24 @@ export class StorageContext {
     StorageContext.validateRawSize(sizeBytes, 'upload')
 
     // Upload Phase: Upload data to service provider
-    let uploadResult: { pieceCid: PieceCID, size: number }
+    let uploadResult: { pieceCid: PieceCID; size: number }
     try {
       performance.mark('synapse:pdpServer.uploadPiece-start')
       uploadResult = await this._pdpServer.uploadPiece(dataBytes)
       performance.mark('synapse:pdpServer.uploadPiece-end')
-      performance.measure('synapse:pdpServer.uploadPiece', 'synapse:pdpServer.uploadPiece-start', 'synapse:pdpServer.uploadPiece-end')
+      performance.measure(
+        'synapse:pdpServer.uploadPiece',
+        'synapse:pdpServer.uploadPiece-start',
+        'synapse:pdpServer.uploadPiece-end'
+      )
     } catch (error) {
       performance.mark('synapse:pdpServer.uploadPiece-end')
-      performance.measure('synapse:pdpServer.uploadPiece', 'synapse:pdpServer.uploadPiece-start', 'synapse:pdpServer.uploadPiece-end')
-      throw createError(
-        'StorageContext',
-        'uploadPiece',
-        'Failed to upload piece to service provider',
-        error
+      performance.measure(
+        'synapse:pdpServer.uploadPiece',
+        'synapse:pdpServer.uploadPiece-start',
+        'synapse:pdpServer.uploadPiece-end'
       )
+      throw createError('StorageContext', 'uploadPiece', 'Failed to upload piece to service provider', error)
     }
 
     // Poll for piece to be "parked" (ready)
@@ -901,7 +875,7 @@ export class StorageContext {
       } catch {
         // Piece not ready yet, wait and retry if we haven't exceeded timeout
         if (Date.now() - startTime + pollInterval < maxWaitTime) {
-          await new Promise(resolve => setTimeout(resolve, pollInterval))
+          await new Promise((resolve) => setTimeout(resolve, pollInterval))
         }
       }
     }
@@ -909,11 +883,7 @@ export class StorageContext {
     performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
 
     if (!pieceReady) {
-      throw createError(
-        'StorageContext',
-        'findPiece',
-        'Timeout waiting for piece to be parked on service provider'
-      )
+      throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
     }
 
     // Notify upload complete
@@ -930,7 +900,7 @@ export class StorageContext {
         pieceData,
         resolve,
         reject,
-        callbacks
+        callbacks,
       })
 
       // Debounce: defer processing to next event loop tick
@@ -948,15 +918,15 @@ export class StorageContext {
     return {
       pieceCid: uploadResult.pieceCid,
       size: uploadResult.size,
-      pieceId: finalPieceId
+      pieceId: finalPieceId,
     }
   }
 
   /**
-     * Process pending pieces by batching them into a single AddPieces operation
-     * This method is called from the promise queue to ensure sequential execution
-     */
-  private async _processPendingPieces (): Promise<void> {
+   * Process pending pieces by batching them into a single AddPieces operation
+   * This method is called from the promise queue to ensure sequential execution
+   */
+  private async _processPendingPieces(): Promise<void> {
     if (this._isProcessing || this._pendingPieces.length === 0) {
       return
     }
@@ -969,9 +939,7 @@ export class StorageContext {
     try {
       // Get add pieces info to ensure we have the correct nextPieceId
       performance.mark('synapse:getAddPiecesInfo-start')
-      const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(
-        this._dataSetId
-      )
+      const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(this._dataSetId)
       performance.mark('synapse:getAddPiecesInfo-end')
       performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')
 
@@ -987,7 +955,11 @@ export class StorageContext {
         pieceDataArray
       )
       performance.mark('synapse:pdpServer.addPieces-end')
-      performance.measure('synapse:pdpServer.addPieces', 'synapse:pdpServer.addPieces-start', 'synapse:pdpServer.addPieces-end')
+      performance.measure(
+        'synapse:pdpServer.addPieces',
+        'synapse:pdpServer.addPieces-start',
+        'synapse:pdpServer.addPieces-end'
+      )
 
       // Handle transaction tracking if available (backward compatible)
       let confirmedPieceIds: number[] = []
@@ -1009,10 +981,14 @@ export class StorageContext {
           } catch {
             // Transaction not found yet
           }
-          await new Promise(resolve => setTimeout(resolve, txPropagationPollInterval))
+          await new Promise((resolve) => setTimeout(resolve, txPropagationPollInterval))
         }
         performance.mark('synapse:getTransaction.addPieces-end')
-        performance.measure('synapse:getTransaction.addPieces', 'synapse:getTransaction.addPieces-start', 'synapse:getTransaction.addPieces-end')
+        performance.measure(
+          'synapse:getTransaction.addPieces',
+          'synapse:getTransaction.addPieces-start',
+          'synapse:getTransaction.addPieces-end'
+        )
 
         if (transaction == null) {
           throw createError(
@@ -1023,7 +999,9 @@ export class StorageContext {
         }
 
         // Notify callbacks with transaction
-        batch.forEach((item) => item.callbacks?.onPieceAdded?.(transaction))
+        batch.forEach((item) => {
+          item.callbacks?.onPieceAdded?.(transaction)
+        })
 
         // Step 2: Wait for transaction confirmation
         let receipt: ethers.TransactionReceipt | null
@@ -1031,24 +1009,23 @@ export class StorageContext {
           performance.mark('synapse:transaction.wait-start')
           receipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
           performance.mark('synapse:transaction.wait-end')
-          performance.measure('synapse:transaction.wait', 'synapse:transaction.wait-start', 'synapse:transaction.wait-end')
+          performance.measure(
+            'synapse:transaction.wait',
+            'synapse:transaction.wait-start',
+            'synapse:transaction.wait-end'
+          )
         } catch (error) {
           performance.mark('synapse:transaction.wait-end')
-          performance.measure('synapse:transaction.wait', 'synapse:transaction.wait-start', 'synapse:transaction.wait-end')
-          throw createError(
-            'StorageContext',
-            'addPieces',
-            'Failed to wait for transaction confirmation',
-            error
+          performance.measure(
+            'synapse:transaction.wait',
+            'synapse:transaction.wait-start',
+            'synapse:transaction.wait-end'
           )
+          throw createError('StorageContext', 'addPieces', 'Failed to wait for transaction confirmation', error)
         }
 
         if (receipt?.status !== 1) {
-          throw createError(
-            'StorageContext',
-            'addPieces',
-            'Piece addition transaction  failed on-chain'
-          )
+          throw createError('StorageContext', 'addPieces', 'Piece addition transaction  failed on-chain')
         }
 
         // Step 3: Verify with server - REQUIRED for new servers
@@ -1061,14 +1038,11 @@ export class StorageContext {
         performance.mark('synapse:getPieceAdditionStatus-start')
         while (Date.now() - startTime < maxWaitTime) {
           try {
-            const status = await this._pdpServer.getPieceAdditionStatus(
-              this._dataSetId,
-              addPiecesResult.txHash
-            )
+            const status = await this._pdpServer.getPieceAdditionStatus(this._dataSetId, addPiecesResult.txHash)
 
             // Check if the transaction is still pending
             if (status.txStatus === 'pending' || status.addMessageOk === null) {
-              await new Promise(resolve => setTimeout(resolve, pollInterval))
+              await new Promise((resolve) => setTimeout(resolve, pollInterval))
               continue
             }
 
@@ -1080,33 +1054,37 @@ export class StorageContext {
             // Success - get the piece IDs
             if (status.confirmedPieceIds != null && status.confirmedPieceIds.length > 0) {
               confirmedPieceIds = status.confirmedPieceIds
-              batch.forEach((item) =>
+              batch.forEach((item) => {
                 item.callbacks?.onPieceConfirmed?.(status.confirmedPieceIds ?? [])
-              )
+              })
               statusVerified = true
               break
             }
 
             // If we get here, status exists but no piece IDs yet
-            await new Promise(resolve => setTimeout(resolve, pollInterval))
+            await new Promise((resolve) => setTimeout(resolve, pollInterval))
           } catch (error) {
             lastError = error as Error
             // If it's a 404, the server might not have the record yet
             if (error instanceof Error && error.message.includes('not found')) {
-              await new Promise(resolve => setTimeout(resolve, pollInterval))
+              await new Promise((resolve) => setTimeout(resolve, pollInterval))
               continue
             }
             // Other errors are fatal
             throw createError(
               'StorageContext',
               'addPieces',
-                `Failed to verify piece addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                error
+              `Failed to verify piece addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              error
             )
           }
         }
         performance.mark('synapse:getPieceAdditionStatus-end')
-        performance.measure('synapse:getPieceAdditionStatus', 'synapse:getPieceAdditionStatus-start', 'synapse:getPieceAdditionStatus-end')
+        performance.measure(
+          'synapse:getPieceAdditionStatus',
+          'synapse:getPieceAdditionStatus-start',
+          'synapse:getPieceAdditionStatus-end'
+        )
 
         if (!statusVerified) {
           const errorMessage = `Failed to verify piece addition after ${maxWaitTime / 1000} seconds: ${
@@ -1123,28 +1101,23 @@ export class StorageContext {
       } else {
         // Old server without transaction tracking
         // Generate sequential piece IDs starting from nextPieceId
-        confirmedPieceIds = Array.from(
-          { length: batch.length },
-          (_, i) => addPiecesInfo.nextPieceId + i
-        )
-        batch.forEach((item) => item.callbacks?.onPieceAdded?.())
+        confirmedPieceIds = Array.from({ length: batch.length }, (_, i) => addPiecesInfo.nextPieceId + i)
+        batch.forEach((item) => {
+          item.callbacks?.onPieceAdded?.()
+        })
       }
 
       // Resolve all promises in the batch with their respective piece IDs
       batch.forEach((item, index) => {
-        const pieceId =
-            confirmedPieceIds[index] ?? addPiecesInfo.nextPieceId + index
+        const pieceId = confirmedPieceIds[index] ?? addPiecesInfo.nextPieceId + index
         item.resolve(pieceId)
       })
     } catch (error) {
       // Reject all promises in the batch
-      const finalError = createError(
-        'StorageContext',
-        'addPieces',
-        'Failed to add piece to data set',
-        error
-      )
-      batch.forEach((item) => item.reject(finalError))
+      const finalError = createError('StorageContext', 'addPieces', 'Failed to add piece to data set', error)
+      batch.forEach((item) => {
+        item.reject(finalError)
+      })
     } finally {
       this._isProcessing = false
       if (this._pendingPieces.length > 0) {
@@ -1161,13 +1134,13 @@ export class StorageContext {
    * @param options - Download options
    * @returns The downloaded data
    */
-  async download (pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
+  async download(pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
     // Pass through to storage manager with our provider hint and withCDN setting
     // Use storage manager if available (production), otherwise fall back to deprecated method (tests)
     const downloadFn = this._synapse.storage?.download ?? this._synapse.download
     return await downloadFn.call(this._synapse.storage ?? this._synapse, pieceCid, {
       providerAddress: this._provider.serviceProvider,
-      withCDN: (options as any)?.withCDN ?? this._withCDN
+      withCDN: (options as any)?.withCDN ?? this._withCDN,
     })
   }
 
@@ -1175,7 +1148,7 @@ export class StorageContext {
    * Download data from the service provider
    * @deprecated Use download() instead. This method will be removed in a future version.
    */
-  async providerDownload (pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
+  async providerDownload(pieceCid: string | PieceCID, options?: DownloadOptions): Promise<Uint8Array> {
     console.warn('providerDownload() is deprecated. Use download() instead.')
     return await this.download(pieceCid, options)
   }
@@ -1184,7 +1157,7 @@ export class StorageContext {
    * Get information about the service provider used by this service
    * @returns Provider information including pricing (currently same for all providers)
    */
-  async getProviderInfo (): Promise<ApprovedProviderInfo> {
+  async getProviderInfo(): Promise<ApprovedProviderInfo> {
     return await this._synapse.getProviderInfo(this.serviceProvider)
   }
 
@@ -1192,9 +1165,9 @@ export class StorageContext {
    * Get the list of piece CIDs for this service service's data set by querying the PDP server.
    * @returns Array of piece CIDs as PieceCID objects
    */
-  async getDataSetPieces (): Promise<PieceCID[]> {
+  async getDataSetPieces(): Promise<PieceCID[]> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
-    return dataSetData.pieces.map(piece => piece.pieceCid)
+    return dataSetData.pieces.map((piece) => piece.pieceCid)
   }
 
   /**
@@ -1202,7 +1175,7 @@ export class StorageContext {
    * @param pieceCid - The PieceCID (piece CID) to check
    * @returns True if the piece exists on this provider, false otherwise
    */
-  async hasPiece (pieceCid: string | PieceCID): Promise<boolean> {
+  async hasPiece(pieceCid: string | PieceCID): Promise<boolean> {
     const parsedPieceCID = asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       return false
@@ -1228,7 +1201,7 @@ export class StorageContext {
    * @param pieceCid - The PieceCID (piece CID) to check
    * @returns Status information including existence, data set timing, and retrieval URL
    */
-  async pieceStatus (pieceCid: string | PieceCID): Promise<PieceStatus> {
+  async pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus> {
     const parsedPieceCID = asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'pieceStatus', 'Invalid PieceCID provided')
@@ -1239,12 +1212,14 @@ export class StorageContext {
       // Check if piece exists on provider
       this.hasPiece(parsedPieceCID),
       // Get data set data
-      this._pdpServer.getDataSet(this._dataSetId).catch((error) => {
-        console.debug('Failed to get data set data:', error)
-        return null
-      }),
+      this._pdpServer
+        .getDataSet(this._dataSetId)
+        .catch((error) => {
+          console.debug('Failed to get data set data:', error)
+          return null
+        }),
       // Get current epoch
-      getCurrentEpoch(this._synapse.getProvider())
+      getCurrentEpoch(this._synapse.getProvider()),
     ])
     const network = this._synapse.getNetwork()
 
@@ -1264,12 +1239,13 @@ export class StorageContext {
         this.getProviderInfo().catch(() => null),
         // Get proving period configuration (only if we have data set data)
         dataSetData != null
-          ? Promise.all([
-            this._warmStorageService.getMaxProvingPeriod(),
-            this._warmStorageService.getChallengeWindow()
-          ]).then(([maxProvingPeriod, challengeWindow]) => ({ maxProvingPeriod, challengeWindow }))
-            .catch(() => null)
-          : Promise.resolve(null)
+          ? Promise.all([this._warmStorageService.getMaxProvingPeriod(), this._warmStorageService.getChallengeWindow()])
+              .then(([maxProvingPeriod, challengeWindow]) => ({
+                maxProvingPeriod,
+                challengeWindow,
+              }))
+              .catch(() => null)
+          : Promise.resolve(null),
       ])
 
       // Set retrieval URL if we have provider info
@@ -1281,7 +1257,7 @@ export class StorageContext {
       // Process proof timing data if we have data set data and proving params
       if (dataSetData != null && provingParams != null) {
         // Check if this PieceCID is in the data set
-        const pieceData = dataSetData.pieces.find(piece => piece.pieceCid.toString() === parsedPieceCID.toString())
+        const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
 
         if (pieceData != null) {
           pieceId = pieceData.pieceId
@@ -1337,7 +1313,7 @@ export class StorageContext {
       pieceId,
       inChallengeWindow,
       hoursUntilChallengeWindow,
-      isProofOverdue
+      isProofOverdue,
     }
   }
 }

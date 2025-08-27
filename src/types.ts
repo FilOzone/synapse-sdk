@@ -97,9 +97,7 @@ export interface UploadTask {
  * Currently empty, reserved for future options
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface DownloadOptions {
-  // Reserved for future options
-}
+export type DownloadOptions = {}
 
 /**
  * PieceRetriever interface for fetching pieces from various sources
@@ -254,11 +252,7 @@ export interface StorageCreationCallbacks {
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: {
-    isExisting: boolean
-    dataSetId: number
-    provider: ApprovedProviderInfo
-  }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ApprovedProviderInfo }) => void
 
   /**
    * Called when data set creation transaction is submitted

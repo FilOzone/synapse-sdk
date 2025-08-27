@@ -4,12 +4,12 @@
  * Helper functions for working with Filecoin Piece CIDs
  */
 
-import { CID } from 'multiformats/cid'
-import * as Digest from 'multiformats/hashes/digest'
-import * as Raw from 'multiformats/codecs/raw'
-import * as Link from 'multiformats/link'
-import { PieceLink as PieceCIDType, LegacyPieceLink as LegacyPieceCIDType } from '@web3-storage/data-segment'
+import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
+import { CID } from 'multiformats/cid'
+import * as Raw from 'multiformats/codecs/raw'
+import * as Digest from 'multiformats/hashes/digest'
+import * as Link from 'multiformats/link'
 
 const FIL_COMMITMENT_UNSEALED = 0xf101
 const SHA2_256_TRUNC254_PADDED = 0x1012
@@ -46,13 +46,14 @@ export type LegacyPieceCID = LegacyPieceCIDType
  * @param pieceCidString - The PieceCID as a string (base32 or other multibase encoding)
  * @returns The parsed and validated PieceCID CID or null if invalid
  */
-function parsePieceCID (pieceCidString: string): PieceCID | null {
+function parsePieceCID(pieceCidString: string): PieceCID | null {
   try {
     const cid = CID.parse(pieceCidString)
     if (isValidPieceCID(cid)) {
       return cid as PieceCID
     }
   } catch {
+    // ignore error
   }
   return null
 }
@@ -62,13 +63,14 @@ function parsePieceCID (pieceCidString: string): PieceCID | null {
  * @param pieceCidString - The LegacyPieceCID as a string (base32 or other multibase encoding)
  * @returns The parsed and validated LegacyPieceCID CID or null if invalid
  */
-function parseLegacyPieceCID (pieceCidString: string): LegacyPieceCID | null {
+function parseLegacyPieceCID(pieceCidString: string): LegacyPieceCID | null {
   try {
     const cid = CID.parse(pieceCidString)
     if (isValidLegacyPieceCID(cid)) {
       return cid as LegacyPieceCID
     }
   } catch {
+    // ignore error
   }
   return null
 }
@@ -78,7 +80,7 @@ function parseLegacyPieceCID (pieceCidString: string): LegacyPieceCID | null {
  * @param cid - The CID to check
  * @returns True if it's a valid PieceCID
  */
-function isValidPieceCID (cid: PieceCID | CID): cid is PieceCID {
+function isValidPieceCID(cid: PieceCID | CID): cid is PieceCID {
   return cid.code === Raw.code && cid.multihash.code === Hasher.code
 }
 
@@ -87,7 +89,7 @@ function isValidPieceCID (cid: PieceCID | CID): cid is PieceCID {
  * @param cid - The CID to check
  * @returns True if it's a valid LegacyPieceCID
  */
-function isValidLegacyPieceCID (cid: LegacyPieceCID | CID): cid is LegacyPieceCID {
+function isValidLegacyPieceCID(cid: LegacyPieceCID | CID): cid is LegacyPieceCID {
   return cid.code === FIL_COMMITMENT_UNSEALED && cid.multihash.code === SHA2_256_TRUNC254_PADDED
 }
 
@@ -97,7 +99,7 @@ function isValidLegacyPieceCID (cid: LegacyPieceCID | CID): cid is LegacyPieceCI
  * @param pieceCidInput - PieceCID as either a CID object or string
  * @returns The validated PieceCID CID or null if not a valid PieceCID
  */
-export function asPieceCID (pieceCidInput: PieceCID | CID | string): PieceCID | null {
+export function asPieceCID(pieceCidInput: PieceCID | CID | string): PieceCID | null {
   if (typeof pieceCidInput === 'string') {
     return parsePieceCID(pieceCidInput)
   }
@@ -120,8 +122,8 @@ export function asPieceCID (pieceCidInput: PieceCID | CID | string): PieceCID | 
  * @param pieceCidInput - LegacyPieceCID as either a CID object or string
  * @returns The validated LegacyPieceCID CID or null if not a valid LegacyPieceCID
  */
-export function asLegacyPieceCID (pieceCidInput: PieceCID | LegacyPieceCID | CID | string): LegacyPieceCID | null {
-  const pieceCid = asPieceCID(pieceCidInput as (CID | string))
+export function asLegacyPieceCID(pieceCidInput: PieceCID | LegacyPieceCID | CID | string): LegacyPieceCID | null {
+  const pieceCid = asPieceCID(pieceCidInput as CID | string)
   if (pieceCid != null) {
     // downgrade to LegacyPieceCID
     const digest = Digest.create(SHA2_256_TRUNC254_PADDED, pieceCid.multihash.digest.subarray(-32))
@@ -148,7 +150,7 @@ export function asLegacyPieceCID (pieceCidInput: PieceCID | LegacyPieceCID | CID
  * @param data - The binary data to calculate the PieceCID for
  * @returns The calculated PieceCID CID
  */
-export function calculate (data: Uint8Array): PieceCID {
+export function calculate(data: Uint8Array): PieceCID {
   // TODO: consider https://github.com/storacha/fr32-sha2-256-trunc254-padded-binary-tree-multihash
   // for more efficient PieceCID calculation in WASM
   const hasher = Hasher.create()
@@ -168,25 +170,28 @@ export function calculate (data: Uint8Array): PieceCID {
  *
  * @returns An object with the TransformStream and a getPieceCID function to retrieve the result
  */
-export function createPieceCIDStream (): { stream: TransformStream<Uint8Array, Uint8Array>, getPieceCID: () => PieceCID | null } {
+export function createPieceCIDStream(): {
+  stream: TransformStream<Uint8Array, Uint8Array>
+  getPieceCID: () => PieceCID | null
+} {
   const hasher = Hasher.create()
   let finished = false
   let pieceCid: PieceCID | null = null
 
   const stream = new TransformStream<Uint8Array, Uint8Array>({
-    transform (chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
+    transform(chunk: Uint8Array, controller: TransformStreamDefaultController<Uint8Array>) {
       // Write chunk to hasher
       hasher.write(chunk)
       // Pass chunk through unchanged
       controller.enqueue(chunk)
     },
 
-    flush () {
+    flush() {
       // Calculate final PieceCID when stream ends
       const digest = hasher.digest()
       pieceCid = Link.create(Raw.code, digest)
       finished = true
-    }
+    },
   })
 
   return {
@@ -196,6 +201,6 @@ export function createPieceCIDStream (): { stream: TransformStream<Uint8Array, U
         return null
       }
       return pieceCid
-    }
+    },
   }
 }

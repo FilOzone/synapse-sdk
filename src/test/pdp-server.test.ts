@@ -8,7 +8,7 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PDPServer, PDPAuthHelper } from '../pdp/index.js'
+import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
@@ -16,11 +16,11 @@ class MockPDPServer {
   private readonly server: any = null
   private readonly handlers: Map<string, (req: any, res: any) => void> = new Map()
 
-  addHandler (method: string, path: string, handler: (req: any, res: any) => void): void {
+  addHandler(method: string, path: string, handler: (req: any, res: any) => void): void {
     this.handlers.set(`${method}:${path}`, handler)
   }
 
-  async start (port: number): Promise<string> {
+  async start(port: number): Promise<string> {
     return await new Promise((resolve) => {
       // Mock implementation - in real tests this would be a proper HTTP server
       const baseUrl = `http://localhost:${port}`
@@ -28,7 +28,7 @@ class MockPDPServer {
     })
   }
 
-  async stop (): Promise<void> {
+  async stop(): Promise<void> {
     return await Promise.resolve()
   }
 }
@@ -103,8 +103,8 @@ describe('PDPServer', () => {
                 return `/pdp/data-sets/created/${mockTxHash}`
               }
               return null
-            }
-          }
+            },
+          },
         } as any
       }
 
@@ -133,7 +133,7 @@ describe('PDPServer', () => {
         dataSetId: 1,
         pieceCount: 2,
         addMessageOk: true,
-        confirmedPieceIds: [101, 102]
+        confirmedPieceIds: [101, 102],
       }
 
       // Mock fetch for this test
@@ -145,7 +145,7 @@ describe('PDPServer', () => {
 
         return {
           status: 200,
-          json: async () => mockResponse
+          json: async () => mockResponse,
         } as any
       }
 
@@ -165,7 +165,7 @@ describe('PDPServer', () => {
         dataSetId: 1,
         pieceCount: 2,
         addMessageOk: null,
-        confirmedPieceIds: undefined
+        confirmedPieceIds: undefined,
       }
 
       // Mock fetch for this test
@@ -173,7 +173,7 @@ describe('PDPServer', () => {
       global.fetch = async () => {
         return {
           status: 200,
-          json: async () => mockResponse
+          json: async () => mockResponse,
         } as any
       }
 
@@ -194,7 +194,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async () => {
         return {
-          status: 404
+          status: 404,
         } as any
       }
 
@@ -217,7 +217,7 @@ describe('PDPServer', () => {
         return {
           status: 500,
           statusText: 'Internal Server Error',
-          text: async () => 'Database error'
+          text: async () => 'Database error',
         } as any
       }
 
@@ -277,8 +277,8 @@ describe('PDPServer', () => {
           status: 201,
           text: async () => 'Pieces added successfully',
           headers: {
-            get: (name: string) => null // No Location header for backward compatibility test
-          }
+            get: (name: string) => null, // No Location header for backward compatibility test
+          },
         } as any
       }
 
@@ -301,7 +301,7 @@ describe('PDPServer', () => {
         return {
           status: 400,
           statusText: 'Bad Request',
-          text: async () => 'Invalid piece CID'
+          text: async () => 'Invalid piece CID',
         } as any
       }
 
@@ -309,7 +309,10 @@ describe('PDPServer', () => {
         await pdpServer.addPieces(1, 0, 0, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID')
+        assert.include(
+          (error as Error).message,
+          'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID'
+        )
       } finally {
         global.fetch = originalFetch
       }
@@ -343,8 +346,8 @@ describe('PDPServer', () => {
           status: 201,
           text: async () => 'Multiple pieces added successfully',
           headers: {
-            get: (name: string) => null // No Location header for backward compatibility test
-          }
+            get: (name: string) => null, // No Location header for backward compatibility test
+          },
         } as any
       }
 
@@ -377,8 +380,8 @@ describe('PDPServer', () => {
                 return `/pdp/data-sets/1/pieces/added/${mockTxHash}`
               }
               return null
-            }
-          }
+            },
+          },
         } as any
       }
 
@@ -411,8 +414,8 @@ describe('PDPServer', () => {
                 return `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
               }
               return null
-            }
-          }
+            },
+          },
         } as any
       }
 
@@ -440,8 +443,8 @@ describe('PDPServer', () => {
                 return '/some/unexpected/path'
               }
               return null
-            }
-          }
+            },
+          },
         } as any
       }
 
@@ -466,7 +469,7 @@ describe('PDPServer', () => {
         service: 'test-service',
         txStatus: 'confirmed',
         ok: true,
-        dataSetId: 123
+        dataSetId: 123,
       }
 
       // Mock fetch for this test
@@ -478,7 +481,7 @@ describe('PDPServer', () => {
 
         return {
           status: 200,
-          json: async () => mockResponse
+          json: async () => mockResponse,
         } as any
       }
 
@@ -497,7 +500,7 @@ describe('PDPServer', () => {
       const originalFetch = global.fetch
       global.fetch = async () => {
         return {
-          status: 404
+          status: 404,
         } as any
       }
 
@@ -516,7 +519,7 @@ describe('PDPServer', () => {
     it('should find a piece successfully', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       const mockResponse = {
-        pieceCid: mockPieceCid
+        pieceCid: mockPieceCid,
       }
 
       // Mock fetch for this test
@@ -530,7 +533,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => mockResponse
+          json: async () => mockResponse,
         } as any
       }
 
@@ -551,7 +554,7 @@ describe('PDPServer', () => {
         return {
           status: 404,
           ok: false,
-          text: async () => 'Requested resource not found'
+          text: async () => 'Requested resource not found',
         } as any
       }
 
@@ -587,7 +590,7 @@ describe('PDPServer', () => {
           status: 500,
           ok: false,
           statusText: 'Internal Server Error',
-          text: async () => 'Database error'
+          text: async () => 'Database error',
         } as any
       }
 
@@ -639,15 +642,15 @@ describe('PDPServer', () => {
                   return `/pdp/piece/upload/${mockUuid}`
                 }
                 return null
-              }
+              },
             },
-            text: async () => 'Created'
+            text: async () => 'Created',
           } as any
         } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
-            status: 204
+            status: 204,
           } as any
         }
 
@@ -689,15 +692,15 @@ describe('PDPServer', () => {
                   return `/pdp/piece/upload/${mockUuid}`
                 }
                 return null
-              }
+              },
             },
-            text: async () => 'Created'
+            text: async () => 'Created',
           } as any
         } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
           // Upload data - return 204 No Content
           return {
             ok: true,
-            status: 204
+            status: 204,
           } as any
         }
 
@@ -731,7 +734,7 @@ describe('PDPServer', () => {
           return {
             ok: true,
             status: 200,
-            json: async () => ({ pieceCid: mockPieceCid })
+            json: async () => ({ pieceCid: mockPieceCid }),
           } as any
         }
 
@@ -765,7 +768,7 @@ describe('PDPServer', () => {
             ok: false,
             status: 500,
             statusText: 'Internal Server Error',
-            text: async () => 'Database error'
+            text: async () => 'Database error',
           } as any
         }
 
@@ -801,7 +804,7 @@ describe('PDPServer', () => {
         // Return test data as response
         return new Response(testData, {
           status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' }
+          headers: { 'Content-Type': 'application/octet-stream' },
         })
       }
 
@@ -822,7 +825,7 @@ describe('PDPServer', () => {
         return {
           ok: false,
           status: 404,
-          statusText: 'Not Found'
+          statusText: 'Not Found',
         } as any
       }
 
@@ -856,7 +859,7 @@ describe('PDPServer', () => {
       global.fetch = async (): Promise<Response> => {
         return new Response(wrongData, {
           status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' }
+          headers: { 'Content-Type': 'application/octet-stream' },
         })
       }
 
@@ -904,18 +907,18 @@ describe('PDPServer', () => {
 
         // Create readable stream that emits chunks
         const stream = new ReadableStream({
-          async start (controller) {
+          async start(controller) {
             controller.enqueue(chunk1)
             // Small delay to simulate network
-            await new Promise(resolve => setTimeout(resolve, 10))
+            await new Promise((resolve) => setTimeout(resolve, 10))
             controller.enqueue(chunk2)
             controller.close()
-          }
+          },
         })
 
         return new Response(stream, {
           status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' }
+          headers: { 'Content-Type': 'application/octet-stream' },
         })
       }
 
@@ -940,7 +943,7 @@ describe('PDPServer', () => {
 
         return {
           status: 200,
-          statusText: 'OK'
+          statusText: 'OK',
         } as any
       }
 
@@ -957,7 +960,7 @@ describe('PDPServer', () => {
         return {
           status: 500,
           statusText: 'Internal Server Error',
-          text: async () => 'Server is down'
+          text: async () => 'Server is down',
         } as any
       }
 
@@ -980,7 +983,7 @@ describe('PDPServer', () => {
         return {
           status: 404,
           statusText: 'Not Found',
-          text: async () => 'Ping endpoint not found'
+          text: async () => 'Ping endpoint not found',
         } as any
       }
 
@@ -1020,7 +1023,7 @@ describe('PDPServer', () => {
           statusText: 'Service Unavailable',
           text: async () => {
             throw new Error('Failed to read response body')
-          }
+          },
         } as any
       }
 
@@ -1044,7 +1047,7 @@ describe('PDPServer', () => {
         capturedUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         return {
           status: 200,
-          statusText: 'OK'
+          statusText: 'OK',
         } as any
       }
 
@@ -1066,16 +1069,16 @@ describe('PDPServer', () => {
             pieceId: 101,
             pieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
             subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceOffset: 0
+            subPieceOffset: 0,
           },
           {
             pieceId: 102,
             pieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
             subPieceCid: 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
-            subPieceOffset: 0
-          }
+            subPieceOffset: 0,
+          },
         ],
-        nextChallengeEpoch: 1500
+        nextChallengeEpoch: 1500,
       }
 
       // Mock fetch for this test
@@ -1089,7 +1092,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => mockDataSetData
+          json: async () => mockDataSetData,
         } as any
       }
 
@@ -1113,7 +1116,7 @@ describe('PDPServer', () => {
       global.fetch = async () => {
         return {
           status: 404,
-          ok: false
+          ok: false,
         } as any
       }
 
@@ -1135,7 +1138,7 @@ describe('PDPServer', () => {
           status: 500,
           ok: false,
           statusText: 'Internal Server Error',
-          text: async () => 'Database error'
+          text: async () => 'Database error',
         } as any
       }
 
@@ -1155,7 +1158,7 @@ describe('PDPServer', () => {
       const invalidDataSetData = {
         id: '292', // Should be number
         pieces: 'not-array', // Should be array
-        nextChallengeEpoch: 'soon' // Should be number
+        nextChallengeEpoch: 'soon', // Should be number
       }
 
       // Mock fetch for this test
@@ -1164,7 +1167,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidDataSetData
+          json: async () => invalidDataSetData,
         } as any
       }
 
@@ -1182,7 +1185,7 @@ describe('PDPServer', () => {
       const emptyDataSetData = {
         id: 292,
         pieces: [],
-        nextChallengeEpoch: 1500
+        nextChallengeEpoch: 1500,
       }
 
       // Mock fetch for this test
@@ -1191,7 +1194,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => emptyDataSetData
+          json: async () => emptyDataSetData,
         } as any
       }
 
@@ -1213,10 +1216,10 @@ describe('PDPServer', () => {
             pieceId: 101,
             pieceCid: 'invalid-cid-format',
             subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceOffset: 0
-          }
+            subPieceOffset: 0,
+          },
         ],
-        nextChallengeEpoch: 1500
+        nextChallengeEpoch: 1500,
       }
 
       // Mock fetch for this test
@@ -1225,7 +1228,7 @@ describe('PDPServer', () => {
         return {
           status: 200,
           ok: true,
-          json: async () => invalidCidDataSetData
+          json: async () => invalidCidDataSetData,
         } as any
       }
 

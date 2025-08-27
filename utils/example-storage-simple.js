@@ -32,12 +32,12 @@ if (!WARM_STORAGE_ADDRESS) {
   process.exit(1)
 }
 
-async function main () {
+async function main() {
   // Create Synapse instance
   const synapse = await Synapse.create({
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    warmStorageAddress: WARM_STORAGE_ADDRESS
+    warmStorageAddress: WARM_STORAGE_ADDRESS,
   })
 
   console.log('Connected to:', RPC_URL)
@@ -47,7 +47,8 @@ async function main () {
   console.log('Storage API ready. Will auto-select provider on first upload.')
 
   // Create test data (must be at least 65 bytes for PieceCID calculation)
-  const testMessage = 'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
+  const testMessage =
+    'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 

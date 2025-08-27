@@ -18,8 +18,8 @@
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
  */
 
-import { readFile } from 'fs/promises'
 import { Synapse } from '@filoz/synapse-sdk'
+import { readFile } from 'fs/promises'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
@@ -41,21 +41,21 @@ if (!filePath) {
 }
 
 // Helper to format bytes for display
-function formatBytes (bytes) {
+function formatBytes(bytes) {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i]
 }
 
 // Helper to format USDFC amounts (18 decimals)
-function formatUSDFC (amount) {
+function formatUSDFC(amount) {
   const usdfc = Number(amount) / 1e18
   return usdfc.toFixed(6) + ' USDFC'
 }
 
-async function main () {
+async function main() {
   try {
     console.log('=== Synapse SDK Storage E2E Example ===\n')
 
@@ -76,7 +76,7 @@ async function main () {
 
     const synapseOptions = {
       privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL
+      rpcURL: RPC_URL,
     }
 
     // Add Warm Storage address if provided
@@ -124,8 +124,8 @@ async function main () {
           if (progress.transactionMined && !progress.dataSetLive) {
             console.log('  Transaction mined, waiting for data set to be live...')
           }
-        }
-      }
+        },
+      },
     })
 
     console.log(`Data set ID: ${storageContext.dataSetId}`)
@@ -192,7 +192,7 @@ async function main () {
         // New callback - only called with updated servers
         console.log('✓ Piece addition confirmed on-chain!')
         console.log(`  Assigned piece IDs: ${pieceIds.join(', ')}`)
-      }
+      },
     })
 
     console.log('\nUpload result:')

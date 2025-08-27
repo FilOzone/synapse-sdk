@@ -1,11 +1,11 @@
-export { SubgraphService } from './service.js'
 export type {
-  PaginationOptions,
-  QueryOptions,
-  NestedQueryOptions,
-  ProviderStats,
-  SubgraphDataSetInfo,
   DetailedSubgraphDataSetInfo,
+  FaultRecord,
+  NestedQueryOptions,
+  PaginationOptions,
   PieceInfo,
-  FaultRecord
+  ProviderStats,
+  QueryOptions,
+  SubgraphDataSetInfo,
 } from './service.js'
+export { SubgraphService } from './service.js'

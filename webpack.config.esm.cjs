@@ -8,11 +8,11 @@ module.exports = {
     path: path.resolve(__dirname, 'dist', 'browser'),
     filename: 'synapse-sdk.esm.js',
     library: {
-      type: 'module'
-    }
+      type: 'module',
+    },
   },
   experiments: {
-    outputModule: true
+    outputModule: true,
   },
   resolve: {
     extensions: ['.js'],
@@ -26,14 +26,14 @@ module.exports = {
       os: false,
       url: false,
       buffer: false,
-      process: false
-    }
+      process: false,
+    },
   },
   externals: {
     // Don't bundle ethers - users should provide it
-    ethers: 'ethers'
+    ethers: 'ethers',
   },
   optimization: {
-    minimize: true
-  }
+    minimize: true,
+  },
 }

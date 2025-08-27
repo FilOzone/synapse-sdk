@@ -6,9 +6,9 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { TIME_CONSTANTS } from '../utils/constants.js'
 import { WarmStorageService } from '../warm-storage/index.js'
 import { createMockProvider } from './test-utils.js'
-import { TIME_CONSTANTS } from '../utils/constants.js'
 
 describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
@@ -67,7 +67,7 @@ describe('WarmStorageService', () => {
             pieceMetadata: ['piece1', 'piece2'],
             clientDataSetId: 0n,
             withCDN: false,
-            paymentEndEpoch: 0n
+            paymentEndEpoch: 0n,
           }
 
           const dataSet2 = {
@@ -81,7 +81,7 @@ describe('WarmStorageService', () => {
             pieceMetadata: ['piece3'],
             clientDataSetId: 1n,
             withCDN: true,
-            paymentEndEpoch: 0n
+            paymentEndEpoch: 0n,
           }
 
           // Create properly ordered arrays for encoding
@@ -97,7 +97,7 @@ describe('WarmStorageService', () => {
               dataSet1.pieceMetadata,
               dataSet1.clientDataSetId,
               dataSet1.withCDN,
-              dataSet1.paymentEndEpoch
+              dataSet1.paymentEndEpoch,
             ],
             [
               dataSet2.pdpRailId,
@@ -110,8 +110,8 @@ describe('WarmStorageService', () => {
               dataSet2.pieceMetadata,
               dataSet2.clientDataSetId,
               dataSet2.withCDN,
-              dataSet2.paymentEndEpoch
-            ]
+              dataSet2.paymentEndEpoch,
+            ],
           ]
 
           return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -189,7 +189,7 @@ describe('WarmStorageService', () => {
             [], // pieceMetadata
             0n, // clientDataSetId
             false, // withCDN
-            0n // paymentEndEpoch
+            0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
@@ -198,22 +198,26 @@ describe('WarmStorageService', () => {
         }
 
         // railToDataSet call
-        if (data?.startsWith('0x2ad6e6b5') === true) { // railToDataSet(uint256) selector
+        if (data?.startsWith('0x2ad6e6b5') === true) {
+          // railToDataSet(uint256) selector
           return ethers.zeroPadValue('0xf2', 32) // Return data set ID 242
         }
 
         // dataSetId call
-        if (data?.startsWith('0xca759f27') === true) { // dataSetId(uint256) selector
+        if (data?.startsWith('0xca759f27') === true) {
+          // dataSetId(uint256) selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
 
         // getNextPieceId call
-        if (data?.startsWith('0x1c5ae80f') === true) { // getNextPieceId(uint256) selector
+        if (data?.startsWith('0x1c5ae80f') === true) {
+          // getNextPieceId(uint256) selector
           return ethers.zeroPadValue('0x02', 32) // Return 2
         }
 
         // getDataSetListener call
-        if (data?.startsWith('0x2b3129bb') === true) { // getDataSetListener(uint256) selector
+        if (data?.startsWith('0x2b3129bb') === true) {
+          // getDataSetListener(uint256) selector
           return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
@@ -245,8 +249,32 @@ describe('WarmStorageService', () => {
         // getClientDataSets - return 2 data sets
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSets = [
-            [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false, 0n],
-            [49n, 0n, 0n, clientAddress, '0xdef1234567890123456789012345678901234567', 100n, 'Test2', [], 1n, false, 0n]
+            [
+              48n,
+              0n,
+              0n,
+              clientAddress,
+              '0xabc1234567890123456789012345678901234567',
+              100n,
+              'Test1',
+              [],
+              0n,
+              false,
+              0n,
+            ],
+            [
+              49n,
+              0n,
+              0n,
+              clientAddress,
+              '0xdef1234567890123456789012345678901234567',
+              100n,
+              'Test2',
+              [],
+              1n,
+              false,
+              0n,
+            ],
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
@@ -258,9 +286,11 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0x2ad6e6b5') === true) {
           // Extract the rail ID from the encoded data
           const railIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
-          if (railIdHex === ethers.zeroPadValue('0x30', 32).slice(2)) { // rail ID 48
+          if (railIdHex === ethers.zeroPadValue('0x30', 32).slice(2)) {
+            // rail ID 48
             return ethers.zeroPadValue('0xf2', 32) // 242
-          } else if (railIdHex === ethers.zeroPadValue('0x31', 32).slice(2)) { // rail ID 49
+          } else if (railIdHex === ethers.zeroPadValue('0x31', 32).slice(2)) {
+            // rail ID 49
             return ethers.zeroPadValue('0xf3', 32) // 243
           }
           return ethers.zeroPadValue('0x00', 32) // 0
@@ -275,9 +305,11 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0x2b3129bb') === true) {
           // Extract the data set ID from the encoded data
           const dataSetIdHex = data.slice(10, 74) // Skip function selector and get 32 bytes
-          if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) { // data set 242
+          if (dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2)) {
+            // data set 242
             return ethers.zeroPadValue(mockWarmStorageAddress, 32) // Managed by us
-          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) { // data set 243
+          } else if (dataSetIdHex === ethers.zeroPadValue('0xf3', 32).slice(2)) {
+            // data set 243
             return ethers.zeroPadValue('0x1234567890123456789012345678901234567890', 32) // Different address
           }
           return ethers.zeroPadValue('0x0000000000000000000000000000000000000000', 32)
@@ -312,7 +344,19 @@ describe('WarmStorageService', () => {
 
         // getClientDataSets - return 1 data set
         if (data?.startsWith('0x967c6f21') === true) {
-          const dataSet = [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test1', [], 0n, false, 0n]
+          const dataSet = [
+            48n,
+            0n,
+            0n,
+            clientAddress,
+            '0xabc1234567890123456789012345678901234567',
+            100n,
+            'Test1',
+            [],
+            0n,
+            false,
+            0n,
+          ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
@@ -347,7 +391,19 @@ describe('WarmStorageService', () => {
         const data = transaction.data
 
         if (data?.startsWith('0x967c6f21') === true) {
-          const dataSet = [48n, 0n, 0n, clientAddress, '0xabc1234567890123456789012345678901234567', 100n, 'Test', [], 0n, false, 0n]
+          const dataSet = [
+            48n,
+            0n,
+            0n,
+            clientAddress,
+            '0xabc1234567890123456789012345678901234567',
+            100n,
+            'Test',
+            [],
+            0n,
+            false,
+            0n,
+          ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
             [[dataSet]]
@@ -377,7 +433,7 @@ describe('WarmStorageService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
-      const managedDataSets = dataSets.filter(ps => ps.isManaged)
+      const managedDataSets = dataSets.filter((ps) => ps.isManaged)
       assert.lengthOf(managedDataSets, 1)
       assert.isTrue(managedDataSets[0].isManaged)
     })
@@ -423,7 +479,7 @@ describe('WarmStorageService', () => {
             [], // pieceMetadata
             3n, // clientDataSetId
             false, // withCDN
-            0n // paymentEndEpoch
+            0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
@@ -444,7 +500,7 @@ describe('WarmStorageService', () => {
             [], // pieceMetadata
             0n, // clientDataSetId - expecting 0
             false, // withCDN
-            0n // paymentEndEpoch
+            0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
@@ -488,7 +544,7 @@ describe('WarmStorageService', () => {
             [], // pieceMetadata
             3n, // clientDataSetId
             false, // withCDN
-            0n // paymentEndEpoch
+            0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)[]'],
@@ -524,7 +580,7 @@ describe('WarmStorageService', () => {
             [], // pieceMetadata
             3n, // clientDataSetId
             false, // withCDN
-            0n // paymentEndEpoch
+            0n, // paymentEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,uint256,string,string[],uint256,bool,uint256)'],
@@ -576,7 +632,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -588,15 +644,17 @@ describe('WarmStorageService', () => {
           status: 1,
           blockNumber: 12345,
           gasUsed: 100000n,
-          logs: [{
-            address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-            topics: [
-              ethers.id('DataSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32), // data set ID 123
-              ethers.zeroPadValue(clientAddress, 32) // owner address
-            ],
-            data: '0x' // Empty data for indexed parameters
-          }]
+          logs: [
+            {
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('DataSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32), // data set ID 123
+                ethers.zeroPadValue(clientAddress, 32), // owner address
+              ],
+              data: '0x', // Empty data for indexed parameters
+            },
+          ],
         } as any
       }
 
@@ -634,7 +692,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => null
+          wait: async () => null,
         } as any
       }
 
@@ -659,7 +717,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x93ecb91e') === true) { // getProviderIdByAddress selector
+        if (data?.startsWith('0x93ecb91e') === true) {
+          // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x01', 32) // Return provider ID 1 (non-zero means approved)
         }
         return '0x' + '0'.repeat(64)
@@ -674,7 +733,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x93ecb91e') === true) { // getProviderIdByAddress selector
+        if (data?.startsWith('0x93ecb91e') === true) {
+          // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
         }
         return '0x' + '0'.repeat(64)
@@ -689,7 +749,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x93ecb91e') === true) { // getProviderIdByAddress selector
+        if (data?.startsWith('0x93ecb91e') === true) {
+          // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x05', 32) // Return ID 5
         }
         return '0x' + '0'.repeat(64)
@@ -702,13 +763,14 @@ describe('WarmStorageService', () => {
     it('should get approved provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x1c7db86a') === true) { // getApprovedProvider selector
+        if (data?.startsWith('0x1c7db86a') === true) {
+          // getApprovedProvider selector
           const providerInfo = [
             '0x1234567890123456789012345678901234567890', // serviceProvider
             'https://pdp.provider.com', // serviceURL
             ethers.hexlify(ethers.toUtf8Bytes('test-peer-id')), // peerId
             1234567890n, // registeredAt
-            1234567900n // approvedAt
+            1234567900n, // approvedAt
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,bytes,uint256,uint256)'],
@@ -729,7 +791,8 @@ describe('WarmStorageService', () => {
     it('should get pending provider info', async () => {
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x3faef523') === true) { // pendingProviders(address) selector
+        if (data?.startsWith('0x3faef523') === true) {
+          // pendingProviders(address) selector
           // The ABI returns (string serviceURL, bytes peerId, uint256 registeredAt) not a tuple
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['string', 'bytes', 'uint256'],
@@ -737,10 +800,7 @@ describe('WarmStorageService', () => {
           )
         }
         // Return empty struct for any other call including pendingProviders
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'bytes', 'uint256'],
-          ['', '0x', 0n]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
 
       const info = await warmStorageService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
@@ -752,10 +812,7 @@ describe('WarmStorageService', () => {
     it('should throw when pending provider not found', async () => {
       mockProvider.call = async (transaction: any) => {
         // Return empty values indicating non-existent provider
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'bytes', 'uint256'],
-          ['', '0x', 0n]
-        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
 
       try {
@@ -772,7 +829,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x8da5cb5b') === true) { // owner selector
+        if (data?.startsWith('0x8da5cb5b') === true) {
+          // owner selector
           return ethers.zeroPadValue(ownerAddress, 32)
         }
         return '0x' + '0'.repeat(64)
@@ -785,12 +843,13 @@ describe('WarmStorageService', () => {
     it('should check if signer is owner', async () => {
       const signerAddress = '0x1234567890123456789012345678901234567890'
       const mockSigner = {
-        getAddress: async () => signerAddress
+        getAddress: async () => signerAddress,
       } as any
 
       mockProvider.call = async (transaction: any) => {
         const data = transaction.data
-        if (data?.startsWith('0x8da5cb5b') === true) { // owner selector
+        if (data?.startsWith('0x8da5cb5b') === true) {
+          // owner selector
           return ethers.zeroPadValue(signerAddress, 32)
         }
         return '0x' + '0'.repeat(64)
@@ -811,14 +870,14 @@ describe('WarmStorageService', () => {
             'https://pdp1.com',
             'https://retrieval1.com',
             1111111111n,
-            1111111112n
+            1111111112n,
           ]
           const provider2 = [
             '0x2222222222222222222222222222222222222222',
             'https://pdp2.com',
             'https://retrieval2.com',
             2222222222n,
-            2222222223n
+            2222222223n,
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(address,string,string,uint256,uint256)[]'],
@@ -842,7 +901,8 @@ describe('WarmStorageService', () => {
         // Mock the getServicePrice call on WarmStorage contract
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
-          if (data?.startsWith('0x5482bdf9') === true) { // getServicePrice selector
+          if (data?.startsWith('0x5482bdf9') === true) {
+            // getServicePrice selector
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
@@ -951,9 +1011,9 @@ describe('WarmStorageService', () => {
               rateAllowance: 0n,
               lockupAllowance: 0n,
               rateUsed: 0n,
-              lockupUsed: 0n
+              lockupUsed: 0n,
             }
-          }
+          },
         }
 
         // Mock getServicePrice call
@@ -1013,9 +1073,9 @@ describe('WarmStorageService', () => {
               rateAllowance: ethers.parseUnits('100', 18),
               lockupAllowance: ethers.parseUnits('10000', 18),
               rateUsed: 0n,
-              lockupUsed: 0n
+              lockupUsed: 0n,
             }
-          }
+          },
         }
 
         // Mock getServicePrice call
@@ -1063,9 +1123,9 @@ describe('WarmStorageService', () => {
               rateAllowance: 0n,
               lockupAllowance: 0n,
               rateUsed: 0n,
-              lockupUsed: 0n
+              lockupUsed: 0n,
             }
-          }
+          },
         }
 
         // Mock getServicePrice call
@@ -1111,9 +1171,9 @@ describe('WarmStorageService', () => {
               rateAllowance: 0n,
               lockupAllowance: 0n,
               rateUsed: 0n,
-              lockupUsed: 0n
+              lockupUsed: 0n,
             }
-          }
+          },
         }
 
         // Mock getServicePrice call
@@ -1168,14 +1228,14 @@ describe('WarmStorageService', () => {
             rateAllowance: 0n,
             lockupAllowance: 0n,
             rateUsed: 0n,
-            lockupUsed: 0n
+            lockupUsed: 0n,
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('10000', 18),
             lockupCurrent: 0n,
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
-            availableFunds: ethers.parseUnits('10000', 18)
+            availableFunds: ethers.parseUnits('10000', 18),
           }),
           approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
             assert.strictEqual(serviceAddress, mockWarmStorageAddress)
@@ -1183,7 +1243,7 @@ describe('WarmStorageService', () => {
             assert.isTrue(lockupAllowance > 0n)
             approveServiceCalled = true
             return '0xmocktxhash'
-          }
+          },
         }
 
         // Mock getServicePrice call
@@ -1202,10 +1262,13 @@ describe('WarmStorageService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await warmStorageService.prepareStorageUpload({
-          dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
-          withCDN: false
-        }, mockPaymentsService)
+        const prep = await warmStorageService.prepareStorageUpload(
+          {
+            dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+            withCDN: false,
+          },
+          mockPaymentsService
+        )
 
         assert.exists(prep.estimatedCost)
         assert.exists(prep.estimatedCost.perEpoch)
@@ -1217,7 +1280,7 @@ describe('WarmStorageService', () => {
         // Should have at least approval action (since mock has no allowances)
         assert.isAtLeast(prep.actions.length, 1)
 
-        const approvalAction = prep.actions.find(a => a.type === 'approveService')
+        const approvalAction = prep.actions.find((a) => a.type === 'approveService')
         assert.exists(approvalAction)
         assert.include(approvalAction.description, 'Approve service')
         assert.isFunction(approvalAction.execute)
@@ -1237,21 +1300,21 @@ describe('WarmStorageService', () => {
             rateAllowance: 0n,
             lockupAllowance: 0n,
             rateUsed: 0n,
-            lockupUsed: 0n
+            lockupUsed: 0n,
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('0.001', 18), // Very low balance
             lockupCurrent: 0n,
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
-            availableFunds: ethers.parseUnits('0.001', 18)
+            availableFunds: ethers.parseUnits('0.001', 18),
           }),
           deposit: async (amount: bigint) => {
             assert.isTrue(amount > 0n)
             depositCalled = true
             return '0xmockdeposittxhash'
           },
-          approveService: async () => '0xmocktxhash'
+          approveService: async () => '0xmocktxhash',
         }
 
         // Mock getServicePrice call
@@ -1270,20 +1333,23 @@ describe('WarmStorageService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await warmStorageService.prepareStorageUpload({
-          dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
-          withCDN: false
-        }, mockPaymentsService)
+        const prep = await warmStorageService.prepareStorageUpload(
+          {
+            dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+            withCDN: false,
+          },
+          mockPaymentsService
+        )
 
         // Should have both deposit and approval actions
         assert.isAtLeast(prep.actions.length, 2)
 
-        const depositAction = prep.actions.find(a => a.type === 'deposit')
+        const depositAction = prep.actions.find((a) => a.type === 'deposit')
         assert.exists(depositAction)
         assert.include(depositAction.description, 'Deposit')
         assert.include(depositAction.description, 'USDFC')
 
-        const approvalAction = prep.actions.find(a => a.type === 'approveService')
+        const approvalAction = prep.actions.find((a) => a.type === 'approveService')
         assert.exists(approvalAction)
 
         // Execute deposit action and verify
@@ -1299,15 +1365,15 @@ describe('WarmStorageService', () => {
             rateAllowance: ethers.parseUnits('1000', 18),
             lockupAllowance: ethers.parseUnits('100000', 18),
             rateUsed: 0n,
-            lockupUsed: 0n
+            lockupUsed: 0n,
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('10000', 18),
             lockupCurrent: 0n,
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
-            availableFunds: ethers.parseUnits('10000', 18)
-          })
+            availableFunds: ethers.parseUnits('10000', 18),
+          }),
         }
 
         // Mock getServicePrice call
@@ -1326,10 +1392,13 @@ describe('WarmStorageService', () => {
           return '0x' + '0'.repeat(64)
         }
 
-        const prep = await warmStorageService.prepareStorageUpload({
-          dataSize: 1024 * 1024, // 1 MiB - small amount
-          withCDN: false
-        }, mockPaymentsService)
+        const prep = await warmStorageService.prepareStorageUpload(
+          {
+            dataSize: 1024 * 1024, // 1 MiB - small amount
+            withCDN: false,
+          },
+          mockPaymentsService
+        )
 
         assert.lengthOf(prep.actions, 0)
         assert.isTrue(prep.allowanceCheck.sufficient)
@@ -1351,9 +1420,9 @@ describe('WarmStorageService', () => {
             service: 'test-service',
             txStatus: 'confirmed',
             ok: true,
-            dataSetId: 123
+            dataSetId: 123,
           }
-        }
+        },
       }
 
       // Mock provider for chain verification
@@ -1362,7 +1431,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1373,15 +1442,17 @@ describe('WarmStorageService', () => {
           status: 1,
           blockNumber: 12345,
           gasUsed: 100000n,
-          logs: [{
-            address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-            topics: [
-              ethers.id('DataSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32),
-              ethers.zeroPadValue(clientAddress, 32)
-            ],
-            data: '0x'
-          }]
+          logs: [
+            {
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('DataSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32),
+                ethers.zeroPadValue(clientAddress, 32),
+              ],
+              data: '0x',
+            },
+          ],
         } as any
       }
 
@@ -1430,7 +1501,7 @@ describe('WarmStorageService', () => {
       const mockPDPServer: any = {
         getDataSetCreationStatus: async () => {
           throw new Error('Server unavailable')
-        }
+        },
       }
 
       // Mock provider for chain verification (still works)
@@ -1439,7 +1510,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1449,15 +1520,17 @@ describe('WarmStorageService', () => {
           status: 1,
           blockNumber: 12345,
           gasUsed: 100000n,
-          logs: [{
-            address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-            topics: [
-              ethers.id('DataSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32),
-              ethers.zeroPadValue(clientAddress, 32)
-            ],
-            data: '0x'
-          }]
+          logs: [
+            {
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('DataSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32),
+                ethers.zeroPadValue(clientAddress, 32),
+              ],
+              data: '0x',
+            },
+          ],
         } as any
       }
 
@@ -1499,7 +1572,7 @@ describe('WarmStorageService', () => {
       const mockPDPServer: any = {
         getDataSetCreationStatus: async () => {
           throw new Error('Data set creation status not found')
-        }
+        },
       }
 
       // Mock provider for chain verification (transaction succeeded on chain)
@@ -1508,7 +1581,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1518,15 +1591,17 @@ describe('WarmStorageService', () => {
           status: 1,
           blockNumber: 12345,
           gasUsed: 100000n,
-          logs: [{
-            address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-            topics: [
-              ethers.id('DataSetCreated(uint256,address)'),
-              ethers.zeroPadValue('0x7b', 32),
-              ethers.zeroPadValue(clientAddress, 32)
-            ],
-            data: '0x'
-          }]
+          logs: [
+            {
+              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+              topics: [
+                ethers.id('DataSetCreated(uint256,address)'),
+                ethers.zeroPadValue('0x7b', 32),
+                ethers.zeroPadValue(clientAddress, 32),
+              ],
+              data: '0x',
+            },
+          ],
         } as any
       }
 
@@ -1575,7 +1650,7 @@ describe('WarmStorageService', () => {
               service: 'test-service',
               txStatus: 'pending',
               ok: null,
-              dataSetId: undefined
+              dataSetId: undefined,
             }
           } else {
             // Second call - created
@@ -1585,10 +1660,10 @@ describe('WarmStorageService', () => {
               service: 'test-service',
               txStatus: 'confirmed',
               ok: true,
-              dataSetId: 123
+              dataSetId: 123,
             }
           }
-        }
+        },
       }
 
       // Mock provider
@@ -1597,7 +1672,7 @@ describe('WarmStorageService', () => {
         assert.strictEqual(txHash, mockTxHash)
         return {
           hash: mockTxHash,
-          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+          wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
         } as any
       }
 
@@ -1610,15 +1685,17 @@ describe('WarmStorageService', () => {
             status: 1,
             blockNumber: 12345,
             gasUsed: 100000n,
-            logs: [{
-              address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-              topics: [
-                ethers.id('DataSetCreated(uint256,address)'),
-                ethers.zeroPadValue('0x7b', 32),
-                ethers.zeroPadValue(clientAddress, 32)
-              ],
-              data: '0x'
-            }]
+            logs: [
+              {
+                address: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
+                topics: [
+                  ethers.id('DataSetCreated(uint256,address)'),
+                  ethers.zeroPadValue('0x7b', 32),
+                  ethers.zeroPadValue(clientAddress, 32),
+                ],
+                data: '0x',
+              },
+            ],
           } as any
         }
       }
@@ -1635,7 +1712,7 @@ describe('WarmStorageService', () => {
 
       const mockTransaction = {
         hash: mockTxHash,
-        wait: async () => await mockProvider.getTransactionReceipt(mockTxHash)
+        wait: async () => await mockProvider.getTransactionReceipt(mockTxHash),
       } as any
       const result = await warmStorageService.waitForDataSetCreationWithStatus(
         mockTransaction,
@@ -1664,9 +1741,9 @@ describe('WarmStorageService', () => {
             service: 'test-service',
             txStatus: 'pending',
             ok: null,
-            dataSetId: undefined
+            dataSetId: undefined,
           }
-        }
+        },
       }
 
       // Mock provider - transaction never mines

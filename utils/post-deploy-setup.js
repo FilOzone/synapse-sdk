@@ -94,8 +94,8 @@
 
 import { ethers } from 'ethers'
 import { Synapse } from '../dist/index.js'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 import { WarmStorageService } from '../dist/warm-storage/index.js'
-import { CONTRACT_ADDRESSES, CONTRACT_ABIS, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 
 // Constants for payment approvals
 const RATE_ALLOWANCE_PER_EPOCH = ethers.parseUnits('0.1', 18) // 0.1 USDFC per epoch
@@ -104,7 +104,7 @@ const MAX_LOCKUP_PERIOD = 86400n // 30 days in epochs (30 * 2880 epochs/day)
 const INITIAL_DEPOSIT_AMOUNT = ethers.parseUnits('1', 18) // 1 USDFC initial deposit
 
 // Validation helper
-function requireEnv (name) {
+function requireEnv(name) {
   const value = process.env[name]
   if (!value) {
     console.error(`❌ Missing required environment variable: ${name}`)
@@ -114,23 +114,23 @@ function requireEnv (name) {
 }
 
 // Logging helpers
-function log (message) {
+function log(message) {
   console.log(`ℹ️  ${message}`)
 }
 
-function success (message) {
+function success(message) {
   console.log(`✅ ${message}`)
 }
 
-function warning (message) {
+function warning(message) {
   console.log(`⚠️  ${message}`)
 }
 
-function error (message) {
+function error(message) {
   console.error(`❌ ${message}`)
 }
 
-async function main () {
+async function main() {
   try {
     // Get environment variables
     const deployerPrivateKey = requireEnv('DEPLOYER_PRIVATE_KEY')
@@ -216,14 +216,14 @@ async function main () {
           log(`Gas estimate: ${gasEstimate}`)
 
           // Add 50% buffer for Filecoin network
-          const gasLimit = gasEstimate + (gasEstimate * 50n / 100n)
+          const gasLimit = gasEstimate + (gasEstimate * 50n) / 100n
           const maxGasLimit = 30_000_000n // 30M gas max for Filecoin calibration
           const finalGasLimit = gasLimit > maxGasLimit ? maxGasLimit : gasLimit
 
           log(`Using gas limit: ${finalGasLimit}`)
 
           const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
-            gasLimit: finalGasLimit
+            gasLimit: finalGasLimit,
           })
           success(`Service provider approval transaction sent. Tx: ${approveTx.hash}`)
           await approveTx.wait()
@@ -286,14 +286,14 @@ async function main () {
         log(`Gas estimate: ${gasEstimate}`)
 
         // Add 50% buffer for Filecoin network
-        const gasLimit = gasEstimate + (gasEstimate * 50n / 100n)
+        const gasLimit = gasEstimate + (gasEstimate * 50n) / 100n
         const maxGasLimit = 30_000_000n // 30M gas max for Filecoin calibration
         const finalGasLimit = gasLimit > maxGasLimit ? maxGasLimit : gasLimit
 
         log(`Using gas limit: ${finalGasLimit}`)
 
         const approveTx = await warmStorageContract.approveServiceProvider(spAddress, {
-          gasLimit: finalGasLimit
+          gasLimit: finalGasLimit,
         })
         await approveTx.wait()
         success(`Service provider approved successfully. Tx: ${approveTx.hash}`)
@@ -316,7 +316,7 @@ async function main () {
     const clientSynapse = await Synapse.create({
       privateKey: clientPrivateKey,
       rpcURL,
-      network
+      network,
     })
 
     const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[network]
@@ -371,9 +371,10 @@ async function main () {
     log('Checking operator approval for Warm Storage contract...')
     const currentApproval = await clientSynapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
 
-    const needsUpdate = !currentApproval.isApproved ||
-                       currentApproval.rateAllowance < RATE_ALLOWANCE_PER_EPOCH ||
-                       currentApproval.lockupAllowance < LOCKUP_ALLOWANCE
+    const needsUpdate =
+      !currentApproval.isApproved ||
+      currentApproval.rateAllowance < RATE_ALLOWANCE_PER_EPOCH ||
+      currentApproval.lockupAllowance < LOCKUP_ALLOWANCE
 
     if (needsUpdate) {
       log('Current approval status:')

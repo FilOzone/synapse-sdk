@@ -2,9 +2,9 @@
  * Epoch to date conversion utilities for Filecoin networks
  */
 
-import { ethers } from 'ethers'
+import type { ethers } from 'ethers'
 import type { FilecoinNetworkType } from '../types.js'
-import { TIME_CONSTANTS, GENESIS_TIMESTAMPS } from './constants.js'
+import { GENESIS_TIMESTAMPS, TIME_CONSTANTS } from './constants.js'
 import { createError } from './errors.js'
 
 /**
@@ -13,10 +13,10 @@ import { createError } from './errors.js'
  * @param network - The Filecoin network (mainnet or calibration)
  * @returns Date object representing the epoch time
  */
-export function epochToDate (epoch: number, network: FilecoinNetworkType): Date {
+export function epochToDate(epoch: number, network: FilecoinNetworkType): Date {
   const genesisTimestamp = GENESIS_TIMESTAMPS[network]
   const epochDuration = TIME_CONSTANTS.EPOCH_DURATION
-  const timestampSeconds = genesisTimestamp + (epoch * epochDuration)
+  const timestampSeconds = genesisTimestamp + epoch * epochDuration
   return new Date(timestampSeconds * 1000) // Convert to milliseconds
 }
 
@@ -26,7 +26,7 @@ export function epochToDate (epoch: number, network: FilecoinNetworkType): Date 
  * @param network - The Filecoin network (mainnet or calibration)
  * @returns The epoch number (rounded down to nearest epoch)
  */
-export function dateToEpoch (date: Date, network: FilecoinNetworkType): number {
+export function dateToEpoch(date: Date, network: FilecoinNetworkType): number {
   const genesisTimestamp = GENESIS_TIMESTAMPS[network]
   const epochDuration = TIME_CONSTANTS.EPOCH_DURATION
   const timestampSeconds = Math.floor(date.getTime() / 1000)
@@ -39,7 +39,7 @@ export function dateToEpoch (date: Date, network: FilecoinNetworkType): number {
  * @param network - The Filecoin network
  * @returns Genesis timestamp in seconds (Unix timestamp)
  */
-export function getGenesisTimestamp (network: FilecoinNetworkType): number {
+export function getGenesisTimestamp(network: FilecoinNetworkType): number {
   return GENESIS_TIMESTAMPS[network]
 }
 
@@ -49,7 +49,10 @@ export function getGenesisTimestamp (network: FilecoinNetworkType): number {
  * @param currentEpoch - The current epoch number
  * @returns Object with time until the epoch in various units
  */
-export function timeUntilEpoch (futureEpoch: number, currentEpoch: number): {
+export function timeUntilEpoch(
+  futureEpoch: number,
+  currentEpoch: number
+): {
   epochs: number
   seconds: number
   minutes: number
@@ -64,7 +67,7 @@ export function timeUntilEpoch (futureEpoch: number, currentEpoch: number): {
     seconds,
     minutes: seconds / 60,
     hours: seconds / 3600,
-    days: seconds / 86400
+    days: seconds / 86400,
   }
 }
 
@@ -75,7 +78,7 @@ export function timeUntilEpoch (futureEpoch: number, currentEpoch: number): {
  * @param network - The Filecoin network
  * @returns Date when the last proof should have been submitted, or null if no proof submitted yet
  */
-export function calculateLastProofDate (
+export function calculateLastProofDate(
   nextChallengeEpoch: number,
   maxProvingPeriod: number,
   network: FilecoinNetworkType
@@ -103,7 +106,7 @@ export function calculateLastProofDate (
  * @param provider - The ethers provider to query
  * @returns The current epoch as a bigint
  */
-export async function getCurrentEpoch (provider: ethers.Provider): Promise<bigint> {
+export async function getCurrentEpoch(provider: ethers.Provider): Promise<bigint> {
   const block = await provider.getBlock('latest')
   if (block == null) {
     throw createError('epoch', 'getCurrentEpoch', 'Failed to get latest block')
