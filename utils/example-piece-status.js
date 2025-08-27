@@ -42,7 +42,7 @@ const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
 const args = process.argv.slice(2)
 const pieceCid = args[0]
 const providerAddress = args[1]
-const dataSetId = args[2] ? parseInt(args[2]) : undefined
+const dataSetId = args[2] ? parseInt(args[2], 10) : undefined
 
 // Validate inputs
 if (!PRIVATE_KEY) {
@@ -192,7 +192,7 @@ async function main() {
             storageContext = ctx
             break
           }
-        } catch (error) {
+        } catch {
           // Continue to next provider
         }
       }
@@ -249,7 +249,7 @@ async function main() {
         console.log('   The service provider has missed the proof deadline and may face penalties.')
       } else if (status.inChallengeWindow) {
         // Calculate time remaining in challenge window
-        const timeRemaining = status.dataSetNextProofDue.getTime() - new Date().getTime()
+        const timeRemaining = status.dataSetNextProofDue.getTime() - Date.now()
         const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
         console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
         console.log(`   The service provider has ${minutesRemaining} minutes to submit a proof.`)
@@ -268,7 +268,7 @@ async function main() {
     }
 
     // Summary
-    console.log('\n' + '─'.repeat(50))
+    console.log(`\n${'─'.repeat(50)}`)
     if (status.isProofOverdue) {
       console.log('🚨 Status: PROOF OVERDUE - Penalties may apply')
     } else if (status.inChallengeWindow) {

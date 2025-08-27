@@ -119,6 +119,7 @@ export interface PieceAdditionStatusResponse {
 export class PDPServer {
   private readonly _serviceURL: string
   private readonly _authHelper: PDPAuthHelper | null
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: TODO: remove this parameter not used
   private readonly _serviceName: string
 
   /**
@@ -296,7 +297,7 @@ export class PDPServer {
         txHash = locationMatch[1]
         // Ensure txHash has 0x prefix
         if (!txHash.startsWith('0x')) {
-          txHash = '0x' + txHash
+          txHash = `0x${txHash}`
         }
         statusUrl = `${this._serviceURL}${location}`
       }

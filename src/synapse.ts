@@ -62,7 +62,7 @@ export class Synapse {
       // Sanitize private key
       let privateKey = options.privateKey
       if (!privateKey.startsWith('0x')) {
-        privateKey = '0x' + privateKey
+        privateKey = `0x${privateKey}`
       }
 
       // Create provider and wallet
@@ -198,7 +198,7 @@ export class Synapse {
     provider: ethers.Provider,
     network: FilecoinNetworkType,
     payments: PaymentsService,
-    disableNonceManager: boolean,
+    _disableNonceManager: boolean, // TODO: remove this parameter not used
     withCDN: boolean,
     warmStorageAddressOverride: string | undefined,
     pdpVerifierAddressOverride: string | undefined,

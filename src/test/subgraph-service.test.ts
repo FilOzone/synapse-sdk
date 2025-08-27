@@ -63,7 +63,7 @@ describe('SubgraphService', () => {
         },
       }
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify(mockResponse))
@@ -85,7 +85,7 @@ describe('SubgraphService', () => {
 
     it('should handle invalid PieceCID', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { pieces: [] } }))
@@ -105,7 +105,7 @@ describe('SubgraphService', () => {
 
     it('should handle no providers found', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { pieces: [] } }))
@@ -124,7 +124,7 @@ describe('SubgraphService', () => {
 
     it('should handle GraphQL errors', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ errors: [{ message: 'GraphQL error' }] }))
@@ -144,7 +144,7 @@ describe('SubgraphService', () => {
 
     it('should handle HTTP errors', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response('Internal Server Error', { status: 500 })
@@ -186,7 +186,7 @@ describe('SubgraphService', () => {
 
     it('should return null if provider not found', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ data: { provider: null } }))
@@ -205,7 +205,7 @@ describe('SubgraphService', () => {
 
     it('should handle GraphQL errors', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response(JSON.stringify({ errors: [{ message: 'GraphQL error' }] }))
@@ -225,7 +225,7 @@ describe('SubgraphService', () => {
 
     it('should handle HTTP errors', async () => {
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockEndpoint)) {
           return new Response('Internal Server Error', { status: 500 })
@@ -352,7 +352,7 @@ describe('SubgraphService', () => {
           },
         }
 
-        global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockResponse))
@@ -771,7 +771,7 @@ describe('SubgraphService', () => {
           },
         }
 
-        global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockResponse))
@@ -799,7 +799,7 @@ describe('SubgraphService', () => {
           errors: [{ message: 'Invalid where clause' }],
         }
 
-        global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response(JSON.stringify(mockErrorResponse))
@@ -819,7 +819,7 @@ describe('SubgraphService', () => {
       })
 
       it('should handle HTTP errors in queryDataSets', async () => {
-        global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+        global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
           const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
           if (url.includes(mockEndpoint)) {
             return new Response('Bad Request', { status: 400 })

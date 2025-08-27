@@ -13,7 +13,6 @@ import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
 
 // Mock server for testing
 class MockPDPServer {
-  private readonly server: any = null
   private readonly handlers: Map<string, (req: any, res: any) => void> = new Map()
 
   addHandler(method: string, path: string, handler: (req: any, res: any) => void): void {
@@ -277,7 +276,7 @@ describe('PDPServer', () => {
           status: 201,
           text: async () => 'Pieces added successfully',
           headers: {
-            get: (name: string) => null, // No Location header for backward compatibility test
+            get: (_name: string) => null, // No Location header for backward compatibility test
           },
         } as any
       }
@@ -333,7 +332,7 @@ describe('PDPServer', () => {
 
       // Mock fetch for this test
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (_input: string | URL | Request, init?: RequestInit) => {
         const body = JSON.parse(init?.body as string)
 
         assert.strictEqual(body.pieces.length, 2)
@@ -346,7 +345,7 @@ describe('PDPServer', () => {
           status: 201,
           text: async () => 'Multiple pieces added successfully',
           headers: {
-            get: (name: string) => null, // No Location header for backward compatibility test
+            get: (_name: string) => null, // No Location header for backward compatibility test
           },
         } as any
       }
@@ -400,11 +399,11 @@ describe('PDPServer', () => {
     it('should handle addPieces response with Location header missing 0x prefix', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
       const mockTxHashWithout0x = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-      const mockTxHashWith0x = '0x' + mockTxHashWithout0x
+      const mockTxHashWith0x = `0x${mockTxHashWithout0x}`
 
       // Mock fetch for this test
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (_input: string | URL | Request, _init?: RequestInit) => {
         return {
           status: 201,
           text: async () => 'Pieces added successfully',
@@ -527,7 +526,7 @@ describe('PDPServer', () => {
       global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         assert.include(url, '/pdp/piece?')
-        assert.include(url, 'pieceCid=' + mockPieceCid)
+        assert.include(url, `pieceCid=${mockPieceCid}`)
         assert.strictEqual(init?.method, 'GET')
 
         return {

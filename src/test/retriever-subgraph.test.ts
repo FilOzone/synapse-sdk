@@ -17,9 +17,9 @@ const mockProvider: ApprovedProviderInfo = {
 
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    pieceCid: PieceCID,
-    client: string,
-    options?: { providerAddress?: string; signal?: AbortSignal }
+    _pieceCid: PieceCID,
+    _client: string,
+    _options?: { providerAddress?: string; signal?: AbortSignal }
   ): Promise<Response> => {
     return new Response('data from child', { status: 200 })
   },
@@ -30,7 +30,7 @@ const createMockSubgraphService = (providersToReturn?: ApprovedProviderInfo[] | 
   // This creates a mock that satisfies the SubgraphService interface for testing purposes.
   // We cast to 'any' first to bypass checks for private/protected members.
   const mockService = {
-    getApprovedProvidersForPieceCID: async (pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> => {
+    getApprovedProvidersForPieceCID: async (_pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> => {
       if (providersToReturn instanceof Error) {
         throw providersToReturn
       }
@@ -104,7 +104,7 @@ describe('SubgraphRetriever', () => {
 
     it('should fetch a piece from a provider found via SubgraphService', async () => {
       const mockService = createMockSubgraphService([mockProvider])
-      global.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockProvider.serviceURL)) {
           // Check if it's a piece retrieval
@@ -137,7 +137,7 @@ describe('SubgraphRetriever', () => {
 
     it('should fall back to child retriever when fetching from subgraph providers (found by service) fails', async () => {
       const mockService = createMockSubgraphService([mockProvider]) // Service returns a provider
-      global.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         // Mock provider failure
         if (url.includes(mockProvider.serviceURL) || url.includes(mockProvider.serviceURL)) {
@@ -162,7 +162,7 @@ describe('SubgraphRetriever', () => {
       let fetchCalledForMockProvider = false
       let fetchCalledForOtherProvider = false
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      global.fetch = async (input: string | URL | Request): Promise<Response> => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes(mockProvider.serviceURL)) {
           fetchCalledForMockProvider = true
@@ -190,7 +190,7 @@ describe('SubgraphRetriever', () => {
 
     it('should throw an error if all attempts fail (service provides provider, but fetch fails) and no child', async () => {
       const mockService = createMockSubgraphService([mockProvider]) // Service returns a provider
-      global.fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      global.fetch = async (): Promise<Response> => {
         // All provider fetches fail
         return new Response('error', { status: 500 })
       }

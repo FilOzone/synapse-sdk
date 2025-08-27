@@ -187,7 +187,7 @@ describe('PaymentsService', () => {
       const errorProvider = createMockProvider()
 
       // Override sendTransaction to throw error
-      errorProvider.sendTransaction = async (transaction: any) => {
+      errorProvider.sendTransaction = async () => {
         throw new Error('Contract execution failed')
       }
 

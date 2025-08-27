@@ -46,13 +46,13 @@ function formatBytes(bytes) {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i]
+  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
 }
 
 // Helper to format USDFC amounts (18 decimals)
 function formatUSDFC(amount) {
   const usdfc = Number(amount) / 1e18
-  return usdfc.toFixed(6) + ' USDFC'
+  return `${usdfc.toFixed(6)} USDFC`
 }
 
 async function main() {
@@ -117,7 +117,7 @@ async function main() {
             console.log(`✓ Created new data set: ${info.dataSetId}`)
           }
         },
-        onDataSetCreationStarted: (transaction, statusUrl) => {
+        onDataSetCreationStarted: (transaction) => {
           console.log(`  Creating data set, tx: ${transaction.hash}`)
         },
         onDataSetCreationProgress: (progress) => {

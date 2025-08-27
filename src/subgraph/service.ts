@@ -296,7 +296,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   private parseTimestamp(value?: number | string): number {
     if (value == null) return 0
     const parsed = Number(value)
-    return isNaN(parsed) ? 0 : parsed
+    return Number.isNaN(parsed) ? 0 : parsed
   }
 
   /**

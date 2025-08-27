@@ -42,7 +42,7 @@ describe('WarmStorageService', () => {
           )
         }
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       const dataSets = await warmStorageService.getClientDataSets(clientAddress)
@@ -120,7 +120,7 @@ describe('WarmStorageService', () => {
           )
         }
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       const dataSets = await warmStorageService.getClientDataSets(clientAddress)
@@ -157,7 +157,7 @@ describe('WarmStorageService', () => {
           throw new Error('Contract call failed')
         }
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       try {
@@ -222,7 +222,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       // Mock network for PDPVerifier address
@@ -321,7 +321,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -369,7 +369,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -427,7 +427,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -509,7 +509,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -589,7 +589,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -614,7 +614,7 @@ describe('WarmStorageService', () => {
         }
 
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
@@ -665,7 +665,7 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x01', 32) // true
         }
         // Default return for any other calls
-        return '0x' + '0'.repeat(64) // Return 32 bytes of zeros
+        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -721,7 +721,7 @@ describe('WarmStorageService', () => {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x01', 32) // Return provider ID 1 (non-zero means approved)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const isApproved = await warmStorageService.isProviderApproved(providerAddress)
@@ -737,7 +737,7 @@ describe('WarmStorageService', () => {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const isApproved = await warmStorageService.isProviderApproved(providerAddress)
@@ -753,7 +753,7 @@ describe('WarmStorageService', () => {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x05', 32) // Return ID 5
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
@@ -777,7 +777,7 @@ describe('WarmStorageService', () => {
             [providerInfo]
           )
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const info = await warmStorageService.getApprovedProvider(1)
@@ -810,7 +810,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw when pending provider not found', async () => {
-      mockProvider.call = async (transaction: any) => {
+      mockProvider.call = async (_transaction: any) => {
         // Return empty values indicating non-existent provider
         return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
       }
@@ -833,7 +833,7 @@ describe('WarmStorageService', () => {
           // owner selector
           return ethers.zeroPadValue(ownerAddress, 32)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const owner = await warmStorageService.getOwner()
@@ -852,7 +852,7 @@ describe('WarmStorageService', () => {
           // owner selector
           return ethers.zeroPadValue(signerAddress, 32)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const isOwner = await warmStorageService.isOwner(mockSigner)
@@ -885,7 +885,7 @@ describe('WarmStorageService', () => {
           )
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const providers = await warmStorageService.getAllApprovedProviders()
@@ -913,7 +913,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const sizeInBytes = 1024 * 1024 * 1024 // 1 GiB
@@ -955,7 +955,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const costs1GiB = await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
@@ -1029,7 +1029,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
@@ -1091,7 +1091,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
@@ -1141,7 +1141,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
@@ -1189,7 +1189,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         // Test with custom lockup period of 20 days
@@ -1259,7 +1259,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
@@ -1330,7 +1330,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
@@ -1389,7 +1389,7 @@ describe('WarmStorageService', () => {
               [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
             )
           }
-          return '0x' + '0'.repeat(64)
+          return `0x${'0'.repeat(64)}`
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
@@ -1461,7 +1461,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -1539,7 +1539,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -1610,7 +1610,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
@@ -1705,7 +1705,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any

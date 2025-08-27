@@ -7,7 +7,7 @@ import type { ApprovedProviderInfo, PieceCID, UploadResult } from '../types.js'
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {
-  getTransaction: async (hash: string) => null,
+  getTransaction: async (_hash: string) => null,
   getNetwork: async () => ({ chainId: BigInt(314159), name: 'test' }),
 } as any
 
@@ -26,11 +26,11 @@ const mockSynapse = {
       lockupUsed: BigInt(0),
     }),
   },
-  download: async (pieceCid: string | PieceCID, options?: any) => {
+  download: async (_pieceCid: string | PieceCID, _options?: any) => {
     // Mock download that returns test data - will be overridden in specific tests
     return new Uint8Array(65).fill(42)
   },
-  getProviderInfo: async (providerAddress: string) => {
+  getProviderInfo: async (_providerAddress: string) => {
     // Mock getProviderInfo - will be overridden in specific tests
     throw new Error('getProviderInfo not mocked')
   },
@@ -526,7 +526,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {
         getProviderIdByAddress: async () => 0, // Not approved
         getClientDataSetsWithDetails: async () => [],
-        getApprovedProvider: async (providerId: number) => {
+        getApprovedProvider: async (_providerId: number) => {
           // Return a non-approved provider (null address indicates not approved)
           return {
             serviceProvider: '0x0000000000000000000000000000000000000000',
@@ -685,7 +685,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {
         getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 0, // Provider not approved
-        getApprovedProvider: async (providerId: number) => {
+        getApprovedProvider: async (_providerId: number) => {
           // Return a non-approved provider
           return {
             serviceProvider: '0x0000000000000000000000000000000000000000',
@@ -1233,8 +1233,8 @@ describe('StorageService', () => {
         uuid: 'test-uuid',
       })
       serviceAny._pdpServer.addPieces = async (
-        dataSetId: number,
-        clientDataSetId: number,
+        _dataSetId: number,
+        _clientDataSetId: number,
         nextPieceId: number,
         pieceCids: Array<{ toString: () => string }>
       ): Promise<any> => {
@@ -2842,7 +2842,7 @@ describe('StorageService', () => {
       const status = await service.pieceStatus(mockPieceCID)
 
       assert.isTrue(status.exists)
-      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockPieceCID)
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       assert.isNotNull(status.dataSetLastProven)
       assert.isNotNull(status.dataSetNextProofDue)
       assert.isFalse(status.inChallengeWindow)
@@ -3035,7 +3035,7 @@ describe('StorageService', () => {
 
       assert.isTrue(status.exists)
       // Should not have double slash
-      assert.equal(status.retrievalUrl, 'https://pdp.example.com/piece/' + mockPieceCID)
+      assert.equal(status.retrievalUrl, `https://pdp.example.com/piece/${mockPieceCID}`)
       // Check that the URL doesn't contain double slashes after the protocol
       const urlWithoutProtocol = (status.retrievalUrl ?? '').substring(8) // Remove 'https://'
       assert.notInclude(urlWithoutProtocol, '//')

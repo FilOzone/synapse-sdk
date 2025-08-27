@@ -46,7 +46,7 @@ describe('FilCdnRetriever', () => {
       let signalPropagated = false
 
       const mockBaseRetriever: PieceRetriever = {
-        fetchPiece: async (pieceCid: PieceCID, client: string, options?: any) => {
+        fetchPiece: async (_pieceCid: PieceCID, _client: string, options?: any) => {
           if (options?.signal != null) {
             signalPropagated = true
             assert.equal(options.signal, controller.signal)

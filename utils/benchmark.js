@@ -81,7 +81,7 @@ async function runBenchmark() {
     warmStorageAddress: PANDORA_ADDRESS,
   })
   console.log('Synapse instance:', synapse)
-  console.log('Synapse network:', synapse.getNetwork && synapse.getNetwork())
+  console.log('Synapse network:', synapse.getNetwork?.())
 
   try {
     for (let run = 1; run <= NUM_RUNS; run++) {

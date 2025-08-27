@@ -249,7 +249,7 @@ async function main() {
         warning('Service provider has pending registration')
         log(`  Service URL: ${pendingInfo.serviceURL}`)
         log(`  Registered at: ${new Date(Number(pendingInfo.registeredAt) * 1000).toISOString()}`)
-      } catch (err) {
+      } catch {
         // No pending registration found (this is expected for new providers)
         hasPendingRegistration = false
       }

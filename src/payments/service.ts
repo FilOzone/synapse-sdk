@@ -193,7 +193,7 @@ export class PaymentsService {
     )
   }
 
-  decimals(token: TokenIdentifier = TOKENS.USDFC): number {
+  decimals(_token: TokenIdentifier = TOKENS.USDFC): number {
     // Both FIL and USDFC use 18 decimals
     return 18
   }
