@@ -96,7 +96,8 @@ export interface UploadTask {
  * Download options
  * Currently empty, reserved for future options
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+
+// biome-ignore lint/complexity/noBannedTypes: future proofing
 export type DownloadOptions = {}
 
 /**

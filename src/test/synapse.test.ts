@@ -267,7 +267,7 @@ describe('Synapse', () => {
           )
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {
@@ -308,7 +308,7 @@ describe('Synapse', () => {
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {
@@ -343,7 +343,7 @@ describe('Synapse', () => {
           )
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {
@@ -399,7 +399,7 @@ describe('Synapse', () => {
       let cdnOptionReceived: boolean | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
+        fetchPiece: async (_pieceCid: any, _client: string, options?: any) => {
           cdnOptionReceived = options?.withCDN
           return new Response(testData)
         },
@@ -426,7 +426,7 @@ describe('Synapse', () => {
       let providerAddressReceived: string | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (pieceCid: any, client: string, options?: any) => {
+        fetchPiece: async (_pieceCid: any, _client: string, options?: any) => {
           providerAddressReceived = options?.providerAddress
           return new Response(testData)
         },
@@ -555,7 +555,7 @@ describe('Synapse', () => {
           )
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {
@@ -647,7 +647,7 @@ describe('Synapse', () => {
           throw new Error('No wallet connected')
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {
@@ -732,7 +732,7 @@ describe('Synapse', () => {
           throw new Error('No allowances')
         }
 
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       try {

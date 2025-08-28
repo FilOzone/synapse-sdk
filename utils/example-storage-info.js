@@ -27,7 +27,7 @@ if (!PRIVATE_KEY) {
 // Helper to format USDFC amounts (18 decimals)
 function formatUSDFC(amount) {
   const usdfc = Number(amount) / 1e18
-  return usdfc.toFixed(6) + ' USDFC'
+  return `${usdfc.toFixed(6)} USDFC`
 }
 
 // Helper to format bytes for display
@@ -36,7 +36,7 @@ function formatBytes(bytes) {
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / k ** i).toFixed(2)) + ' ' + sizes[i]
+  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`
 }
 
 // Helper to format timestamp
@@ -70,7 +70,7 @@ async function main() {
 
     // Display pricing information
     console.log('\n--- Pricing Information ---')
-    console.log('Token: USDFC (' + storageInfo.pricing.tokenAddress + ')')
+    console.log(`Token: USDFC (${storageInfo.pricing.tokenAddress})`)
     console.log('\nWithout CDN:')
     console.log(`  Per TiB per month: ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerMonth)}`)
     console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerDay)}`)

@@ -55,7 +55,7 @@ export class ChainRetriever implements PieceRetriever {
             return null
           }
           return await this.warmStorageService.getApprovedProvider(id)
-        } catch (error) {
+        } catch {
           // Failed to get provider info (may have been removed), skip silently
           return null
         }
@@ -97,7 +97,7 @@ export class ChainRetriever implements PieceRetriever {
     let providersToTry: ApprovedProviderInfo[] = []
     try {
       providersToTry = await this.findProviders(client, options?.providerAddress)
-    } catch (error) {
+    } catch {
       // Provider discovery failed - this is a critical error
       return await tryChildOrThrow('Provider discovery failed and no additional retriever method was configured')
     }
@@ -110,7 +110,7 @@ export class ChainRetriever implements PieceRetriever {
     // Step 3: Try to fetch from providers
     try {
       return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', options?.signal)
-    } catch (fetchError) {
+    } catch {
       // All provider attempts failed
       return await tryChildOrThrow(
         'All provider retrieval attempts failed and no additional retriever method was configured'

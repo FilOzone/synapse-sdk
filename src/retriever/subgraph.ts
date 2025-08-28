@@ -43,7 +43,7 @@ export class SubgraphRetriever implements PieceRetriever {
     let providersToTry: ApprovedProviderInfo[] = []
     try {
       providersToTry = await this.findProviders(pieceCid, options?.providerAddress)
-    } catch (error) {
+    } catch {
       // Provider discovery failed - this is a critical error
       return await tryChildOrThrow('Provider discovery failed and no additional retriever method was configured')
     }
@@ -56,7 +56,7 @@ export class SubgraphRetriever implements PieceRetriever {
     // Step 3: Try to fetch from providers
     try {
       return await fetchPiecesFromProviders(providersToTry, pieceCid, 'SubgraphRetriever', options?.signal)
-    } catch (fetchError) {
+    } catch {
       // All provider attempts failed
       return await tryChildOrThrow(
         'All provider retrieval attempts failed and no additional retriever method was configured'

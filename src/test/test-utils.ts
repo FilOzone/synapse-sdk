@@ -45,13 +45,13 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
     getSigner: async function () {
       return createMockSigner('0x1234567890123456789012345678901234567890', this)
     },
-    getBalance: async (address: string) => ethers.parseEther('100'),
-    getTransactionCount: async (address: string, blockTag?: string) => 0,
-    getBlock: async (blockHashOrBlockTag: any) => {
+    getBalance: async (_address: string) => ethers.parseEther('100'),
+    getTransactionCount: async (_address: string, _blockTag?: string) => 0,
+    getBlock: async (_blockHashOrBlockTag: any) => {
       return {
         number: 1000000,
         timestamp: Math.floor(Date.now() / 1000),
-        hash: '0x' + Math.random().toString(16).substring(2).padEnd(64, '0'),
+        hash: `0x${Math.random().toString(16).substring(2).padEnd(64, '0')}`,
       }
     },
     call: async (transaction: any) => {
@@ -187,21 +187,21 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       return '0x'
     },
     getBlockNumber: async () => 1000000,
-    getCode: async (address: string) => '0x1234',
-    estimateGas: async (transaction: any) => 21000n,
+    getCode: async (_address: string) => '0x1234',
+    estimateGas: async (_transaction: any) => 21000n,
     getFeeData: async () =>
       new ethers.FeeData(
         ethers.parseUnits('1', 'gwei'),
         ethers.parseUnits('1', 'gwei'),
         ethers.parseUnits('1', 'gwei')
       ),
-    getLogs: async (filter: any) => [],
-    resolveName: async (name: string) => null,
-    lookupAddress: async (address: string) => null,
-    broadcastTransaction: async (signedTx: string) => {
+    getLogs: async (_filter: any) => [],
+    resolveName: async (_name: string) => null,
+    lookupAddress: async (_address: string) => null,
+    broadcastTransaction: async (_signedTx: string) => {
       throw new Error('Not implemented in mock')
     },
-    getTransaction: async (hash: string) => {
+    getTransaction: async (_hash: string) => {
       throw new Error('Not implemented in mock')
     },
     getTransactionReceipt: async (hash: string) => {
@@ -223,11 +223,11 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         status: 1,
       }
     },
-    waitForTransaction: async (hash: string, confirmations?: number, timeout?: number) => {
+    waitForTransaction: async (_hash: string, _confirmations?: number, _timeout?: number) => {
       throw new Error('Not implemented in mock')
     },
     sendTransaction: async (transaction: any) => {
-      const hash = '0x' + Math.random().toString(16).substring(2).padEnd(64, '0')
+      const hash = `0x${Math.random().toString(16).substring(2).padEnd(64, '0')}`
       return {
         hash,
         from: transaction.from ?? '',

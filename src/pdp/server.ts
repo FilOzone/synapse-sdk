@@ -119,22 +119,19 @@ export interface PieceAdditionStatusResponse {
 export class PDPServer {
   private readonly _serviceURL: string
   private readonly _authHelper: PDPAuthHelper | null
-  private readonly _serviceName: string
 
   /**
    * Create a new PDPServer instance
    * @param authHelper - PDPAuthHelper instance for signing operations
    * @param serviceURL - The PDP service URL (e.g., https://pdp.provider.com)
-   * @param serviceName - Service name for uploads (defaults to 'public')
    */
-  constructor(authHelper: PDPAuthHelper | null, serviceURL: string, serviceName: string = 'public') {
+  constructor(authHelper: PDPAuthHelper | null, serviceURL: string) {
     if (serviceURL.trim() === '') {
       throw new Error('PDP service URL is required')
     }
     // Remove trailing slash from URL
     this._serviceURL = serviceURL.replace(/\/$/, '')
     this._authHelper = authHelper
-    this._serviceName = serviceName
   }
 
   /**
@@ -296,7 +293,7 @@ export class PDPServer {
         txHash = locationMatch[1]
         // Ensure txHash has 0x prefix
         if (!txHash.startsWith('0x')) {
-          txHash = '0x' + txHash
+          txHash = `0x${txHash}`
         }
         statusUrl = `${this._serviceURL}${location}`
       }

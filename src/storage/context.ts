@@ -1094,7 +1094,7 @@ export class StorageContext {
           throw createError(
             'StorageContext',
             'addPieces',
-            errorMessage + '. The transaction was confirmed on-chain but the server failed to acknowledge it.',
+            `${errorMessage}. The transaction was confirmed on-chain but the server failed to acknowledge it.`,
             lastError
           )
         }

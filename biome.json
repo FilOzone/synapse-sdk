@@ -90,7 +90,8 @@
         "noAssignInExpressions": "warn",
         "noExportsInTest": "off",
         "noEmptyBlockStatements": "error",
-        "useAwait": "warn"
+        "useAwait": "off",
+        "noExplicitAny": "off"
       }
     }
   },

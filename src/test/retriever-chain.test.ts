@@ -28,9 +28,9 @@ const mockProvider2: ApprovedProviderInfo = {
 // Mock child retriever
 const mockChildRetriever: PieceRetriever = {
   fetchPiece: async (
-    pieceCid: PieceCID,
-    client: string,
-    options?: { providerAddress?: string; signal?: AbortSignal }
+    _pieceCid: PieceCID,
+    _client: string,
+    _options?: { providerAddress?: string; signal?: AbortSignal }
   ): Promise<Response> => {
     return new Response('data from child', { status: 200 })
   },
@@ -69,7 +69,7 @@ describe('ChainRetriever', () => {
       let findPieceCalled = false
       let downloadCalled = false
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/pdp/piece?')) {
           findPieceCalled = true
@@ -235,7 +235,7 @@ describe('ChainRetriever', () => {
       const originalFetch = global.fetch
       const fetchCalls: string[] = []
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         fetchCalls.push(url)
 
@@ -397,7 +397,7 @@ describe('ChainRetriever', () => {
 
       // Mock fetch
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         if (url.includes('valid-provider')) {
@@ -489,7 +489,7 @@ describe('ChainRetriever', () => {
 
       // Mock fetch
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
         if (url.includes('valid-provider')) {
@@ -526,7 +526,7 @@ describe('ChainRetriever', () => {
       const originalFetch = global.fetch
       let signalReceived = false
 
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      global.fetch = async (_input: string | URL | Request, init?: RequestInit) => {
         if (init?.signal != null) {
           signalReceived = true
           // Abort immediately
@@ -543,7 +543,7 @@ describe('ChainRetriever', () => {
           signal: controller.signal,
         })
         assert.fail('Should have thrown')
-      } catch (error: any) {
+      } catch {
         assert.isTrue(signalReceived, 'Signal should be propagated to fetch')
       } finally {
         global.fetch = originalFetch

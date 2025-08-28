@@ -124,7 +124,7 @@ export class PDPAuthHelper {
       if ('send' in provider || 'request' in provider) {
         return true
       }
-    } catch (error) {
+    } catch {
       // Silently fail and return false
     }
     return false

@@ -421,7 +421,7 @@ export class WarmStorageService {
           'synapse:pdpServer.getDataSetCreationStatus-start',
           'synapse:pdpServer.getDataSetCreationStatus-end'
         )
-      } catch (error) {
+      } catch {
         performance.mark('synapse:pdpServer.getDataSetCreationStatus-end')
         performance.measure(
           'synapse:pdpServer.getDataSetCreationStatus',

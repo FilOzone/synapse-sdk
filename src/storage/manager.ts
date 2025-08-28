@@ -297,7 +297,7 @@ export class StorageManager {
             rateUsed: approval.rateUsed,
             lockupUsed: approval.lockupUsed,
           }
-        } catch (error) {
+        } catch {
           // Return null if wallet not connected or any error occurs
           return null
         }

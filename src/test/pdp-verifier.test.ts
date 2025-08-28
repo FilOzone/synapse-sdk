@@ -43,7 +43,7 @@ describe('PDPVerifier', () => {
           // dataSetLive selector
           return ethers.zeroPadValue('0x01', 32) // Return true
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const isLive = await pdpVerifier.dataSetLive(123)
@@ -59,7 +59,7 @@ describe('PDPVerifier', () => {
           // getNextPieceId selector
           return ethers.zeroPadValue('0x05', 32) // Return 5
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const nextPieceId = await pdpVerifier.getNextPieceId(123)
@@ -76,7 +76,7 @@ describe('PDPVerifier', () => {
           // getDataSetListener selector
           return ethers.zeroPadValue(listenerAddress, 32)
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const listener = await pdpVerifier.getDataSetListener(123)
@@ -98,7 +98,7 @@ describe('PDPVerifier', () => {
             [storageProvider, proposedStorageProvider]
           )
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const result = await pdpVerifier.getDataSetStorageProvider(123)
@@ -115,7 +115,7 @@ describe('PDPVerifier', () => {
           // getDataSetLeafCount selector
           return ethers.zeroPadValue('0x0a', 32) // Return 10
         }
-        return '0x' + '0'.repeat(64)
+        return `0x${'0'.repeat(64)}`
       }
 
       const leafCount = await pdpVerifier.getDataSetLeafCount(123)
@@ -132,7 +132,7 @@ describe('PDPVerifier', () => {
               '0x1234567890123456789012345678901234567890123456789012345678901234', // Event signature
               ethers.zeroPadValue('0x7b', 32), // Data set ID = 123
             ],
-            data: '0x' + '0'.repeat(64),
+            data: `0x${'0'.repeat(64)}`,
           },
         ],
       } as any
