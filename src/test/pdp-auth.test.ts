@@ -34,22 +34,23 @@ const FIXTURES = {
   signatures: {
     createDataSet: {
       signature:
-        '0x2ade4cae25767d913085f43ce05de4d5b4b3e1f19e87c8a35f184bcf69ccbed83636027a360676212407c0b5cc5d7e33a67919d5d450e3e12644a375c38b78b01c',
-      digest: '0x259fdf0e90ede5d9367809b4d623fa031e218536e1d87c0e38b54b38461ea0ec',
+        '0xc77965e2b6efd594629c44eb61127bc3133b65d08c25f8aa33e3021e7f46435845ab67ffbac96afc4b4671ecbd32d4869ca7fe1c0eaa5affa942d0abbfd98d601b',
+      digest: '0xd89be6a725302e66575d7a9c730191a84e2a624d0f0f3976194d0bd6f2927640',
       clientDataSetId: 12345,
       payee: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      withCDN: true,
+      metadata: [{ key: 'title', value: 'TestDataSet' }],
     },
     addPieces: {
       signature:
-        '0x11a84c9e14c95c8e6a8efc4ee72fb3bb4b596a398fc1c0ff9d1ddec24eab6ce239964f6c75144499e56f36c7e85559b74d5c03faf0cc9843846ff05a52d928f91b',
-      digest: '0x94ed837bcb986fa8f59453cd9e42494f93227e80d4fa54aa3da458b2ffb69790',
+        '0x215d2d6ea06c7daad46e3e636b305885c7d09aa34420e8dbace032af03cae06224cf678da808c7f1026b08ccf51f3d5d53351b935f5eee9750b80e78caffaaa91c',
+      digest: '0xa690b5f3c6400833822aa3fd63ad1f0e4c1f70e5cc132cfd898c2993169d23bf',
       clientDataSetId: 12345,
       firstAdded: 1,
       pieceCidBytes: [
-        '0x0181e203922020fc7e928296e516faade986b28f92d44a4f24b935485223376a799027bc18f833',
-        '0x0181e203922020a9eb89e9825d609ab500be99bf0770bd4e01eeaba92b8dad23c08f1f59bfe10f',
+        '0x01559120220500de6815dcb348843215a94de532954b60be550a4bec6e74555665e9a5ec4e0f3c',
+        '0x01559120227e03642a607ef886b004bf2c1978463ae1d4693ac0f410eb2d1b7a47fe205e5e750f',
       ],
+      metadata: [[], []],
     },
     schedulePieceRemovals: {
       signature:
@@ -93,7 +94,7 @@ describe('Auth Signature Compatibility', () => {
     const result = await authHelper.signCreateDataSet(
       FIXTURES.signatures.createDataSet.clientDataSetId,
       FIXTURES.signatures.createDataSet.payee,
-      FIXTURES.signatures.createDataSet.withCDN
+      FIXTURES.signatures.createDataSet.metadata
     )
 
     // Verify signature matches exactly
@@ -116,6 +117,7 @@ describe('Auth Signature Compatibility', () => {
       PIECE_DATA
     )
 
+    console.log('sigData', result.signedData)
     // Verify signature matches exactly
     assert.strictEqual(
       result.signature,
@@ -168,7 +170,7 @@ describe('Auth Signature Compatibility', () => {
     const result = await authHelper.signCreateDataSet(
       BigInt(12345), // Use bigint instead of number
       FIXTURES.signatures.createDataSet.payee,
-      FIXTURES.signatures.createDataSet.withCDN
+      FIXTURES.signatures.createDataSet.metadata
     )
 
     // Should produce same signature as number version
@@ -180,13 +182,13 @@ describe('Auth Signature Compatibility', () => {
     const sig1 = await authHelper.signCreateDataSet(
       FIXTURES.signatures.createDataSet.clientDataSetId,
       FIXTURES.signatures.createDataSet.payee,
-      FIXTURES.signatures.createDataSet.withCDN
+      FIXTURES.signatures.createDataSet.metadata
     )
 
     const sig2 = await authHelper.signCreateDataSet(
       FIXTURES.signatures.createDataSet.clientDataSetId,
       FIXTURES.signatures.createDataSet.payee,
-      FIXTURES.signatures.createDataSet.withCDN
+      FIXTURES.signatures.createDataSet.metadata
     )
 
     // Signatures should be identical (deterministic)
