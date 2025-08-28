@@ -399,7 +399,7 @@ describe('Synapse', () => {
       let cdnOptionReceived: boolean | undefined
       const testData = new TextEncoder().encode('test data')
       const mockRetriever = {
-        fetchPiece: async (_pieceCid: any, _clientt: string, options?: any) => {
+        fetchPiece: async (_pieceCid: any, _client: string, options?: any) => {
           cdnOptionReceived = options?.withCDN
           return new Response(testData)
         },
