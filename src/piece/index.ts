@@ -9,6 +9,6 @@ export {
   asPieceCID,
   calculate,
   createPieceCIDStream,
-  LegacyPieceCID,
-  PieceCID,
+  type LegacyPieceCID,
+  type PieceCID,
 } from './piece.js'
