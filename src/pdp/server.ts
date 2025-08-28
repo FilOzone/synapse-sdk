@@ -405,7 +405,7 @@ export class PDPServer {
 
     // Calculate PieceCID
     performance.mark('synapse:calculatePieceCID-start')
-    const pieceCid = await calculatePieceCID(uint8Data)
+    const pieceCid = calculatePieceCID(uint8Data)
     performance.mark('synapse:calculatePieceCID-end')
     performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
     const size = uint8Data.length
