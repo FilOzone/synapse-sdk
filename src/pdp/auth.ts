@@ -15,16 +15,25 @@ declare global {
 
 // EIP-712 Type definitions
 const EIP712_TYPES = {
+  MetadataEntry: [
+    { name: 'key', type: 'string' },
+    { name: 'value', type: 'string' },
+  ],
   CreateDataSet: [
     { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'withCDN', type: 'bool' },
     { name: 'payee', type: 'address' },
+    { name: 'metadata', type: 'MetadataEntry[]' },
   ],
   Cid: [{ name: 'data', type: 'bytes' }],
+  PieceMetadata: [
+    { name: 'pieceIndex', type: 'uint256' },
+    { name: 'metadata', type: 'MetadataEntry[]' },
+  ],
   AddPieces: [
     { name: 'clientDataSetId', type: 'uint256' },
     { name: 'firstAdded', type: 'uint256' },
     { name: 'pieceData', type: 'Cid[]' },
+    { name: 'pieceMetadata', type: 'PieceMetadata[]' },
   ],
   SchedulePieceRemovals: [
     { name: 'clientDataSetId', type: 'uint256' },
@@ -63,6 +72,7 @@ const EIP712_TYPES = {
 export class PDPAuthHelper {
   private readonly signer: ethers.Signer
   private readonly domain: ethers.TypedDataDomain
+  public readonly WITH_CDN_METADATA = { key: 'withCDN', value: '' }
 
   constructor(serviceContractAddress: string, signer: ethers.Signer, chainId: bigint) {
     this.signer = signer
@@ -228,9 +238,10 @@ export class PDPAuthHelper {
   async signCreateDataSet(
     clientDataSetId: number | bigint,
     payee: string,
-    withCDN: boolean = false
+    metadata: { key: string; value: string }[] = []
   ): Promise<AuthSignature> {
     let signature: string
+    const types = { CreateDataSet: EIP712_TYPES.CreateDataSet, MetadataEntry: EIP712_TYPES.MetadataEntry }
 
     // Check if we should use MetaMask-friendly signing
     const useMetaMask = await this.isMetaMaskSigner()
@@ -239,37 +250,33 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing for better UX
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        withCDN,
+        metadata,
         payee,
       }
 
-      signature = await this.signWithMetaMask({ CreateDataSet: EIP712_TYPES.CreateDataSet }, value)
+      signature = await this.signWithMetaMask(types, value)
     } else {
       // Use standard ethers.js signing (for private keys, etc)
       const value = {
         clientDataSetId: BigInt(clientDataSetId),
-        withCDN,
+        metadata,
         payee,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
       const actualSigner = this.getUnderlyingSigner()
-      signature = await actualSigner.signTypedData(this.domain, { CreateDataSet: EIP712_TYPES.CreateDataSet }, value)
+      signature = await actualSigner.signTypedData(this.domain, types, value)
     }
 
     // Return signature with components
     const sig = ethers.Signature.from(signature)
 
     // For EIP-712, signedData contains the actual message hash that was signed
-    const signedData = ethers.TypedDataEncoder.hash(
-      this.domain,
-      { CreateDataSet: EIP712_TYPES.CreateDataSet },
-      {
-        clientDataSetId: BigInt(clientDataSetId),
-        withCDN,
-        payee,
-      }
-    )
+    const signedData = ethers.TypedDataEncoder.hash(this.domain, types, {
+      clientDataSetId: BigInt(clientDataSetId),
+      metadata,
+      payee,
+    })
 
     return {
       signature,
@@ -313,7 +320,9 @@ export class PDPAuthHelper {
   ): Promise<AuthSignature> {
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
-    for (const piece of pieceDataArray) {
+    const metadata = []
+    for (let i = 0; i < pieceDataArray.length; i++) {
+      const piece = pieceDataArray[i]
       const pieceCid = typeof piece === 'string' ? asPieceCID(piece) : piece
       if (pieceCid == null) {
         throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
@@ -323,6 +332,16 @@ export class PDPAuthHelper {
       formattedPieceData.push({
         data: pieceCid.bytes, // This will be a Uint8Array
       })
+      metadata.push({
+        pieceIndex: i,
+        metadata: [],
+      })
+    }
+    const types = {
+      AddPieces: EIP712_TYPES.AddPieces,
+      Cid: EIP712_TYPES.Cid,
+      PieceMetadata: EIP712_TYPES.PieceMetadata,
+      MetadataEntry: EIP712_TYPES.MetadataEntry,
     }
 
     let signature: string
@@ -338,12 +357,7 @@ export class PDPAuthHelper {
         pieceData: formattedPieceData.map((item) => ({
           data: ethers.hexlify(item.data), // Convert Uint8Array to hex string for MetaMask
         })),
-      }
-
-      // Define the complete type structure
-      const types = {
-        AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid,
+        pieceMetadata: metadata,
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -353,12 +367,7 @@ export class PDPAuthHelper {
         clientDataSetId: BigInt(clientDataSetId),
         firstAdded: BigInt(firstPieceId),
         pieceData: formattedPieceData,
-      }
-
-      // Define the complete type structure
-      const types = {
-        AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid,
+        pieceMetadata: metadata,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -370,18 +379,12 @@ export class PDPAuthHelper {
     const sig = ethers.Signature.from(signature)
 
     // For EIP-712, signedData contains the actual message hash that was signed
-    const signedData = ethers.TypedDataEncoder.hash(
-      this.domain,
-      {
-        AddPieces: EIP712_TYPES.AddPieces,
-        Cid: EIP712_TYPES.Cid,
-      },
-      {
-        clientDataSetId: BigInt(clientDataSetId),
-        firstAdded: BigInt(firstPieceId),
-        pieceData: formattedPieceData,
-      }
-    )
+    const signedData = ethers.TypedDataEncoder.hash(this.domain, types, {
+      clientDataSetId: BigInt(clientDataSetId),
+      firstAdded: BigInt(firstPieceId),
+      pieceData: formattedPieceData,
+      pieceMetadata: metadata,
+    })
 
     return {
       signature,

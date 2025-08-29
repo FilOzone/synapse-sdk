@@ -149,7 +149,9 @@ export class PDPServer {
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
     // Generate the EIP-712 signature for data set creation
-    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, withCDN)
+    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, [
+      this.getAuthHelper().WITH_CDN_METADATA,
+    ])
 
     // Prepare the extra data for the contract call
     // This needs to match the DataSetCreateData struct in Warm Storage contract
