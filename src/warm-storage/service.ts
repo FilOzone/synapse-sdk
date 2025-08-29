@@ -30,8 +30,8 @@ import type { PaymentsService } from '../payments/service.js'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.js'
 import { PDPVerifier } from '../pdp/verifier.js'
 import type { ApprovedProviderInfo, DataSetInfo, EnhancedDataSetInfo } from '../types.js'
-import { SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
-import { CONTRACT_ABIS, TOKENS } from '../utils/index.js'
+import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
+import { CONTRACT_ABIS, getFilecoinNetworkType, TOKENS } from '../utils/index.js'
 
 /**
  * Helper information for adding pieces to a data set
@@ -117,16 +117,109 @@ export interface ComprehensiveDataSetStatus {
 export class WarmStorageService {
   private readonly _provider: ethers.Provider
   private readonly _warmStorageAddress: string
-  private readonly _pdpVerifierAddress: string
   private _warmStorageContract: ethers.Contract | null = null
   private _warmStorageViewContract: ethers.Contract | null = null
-  private _warmStorageViewAddress: string | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
-  constructor(provider: ethers.Provider, warmStorageAddress: string, pdpVerifierAddress: string) {
+  // All discovered addresses
+  private readonly _addresses: {
+    pdpVerifier: string
+    payments: string
+    usdfcToken: string
+    filCDN: string
+    viewContract: string
+  }
+
+  /**
+   * Private constructor - use WarmStorageService.create() instead
+   */
+  private constructor(
+    provider: ethers.Provider,
+    warmStorageAddress: string,
+    addresses: {
+      pdpVerifier: string
+      payments: string
+      usdfcToken: string
+      filCDN: string
+      viewContract: string
+    }
+  ) {
     this._provider = provider
     this._warmStorageAddress = warmStorageAddress
-    this._pdpVerifierAddress = pdpVerifierAddress
+    this._addresses = addresses
+  }
+
+  /**
+   * Create a new WarmStorageService instance with initialized addresses
+   */
+  static async create(provider: ethers.Provider, warmStorageAddress: string): Promise<WarmStorageService> {
+    // Get network from provider and validate it's a supported Filecoin network
+    const networkName = await getFilecoinNetworkType(provider)
+
+    // Initialize all contract addresses using Multicall3
+    const multicall = new ethers.Contract(
+      CONTRACT_ADDRESSES.MULTICALL3[networkName],
+      CONTRACT_ABIS.MULTICALL3,
+      provider
+    )
+
+    const iface = new ethers.Interface(CONTRACT_ABIS.WARM_STORAGE)
+
+    const calls = [
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('pdpVerifierAddress'),
+      },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('paymentsContractAddress'),
+      },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('usdfcTokenAddress'),
+      },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('filCDNAddress'),
+      },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('viewContractAddress'),
+      },
+    ]
+
+    const results = await multicall.aggregate3.staticCall(calls)
+
+    const addresses = {
+      pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
+      payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
+      usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
+      filCDN: iface.decodeFunctionResult('filCDNAddress', results[3].returnData)[0],
+      viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
+    }
+
+    return new WarmStorageService(provider, warmStorageAddress, addresses)
+  }
+
+  getPDPVerifierAddress(): string {
+    return this._addresses.pdpVerifier
+  }
+
+  getPaymentsAddress(): string {
+    return this._addresses.payments
+  }
+
+  getUSDFCTokenAddress(): string {
+    return this._addresses.usdfcToken
+  }
+
+  getViewContractAddress(): string {
+    return this._addresses.viewContract
   }
 
   /**
@@ -145,29 +238,11 @@ export class WarmStorageService {
 
   /**
    * Get cached Warm Storage View contract instance or create new one
-   * Fetches the view contract address from the main contract if not cached
    */
-  private async _getWarmStorageViewContract(): Promise<ethers.Contract> {
-    // Fetch view contract address if not cached
-    if (this._warmStorageViewAddress == null) {
-      const warmStorageContract = this._getWarmStorageContract()
-      this._warmStorageViewAddress = (await warmStorageContract.viewContractAddress()) as string
-      if (
-        this._warmStorageViewAddress == null ||
-        this._warmStorageViewAddress === ethers.ZeroAddress ||
-        this._warmStorageViewAddress === ''
-      ) {
-        throw new Error('View contract address not set in Warm Storage contract')
-      }
-    }
-
-    // Create view contract instance if not cached
+  private _getWarmStorageViewContract(): ethers.Contract {
     if (this._warmStorageViewContract == null) {
-      this._warmStorageViewContract = new ethers.Contract(
-        this._warmStorageViewAddress,
-        CONTRACT_ABIS.WARM_STORAGE_VIEW,
-        this._provider
-      )
+      const viewAddress = this.getViewContractAddress()
+      this._warmStorageViewContract = new ethers.Contract(viewAddress, CONTRACT_ABIS.WARM_STORAGE_VIEW, this._provider)
     }
     return this._warmStorageViewContract
   }
@@ -177,7 +252,8 @@ export class WarmStorageService {
    */
   private _getPDPVerifier(): PDPVerifier {
     if (this._pdpVerifier == null) {
-      this._pdpVerifier = new PDPVerifier(this._provider, this._pdpVerifierAddress)
+      const address = this.getPDPVerifierAddress()
+      this._pdpVerifier = new PDPVerifier(this._provider, address)
     }
     return this._pdpVerifier
   }
@@ -191,7 +267,7 @@ export class WarmStorageService {
    */
   async getClientDataSets(clientAddress: string): Promise<DataSetInfo[]> {
     try {
-      const viewContract = await this._getWarmStorageViewContract()
+      const viewContract = this._getWarmStorageViewContract()
       const dataSetData = await viewContract.getClientDataSets(clientAddress)
 
       // Convert from on-chain format to our interface
@@ -220,7 +296,7 @@ export class WarmStorageService {
   async getClientDataSetsWithDetails(client: string, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
     const dataSets = await this.getClientDataSets(client)
     const pdpVerifier = this._getPDPVerifier()
-    const viewContract = await this._getWarmStorageViewContract()
+    const viewContract = this._getWarmStorageViewContract()
 
     // Process all data sets in parallel
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
@@ -290,7 +366,7 @@ export class WarmStorageService {
    */
   async getAddPiecesInfo(dataSetId: number): Promise<AddPiecesInfo> {
     try {
-      const viewContract = await this._getWarmStorageViewContract()
+      const viewContract = this._getWarmStorageViewContract()
       const pdpVerifier = this._getPDPVerifier()
 
       // Parallelize all independent calls
@@ -333,7 +409,7 @@ export class WarmStorageService {
    */
   async getNextClientDataSetId(clientAddress: string): Promise<number> {
     try {
-      const viewContract = await this._getWarmStorageViewContract()
+      const viewContract = this._getWarmStorageViewContract()
 
       // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
       // This is the value that will be used for the next data set creation
@@ -995,7 +1071,7 @@ export class WarmStorageService {
    * @returns Maximum proving period in epochs
    */
   async getMaxProvingPeriod(): Promise<number> {
-    const viewContract = await this._getWarmStorageViewContract()
+    const viewContract = this._getWarmStorageViewContract()
     const maxPeriod = await viewContract.getMaxProvingPeriod()
     return Number(maxPeriod)
   }
@@ -1005,7 +1081,7 @@ export class WarmStorageService {
    * @returns Challenge window size in epochs
    */
   async getChallengeWindow(): Promise<number> {
-    const viewContract = await this._getWarmStorageViewContract()
+    const viewContract = this._getWarmStorageViewContract()
     const window = await viewContract.challengeWindow()
     return Number(window)
   }

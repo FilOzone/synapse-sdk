@@ -1,8 +1,21 @@
 /**
  * Shared test utilities and mock helpers
+ *
+ * Example usage:
+ *   const cleanup = extendMockProviderCall(mockProvider, async (transaction) => {
+ *     // Only custom test logic - Multicall3 etc handled automatically
+ *     if (someCondition) return customResult
+ *     return null // Let default mocks handle it
+ *   })
+ *   try {
+ *     // ... test code ...
+ *   } finally {
+ *     cleanup()
+ *   }
  */
 
 import { ethers } from 'ethers'
+import { CONTRACT_ADDRESSES } from '../utils/constants.js'
 
 // Mock signer factory
 export function createMockSigner(
@@ -38,7 +51,7 @@ export function createMockSigner(
 
 // Mock provider factory
 export function createMockProvider(chainId: number = 314159): ethers.Provider {
-  const network = new ethers.Network('test', chainId)
+  const network = new ethers.Network('calibration', chainId)
 
   const provider: any = {
     getNetwork: async () => network,
@@ -58,6 +71,26 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       const data = transaction.data
       const to = transaction.to?.toLowerCase()
       if (data == null) return '0x'
+
+      // Mock Multicall3 aggregate3 calls - function selector: 0x82ad56cb
+      if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
+        // Return mock addresses for all 5 getter functions
+        const mockAddresses = [
+          '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
+          '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
+          '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
+          '0x0000000000000000000000000000000000000000', // filCDN (not used)
+          '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
+        ]
+
+        // Encode the response as Multicall3 would
+        const results = mockAddresses.map((addr) => ({
+          success: true,
+          returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [addr]),
+        }))
+
+        return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(bool success, bytes returnData)[]'], [results])
+      }
 
       // Mock viewContractAddress response - function selector: 0x7a9ebc15
       if (data?.startsWith('0x7a9ebc15') === true) {
@@ -267,4 +300,86 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
   }
 
   return provider as ethers.Provider
+}
+
+/**
+ * Extends a mock provider's call method with additional mocking logic
+ * while preserving the original Multicall3 and viewContractAddress mocking
+ */
+export function extendMockProviderCall(
+  provider: ethers.Provider,
+  customMockFn: (transaction: any) => Promise<string | null>
+): () => void {
+  const originalCall = provider.call
+  provider.call = async (transaction: any) => {
+    // First try the custom mock logic
+    const customResult = await customMockFn(transaction)
+    if (customResult !== null) {
+      return customResult
+    }
+
+    // Fall back to original call method (which includes Multicall3 and other standard mocks)
+    if (originalCall && typeof originalCall === 'function') {
+      return originalCall.call(provider, transaction)
+    }
+
+    return '0x'
+  }
+
+  // Return cleanup function
+  return () => {
+    provider.call = originalCall
+  }
+}
+
+/**
+ * Helper to handle viewContractAddress calls
+ */
+export function createViewContractAddressMock(viewAddress: string = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54') {
+  return (data: string | undefined): string | null => {
+    if (data?.startsWith('0x7a9ebc15') === true) {
+      return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [viewAddress])
+    }
+    return null
+  }
+}
+
+/**
+ * Helper to create custom Multicall3 mock responses with specific addresses
+ */
+export function createCustomMulticall3Mock(
+  provider: ethers.Provider,
+  customAddresses?: Partial<{
+    pdpVerifier?: string
+    payments?: string
+    usdfcToken?: string
+    filCDN?: string
+    viewContract?: string
+  }>
+): () => void {
+  return extendMockProviderCall(provider, async (transaction: any) => {
+    const data = transaction.data
+    const to = transaction.to?.toLowerCase()
+
+    // Handle Multicall3 aggregate3 calls with custom addresses
+    if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
+      // Use custom addresses if provided, otherwise use defaults
+      const mockAddresses = [
+        customAddresses?.pdpVerifier ?? '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
+        customAddresses?.payments ?? '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
+        customAddresses?.usdfcToken ?? '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
+        customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
+        customAddresses?.viewContract ?? '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
+      ]
+
+      const results = mockAddresses.map((addr) => ({
+        success: true,
+        returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [addr]),
+      }))
+
+      return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(bool success, bytes returnData)[]'], [results])
+    }
+
+    return null
+  })
 }

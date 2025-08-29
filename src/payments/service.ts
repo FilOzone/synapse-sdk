@@ -4,15 +4,8 @@
  */
 
 import { ethers } from 'ethers'
-import type { FilecoinNetworkType, TokenAmount, TokenIdentifier } from '../types.js'
-import {
-  CONTRACT_ABIS,
-  CONTRACT_ADDRESSES,
-  createError,
-  getCurrentEpoch,
-  TIMING_CONSTANTS,
-  TOKENS,
-} from '../utils/index.js'
+import type { TokenAmount, TokenIdentifier } from '../types.js'
+import { CONTRACT_ABIS, createError, getCurrentEpoch, TIMING_CONSTANTS, TOKENS } from '../utils/index.js'
 
 /**
  * Callbacks for deposit operation visibility
@@ -31,21 +24,35 @@ export interface DepositCallbacks {
 export class PaymentsService {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
-  private readonly _network: FilecoinNetworkType
+  private readonly _paymentsAddress: string
+  private readonly _usdfcAddress: string
   private readonly _disableNonceManager: boolean
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
 
+  /**
+   * @param provider - Direct provider instance for balance checks, nonce management, and epoch calculations
+   * @param signer - Signer instance for transaction signing (may be wrapped in NonceManager)
+   * @param paymentsAddress - Address of the Payments contract
+   * @param usdfcAddress - Address of the USDFC token contract
+   * @param disableNonceManager - When true, manually manages nonces using provider.getTransactionCount()
+   *
+   * Note: Both provider and signer are required for NonceManager compatibility. When NonceManager
+   * is disabled, we need direct provider access for reliable nonce management. Using signer.provider
+   * could interfere with NonceManager's internal state or behave differently with MetaMask/hardware wallets.
+   */
   constructor(
     provider: ethers.Provider,
     signer: ethers.Signer,
-    network: FilecoinNetworkType,
+    paymentsAddress: string,
+    usdfcAddress: string,
     disableNonceManager: boolean
   ) {
     this._provider = provider
     this._signer = signer
-    this._network = network
+    this._paymentsAddress = paymentsAddress
+    this._usdfcAddress = usdfcAddress
     this._disableNonceManager = disableNonceManager
   }
 
@@ -54,11 +61,7 @@ export class PaymentsService {
    */
   private _getUsdfcContract(): ethers.Contract {
     if (this._usdfcContract == null) {
-      const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
-      if (usdfcAddress == null) {
-        throw new Error(`USDFC contract not deployed on ${this._network} network`)
-      }
-      this._usdfcContract = new ethers.Contract(usdfcAddress, CONTRACT_ABIS.ERC20, this._signer)
+      this._usdfcContract = new ethers.Contract(this._usdfcAddress, CONTRACT_ABIS.ERC20, this._signer)
     }
     return this._usdfcContract
   }
@@ -68,13 +71,7 @@ export class PaymentsService {
    */
   private _getPaymentsContract(): ethers.Contract {
     if (this._paymentsContract == null) {
-      const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[this._network]
-      if (paymentsAddress == null || paymentsAddress === '') {
-        throw new Error(
-          `Payments contract not deployed on ${this._network} network. Currently only Calibration testnet is supported.`
-        )
-      }
-      this._paymentsContract = new ethers.Contract(paymentsAddress, CONTRACT_ABIS.PAYMENTS, this._signer)
+      this._paymentsContract = new ethers.Contract(this._paymentsAddress, CONTRACT_ABIS.PAYMENTS, this._signer)
     }
     return this._paymentsContract
   }
@@ -114,14 +111,13 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
     let accountData: any[]
 
     try {
       // Get account info from payments contract
-      accountData = await paymentsContract.accounts(usdfcAddress, signerAddress)
+      accountData = await paymentsContract.accounts(this._usdfcAddress, signerAddress)
     } catch (contractCallError) {
       throw createError(
         'PaymentsService',
@@ -185,11 +181,11 @@ export class PaymentsService {
       }
     }
 
-    // For other tokens, could add support later
+    // For other tokens, throw error
     throw createError(
       'PaymentsService',
-      'wallet balance check',
-      `Token "${token}" is not supported. Currently only USDFC token is supported for balance queries.`
+      'wallet balance',
+      `Token "${token}" is not supported. Currently only FIL and USDFC tokens are supported.`
     )
   }
 
@@ -308,7 +304,6 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
     // Only set explicit nonce if NonceManager is disabled
@@ -320,7 +315,7 @@ export class PaymentsService {
 
     try {
       const approveTx = await paymentsContract.setOperatorApproval(
-        usdfcAddress,
+        this._usdfcAddress,
         service,
         true, // approved
         rateAllowanceBigint,
@@ -355,7 +350,6 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
     // Only set explicit nonce if NonceManager is disabled
@@ -367,7 +361,7 @@ export class PaymentsService {
 
     try {
       const revokeTx = await paymentsContract.setOperatorApproval(
-        usdfcAddress,
+        this._usdfcAddress,
         service,
         false, // not approved
         0n, // zero rate allowance
@@ -412,11 +406,10 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
     try {
-      const approval = await paymentsContract.operatorApprovals(usdfcAddress, signerAddress, service)
+      const approval = await paymentsContract.operatorApprovals(this._usdfcAddress, signerAddress, service)
       return {
         isApproved: approval[0],
         rateAllowance: approval[1],
@@ -451,8 +444,6 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const usdfcContract = this._getUsdfcContract()
     const paymentsContract = this._getPaymentsContract()
 
@@ -468,17 +459,12 @@ export class PaymentsService {
     }
 
     // Check and update allowance if needed
-    const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[this._network]
-    if (paymentsAddress == null) {
-      throw createError('PaymentsService', 'deposit', `Payments contract not deployed on ${this._network}`)
-    }
-
-    const currentAllowance = await this.allowance(token, paymentsAddress)
+    const currentAllowance = await this.allowance(token, this._paymentsAddress)
     callbacks?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
 
     if (currentAllowance < depositAmountBigint) {
       // Golden path: automatically approve the exact amount needed
-      const approveTx = await this.approve(token, paymentsAddress, depositAmountBigint)
+      const approveTx = await this.approve(token, this._paymentsAddress, depositAmountBigint)
       callbacks?.onApprovalTransaction?.(approveTx)
 
       // Wait for approval to be mined before proceeding
@@ -500,7 +486,7 @@ export class PaymentsService {
       txOptions.nonce = currentNonce
     }
 
-    const depositTx = await paymentsContract.deposit(usdfcAddress, signerAddress, depositAmountBigint, txOptions)
+    const depositTx = await paymentsContract.deposit(this._usdfcAddress, signerAddress, depositAmountBigint, txOptions)
 
     return depositTx
   }
@@ -518,8 +504,6 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
-
-    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[this._network]
     const paymentsContract = this._getPaymentsContract()
 
     // Check balance using the corrected accountInfo method
@@ -540,8 +524,8 @@ export class PaymentsService {
       txOptions.nonce = currentNonce
     }
 
-    const withdrawTx = await paymentsContract.withdraw(usdfcAddress, withdrawAmountBigint, txOptions)
+    const tx = await paymentsContract.withdraw(this._usdfcAddress, withdrawAmountBigint, txOptions)
 
-    return withdrawTx
+    return tx
   }
 }

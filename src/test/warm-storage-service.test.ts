@@ -8,11 +8,11 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { TIME_CONSTANTS } from '../utils/constants.js'
 import { WarmStorageService } from '../warm-storage/index.js'
-import { createMockProvider } from './test-utils.js'
+import { createMockProvider, extendMockProviderCall } from './test-utils.js'
 
 describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
-  let warmStorageService: WarmStorageService
+  let cleanup: (() => void) | undefined
   const mockWarmStorageAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
   const mockViewAddress = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'
   const clientAddress = '0x1234567890123456789012345678901234567890'
@@ -25,14 +25,48 @@ describe('WarmStorageService', () => {
     return null
   }
 
+  // Helper to create WarmStorageService with factory pattern
+  const createWarmStorageService = async () => {
+    return await WarmStorageService.create(mockProvider, mockWarmStorageAddress)
+  }
+
+  /**
+   * Helper to create a mock provider call that automatically handles viewContractAddress
+   * Eliminates duplication of the viewContractAddress check in every test
+   */
+  const mockProviderWithView = (
+    customHandler: (data: string | undefined) => string | null | Promise<string | null>
+  ) => {
+    return extendMockProviderCall(mockProvider, async (transaction: any) => {
+      const data = transaction.data
+
+      // Always check viewContractAddress first
+      const viewResult = handleViewContractAddress(data)
+      if (viewResult != null) return viewResult
+
+      // Then run the custom handler
+      const customResult = await customHandler(data)
+      if (customResult != null) return customResult
+
+      // Default fallback
+      return `0x${'0'.repeat(64)}`
+    })
+  }
+
   beforeEach(() => {
     mockProvider = createMockProvider()
-    const mockPdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-    warmStorageService = new WarmStorageService(mockProvider, mockWarmStorageAddress, mockPdpVerifierAddress)
+    cleanup = undefined
+  })
+
+  afterEach(() => {
+    if (cleanup) {
+      cleanup()
+    }
   })
 
   describe('Instantiation', () => {
-    it('should create instance with required parameters', () => {
+    it('should create instance with required parameters', async () => {
+      const warmStorageService = await createWarmStorageService()
       assert.exists(warmStorageService)
       assert.isFunction(warmStorageService.getClientDataSets)
     })
@@ -40,14 +74,9 @@ describe('WarmStorageService', () => {
 
   describe('getClientDataSets', () => {
     it('should return empty array when client has no data sets', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock provider will return empty array by default
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
           return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -55,9 +84,8 @@ describe('WarmStorageService', () => {
             [[]]
           )
         }
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       const dataSets = await warmStorageService.getClientDataSets(clientAddress)
       assert.isArray(dataSets)
@@ -65,14 +93,9 @@ describe('WarmStorageService', () => {
     })
 
     it('should return data sets for a client', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock provider to return data sets
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return two data sets
           const dataSet1 = {
@@ -138,9 +161,8 @@ describe('WarmStorageService', () => {
             [dataSets]
           )
         }
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       const dataSets = await warmStorageService.getClientDataSets(clientAddress)
 
@@ -169,20 +191,14 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle contract call errors gracefully', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock provider to throw error
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x967c6f21') === true) {
           throw new Error('Contract call failed')
         }
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       try {
         await warmStorageService.getClientDataSets(clientAddress)
@@ -196,14 +212,9 @@ describe('WarmStorageService', () => {
 
   describe('getClientDataSetsWithDetails', () => {
     it('should enhance data sets with PDPVerifier details', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock provider for multiple contract calls
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         // getClientDataSets call
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [
@@ -249,9 +260,8 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue(mockWarmStorageAddress, 32)
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       // Mock network for PDPVerifier address
       const originalGetNetwork = mockProvider.getNetwork
@@ -271,13 +281,8 @@ describe('WarmStorageService', () => {
     })
 
     it('should filter unmanaged data sets when onlyManaged is true', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((data) => {
         // getClientDataSets - return 2 data sets
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSets = [
@@ -352,9 +357,8 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -370,14 +374,9 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw error when contract calls fail', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock getClientDataSets to return a data set
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         // getClientDataSets - return 1 data set
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [
@@ -404,9 +403,8 @@ describe('WarmStorageService', () => {
           throw new Error('Contract call failed')
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -422,14 +420,9 @@ describe('WarmStorageService', () => {
 
   describe('getManagedDataSets', () => {
     it('should return only managed data sets', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Set up mocks similar to above
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x967c6f21') === true) {
           const dataSet = [
             48n,
@@ -466,9 +459,8 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -481,14 +473,9 @@ describe('WarmStorageService', () => {
 
   describe('getAddPiecesInfo', () => {
     it('should return correct add pieces information', async () => {
+      const warmStorageService = await createWarmStorageService()
       const dataSetId = 48
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         // railToDataSet - maps rail ID to data set ID
         if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
           // Rail ID 48 maps to data set ID 48
@@ -552,9 +539,8 @@ describe('WarmStorageService', () => {
           )
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -565,14 +551,9 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
+      const warmStorageService = await createWarmStorageService()
       const dataSetId = 48
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         // railToDataSet - maps rail ID to data set ID
         if (data?.includes('railToDataSet') === true || data?.startsWith('0x2ad6e6b5') === true) {
           // Rail ID 48 maps to a different data set ID (99) to simulate not found
@@ -636,9 +617,8 @@ describe('WarmStorageService', () => {
           )
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -653,21 +633,15 @@ describe('WarmStorageService', () => {
 
   describe('getNextClientDataSetId', () => {
     it('should return the next client dataset ID', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((data) => {
         // clientDataSetIDs mapping call
         if (data?.startsWith('0x196ed89b') === true) {
           return ethers.zeroPadValue('0x05', 32) // Return 5
         }
 
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
       assert.equal(nextId, 5)
@@ -676,6 +650,7 @@ describe('WarmStorageService', () => {
 
   describe('verifyDataSetCreation', () => {
     it('should verify successful data set creation', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Mock getTransaction
@@ -711,19 +686,12 @@ describe('WarmStorageService', () => {
       }
 
       // Mock dataSetId check
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
         }
-        // Default return for any other calls
-        return `0x${'0'.repeat(64)}` // Return 32 bytes of zeros
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -742,6 +710,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle transaction not mined yet', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       const originalGetTransaction = mockProvider.getTransaction
@@ -770,76 +739,56 @@ describe('WarmStorageService', () => {
 
   describe('Service Provider Operations', () => {
     it('should check if provider is approved', async () => {
+      const warmStorageService = await createWarmStorageService()
       const providerAddress = '0x1234567890123456789012345678901234567890'
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x01', 32) // Return provider ID 1 (non-zero means approved)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const isApproved = await warmStorageService.isProviderApproved(providerAddress)
       assert.isTrue(isApproved)
     })
 
     it('should check if provider is not approved', async () => {
+      const warmStorageService = await createWarmStorageService()
       const providerAddress = '0x9999999999999999999999999999999999999999'
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const isApproved = await warmStorageService.isProviderApproved(providerAddress)
       assert.isFalse(isApproved)
     })
 
     it('should get provider ID by address', async () => {
+      const warmStorageService = await createWarmStorageService()
       const providerAddress = '0x1234567890123456789012345678901234567890'
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x93ecb91e') === true) {
           // getProviderIdByAddress selector
           return ethers.zeroPadValue('0x05', 32) // Return ID 5
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const providerId = await warmStorageService.getProviderIdByAddress(providerAddress)
       assert.equal(providerId, 5)
     })
 
     it('should get approved provider info', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x1c7db86a') === true) {
           // getApprovedProvider selector
           const providerInfo = [
@@ -854,8 +803,8 @@ describe('WarmStorageService', () => {
             [providerInfo]
           )
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const info = await warmStorageService.getApprovedProvider(1)
       assert.equal(info.serviceProvider.toLowerCase(), '0x1234567890123456789012345678901234567890')
@@ -866,13 +815,8 @@ describe('WarmStorageService', () => {
     })
 
     it('should get pending provider info', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x3faef523') === true) {
           // pendingProviders(address) selector
           // The ABI returns (string serviceURL, bytes peerId, uint256 registeredAt) not a tuple
@@ -883,7 +827,7 @@ describe('WarmStorageService', () => {
         }
         // Return empty struct for any other call including pendingProviders
         return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
-      }
+      })
 
       const info = await warmStorageService.getPendingProvider('0xabcdef1234567890123456789012345678901234')
       assert.equal(info.serviceURL, 'https://pdp.pending.com')
@@ -892,16 +836,11 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw when pending provider not found', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((_data) => {
         // Return empty values indicating non-existent provider
         return ethers.AbiCoder.defaultAbiCoder().encode(['string', 'bytes', 'uint256'], ['', '0x', 0n])
-      }
+      })
 
       try {
         await warmStorageService.getPendingProvider('0x0000000000000000000000000000000000000000')
@@ -913,58 +852,43 @@ describe('WarmStorageService', () => {
     })
 
     it('should get owner address', async () => {
+      const warmStorageService = await createWarmStorageService()
       const ownerAddress = '0xabcdef1234567890123456789012345678901234'
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x8da5cb5b') === true) {
           // owner selector
           return ethers.zeroPadValue(ownerAddress, 32)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const owner = await warmStorageService.getOwner()
       assert.equal(owner.toLowerCase(), ownerAddress.toLowerCase())
     })
 
     it('should check if signer is owner', async () => {
+      const warmStorageService = await createWarmStorageService()
       const signerAddress = '0x1234567890123456789012345678901234567890'
       const mockSigner = {
         getAddress: async () => signerAddress,
       } as any
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x8da5cb5b') === true) {
           // owner selector
           return ethers.zeroPadValue(signerAddress, 32)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const isOwner = await warmStorageService.isOwner(mockSigner)
       assert.isTrue(isOwner)
     })
 
     it('should get all approved providers', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      const warmStorageService = await createWarmStorageService()
+      cleanup = mockProviderWithView((data) => {
         // getAllApprovedProviders
         if (data?.startsWith('0x0af14754') === true) {
           const provider1 = [
@@ -987,8 +911,8 @@ describe('WarmStorageService', () => {
           )
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       const providers = await warmStorageService.getAllApprovedProviders()
       assert.lengthOf(providers, 2)
@@ -1000,6 +924,7 @@ describe('WarmStorageService', () => {
   describe('Storage Cost Operations', () => {
     describe('calculateStorageCost', () => {
       it('should calculate storage costs correctly for 1 GiB', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Mock the getServicePrice call on WarmStorage contract
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
@@ -1049,6 +974,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should scale costs linearly with size', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Mock the getServicePrice call
         mockProvider.call = async (transaction: any) => {
           const data = transaction.data
@@ -1087,6 +1013,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should fetch pricing from WarmStorage contract', async () => {
+        const warmStorageService = await createWarmStorageService()
         // This test verifies that the getServicePrice function is called
         let getServicePriceCalled = false
         const originalCall = mockProvider.call
@@ -1119,6 +1046,7 @@ describe('WarmStorageService', () => {
 
     describe('checkAllowanceForStorage', () => {
       it('should check allowances for storage operations', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
@@ -1186,6 +1114,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should return sufficient when allowances are adequate', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Create a mock PaymentsService with adequate allowances
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
@@ -1241,6 +1170,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should include depositAmountNeeded in response', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
@@ -1294,6 +1224,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should use custom lockup days when provided', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Create a mock PaymentsService
         const mockPaymentsService: any = {
           serviceApproval: async (serviceAddress: string) => {
@@ -1356,6 +1287,7 @@ describe('WarmStorageService', () => {
 
     describe('prepareStorageUpload', () => {
       it('should prepare storage upload with required actions', async () => {
+        const warmStorageService = await createWarmStorageService()
         let approveServiceCalled = false
 
         // Create a mock PaymentsService
@@ -1433,6 +1365,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should include deposit action when balance insufficient', async () => {
+        const warmStorageService = await createWarmStorageService()
         let depositCalled = false
 
         // Create a mock PaymentsService with low balance
@@ -1505,6 +1438,7 @@ describe('WarmStorageService', () => {
       })
 
       it('should return no actions when everything is ready', async () => {
+        const warmStorageService = await createWarmStorageService()
         // Create a mock PaymentsService with sufficient balance and allowances
         const mockPaymentsService: any = {
           serviceApproval: async () => ({
@@ -1560,6 +1494,7 @@ describe('WarmStorageService', () => {
 
   describe('Comprehensive Status Methods', () => {
     it('should combine PDP server and chain verification status', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer
@@ -1608,18 +1543,12 @@ describe('WarmStorageService', () => {
         } as any
       }
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -1652,6 +1581,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle PDP server failure gracefully', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that throws error
@@ -1691,18 +1621,12 @@ describe('WarmStorageService', () => {
         } as any
       }
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -1728,6 +1652,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should NOT mark as complete when server has not caught up yet', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that returns null (server hasn't caught up)
@@ -1767,18 +1692,12 @@ describe('WarmStorageService', () => {
         } as any
       }
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // isLive = true
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -1802,6 +1721,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should wait for data set to become live', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
@@ -1867,18 +1787,12 @@ describe('WarmStorageService', () => {
         }
       }
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Handle viewContractAddress
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
+      cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32)
         }
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
@@ -1902,6 +1816,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should timeout if data set takes too long', async () => {
+      const warmStorageService = await createWarmStorageService()
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       // Create a mock PDPServer that always returns pending
@@ -1943,6 +1858,7 @@ describe('WarmStorageService', () => {
 
   describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
     it('should return max proving period from WarmStorage contract', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock contract call
       const originalCall = mockProvider.call
       mockProvider.call = async ({ data }: any) => {
@@ -1961,6 +1877,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should return challenge window from WarmStorage contract', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock contract call
       const originalCall = mockProvider.call
       mockProvider.call = async ({ data }: any) => {
@@ -1979,6 +1896,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should handle contract call failures', async () => {
+      const warmStorageService = await createWarmStorageService()
       // Mock contract call to throw error
       const originalCall = mockProvider.call
       mockProvider.call = async () => {

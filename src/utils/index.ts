@@ -1,4 +1,5 @@
 export * from './constants.js'
 export * from './epoch.js'
 export { createError } from './errors.js'
+export { getFilecoinNetworkType } from './network.js'
 export { constructFindPieceUrl, constructPieceUrl } from './piece.js'

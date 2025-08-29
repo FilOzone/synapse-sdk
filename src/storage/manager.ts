@@ -36,7 +36,7 @@ import type {
   UploadCallbacks,
   UploadResult,
 } from '../types.js'
-import { CONTRACT_ADDRESSES, createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.js'
+import { createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
 import { StorageContext } from './context.js'
 
@@ -350,8 +350,8 @@ export class StorageManager {
           minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
           warmStorageAddress: this._synapse.getWarmStorageAddress(),
-          paymentsAddress: CONTRACT_ADDRESSES.PAYMENTS[network],
-          pdpVerifierAddress: this._synapse.getPDPVerifierAddress(),
+          paymentsAddress: this._warmStorageService.getPaymentsAddress(),
+          pdpVerifierAddress: this._warmStorageService.getPDPVerifierAddress(),
         },
         allowances,
       }

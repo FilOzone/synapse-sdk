@@ -319,7 +319,7 @@
             try {
                 const network = await provider.getNetwork();
                 const networkName = network.chainId === 314159n ? 'calibration' : 'mainnet';
-                const pdpVerifierAddress = CONTRACT_ADDRESSES.PDP_VERIFIER[networkName];
+                const pdpVerifierAddress = warmStorageService.getPDPVerifierAddress();
                 
                 const pdpVerifier = new ethers.Contract(
                     pdpVerifierAddress,
@@ -488,7 +488,7 @@
                 });
                 
                 // Create WarmStorageService instance separately
-                warmStorageService = new WarmStorageService(provider, warmStorageAddress || CONTRACT_ADDRESSES.WARM_STORAGE[networkName]);
+                warmStorageService = await WarmStorageService.create(provider, warmStorageAddress || CONTRACT_ADDRESSES.WARM_STORAGE[networkName]);
                 
                 console.log('Using Warm Storage address:', warmStorageAddress || 'default');
 
