@@ -15,7 +15,7 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ### Key Components
 - `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
 - `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
-- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier.
+- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier. Uses factory method `WarmStorageService.create(provider, address)` for async initialization with automatic network detection.
 - `StorageService`: Storage implementation with upload/download.
 - `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
 
@@ -40,13 +40,14 @@ This document serves as context for LLM agent sessions working with the Synapse 
    - Minimal Synapse class: only `payments` property and `createStorage()` method
    - Payment methods via `synapse.payments.*` (PaymentsService)
    - Storage costs/allowances via WarmStorageService (separate instantiation)
+   - **Network Detection**: Uses chainId-based validation with `getFilecoinNetworkType(provider)` utility - network is auto-detected from provider, eliminating need for manual network parameters
    - Strict network validation - only supports Filecoin mainnet and calibration
 
 ### Contract Addresses
-The SDK uses the following contract addresses (defined in `src/utils/constants.ts`):
-- `WARM_STORAGE`: Main Warm Storage contract
-- `PDP_VERIFIER`: PDPVerifier contract
-- `PAYMENTS`: Payments contract
+The SDK uses Multicall3 for automatic address discovery. Only the WarmStorage address needs to be configured:
+- `WARM_STORAGE`: Main Warm Storage contract (the only address needed)
+- `MULTICALL3`: Used for batching address discovery calls
+- All other addresses (PDPVerifier, Payments, USDFC token) are discovered automatically from WarmStorage
 
 ### File Structure
 ```
@@ -80,9 +81,10 @@ src/
 - **Ethers v6 Signer Abstraction**: Works with any ethers-compatible signer
 - **Validation**: Ensures exactly one of `privateKey`, `provider`, or `signer` is provided
 - **Nonce Management**: Uses NonceManager by default to handle transaction nonces automatically
+- **PaymentsService Design**: Takes both provider and signer parameters for NonceManager compatibility - provider used for direct balance/nonce operations, signer for transaction signing. This design prevents interference with NonceManager's internal state and supports MetaMask/hardware wallet scenarios.
 
 #### Token Integration
-- **USDFC Addresses**: In `CONTRACT_ADDRESSES.USDFC` - mainnet (`0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`) and calibration (`0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`)
+- **USDFC Addresses**: Discovered automatically from WarmStorage contract
 - **Balance Checking**: `synapse.payments.walletBalance()` for FIL, `synapse.payments.walletBalance(TOKENS.USDFC)` for USDFC (both return bigint)
 - **BigInt Support**: All token amounts use bigint to avoid floating point precision issues
 - **Constants Organization**: All addresses in `CONTRACT_ADDRESSES`, all ABIs in `CONTRACT_ABIS`, tokens in `TOKENS`

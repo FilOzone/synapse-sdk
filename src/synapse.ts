@@ -18,7 +18,7 @@ import type {
   SubgraphConfig,
   SynapseOptions,
 } from './types.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES } from './utils/index.js'
+import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.js'
 import { WarmStorageService } from './warm-storage/index.js'
 
 export class Synapse {
@@ -28,7 +28,6 @@ export class Synapse {
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
   private readonly _warmStorageAddress: string
-  private readonly _pdpVerifierAddress: string
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
@@ -68,19 +67,7 @@ export class Synapse {
       // Create provider and wallet
       provider = new ethers.JsonRpcProvider(rpcURL)
 
-      // If network wasn't explicitly set, detect it
-      if (network == null) {
-        const chainId = Number((await provider.getNetwork()).chainId)
-        if (chainId === CHAIN_IDS.mainnet) {
-          network = 'mainnet'
-        } else if (chainId === CHAIN_IDS.calibration) {
-          network = 'calibration'
-        } else {
-          throw new Error(
-            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
-          )
-        }
-      }
+      network = await getFilecoinNetworkType(provider)
 
       // Create wallet with provider - always use NonceManager unless disabled
       const wallet = new ethers.Wallet(privateKey, provider)
@@ -89,19 +76,7 @@ export class Synapse {
       // Handle provider input
       provider = options.provider
 
-      // If network wasn't explicitly set, detect it
-      if (network == null) {
-        const chainId = Number((await provider.getNetwork()).chainId)
-        if (chainId === CHAIN_IDS.mainnet) {
-          network = 'mainnet'
-        } else if (chainId === CHAIN_IDS.calibration) {
-          network = 'calibration'
-        } else {
-          throw new Error(
-            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
-          )
-        }
-      }
+      network = await getFilecoinNetworkType(provider)
 
       // Get signer - apply NonceManager unless disabled
       // For ethers v6, we need to check if provider has getSigner method
@@ -126,19 +101,7 @@ export class Synapse {
       }
       provider = signer.provider
 
-      // If network wasn't explicitly set, detect it
-      if (network == null) {
-        const chainId = Number((await provider.getNetwork()).chainId)
-        if (chainId === CHAIN_IDS.mainnet) {
-          network = 'mainnet'
-        } else if (chainId === CHAIN_IDS.calibration) {
-          network = 'calibration'
-        } else {
-          throw new Error(
-            `Invalid network: chain ID ${chainId}. Only Filecoin mainnet (314) and calibration (314159) are supported.`
-          )
-        }
-      }
+      network = await getFilecoinNetworkType(provider)
     } else {
       // This should never happen due to validation above
       throw new Error('No valid authentication method provided')
@@ -149,13 +112,23 @@ export class Synapse {
       throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
     }
 
-    // Create payments service
-    const payments = new PaymentsService(provider, signer, network, options.disableNonceManager === true)
-
-    // Create Warm Storage service for the retriever
+    // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    const pdpVerifierAddress = options.pdpVerifierAddress ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-    const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+    if (!warmStorageAddress) {
+      throw new Error(`No Warm Storage address configured for network: ${network}`)
+    }
+    const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+    // Create payments service with discovered addresses
+    const paymentsAddress = warmStorageService.getPaymentsAddress()
+    const usdfcAddress = warmStorageService.getUSDFCTokenAddress()
+    const payments = new PaymentsService(
+      provider,
+      signer,
+      paymentsAddress,
+      usdfcAddress,
+      options.disableNonceManager === true
+    )
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -184,10 +157,8 @@ export class Synapse {
       provider,
       network,
       payments,
-      options.disableNonceManager === true,
       options.withCDN === true,
-      options.warmStorageAddress,
-      options.pdpVerifierAddress,
+      warmStorageAddress,
       warmStorageService,
       pieceRetriever
     )
@@ -198,10 +169,8 @@ export class Synapse {
     provider: ethers.Provider,
     network: FilecoinNetworkType,
     payments: PaymentsService,
-    _disableNonceManager: boolean, // TODO: remove this parameter not used
     withCDN: boolean,
-    warmStorageAddressOverride: string | undefined,
-    pdpVerifierAddressOverride: string | undefined,
+    warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever
   ) {
@@ -212,18 +181,7 @@ export class Synapse {
     this._withCDN = withCDN
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
-
-    // Set Warm Storage address (use override or default for network)
-    this._warmStorageAddress = warmStorageAddressOverride ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    if (this._warmStorageAddress === '' || this._warmStorageAddress === undefined) {
-      throw new Error(`No Warm Storage service address configured for network: ${network}`)
-    }
-
-    // Set PDPVerifier address (use override or default for network)
-    this._pdpVerifierAddress = pdpVerifierAddressOverride ?? CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-    if (this._pdpVerifierAddress === '' || this._pdpVerifierAddress === undefined) {
-      throw new Error(`No PDPVerifier contract address configured for network: ${network}`)
-    }
+    this._warmStorageAddress = warmStorageAddress
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
@@ -270,11 +228,19 @@ export class Synapse {
   }
 
   /**
+   * Gets the Payments contract address for the current network
+   * @returns The Payments contract address
+   */
+  getPaymentsAddress(): string {
+    return this._warmStorageService.getPaymentsAddress()
+  }
+
+  /**
    * Gets the PDPVerifier contract address for the current network
    * @returns The PDPVerifier contract address
    */
   getPDPVerifierAddress(): string {
-    return this._pdpVerifierAddress
+    return this._warmStorageService.getPDPVerifierAddress()
   }
 
   /**

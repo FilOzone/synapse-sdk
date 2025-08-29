@@ -132,13 +132,12 @@ console.log(`Stored with PieceCID: ${result.pieceCid}`)
 For users who need fine-grained control over token approvals:
 
 ```javascript
-import { Synapse, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+import { Synapse, TOKENS } from '@filoz/synapse-sdk'
 
 const synapse = await Synapse.create({ provider })
 
-// Check current allowance
-const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[synapse.getNetwork()]
-const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC, paymentsContract)
+// Check current allowance - addresses are discovered automatically
+const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC)
 
 // Approve only if needed
 if (currentAllowance < requiredAmount) {
@@ -211,8 +210,7 @@ interface SynapseOptions {
   withCDN?: boolean               // Enable CDN for retrievals (set a default for all new storage operations)
   pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
   disableNonceManager?: boolean   // Disable automatic nonce management
-  warmStorageAddress?: string     // Override Warm Storage service contract address (for testing purposes)
-  pdpVerifierAddress?: string     // Override PDPVerifier contract address (for testing purposes)
+  warmStorageAddress?: string     // Override Warm Storage service contract address (all other addresses are discovered from this contract)
 
   // Subgraph Integration (optional, provide only one of these options)
   subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
@@ -593,7 +591,7 @@ import { ethers } from 'ethers'
 
 const provider = new ethers.JsonRpcProvider(rpcUrl)
 const signer = await provider.getSigner()
-const paymentsService = new PaymentsService(provider, signer, 'calibration', false)
+const paymentsService = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
 
 // Deposit USDFC to payments contract
 const depositTx = await paymentsService.deposit(amount) // amount in base units
@@ -622,8 +620,8 @@ Interact with the Warm Storage contract for data set management, service provide
 ```javascript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+// Create WarmStorageService - network is auto-detected from provider
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 
 // Storage cost calculations
 const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
@@ -742,7 +740,9 @@ Low-level interface to the PDPVerifier contract for protocol operations.
 ```javascript
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
+// Create PDPVerifier - address is discovered from WarmStorage  
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+const pdpVerifierAddress = await warmStorageService.getPDPVerifierAddress()
 const pdpVerifier = new PDPVerifier(provider, pdpVerifierAddress)
 
 // Check if data set is live
@@ -1205,7 +1205,7 @@ console.log(`Storage provider: ${storage.storageProvider}`)
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 import type { ServiceProvider } from '@filoz/synapse-sdk'
 
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 const dataSets = await warmStorageService.getClientDataSets(client)
 
 for (const dataSet of dataSets) {

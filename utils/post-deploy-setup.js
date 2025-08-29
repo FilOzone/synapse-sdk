@@ -94,7 +94,7 @@
 
 import { ethers } from 'ethers'
 import { Synapse } from '../dist/index.js'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
+import { CONTRACT_ABIS, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 import { WarmStorageService } from '../dist/warm-storage/index.js'
 
 // Constants for payment approvals
@@ -170,15 +170,8 @@ async function main() {
     log(`Service Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
-    // Get contract addresses - use env vars if provided, otherwise use defaults for network
-    const pdpVerifierAddress = process.env.PDP_VERIFIER_ADDRESS || CONTRACT_ADDRESSES.PDP_VERIFIER[network]
-
-    if (!pdpVerifierAddress) {
-      error('PDP_VERIFIER_ADDRESS must be set or available in constants')
-      process.exit(1)
-    }
-
-    const spTool = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+    // Create WarmStorageService - all addresses are discovered from WarmStorage contract
+    const spTool = await WarmStorageService.create(provider, warmStorageAddress)
 
     // === Step 1: Service Provider Registration ===
     log('\n📋 Step 1: Service Provider Registration')
@@ -274,7 +267,7 @@ async function main() {
       // === Step 2: Approve Service Provider (as deployer) ===
       log('\n✅ Step 2: Approve Service Provider')
 
-      const deployerSpTool = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+      const deployerSpTool = await WarmStorageService.create(provider, warmStorageAddress)
 
       // Verify deployer is contract owner
       const isOwner = await deployerSpTool.isOwner(deployerSigner)
@@ -324,14 +317,10 @@ async function main() {
     const clientSynapse = await Synapse.create({
       privateKey: clientPrivateKey,
       rpcURL,
-      network,
     })
 
-    const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[network]
-    if (!paymentsAddress || paymentsAddress === '') {
-      error(`Payments contract not available on ${network} network`)
-      process.exit(1)
-    }
+    // Get payments address from WarmStorageService
+    const paymentsAddress = await spTool.getPaymentsAddress()
 
     // Check current USDFC allowance for payments contract
     log('Checking USDFC allowance for payments contract...')
@@ -439,7 +428,7 @@ async function main() {
 
     if (clientBalance < LOCKUP_ALLOWANCE) {
       warning('Client USDFC balance is low. Consider funding with more USDFC for testing.')
-      log(`USDFC contract address: ${CONTRACT_ADDRESSES.USDFC[network]}`)
+      log(`USDFC contract address: ${await spTool.getUSDFCTokenAddress()}`)
     }
 
     success('\n🎉 Post-deployment setup completed successfully!')

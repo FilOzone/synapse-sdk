@@ -14,11 +14,13 @@ describe('PaymentsService', () => {
   let mockProvider: ethers.Provider
   let mockSigner: ethers.Signer
   let payments: PaymentsService
+  const mockPaymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+  const mockUsdfcAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
 
   beforeEach(() => {
     mockProvider = createMockProvider()
     mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
-    payments = new PaymentsService(mockProvider, mockSigner, 'calibration', false)
+    payments = new PaymentsService(mockProvider, mockSigner, mockPaymentsAddress, mockUsdfcAddress, false)
   })
 
   describe('Instantiation', () => {
@@ -48,7 +50,7 @@ describe('PaymentsService', () => {
       assert.equal(balance.toString(), ethers.parseUnits('1000', 18).toString())
     })
 
-    it('should throw for unsupported token', async () => {
+    it('should throw for invalid token address', async () => {
       try {
         await payments.walletBalance('UNKNOWN' as any)
         assert.fail('Should have thrown')
@@ -198,7 +200,13 @@ describe('PaymentsService', () => {
         throw new Error('Transaction failed')
       }
 
-      const errorPayments = new PaymentsService(errorProvider, errorSigner, 'calibration', false)
+      const errorPayments = new PaymentsService(
+        errorProvider,
+        errorSigner,
+        mockPaymentsAddress,
+        mockUsdfcAddress,
+        false
+      )
 
       try {
         // Try deposit which uses sendTransaction

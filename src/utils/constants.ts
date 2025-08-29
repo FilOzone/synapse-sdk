@@ -82,6 +82,12 @@ export const CONTRACT_ABIS = {
     'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
     'function providerToId(address) external view returns (uint256)',
     'function viewContractAddress() external view returns (address)',
+
+    // Address getter functions for contract discovery
+    'function pdpVerifierAddress() external view returns (address)',
+    'function paymentsContractAddress() external view returns (address)',
+    'function usdfcTokenAddress() external view returns (address)',
+    'function filCDNAddress() external view returns (address)',
   ] as const,
 
   /**
@@ -102,6 +108,13 @@ export const CONTRACT_ABIS = {
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
     'function challengeWindow() external view returns (uint256)',
+  ] as const,
+
+  /**
+   * Multicall3 ABI - for batching multiple contract calls into a single RPC request
+   */
+  MULTICALL3: [
+    'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public payable returns (tuple(bool success, bytes returnData)[])',
   ] as const,
 } as const
 
@@ -269,34 +282,20 @@ export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: st
  */
 export const CONTRACT_ADDRESSES = {
   /**
-   * USDFC token contract addresses
-   */
-  USDFC: {
-    mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
-    calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-  } as const satisfies Record<FilecoinNetworkType, string>,
-
-  /**
-   * Payments contract addresses
-   */
-  PAYMENTS: {
-    mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0',
-  } as const satisfies Record<FilecoinNetworkType, string>,
-
-  /**
-   * PDPVerifier contract addresses
-   */
-  PDP_VERIFIER: {
-    mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48',
-  } as const satisfies Record<FilecoinNetworkType, string>,
-
-  /**
-   * Warm Storage service contract addresses
+   * Warm Storage service contract addresses - the only address needed for SDK initialization
+   * All other contract addresses are discovered from this contract
    */
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
     calibration: '0xA94C1139412da84d3bBb152dac22B0943332fD78',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  /**
+   * Multicall3 contract addresses - used for batching multiple contract calls
+   * Same address across most EVM chains including Filecoin
+   */
+  MULTICALL3: {
+    mainnet: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    calibration: '0xcA11bde05977b3631167028862bE2a173976CA11',
   } as const satisfies Record<FilecoinNetworkType, string>,
 } as const

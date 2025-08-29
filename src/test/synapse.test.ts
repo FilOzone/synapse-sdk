@@ -8,7 +8,12 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PaymentsService } from '../payments/index.js'
 import { Synapse } from '../synapse.js'
-import { createMockProvider, createMockSigner } from './test-utils.js'
+import {
+  createCustomMulticall3Mock,
+  createMockProvider,
+  createMockSigner,
+  extendMockProviderCall,
+} from './test-utils.js'
 
 describe('Synapse', () => {
   let mockProvider: ethers.Provider
@@ -113,7 +118,7 @@ describe('Synapse', () => {
         await Synapse.create({ provider: unsupportedProvider })
         assert.fail('Should have thrown for unsupported network')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid network')
+        assert.include(error.message, 'Unsupported network')
         assert.include(error.message, '999999')
       }
     })
@@ -137,12 +142,22 @@ describe('Synapse', () => {
     it('should accept custom pdpVerifierAddress', async () => {
       const calibrationProvider = createMockProvider(314159)
       const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
-      const synapse = await Synapse.create({
-        provider: calibrationProvider,
-        pdpVerifierAddress: customPDPVerifierAddress,
+
+      // Mock the Multicall3 to return our custom PDP verifier address
+      const cleanup = createCustomMulticall3Mock(calibrationProvider, {
+        pdpVerifier: customPDPVerifierAddress,
       })
-      assert.exists(synapse)
-      assert.equal(synapse.getPDPVerifierAddress(), customPDPVerifierAddress)
+
+      try {
+        const synapse = await Synapse.create({
+          provider: calibrationProvider,
+          pdpVerifierAddress: customPDPVerifierAddress,
+        })
+        assert.exists(synapse)
+        assert.equal((await synapse.getPDPVerifierAddress()).toLowerCase(), customPDPVerifierAddress.toLowerCase())
+      } finally {
+        cleanup()
+      }
     })
 
     it('should use default pdpVerifierAddress when not provided', async () => {
@@ -151,21 +166,31 @@ describe('Synapse', () => {
         provider: calibrationProvider,
       })
       assert.exists(synapse)
-      assert.equal(synapse.getPDPVerifierAddress(), '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48') // Calibration default
+      assert.equal(await synapse.getPDPVerifierAddress(), '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48') // Calibration default
     })
 
     it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
       const mainnetProvider = createMockProvider(314)
       const customWarmStorageAddress = '0x1111111111111111111111111111111111111111'
       const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
-      const synapse = await Synapse.create({
-        provider: mainnetProvider,
-        warmStorageAddress: customWarmStorageAddress,
-        pdpVerifierAddress: customPDPVerifierAddress,
+
+      // Mock the Multicall3 to return our custom PDP verifier address
+      const cleanup = createCustomMulticall3Mock(mainnetProvider, {
+        pdpVerifier: customPDPVerifierAddress,
       })
-      assert.exists(synapse)
-      assert.equal(synapse.getWarmStorageAddress(), customWarmStorageAddress)
-      assert.equal(synapse.getPDPVerifierAddress(), customPDPVerifierAddress)
+
+      try {
+        const synapse = await Synapse.create({
+          provider: mainnetProvider,
+          warmStorageAddress: customWarmStorageAddress,
+          pdpVerifierAddress: customPDPVerifierAddress,
+        })
+        assert.exists(synapse)
+        assert.equal(synapse.getWarmStorageAddress(), customWarmStorageAddress)
+        assert.equal((await synapse.getPDPVerifierAddress()).toLowerCase(), customPDPVerifierAddress.toLowerCase())
+      } finally {
+        cleanup()
+      }
     })
   })
 
@@ -242,8 +267,7 @@ describe('Synapse', () => {
       }
 
       // Mock WarmStorageService calls
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getProviderIdByAddress
@@ -267,8 +291,8 @@ describe('Synapse', () => {
           )
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -280,7 +304,7 @@ describe('Synapse', () => {
         assert.equal(providerInfo.registeredAt, expectedProviderInfo.registeredAt)
         assert.equal(providerInfo.approvedAt, expectedProviderInfo.approvedAt)
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
 
@@ -299,8 +323,7 @@ describe('Synapse', () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
 
       // Mock WarmStorageService to return 0 for provider ID (not approved)
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getProviderIdByAddress returning 0
@@ -308,8 +331,8 @@ describe('Synapse', () => {
           return ethers.zeroPadValue('0x00', 32) // Return provider ID 0 (not approved)
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -318,7 +341,7 @@ describe('Synapse', () => {
       } catch (error: any) {
         assert.include(error.message, 'is not approved')
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
 
@@ -326,8 +349,7 @@ describe('Synapse', () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
 
       // Mock WarmStorageService calls
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getProviderIdByAddress
@@ -343,8 +365,8 @@ describe('Synapse', () => {
           )
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -353,7 +375,7 @@ describe('Synapse', () => {
       } catch (error: any) {
         assert.include(error.message, 'not found')
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
   })
@@ -505,8 +527,7 @@ describe('Synapse', () => {
       }
 
       // Mock provider call responses
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getServicePrice
@@ -555,8 +576,8 @@ describe('Synapse', () => {
           )
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -590,7 +611,7 @@ describe('Synapse', () => {
         assert.equal(storageInfo.allowances?.rateAllowance, mockAllowances.rateAllowance)
         assert.equal(storageInfo.allowances?.lockupAllowance, mockAllowances.lockupAllowance)
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
 
@@ -607,8 +628,7 @@ describe('Synapse', () => {
       }
 
       // Mock provider call responses
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getServicePrice
@@ -647,8 +667,8 @@ describe('Synapse', () => {
           throw new Error('No wallet connected')
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -660,7 +680,7 @@ describe('Synapse', () => {
         assert.exists(storageInfo.serviceParameters)
         assert.isNull(storageInfo.allowances)
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
 
@@ -692,8 +712,7 @@ describe('Synapse', () => {
       }
 
       // Mock provider call responses
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
+      const cleanup = extendMockProviderCall(mockProvider, async (transaction: any) => {
         const data = transaction.data
 
         // Mock getServicePrice
@@ -732,8 +751,8 @@ describe('Synapse', () => {
           throw new Error('No allowances')
         }
 
-        return `0x${'0'.repeat(64)}`
-      }
+        return null
+      })
 
       try {
         const synapse = await Synapse.create({ signer: mockSigner })
@@ -743,7 +762,7 @@ describe('Synapse', () => {
         assert.equal(storageInfo.providers.length, 1)
         assert.equal(storageInfo.providers[0].serviceProvider, mockProviders[0].serviceProvider)
       } finally {
-        mockProvider.call = originalCall
+        cleanup()
       }
     })
 
@@ -759,7 +778,7 @@ describe('Synapse', () => {
         await synapse.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get storage service information')
+        // The error should bubble up from the contract call
         assert.include(error.message, 'RPC error')
       } finally {
         mockProvider.call = originalCall

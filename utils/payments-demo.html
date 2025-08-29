@@ -454,19 +454,12 @@
                 document.getElementById('balancesSection').style.display = 'block';
                 document.getElementById('operationsSection').style.display = 'block';
 
-                // Set default addresses
-                const paymentsAddress = CONTRACT_ADDRESSES.PAYMENTS[network];
-                const serviceAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network];
+                // Get addresses dynamically from WarmStorageService
+                const paymentsAddress = synapse.getPaymentsAddress();
+                const serviceAddress = synapse.getWarmStorageAddress();
 
-                // Check if contracts are deployed
-                if (!paymentsAddress) {
-                    console.warn(`Payments contract not configured for ${network}`);
-                    showError('connectionInfo', `Warning: Payments contract address not configured for ${network}`);
-                }
-
-                if (!serviceAddress) {
-                    console.warn(`PDP Service contract not configured for ${network}`);
-                }
+                console.log(`Using Payments address: ${paymentsAddress}`);
+                console.log(`Using WarmStorage address: ${serviceAddress}`);
 
                 if (paymentsAddress) {
                     document.getElementById('allowanceSpender').placeholder = paymentsAddress;
@@ -589,7 +582,7 @@
         // Check allowance
         async function checkAllowance() {
             try {
-                const spender = document.getElementById('allowanceSpender').value || CONTRACT_ADDRESSES.PAYMENTS[network];
+                const spender = document.getElementById('allowanceSpender').value || synapse.getPaymentsAddress();
                 if (!spender) {
                     showError('allowanceResult', 'Please enter a spender address');
                     return;
@@ -609,7 +602,7 @@
         // Approve token
         async function approveToken() {
             try {
-                const spender = document.getElementById('approveSpender').value || CONTRACT_ADDRESSES.PAYMENTS[network];
+                const spender = document.getElementById('approveSpender').value || synapse.getPaymentsAddress();
                 const amount = document.getElementById('approveAmount').value;
 
                 if (!spender || !amount) {
@@ -701,7 +694,7 @@ Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLock
                     lockupAllowance,
                     maxLockupPeriod,
                     network,
-                    paymentsContract: CONTRACT_ADDRESSES.PAYMENTS[network]
+                    paymentsContract: synapse.getPaymentsAddress()
                 });
 
                 showLoading('approveServiceResult');
