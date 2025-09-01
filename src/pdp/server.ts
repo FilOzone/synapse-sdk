@@ -28,7 +28,7 @@
 
 import { ethers } from 'ethers'
 import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
-import type { DataSetData, PieceCID } from '../types.js'
+import type { DataSetData, MetadataEntry, PieceCID } from '../types.js'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
 import type { PDPAuthHelper } from './auth.js'
 import {
@@ -148,17 +148,15 @@ export class PDPServer {
     withCDN: boolean,
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
+    const metadata = withCDN ? [this.getAuthHelper().WITH_CDN_METADATA] : []
     // Generate the EIP-712 signature for data set creation
-    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, [
-      this.getAuthHelper().WITH_CDN_METADATA,
-    ])
+    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
 
     // Prepare the extra data for the contract call
     // This needs to match the DataSetCreateData struct in Warm Storage contract
     const extraData = this._encodeDataSetCreateData({
-      metadata: '', // Empty metadata for now
       payer: await this.getAuthHelper().getSignerAddress(),
-      withCDN,
+      metadata,
       signature: authData.signature,
     })
 
@@ -229,26 +227,29 @@ export class PDPServer {
       throw new Error('At least one piece must be provided')
     }
 
+    const metadata: MetadataEntry[][] = []
     // Validate all PieceCIDs
     for (const pieceData of pieceDataArray) {
       const pieceCid = asPieceCID(pieceData)
       if (pieceCid == null) {
         throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
       }
+      metadata.push([]) // empty metadata for each piece
     }
 
     // Generate the EIP-712 signature for adding pieces
     const authData = await this.getAuthHelper().signAddPieces(
       clientDataSetId,
       nextPieceId,
-      pieceDataArray // Pass PieceData[] directly to auth helper
+      pieceDataArray, // Pass PieceData[] directly to auth helper
+      metadata
     )
 
     // Prepare the extra data for the contract call
     // This needs to match what the Warm Storage contract expects for addPieces
     const extraData = this._encodeAddPiecesExtraData({
       signature: authData.signature,
-      metadata: '', // Always use empty metadata
+      metadata: metadata,
     })
 
     // Prepare request body matching the Curio handler expectation
@@ -543,26 +544,20 @@ export class PDPServer {
    * Encode DataSetCreateData for extraData field
    * This matches the Solidity struct DataSetCreateData in Warm Storage contract
    */
-  private _encodeDataSetCreateData(data: {
-    metadata: string
-    payer: string
-    withCDN: boolean
-    signature: string
-  }): string {
+  private _encodeDataSetCreateData(data: { payer: string; metadata: MetadataEntry[]; signature: string }): string {
     // Ensure signature has 0x prefix
     const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
 
     // ABI encode the struct as a tuple
     // DataSetCreateData struct:
-    // - string metadata
     // - address payer
-    // - bool withCDN
+    // - string[] metadataKeys
+    // - string[] metadataValues
     // - bytes signature
+    const keys = data.metadata.map((item) => item.key)
+    const values = data.metadata.map((item) => item.value)
     const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(
-      ['string', 'address', 'bool', 'bytes'],
-      [data.metadata, data.payer, data.withCDN, signature]
-    )
+    const encoded = abiCoder.encode(['address', 'string[]', 'string[]', 'bytes'], [data.payer, keys, values, signature])
 
     // Return hex string without 0x prefix (since we add it in the calling code)
     return encoded.slice(2)
@@ -572,13 +567,15 @@ export class PDPServer {
    * Encode AddPieces extraData for the addPieces operation
    * Based on the Curio handler, this should be (bytes signature, string metadata)
    */
-  private _encodeAddPiecesExtraData(data: { signature: string; metadata: string }): string {
+  private _encodeAddPiecesExtraData(data: { signature: string; metadata: MetadataEntry[][] }): string {
     // Ensure signature has 0x prefix
     const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
+    const keys = data.metadata.map((item) => item.map((item) => item.key))
+    const values = data.metadata.map((item) => item.map((item) => item.value))
 
-    // ABI encode as (bytes signature, string metadata)
+    // ABI encode as (bytes signature, metadataKeys, metadataValues])
     const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['bytes', 'string'], [signature, data.metadata])
+    const encoded = abiCoder.encode(['bytes', 'string[][]', 'string[][]'], [signature, keys, values])
 
     // Return hex string without 0x prefix (since we add it in the calling code)
     return encoded.slice(2)

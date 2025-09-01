@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { asPieceCID, type PieceCID } from '../piece/index.js'
-import type { AuthSignature } from '../types.js'
+import type { AuthSignature, MetadataEntry } from '../types.js'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -72,7 +72,7 @@ const EIP712_TYPES = {
 export class PDPAuthHelper {
   private readonly signer: ethers.Signer
   private readonly domain: ethers.TypedDataDomain
-  public readonly WITH_CDN_METADATA = { key: 'withCDN', value: '' }
+  public readonly WITH_CDN_METADATA: MetadataEntry = { key: 'withCDN', value: '' }
 
   constructor(serviceContractAddress: string, signer: ethers.Signer, chainId: bigint) {
     this.signer = signer
@@ -238,7 +238,7 @@ export class PDPAuthHelper {
   async signCreateDataSet(
     clientDataSetId: number | bigint,
     payee: string,
-    metadata: { key: string; value: string }[] = []
+    metadata: MetadataEntry[] = []
   ): Promise<AuthSignature> {
     let signature: string
     const types = { CreateDataSet: EIP712_TYPES.CreateDataSet, MetadataEntry: EIP712_TYPES.MetadataEntry }
@@ -316,11 +316,20 @@ export class PDPAuthHelper {
   async signAddPieces(
     clientDataSetId: number | bigint,
     firstPieceId: number | bigint,
-    pieceDataArray: PieceCID[] | string[]
+    pieceDataArray: PieceCID[] | string[],
+    metadata: MetadataEntry[][] = []
   ): Promise<AuthSignature> {
+    if (metadata.length === 0) {
+      // make metadata array match length of pieceDataArray
+      metadata = Array(pieceDataArray.length).fill([])
+    } else if (metadata.length !== pieceDataArray.length) {
+      throw new Error('metadata length must match pieceDataArray length')
+    }
+
+    const pieceMetadata: { pieceIndex: number; metadata: MetadataEntry[] }[] = []
+
     // Transform the piece data into the proper format for EIP-712
     const formattedPieceData = []
-    const metadata = []
     for (let i = 0; i < pieceDataArray.length; i++) {
       const piece = pieceDataArray[i]
       const pieceCid = typeof piece === 'string' ? asPieceCID(piece) : piece
@@ -332,9 +341,9 @@ export class PDPAuthHelper {
       formattedPieceData.push({
         data: pieceCid.bytes, // This will be a Uint8Array
       })
-      metadata.push({
+      pieceMetadata.push({
         pieceIndex: i,
-        metadata: [],
+        metadata: metadata[i],
       })
     }
     const types = {
@@ -357,7 +366,7 @@ export class PDPAuthHelper {
         pieceData: formattedPieceData.map((item) => ({
           data: ethers.hexlify(item.data), // Convert Uint8Array to hex string for MetaMask
         })),
-        pieceMetadata: metadata,
+        pieceMetadata: pieceMetadata,
       }
 
       signature = await this.signWithMetaMask(types, value)
@@ -367,7 +376,7 @@ export class PDPAuthHelper {
         clientDataSetId: BigInt(clientDataSetId),
         firstAdded: BigInt(firstPieceId),
         pieceData: formattedPieceData,
-        pieceMetadata: metadata,
+        pieceMetadata: pieceMetadata,
       }
 
       // Use underlying signer for typed data signing (handles NonceManager)
@@ -383,7 +392,7 @@ export class PDPAuthHelper {
       clientDataSetId: BigInt(clientDataSetId),
       firstAdded: BigInt(firstPieceId),
       pieceData: formattedPieceData,
-      pieceMetadata: metadata,
+      pieceMetadata: pieceMetadata,
     })
 
     return {

@@ -117,7 +117,6 @@ describe('Auth Signature Compatibility', () => {
       PIECE_DATA
     )
 
-    console.log('sigData', result.signedData)
     // Verify signature matches exactly
     assert.strictEqual(
       result.signature,
