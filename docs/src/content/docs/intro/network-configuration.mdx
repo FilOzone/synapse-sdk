@@ -1,0 +1,45 @@
+---
+title:  Network Configuration
+description: Learn how to configure the Synapse SDK for different networks.
+sidebar: 
+  order: 2
+---
+
+### RPC Endpoints
+
+```ts twoslash
+import { RPC_URLS } from '@filoz/synapse-sdk'
+
+// Mainnet
+RPC_URLS.mainnet.websocket  // wss://wss.node.glif.io/apigw/lotus/rpc/v1
+RPC_URLS.mainnet.http       // https://api.node.glif.io/rpc/v1
+
+// Calibration Testnet
+RPC_URLS.calibration.websocket  // wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1
+RPC_URLS.calibration.http       // https://api.calibration.node.glif.io/rpc/v1
+```
+
+### GLIF Authorization
+
+For higher rate limits with GLIF endpoints:
+
+```ts twoslash
+import { Synapse } from '@filoz/synapse-sdk'
+
+// Using GLIF authorization with private key
+const synapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: 'https://api.node.glif.io/rpc/v1',
+  authorization: 'Bearer YOUR_GLIF_TOKEN'
+})
+```
+
+### Network Details
+
+**Filecoin Mainnet**
+- Chain ID: 314
+- USDFC Contract: `0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`
+
+**Filecoin Calibration Testnet**
+- Chain ID: 314159
+- USDFC Contract: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`

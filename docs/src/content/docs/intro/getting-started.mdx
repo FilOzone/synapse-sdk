@@ -1,0 +1,256 @@
+---
+title: Getting Started
+description: Learn how to install and use the Synapse SDK.
+sidebar: 
+  order: 0
+---
+import { FileTree } from '@astrojs/starlight/components';
+
+A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
+
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. Additionally, the storage API has been improved with a new context-based architecture. See the [Migration Guide](/guides/migration-guide/#0240) section for migration instructions.
+
+
+The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
+
+- **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
+- **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
+
+The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
+
+## Installation
+
+```bash
+npm install @filoz/synapse-sdk ethers
+```
+
+Note: `ethers` v6 is a peer dependency and must be installed separately.
+
+---
+
+## Project Structure
+
+This project uses a monorepo structure managed by `pnpm` workspaces. Core libraries reside in the `packages/` directory, examples in `examples/`, and this documentation site in `docs/`.
+
+
+<FileTree>
+
+- packages/
+  - synapse-sdk/ Core Synapse SDK library
+  - synapse-sdk-react/ React hooks and context
+- examples/ Usage examples and demos
+- docs/ This documentation site
+- pnpm-workspace.yaml Workspace configuration
+- package.json Root package file
+
+</FileTree>
+
+## Usage
+
+The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
+
+### Quick Start
+
+Get started with storage in just a few lines of code:
+
+```javascript
+import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
+
+// Initialize SDK
+const synapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: RPC_URLS.calibration.websocket  // Use calibration testnet for testing
+})
+
+// Upload data, this auto-selects provider and creates a data set if needed
+// (your first upload will take longer than subsequent uploads due to set up)
+const uploadResult = await synapse.storage.upload(
+  new TextEncoder().encode('🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍')
+)
+console.log(`Upload complete! PieceCID: ${uploadResult.pieceCid}`)
+
+// Download data
+const data = await synapse.storage.download(uploadResult.pieceCid)
+console.log('Retrieved:', new TextDecoder().decode(data))
+```
+
+#### Payment Setup
+
+Before uploading data, you'll need to deposit funds and approve the storage service:
+
+```javascript
+import { TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+import { ethers } from 'ethers'
+
+// 1. Deposit USDFC tokens (one-time setup)
+const amount = ethers.parseUnits('100', 18)  // 100 USDFC
+await synapse.payments.deposit(amount, TOKENS.USDFC)
+
+// 2. Approve the Warm Storage service for automated payments
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
+await synapse.payments.approveService(
+  warmStorageAddress,
+  ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
+  ethers.parseUnits('1000', 18), // Lockup allowance: 1000 USDFC total
+  86400n                         // Max lockup period: 30 days (in epochs)
+)
+
+// Now you're ready to use storage!
+```
+
+### With MetaMask
+
+```javascript
+import { Synapse } from '@filoz/synapse-sdk'
+import { ethers } from 'ethers'
+
+// Connect to MetaMask
+const provider = new ethers.BrowserProvider(window.ethereum)
+const synapse = await Synapse.create({ provider })
+
+// Start uploading immediately
+const data = new TextEncoder().encode('🚀🚀 Hello Filecoin! This is decentralized storage in action.')
+const result = await synapse.storage.upload(data)
+console.log(`Stored with PieceCID: ${result.pieceCid}`)
+```
+
+### Advanced Payment Control
+
+For users who need fine-grained control over token approvals:
+
+```javascript
+import { Synapse, TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
+
+const synapse = await Synapse.create({ provider })
+
+// Check current allowance
+const paymentsContract = CONTRACT_ADDRESSES.PAYMENTS[synapse.getNetwork()]
+const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC, paymentsContract)
+
+// Approve only if needed
+if (currentAllowance < requiredAmount) {
+  const approveTx = await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
+  console.log(`Approval transaction: ${approveTx.hash}`)
+  await approveTx.wait() // Wait for approval before depositing
+}
+
+// Now deposit with optional callbacks for visibility
+const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
+  onAllowanceCheck: (current, required) => {
+    console.log(`Current allowance: ${current}, Required: ${required}`)
+  },
+  onApprovalTransaction: (tx) => {
+    console.log(`Auto-approval sent: ${tx.hash}`)
+  },
+  onDepositStarting: () => {
+    console.log('Starting deposit transaction...')
+  }
+})
+console.log(`Deposit transaction: ${depositTx.hash}`)
+await depositTx.wait()
+
+// Service operator approvals (required before creating data sets)
+// Get the Warm Storage service address for the current network
+const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
+
+// Approve service to create payment rails on your behalf
+const serviceApproveTx = await synapse.payments.approveService(
+  warmStorageAddress,
+  // 10 USDFC per epoch rate allowance
+  ethers.parseUnits('10', synapse.payments.decimals(TOKENS.USDFC)),
+  // 1000 USDFC lockup allowance
+  ethers.parseUnits('1000', synapse.payments.decimals(TOKENS.USDFC)),
+  // 30 days max lockup period (in epochs)
+  86400n
+)
+console.log(`Service approval transaction: ${serviceApproveTx.hash}`)
+await serviceApproveTx.wait()
+
+// Check service approval status
+const serviceStatus = await synapse.payments.serviceApproval(warmStorageAddress)
+console.log('Service approved:', serviceStatus.isApproved)
+console.log('Rate allowance:', serviceStatus.rateAllowance)
+console.log('Rate used:', serviceStatus.rateUsed)
+console.log('Max lockup period:', serviceStatus.maxLockupPeriod)
+
+// Revoke service if needed
+const revokeTx = await synapse.payments.revokeService(warmStorageAddress)
+console.log(`Revoke transaction: ${revokeTx.hash}`)
+await revokeTx.wait()
+```
+
+
+## PieceCID
+
+PieceCID is Filecoin's native content address identifier, a variant of [CID](https://docs.ipfs.tech/concepts/content-addressing/). When you upload data, the SDK calculates a PieceCID—an identifier that:
+- Uniquely identifies your bytes, regardless of size, in a short string form
+- Enables retrieval from any provider storing those bytes
+- Contains embedded size information
+
+**Format Recognition:**
+
+- **PieceCID**: Starts with `bafkzcib`, 64-65 characters - this is what Synapse SDK uses
+- **LegacyPieceCID**: Starts with `baga6ea4seaq`, 64 characters - for compatibility with other Filecoin services
+
+PieceCID is also known as "CommP" or "Piece Commitment" in Filecoin documentation. The SDK exclusively uses PieceCID (v2 format) for all operations—you receive a PieceCID when uploading and use it for downloads.
+
+LegacyPieceCID (v1 format) conversion utilities are provided for interoperability with other Filecoin services that may still use the older format. See [PieceCID Utilities](#piececid-utilities) for conversion functions.
+
+**Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
+
+
+## Browser Integration
+
+The SDK works seamlessly in browsers.
+
+### MetaMask Setup
+
+Official documentation for configuring MetaMask with Filecoin (both Mainnet and the Calibration Test network) can be found at: https://docs.filecoin.io/basics/assets/metamask-setup
+
+If you want to add the Filecoin network programmatically, you can use the following code snippet, for Mainnet (change accordingly for Calibration Testnet):
+
+```javascript
+// Add Filecoin network to MetaMask
+await window.ethereum.request({
+  method: 'wallet_addEthereumChain',
+  params: [{
+    chainId: '0x13A',  // 314 for mainnet
+    chainName: 'Filecoin',
+    nativeCurrency: { name: 'FIL', symbol: 'FIL', decimals: 18 },
+    rpcUrls: ['https://api.node.glif.io/rpc/v1'],
+    blockExplorerUrls: ['https://filfox.info/en']
+  }]
+})
+```
+
+
+## Additional Information
+
+### Type Definitions
+
+The SDK is fully typed with TypeScript. Key types include:
+
+- `PieceCID` - Filecoin Piece Commitment CID (v2)
+- `LegacyPieceCID` - Filecoin Piece Commitment CID (v1)
+- `TokenAmount` - `number | bigint` for token amounts
+- `StorageOptions` - Options for storage service creation
+- `AuthSignature` - Signature data for authenticated operations
+
+### Error Handling
+
+All SDK methods use descriptive error messages with proper error chaining:
+
+```javascript
+try {
+  await synapse.payments.deposit(amount)
+} catch (error) {
+  console.error(error.message)  // Clear error description
+  console.error(error.cause)     // Underlying error if any
+}
+```
+
+
+## Further Resources
+
+-   [API Reference](/api/readme)
+-   [GitHub Repository](https://github.com/FilOzone/synapse-sdk)
