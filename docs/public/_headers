@@ -1,0 +1,17 @@
+/*
+  cache-control: public,max-age=300
+  X-Frame-Options: SAMEORIGIN
+  X-XSS-Protection: 1; mode=block
+  X-Content-Type-Options: nosniff
+
+/_astro/*
+  Cache-Control: public, max-age=31556952, immutable
+
+/*.svg
+  cache-control: public,max-age=3600
+
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+
+https://:version.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex

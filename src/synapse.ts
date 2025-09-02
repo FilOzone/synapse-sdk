@@ -259,6 +259,7 @@ export class Synapse {
 
   /**
    * Gets the storage manager instance
+   *
    * @returns The storage manager for all storage operations
    */
   get storage(): StorageManager {
@@ -267,10 +268,10 @@ export class Synapse {
 
   /**
    * Create a storage service instance.
-   * @deprecated Use synapse.storage.createContext() instead. This method will be removed in a future version.
    *
    * Automatically selects the best available service provider and creates or reuses a data set.
    *
+   * @deprecated Use synapse.storage.createContext() instead. This method will be removed in a future version.
    * @param options - Optional storage configuration
    * @returns A configured StorageService instance ready for uploads/downloads
    *
