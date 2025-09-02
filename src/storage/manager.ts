@@ -21,8 +21,8 @@
  */
 
 import { ethers } from 'ethers'
-import { asPieceCID, downloadAndValidate } from '../piece/index.js'
-import type { Synapse } from '../synapse.js'
+import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
+import type { Synapse } from '../synapse.ts'
 import type {
   ApprovedProviderInfo,
   DownloadOptions,
@@ -35,10 +35,10 @@ import type {
   StorageServiceOptions,
   UploadCallbacks,
   UploadResult,
-} from '../types.js'
-import { createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
-import { StorageContext } from './context.js'
+} from '../types.ts'
+import { createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
+import { StorageContext } from './context.ts'
 
 // Combined callbacks type that can include both creation and upload callbacks
 type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks

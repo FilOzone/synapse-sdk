@@ -5,8 +5,7 @@
  * calculate PieceCID during streaming, and validate it matches the expected value.
  */
 
-import type { PieceCID } from './index.js'
-import { asPieceCID, createPieceCIDStream } from './index.js'
+import { asPieceCID, createPieceCIDStream, type PieceCID } from './index.ts'
 
 /**
  * Download data from a Response object, validate its PieceCID, and return as Uint8Array

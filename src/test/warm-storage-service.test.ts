@@ -6,9 +6,9 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { TIME_CONSTANTS } from '../utils/constants.js'
-import { WarmStorageService } from '../warm-storage/index.js'
-import { createMockProvider, extendMockProviderCall } from './test-utils.js'
+import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { WarmStorageService } from '../warm-storage/index.ts'
+import { createMockProvider, extendMockProviderCall } from './test-utils.ts'
 
 describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider

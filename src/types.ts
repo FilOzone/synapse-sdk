@@ -6,7 +6,7 @@
  */
 
 import type { ethers } from 'ethers'
-import type { PieceCID } from './piece/index.js'
+import type { PieceCID } from './piece/index.ts'
 
 // Re-export PieceCID type
 export type { PieceCID }

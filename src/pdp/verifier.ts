@@ -19,7 +19,7 @@
  */
 
 import { ethers } from 'ethers'
-import { CONTRACT_ABIS } from '../utils/index.js'
+import { CONTRACT_ABIS } from '../utils/index.ts'
 
 export class PDPVerifier {
   private readonly _provider: ethers.Provider

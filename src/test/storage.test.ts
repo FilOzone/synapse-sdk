@@ -1,9 +1,9 @@
 /* globals describe it */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { StorageService } from '../storage/service.js'
-import type { Synapse } from '../synapse.js'
-import type { ApprovedProviderInfo, PieceCID, UploadResult } from '../types.js'
+import { StorageService } from '../storage/service.ts'
+import type { Synapse } from '../synapse.ts'
+import type { ApprovedProviderInfo, PieceCID, UploadResult } from '../types.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {

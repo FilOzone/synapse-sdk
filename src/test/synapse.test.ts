@@ -6,14 +6,14 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PaymentsService } from '../payments/index.js'
-import { Synapse } from '../synapse.js'
+import { PaymentsService } from '../payments/index.ts'
+import { Synapse } from '../synapse.ts'
 import {
   createCustomMulticall3Mock,
   createMockProvider,
   createMockSigner,
   extendMockProviderCall,
-} from './test-utils.js'
+} from './test-utils.ts'
 
 describe('Synapse', () => {
   let mockProvider: ethers.Provider

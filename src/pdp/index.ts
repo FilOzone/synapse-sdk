@@ -1,5 +1,5 @@
 // Export PDP components
-export { PDPAuthHelper } from './auth.js'
+export { PDPAuthHelper } from './auth.ts'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
@@ -7,8 +7,8 @@ export type {
   FindPieceResponse,
   PieceAdditionStatusResponse,
   UploadResponse,
-} from './server.js'
-export { PDPServer } from './server.js'
+} from './server.ts'
+export { PDPServer } from './server.ts'
 // Export validation utilities for advanced use
 export {
   asDataSetData,
@@ -19,5 +19,5 @@ export {
   validateDataSetCreationStatusResponse,
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
-} from './validation.js'
-export { PDPVerifier } from './verifier.js'
+} from './validation.ts'
+export { PDPVerifier } from './verifier.ts'

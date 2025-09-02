@@ -10,7 +10,7 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PDPAuthHelper } from '../pdp/auth.js'
+import { PDPAuthHelper } from '../pdp/auth.ts'
 
 // Test fixtures generated from Solidity reference implementation
 // These signatures are verified against WarmStorage contract

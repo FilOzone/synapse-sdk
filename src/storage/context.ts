@@ -23,10 +23,10 @@
  */
 
 import type { ethers } from 'ethers'
-import type { PaymentsService } from '../payments/index.js'
-import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { asPieceCID } from '../piece/index.js'
-import type { Synapse } from '../synapse.js'
+import type { PaymentsService } from '../payments/index.ts'
+import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import { asPieceCID } from '../piece/index.ts'
+import type { Synapse } from '../synapse.ts'
 import type {
   ApprovedProviderInfo,
   DownloadOptions,
@@ -39,7 +39,7 @@ import type {
   StorageServiceOptions,
   UploadCallbacks,
   UploadResult,
-} from '../types.js'
+} from '../types.ts'
 import {
   calculateLastProofDate,
   createError,
@@ -48,8 +48,8 @@ import {
   SIZE_CONSTANTS,
   TIMING_CONSTANTS,
   timeUntilEpoch,
-} from '../utils/index.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
+} from '../utils/index.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class StorageContext {
   private readonly _synapse: Synapse

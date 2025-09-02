@@ -7,5 +7,5 @@ export type {
   ProviderStats,
   QueryOptions,
   SubgraphDataSetInfo,
-} from './service.js'
-export { SubgraphService } from './service.js'
+} from './service.ts'
+export { SubgraphService } from './service.ts'

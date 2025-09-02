@@ -5,5 +5,5 @@ export type {
   ComprehensiveDataSetStatus,
   DataSetCreationVerification,
   PendingProviderInfo,
-} from './service.js'
-export { WarmStorageService } from './service.js'
+} from './service.ts'
+export { WarmStorageService } from './service.ts'

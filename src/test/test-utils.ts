@@ -15,7 +15,7 @@
  */
 
 import { ethers } from 'ethers'
-import { CONTRACT_ADDRESSES } from '../utils/constants.js'
+import { CONTRACT_ADDRESSES } from '../utils/constants.ts'
 
 // Mock signer factory
 export function createMockSigner(

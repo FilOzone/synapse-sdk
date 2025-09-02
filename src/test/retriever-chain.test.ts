@@ -1,9 +1,9 @@
 /* globals describe it */
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.js'
-import { ChainRetriever } from '../retriever/chain.js'
-import type { ApprovedProviderInfo, EnhancedDataSetInfo, PieceCID, PieceRetriever } from '../types.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
+import { asPieceCID } from '../piece/index.ts'
+import { ChainRetriever } from '../retriever/chain.ts'
+import type { ApprovedProviderInfo, EnhancedDataSetInfo, PieceCID, PieceRetriever } from '../types.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID

@@ -9,7 +9,7 @@ import {
   validateDataSetCreationStatusResponse,
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
-} from '../pdp/validation.js'
+} from '../pdp/validation.ts'
 
 describe('PDP Validation', () => {
   describe('DataSetCreationStatusResponse validation', () => {

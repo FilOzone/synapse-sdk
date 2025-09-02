@@ -5,16 +5,19 @@
  * that have the requested piece, then attempts to download from them.
  */
 
-import type { ApprovedProviderInfo, PieceCID, PieceRetriever } from '../types.js'
-import { createError } from '../utils/index.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
-import { fetchPiecesFromProviders } from './utils.js'
+import type { ApprovedProviderInfo, PieceCID, PieceRetriever } from '../types.ts'
+import { createError } from '../utils/index.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
+import { fetchPiecesFromProviders } from './utils.ts'
 
 export class ChainRetriever implements PieceRetriever {
-  constructor(
-    private readonly warmStorageService: WarmStorageService,
-    private readonly childRetriever?: PieceRetriever
-  ) {}
+  private readonly warmStorageService: WarmStorageService
+  private readonly childRetriever?: PieceRetriever
+
+  constructor(warmStorageService: WarmStorageService, childRetriever?: PieceRetriever) {
+    this.warmStorageService = warmStorageService
+    this.childRetriever = childRetriever
+  }
 
   /**
    * Find providers that can serve pieces for a client
