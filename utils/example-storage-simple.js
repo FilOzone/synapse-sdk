@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-// NOTE: This example currently doesn't work because the minimum bytes size is much larger than
-// the SDK currently states.
-// See https://github.com/FilOzone/synapse-sdk/issues/82 for more information and progress on
-// addressing this.
-
 /**
  * Simple Storage Example - Minimal upload/download demonstration
  *
@@ -18,27 +13,31 @@
 import { Synapse } from '@filoz/synapse-sdk'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
 
 if (!PRIVATE_KEY) {
   console.error('ERROR: PRIVATE_KEY environment variable is required')
-  process.exit(1)
-}
-
-if (!WARM_STORAGE_ADDRESS) {
-  console.error('ERROR: WARM_STORAGE_ADDRESS environment variable is required')
-  console.error('For calibration network, use: 0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5')
+  console.error('Usage: PRIVATE_KEY=0x... node example-storage-simple.js')
   process.exit(1)
 }
 
 async function main() {
+  console.log('=== Synapse SDK Simple Storage Example ===\n')
+
   // Create Synapse instance
-  const synapse = await Synapse.create({
+  const synapseOptions = {
     privateKey: PRIVATE_KEY,
     rpcURL: RPC_URL,
-    warmStorageAddress: WARM_STORAGE_ADDRESS,
-  })
+  }
+
+  // Add Warm Storage address if provided
+  if (WARM_STORAGE_ADDRESS) {
+    synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
+    console.log(`Using Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
+  }
+
+  const synapse = await Synapse.create(synapseOptions)
 
   console.log('Connected to:', RPC_URL)
 

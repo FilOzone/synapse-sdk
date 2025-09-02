@@ -7,9 +7,10 @@
 
 import type { ethers } from 'ethers'
 import type { PieceCID } from './piece/index.js'
+import type { ProviderInfo } from './sp-registry/types.js'
 
-// Re-export PieceCID type
-export type { PieceCID }
+// Re-export PieceCID and ProviderInfo types
+export type { PieceCID, ProviderInfo }
 export type PrivateKey = string
 export type Address = string
 export type TokenAmount = number | bigint
@@ -156,17 +157,17 @@ export interface SubgraphRetrievalService {
    * Finds providers that have registered a specific data segment (PieceCID).
    *
    * @param pieceCid - The PieceCID of the data segment.
-   * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
+   * @returns A promise that resolves to an array of `ProviderInfo` objects.
    */
-  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ApprovedProviderInfo[]>
+  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ProviderInfo[]>
 
   /**
    * Retrieves details for a specific provider by their address.
    *
    * @param address - The unique address (ID) of the provider.
-   * @returns A promise that resolves to `ApprovedProviderInfo` if found, otherwise `null`.
+   * @returns A promise that resolves to `ProviderInfo` if found, otherwise `null`.
    */
-  getProviderByAddress: (address: string) => Promise<ApprovedProviderInfo | null>
+  getProviderByAddress: (address: string) => Promise<ProviderInfo | null>
 }
 
 /**
@@ -189,22 +190,24 @@ export interface AuthSignature {
  * Data set information returned from Warm Storage contract
  */
 export interface DataSetInfo {
-  /** Warm Storage payment rail ID (different from PDPVerifier data set ID) */
-  railId: number
+  /** ID of the PDP payment rail */
+  pdpRailId: number
+  /** For CDN add-on: ID of the cache miss payment rail */
+  cacheMissRailId: number
+  /** For CDN add-on: ID of the CDN payment rail */
+  cdnRailId: number
   /** Address paying for storage */
   payer: string
   /** SP's beneficiary address */
   payee: string
-  /** Commission rate in basis points */
+  /** Commission rate in basis points (dynamic based on CDN usage) */
   commissionBps: number
-  /** General metadata for the data set */
-  metadata: string
-  /** Array of metadata strings for each piece */
-  pieceMetadata: string[]
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: number
-  /** Whether the data set is using CDN */
-  withCDN: boolean
+  /** 0 if payment is not terminated */
+  paymentEndEpoch: number
+  /** Provider ID from the ServiceProviderRegistry */
+  providerId: number
 }
 
 /**
@@ -221,22 +224,8 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
   isManaged: boolean
-}
-
-/**
- * Information about an approved service provider
- */
-export interface ApprovedProviderInfo {
-  /** Service provider address */
-  serviceProvider: string
-  /** Service URL */
-  serviceURL: string
-  /** Peer ID */
-  peerId: string
-  /** Timestamp when registered */
-  registeredAt: number
-  /** Timestamp when approved */
-  approvedAt: number
+  /** Whether the data set is using CDN (derived from cdnRailId > 0) */
+  withCDN: boolean
 }
 
 /**
@@ -247,13 +236,13 @@ export interface StorageCreationCallbacks {
    * Called when a service provider has been selected
    * @param provider - The selected provider info
    */
-  onProviderSelected?: (provider: ApprovedProviderInfo) => void
+  onProviderSelected?: (provider: ProviderInfo) => void
 
   /**
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ApprovedProviderInfo }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ProviderInfo }) => void
 
   /**
    * Called when data set creation transaction is submitted
@@ -315,7 +304,7 @@ export interface PreflightInfo {
     message?: string
   }
   /** Selected service provider (null when no specific provider selected) */
-  selectedProvider: ApprovedProviderInfo | null
+  selectedProvider: ProviderInfo | null
   /** Selected data set ID (null when no specific dataset selected) */
   selectedDataSetId: number | null
 }
@@ -375,7 +364,7 @@ export interface StorageInfo {
   }
 
   /** List of approved service providers */
-  providers: ApprovedProviderInfo[]
+  providers: ProviderInfo[]
 
   /** Service configuration parameters */
   serviceParameters: {
@@ -469,7 +458,7 @@ export interface PieceStatus {
  */
 export interface ProviderSelectionResult {
   /** Selected service provider */
-  provider: ApprovedProviderInfo
+  provider: ProviderInfo
   /** Selected data set ID */
   dataSetId: number
   /** Whether this is a new data set that was created */

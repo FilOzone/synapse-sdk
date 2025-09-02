@@ -196,11 +196,11 @@ export class PaymentsService {
 
   /**
    * Check the current ERC20 token allowance for a spender
-   * @param token - The token to check allowance for (currently only USDFC supported)
    * @param spender - The address to check allowance for
+   * @param token - The token to check allowance for (defaults to USDFC)
    * @returns The current allowance amount as bigint
    */
-  async allowance(token: TokenIdentifier, spender: string): Promise<bigint> {
+  async allowance(spender: string, token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -227,12 +227,16 @@ export class PaymentsService {
 
   /**
    * Approve an ERC20 token spender
-   * @param token - The token to approve spending for (currently only USDFC supported)
    * @param spender - The address to approve as spender
    * @param amount - The amount to approve
+   * @param token - The token to approve spending for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async approve(token: TokenIdentifier, spender: string, amount: TokenAmount): Promise<ethers.TransactionResponse> {
+  async approve(
+    spender: string,
+    amount: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<ethers.TransactionResponse> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -459,12 +463,12 @@ export class PaymentsService {
     }
 
     // Check and update allowance if needed
-    const currentAllowance = await this.allowance(token, this._paymentsAddress)
+    const currentAllowance = await this.allowance(this._paymentsAddress, token)
     callbacks?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
 
     if (currentAllowance < depositAmountBigint) {
       // Golden path: automatically approve the exact amount needed
-      const approveTx = await this.approve(token, this._paymentsAddress, depositAmountBigint)
+      const approveTx = await this.approve(this._paymentsAddress, depositAmountBigint, token)
       callbacks?.onApprovalTransaction?.(approveTx)
 
       // Wait for approval to be mined before proceeding

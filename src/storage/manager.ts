@@ -22,14 +22,15 @@
 
 import { ethers } from 'ethers'
 import { asPieceCID, downloadAndValidate } from '../piece/index.js'
+import { SPRegistryService } from '../sp-registry/index.js'
 import type { Synapse } from '../synapse.js'
 import type {
-  ApprovedProviderInfo,
   DownloadOptions,
   EnhancedDataSetInfo,
   PieceCID,
   PieceRetriever,
   PreflightInfo,
+  ProviderInfo,
   StorageCreationCallbacks,
   StorageInfo,
   StorageServiceOptions,
@@ -37,6 +38,7 @@ import type {
   UploadResult,
 } from '../types.js'
 import { createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.js'
+import { ProviderResolver } from '../utils/provider-resolver.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
 import { StorageContext } from './context.js'
 
@@ -303,10 +305,15 @@ export class StorageManager {
         }
       }
 
+      // Create SPRegistryService and ProviderResolver to get providers
+      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
+      const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
+      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
+
       // Fetch all data in parallel for performance
       const [pricingData, providers, allowances] = await Promise.all([
         this._warmStorageService.getServicePrice(),
-        this._warmStorageService.getAllApprovedProviders(),
+        resolver.getApprovedProviders(),
         getOptionalAllowances(),
       ])
 
@@ -322,7 +329,7 @@ export class StorageManager {
       const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
-      const validProviders = providers.filter((p: ApprovedProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
+      const validProviders = providers.filter((p: ProviderInfo) => p.address !== ethers.ZeroAddress)
 
       const network = this._synapse.getNetwork()
 

@@ -108,7 +108,7 @@ async function main() {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
+          console.log(`✓ Selected service provider: ${provider.address}`)
         },
         onDataSetResolved: (info) => {
           if (info.isExisting) {
@@ -140,11 +140,13 @@ async function main() {
     // Get detailed provider information
     console.log('\n--- Service Provider Details ---')
     const providerInfo = await storageContext.getProviderInfo()
-    console.log(`Service Provider: ${providerInfo.serviceProvider}`)
-    console.log(`Service URL: ${providerInfo.serviceURL}`)
-    console.log(`Peer ID: ${providerInfo.peerId}`)
-    console.log(`Registered: ${new Date(providerInfo.registeredAt * 1000).toLocaleString()}`)
-    console.log(`Approved: ${new Date(providerInfo.approvedAt * 1000).toLocaleString()}`)
+    console.log(`Provider ID: ${providerInfo.id}`)
+    console.log(`Provider Address: ${providerInfo.address}`)
+    console.log(`Provider Name: ${providerInfo.name}`)
+    console.log(`Active: ${providerInfo.active}`)
+    if (providerInfo.products.PDP?.data.serviceURL) {
+      console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
+    }
 
     // Step 5: Run preflight checks
     console.log('\n--- Preflight Upload Check ---')
@@ -242,7 +244,7 @@ async function main() {
     console.log(`- Piece CID / hash (PieceCID): ${uploadResult.pieceCid}`)
     console.log(`- Data set ID: ${storageContext.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
-    console.log(`- Service provider: ${storageContext.serviceProvider}`)
+    console.log(`- Service provider: ${storageContext.address}`)
     console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {

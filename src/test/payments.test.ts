@@ -91,14 +91,14 @@ describe('PaymentsService', () => {
   describe('Token operations', () => {
     it('should check allowance for USDFC', async () => {
       const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
-      const allowance = await payments.allowance(TOKENS.USDFC, paymentsAddress)
+      const allowance = await payments.allowance(paymentsAddress)
       assert.equal(allowance.toString(), '0')
     })
 
     it('should approve token spending', async () => {
       const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
       const amount = ethers.parseUnits('100', 18)
-      const tx = await payments.approve(TOKENS.USDFC, paymentsAddress, amount)
+      const tx = await payments.approve(paymentsAddress, amount)
       assert.exists(tx)
       assert.exists(tx.hash)
       assert.typeOf(tx.hash, 'string')
@@ -106,7 +106,7 @@ describe('PaymentsService', () => {
 
     it('should throw for unsupported token in allowance', async () => {
       try {
-        await payments.allowance('FIL' as any, '0x123')
+        await payments.allowance('0x123', 'FIL' as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not supported')
@@ -115,7 +115,7 @@ describe('PaymentsService', () => {
 
     it('should throw for unsupported token in approve', async () => {
       try {
-        await payments.approve('FIL' as any, '0x123', 100n)
+        await payments.approve('0x123', 100n, 'FIL' as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not supported')

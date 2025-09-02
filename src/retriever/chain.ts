@@ -5,14 +5,17 @@
  * that have the requested piece, then attempts to download from them.
  */
 
-import type { ApprovedProviderInfo, PieceCID, PieceRetriever } from '../types.js'
+import type { SPRegistryService } from '../sp-registry/index.js'
+import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.js'
 import { createError } from '../utils/index.js'
+import { ProviderResolver } from '../utils/provider-resolver.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
 import { fetchPiecesFromProviders } from './utils.js'
 
 export class ChainRetriever implements PieceRetriever {
   constructor(
     private readonly warmStorageService: WarmStorageService,
+    private readonly spRegistry: SPRegistryService,
     private readonly childRetriever?: PieceRetriever
   ) {}
 
@@ -22,14 +25,16 @@ export class ChainRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  private async findProviders(client: string, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
+  private async findProviders(client: string, providerAddress?: string): Promise<ProviderInfo[]> {
+    // Create ProviderResolver using injected SPRegistryService
+    const resolver = new ProviderResolver(this.warmStorageService, this.spRegistry)
+
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
-      const providerId = await this.warmStorageService.getProviderIdByAddress(providerAddress)
-      if (providerId === 0) {
+      const provider = await resolver.getApprovedProviderByAddress(providerAddress)
+      if (provider == null) {
         throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found or not approved`)
       }
-      const provider = await this.warmStorageService.getApprovedProvider(providerId)
       return [provider]
     }
 
@@ -44,32 +49,20 @@ export class ChainRetriever implements PieceRetriever {
       throw createError('ChainRetriever', 'findProviders', `No active data sets with data found for client ${client}`)
     }
 
-    // 3. Get unique providers and fetch info
-    const uniqueProviders = [...new Set(validDataSets.map((ds) => ds.payee))]
-    const providerInfos = await Promise.all(
-      uniqueProviders.map(async (addr) => {
-        try {
-          const id = await this.warmStorageService.getProviderIdByAddress(addr)
-          if (id === 0) {
-            // Provider not found (removed or never existed), skip silently
-            return null
-          }
-          return await this.warmStorageService.getApprovedProvider(id)
-        } catch {
-          // Failed to get provider info (may have been removed), skip silently
-          return null
-        }
-      })
-    )
+    // 3. Get unique provider IDs from data sets (much more reliable than using payee addresses)
+    const uniqueProviderIds = [...new Set(validDataSets.map((ds) => ds.providerId))]
 
-    // Filter out null values (removed/invalid providers)
-    const validProviderInfos = providerInfos.filter((info): info is ApprovedProviderInfo => info !== null)
+    // 4. Batch fetch provider info for all unique provider IDs efficiently
+    const providerInfos = await resolver.getApprovedProvidersByIds(uniqueProviderIds)
+
+    // Filter out null values (unapproved/inactive providers)
+    const validProviderInfos = providerInfos.filter((info): info is ProviderInfo => info != null)
 
     if (validProviderInfos.length === 0) {
       throw createError(
         'ChainRetriever',
         'findProviders',
-        'No valid providers found (all providers may have been removed or are inaccessible)'
+        'No valid providers found (all providers may have been removed or are inactive)'
       )
     }
 
@@ -94,12 +87,13 @@ export class ChainRetriever implements PieceRetriever {
     }
 
     // Step 1: Find providers
-    let providersToTry: ApprovedProviderInfo[] = []
+    let providersToTry: ProviderInfo[] = []
     try {
       providersToTry = await this.findProviders(client, options?.providerAddress)
-    } catch {
+    } catch (error) {
       // Provider discovery failed - this is a critical error
-      return await tryChildOrThrow('Provider discovery failed and no additional retriever method was configured')
+      const message = error instanceof Error ? error.message : 'Provider discovery failed'
+      return await tryChildOrThrow(message)
     }
 
     // Step 2: If no providers found, try child retriever
