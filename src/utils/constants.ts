@@ -4,6 +4,8 @@
 
 import type { FilecoinNetworkType } from '../types.js'
 
+import IERC20_ABI from './abi/IERC20.abi.json' with { type: 'json' }
+
 /**
  * Token identifiers
  */
@@ -27,14 +29,7 @@ export const CONTRACT_ABIS = {
   /**
    * ERC20 ABI - minimal interface needed for balance and approval operations
    */
-  ERC20: [
-    'function balanceOf(address owner) view returns (uint256)',
-    'function decimals() view returns (uint8)',
-    'function symbol() view returns (string)',
-    'function approve(address spender, uint256 amount) returns (bool)',
-    'function allowance(address owner, address spender) view returns (uint256)',
-    'function transfer(address to, uint256 amount) returns (bool)',
-  ] as const,
+  ERC20: IERC20_ABI,
 
   /**
    * Payments contract ABI - based on fws-payments contract
