@@ -477,3 +477,8 @@ export interface ProviderSelectionResult {
   /** Whether this is an existing data set */
   isExisting?: boolean
 }
+
+export type MetadataEntry = {
+  key: string
+  value: string
+}
