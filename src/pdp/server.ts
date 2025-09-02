@@ -27,16 +27,16 @@
  */
 
 import { ethers } from 'ethers'
-import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
-import type { DataSetData, MetadataEntry, PieceCID } from '../types.js'
-import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
-import type { PDPAuthHelper } from './auth.js'
+import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.ts'
+import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
+import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
+import type { PDPAuthHelper } from './auth.ts'
 import {
   asDataSetData,
   validateDataSetCreationStatusResponse,
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
-} from './validation.js'
+} from './validation.ts'
 
 /**
  * Response from creating a data set

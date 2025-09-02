@@ -2,7 +2,7 @@
  * Constants for the Synapse SDK
  */
 
-import type { FilecoinNetworkType } from '../types.js'
+import type { FilecoinNetworkType } from '../types.ts'
 
 /**
  * Token identifiers

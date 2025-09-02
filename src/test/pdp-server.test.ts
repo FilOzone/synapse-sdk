@@ -8,8 +8,8 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.js'
+import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
 
 // Mock server for testing
 class MockPDPServer {

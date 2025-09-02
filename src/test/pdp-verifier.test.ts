@@ -6,8 +6,8 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PDPVerifier } from '../pdp/index.js'
-import { createMockProvider } from './test-utils.js'
+import { PDPVerifier } from '../pdp/index.ts'
+import { createMockProvider } from './test-utils.ts'
 
 describe('PDPVerifier', () => {
   let mockProvider: ethers.Provider
