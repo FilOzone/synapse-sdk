@@ -29,7 +29,7 @@ import { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/service.js'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.js'
 import { PDPVerifier } from '../pdp/verifier.js'
-import type { ApprovedProviderInfo, DataSetInfo, EnhancedDataSetInfo } from '../types.js'
+import type { DataSetInfo, EnhancedDataSetInfo } from '../types.js'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
 import { CONTRACT_ABIS, getFilecoinNetworkType, TOKENS } from '../utils/index.js'
 
@@ -80,18 +80,6 @@ export interface DataSetCreationVerification {
 }
 
 /**
- * Information about a pending provider registration
- */
-export interface PendingProviderInfo {
-  /** Service URL for the provider */
-  serviceURL: string
-  /** Peer ID (UTF-8 encoded bytes) */
-  peerId: string
-  /** Block height when registered */
-  registeredAt: number
-}
-
-/**
  * Combined status information from both PDP server and chain
  */
 export interface ComprehensiveDataSetStatus {
@@ -128,6 +116,7 @@ export class WarmStorageService {
     usdfcToken: string
     filCDN: string
     viewContract: string
+    serviceProviderRegistry: string
   }
 
   /**
@@ -142,6 +131,7 @@ export class WarmStorageService {
       usdfcToken: string
       filCDN: string
       viewContract: string
+      serviceProviderRegistry: string
     }
   ) {
     this._provider = provider
@@ -191,6 +181,11 @@ export class WarmStorageService {
         allowFailure: false,
         callData: iface.encodeFunctionData('viewContractAddress'),
       },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('serviceProviderRegistry'),
+      },
     ]
 
     const results = await multicall.aggregate3.staticCall(calls)
@@ -201,6 +196,7 @@ export class WarmStorageService {
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
       filCDN: iface.decodeFunctionResult('filCDNAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
+      serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
     }
 
     return new WarmStorageService(provider, warmStorageAddress, addresses)
@@ -220,6 +216,18 @@ export class WarmStorageService {
 
   getViewContractAddress(): string {
     return this._addresses.viewContract
+  }
+
+  getServiceProviderRegistryAddress(): string {
+    return this._addresses.serviceProviderRegistry
+  }
+
+  /**
+   * Get the provider instance
+   * @returns The ethers provider
+   */
+  getProvider(): ethers.Provider {
+    return this._provider
   }
 
   /**
@@ -272,14 +280,15 @@ export class WarmStorageService {
 
       // Convert from on-chain format to our interface
       return dataSetData.map((ds: any) => ({
-        railId: Number(ds.pdpRailId), // Using pdpRailId from contract
+        pdpRailId: Number(ds.pdpRailId),
+        cacheMissRailId: Number(ds.cacheMissRailId),
+        cdnRailId: Number(ds.cdnRailId),
         payer: ds.payer,
         payee: ds.payee,
         commissionBps: Number(ds.commissionBps),
-        metadata: ds.metadata,
-        pieceMetadata: ds.pieceMetadata, // This is already an array of strings
         clientDataSetId: Number(ds.clientDataSetId),
-        withCDN: ds.withCDN,
+        paymentEndEpoch: Number(ds.paymentEndEpoch),
+        providerId: Number(ds.providerId),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -301,8 +310,8 @@ export class WarmStorageService {
     // Process all data sets in parallel
     const enhancedDataSetsPromises = dataSets.map(async (dataSet) => {
       try {
-        // Get the actual PDPVerifier data set ID from the rail ID
-        const pdpVerifierDataSetId = Number(await viewContract.railToDataSet(dataSet.railId))
+        // Get the actual PDPVerifier data set ID from the rail ID (using pdpRailId now)
+        const pdpVerifierDataSetId = Number(await viewContract.railToDataSet(dataSet.pdpRailId))
 
         // If railToDataSet returns 0, this rail doesn't exist in this Warm Storage contract
         if (pdpVerifierDataSetId === 0) {
@@ -315,6 +324,7 @@ export class WarmStorageService {
                 currentPieceCount: 0,
                 isLive: false,
                 isManaged: false,
+                withCDN: dataSet.cdnRailId > 0, // CDN is enabled if cdnRailId is non-zero (should be more reliable than metadata)
               }
         }
 
@@ -343,11 +353,14 @@ export class WarmStorageService {
           currentPieceCount: Number(nextPieceId),
           isLive,
           isManaged,
+          withCDN: dataSet.cdnRailId > 0, // CDN is enabled if cdnRailId is non-zero
         }
       } catch (error) {
         // Re-throw the error to let the caller handle it
         throw new Error(
-          `Failed to get details for data set with enhanced info ${dataSet.railId}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to get details for data set with enhanced info ${dataSet.pdpRailId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
         )
       }
     })
@@ -385,7 +398,9 @@ export class WarmStorageService {
       // Verify this data set is managed by our Warm Storage contract
       if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
         throw new Error(
-          `Data set ${dataSetId} is not managed by this WarmStorage contract (${this._warmStorageAddress}), managed by ${String(listener)}`
+          `Data set ${dataSetId} is not managed by this WarmStorage contract (${
+            this._warmStorageAddress
+          }), managed by ${String(listener)}`
         )
       }
 
@@ -884,148 +899,61 @@ export class WarmStorageService {
     }
   }
 
-  // ========== Service Provider Operations ==========
+  // ========== Service Provider Approval Operations ==========
 
   /**
-   * Register as a service provider
-   * Requires 1 FIL registration fee to be paid to the contract
-   * @param signer - Signer to register as provider
-   * @param serviceURL - HTTP service URL for the provider
-   * @param peerId - Optional libp2p peer ID (pass empty string if not provided)
-   * @returns Transaction response
-   */
-  async registerServiceProvider(
-    signer: ethers.Signer,
-    serviceURL: string,
-    peerId: string = ''
-  ): Promise<ethers.TransactionResponse> {
-    const contract = this._getWarmStorageContract()
-    const contractWithSigner = contract.connect(signer) as ethers.Contract
-    // Convert peerId string to bytes (UTF-8 encoding)
-    const peerIdBytes = ethers.toUtf8Bytes(peerId)
-    // Registration requires 1 FIL fee
-    const registrationFee = ethers.parseEther('1.0')
-    return await contractWithSigner.registerServiceProvider(serviceURL, peerIdBytes, { value: registrationFee })
-  }
-
-  /**
-   * Approve a registered service provider (requires owner permissions)
+   * Add an approved provider by ID (owner only)
    * @param signer - Signer with owner permissions
-   * @param providerAddress - Address of provider to approve
+   * @param providerId - Provider ID from registry
    * @returns Transaction response
    */
-  async approveServiceProvider(signer: ethers.Signer, providerAddress: string): Promise<ethers.TransactionResponse> {
+  async addApprovedProvider(signer: ethers.Signer, providerId: number): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.approveServiceProvider(providerAddress)
+    return await contractWithSigner.addApprovedProvider(providerId)
   }
 
   /**
-   * Reject a pending service provider registration (owner only)
-   * @param signer - Signer for the contract owner account
-   * @param providerAddress - Address of the provider to reject
+   * Remove an approved provider by ID (owner only)
+   * @param signer - Signer with owner permissions
+   * @param providerId - Provider ID from registry
    * @returns Transaction response
    */
-  async rejectServiceProvider(signer: ethers.Signer, providerAddress: string): Promise<ethers.TransactionResponse> {
+  async removeApprovedProvider(signer: ethers.Signer, providerId: number): Promise<ethers.TransactionResponse> {
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.rejectServiceProvider(providerAddress)
-  }
 
-  /**
-   * Remove an approved service provider (owner only)
-   * @param signer - Signer for the contract owner account
-   * @param providerId - ID of the provider to remove
-   * @returns Transaction response
-   */
-  async removeServiceProvider(signer: ethers.Signer, providerId: number): Promise<ethers.TransactionResponse> {
-    const contract = this._getWarmStorageContract()
-    const contractWithSigner = contract.connect(signer) as ethers.Contract
-    return await contractWithSigner.removeServiceProvider(providerId)
-  }
+    // First, we need to find the index of this provider in the array
+    const viewContract = this._getWarmStorageViewContract()
+    const approvedIds = await viewContract.getApprovedProviders()
+    const index = approvedIds.findIndex((id: bigint) => Number(id) === providerId)
 
-  /**
-   * Check if an address is an approved provider
-   * @param providerAddress - Address to check
-   * @returns Whether the address is an approved provider
-   */
-  async isProviderApproved(providerAddress: string): Promise<boolean> {
-    const contract = this._getWarmStorageContract()
-    const providerId = await contract.getProviderIdByAddress(providerAddress)
-    return BigInt(providerId) !== 0n
-  }
-
-  /**
-   * Get provider ID by address
-   * @param providerAddress - Address of the provider
-   * @returns Provider ID (0 if not approved)
-   */
-  async getProviderIdByAddress(providerAddress: string): Promise<number> {
-    const contract = this._getWarmStorageContract()
-    const id = await contract.getProviderIdByAddress(providerAddress)
-    return Number(id)
-  }
-
-  /**
-   * Get information about an approved provider
-   * @param providerId - ID of the provider
-   * @returns Provider information
-   */
-  async getApprovedProvider(providerId: number): Promise<ApprovedProviderInfo> {
-    const contract = this._getWarmStorageContract()
-    const info = await contract.getApprovedProvider(providerId)
-
-    // Map new contract structure to SDK interface with backwards compatibility
-    return {
-      serviceProvider: info.serviceProvider,
-      serviceURL: info.serviceURL,
-      peerId: ethers.toUtf8String(info.peerId),
-      registeredAt: Number(info.registeredAt),
-      approvedAt: Number(info.approvedAt),
-    }
-  }
-
-  /**
-   * Get information about a pending provider
-   * @param providerAddress - Address of the pending provider
-   * @returns Pending provider information
-   */
-  async getPendingProvider(providerAddress: string): Promise<PendingProviderInfo> {
-    const contract = this._getWarmStorageContract()
-    const result = await contract.pendingProviders(providerAddress)
-
-    // The contract returns a tuple: (serviceURL, peerId as bytes, registeredAt)
-    const [serviceURL, peerIdBytes, registeredAt] = result
-
-    // Check if provider exists (empty values indicate non-existent provider)
-    if (serviceURL == null || serviceURL === '') {
-      throw new Error(`Pending provider ${providerAddress} not found`)
+    if (index === -1) {
+      throw new Error(`Provider ${providerId} is not in the approved list`)
     }
 
-    // Decode peerId from bytes to string
-    let peerId = ''
-    if (peerIdBytes != null && peerIdBytes !== '0x' && peerIdBytes !== '0x00') {
-      try {
-        // Convert bytes to string
-        peerId = ethers.toUtf8String(peerIdBytes)
-      } catch {
-        // If not UTF-8, keep as hex string
-        peerId = peerIdBytes
-      }
-    }
-
-    // Map contract structure to SDK interface
-    return {
-      serviceURL,
-      peerId,
-      registeredAt: Number(registeredAt),
-    }
+    return await contractWithSigner.removeApprovedProvider(providerId, index)
   }
 
   /**
-   * Get the next provider ID that will be assigned
-   * @returns Next provider ID
+   * Get list of approved provider IDs
+   * @returns Array of approved provider IDs
    */
+  async getApprovedProviderIds(): Promise<number[]> {
+    const viewContract = this._getWarmStorageViewContract()
+    const providerIds = await viewContract.getApprovedProviders()
+    return providerIds.map((id: bigint) => Number(id))
+  }
+
+  /**
+   * Check if a provider ID is approved
+   * @param providerId - Provider ID to check
+   * @returns Whether the provider is approved
+   */
+  async isProviderIdApproved(providerId: number): Promise<boolean> {
+    const viewContract = this._getWarmStorageViewContract()
+    return await viewContract.isProviderApproved(providerId)
+  }
 
   /**
    * Get the contract owner address
@@ -1045,23 +973,6 @@ export class WarmStorageService {
     const signerAddress = await signer.getAddress()
     const ownerAddress = await this.getOwner()
     return signerAddress.toLowerCase() === ownerAddress.toLowerCase()
-  }
-
-  /**
-   * Get all approved providers
-   * @returns Array of all approved providers
-   */
-  async getAllApprovedProviders(): Promise<ApprovedProviderInfo[]> {
-    const contract = this._getWarmStorageContract()
-    const providers = await contract.getAllApprovedProviders()
-
-    return providers.map((p: any) => ({
-      serviceProvider: p.serviceProvider,
-      serviceURL: p.serviceURL,
-      peerId: ethers.toUtf8String(p.peerId),
-      registeredAt: Number(p.registeredAt),
-      approvedAt: Number(p.approvedAt),
-    }))
   }
 
   // ========== Proving Period Operations ==========

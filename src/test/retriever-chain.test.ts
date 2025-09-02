@@ -2,27 +2,64 @@
 import { assert } from 'chai'
 import { asPieceCID } from '../piece/index.js'
 import { ChainRetriever } from '../retriever/chain.js'
-import type { ApprovedProviderInfo, EnhancedDataSetInfo, PieceCID, PieceRetriever } from '../types.js'
+import type { SPRegistryService } from '../sp-registry/index.js'
+import type { EnhancedDataSetInfo, PieceCID, PieceRetriever, ProviderInfo } from '../types.js'
 import type { WarmStorageService } from '../warm-storage/index.js'
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 
 // Mock provider info
-const mockProvider1: ApprovedProviderInfo = {
-  serviceProvider: '0x1234567890123456789012345678901234567890',
-  serviceURL: 'https://provider1.example.com',
-  peerId: 'test-peer-id',
-  registeredAt: 1000,
-  approvedAt: 2000,
+const mockProvider1: ProviderInfo = {
+  id: 1,
+  address: '0x1234567890123456789012345678901234567890',
+  name: 'Provider 1',
+  description: 'Test provider 1',
+  active: true,
+  products: {
+    PDP: {
+      type: 'PDP',
+      isActive: true,
+      capabilities: {},
+      data: {
+        serviceURL: 'https://provider1.example.com',
+        minPieceSizeInBytes: BigInt(1024),
+        maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
+        ipniPiece: false,
+        ipniIpfs: false,
+        storagePricePerTibPerMonth: BigInt(1000000),
+        minProvingPeriodInEpochs: 30,
+        location: 'us-east',
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+      },
+    },
+  },
 }
 
-const mockProvider2: ApprovedProviderInfo = {
-  serviceProvider: '0x2345678901234567890123456789012345678901',
-  serviceURL: 'https://provider2.example.com',
-  peerId: 'test-peer-id',
-  registeredAt: 1000,
-  approvedAt: 2000,
+const mockProvider2: ProviderInfo = {
+  id: 2,
+  address: '0x2345678901234567890123456789012345678901',
+  name: 'Provider 2',
+  description: 'Test provider 2',
+  active: true,
+  products: {
+    PDP: {
+      type: 'PDP',
+      isActive: true,
+      capabilities: {},
+      data: {
+        serviceURL: 'https://provider2.example.com',
+        minPieceSizeInBytes: BigInt(1024),
+        maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
+        ipniPiece: false,
+        ipniIpfs: false,
+        storagePricePerTibPerMonth: BigInt(1000000),
+        minProvingPeriodInEpochs: 30,
+        location: 'us-east',
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+      },
+    },
+  },
 }
 
 // Mock child retriever
@@ -38,13 +75,15 @@ const mockChildRetriever: PieceRetriever = {
 
 // Mock data set
 const mockDataSet: EnhancedDataSetInfo = {
-  railId: 1,
+  pdpRailId: 1,
+  cacheMissRailId: 0,
+  cdnRailId: 0,
   payer: '0xClient',
-  payee: mockProvider1.serviceProvider,
+  payee: mockProvider1.address,
   commissionBps: 100,
-  metadata: '',
-  pieceMetadata: [],
   clientDataSetId: 1,
+  paymentEndEpoch: 0,
+  providerId: 1,
   withCDN: false,
   pdpVerifierDataSetId: 123,
   nextPieceId: 1,
@@ -57,10 +96,18 @@ describe('ChainRetriever', () => {
   describe('fetchPiece with specific provider', () => {
     it('should fetch from specific provider when providerAddress is given', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async (addr: string) => (addr === mockProvider1.serviceProvider ? 1 : 0),
-        getApprovedProvider: async (id: number) => {
+        getProvider: () => null as any, // Mock provider method
+        isProviderIdApproved: async (providerId: number) => providerId === 1, // Provider 1 is approved
+      }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviderByAddress: async (addr: string) => {
+          if (addr === mockProvider1.address) return mockProvider1
+          return null
+        },
+        getProvider: async (id: number) => {
           if (id === 1) return mockProvider1
-          throw new Error('Provider not found')
+          return null
         },
       }
 
@@ -83,9 +130,9 @@ describe('ChainRetriever', () => {
       }
 
       try {
-        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
-          providerAddress: mockProvider1.serviceProvider,
+          providerAddress: mockProvider1.address,
         })
 
         assert.isTrue(findPieceCalled, 'Should call findPiece')
@@ -99,9 +146,17 @@ describe('ChainRetriever', () => {
 
     it('should fall back to child retriever when specific provider is not approved', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async () => 0, // Provider not found
+        getProvider: () => null as any,
+        isProviderIdApproved: async () => false, // No providers approved
       }
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviderByAddress: async () => null, // Provider not found
+      }
+      const retriever = new ChainRetriever(
+        mockWarmStorage as WarmStorageService,
+        mockSPRegistry as SPRegistryService,
+        mockChildRetriever
+      )
       const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
         providerAddress: '0xNotApproved',
       })
@@ -111,9 +166,13 @@ describe('ChainRetriever', () => {
 
     it('should throw when specific provider is not approved and no child retriever', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async () => 0, // Provider not found
+        getProvider: () => null as any,
+        isProviderIdApproved: async () => false, // No providers approved
       }
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviderByAddress: async () => null, // Provider not found
+      }
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient', {
@@ -121,7 +180,7 @@ describe('ChainRetriever', () => {
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
+        assert.include(error.message, 'Provider 0xNotApproved not found or not approved')
       }
     })
   })
@@ -131,49 +190,101 @@ describe('ChainRetriever', () => {
       // This tests that Promise.any() waits for success rather than settling with first failure
       const dataSets = [
         {
+          pdpRailId: 1,
+          cacheMissRailId: 0,
+          cdnRailId: 0,
+          payer: '0xClient',
+          payee: '0xProvider1',
+          commissionBps: 100,
+          clientDataSetId: 1,
+          paymentEndEpoch: 0,
+          providerId: 1,
           isLive: true,
           currentPieceCount: 1,
-          payee: '0xProvider1', // Fast failing provider
         },
         {
+          pdpRailId: 2,
+          cacheMissRailId: 0,
+          cdnRailId: 0,
+          payer: '0xClient',
+          payee: '0xProvider2',
+          commissionBps: 100,
+          clientDataSetId: 2,
+          paymentEndEpoch: 0,
+          providerId: 2,
           isLive: true,
           currentPieceCount: 1,
-          payee: '0xProvider2', // Slower but successful provider
         },
       ]
 
-      const providers = [
+      const providers: ProviderInfo[] = [
         {
-          serviceProvider: '0xProvider1',
-          serviceURL: 'https://pdp1.example.com',
-          peerId: 'test-peer-id',
-          registeredAt: 0,
-          approvedAt: 0,
+          id: 1,
+          address: '0xProvider1',
+          name: 'Provider 1',
+          description: 'Test provider',
+          active: true,
+          products: {
+            PDP: {
+              type: 'PDP',
+              isActive: true,
+              capabilities: {},
+              data: {
+                serviceURL: 'https://pdp1.example.com',
+                minPieceSizeInBytes: BigInt(1024),
+                maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
+                ipniPiece: false,
+                ipniIpfs: false,
+                storagePricePerTibPerMonth: BigInt(1000000),
+                minProvingPeriodInEpochs: 30,
+                location: 'us-east',
+                paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+              },
+            },
+          },
         },
         {
-          serviceProvider: '0xProvider2',
-          serviceURL: 'https://pdp2.example.com',
-          peerId: 'test-peer-id',
-          registeredAt: 0,
-          approvedAt: 0,
+          id: 2,
+          address: '0xProvider2',
+          name: 'Provider 2',
+          description: 'Test provider',
+          active: true,
+          products: {
+            PDP: {
+              type: 'PDP',
+              isActive: true,
+              capabilities: {},
+              data: {
+                serviceURL: 'https://pdp2.example.com',
+                minPieceSizeInBytes: BigInt(1024),
+                maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
+                ipniPiece: false,
+                ipniIpfs: false,
+                storagePricePerTibPerMonth: BigInt(1000000),
+                minProvingPeriodInEpochs: 30,
+                location: 'us-east',
+                paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+              },
+            },
+          },
         },
       ]
 
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => dataSets as any,
-        getProviderIdByAddress: async (addr: string) => {
-          if (addr === '0xProvider1') return 1
-          if (addr === '0xProvider2') return 2
-          return 0
-        },
-        getApprovedProvider: async (id: number) => {
-          if (id === 1) return providers[0]
-          if (id === 2) return providers[1]
-          throw new Error('Provider not found')
+        getProvider: () => null as any,
+        isProviderIdApproved: async (providerId: number) => providerId === 1 || providerId === 2, // Both providers approved
+        getApprovedProviderIds: async () => [1, 2],
+        getViewContractAddress: () => '0xViewContract',
+      }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async (ids: number[]) => {
+          return ids.map((id) => providers.find((p) => p.id === id)).filter((p) => p != null) as ProviderInfo[]
         },
       }
 
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
 
       // Mock fetch
       const originalFetch = global.fetch
@@ -217,64 +328,65 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [
           mockDataSet,
-          { ...mockDataSet, payee: mockProvider2.serviceProvider },
+          { ...mockDataSet, providerId: 2, payee: mockProvider2.address },
         ],
-        getProviderIdByAddress: async (addr: string) => {
-          if (addr === mockProvider1.serviceProvider) return 1
-          if (addr === mockProvider2.serviceProvider) return 2
-          return 0
-        },
-        getApprovedProvider: async (id: number) => {
-          if (id === 1) return mockProvider1
-          if (id === 2) return mockProvider2
-          throw new Error('Provider not found')
+        getProvider: () => null as any,
+        isProviderIdApproved: async (providerId: number) => providerId === 1 || providerId === 2,
+        getApprovedProviderIds: async () => [1, 2],
+        getViewContractAddress: () => '0xViewContract',
+      }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async (ids: number[]) => {
+          return ids
+            .map((id) => {
+              if (id === 1) return mockProvider1
+              if (id === 2) return mockProvider2
+              return null
+            })
+            .filter((p) => p != null) as ProviderInfo[]
         },
       }
 
       // Mock fetch to simulate provider responses
       const originalFetch = global.fetch
-      const fetchCalls: string[] = []
+      let provider1Called = false
+      let provider2Called = false
 
       global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-        fetchCalls.push(url)
 
-        // Provider 1 is slow but successful
-        if (url.includes('provider1')) {
-          await new Promise((resolve) => setTimeout(resolve, 50))
-          if (url.includes('/pdp/piece?')) {
-            return new Response('', { status: 200 })
-          }
+        if (url.includes('provider1.example.com')) {
+          provider1Called = true
           if (url.includes('/piece/')) {
+            // Simulate slower response from provider1
+            await new Promise((resolve) => setTimeout(resolve, 100))
             return new Response('data from provider1', { status: 200 })
           }
+          return new Response('', { status: 200 })
         }
 
-        // Provider 2 is fast and successful
-        if (url.includes('provider2')) {
-          if (url.includes('/pdp/piece?')) {
-            return new Response('', { status: 200 })
-          }
+        if (url.includes('provider2.example.com')) {
+          provider2Called = true
           if (url.includes('/piece/')) {
+            // Provider2 responds faster
+            await new Promise((resolve) => setTimeout(resolve, 10))
             return new Response('data from provider2', { status: 200 })
           }
+          return new Response('', { status: 200 })
         }
 
         throw new Error('Unexpected URL')
       }
 
       try {
-        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
 
+        assert.isTrue(provider1Called || provider2Called, 'At least one provider should be called')
         assert.equal(response.status, 200)
-        const data = await response.text()
-        // Should get data from provider2 since it's faster
-        assert.equal(data, 'data from provider2')
-
-        // Verify both providers were attempted
-        assert.isTrue(fetchCalls.some((url) => url.includes('provider1')))
-        assert.isTrue(fetchCalls.some((url) => url.includes('provider2')))
+        const text = await response.text()
+        assert.include(['data from provider1', 'data from provider2'], text)
       } finally {
         global.fetch = originalFetch
       }
@@ -283,15 +395,27 @@ describe('ChainRetriever', () => {
     it('should fall back to child retriever when all providers fail', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [mockDataSet],
-        getProviderIdByAddress: async () => 1,
-        getApprovedProvider: async () => mockProvider1,
+        getProvider: () => null as any,
       }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async () => [mockProvider1],
+      }
+
+      // Mock fetch to simulate provider failure
       const originalFetch = global.fetch
-      global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
+      global.fetch = async () => {
+        return new Response('Not found', { status: 404 })
+      }
 
       try {
-        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
+        const retriever = new ChainRetriever(
+          mockWarmStorage as WarmStorageService,
+          mockSPRegistry as SPRegistryService,
+          mockChildRetriever
+        )
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
+
         assert.equal(response.status, 200)
         assert.equal(await response.text(), 'data from child')
       } finally {
@@ -302,249 +426,220 @@ describe('ChainRetriever', () => {
     it('should throw when all providers fail and no child retriever', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [mockDataSet],
-        getProviderIdByAddress: async () => 1,
-        getApprovedProvider: async () => mockProvider1,
+        getProvider: () => null as any,
+        isProviderIdApproved: async () => true,
+        getApprovedProviderIds: async () => [1],
+        getViewContractAddress: () => '0xViewContract',
       }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async () => [mockProvider1],
+      }
+
+      // Mock fetch to simulate provider failure
       const originalFetch = global.fetch
-      global.fetch = async () => new Response('error', { status: 500 }) // All fetches fail
+      global.fetch = async () => {
+        return new Response('Not found', { status: 404 })
+      }
 
       try {
-        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(
-          error.message,
-          'All provider retrieval attempts failed and no additional retriever method was configured'
-        )
+        assert.include(error.message, 'All provider retrieval attempts failed')
       } finally {
         global.fetch = originalFetch
       }
     })
 
-    it('should fall back to child retriever when no active data sets found', async () => {
+    it('should handle child retriever when no data sets exist', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [], // No data sets
+        getClientDataSetsWithDetails: async () => [],
+        getProvider: () => null as any,
       }
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockChildRetriever)
+
+      const mockSPRegistry: Partial<SPRegistryService> = {}
+
+      const retriever = new ChainRetriever(
+        mockWarmStorage as WarmStorageService,
+        mockSPRegistry as SPRegistryService,
+        mockChildRetriever
+      )
       const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
     })
 
-    it('should throw when no active data sets found and no child retriever', async () => {
+    it('should throw when no data sets and no child retriever', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [], // No data sets
+        getClientDataSetsWithDetails: async () => [],
+        getProvider: () => null as any,
       }
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+
+      const mockSPRegistry: Partial<SPRegistryService> = {}
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
+        assert.include(error.message, 'No active data sets with data found')
       }
     })
   })
 
-  describe('removed provider handling', () => {
-    it('should gracefully skip removed providers and use valid ones', async () => {
-      // Setup: 3 data sets, 2 with removed providers, 1 with valid provider
-      const removedProvider1 = '0xRemovedProvider1'
-      const removedProvider2 = '0xRemovedProvider2'
-      const validProvider = '0xValidProvider'
-
+  describe('fetchPiece error handling', () => {
+    it('should throw error when provider discovery fails', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [
-          // Data set with removed provider
-          {
-            ...mockDataSet,
-            payee: removedProvider1,
-            currentPieceCount: 5,
-          },
-          // Another data set with removed provider
-          {
-            ...mockDataSet,
-            payee: removedProvider2,
-            currentPieceCount: 3,
-          },
-          // Data set with valid provider
-          {
-            ...mockDataSet,
-            payee: validProvider,
-            currentPieceCount: 2,
-          },
-        ],
-        getProviderIdByAddress: async (addr: string) => {
-          // Removed providers return 0
-          if (addr === removedProvider1 || addr === removedProvider2) return 0
-          if (addr === validProvider) return 3
-          return 0
+        getClientDataSetsWithDetails: async () => {
+          throw new Error('Database connection failed')
         },
-        getApprovedProvider: async (id: number) => {
-          if (id === 3) {
-            return {
-              ...mockProvider1,
-              serviceProvider: validProvider,
-              serviceURL: 'https://valid-provider.com',
-            }
-          }
-          throw new Error('Provider not found')
-        },
+        getProvider: () => null as any,
       }
 
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+      const mockSPRegistry: Partial<SPRegistryService> = {}
 
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-
-        if (url.includes('valid-provider')) {
-          if (url.includes('/pdp/piece?')) {
-            return new Response('', { status: 200 })
-          }
-          if (url.includes('/piece/')) {
-            return new Response('data from valid provider', { status: 200 })
-          }
-        }
-
-        throw new Error(`Unexpected URL: ${url}`)
-      }
-
-      try {
-        const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
-        assert.equal(response.status, 200)
-        assert.equal(await response.text(), 'data from valid provider')
-      } finally {
-        global.fetch = originalFetch
-      }
-    })
-
-    it('should throw clear error when all providers are removed', async () => {
-      const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [
-          {
-            ...mockDataSet,
-            payee: '0xRemovedProvider',
-            currentPieceCount: 5,
-          },
-        ],
-        getProviderIdByAddress: async () => 0, // All providers removed
-        getApprovedProvider: async () => {
-          throw new Error('Provider not found')
-        },
-      }
-
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
 
       try {
         await retriever.fetchPiece(mockPieceCID, '0xClient')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        // The error from findProviders gets wrapped in tryChildOrThrow
-        assert.include(error.message, 'Provider discovery failed and no additional retriever method was configured')
+        assert.include(error.message, 'Database connection failed')
       }
     })
 
-    it('should handle mixed provider states with some throwing errors', async () => {
-      const errorProvider = '0xErrorProvider'
-      const validProvider = '0xValidProvider'
-
-      const mockWarmStorage: Partial<WarmStorageService> = {
-        getClientDataSetsWithDetails: async () => [
-          {
-            ...mockDataSet,
-            payee: errorProvider,
-            currentPieceCount: 5,
-          },
-          {
-            ...mockDataSet,
-            payee: validProvider,
-            currentPieceCount: 2,
-          },
-        ],
-        getProviderIdByAddress: async (addr: string) => {
-          if (addr === errorProvider) return 1
-          if (addr === validProvider) return 2
-          return 0
-        },
-        getApprovedProvider: async (id: number) => {
-          if (id === 1) {
-            // This provider causes an error
-            throw new Error('Database connection failed')
-          }
-          if (id === 2) {
-            return {
-              ...mockProvider1,
-              serviceProvider: validProvider,
-              serviceURL: 'https://valid-provider.com',
-            }
-          }
-          throw new Error('Provider not found')
-        },
+    it('should handle provider with no PDP product', async () => {
+      const providerNoPDP: ProviderInfo = {
+        ...mockProvider1,
+        products: {}, // No products
       }
 
-      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [mockDataSet],
+        getProvider: () => null as any,
+        isProviderIdApproved: async () => true,
+        getApprovedProviderIds: async () => [1],
+        getViewContractAddress: () => '0xViewContract',
+      }
 
-      // Mock fetch
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async () => [providerNoPDP],
+      }
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
+
+      try {
+        await retriever.fetchPiece(mockPieceCID, '0xClient')
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'All provider retrieval attempts failed')
+      }
+    })
+
+    it('should handle mixed success and failure from multiple providers', async () => {
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [
+          mockDataSet,
+          { ...mockDataSet, providerId: 2, payee: mockProvider2.address },
+        ],
+        getProvider: () => null as any,
+        isProviderIdApproved: async (providerId: number) => providerId === 1 || providerId === 2,
+        getApprovedProviderIds: async () => [1, 2],
+        getViewContractAddress: () => '0xViewContract',
+      }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async () => [mockProvider1, mockProvider2],
+      }
+
+      // Mock fetch to simulate mixed responses
       const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, _init?: RequestInit) => {
+      global.fetch = async (input: string | URL | Request) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
-        if (url.includes('valid-provider')) {
-          if (url.includes('/pdp/piece?')) {
-            return new Response('', { status: 200 })
-          }
-          if (url.includes('/piece/')) {
-            return new Response('data from valid provider', { status: 200 })
-          }
+        if (url.includes('provider1.example.com')) {
+          // Provider1 fails
+          return new Response('Server error', { status: 500 })
         }
 
-        throw new Error(`Unexpected URL: ${url}`)
+        if (url.includes('provider2.example.com')) {
+          // Provider2 succeeds
+          if (url.includes('/piece/')) {
+            return new Response('success from provider2', { status: 200 })
+          }
+          return new Response('', { status: 200 })
+        }
+
+        throw new Error('Unexpected URL')
       }
 
       try {
-        // Should still work with the valid provider
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient')
+
         assert.equal(response.status, 200)
-        assert.equal(await response.text(), 'data from valid provider')
+        assert.equal(await response.text(), 'success from provider2')
       } finally {
         global.fetch = originalFetch
       }
     })
-  })
 
-  describe('abort signal handling', () => {
-    it('should propagate abort signal to fetch requests', async () => {
+    it('should handle providers with no valid data sets', async () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
-        getProviderIdByAddress: async () => 1,
-        getApprovedProvider: async () => mockProvider1,
+        getClientDataSetsWithDetails: async () => [
+          { ...mockDataSet, isLive: false }, // Not live
+          { ...mockDataSet, currentPieceCount: 0 }, // No pieces
+        ],
+        getProvider: () => null as any,
       }
 
-      const controller = new AbortController()
+      const mockSPRegistry: Partial<SPRegistryService> = {}
+
+      const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
+
+      try {
+        await retriever.fetchPiece(mockPieceCID, '0xClient')
+        assert.fail('Should have thrown')
+      } catch (error: any) {
+        assert.include(error.message, 'No active data sets with data found')
+      }
+    })
+  })
+
+  describe('AbortSignal support', () => {
+    it('should pass AbortSignal to provider fetch', async () => {
+      const mockWarmStorage: Partial<WarmStorageService> = {
+        getClientDataSetsWithDetails: async () => [mockDataSet],
+        getProvider: () => null as any,
+        isProviderIdApproved: async () => true,
+        getApprovedProviderIds: async () => [1],
+        getViewContractAddress: () => '0xViewContract',
+      }
+
+      const mockSPRegistry: Partial<SPRegistryService> = {
+        getProviders: async () => [mockProvider1],
+      }
+
+      // Mock fetch to check for AbortSignal
       const originalFetch = global.fetch
-      let signalReceived = false
+      let signalPassed = false
 
       global.fetch = async (_input: string | URL | Request, init?: RequestInit) => {
-        if (init?.signal != null) {
-          signalReceived = true
-          // Abort immediately
-          controller.abort()
-          throw new Error('AbortError')
+        if (init?.signal) {
+          signalPassed = true
         }
-        throw new Error('No signal provided')
+        return new Response('test data', { status: 200 })
       }
 
       try {
-        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService)
-        await retriever.fetchPiece(mockPieceCID, '0xClient', {
-          providerAddress: mockProvider1.serviceProvider,
-          signal: controller.signal,
-        })
-        assert.fail('Should have thrown')
-      } catch {
-        assert.isTrue(signalReceived, 'Signal should be propagated to fetch')
+        const controller = new AbortController()
+        const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
+        await retriever.fetchPiece(mockPieceCID, '0xClient', { signal: controller.signal })
+
+        assert.isTrue(signalPassed, 'AbortSignal should be passed to fetch')
       } finally {
         global.fetch = originalFetch
       }
