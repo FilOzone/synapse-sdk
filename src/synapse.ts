@@ -5,20 +5,22 @@
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.js'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
+import { SPRegistryService } from './sp-registry/index.js'
 import type { StorageService } from './storage/index.js'
 import { StorageManager } from './storage/manager.js'
 import { SubgraphService } from './subgraph/service.js'
 import type {
-  ApprovedProviderInfo,
   FilecoinNetworkType,
   PieceCID,
   PieceRetriever,
+  ProviderInfo,
   StorageInfo,
   StorageServiceOptions,
   SubgraphConfig,
   SynapseOptions,
 } from './types.js'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.js'
+import { ProviderResolver } from './utils/provider-resolver.js'
 import { WarmStorageService } from './warm-storage/index.js'
 
 export class Synapse {
@@ -130,13 +132,17 @@ export class Synapse {
       options.disableNonceManager === true
     )
 
+    // Create SPRegistryService for use in retrievers
+    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
+    const spRegistry = new SPRegistryService(provider, registryAddress)
+
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
     if (options.pieceRetriever != null) {
       pieceRetriever = options.pieceRetriever
     } else {
       // Create default retriever chain: FilCDN wraps the base retriever
-      const chainRetriever = new ChainRetriever(warmStorageService)
+      const chainRetriever = new ChainRetriever(warmStorageService, spRegistry)
 
       // Check for subgraph option
       let baseRetriever: PieceRetriever = chainRetriever
@@ -324,7 +330,7 @@ export class Synapse {
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
-  async getProviderInfo(providerAddress: string | number): Promise<ApprovedProviderInfo> {
+  async getProviderInfo(providerAddress: string | number): Promise<ProviderInfo> {
     try {
       // Validate address format if string provided
       if (typeof providerAddress === 'string') {
@@ -335,21 +341,21 @@ export class Synapse {
         }
       }
 
-      const providerId =
-        typeof providerAddress === 'string'
-          ? await this._warmStorageService.getProviderIdByAddress(providerAddress)
-          : providerAddress
+      // Create SPRegistryService and ProviderResolver
+      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
+      const spRegistry = new SPRegistryService(this._provider, registryAddress)
+      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
 
-      // Check if provider is approved
-      if (providerId === 0) {
-        throw new Error(`Provider ${providerAddress} is not approved`)
+      let providerInfo: ProviderInfo | null
+      if (typeof providerAddress === 'string') {
+        providerInfo = await resolver.getApprovedProviderByAddress(providerAddress)
+      } else {
+        providerInfo = await resolver.getApprovedProvider(providerAddress)
       }
 
-      const providerInfo = await this._warmStorageService.getApprovedProvider(providerId)
-
       // Check if provider was found
-      if (providerInfo.serviceProvider === ethers.ZeroAddress) {
-        throw new Error(`Provider ${providerAddress} not found`)
+      if (providerInfo == null) {
+        throw new Error(`Provider ${providerAddress} not found or not approved`)
       }
 
       return providerInfo

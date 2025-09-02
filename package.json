@@ -30,6 +30,10 @@
       "import": "./dist/subgraph/index.js",
       "types": "./dist/subgraph/index.d.ts"
     },
+    "./sp-registry": {
+      "import": "./dist/sp-registry/index.js",
+      "types": "./dist/sp-registry/index.d.ts"
+    },
     "./browser": {
       "import": "./dist/browser/synapse-sdk.esm.js",
       "require": "./dist/browser/synapse-sdk.min.js",

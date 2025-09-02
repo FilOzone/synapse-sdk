@@ -2,7 +2,7 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { ApprovedProviderInfo, PieceCID } from '../types.js'
+import type { PieceCID, ProviderInfo } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
 
@@ -21,7 +21,7 @@ interface ProviderAttemptResult {
  * @returns The first successful response
  */
 export async function fetchPiecesFromProviders(
-  providers: ApprovedProviderInfo[],
+  providers: ProviderInfo[],
   pieceCid: PieceCID,
   retrieverName: string,
   signal?: AbortSignal
@@ -55,7 +55,10 @@ export async function fetchPiecesFromProviders(
 
     try {
       // Phase 1: Check if provider has the piece
-      const findUrl = constructFindPieceUrl(provider.serviceURL, pieceCid)
+      if (!provider.products.PDP?.data.serviceURL) {
+        throw new Error(`Provider ${provider.id} does not have PDP product with serviceURL`)
+      }
+      const findUrl = constructFindPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
       const findResponse = await fetch(findUrl, {
         signal: controller.signal,
       })
@@ -63,14 +66,14 @@ export async function fetchPiecesFromProviders(
       if (!findResponse.ok) {
         // Provider doesn't have the piece
         failures.push({
-          provider: provider.serviceProvider,
+          provider: provider.address,
           error: `findPiece returned ${findResponse.status}`,
         })
         throw new Error('Provider does not have piece')
       }
 
       // Phase 2: Provider has piece, download it
-      const downloadUrl = constructPieceUrl(provider.serviceURL, pieceCid)
+      const downloadUrl = constructPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
       const response = await fetch(downloadUrl, {
         signal: controller.signal,
       })
@@ -82,18 +85,18 @@ export async function fetchPiecesFromProviders(
 
       // Download failed
       failures.push({
-        provider: provider.serviceProvider,
+        provider: provider.address,
         error: `download returned ${response.status}`,
       })
       throw new Error(`Download failed with status ${response.status}`)
     } catch (error: any) {
       // Log actual failures
       const errorMsg = error.message ?? 'Unknown error'
-      if (!failures.some((f) => f.provider === provider.serviceProvider)) {
-        failures.push({ provider: provider.serviceProvider, error: errorMsg })
+      if (!failures.some((f) => f.provider === provider.address)) {
+        failures.push({ provider: provider.address, error: errorMsg })
       }
       // TODO: remove this at some point, it might get noisy
-      console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
+      console.warn(`Failed to fetch from provider ${provider.address}:`, errorMsg)
       throw error
     }
   })

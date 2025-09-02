@@ -13,11 +13,12 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ## Source Structure
 
 ### Key Components
-- `Synapse`: Main SDK entry; minimal interface with `payments` property and `createStorage()` method; strict network validation (mainnet/calibration).
-- `PaymentsService`: Pure payment operations - deposits, withdrawals, balances, service approvals; no storage concerns.
-- `WarmStorageService`: Coordinates storage operations - calculates costs, checks allowances, manages data sets; depends on Payments and PDPVerifier. Uses factory method `WarmStorageService.create(provider, address)` for async initialization with automatic network detection.
-- `StorageService`: Storage implementation with upload/download.
-- `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions for advanced users.
+- `Synapse`: Main SDK entry; minimal interface with `payments` property and `storage` manager; strict network validation (mainnet/calibration).
+- `PaymentsService`: Payment operations - deposits, withdrawals, balances, service approvals.
+- `SPRegistryService`: Service provider registry - registration, updates, product management, provider discovery.
+- `WarmStorageService`: Storage coordination - costs, allowances, data sets. Factory method `WarmStorageService.create(provider, address)`. Source of all contract addresses via discovery.
+- `StorageManager/StorageContext`: Storage operations with auto-managed or explicit contexts.
+- `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions.
 
 ### Development Tools
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
@@ -44,10 +45,9 @@ This document serves as context for LLM agent sessions working with the Synapse 
    - Strict network validation - only supports Filecoin mainnet and calibration
 
 ### Contract Addresses
-The SDK uses Multicall3 for automatic address discovery. Only the WarmStorage address needs to be configured:
-- `WARM_STORAGE`: Main Warm Storage contract (the only address needed)
-- `MULTICALL3`: Used for batching address discovery calls
-- All other addresses (PDPVerifier, Payments, USDFC token) are discovered automatically from WarmStorage
+- SDK automatically discovers all addresses from network (using Multicall3)
+- Only WarmStorage address varies by deployment (handled internally)
+- Address discovery pattern: WarmStorage → All other contracts
 
 ### File Structure
 ```
@@ -55,19 +55,23 @@ src/
 ├── browser-entry.ts            # Browser bundle entry point
 ├── piece/                      # PieceCID utilities (Piece Commitment calculations)
 ├── payments/                   # Payment contract interactions
-│   └── service.ts              # PaymentsService (formerly SynapsePayments)
-├── warm-storage/               # Warm Storage contract interactions (storage coordination)
-│   └── service.ts              # WarmStorageService - storage costs, allowances, data sets
+│   └── service.ts              # PaymentsService - consistent token-last API
+├── warm-storage/               # Warm Storage contract interactions
+│   └── service.ts              # WarmStorageService - costs, allowances, address discovery
+├── sp-registry/                # Service Provider Registry
+│   ├── service.ts              # SPRegistryService - provider management
+│   └── types.ts                # Registry types and interfaces
 ├── pdp/                        # PDP protocol implementations
 │   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
 │   ├── server.ts               # PDPServer - Curio HTTP API client
 │   ├── verifier.ts             # PDPVerifier - contract interactions
 ├── storage/                    # Storage implementation
-│   ├── manager.ts              # StorageManager - facade for all storage operations
+│   ├── manager.ts              # StorageManager - auto-managed contexts, SP-agnostic downloads
 │   └── context.ts              # StorageContext - specific SP + DataSet operations
 ├── utils/                      # Shared utilities
 │   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS
-│   └── errors.ts               # Error creation utilities
+│   ├── errors.ts               # Error creation utilities
+│   └── provider-resolver.ts   # Provider discovery and selection logic
 ├── synapse.ts                  # Main Synapse class (minimal interface)
 └── types.ts                    # TypeScript interfaces
 ```
@@ -81,13 +85,13 @@ src/
 - **Ethers v6 Signer Abstraction**: Works with any ethers-compatible signer
 - **Validation**: Ensures exactly one of `privateKey`, `provider`, or `signer` is provided
 - **Nonce Management**: Uses NonceManager by default to handle transaction nonces automatically
-- **PaymentsService Design**: Takes both provider and signer parameters for NonceManager compatibility - provider used for direct balance/nonce operations, signer for transaction signing. This design prevents interference with NonceManager's internal state and supports MetaMask/hardware wallet scenarios.
+- **PaymentsService Design**: Takes both provider and signer for NonceManager compatibility. Provider for balance/nonce, signer for transactions.
 
 #### Token Integration
-- **USDFC Addresses**: Discovered automatically from WarmStorage contract
-- **Balance Checking**: `synapse.payments.walletBalance()` for FIL, `synapse.payments.walletBalance(TOKENS.USDFC)` for USDFC (both return bigint)
-- **BigInt Support**: All token amounts use bigint to avoid floating point precision issues
-- **Constants Organization**: All addresses in `CONTRACT_ADDRESSES`, all ABIs in `CONTRACT_ABIS`, tokens in `TOKENS`
+- **USDFC Address**: Discovered automatically
+- **Balance Checking**: `walletBalance()` for FIL, `walletBalance(TOKENS.USDFC)` for USDFC (bigint)
+- **BigInt**: All amounts use bigint
+- **Constants**: `CONTRACT_ADDRESSES`, `CONTRACT_ABIS`, `TOKENS`
 
 #### Browser Distribution
 - **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
@@ -163,9 +167,7 @@ WarmStorageService (storage coordination)
   - Performs cryptographic proof verification
   - Emits events and calls listener contracts
 - **Key Functions**: `createDataSet()`, `addPieces()`, `provePieces()`
-- **Address**:
-  - Calibration: `0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC`
-  - Hardcoded in Curio (`contract.ContractAddresses().PDPVerifier`)
+- **Address**: Discovered from WarmStorage
 - **Client Interaction**: Indirect (through Curio API)
 
 
@@ -180,8 +182,7 @@ WarmStorageService (storage coordination)
   - Creates payment rails on data set creation
   - Receives callbacks from PDPVerifier via `PDPListener` interface
   - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
-- **Address**:
-  - Calibration: `0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5`
+- **Address**: Network-specific, handled internally
 - **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
 - **Inheritance**: Inherits SimplePDPService, integrates Payments contract
 
@@ -190,7 +191,7 @@ WarmStorageService (storage coordination)
 - Handles USDFC token deposits/withdrawals
 - Manages payment rails between parties
 - Supports operator approvals for account management
-- Currently deployed version is at `0x0E690D3e60B0576D01352AB03b258115eb84A047` on calibration
+- Address discovered from WarmStorage
 
 #### 5. Curio Storage Provider (Service Node)
 - HTTP API layer that orchestrates blockchain interactions and storage operations
@@ -258,20 +259,15 @@ This architecture enables a clean separation where PDPVerifier handles the crypt
 
 ### Storage Operations
 
-**Simple Usage (Recommended)**:
 ```javascript
-// Auto-managed contexts - SDK handles everything
+// Simple: auto-managed contexts
 await synapse.storage.upload(data)
-await synapse.storage.download(pieceCid)
-```
+await synapse.storage.download(pieceCid)  // SP-agnostic
 
-**Advanced Usage**:
-```javascript
-// Explicit context for specific provider control
+// Advanced: explicit context
 const context = await synapse.storage.createContext({ providerId: 1 })
 await context.upload(data)
-await context.download(pieceCid)  // Downloads from this specific provider
-await context.hasPiece(pieceCid)  // Check if piece exists on this provider
+await context.download(pieceCid)  // SP-specific
 ```
 
 **Download Optimization**: StorageManager checks default context first when downloading without CDN - if piece exists there, uses fast path to avoid discovery.

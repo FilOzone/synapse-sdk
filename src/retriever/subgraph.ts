@@ -2,7 +2,7 @@
  * SubgraphRetriever - Uses a SubgraphService to find and retrieve pieces.
  */
 
-import type { ApprovedProviderInfo, PieceCID, PieceRetriever, SubgraphRetrievalService } from '../types.js'
+import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphRetrievalService } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { fetchPiecesFromProviders } from './utils.js'
 
@@ -18,7 +18,7 @@ export class SubgraphRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  async findProviders(pieceCid: PieceCID, providerAddress?: string): Promise<ApprovedProviderInfo[]> {
+  async findProviders(pieceCid: PieceCID, providerAddress?: string): Promise<ProviderInfo[]> {
     if (providerAddress != null) {
       const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
@@ -40,7 +40,7 @@ export class SubgraphRetriever implements PieceRetriever {
     }
 
     // Step 1: Find providers
-    let providersToTry: ApprovedProviderInfo[] = []
+    let providersToTry: ProviderInfo[] = []
     try {
       providersToTry = await this.findProviders(pieceCid, options?.providerAddress)
     } catch {

@@ -64,23 +64,13 @@ export const CONTRACT_ABIS = {
    * View methods are in the WARM_STORAGE_VIEW contract
    */
   WARM_STORAGE: [
-    // Write functions
-    'function registerServiceProvider(string serviceURL, bytes peerId) external payable',
-    'function approveServiceProvider(address provider) external',
-    'function rejectServiceProvider(address provider) external',
-    'function removeServiceProvider(uint256 providerId) external',
+    // Service provider approval management
+    'function addApprovedProvider(uint256 providerId) external',
+    'function removeApprovedProvider(uint256 providerId, uint256 index) external',
 
-    // Service provider read functions (temporarily in main contract)
-    'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
-    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
-
-    // Other read functions
+    // Read functions
     'function owner() external view returns (address)',
     'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
-    'function providerToId(address) external view returns (uint256)',
     'function viewContractAddress() external view returns (address)',
 
     // Address getter functions for contract discovery
@@ -88,6 +78,7 @@ export const CONTRACT_ABIS = {
     'function paymentsContractAddress() external view returns (address)',
     'function usdfcTokenAddress() external view returns (address)',
     'function filCDNAddress() external view returns (address)',
+    'function serviceProviderRegistry() external view returns (address)',
   ] as const,
 
   /**
@@ -96,14 +87,18 @@ export const CONTRACT_ABIS = {
    */
   WARM_STORAGE_VIEW: [
     // Data set view functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
-    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch))',
+    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, uint256 clientDataSetId, uint256 paymentEndEpoch, uint256 providerId)[])',
+    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, uint256 clientDataSetId, uint256 paymentEndEpoch, uint256 providerId))',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
 
     // Mapping from rail ID to PDPVerifier data set ID
     'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
+
+    // Provider approval functions
+    'function getApprovedProviders() external view returns (uint256[])',
+    'function isProviderApproved(uint256 providerId) external view returns (bool)',
 
     // Proving period and timing functions
     'function getMaxProvingPeriod() external view returns (uint64)',
@@ -115,6 +110,43 @@ export const CONTRACT_ABIS = {
    */
   MULTICALL3: [
     'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public payable returns (tuple(bool success, bytes returnData)[])',
+  ] as const,
+
+  /**
+   * ServiceProviderRegistry ABI - for provider management
+   */
+  SERVICE_PROVIDER_REGISTRY: [
+    // Constants
+    'function REGISTRATION_FEE() external view returns (uint256)',
+
+    // Provider management
+    'function registerProvider(string name, string description, uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external payable returns (uint256)',
+    'function updateProviderInfo(string name, string description) external',
+    'function removeProvider() external',
+    'function transferProviderBeneficiary(address newBeneficiary) external',
+
+    // Provider queries
+    'function getProvider(uint256 providerId) external view returns (tuple(address beneficiary, string name, string description, bool isActive))',
+    'function getProviderByAddress(address providerAddress) external view returns (tuple(address beneficiary, string name, string description, bool isActive))',
+    'function getProviderIdByAddress(address providerAddress) external view returns (uint256)',
+    'function getAllActiveProviders(uint256 offset, uint256 limit) external view returns (uint256[], bool hasMore)',
+    'function getProvidersByProductType(uint8 productType, uint256 offset, uint256 limit) external view returns (tuple(uint256[] providerIds, uint256 totalActive, bool hasMore))',
+    'function isProviderActive(uint256 providerId) external view returns (bool)',
+    'function isRegisteredProvider(address providerAddress) external view returns (bool)',
+    'function getProviderCount() external view returns (uint256)',
+    'function activeProviderCount() external view returns (uint256)',
+
+    // Product management
+    'function addProduct(uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external',
+    'function updateProduct(uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external',
+    'function removeProduct(uint8 productType) external',
+    'function getProduct(uint256 providerId, uint8 productType) external view returns (bytes productData, string[] capabilityKeys, bool isActive)',
+    'function getPDPService(uint256 providerId) external view returns (tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+    'function providerHasProduct(uint256 providerId, uint8 productType) external view returns (bool)',
+
+    // Encoding/decoding helpers
+    'function decodePDPOffering(bytes data) external pure returns (tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress))',
+    'function encodePDPOffering(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering) external pure returns (bytes)',
   ] as const,
 } as const
 
@@ -193,10 +225,10 @@ export const SIZE_CONSTANTS = {
   MAX_UPLOAD_SIZE: 200 * 1024 * 1024,
 
   /**
-   * Minimum upload size (65 bytes)
-   * PieceCID calculation requires at least 65 bytes
+   * Minimum upload size (127 bytes)
+   * PieceCIDv2 calculation requires at least 127 bytes payload
    */
-  MIN_UPLOAD_SIZE: 65,
+  MIN_UPLOAD_SIZE: 127,
 
   /**
    * Default number of uploads to batch together in a single addPieces transaction
@@ -287,7 +319,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xA94C1139412da84d3bBb152dac22B0943332fD78',
+    calibration: '0xe6CD6d7beCD21FbF72452CF8371e505b02134669',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**

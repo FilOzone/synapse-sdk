@@ -28,7 +28,7 @@
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asPieceCID } from '../piece/index.js'
-import type { ApprovedProviderInfo, PieceCID, SubgraphConfig, SubgraphRetrievalService } from '../types.js'
+import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.js'
 import { createError } from '../utils/errors.js'
 import { QUERIES } from './queries.js'
 
@@ -65,7 +65,7 @@ export interface NestedQueryOptions extends QueryOptions {
 /**
  * Extended provider statistics including fault information
  */
-export interface ProviderStats extends ApprovedProviderInfo {
+export interface ProviderStats extends ProviderInfo {
   status: string
   totalFaultedPeriods: number
   totalFaultedPieces: number
@@ -105,7 +105,7 @@ export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
   nextChallengeEpoch: number
   totalFaultedPeriods: number
   metadata: string
-  serviceProvider: ApprovedProviderInfo
+  serviceProvider: ProviderInfo
   rail?: {
     id: string
     railId: number
@@ -140,7 +140,7 @@ export interface PieceInfo {
     id: string
     setId: number
     isActive: boolean
-    serviceProvider: ApprovedProviderInfo
+    serviceProvider: ProviderInfo
   }
 }
 
@@ -159,7 +159,7 @@ export interface FaultRecord {
   dataSet: {
     id: string
     setId: number
-    serviceProvider: ApprovedProviderInfo
+    serviceProvider: ProviderInfo
   }
 }
 
@@ -278,15 +278,38 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Transforms provider data to ApprovedProviderInfo
+   * Transforms provider data to ProviderInfo
+   *
+   * TODO: this needs to be updated when the subgraph is finalised for the latest WarmStorage &
+   * ProviderRegistry contracts.
    */
-  private transformProviderData(data: any): ApprovedProviderInfo {
+  private transformProviderData(data: any): ProviderInfo {
+    // Create a provider with minimal required fields for subgraph compatibility
+    const serviceURL = data.serviceURL ?? data.pdpUrl ?? 'https://unknown.provider'
     return {
-      serviceProvider: data.serviceProvider ?? data.address ?? data.id,
-      serviceURL: data.serviceURL ?? data.pdpUrl,
-      peerId: data.peerId ?? '',
-      registeredAt: this.parseTimestamp(data.registeredAt),
-      approvedAt: this.parseTimestamp(data.approvedAt),
+      id: 1, // Default ID for subgraph providers
+      address: data.address ?? data.id,
+      name: 'Subgraph Provider',
+      description: 'Provider from subgraph',
+      active: true,
+      products: {
+        PDP: {
+          type: 'PDP',
+          isActive: true,
+          capabilities: {},
+          data: {
+            serviceURL,
+            minPieceSizeInBytes: BigInt(1024),
+            maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+            ipniPiece: false,
+            ipniIpfs: false,
+            storagePricePerTibPerMonth: BigInt(1000000),
+            minProvingPeriodInEpochs: 2880,
+            location: 'Unknown',
+            paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+          },
+        },
+      },
     }
   }
 
@@ -340,10 +363,10 @@ export class SubgraphService implements SubgraphRetrievalService {
    * a list of providers, including their addresses and retrieval URLs.
    *
    * @param pieceCid - The piece commitment (PieceCID) to search for.
-   * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects.
+   * @returns A promise that resolves to an array of `ProviderInfo` objects.
    *          Returns an empty array if no providers are found or if an error occurs during the fetch.
    */
-  async getApprovedProvidersForPieceCID(pieceCid: PieceCID): Promise<ApprovedProviderInfo[]> {
+  async getApprovedProvidersForPieceCID(pieceCid: PieceCID): Promise<ProviderInfo[]> {
     const pieceCidParsed = asPieceCID(pieceCid)
     if (pieceCidParsed == null) {
       throw createError('SubgraphService', 'getApprovedProvidersForPieceCID', 'Invalid PieceCID')
@@ -362,7 +385,7 @@ export class SubgraphService implements SubgraphRetrievalService {
     }
 
     const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
-      const provider = piece.dataSet.serviceProvider
+      const provider = piece.dataSet.address
       const address = provider?.address?.toLowerCase() as string
 
       if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
@@ -386,9 +409,9 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Queries the subgraph to find a specific approved service provider by their address.
    *
    * @param address - The wallet address of the provider to search for.
-   * @returns A promise that resolves to an `ApprovedProviderInfo` object if the provider is found, or `null` otherwise.
+   * @returns A promise that resolves to an `ProviderInfo` object if the provider is found, or `null` otherwise.
    */
-  async getProviderByAddress(address: string): Promise<ApprovedProviderInfo | null> {
+  async getProviderByAddress(address: string): Promise<ProviderInfo | null> {
     const data = await this.executeQuery<{ provider: any | null }>(
       QUERIES.GET_PROVIDER_BY_ADDRESS,
       { providerId: address },
@@ -407,7 +430,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Generic method to query providers with flexible where clauses
    *
    * @param options - Query options including where clause, pagination, and ordering
-   * @returns A promise that resolves to an array of `ApprovedProviderInfo` objects
+   * @returns A promise that resolves to an array of `ProviderInfo` objects
    *
    * @example
    * ```typescript
@@ -426,7 +449,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * });
    * ```
    */
-  async queryProviders(options: QueryOptions = {}): Promise<ApprovedProviderInfo[]> {
+  async queryProviders(options: QueryOptions = {}): Promise<ProviderInfo[]> {
     const data = await this.executeQuery<{ providers: any[] }>(
       QUERIES.GET_PROVIDERS_FLEXIBLE,
       this.normalizeQueryOptions(options),
@@ -500,26 +523,9 @@ export class SubgraphService implements SubgraphRetrievalService {
       metadata: dataSet.metadata ?? '',
       createdAt: this.parseTimestamp(dataSet.createdAt),
       updatedAt: this.parseTimestamp(dataSet.updatedAt),
-      owner:
-        dataSet.owner != null
-          ? this.transformProviderData(dataSet.owner)
-          : {
-              serviceProvider: '',
-              serviceURL: '',
-              peerId: '',
-              registeredAt: 0,
-              approvedAt: 0,
-            },
+      owner: dataSet.owner != null ? this.transformProviderData(dataSet.owner) : this.transformProviderData({}), // Create default provider
       serviceProvider:
-        dataSet.serviceProvider != null
-          ? this.transformProviderData(dataSet.serviceProvider)
-          : {
-              serviceProvider: '',
-              serviceURL: '',
-              peerId: '',
-              registeredAt: 0,
-              approvedAt: 0,
-            },
+        dataSet.address != null ? this.transformProviderData(dataSet.address) : this.transformProviderData({}), // Create default provider
       rail:
         dataSet.rail != null
           ? {
@@ -591,7 +597,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider),
+        serviceProvider: this.transformProviderData(piece.dataSet.address),
       },
     }))
   }
@@ -642,7 +648,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider),
+        serviceProvider: this.transformProviderData(fault.dataSet.address),
       },
     }))
   }

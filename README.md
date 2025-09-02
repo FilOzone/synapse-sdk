@@ -4,7 +4,12 @@
 
 A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
 
-> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. Additionally, the storage API has been improved with a new context-based architecture. See the [Terminology Update](#terminology-update-v0240) section for migration instructions.
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major updates have been introduced:
+> - **Terminology**: **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**
+> - **Storage API**: Improved with a new context-based architecture
+> - **PaymentsService**: Method signatures updated for consistency - `token` parameter is now always last and defaults to USDFC
+>
+> See the [Migration Guide](#migration-guide) for detailed migration instructions.
 
 ## Overview
 
@@ -36,6 +41,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 * [PieceCID](#piececid)
 * [Using Individual Components](#using-individual-components)
   * [Payments Service](#payments-service)
+  * [Service Provider Registry](#service-provider-registry)
   * [Warm Storage Service](#warm-storage-service)
   * [Subgraph Service](#subgraph-service)
   * [PDP Components](#pdp-components)
@@ -51,6 +57,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [Error Handling](#error-handling)
 * [Contributing](#contributing)
   * [Commit Message Guidelines](#commit-message-guidelines)
+  * [Git hooks](#git-hooks)
   * [Testing](#testing)
 * [Migration Guide](#migration-guide)
   * [Terminology Update (v0.24.0+)](#terminology-update-v0240)
@@ -97,10 +104,11 @@ import { ethers } from 'ethers'
 
 // 1. Deposit USDFC tokens (one-time setup)
 const amount = ethers.parseUnits('100', 18)  // 100 USDFC
-await synapse.payments.deposit(amount, TOKENS.USDFC)
+await synapse.payments.deposit(amount)
 
 // 2. Approve the Warm Storage service for automated payments
-const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
+// The SDK automatically uses the correct service address for your network
+const warmStorageAddress = await synapse.getWarmStorageAddress()
 await synapse.payments.approveService(
   warmStorageAddress,
   ethers.parseUnits('10', 18),   // Rate allowance: 10 USDFC per epoch
@@ -136,12 +144,13 @@ import { Synapse, TOKENS } from '@filoz/synapse-sdk'
 
 const synapse = await Synapse.create({ provider })
 
-// Check current allowance - addresses are discovered automatically
-const currentAllowance = await synapse.payments.allowance(TOKENS.USDFC)
+// Check current allowance
+const paymentsAddress = await synapse.getPaymentsAddress()
+const currentAllowance = await synapse.payments.allowance(paymentsAddress)
 
 // Approve only if needed
 if (currentAllowance < requiredAmount) {
-  const approveTx = await synapse.payments.approve(TOKENS.USDFC, paymentsContract, requiredAmount)
+  const approveTx = await synapse.payments.approve(paymentsAddress, requiredAmount)
   console.log(`Approval transaction: ${approveTx.hash}`)
   await approveTx.wait() // Wait for approval before depositing
 }
@@ -162,8 +171,7 @@ console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait()
 
 // Service operator approvals (required before creating data sets)
-// Get the Warm Storage service address for the current network
-const warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[synapse.getNetwork()]
+const warmStorageAddress = await synapse.getWarmStorageAddress()
 
 // Approve service to create payment rails on your behalf
 const serviceApproveTx = await synapse.payments.approveService(
@@ -284,8 +292,8 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 **Token Operations:**
 - `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
 - `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
-- `approve(token, spender, amount)` - Approve token spending (for manual control), returns `TransactionResponse`
-- `allowance(token, spender)` - Check current token allowance
+- `approve(spender, amount, token?)` - Approve token spending (for manual control), returns `TransactionResponse`
+- `allowance(spender, token?)` - Check current token allowance
 
 **Service Approvals:**
 - `approveService(service, rateAllowance, lockupAllowance, maxLockupPeriod, token?)` - Approve a service contract as operator, returns `TransactionResponse`
@@ -460,7 +468,7 @@ console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 ##### Size Constraints
 
 The storage service enforces the following size limits for uploads:
-- **Minimum**: 65 bytes
+- **Minimum**: 127 bytes
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
 Attempting to upload data outside these limits will result in an error.
@@ -613,6 +621,55 @@ console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
 ```
 
+### Service Provider Registry
+
+Query and manage service providers registered in the on-chain registry.
+
+```javascript
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
+
+// Create service instance
+const spRegistry = new SPRegistryService(provider, registryAddress)
+
+// Query providers
+const allProviders = await spRegistry.getAllActiveProviders()
+const provider = await spRegistry.getProvider(providerId)
+const providerByAddr = await spRegistry.getProviderByAddress(address)
+
+// Check registration status
+const isRegistered = await spRegistry.isRegisteredProvider(address)
+const providerId = await spRegistry.getProviderIdByAddress(address)
+const isActive = await spRegistry.isProviderActive(providerId)
+
+// Provider management (requires signer)
+const registrationInfo = {
+  name: 'My Storage Provider',
+  description: 'Reliable storage service',
+  pdpOffering: {
+    serviceURL: 'https://provider.example.com',
+    minPieceSizeInBytes: 65n,
+    maxPieceSizeInBytes: 34091302912n,
+    storagePricePerTibPerMonth: 5000000000000000000n,
+    location: '/C=US/ST=CA/L=SF',
+    // ... other PDP fields
+  },
+  capabilities: { hyperCompute: '100x' }
+}
+await spRegistry.registerProvider(signer, registrationInfo)
+await spRegistry.updateProviderInfo(signer, name, description)
+await spRegistry.removeProvider(signer)
+
+// Product management for PDP services
+await spRegistry.addPDPProduct(signer, pdpOffering, capabilities)
+await spRegistry.updatePDPProduct(signer, pdpOffering, capabilities)
+await spRegistry.deactivateProduct(signer, 0) // 0 = ProductType.PDP
+
+// Query PDP service details
+const pdpService = await spRegistry.getPDPService(providerId)
+console.log('Service URL:', pdpService.offering.serviceURL)
+console.log('Storage Price:', pdpService.offering.storagePricePerTibPerMonth)
+```
+
 ### Warm Storage Service
 
 Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
@@ -620,7 +677,7 @@ Interact with the Warm Storage contract for data set management, service provide
 ```javascript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
-// Create WarmStorageService - network is auto-detected from provider
+// Create WarmStorageService using factory method
 const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 
 // Storage cost calculations
@@ -740,9 +797,7 @@ Low-level interface to the PDPVerifier contract for protocol operations.
 ```javascript
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
-// Create PDPVerifier - address is discovered from WarmStorage  
-const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
-const pdpVerifierAddress = await warmStorageService.getPDPVerifierAddress()
+// Create PDPVerifier instance
 const pdpVerifier = new PDPVerifier(provider, pdpVerifierAddress)
 
 // Check if data set is live
@@ -765,7 +820,6 @@ Consolidated interface for all PDP server (Curio) HTTP operations including data
 import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create server instance with auth helper
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
 const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https://pdp.provider.com')
 
@@ -818,8 +872,7 @@ Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other b
 ```javascript
 import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
-// Create auth helper directly
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
+// Create auth helper
 const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 
 // Sign operations
@@ -1118,26 +1171,21 @@ pdpServer.createDataSet(serviceProvider, clientDataSetId)
 pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
 ```
 
-#### Interface Property Changes
+#### Service Provider Registry
 
-**ApprovedProviderInfo:**
+v0.24.0 introduces the `SPRegistryService` for on-chain provider management:
+
 ```typescript
-// Before (< v0.24.0)
-interface ApprovedProviderInfo {
-  owner: string           // Provider's wallet address
-  pdpUrl: string          // PDP server URL
-  pieceRetrievalUrl: string
-  // ...
-}
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
 
-// After (v0.24.0+)
-interface ApprovedProviderInfo {
-  serviceProvider: string  // Service provider address (renamed from 'owner')
-  serviceURL: string       // Combined service URL (replaces pdpUrl/pieceRetrievalUrl)
-  peerId: string           // Added peer ID
-  // ...
-}
+// Query and manage providers through the registry
+const spRegistry = new SPRegistryService(provider, registryAddress)
+const providers = await spRegistry.getAllActiveProviders()
 ```
+
+This replaces previous provider discovery methods and provides a standardized way to register and manage service providers on-chain.
+
+#### Interface Property Changes
 
 **StorageService Properties:**
 ```typescript
@@ -1278,9 +1326,31 @@ When upgrading from versions prior to v0.24.0:
 6. **Update method calls** - Use the new method names as shown above
 7. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
 8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
-8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+9. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
 
-Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.
+#### PaymentsService Parameter Order Changes
+
+All PaymentsService methods now consistently place the `token` parameter last with USDFC as the default:
+
+**Before (< v0.24.0):**
+```typescript
+await payments.allowance(TOKENS.USDFC, spender)
+await payments.approve(TOKENS.USDFC, spender, amount)
+await payments.deposit(amount, TOKENS.USDFC, callbacks)
+```
+
+**After (v0.24.0+):**
+```typescript
+await payments.allowance(spender)  // USDFC is default
+await payments.approve(spender, amount)  // USDFC is default
+await payments.deposit(amount, TOKENS.USDFC, callbacks)  // callbacks last for deposit
+```
+
+#### Contract Address Configuration
+
+The SDK now automatically discovers all necessary contract addresses. The `warmStorageAddress` option in `Synapse.create()` has been removed as addresses are managed internally by the SDK for each network.
+
+Note: There is no backward compatibility layer. All applications must update to the new terminology and API signatures when upgrading to v0.24.0 or later.
 
 ## License
 
