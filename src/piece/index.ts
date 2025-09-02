@@ -1,4 +1,13 @@
-// Export PieceCID types and utility functions
+/**
+ * Exports the PieceCID types and utility functions
+ *
+ * @packageDocumentation
+ * @module Piece
+ * @example
+ * ```ts
+ * import { asPieceCID } from '@filoz/synapse-sdk/piece'
+ * ```
+ */
 
 export {
   downloadAndValidate,

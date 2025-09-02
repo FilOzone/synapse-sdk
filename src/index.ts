@@ -1,4 +1,16 @@
 /**
+ * Synapse SDK - Main entry point
+ *
+ * @example
+ * ```ts
+ * import { Synapse } from '@filoz/synapse-sdk'
+ * ```
+ *
+ * @packageDocumentation
+ * @module Synapse
+ */
+
+/**
  * Synapse SDK main entry point
  */
 

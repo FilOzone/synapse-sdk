@@ -1,0 +1,248 @@
+---
+title: Storage
+description: Guides for using the Storage API.
+---
+
+The Synapse SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain.
+
+### Storage Context Creation
+
+You have two options:
+
+1. **Simple mode**: Just use `synapse.storage.upload()` directly - the SDK auto-manages contexts for you.
+2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
+
+Behind the scenes, the process may be:
+- **Fast (< 1 second)**: When reusing existing infrastructure (i.e. an existing data set previously created)
+- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
+
+#### Basic Usage
+
+```javascript
+// Option 1: Auto-managed context (simplest)
+await synapse.storage.upload(data)  // Context created/reused automatically
+
+// Option 2: Explicit context creation
+const context = await synapse.storage.createContext()
+await context.upload(data)  // Upload to this specific context
+```
+
+#### Advanced Usage with Callbacks
+
+Monitor the creation process with detailed callbacks:
+
+```javascript
+const context = await synapse.storage.createContext({
+  providerAddress: '0x...', // Optional: use specific provider address
+  withCDN: true,            // Optional: enable CDN for faster downloads
+  callbacks: {
+    // Called when a provider is selected
+    onProviderSelected: (provider) => {
+      console.log(`Selected provider: ${provider.owner}`)
+      console.log(`  PDP URL: ${provider.pdpUrl}`)
+    },
+
+    // Called when data set is found or created
+    onDataSetResolved: (info) => {
+      if (info.isExisting) {
+        console.log(`Using existing data set: ${info.dataSetId}`)
+      } else {
+        console.log(`Created new data set: ${info.dataSetId}`)
+      }
+    },
+
+    // Only called when creating a new data set
+    onDataSetCreationStarted: (transaction, statusUrl) => {
+      console.log(`Creation transaction: ${transaction.hash}`)
+      if (statusUrl) {
+        console.log(`Monitor status at: ${statusUrl}`)
+      }
+    },
+
+    // Progress updates during data set creation
+    onDataSetCreationProgress: (status) => {
+      const elapsed = Math.round(status.elapsedMs / 1000)
+      console.log(`[${elapsed}s] Mining: ${status.transactionMined}, Live: ${status.dataSetLive}`)
+    }
+  }
+})
+```
+
+#### Creation Options
+
+```typescript
+interface StorageServiceOptions {
+  providerId?: number                      // Specific provider ID to use
+  providerAddress?: string                 // Specific provider address to use
+  dataSetId?: number                       // Specific data set ID to use
+  withCDN?: boolean                        // Enable CDN services
+  callbacks?: StorageCreationCallbacks     // Progress callbacks
+  uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
+}
+
+// Note: The withCDN option follows an inheritance pattern:
+// 1. Synapse instance default (set during creation)
+// 2. StorageService override (set during createStorage)
+// 3. Per-method override (set during download)
+```
+
+#### Storage Context Properties
+
+Once created, the storage context provides access to:
+
+```javascript
+// The data set ID being used
+console.log(`Data set ID: ${context.dataSetId}`)
+
+// The service provider address
+console.log(`Service provider: ${context.serviceProvider}`)
+```
+
+#### Storage Context Methods
+
+##### Preflight Upload
+
+Check if an upload is possible before attempting it:
+
+```javascript
+const preflight = await context.preflightUpload(dataSize)
+console.log('Estimated costs:', preflight.estimatedCost)
+console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
+```
+
+##### Upload and Download
+
+Upload and download data with the storage context:
+
+```javascript
+// Upload with optional progress callbacks
+const result = await context.upload(data, {
+  onUploadComplete: (pieceCid) => {
+    console.log(`Upload complete! PieceCID: ${pieceCid}`)
+  },
+  onPieceAdded: (transaction) => {
+    // For new servers: transaction object with details
+    // For old servers: undefined (backward compatible)
+    if (transaction) {
+      console.log(`Transaction confirmed: ${transaction.hash}`)
+    } else {
+      console.log('Data added to data set (legacy server)')
+    }
+  },
+  onPieceConfirmed: (pieceIds) => {
+    // Only called for new servers with transaction tracking
+    console.log(`Piece IDs assigned: ${pieceIds.join(', ')}`)
+  }
+})
+
+// Download data from this context's specific provider
+const downloaded = await context.download(result.pieceCid)
+
+// Get the list of piece CIDs in the current data set by querying the provider
+const pieceCids = await context.getDataSetPieces()
+console.log(`Piece CIDs: ${pieceCids.map(cid => cid.toString()).join(', ')}`)
+
+// Check the status of a piece on the service provider
+const status = await context.pieceStatus(result.pieceCid)
+console.log(`Piece exists: ${status.exists}`)
+console.log(`Data set last proven: ${status.dataSetLastProven}`)
+console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
+```
+
+##### Size Constraints
+
+The storage service enforces the following size limits for uploads:
+- **Minimum**: 65 bytes
+- **Maximum**: 200 MiB (209,715,200 bytes)
+
+Attempting to upload data outside these limits will result in an error.
+
+***Note: these limits are temporary during this current pre-v1 period and will eventually be extended. You can read more in [this issue thread](https://github.com/FilOzone/synapse-sdk/issues/110)***
+
+##### Efficient Batch Uploads
+
+When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
+
+```javascript
+// Efficient: Start all uploads without await - they'll be batched automatically
+const uploads = []
+for (const data of dataArray) {
+  uploads.push(context.upload(data))  // No await here
+}
+const results = await Promise.all(uploads)
+
+// Less efficient: Awaiting each upload forces sequential processing
+for (const data of dataArray) {
+  await context.upload(data)  // Each waits for the previous to complete
+}
+```
+
+The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
+
+### Storage Information
+
+Get comprehensive information about the storage service:
+
+```javascript
+// Get storage service info including pricing and providers
+const info = await synapse.getStorageInfo()
+console.log('Price per TiB/month:', info.pricing.noCDN.perTiBPerMonth)
+console.log('Available providers:', info.providers.length)
+console.log('Network:', info.serviceParameters.network)
+
+// Get details about a specific provider
+const providerInfo = await synapse.getProviderInfo('0x...')
+console.log('Provider PDP URL:', providerInfo.pdpUrl)
+```
+
+### Download Options
+
+The SDK provides flexible download options with clear semantics:
+
+#### SP-Agnostic Download (from anywhere)
+
+Download pieces from any available provider using the StorageManager:
+
+```javascript
+// Download from any provider that has the piece
+const data = await synapse.storage.download(pieceCid)
+
+// Download with CDN optimization (if available)
+const dataWithCDN = await synapse.storage.download(pieceCid, { withCDN: true })
+
+// Prefer a specific provider (falls back to others if unavailable)
+const dataFromProvider = await synapse.storage.download(pieceCid, {
+  providerAddress: '0x...'
+})
+```
+
+#### Context-Specific Download (from this provider)
+
+When using a StorageContext, downloads are automatically restricted to that specific provider:
+
+```javascript
+// Downloads from the provider associated with this context
+const context = await synapse.storage.createContext({ providerAddress: '0x...' })
+const data = await context.download(pieceCid)
+
+// The context passes its withCDN setting to the download
+const contextWithCDN = await synapse.storage.createContext({ withCDN: true })
+const dataWithCDN = await contextWithCDN.download(pieceCid) // Uses CDN if available
+```
+
+#### CDN Inheritance Pattern
+
+The `withCDN` option follows a clear inheritance hierarchy:
+
+1. **Synapse level**: Default setting for all operations
+2. **StorageService level**: Can override Synapse's default
+3. **Method level**: Can override instance settings
+
+```javascript
+// Example of inheritance
+const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
+const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
+await synapse.storage.download(pieceCid)                                // Uses Synapse's withCDN: true
+await context.download(pieceCid)                                        // Uses context's withCDN: false
+await synapse.storage.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
+```

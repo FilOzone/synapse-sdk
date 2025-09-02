@@ -1,0 +1,31 @@
+{
+  "name": "docs",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.35.2",
+    "@filoz/synapse-sdk": "^0.23.2",
+    "astro": "^5.13.0",
+    "ethers": "^6.15.0",
+    "expressive-code-twoslash": "^0.5.3",
+    "starlight-llms-txt": "^0.6.0",
+    "typedoc": "^0.28.9",
+    "typedoc-plugin-mdn-links": "^5.0.9"
+  },
+  "devDependencies": {
+    "@hugomrdias/docs": "^0.1.5",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "sharp": "^0.34.3",
+    "typedoc-plugin-missing-exports": "^4.1.0",
+    "wrangler": "^4.33.1"
+  }
+}

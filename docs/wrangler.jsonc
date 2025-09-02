@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "synapse-dev",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  },
+  "workers_dev": true,
+  "preview_urls": true,
+
+  "env": {
+    "production": {
+      "name": "synapse",
+      "compatibility_date": "2025-09-01",
+      "assets": {
+        "directory": "./dist",
+        "not_found_handling": "404-page"
+      },
+      "routes": [
+        {
+          "pattern": "synapse.hugomrdias.dev",
+          "custom_domain": true
+        }
+      ]
+    }
+  }
+}
