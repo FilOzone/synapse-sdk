@@ -3,8 +3,11 @@
  */
 
 import type { FilecoinNetworkType } from '../types.js'
-
+import WARM_STORAGE_ABI from './abi/FilecoinWarmStorageService.abi.json' with { type: 'json' }
+import WARM_STORAGE_VIEW_ABI from './abi/FilecoinWarmStorageServiceStateView.abi.json' with { type: 'json' }
 import IERC20_ABI from './abi/IERC20.abi.json' with { type: 'json' }
+import PAYMENTS_ABI from './abi/Payments.abi.json' with { type: 'json' }
+import PDP_VERIFIER_ABI from './abi/PDPVerifier.abi.json' with { type: 'json' }
 
 /**
  * Token identifiers
@@ -34,76 +37,24 @@ export const CONTRACT_ABIS = {
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: [
-    'function deposit(address token, address to, uint256 amount) payable',
-    'function withdraw(address token, uint256 amount)',
-    'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
-    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
-    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed, uint256 maxLockupPeriod)',
-  ] as const,
+  PAYMENTS: PAYMENTS_ABI,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
-  PDP_VERIFIER: [
-    'function getNextPieceId(uint256 setId) public view returns (uint256)',
-    'function dataSetLive(uint256 setId) public view returns (bool)',
-    'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
-    'function getDataSetListener(uint256 setId) public view returns (address)',
-    'event DataSetCreated(uint256 indexed setId, address indexed owner)',
-  ] as const,
+  PDP_VERIFIER: PDP_VERIFIER_ABI,
 
   /**
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: [
-    // Write functions
-    'function registerServiceProvider(string serviceURL, bytes peerId) external payable',
-    'function approveServiceProvider(address provider) external',
-    'function rejectServiceProvider(address provider) external',
-    'function removeServiceProvider(uint256 providerId) external',
-
-    // Service provider read functions (temporarily in main contract)
-    'function getProviderIdByAddress(address provider) external view returns (uint256)',
-    'function getApprovedProvider(uint256 providerId) external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt))',
-    'function pendingProviders(address provider) external view returns (string serviceURL, bytes peerId, uint256 registeredAt)',
-    'function approvedProviders(uint256 providerId) external view returns (address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)',
-    'function getAllApprovedProviders() external view returns (tuple(address serviceProvider, string serviceURL, bytes peerId, uint256 registeredAt, uint256 approvedAt)[])',
-
-    // Other read functions
-    'function owner() external view returns (address)',
-    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
-    'function providerToId(address) external view returns (uint256)',
-    'function viewContractAddress() external view returns (address)',
-
-    // Address getter functions for contract discovery
-    'function pdpVerifierAddress() external view returns (address)',
-    'function paymentsContractAddress() external view returns (address)',
-    'function usdfcTokenAddress() external view returns (address)',
-    'function filCDNAddress() external view returns (address)',
-  ] as const,
+  WARM_STORAGE: WARM_STORAGE_ABI,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: [
-    // Data set view functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch)[])',
-    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, string metadata, string[] pieceMetadata, uint256 clientDataSetId, bool withCDN, uint256 paymentEndEpoch))',
-
-    // Client dataset ID counter
-    'function clientDataSetIDs(address client) external view returns (uint256)',
-
-    // Mapping from rail ID to PDPVerifier data set ID
-    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
-
-    // Proving period and timing functions
-    'function getMaxProvingPeriod() external view returns (uint64)',
-    'function challengeWindow() external view returns (uint256)',
-  ] as const,
+  WARM_STORAGE_VIEW: WARM_STORAGE_VIEW_ABI,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
