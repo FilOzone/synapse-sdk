@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { asPieceCID, type PieceCID } from '../piece/index.ts'
-import type { AuthSignature } from '../types.ts'
+import type { AuthSignature, MetadataEntry } from '../types.ts'
 
 // Declare window.ethereum for TypeScript
 declare global {

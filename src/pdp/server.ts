@@ -28,7 +28,7 @@
 
 import { ethers } from 'ethers'
 import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.ts'
-import type { DataSetData, PieceCID } from '../types.ts'
+import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
 import type { PDPAuthHelper } from './auth.ts'
 import {
