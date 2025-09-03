@@ -27,10 +27,10 @@
 
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
-import { asPieceCID } from '../piece/index.js'
-import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.js'
-import { createError } from '../utils/errors.js'
-import { QUERIES } from './queries.js'
+import { asPieceCID } from '../piece/index.ts'
+import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.ts'
+import { createError } from '../utils/errors.ts'
+import { QUERIES } from './queries.ts'
 
 // Simplified response types
 interface GraphQLResponse<T = any> {

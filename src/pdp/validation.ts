@@ -5,9 +5,9 @@
  * match the expected format before using them in the SDK.
  */
 
-import { asPieceCID } from '../piece/index.js'
-import type { DataSetData, DataSetPieceData } from '../types.js'
-import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server.js'
+import { asPieceCID } from '../piece/index.ts'
+import type { DataSetData, DataSetPieceData } from '../types.ts'
+import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server.ts'
 
 /**
  * Type guard for DataSetCreationStatusResponse

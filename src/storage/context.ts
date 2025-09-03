@@ -23,12 +23,12 @@
  */
 
 import type { ethers } from 'ethers'
-import type { PaymentsService } from '../payments/index.js'
-import { PDPAuthHelper, PDPServer } from '../pdp/index.js'
-import { asPieceCID } from '../piece/index.js'
-import { SPRegistryService } from '../sp-registry/index.js'
-import type { ProviderInfo } from '../sp-registry/types.js'
-import type { Synapse } from '../synapse.js'
+import type { PaymentsService } from '../payments/index.ts'
+import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import { asPieceCID } from '../piece/index.ts'
+import { SPRegistryService } from '../sp-registry/index.ts'
+import type { ProviderInfo } from '../sp-registry/types.ts'
+import type { Synapse } from '../synapse.ts'
 import type {
   DownloadOptions,
   EnhancedDataSetInfo,
@@ -40,7 +40,7 @@ import type {
   StorageServiceOptions,
   UploadCallbacks,
   UploadResult,
-} from '../types.js'
+} from '../types.ts'
 import {
   calculateLastProofDate,
   createError,
@@ -49,9 +49,9 @@ import {
   SIZE_CONSTANTS,
   TIMING_CONSTANTS,
   timeUntilEpoch,
-} from '../utils/index.js'
-import { ProviderResolver } from '../utils/provider-resolver.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
+} from '../utils/index.ts'
+import { ProviderResolver } from '../utils/provider-resolver.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class StorageContext {
   private readonly _synapse: Synapse

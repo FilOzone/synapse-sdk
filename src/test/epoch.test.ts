@@ -1,13 +1,13 @@
 /* globals describe it */
 import { assert } from 'chai'
-import { GENESIS_TIMESTAMPS, TIME_CONSTANTS } from '../utils/constants.js'
+import { GENESIS_TIMESTAMPS, TIME_CONSTANTS } from '../utils/constants.ts'
 import {
   calculateLastProofDate,
   dateToEpoch,
   epochToDate,
   getGenesisTimestamp,
   timeUntilEpoch,
-} from '../utils/epoch.js'
+} from '../utils/epoch.ts'
 
 describe('Epoch Utilities', () => {
   describe('epochToDate', () => {

@@ -15,11 +15,11 @@
  */
 
 import { ethers } from 'ethers'
-import type { SPRegistryService } from '../sp-registry/index.js'
-import type { ProviderInfo } from '../sp-registry/types.js'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.js'
-import { ProviderResolver } from '../utils/provider-resolver.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
+import type { SPRegistryService } from '../sp-registry/index.ts'
+import type { ProviderInfo } from '../sp-registry/types.ts'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
+import { ProviderResolver } from '../utils/provider-resolver.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
 
 // Mock signer factory
 export function createMockSigner(

@@ -6,9 +6,9 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { PaymentsService } from '../payments/index.js'
-import { TOKENS } from '../utils/index.js'
-import { createMockProvider, createMockSigner } from './test-utils.js'
+import { PaymentsService } from '../payments/index.ts'
+import { TOKENS } from '../utils/index.ts'
+import { createMockProvider, createMockSigner } from './test-utils.ts'
 
 describe('PaymentsService', () => {
   let mockProvider: ethers.Provider

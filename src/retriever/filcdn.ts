@@ -5,13 +5,16 @@
  * to the base retriever.
  */
 
-import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.js'
+import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.ts'
 
 export class FilCdnRetriever implements PieceRetriever {
-  constructor(
-    private readonly baseRetriever: PieceRetriever,
-    private readonly network: FilecoinNetworkType
-  ) {}
+  private readonly baseRetriever: PieceRetriever
+  private readonly network: FilecoinNetworkType
+
+  constructor(baseRetriever: PieceRetriever, network: FilecoinNetworkType) {
+    this.baseRetriever = baseRetriever
+    this.network = network
+  }
 
   hostname(): string {
     return this.network === 'mainnet' ? 'filcdn.io' : 'calibration.filcdn.io'
