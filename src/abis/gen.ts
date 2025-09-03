@@ -1,2423 +1,12 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// PDPVerifier
+// FilecoinWarmStorageService
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const pdpVerifierAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'EXTRA_DATA_MAX_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'FIL_USD_PRICE_FEED_ID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'LEAF_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'MAX_ENQUEUED_REMOVALS',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'MAX_PIECE_SIZE_LOG2',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'NO_CHALLENGE_SCHEDULED',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'NO_PROVEN_EPOCH',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'PYTH',
-    outputs: [{ name: '', internalType: 'contract IPyth', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'RANDOMNESS_PRECOMPILE',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'SECONDS_IN_DAY',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'UPGRADE_INTERFACE_VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'pieceData',
-        internalType: 'struct Cids.Cid[]',
-        type: 'tuple[]',
-        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-      },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'addPieces',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'estimatedGasFee', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'calculateProofFee',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'claimDataSetStorageProvider',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'listenerAddr', internalType: 'address', type: 'address' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'createDataSet',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'dataSetLive',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'deleteDataSet',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'leafIndexs', internalType: 'uint256[]', type: 'uint256[]' },
-    ],
-    name: 'findPieceIds',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct IPDPTypes.PieceIdAndOffset[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-          { name: 'offset', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getActivePieceCount',
-    outputs: [
-      { name: 'activeCount', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'offset', internalType: 'uint256', type: 'uint256' },
-      { name: 'limit', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getActivePieces',
-    outputs: [
-      {
-        name: 'pieces',
-        internalType: 'struct Cids.Cid[]',
-        type: 'tuple[]',
-        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-      },
-      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'rawSizes', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'hasMore', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getChallengeFinality',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getChallengeRange',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getDataSetLastProvenEpoch',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getDataSetLeafCount',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getDataSetListener',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getDataSetStorageProvider',
-    outputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getFILUSDPrice',
-    outputs: [
-      { name: '', internalType: 'uint64', type: 'uint64' },
-      { name: '', internalType: 'int32', type: 'int32' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getNextChallengeEpoch',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getNextDataSetId',
-    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getNextPieceId',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getPieceCid',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Cids.Cid',
-        type: 'tuple',
-        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getPieceLeafCount',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'epoch', internalType: 'uint256', type: 'uint256' }],
-    name: 'getRandomness',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getScheduledRemovals',
-    outputs: [{ name: '', internalType: 'uint256[]', type: 'uint256[]' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'initialize',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'migrate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'challengeEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'nextProvingPeriod',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'owner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'pieceChallengable',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'pieceLive',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'newStorageProvider', internalType: 'address', type: 'address' },
-    ],
-    name: 'proposeDataSetStorageProvider',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'proofs',
-        internalType: 'struct IPDPTypes.Proof[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'leaf', internalType: 'bytes32', type: 'bytes32' },
-          { name: 'proof', internalType: 'bytes32[]', type: 'bytes32[]' },
-        ],
-      },
-    ],
-    name: 'provePossession',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'proxiableUUID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'renounceOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'schedulePieceDeletions',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
-    name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newImplementation', internalType: 'address', type: 'address' },
-      { name: 'data', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'upgradeToAndCall',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-    ],
-    name: 'ContractUpgraded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'storageProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'DataSetCreated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'deletedLeafCount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'DataSetDeleted',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-    ],
-    name: 'DataSetEmpty',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'uint64',
-        type: 'uint64',
-        indexed: false,
-      },
-    ],
-    name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'challengeEpoch',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'leafCount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'NextProvingPeriod',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'previousOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'OwnershipTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'pieceIds',
-        internalType: 'uint256[]',
-        type: 'uint256[]',
-        indexed: false,
-      },
-      {
-        name: 'pieceCids',
-        internalType: 'struct Cids.Cid[]',
-        type: 'tuple[]',
-        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-        indexed: false,
-      },
-    ],
-    name: 'PiecesAdded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'pieceIds',
-        internalType: 'uint256[]',
-        type: 'uint256[]',
-        indexed: false,
-      },
-    ],
-    name: 'PiecesRemoved',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'challenges',
-        internalType: 'struct IPDPTypes.PieceIdAndOffset[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
-          { name: 'offset', internalType: 'uint256', type: 'uint256' },
-        ],
-        indexed: false,
-      },
-    ],
-    name: 'PossessionProven',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      { name: 'fee', internalType: 'uint256', type: 'uint256', indexed: false },
-      { name: 'price', internalType: 'uint64', type: 'uint64', indexed: false },
-      { name: 'expo', internalType: 'int32', type: 'int32', indexed: false },
-    ],
-    name: 'ProofFeePaid',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'setId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'oldStorageProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newStorageProvider',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'StorageProviderChanged',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'Upgraded',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
-    name: 'AddressEmptyCode',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
-    name: 'ERC1967InvalidImplementation',
-  },
-  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
-  { type: 'error', inputs: [], name: 'FailedCall' },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'idx', internalType: 'uint256', type: 'uint256' },
-      { name: 'msg', internalType: 'string', type: 'string' },
-    ],
-    name: 'IndexedError',
-  },
-  { type: 'error', inputs: [], name: 'InvalidInitialization' },
-  { type: 'error', inputs: [], name: 'NotInitializing' },
-  {
-    type: 'error',
-    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
-    name: 'OwnableInvalidOwner',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
-    name: 'OwnableUnauthorizedAccount',
-  },
-  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
-  {
-    type: 'error',
-    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
-    name: 'UUPSUnsupportedProxiableUUID',
-  },
-] as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const pdpVerifierAddress = {
-  314: '0x0000000000000000000000000000000000000000',
-  314159: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-} as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const pdpVerifierConfig = {
-  address: pdpVerifierAddress,
-  abi: pdpVerifierAbi,
-} as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Payments
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0E690D3e60B0576D01352AB03b258115eb84A049)
- */
-export const paymentsAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'COMMISSION_MAX_BPS',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'PAYMENT_FEE_BPS',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'UPGRADE_INTERFACE_VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-    ],
-    name: 'accounts',
-    outputs: [
-      { name: 'funds', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupLastSettledAt', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: '', internalType: 'address', type: 'address' }],
-    name: 'accumulatedFees',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'arbiter', internalType: 'address', type: 'address' },
-      { name: 'commissionRateBps', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'createRail',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'deposit',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'v', internalType: 'uint8', type: 'uint8' },
-      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
-      { name: 's', internalType: 'bytes32', type: 'bytes32' },
-    ],
-    name: 'depositWithPermit',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getAllAccumulatedFees',
-    outputs: [
-      { name: 'tokens', internalType: 'address[]', type: 'address[]' },
-      { name: 'amounts', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'count', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getRail',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailView',
-        type: 'tuple',
-        components: [
-          { name: 'token', internalType: 'address', type: 'address' },
-          { name: 'from', internalType: 'address', type: 'address' },
-          { name: 'to', internalType: 'address', type: 'address' },
-          { name: 'operator', internalType: 'address', type: 'address' },
-          { name: 'arbiter', internalType: 'address', type: 'address' },
-          { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
-          { name: 'lockupPeriod', internalType: 'uint256', type: 'uint256' },
-          { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
-          { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-          {
-            name: 'commissionRateBps',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'payee', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
-    ],
-    name: 'getRailsForPayeeAndToken',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailInfo[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'railId', internalType: 'uint256', type: 'uint256' },
-          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
-    ],
-    name: 'getRailsForPayerAndToken',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailInfo[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'railId', internalType: 'uint256', type: 'uint256' },
-          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: '', internalType: 'address', type: 'address' }],
-    name: 'hasCollectedFees',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'initialize',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'period', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'modifyRailLockup',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'newRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'oneTimePayment', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'modifyRailPayment',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-    ],
-    name: 'operatorApprovals',
-    outputs: [
-      { name: 'isApproved', internalType: 'bool', type: 'bool' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'owner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'proxiableUUID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'renounceOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'approved', internalType: 'bool', type: 'bool' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'setOperatorApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'untilEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'settleRail',
-    outputs: [
-      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalPaymentFee', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'totalOperatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'note', internalType: 'string', type: 'string' },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'settleTerminatedRailWithoutArbitration',
-    outputs: [
-      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalPaymentFee', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'totalOperatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'note', internalType: 'string', type: 'string' },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'terminateRail',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
-    name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newImplementation', internalType: 'address', type: 'address' },
-      { name: 'data', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'upgradeToAndCall',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'withdraw',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'withdrawFees',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'withdrawTo',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'account',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'amount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'DepositWithPermit',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'uint64',
-        type: 'uint64',
-        indexed: false,
-      },
-    ],
-    name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'previousOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'OwnershipTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'Upgraded',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
-    name: 'AddressEmptyCode',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
-    name: 'ERC1967InvalidImplementation',
-  },
-  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
-  { type: 'error', inputs: [], name: 'FailedCall' },
-  { type: 'error', inputs: [], name: 'InvalidInitialization' },
-  { type: 'error', inputs: [], name: 'NotInitializing' },
-  {
-    type: 'error',
-    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
-    name: 'OwnableInvalidOwner',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
-    name: 'OwnableUnauthorizedAccount',
-  },
-  { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
-  {
-    type: 'error',
-    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
-    name: 'SafeERC20FailedOperation',
-  },
-  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
-  {
-    type: 'error',
-    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
-    name: 'UUPSUnsupportedProxiableUUID',
-  },
-] as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0E690D3e60B0576D01352AB03b258115eb84A049)
- */
-export const paymentsAddress = {
-  314: '0x0000000000000000000000000000000000000000',
-  314159: '0x0E690d3E60B0576D01352aB03b258115eb84a049',
-} as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0E690D3e60B0576D01352AB03b258115eb84A049)
- */
-export const paymentsConfig = {
-  address: paymentsAddress,
-  abi: paymentsAbi,
-} as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ServiceProviderRegistry
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const serviceProviderRegistryAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'MAX_CAPABILITIES',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'MAX_CAPABILITY_KEY_LENGTH',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'MAX_CAPABILITY_VALUE_LENGTH',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'REGISTRATION_FEE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'UPGRADE_INTERFACE_VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'activeProductTypeProviderCount',
-    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'activeProviderCount',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'productData', internalType: 'bytes', type: 'bytes' },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
-    ],
-    name: 'addProduct',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'addressToProviderId',
-    outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-    name: 'decodePDPOffering',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'eip712Domain',
-    outputs: [
-      { name: 'fields', internalType: 'bytes1', type: 'bytes1' },
-      { name: 'name', internalType: 'string', type: 'string' },
-      { name: 'version', internalType: 'string', type: 'string' },
-      { name: 'chainId', internalType: 'uint256', type: 'uint256' },
-      { name: 'verifyingContract', internalType: 'address', type: 'address' },
-      { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
-      { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    name: 'encodePDPOffering',
-    outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'offset', internalType: 'uint256', type: 'uint256' },
-      { name: 'limit', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getActiveProvidersByProductType',
-    outputs: [
-      {
-        name: 'result',
-        internalType:
-          'struct ServiceProviderRegistryStorage.PaginatedProviders',
-        type: 'tuple',
-        components: [
-          {
-            name: 'providers',
-            internalType:
-              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
-            type: 'tuple[]',
-            components: [
-              { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-              {
-                name: 'providerInfo',
-                internalType:
-                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
-                type: 'tuple',
-                components: [
-                  {
-                    name: 'beneficiary',
-                    internalType: 'address',
-                    type: 'address',
-                  },
-                  { name: 'name', internalType: 'string', type: 'string' },
-                  {
-                    name: 'description',
-                    internalType: 'string',
-                    type: 'string',
-                  },
-                  { name: 'isActive', internalType: 'bool', type: 'bool' },
-                ],
-              },
-              {
-                name: 'product',
-                internalType:
-                  'struct ServiceProviderRegistryStorage.ServiceProduct',
-                type: 'tuple',
-                components: [
-                  {
-                    name: 'productType',
-                    internalType:
-                      'enum ServiceProviderRegistryStorage.ProductType',
-                    type: 'uint8',
-                  },
-                  { name: 'productData', internalType: 'bytes', type: 'bytes' },
-                  {
-                    name: 'capabilityKeys',
-                    internalType: 'string[]',
-                    type: 'string[]',
-                  },
-                  { name: 'isActive', internalType: 'bool', type: 'bool' },
-                ],
-              },
-            ],
-          },
-          { name: 'hasMore', internalType: 'bool', type: 'bool' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'offset', internalType: 'uint256', type: 'uint256' },
-      { name: 'limit', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getAllActiveProviders',
-    outputs: [
-      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'hasMore', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getNextProviderId',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getPDPService',
-    outputs: [
-      {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'isActive', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'getProduct',
-    outputs: [
-      { name: 'productData', internalType: 'bytes', type: 'bytes' },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'isActive', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'keys', internalType: 'string[]', type: 'string[]' },
-    ],
-    name: 'getProductCapabilities',
-    outputs: [
-      { name: 'exists', internalType: 'bool[]', type: 'bool[]' },
-      { name: 'values', internalType: 'string[]', type: 'string[]' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'key', internalType: 'string', type: 'string' },
-    ],
-    name: 'getProductCapability',
-    outputs: [
-      { name: 'exists', internalType: 'bool', type: 'bool' },
-      { name: 'value', internalType: 'string', type: 'string' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getProvider',
-    outputs: [
-      {
-        name: 'info',
-        internalType:
-          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
-        type: 'tuple',
-        components: [
-          { name: 'beneficiary', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'getProviderByAddress',
-    outputs: [
-      {
-        name: 'info',
-        internalType:
-          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
-        type: 'tuple',
-        components: [
-          { name: 'beneficiary', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getProviderCount',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerAddress', internalType: 'address', type: 'address' },
-    ],
-    name: 'getProviderIdByAddress',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'offset', internalType: 'uint256', type: 'uint256' },
-      { name: 'limit', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'getProvidersByProductType',
-    outputs: [
-      {
-        name: 'result',
-        internalType:
-          'struct ServiceProviderRegistryStorage.PaginatedProviders',
-        type: 'tuple',
-        components: [
-          {
-            name: 'providers',
-            internalType:
-              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
-            type: 'tuple[]',
-            components: [
-              { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-              {
-                name: 'providerInfo',
-                internalType:
-                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
-                type: 'tuple',
-                components: [
-                  {
-                    name: 'beneficiary',
-                    internalType: 'address',
-                    type: 'address',
-                  },
-                  { name: 'name', internalType: 'string', type: 'string' },
-                  {
-                    name: 'description',
-                    internalType: 'string',
-                    type: 'string',
-                  },
-                  { name: 'isActive', internalType: 'bool', type: 'bool' },
-                ],
-              },
-              {
-                name: 'product',
-                internalType:
-                  'struct ServiceProviderRegistryStorage.ServiceProduct',
-                type: 'tuple',
-                components: [
-                  {
-                    name: 'productType',
-                    internalType:
-                      'enum ServiceProviderRegistryStorage.ProductType',
-                    type: 'uint8',
-                  },
-                  { name: 'productData', internalType: 'bytes', type: 'bytes' },
-                  {
-                    name: 'capabilityKeys',
-                    internalType: 'string[]',
-                    type: 'string[]',
-                  },
-                  { name: 'isActive', internalType: 'bool', type: 'bool' },
-                ],
-              },
-            ],
-          },
-          { name: 'hasMore', internalType: 'bool', type: 'bool' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'initialize',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'isProviderActive',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
-    name: 'isRegisteredProvider',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newVersion', internalType: 'string', type: 'string' }],
-    name: 'migrate',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'owner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'key', internalType: 'string', type: 'string' },
-    ],
-    name: 'productCapabilities',
-    outputs: [{ name: 'value', internalType: 'string', type: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'productTypeProviderCount',
-    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'providerHasProduct',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'providerProducts',
-    outputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'productData', internalType: 'bytes', type: 'bytes' },
-      { name: 'isActive', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    name: 'providers',
-    outputs: [
-      { name: 'beneficiary', internalType: 'address', type: 'address' },
-      { name: 'name', internalType: 'string', type: 'string' },
-      { name: 'description', internalType: 'string', type: 'string' },
-      { name: 'isActive', internalType: 'bool', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'proxiableUUID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'name', internalType: 'string', type: 'string' },
-      { name: 'description', internalType: 'string', type: 'string' },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'productData', internalType: 'bytes', type: 'bytes' },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
-    ],
-    name: 'registerProvider',
-    outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-    ],
-    name: 'removeProduct',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'removeProvider',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'renounceOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
-    name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newBeneficiary', internalType: 'address', type: 'address' },
-    ],
-    name: 'transferProviderBeneficiary',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
-    ],
-    name: 'updatePDPServiceWithCapabilities',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-      },
-      { name: 'productData', internalType: 'bytes', type: 'bytes' },
-      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
-      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
-    ],
-    name: 'updateProduct',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'name', internalType: 'string', type: 'string' },
-      { name: 'description', internalType: 'string', type: 'string' },
-    ],
-    name: 'updateProviderInfo',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newImplementation', internalType: 'address', type: 'address' },
-      { name: 'data', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'upgradeToAndCall',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'previousBeneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newBeneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'BeneficiaryTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-    ],
-    name: 'ContractUpgraded',
-  },
-  { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'version',
-        internalType: 'uint64',
-        type: 'uint64',
-        indexed: false,
-      },
-    ],
-    name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'previousOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'OwnershipTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-        indexed: true,
-      },
-      {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
-        name: 'beneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'capabilityKeys',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-      {
-        name: 'capabilityValues',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-    ],
-    name: 'ProductAdded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-        indexed: true,
-      },
-    ],
-    name: 'ProductRemoved',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'productType',
-        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
-        type: 'uint8',
-        indexed: true,
-      },
-      {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
-        name: 'beneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'capabilityKeys',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-      {
-        name: 'capabilityValues',
-        internalType: 'string[]',
-        type: 'string[]',
-        indexed: false,
-      },
-    ],
-    name: 'ProductUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-    ],
-    name: 'ProviderInfoUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'beneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'ProviderRegistered',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-    ],
-    name: 'ProviderRemoved',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'Upgraded',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
-    name: 'AddressEmptyCode',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
-    name: 'ERC1967InvalidImplementation',
-  },
-  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
-  { type: 'error', inputs: [], name: 'FailedCall' },
-  { type: 'error', inputs: [], name: 'InvalidInitialization' },
-  { type: 'error', inputs: [], name: 'NotInitializing' },
-  {
-    type: 'error',
-    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
-    name: 'OwnableInvalidOwner',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
-    name: 'OwnableUnauthorizedAccount',
-  },
-  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
-  {
-    type: 'error',
-    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
-    name: 'UUPSUnsupportedProxiableUUID',
-  },
-] as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const serviceProviderRegistryAddress = {
-  314: '0x0000000000000000000000000000000000000000',
-  314159: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-} as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const serviceProviderRegistryConfig = {
-  address: serviceProviderRegistryAddress,
-  abi: serviceProviderRegistryAbi,
-} as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// SessionKeyRegistry
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const sessionKeyRegistryAbi = [
-  {
-    type: 'function',
-    inputs: [
-      { name: 'user', internalType: 'address', type: 'address' },
-      { name: 'signer', internalType: 'address', type: 'address' },
-      { name: 'permission', internalType: 'bytes32', type: 'bytes32' },
-    ],
-    name: 'authorizationExpiry',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'signer', internalType: 'address', type: 'address' },
-      { name: 'expiry', internalType: 'uint256', type: 'uint256' },
-      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
-    ],
-    name: 'login',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'signer', internalType: 'address payable', type: 'address' },
-      { name: 'expiry', internalType: 'uint256', type: 'uint256' },
-      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
-    ],
-    name: 'loginAndFund',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'signer', internalType: 'address', type: 'address' },
-      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
-    ],
-    name: 'revoke',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-] as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const sessionKeyRegistryAddress = {
-  314: '0x0000000000000000000000000000000000000000',
-  314159: '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC',
-} as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC)
- */
-export const sessionKeyRegistryConfig = {
-  address: sessionKeyRegistryAddress,
-  abi: sessionKeyRegistryAbi,
-} as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// WarmStorage
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
- */
-export const warmStorageAbi = [
+export const filecoinWarmStorageServiceAbi = [
   {
     type: 'constructor',
     inputs: [
@@ -3693,31 +1282,31 @@ export const warmStorageAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const warmStorageAddress = {
+export const filecoinWarmStorageServiceAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5',
+  314159: '0x0000000000000000000000000000000000000000',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const warmStorageConfig = {
-  address: warmStorageAddress,
-  abi: warmStorageAbi,
+export const filecoinWarmStorageServiceConfig = {
+  address: filecoinWarmStorageServiceAddress,
+  abi: filecoinWarmStorageServiceAbi,
 } as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// WarmStorageView
+// FilecoinWarmStorageServiceStateView
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const warmStorageViewAbi = [
+export const filecoinWarmStorageServiceStateViewAbi = [
   {
     type: 'constructor',
     inputs: [
@@ -3979,18 +1568,3200 @@ export const warmStorageViewAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const warmStorageViewAddress = {
+export const filecoinWarmStorageServiceStateViewAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5',
+  314159: '0x0000000000000000000000000000000000000000',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
  */
-export const warmStorageViewConfig = {
-  address: warmStorageViewAddress,
-  abi: warmStorageViewAbi,
+export const filecoinWarmStorageServiceStateViewConfig = {
+  address: filecoinWarmStorageServiceStateViewAddress,
+  abi: filecoinWarmStorageServiceStateViewAbi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// PDPVerifier
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const pdpVerifierAbi = [
+  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'BURN_ACTOR',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'EXTRA_DATA_MAX_SIZE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'FIL_USD_PRICE_FEED_ID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'LEAF_SIZE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_ENQUEUED_REMOVALS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_PIECE_SIZE_LOG2',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NO_CHALLENGE_SCHEDULED',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NO_PROVEN_EPOCH',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'PYTH',
+    outputs: [{ name: '', internalType: 'contract IPyth', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'RANDOMNESS_PRECOMPILE',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'SECONDS_IN_DAY',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'UPGRADE_INTERFACE_VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'pieceData',
+        internalType: 'struct Cids.Cid[]',
+        type: 'tuple[]',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+      },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'addPieces',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'estimatedGasFee', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'calculateProofFee',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'claimDataSetStorageProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'listenerAddr', internalType: 'address', type: 'address' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'createDataSet',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'dataSetLive',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'deleteDataSet',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'leafIndexs', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    name: 'findPieceIds',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct IPDPTypes.PieceIdAndOffset[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+          { name: 'offset', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getActivePieceCount',
+    outputs: [
+      { name: 'activeCount', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getActivePieces',
+    outputs: [
+      {
+        name: 'pieces',
+        internalType: 'struct Cids.Cid[]',
+        type: 'tuple[]',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+      },
+      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'rawSizes', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'hasMore', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getChallengeFinality',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getChallengeRange',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetLastProvenEpoch',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetLeafCount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetListener',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetStorageProvider',
+    outputs: [
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getFILUSDPrice',
+    outputs: [
+      { name: '', internalType: 'uint64', type: 'uint64' },
+      { name: '', internalType: 'int32', type: 'int32' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getNextChallengeEpoch',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getNextDataSetId',
+    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getNextPieceId',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getPieceCid',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct Cids.Cid',
+        type: 'tuple',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getPieceLeafCount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'epoch', internalType: 'uint256', type: 'uint256' }],
+    name: 'getRandomness',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getScheduledRemovals',
+    outputs: [{ name: '', internalType: 'uint256[]', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'initialize',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'migrate',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'nextProvingPeriod',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'pieceChallengable',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'pieceLive',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'newStorageProvider', internalType: 'address', type: 'address' },
+    ],
+    name: 'proposeDataSetStorageProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'proofs',
+        internalType: 'struct IPDPTypes.Proof[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'leaf', internalType: 'bytes32', type: 'bytes32' },
+          { name: 'proof', internalType: 'bytes32[]', type: 'bytes32[]' },
+        ],
+      },
+    ],
+    name: 'provePossession',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'schedulePieceDeletions',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'ContractUpgraded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'storageProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'DataSetCreated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'deletedLeafCount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'DataSetDeleted',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'DataSetEmpty',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'challengeEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'leafCount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'NextProvingPeriod',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'pieceIds',
+        internalType: 'uint256[]',
+        type: 'uint256[]',
+        indexed: false,
+      },
+      {
+        name: 'pieceCids',
+        internalType: 'struct Cids.Cid[]',
+        type: 'tuple[]',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+        indexed: false,
+      },
+    ],
+    name: 'PiecesAdded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'pieceIds',
+        internalType: 'uint256[]',
+        type: 'uint256[]',
+        indexed: false,
+      },
+    ],
+    name: 'PiecesRemoved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'challenges',
+        internalType: 'struct IPDPTypes.PieceIdAndOffset[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'pieceId', internalType: 'uint256', type: 'uint256' },
+          { name: 'offset', internalType: 'uint256', type: 'uint256' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'PossessionProven',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'reason', internalType: 'bytes', type: 'bytes', indexed: false },
+    ],
+    name: 'PriceOracleFailure',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      { name: 'fee', internalType: 'uint256', type: 'uint256', indexed: false },
+      { name: 'price', internalType: 'uint64', type: 'uint64', indexed: false },
+      { name: 'expo', internalType: 'int32', type: 'int32', indexed: false },
+    ],
+    name: 'ProofFeePaid',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'setId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldStorageProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newStorageProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'StorageProviderChanged',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'Upgraded',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
+    name: 'AddressEmptyCode',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'ERC1967InvalidImplementation',
+  },
+  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
+  { type: 'error', inputs: [], name: 'FailedCall' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'idx', internalType: 'uint256', type: 'uint256' },
+      { name: 'msg', internalType: 'string', type: 'string' },
+    ],
+    name: 'IndexedError',
+  },
+  { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  { type: 'error', inputs: [], name: 'NotInitializing' },
+  {
+    type: 'error',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'OwnableInvalidOwner',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
+    name: 'OwnableUnauthorizedAccount',
+  },
+  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
+  {
+    type: 'error',
+    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'UUPSUnsupportedProxiableUUID',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const pdpVerifierAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const pdpVerifierConfig = {
+  address: pdpVerifierAddress,
+  abi: pdpVerifierAbi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Payments
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const paymentsAbi = [
+  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'COMMISSION_MAX_BPS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NETWORK_FEE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'UPGRADE_INTERFACE_VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
+    ],
+    name: 'accounts',
+    outputs: [
+      { name: 'funds', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupLastSettledAt', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'validator', internalType: 'address', type: 'address' },
+      { name: 'commissionRateBps', internalType: 'uint256', type: 'uint256' },
+      { name: 'serviceFeeRecipient', internalType: 'address', type: 'address' },
+    ],
+    name: 'createRail',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'deposit',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'depositWithPermit',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'depositWithPermitAndApproveOperator',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'depositWithPermitAndIncreaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'owner', internalType: 'address', type: 'address' },
+    ],
+    name: 'getAccountInfoIfSettled',
+    outputs: [
+      { name: 'fundedUntilEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentFunds', internalType: 'uint256', type: 'uint256' },
+      { name: 'availableFunds', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentLockupRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getRail',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct Payments.RailView',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'from', internalType: 'address', type: 'address' },
+          { name: 'to', internalType: 'address', type: 'address' },
+          { name: 'operator', internalType: 'address', type: 'address' },
+          { name: 'validator', internalType: 'address', type: 'address' },
+          { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
+          { name: 'lockupPeriod', internalType: 'uint256', type: 'uint256' },
+          { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
+          { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'commissionRateBps',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'serviceFeeRecipient',
+            internalType: 'address',
+            type: 'address',
+          },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payee', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'address', type: 'address' },
+    ],
+    name: 'getRailsForPayeeAndToken',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct Payments.RailInfo[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'railId', internalType: 'uint256', type: 'uint256' },
+          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'address', type: 'address' },
+    ],
+    name: 'getRailsForPayerAndToken',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct Payments.RailInfo[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'railId', internalType: 'uint256', type: 'uint256' },
+          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getRateChangeQueueSize',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '', internalType: 'address', type: 'address' }],
+    name: 'hasCollectedFees',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'increaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'initialize',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'period', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'modifyRailLockup',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'newRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'oneTimePayment', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'modifyRailPayment',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
+    ],
+    name: 'operatorApprovals',
+    outputs: [
+      { name: 'isApproved', internalType: 'bool', type: 'bool' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'approved', internalType: 'bool', type: 'bool' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'setOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'untilEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'settleRail',
+    outputs: [
+      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'totalOperatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'note', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'settleTerminatedRailWithoutValidation',
+    outputs: [
+      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'totalOperatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'note', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'terminateRail',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'withdrawTo',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'owner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'lockupCurrent',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupLastSettledAt',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'AccountLockupSettled',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'from', internalType: 'address', type: 'address', indexed: true },
+      { name: 'to', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'usedPermit',
+        internalType: 'bool',
+        type: 'bool',
+        indexed: false,
+      },
+    ],
+    name: 'DepositRecorded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'client',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'operator',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
+      {
+        name: 'rateAllowance',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupAllowance',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'maxLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'OperatorApprovalUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'payer',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'payee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'operator',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'validator',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'serviceFeeRecipient',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'commissionRateBps',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailCreated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'RailFinalized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'oldLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailLockupModified',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'netPayeeAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'operatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailOneTimePaymentProcessed',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailRateModified',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'totalSettledAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalNetPayeeAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'operatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'settledUpTo',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailSettled',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      { name: 'by', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'endEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailTerminated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'Upgraded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'from', internalType: 'address', type: 'address', indexed: true },
+      { name: 'to', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'WithdrawRecorded',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
+    name: 'AddressEmptyCode',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxSettlementEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'blockNumber', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotModifyTerminatedRailBeyondEndEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowedEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotSettleFutureEpochs',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'requiredBlock', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotSettleTerminatedRailBeforeMaxEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CommissionRateTooHigh',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'oldLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CurrentLockupLessThanOldLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'ERC1967InvalidImplementation',
+  },
+  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
+  { type: 'error', inputs: [], name: 'FailedCall' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupReduction', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientCurrentLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientFundsForOneTimePayment',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientFundsForSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupForSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'sent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientNativeTokenForBurn',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientUnlockedFunds',
+  },
+  { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'nextRateChangeUntilEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'processedEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidRateChangeQueueState',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'actualPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedPeriod', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'InvalidTerminatedRailModification',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
+      { name: 'fundsCurrent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupExceedsFundsInvariant',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'LockupFixedIncreaseNotAllowedDueToInsufficientFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'expectedLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLockup', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupInconsistencyDuringRailFinalization',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'isSettled', internalType: 'bool', type: 'bool' },
+      { name: 'currentRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupNotSettledRateChangeNotAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'actualLockupPeriod', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'LockupPeriodChangeNotAllowedDueToInsufficientFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'maxAllowedPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'requestedPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupPeriodExceedsOperatorMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupRateInconsistent',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'oldRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupRateLessThanOldRate',
+  },
+  { type: 'error', inputs: [], name: 'MissingServiceFeeRecipient' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'sent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MustSendExactNativeAmount',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'sent', internalType: 'uint256', type: 'uint256' }],
+    name: 'NativeTokenNotAccepted',
+  },
+  { type: 'error', inputs: [], name: 'NativeTokenNotSupported' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NativeTransferFailed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedSettledUpTo', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualSettledUpTo', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NoProgressInSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedClient', internalType: 'address', type: 'address' },
+      { name: 'allowedOperator', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'NotAuthorizedToTerminateRail',
+  },
+  { type: 'error', inputs: [], name: 'NotInitializing' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OneTimePaymentExceedsLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyRailClientAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyRailOperatorAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expectedFrom', internalType: 'address', type: 'address' },
+      { name: 'expectedOperator', internalType: 'address', type: 'address' },
+      { name: 'expectedTo', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyRailParticipantAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OperatorLockupAllowanceExceeded',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+    ],
+    name: 'OperatorNotApproved',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OperatorRateAllowanceExceeded',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'OwnableInvalidOwner',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
+    name: 'OwnableUnauthorizedAccount',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'PermitRecipientMustBeMsgSender',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailInactiveOrSettled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailNotTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RateChangeNotAllowedOnTerminatedRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'nextUntilEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'RateChangeQueueNotEmpty',
+  },
+  { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
+  {
+    type: 'error',
+    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
+    name: 'SafeERC20FailedOperation',
+  },
+  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
+  {
+    type: 'error',
+    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'UUPSUnsupportedProxiableUUID',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attempted', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorModifiedAmountExceedsMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedStart', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedStart', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorSettledBeforeSegmentStart',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedEnd', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedEnd', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorSettledBeyondSegmentEnd',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'varName', internalType: 'string', type: 'string' }],
+    name: 'ZeroAddressNotAllowed',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const paymentsAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const paymentsConfig = {
+  address: paymentsAddress,
+  abi: paymentsAbi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ServiceProviderRegistry
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const serviceProviderRegistryAbi = [
+  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'BURN_ACTOR',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_CAPABILITIES',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_CAPABILITY_KEY_LENGTH',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'MAX_CAPABILITY_VALUE_LENGTH',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'REGISTRATION_FEE',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'UPGRADE_INTERFACE_VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'VERSION',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'activeProductTypeProviderCount',
+    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'activeProviderCount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'productData', internalType: 'bytes', type: 'bytes' },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
+    ],
+    name: 'addProduct',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'addressToProviderId',
+    outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+    name: 'decodePDPOffering',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
+        type: 'tuple',
+        components: [
+          { name: 'serviceURL', internalType: 'string', type: 'string' },
+          {
+            name: 'minPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'maxPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
+          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
+          {
+            name: 'storagePricePerTibPerMonth',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'minProvingPeriodInEpochs',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'location', internalType: 'string', type: 'string' },
+          {
+            name: 'paymentTokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
+        ],
+      },
+    ],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'eip712Domain',
+    outputs: [
+      { name: 'fields', internalType: 'bytes1', type: 'bytes1' },
+      { name: 'name', internalType: 'string', type: 'string' },
+      { name: 'version', internalType: 'string', type: 'string' },
+      { name: 'chainId', internalType: 'uint256', type: 'uint256' },
+      { name: 'verifyingContract', internalType: 'address', type: 'address' },
+      { name: 'salt', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'pdpOffering',
+        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
+        type: 'tuple',
+        components: [
+          { name: 'serviceURL', internalType: 'string', type: 'string' },
+          {
+            name: 'minPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'maxPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
+          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
+          {
+            name: 'storagePricePerTibPerMonth',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'minProvingPeriodInEpochs',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'location', internalType: 'string', type: 'string' },
+          {
+            name: 'paymentTokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
+        ],
+      },
+    ],
+    name: 'encodePDPOffering',
+    outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
+    stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getActiveProvidersByProductType',
+    outputs: [
+      {
+        name: 'result',
+        internalType:
+          'struct ServiceProviderRegistryStorage.PaginatedProviders',
+        type: 'tuple',
+        components: [
+          {
+            name: 'providers',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
+            type: 'tuple[]',
+            components: [
+              { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+              {
+                name: 'providerInfo',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+                type: 'tuple',
+                components: [
+                  {
+                    name: 'beneficiary',
+                    internalType: 'address',
+                    type: 'address',
+                  },
+                  { name: 'name', internalType: 'string', type: 'string' },
+                  {
+                    name: 'description',
+                    internalType: 'string',
+                    type: 'string',
+                  },
+                  { name: 'isActive', internalType: 'bool', type: 'bool' },
+                ],
+              },
+              {
+                name: 'product',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProduct',
+                type: 'tuple',
+                components: [
+                  {
+                    name: 'productType',
+                    internalType:
+                      'enum ServiceProviderRegistryStorage.ProductType',
+                    type: 'uint8',
+                  },
+                  { name: 'productData', internalType: 'bytes', type: 'bytes' },
+                  {
+                    name: 'capabilityKeys',
+                    internalType: 'string[]',
+                    type: 'string[]',
+                  },
+                  { name: 'isActive', internalType: 'bool', type: 'bool' },
+                ],
+              },
+            ],
+          },
+          { name: 'hasMore', internalType: 'bool', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getAllActiveProviders',
+    outputs: [
+      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
+      { name: 'hasMore', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getNextProviderId',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getPDPService',
+    outputs: [
+      {
+        name: 'pdpOffering',
+        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
+        type: 'tuple',
+        components: [
+          { name: 'serviceURL', internalType: 'string', type: 'string' },
+          {
+            name: 'minPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'maxPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
+          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
+          {
+            name: 'storagePricePerTibPerMonth',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'minProvingPeriodInEpochs',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'location', internalType: 'string', type: 'string' },
+          {
+            name: 'paymentTokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
+        ],
+      },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'isActive', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'getProduct',
+    outputs: [
+      { name: 'productData', internalType: 'bytes', type: 'bytes' },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'isActive', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'keys', internalType: 'string[]', type: 'string[]' },
+    ],
+    name: 'getProductCapabilities',
+    outputs: [
+      { name: 'exists', internalType: 'bool[]', type: 'bool[]' },
+      { name: 'values', internalType: 'string[]', type: 'string[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'key', internalType: 'string', type: 'string' },
+    ],
+    name: 'getProductCapability',
+    outputs: [
+      { name: 'exists', internalType: 'bool', type: 'bool' },
+      { name: 'value', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getProvider',
+    outputs: [
+      {
+        name: 'info',
+        internalType:
+          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        type: 'tuple',
+        components: [
+          { name: 'beneficiary', internalType: 'address', type: 'address' },
+          { name: 'name', internalType: 'string', type: 'string' },
+          { name: 'description', internalType: 'string', type: 'string' },
+          { name: 'isActive', internalType: 'bool', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'getProviderByAddress',
+    outputs: [
+      {
+        name: 'info',
+        internalType:
+          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        type: 'tuple',
+        components: [
+          { name: 'beneficiary', internalType: 'address', type: 'address' },
+          { name: 'name', internalType: 'string', type: 'string' },
+          { name: 'description', internalType: 'string', type: 'string' },
+          { name: 'isActive', internalType: 'bool', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getProviderCount',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
+    name: 'getProviderIdByAddress',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getProvidersByProductType',
+    outputs: [
+      {
+        name: 'result',
+        internalType:
+          'struct ServiceProviderRegistryStorage.PaginatedProviders',
+        type: 'tuple',
+        components: [
+          {
+            name: 'providers',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
+            type: 'tuple[]',
+            components: [
+              { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+              {
+                name: 'providerInfo',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+                type: 'tuple',
+                components: [
+                  {
+                    name: 'beneficiary',
+                    internalType: 'address',
+                    type: 'address',
+                  },
+                  { name: 'name', internalType: 'string', type: 'string' },
+                  {
+                    name: 'description',
+                    internalType: 'string',
+                    type: 'string',
+                  },
+                  { name: 'isActive', internalType: 'bool', type: 'bool' },
+                ],
+              },
+              {
+                name: 'product',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProduct',
+                type: 'tuple',
+                components: [
+                  {
+                    name: 'productType',
+                    internalType:
+                      'enum ServiceProviderRegistryStorage.ProductType',
+                    type: 'uint8',
+                  },
+                  { name: 'productData', internalType: 'bytes', type: 'bytes' },
+                  {
+                    name: 'capabilityKeys',
+                    internalType: 'string[]',
+                    type: 'string[]',
+                  },
+                  { name: 'isActive', internalType: 'bool', type: 'bool' },
+                ],
+              },
+            ],
+          },
+          { name: 'hasMore', internalType: 'bool', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'initialize',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'isProviderActive',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
+    name: 'isRegisteredProvider',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newVersion', internalType: 'string', type: 'string' }],
+    name: 'migrate',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'key', internalType: 'string', type: 'string' },
+    ],
+    name: 'productCapabilities',
+    outputs: [{ name: 'value', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'productTypeProviderCount',
+    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'providerHasProduct',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'providerProducts',
+    outputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'productData', internalType: 'bytes', type: 'bytes' },
+      { name: 'isActive', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'providers',
+    outputs: [
+      { name: 'beneficiary', internalType: 'address', type: 'address' },
+      { name: 'name', internalType: 'string', type: 'string' },
+      { name: 'description', internalType: 'string', type: 'string' },
+      { name: 'isActive', internalType: 'bool', type: 'bool' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'proxiableUUID',
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'name', internalType: 'string', type: 'string' },
+      { name: 'description', internalType: 'string', type: 'string' },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'productData', internalType: 'bytes', type: 'bytes' },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
+    ],
+    name: 'registerProvider',
+    outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+    ],
+    name: 'removeProduct',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'removeProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newBeneficiary', internalType: 'address', type: 'address' },
+    ],
+    name: 'transferProviderBeneficiary',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'pdpOffering',
+        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
+        type: 'tuple',
+        components: [
+          { name: 'serviceURL', internalType: 'string', type: 'string' },
+          {
+            name: 'minPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'maxPieceSizeInBytes',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
+          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
+          {
+            name: 'storagePricePerTibPerMonth',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'minProvingPeriodInEpochs',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          { name: 'location', internalType: 'string', type: 'string' },
+          {
+            name: 'paymentTokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
+        ],
+      },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
+    ],
+    name: 'updatePDPServiceWithCapabilities',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+      },
+      { name: 'productData', internalType: 'bytes', type: 'bytes' },
+      { name: 'capabilityKeys', internalType: 'string[]', type: 'string[]' },
+      { name: 'capabilityValues', internalType: 'string[]', type: 'string[]' },
+    ],
+    name: 'updateProduct',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'name', internalType: 'string', type: 'string' },
+      { name: 'description', internalType: 'string', type: 'string' },
+    ],
+    name: 'updateProviderInfo',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newImplementation', internalType: 'address', type: 'address' },
+      { name: 'data', internalType: 'bytes', type: 'bytes' },
+    ],
+    name: 'upgradeToAndCall',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'previousBeneficiary',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newBeneficiary',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'BeneficiaryTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'ContractUpgraded',
+  },
+  { type: 'event', anonymous: false, inputs: [], name: 'EIP712DomainChanged' },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'version',
+        internalType: 'uint64',
+        type: 'uint64',
+        indexed: false,
+      },
+    ],
+    name: 'Initialized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+        indexed: true,
+      },
+      {
+        name: 'serviceUrl',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+      {
+        name: 'beneficiary',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'capabilityKeys',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+      {
+        name: 'capabilityValues',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+    ],
+    name: 'ProductAdded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+        indexed: true,
+      },
+    ],
+    name: 'ProductRemoved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'productType',
+        internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+        type: 'uint8',
+        indexed: true,
+      },
+      {
+        name: 'serviceUrl',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+      {
+        name: 'beneficiary',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'capabilityKeys',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+      {
+        name: 'capabilityValues',
+        internalType: 'string[]',
+        type: 'string[]',
+        indexed: false,
+      },
+    ],
+    name: 'ProductUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'ProviderInfoUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'beneficiary',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'ProviderRegistered',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'providerId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'ProviderRemoved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'implementation',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'Upgraded',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
+    name: 'AddressEmptyCode',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
+    name: 'ERC1967InvalidImplementation',
+  },
+  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
+  { type: 'error', inputs: [], name: 'FailedCall' },
+  { type: 'error', inputs: [], name: 'InvalidInitialization' },
+  { type: 'error', inputs: [], name: 'NotInitializing' },
+  {
+    type: 'error',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'OwnableInvalidOwner',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
+    name: 'OwnableUnauthorizedAccount',
+  },
+  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
+  {
+    type: 'error',
+    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
+    name: 'UUPSUnsupportedProxiableUUID',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const serviceProviderRegistryAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const serviceProviderRegistryConfig = {
+  address: serviceProviderRegistryAddress,
+  abi: serviceProviderRegistryAbi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SessionKeyRegistry
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const sessionKeyRegistryAbi = [
+  {
+    type: 'function',
+    inputs: [
+      { name: 'user', internalType: 'address', type: 'address' },
+      { name: 'signer', internalType: 'address', type: 'address' },
+      { name: 'permission', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'authorizationExpiry',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'signer', internalType: 'address', type: 'address' },
+      { name: 'expiry', internalType: 'uint256', type: 'uint256' },
+      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+    ],
+    name: 'login',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'signer', internalType: 'address payable', type: 'address' },
+      { name: 'expiry', internalType: 'uint256', type: 'uint256' },
+      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+    ],
+    name: 'loginAndFund',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'signer', internalType: 'address', type: 'address' },
+      { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+    ],
+    name: 'revoke',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const sessionKeyRegistryAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const sessionKeyRegistryConfig = {
+  address: sessionKeyRegistryAddress,
+  abi: sessionKeyRegistryAbi,
 } as const

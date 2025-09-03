@@ -45,13 +45,13 @@ export const CONTRACT_ABIS = {
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: abis.warmStorageAbi,
+  WARM_STORAGE: abis.filecoinWarmStorageServiceAbi,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: abis.warmStorageViewAbi,
+  WARM_STORAGE_VIEW: abis.filecoinWarmStorageServiceStateViewAbi,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
