@@ -3,7 +3,7 @@
 export {
   downloadAndValidate,
   downloadAndValidateFromUrl,
-} from './download.js'
+} from './download.ts'
 export {
   asLegacyPieceCID,
   asPieceCID,
@@ -11,4 +11,4 @@ export {
   createPieceCIDStream,
   type LegacyPieceCID,
   type PieceCID,
-} from './piece.js'
+} from './piece.ts'

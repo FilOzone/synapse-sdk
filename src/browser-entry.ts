@@ -4,9 +4,9 @@
  */
 
 // Import everything we need
-import * as SynapseSDKExports from './index.js'
-import * as pdpExports from './pdp/index.js'
-import * as pieceCidExports from './piece/index.js'
+import * as SynapseSDKExports from './index.ts'
+import * as pdpExports from './pdp/index.ts'
+import * as pieceCidExports from './piece/index.ts'
 
 // Create a flat default export with all exports for UMD builds
 const allExports = {

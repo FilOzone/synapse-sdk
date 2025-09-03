@@ -2,9 +2,9 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { PieceCID, ProviderInfo } from '../types.js'
-import { createError } from '../utils/errors.js'
-import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
+import type { PieceCID, ProviderInfo } from '../types.ts'
+import { createError } from '../utils/errors.ts'
+import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
 
 // Define the type for provider attempt results (internal to this function)
 interface ProviderAttemptResult {

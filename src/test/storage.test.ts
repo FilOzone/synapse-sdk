@@ -1,10 +1,10 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { StorageService } from '../storage/service.js'
-import type { Synapse } from '../synapse.js'
-import type { PieceCID, ProviderInfo, UploadResult } from '../types.js'
-import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.js'
+import { StorageService } from '../storage/service.ts'
+import type { Synapse } from '../synapse.ts'
+import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
+import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {

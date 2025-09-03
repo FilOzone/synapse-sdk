@@ -4,8 +4,8 @@
  */
 
 import { ethers } from 'ethers'
-import type { TokenAmount, TokenIdentifier } from '../types.js'
-import { CONTRACT_ABIS, createError, getCurrentEpoch, TIMING_CONSTANTS, TOKENS } from '../utils/index.js'
+import type { TokenAmount, TokenIdentifier } from '../types.ts'
+import { CONTRACT_ABIS, createError, getCurrentEpoch, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
 
 /**
  * Callbacks for deposit operation visibility

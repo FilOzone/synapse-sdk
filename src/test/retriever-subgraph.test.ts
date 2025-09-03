@@ -1,10 +1,10 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.js'
-import { SubgraphRetriever } from '../retriever/subgraph.js'
-import { SubgraphService } from '../subgraph/index.js' // Import SubgraphService
-import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphConfig } from '../types.js'
-import { createSimpleProvider } from './test-utils.js'
+import { asPieceCID } from '../piece/index.ts'
+import { SubgraphRetriever } from '../retriever/subgraph.ts'
+import { SubgraphService } from '../subgraph/index.ts' // Import SubgraphService
+import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphConfig } from '../types.ts'
+import { createSimpleProvider } from './test-utils.ts'
 
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 

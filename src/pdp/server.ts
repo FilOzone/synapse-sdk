@@ -1,3 +1,32 @@
+
+/**
+ * PDPServer - Consolidated interface for all PDP server (Curio) HTTP operations
+ *
+ * This combines functionality for:
+ * - Data set management (create, add pieces, status checks)
+ * - Piece uploads
+ * - Piece downloads
+ * - Piece discovery
+ *
+ * @example
+ * ```typescript
+ * import { PDPServer } from '@filoz/synapse-sdk/pdp'
+ * import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
+ *
+ * const authHelper = new PDPAuthHelper(warmStorageAddress, signer)
+ * const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com')
+ *
+ * // Create a data set
+ * const { txHash } = await pdpServer.createDataSet(serviceProvider, clientDataSetId)
+ *
+ * // Upload a piece
+ * const { pieceCid, size } = await pdpServer.uploadPiece(data)
+ *
+ * // Download a piece
+ * const data = await pdpServer.downloadPiece(pieceCid, size)
+ * ```
+ */
+
 import type { PDPAuthHelper } from './auth.js'
 import type { PieceCID } from '../types.js'
 import type { DataSetData } from '../types.js'

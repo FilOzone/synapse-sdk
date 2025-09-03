@@ -26,12 +26,12 @@
  */
 
 import { ethers } from 'ethers'
-import type { PaymentsService } from '../payments/service.js'
-import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.js'
-import { PDPVerifier } from '../pdp/verifier.js'
-import type { DataSetInfo, EnhancedDataSetInfo } from '../types.js'
-import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.js'
-import { CONTRACT_ABIS, getFilecoinNetworkType, TOKENS } from '../utils/index.js'
+import type { PaymentsService } from '../payments/service.ts'
+import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
+import { PDPVerifier } from '../pdp/verifier.ts'
+import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
+import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
+import { CONTRACT_ABIS, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
  * Helper information for adding pieces to a data set

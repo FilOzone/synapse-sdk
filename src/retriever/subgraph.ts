@@ -2,15 +2,18 @@
  * SubgraphRetriever - Uses a SubgraphService to find and retrieve pieces.
  */
 
-import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphRetrievalService } from '../types.js'
-import { createError } from '../utils/errors.js'
-import { fetchPiecesFromProviders } from './utils.js'
+import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphRetrievalService } from '../types.ts'
+import { createError } from '../utils/errors.ts'
+import { fetchPiecesFromProviders } from './utils.ts'
 
 export class SubgraphRetriever implements PieceRetriever {
-  constructor(
-    private readonly subgraphService: SubgraphRetrievalService,
-    private readonly childRetriever?: PieceRetriever
-  ) {}
+  private readonly subgraphService: SubgraphRetrievalService
+  private readonly childRetriever?: PieceRetriever
+
+  constructor(subgraphService: SubgraphRetrievalService, childRetriever?: PieceRetriever) {
+    this.subgraphService = subgraphService
+    this.childRetriever = childRetriever
+  }
 
   /**
    * Find providers that can serve pieces for a client

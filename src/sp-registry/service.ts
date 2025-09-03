@@ -23,8 +23,8 @@
  */
 
 import { ethers } from 'ethers'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.js'
-import { getFilecoinNetworkType } from '../utils/index.js'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
+import { getFilecoinNetworkType } from '../utils/index.ts'
 import type {
   PDPOffering,
   PDPServiceInfo,
@@ -32,7 +32,7 @@ import type {
   ProviderInfo,
   ProviderRegistrationInfo,
   ServiceProduct,
-} from './types.js'
+} from './types.ts'
 
 export class SPRegistryService {
   private readonly _provider: ethers.Provider

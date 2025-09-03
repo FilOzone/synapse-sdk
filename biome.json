@@ -72,7 +72,8 @@
       },
       "correctness": {
         "noUnusedVariables": "warn",
-        "noInvalidBuiltinInstantiation": "error"
+        "noInvalidBuiltinInstantiation": "error",
+        "useImportExtensions": "error"
       },
       "style": {
         "noNamespace": "error",

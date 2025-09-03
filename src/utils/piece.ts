@@ -5,7 +5,7 @@
  * for piece discovery and retrieval operations.
  */
 
-import type { PieceCID } from '../types.js'
+import type { PieceCID } from '../types.ts'
 
 /**
  * Construct a piece retrieval URL
