@@ -106,8 +106,9 @@ describe('WarmStorageService', () => {
             payee: '0xabcdef1234567890123456789012345678901234',
             commissionBps: 100n, // 1%
             clientDataSetId: 0n,
-            paymentEndEpoch: 0n,
+            pdpEndEpoch: 0n,
             providerId: 1n,
+            cdnEndEpoch: 0n,
           }
 
           const dataSet2 = {
@@ -118,8 +119,9 @@ describe('WarmStorageService', () => {
             payee: '0x9876543210987654321098765432109876543210',
             commissionBps: 200n, // 2%
             clientDataSetId: 1n,
-            paymentEndEpoch: 0n,
+            pdpEndEpoch: 0n,
             providerId: 2n,
+            cdnEndEpoch: 0n,
           }
 
           // Create properly ordered arrays for encoding
@@ -132,7 +134,8 @@ describe('WarmStorageService', () => {
               dataSet1.payee,
               dataSet1.commissionBps,
               dataSet1.clientDataSetId,
-              dataSet1.paymentEndEpoch,
+              dataSet1.pdpEndEpoch,
+              dataSet1.cdnEndEpoch,
               dataSet1.providerId,
             ],
             [
@@ -143,13 +146,14 @@ describe('WarmStorageService', () => {
               dataSet2.payee,
               dataSet2.commissionBps,
               dataSet2.clientDataSetId,
-              dataSet2.paymentEndEpoch,
+              dataSet2.pdpEndEpoch,
+              dataSet2.cdnEndEpoch,
               dataSet2.providerId,
             ],
           ]
 
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
             [dataSets]
           )
         }
@@ -213,11 +217,12 @@ describe('WarmStorageService', () => {
             '0xabcdef1234567890123456789012345678901234', // payee
             100n, // commissionBps
             0n, // clientDataSetId
-            0n, // paymentEndEpoch
+            0n, // pdpEndEpoch
             1n, // providerId
+            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -280,8 +285,9 @@ describe('WarmStorageService', () => {
               '0xabc1234567890123456789012345678901234567',
               100n,
               0n,
-              0n, // paymentEndEpoch
+              0n, // pdpEndEpoch
               1n, // providerId
+              0n, // cdnEndEpoch
             ],
             [
               49n,
@@ -291,12 +297,13 @@ describe('WarmStorageService', () => {
               '0xdef1234567890123456789012345678901234567',
               100n,
               1n,
-              0n, // paymentEndEpoch
+              0n, // pdpEndEpoch
               2n, // providerId
+              0n, // cdnEndEpoch
             ],
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
             [dataSets]
           )
         }
@@ -414,11 +421,12 @@ describe('WarmStorageService', () => {
             '0xabc1234567890123456789012345678901234567',
             100n,
             0n,
-            0n, // paymentEndEpoch
+            0n, // pdpEndEpoch
             1n, // providerId
+            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -506,11 +514,12 @@ describe('WarmStorageService', () => {
             '0xabc1234567890123456789012345678901234567', // payee
             100n, // commissionBps
             0n, // clientDataSetId - expecting 0
-            0n, // paymentEndEpoch
+            0n, // pdpEndEpoch
             1n, // providerId
+            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)'],
             [info]
           )
         }
@@ -546,11 +555,12 @@ describe('WarmStorageService', () => {
             '0xabc1234567890123456789012345678901234567', // payee
             100n, // commissionBps
             3n, // clientDataSetId
-            0n, // paymentEndEpoch
+            0n, // pdpEndEpoch
             1n, // providerId
+            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)[]'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
             [[dataSet]]
           )
         }
@@ -582,11 +592,12 @@ describe('WarmStorageService', () => {
             'Metadata', // metadata
             [], // pieceMetadata
             3n, // clientDataSetId
-            0n, // paymentEndEpoch
+            0n, // pdpEndEpoch
             1n, // providerId
+            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256)'],
+            ['tuple(uint256,uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)'],
             [info]
           )
         }

@@ -1089,6 +1089,12 @@ npm run test:node     # Node.js tests only
 npm run test:browser  # Browser tests only
 ```
 
+### Generating ABIs
+
+```bash
+npm run generate-abi
+```
+
 ## Migration Guide
 
 ### Terminology Update (v0.24.0+)

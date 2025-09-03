@@ -114,7 +114,7 @@ export class WarmStorageService {
     pdpVerifier: string
     payments: string
     usdfcToken: string
-    filCDN: string
+    // filCDN: string
     viewContract: string
     serviceProviderRegistry: string
   }
@@ -129,7 +129,7 @@ export class WarmStorageService {
       pdpVerifier: string
       payments: string
       usdfcToken: string
-      filCDN: string
+      // filCDN: string
       viewContract: string
       serviceProviderRegistry: string
     }
@@ -171,11 +171,11 @@ export class WarmStorageService {
         allowFailure: false,
         callData: iface.encodeFunctionData('usdfcTokenAddress'),
       },
-      {
-        target: warmStorageAddress,
-        allowFailure: false,
-        callData: iface.encodeFunctionData('filCDNAddress'),
-      },
+      // {
+      //   target: warmStorageAddress,
+      //   allowFailure: false,
+      //   callData: iface.encodeFunctionData('filCDNAddress'),
+      // },
       {
         target: warmStorageAddress,
         allowFailure: false,
@@ -194,7 +194,7 @@ export class WarmStorageService {
       pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
-      filCDN: iface.decodeFunctionResult('filCDNAddress', results[3].returnData)[0],
+      // filCDN: iface.decodeFunctionResult('filCDNAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
     }
