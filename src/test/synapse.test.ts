@@ -14,6 +14,7 @@ import {
   createMockProviderInfo,
   createMockSigner,
   extendMockProviderCall,
+  setupProviderRegistryMocks,
 } from './test-utils.ts'
 
 describe('Synapse', () => {
