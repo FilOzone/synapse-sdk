@@ -26,8 +26,8 @@ import type { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { asPieceCID } from '../piece/index.ts'
-import { SPRegistryService } from '../sp-registry/index.js'
-import type { ProviderInfo } from '../sp-registry/types.js'
+import { SPRegistryService } from '../sp-registry/index.ts'
+import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
   DownloadOptions,
