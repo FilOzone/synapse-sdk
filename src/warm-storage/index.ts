@@ -4,5 +4,5 @@ export type {
   AddPiecesInfo,
   ComprehensiveDataSetStatus,
   DataSetCreationVerification,
-} from './service.js'
-export { WarmStorageService } from './service.js'
+} from './service.ts'
+export { WarmStorageService } from './service.ts'

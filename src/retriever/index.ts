@@ -7,6 +7,6 @@
  * - SubgraphRetriever: Queries a GraphQL subgraph to find providers
  */
 
-export { ChainRetriever } from './chain.js'
-export { FilCdnRetriever } from './filcdn.js'
-export { SubgraphRetriever } from './subgraph.js'
+export { ChainRetriever } from './chain.ts'
+export { FilCdnRetriever } from './filcdn.ts'
+export { SubgraphRetriever } from './subgraph.ts'

@@ -6,8 +6,8 @@
  */
 
 import type { ethers } from 'ethers'
-import type { PieceCID } from './piece/index.js'
-import type { ProviderInfo } from './sp-registry/types.js'
+import type { PieceCID } from './piece/index.ts'
+import type { ProviderInfo } from './sp-registry/types.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }

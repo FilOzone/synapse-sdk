@@ -3,7 +3,7 @@
  * @module sp-registry
  */
 
-export { SPRegistryService } from './service.js'
+export { SPRegistryService } from './service.ts'
 export type {
   PDPOffering,
   PDPServiceInfo,
@@ -11,4 +11,4 @@ export type {
   ProviderInfo,
   ProviderRegistrationInfo,
   ServiceProduct,
-} from './types.js'
+} from './types.ts'

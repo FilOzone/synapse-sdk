@@ -1,8 +1,8 @@
 /* globals describe, it, beforeEach, afterEach */
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.js'
-import { SubgraphService } from '../subgraph/service.js'
-import type { PieceCID } from '../types.js'
+import { asPieceCID } from '../piece/index.ts'
+import { SubgraphService } from '../subgraph/service.ts'
+import type { PieceCID } from '../types.ts'
 
 describe('SubgraphService', () => {
   const mockEndpoint = 'http://localhost:8000/subgraphs/name/test'

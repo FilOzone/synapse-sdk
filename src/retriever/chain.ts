@@ -5,19 +5,23 @@
  * that have the requested piece, then attempts to download from them.
  */
 
-import type { SPRegistryService } from '../sp-registry/index.js'
-import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.js'
-import { createError } from '../utils/index.js'
-import { ProviderResolver } from '../utils/provider-resolver.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
-import { fetchPiecesFromProviders } from './utils.js'
+import type { SPRegistryService } from '../sp-registry/index.ts'
+import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.ts'
+import { createError } from '../utils/index.ts'
+import { ProviderResolver } from '../utils/provider-resolver.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
+import { fetchPiecesFromProviders } from './utils.ts'
 
 export class ChainRetriever implements PieceRetriever {
-  constructor(
-    private readonly warmStorageService: WarmStorageService,
-    private readonly spRegistry: SPRegistryService,
-    private readonly childRetriever?: PieceRetriever
-  ) {}
+  private readonly warmStorageService: WarmStorageService
+  private readonly childRetriever?: PieceRetriever
+  private readonly spRegistry: SPRegistryService
+
+  constructor(warmStorageService: WarmStorageService, spRegistry: SPRegistryService, childRetriever?: PieceRetriever) {
+    this.warmStorageService = warmStorageService
+    this.spRegistry = spRegistry
+    this.childRetriever = childRetriever
+  }
 
   /**
    * Find providers that can serve pieces for a client

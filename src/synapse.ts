@@ -3,12 +3,12 @@
  */
 
 import { ethers } from 'ethers'
-import { PaymentsService } from './payments/index.js'
-import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.js'
-import { SPRegistryService } from './sp-registry/index.js'
-import type { StorageService } from './storage/index.js'
-import { StorageManager } from './storage/manager.js'
-import { SubgraphService } from './subgraph/service.js'
+import { PaymentsService } from './payments/index.ts'
+import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { SPRegistryService } from './sp-registry/index.ts'
+import type { StorageService } from './storage/index.ts'
+import { StorageManager } from './storage/manager.ts'
+import { SubgraphService } from './subgraph/service.ts'
 import type {
   FilecoinNetworkType,
   PieceCID,
@@ -18,10 +18,10 @@ import type {
   StorageServiceOptions,
   SubgraphConfig,
   SynapseOptions,
-} from './types.js'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.js'
-import { ProviderResolver } from './utils/provider-resolver.js'
-import { WarmStorageService } from './warm-storage/index.js'
+} from './types.ts'
+import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
+import { ProviderResolver } from './utils/provider-resolver.ts'
+import { WarmStorageService } from './warm-storage/index.ts'
 
 export class Synapse {
   private readonly _signer: ethers.Signer

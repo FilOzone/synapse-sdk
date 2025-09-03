@@ -1,8 +1,8 @@
 /* globals describe it */
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.js'
-import { FilCdnRetriever } from '../retriever/filcdn.js'
-import type { PieceCID, PieceRetriever } from '../types.js'
+import { asPieceCID } from '../piece/index.ts'
+import { FilCdnRetriever } from '../retriever/filcdn.ts'
+import type { PieceCID, PieceRetriever } from '../types.ts'
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID

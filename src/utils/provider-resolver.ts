@@ -18,17 +18,20 @@
  */
 
 import { ethers } from 'ethers'
-import type { SPRegistryService } from '../sp-registry/index.js'
-import type { ProviderInfo } from '../sp-registry/types.js'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.js'
-import { getFilecoinNetworkType } from '../utils/index.js'
-import type { WarmStorageService } from '../warm-storage/index.js'
+import type { SPRegistryService } from '../sp-registry/index.ts'
+import type { ProviderInfo } from '../sp-registry/types.ts'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
+import { getFilecoinNetworkType } from '../utils/index.ts'
+import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class ProviderResolver {
-  constructor(
-    private readonly warmStorage: WarmStorageService,
-    private readonly spRegistry: SPRegistryService
-  ) {}
+  private readonly warmStorage: WarmStorageService
+  private readonly spRegistry: SPRegistryService
+
+  constructor(warmStorage: WarmStorageService, spRegistry: SPRegistryService) {
+    this.warmStorage = warmStorage
+    this.spRegistry = spRegistry
+  }
 
   /**
    * Get all approved providers with details (with pagination support)

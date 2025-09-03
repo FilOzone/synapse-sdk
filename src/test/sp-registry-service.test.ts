@@ -1,8 +1,8 @@
 /* globals describe it beforeEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { SPRegistryService } from '../sp-registry/service.js'
-import { ProductType } from '../sp-registry/types.js'
+import { SPRegistryService } from '../sp-registry/service.ts'
+import { PRODUCTS } from '../sp-registry/types.ts'
 
 describe('SPRegistryService', () => {
   let mockProvider: ethers.Provider
@@ -358,7 +358,7 @@ describe('SPRegistryService', () => {
     })
 
     it('should remove product', async () => {
-      const tx = await service.removeProduct(mockSigner, ProductType.PDP)
+      const tx = await service.removeProduct(mockSigner, PRODUCTS.PDP)
       assert.exists(tx)
       assert.exists(tx.hash)
     })

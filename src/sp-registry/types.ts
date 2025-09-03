@@ -5,9 +5,10 @@
 /**
  * Product types supported by the registry
  */
-export enum ProductType {
-  PDP = 0,
-}
+export const PRODUCTS = {
+  PDP: 0,
+} as const
+export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
 
 /**
  * Decoded provider info for SDK use
