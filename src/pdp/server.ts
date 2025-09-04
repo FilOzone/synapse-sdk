@@ -116,6 +116,19 @@ export interface PieceAdditionStatusResponse {
   confirmedPieceIds?: number[]
 }
 
+/**
+ * Input for adding pieces to a data set
+ */
+export interface PDPAddPiecesInput {
+  pieces: {
+    pieceCid: string
+    subPieces: {
+      subPieceCid: string
+    }[]
+  }[]
+  extraData: string
+}
+
 export class PDPServer {
   private readonly _serviceURL: string
   private readonly _authHelper: PDPAuthHelper | null
@@ -254,7 +267,7 @@ export class PDPServer {
 
     // Prepare request body matching the Curio handler expectation
     // Each piece has itself as its only subPiece (internal implementation detail)
-    const requestBody = {
+    const requestBody: PDPAddPiecesInput = {
       pieces: pieceDataArray.map((pieceData) => {
         // Convert to string for JSON serialization
         const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
