@@ -262,7 +262,7 @@ describe('Synapse', () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
       const mockProvider1 = createMockProviderInfo({
         id: 1,
-        address: mockProviderAddress,
+        serviceProvider: mockProviderAddress,
         products: {
           PDP: {
             type: 'PDP',
@@ -292,7 +292,7 @@ describe('Synapse', () => {
         const synapse = await Synapse.create({ signer: mockSigner })
         const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
 
-        assert.equal(providerInfo.address.toLowerCase(), mockProviderAddress.toLowerCase())
+        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
         assert.equal(providerInfo.products.PDP?.data.serviceURL, 'https://pdp.example.com')
       } finally {
         cleanup()
@@ -314,7 +314,7 @@ describe('Synapse', () => {
       const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
       const mockProvider1 = createMockProviderInfo({
         id: 3, // Not in approved list
-        address: mockProviderAddress,
+        serviceProvider: mockProviderAddress,
       })
 
       const cleanup = setupProviderRegistryMocks(mockProvider, {
@@ -469,7 +469,7 @@ describe('Synapse', () => {
       // Mock provider data
       const mockProvider1 = createMockProviderInfo({
         id: 1,
-        address: '0x1111111111111111111111111111111111111111',
+        serviceProvider: '0x1111111111111111111111111111111111111111',
         name: 'Test Provider 1',
         products: {
           PDP: {
@@ -492,7 +492,7 @@ describe('Synapse', () => {
       })
       const mockProvider2 = createMockProviderInfo({
         id: 2,
-        address: '0x2222222222222222222222222222222222222222',
+        serviceProvider: '0x2222222222222222222222222222222222222222',
         name: 'Test Provider 2',
         products: {
           PDP: {
@@ -572,8 +572,8 @@ describe('Synapse', () => {
 
         // Check providers
         assert.equal(storageInfo.providers.length, 2)
-        assert.equal(storageInfo.providers[0].address, mockProvider1.address)
-        assert.equal(storageInfo.providers[1].address, mockProvider2.address)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProvider1.serviceProvider)
+        assert.equal(storageInfo.providers[1].serviceProvider, mockProvider2.serviceProvider)
 
         // Check service parameters
         assert.equal(storageInfo.serviceParameters.network, 'calibration')
@@ -654,7 +654,7 @@ describe('Synapse', () => {
       // Mock provider data with a zero address
       const mockProvider1 = createMockProviderInfo({
         id: 1,
-        address: '0x1111111111111111111111111111111111111111',
+        serviceProvider: '0x1111111111111111111111111111111111111111',
         products: {
           PDP: {
             type: 'PDP',
@@ -677,7 +677,7 @@ describe('Synapse', () => {
       // Provider with zero address should be filtered out
       const mockProvider2 = createMockProviderInfo({
         id: 2,
-        address: ethers.ZeroAddress,
+        serviceProvider: ethers.ZeroAddress,
         active: false,
       })
 
@@ -724,7 +724,7 @@ describe('Synapse', () => {
 
         // Should filter out zero address provider
         assert.equal(storageInfo.providers.length, 1)
-        assert.equal(storageInfo.providers[0].address, mockProvider1.address)
+        assert.equal(storageInfo.providers[0].serviceProvider, mockProvider1.serviceProvider)
       } finally {
         registryCleanup()
         pricingCleanup()

@@ -114,7 +114,6 @@ export class WarmStorageService {
     pdpVerifier: string
     payments: string
     usdfcToken: string
-    filCDN: string
     viewContract: string
     serviceProviderRegistry: string
   }
@@ -129,7 +128,6 @@ export class WarmStorageService {
       pdpVerifier: string
       payments: string
       usdfcToken: string
-      filCDN: string
       viewContract: string
       serviceProviderRegistry: string
     }
@@ -174,11 +172,6 @@ export class WarmStorageService {
       {
         target: warmStorageAddress,
         allowFailure: false,
-        callData: iface.encodeFunctionData('filCDNAddress'),
-      },
-      {
-        target: warmStorageAddress,
-        allowFailure: false,
         callData: iface.encodeFunctionData('viewContractAddress'),
       },
       {
@@ -194,9 +187,8 @@ export class WarmStorageService {
       pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
-      filCDN: iface.decodeFunctionResult('filCDNAddress', results[3].returnData)[0],
-      viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
-      serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
+      viewContract: iface.decodeFunctionResult('viewContractAddress', results[3].returnData)[0],
+      serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[4].returnData)[0],
     }
 
     return new WarmStorageService(provider, warmStorageAddress, addresses)
@@ -313,8 +305,9 @@ export class WarmStorageService {
         // Get the actual PDPVerifier data set ID from the rail ID (using pdpRailId now)
         const pdpVerifierDataSetId = Number(await viewContract.railToDataSet(dataSet.pdpRailId))
 
-        // If railToDataSet returns 0, this rail doesn't exist in this Warm Storage contract
-        if (pdpVerifierDataSetId === 0) {
+        // Check if this is a valid rail (rails should be > 0)
+        // Note: dataSetId can be 0 (legitimate first data set), but pdpRailId should never be 0
+        if (dataSet.pdpRailId === 0) {
           return onlyManaged
             ? null // Will be filtered out
             : {

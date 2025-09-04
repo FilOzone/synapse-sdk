@@ -46,50 +46,50 @@ const TEST_PROVIDERS = {
   // Default provider with ID 1
   provider1: createMockProviderInfo({
     id: 1,
-    address: '0x1111111111111111111111111111111111111111',
+    serviceProvider: '0x1111111111111111111111111111111111111111',
     name: 'Test Provider 1',
   }),
   // Provider with ID 2
   provider2: createMockProviderInfo({
     id: 2,
-    address: '0x2222222222222222222222222222222222222222',
+    serviceProvider: '0x2222222222222222222222222222222222222222',
     name: 'Test Provider 2',
   }),
   // Provider with ID 3
   provider3: createMockProviderInfo({
     id: 3,
-    address: '0x3333333333333333333333333333333333333333',
+    serviceProvider: '0x3333333333333333333333333333333333333333',
     name: 'Test Provider 3',
   }),
   // Provider with ID 4
   provider4: createMockProviderInfo({
     id: 4,
-    address: '0x4444444444444444444444444444444444444444',
+    serviceProvider: '0x4444444444444444444444444444444444444444',
     name: 'Test Provider 4',
   }),
   // Provider with ID 5
   provider5: createMockProviderInfo({
     id: 5,
-    address: '0x5555555555555555555555555555555555555555',
+    serviceProvider: '0x5555555555555555555555555555555555555555',
     name: 'Test Provider 5',
   }),
   // Provider with ID 7
   provider7: createMockProviderInfo({
     id: 7,
-    address: '0x7777777777777777777777777777777777777777',
+    serviceProvider: '0x7777777777777777777777777777777777777777',
     name: 'Test Provider 7',
   }),
   // Provider with ID 9
   provider9: createMockProviderInfo({
     id: 9,
-    address: '0x9999999999999999999999999999999999999999',
+    serviceProvider: '0x9999999999999999999999999999999999999999',
     name: 'Test Provider 9',
   }),
 }
 
 // Legacy mock provider for backward compatibility
 const mockProvider: ProviderInfo = createSimpleProvider({
-  address: '0xabcdef1234567890123456789012345678901234',
+  serviceProvider: '0xabcdef1234567890123456789012345678901234',
   serviceURL: 'https://pdp.example.com',
 })
 
@@ -101,7 +101,7 @@ function createMockWarmStorageService(providers: ProviderInfo[], dataSets: any[]
     getNextClientDataSetId: async () =>
       dataSets.length > 0 ? Math.max(...dataSets.map((d) => d.clientDataSetId)) + 1 : 1,
     getProviderIdByAddress: async (address: string) => {
-      const provider = providers.find((p) => p.address.toLowerCase() === address.toLowerCase())
+      const provider = providers.find((p) => p.serviceProvider.toLowerCase() === address.toLowerCase())
       return provider?.id ?? 0
     },
     getApprovedProvider: async (id: number) => providers.find((p) => p.id === id) ?? null,
@@ -224,7 +224,8 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].address, // Matches first provider
+          payee: mockProviders[0].serviceProvider, // Matches first provider
+          providerId: 1, // Provider ID for first provider
           pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -239,7 +240,8 @@ describe('StorageService', () => {
         {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[1].address, // Matches second provider
+          payee: mockProviders[1].serviceProvider, // Matches second provider
+          providerId: 2, // Provider ID for second provider
           pdpVerifierDataSetId: 101,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -266,7 +268,8 @@ describe('StorageService', () => {
 
       // Should have selected one of the providers
       assert.isTrue(
-        service.serviceProvider === mockProviders[0].address || service.serviceProvider === mockProviders[1].address
+        service.serviceProvider === mockProviders[0].serviceProvider ||
+          service.serviceProvider === mockProviders[1].serviceProvider
       )
     })
 
@@ -278,6 +281,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
+          providerId: 3, // Provider ID for provider3
           pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -309,7 +313,7 @@ describe('StorageService', () => {
         providerId: 3,
       })
 
-      assert.equal(service.serviceProvider, mockProvider.address)
+      assert.equal(service.serviceProvider, mockProvider.serviceProvider)
     })
 
     it('should throw when no approved providers available', async () => {
@@ -339,7 +343,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = createMockWarmStorageService(mockProviders, [], {
         getApprovedProvider: async () => ({
-          address: '0x0000000000000000000000000000000000000000', // Zero address
+          serviceProvider: '0x0000000000000000000000000000000000000000', // Zero address
           serviceURL: '',
         }),
       })
@@ -362,6 +366,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333', // Matches provider
+          providerId: 3, // Provider ID for provider3
           pdpVerifierDataSetId: 100,
           nextPieceId: 5,
           currentPieceCount: 5,
@@ -463,7 +468,7 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.address,
+          payee: mockProvider.serviceProvider,
           pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -491,7 +496,7 @@ describe('StorageService', () => {
         providerId: 3,
         callbacks: {
           onProviderSelected: (provider) => {
-            assert.equal(provider.address, mockProvider.address)
+            assert.equal(provider.serviceProvider, mockProvider.serviceProvider)
             providerCallbackFired = true
           },
           onDataSetResolved: (info) => {
@@ -513,7 +518,8 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.address,
+          payee: mockProvider.serviceProvider,
+          providerId: 3, // Provider ID for provider3
           pdpVerifierDataSetId: 456,
           nextPieceId: 10,
           currentPieceCount: 10,
@@ -535,7 +541,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
         getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr, mockProvider.address)
+          assert.equal(addr, mockProvider.serviceProvider)
           return 3
         },
         getApprovedProvider: async (id: number) => {
@@ -549,7 +555,7 @@ describe('StorageService', () => {
       })
 
       assert.equal(service.dataSetId, 456)
-      assert.equal(service.serviceProvider, mockProvider.address)
+      assert.equal(service.serviceProvider, mockProvider.serviceProvider)
     })
 
     it('should select by providerAddress', async () => {
@@ -559,7 +565,7 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.address,
+          payee: mockProvider.serviceProvider,
           pdpVerifierDataSetId: 789,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -581,7 +587,7 @@ describe('StorageService', () => {
 
       const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
         getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr.toLowerCase(), mockProvider.address.toLowerCase())
+          assert.equal(addr.toLowerCase(), mockProvider.serviceProvider.toLowerCase())
           return 4
         },
         getApprovedProvider: async (id: number) => {
@@ -591,10 +597,10 @@ describe('StorageService', () => {
       })
 
       const service = await StorageService.create(mockSynapse, mockWarmStorageService, {
-        providerAddress: mockProvider.address,
+        providerAddress: mockProvider.serviceProvider,
       })
 
-      assert.equal(service.serviceProvider, mockProvider.address)
+      assert.equal(service.serviceProvider, mockProvider.serviceProvider)
       assert.equal(service.dataSetId, 789)
     })
 
@@ -624,7 +630,8 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider1.address, // Owned by provider 5
+          payee: mockProvider1.serviceProvider, // Owned by provider 5
+          providerId: 5, // Provider ID for provider5
           pdpVerifierDataSetId: 111,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -678,7 +685,7 @@ describe('StorageService', () => {
         getApprovedProvider: async (_providerId: number) => {
           // Return a non-approved provider (null address indicates not approved)
           return {
-            address: '0x0000000000000000000000000000000000000000',
+            serviceProvider: '0x0000000000000000000000000000000000000000',
             serviceURL: '',
           }
         },
@@ -700,7 +707,7 @@ describe('StorageService', () => {
 
       const mockProviders: ProviderInfo[] = [
         createSimpleProvider({
-          address: '0x7777777777777777777777777777777777777777',
+          serviceProvider: '0x7777777777777777777777777777777777777777',
           serviceURL: 'https://pdp7.example.com',
         }),
       ]
@@ -709,7 +716,7 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].address,
+          payee: mockProviders[0].serviceProvider,
           pdpVerifierDataSetId: 200,
           nextPieceId: 5,
           currentPieceCount: 5,
@@ -724,7 +731,7 @@ describe('StorageService', () => {
         {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProviders[0].address,
+          payee: mockProviders[0].serviceProvider,
           pdpVerifierDataSetId: 201,
           nextPieceId: 3,
           currentPieceCount: 3,
@@ -817,6 +824,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          providerId: 999, // Non-existent/non-approved provider
           pdpVerifierDataSetId: 400,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -834,11 +842,11 @@ describe('StorageService', () => {
         getClientDataSetsWithDetails: async () => mockDataSets,
         getProviderIdByAddress: async () => 0, // Provider not approved
         getApprovedProvider: async (_providerId: number) => {
-          // Return a non-approved provider
-          return {
-            address: '0x0000000000000000000000000000000000000000',
-            serviceURL: '',
-          }
+          // Return null for non-approved provider
+          return null
+        },
+        isProviderIdApproved: async (_providerId: number) => {
+          return false // Provider is not approved
         },
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
@@ -855,7 +863,7 @@ describe('StorageService', () => {
 
     it.skip('should create new data set when none exist for provider', async () => {
       const mockProvider: ProviderInfo = createSimpleProvider({
-        address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        serviceProvider: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
         serviceURL: 'https://pdp-b.example.com',
       })
 
@@ -871,7 +879,7 @@ describe('StorageService', () => {
         providerId: 11,
       })
 
-      assert.equal(service.serviceProvider, mockProvider.address)
+      assert.equal(service.serviceProvider, mockProvider.serviceProvider)
       // Note: actual data set creation is skipped in tests
     })
 
@@ -881,7 +889,7 @@ describe('StorageService', () => {
       const callOrder: string[] = []
 
       const mockProvider: ProviderInfo = createSimpleProvider({
-        address: '0xcccccccccccccccccccccccccccccccccccccccc',
+        serviceProvider: '0xcccccccccccccccccccccccccccccccccccccccc',
         serviceURL: 'https://pdp-c.example.com',
       })
 
@@ -928,7 +936,7 @@ describe('StorageService', () => {
       let getAllApprovedProvidersCalled = false
 
       const mockProvider: ProviderInfo = createSimpleProvider({
-        address: '0xdddddddddddddddddddddddddddddddddddddddd',
+        serviceProvider: '0xdddddddddddddddddddddddddddddddddddddddd',
         serviceURL: 'https://pdp-d.example.com',
       })
 
@@ -936,7 +944,7 @@ describe('StorageService', () => {
         {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
-          payee: mockProvider.address,
+          payee: mockProvider.serviceProvider,
           pdpVerifierDataSetId: 500,
           nextPieceId: 2,
           currentPieceCount: 2,
@@ -990,7 +998,7 @@ describe('StorageService', () => {
 
       const mockProviders: ProviderInfo[] = [
         createSimpleProvider({
-          address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          serviceProvider: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
           serviceURL: 'https://pdp-e.example.com',
         }),
       ]
@@ -1079,18 +1087,18 @@ describe('StorageService', () => {
         getApprovedProvider: async (providerId: number) => {
           if (providerId === 7) {
             return createSimpleProvider({
-              address: '0x1111222233334444555566667777888899990000',
+              serviceProvider: '0x1111222233334444555566667777888899990000',
               serviceURL: 'https://example.com',
             })
           }
           if (providerId === 8) {
             return createSimpleProvider({
-              address: '0x9999888877776666555544443333222211110000',
+              serviceProvider: '0x9999888877776666555544443333222211110000',
               serviceURL: 'https://example2.com',
             })
           }
           return {
-            address: '0x0000000000000000000000000000000000000000',
+            serviceProvider: '0x0000000000000000000000000000000000000000',
             serviceURL: '',
           }
         },
@@ -1264,7 +1272,7 @@ describe('StorageService', () => {
         ...mockSynapse,
         download: async (pieceCid: string | PieceCID, options?: any) => {
           assert.equal(pieceCid, testPieceCID)
-          assert.equal(options?.providerAddress, mockProvider.address)
+          assert.equal(options?.providerAddress, mockProvider.serviceProvider)
           assert.equal(options?.withCDN, false)
           return testData
         },
@@ -1317,7 +1325,7 @@ describe('StorageService', () => {
         download: async (pieceCid: string | PieceCID, options?: any) => {
           assert.equal(pieceCid, testPieceCID)
           // Options should still contain providerAddress and withCDN from StorageService
-          assert.equal(options?.providerAddress, mockProvider.address)
+          assert.equal(options?.providerAddress, mockProvider.serviceProvider)
           assert.equal(options?.withCDN, false)
           return testData
         },
@@ -2597,11 +2605,11 @@ describe('StorageService', () => {
       it('should select first provider that responds to ping', async () => {
         const testProviders: ProviderInfo[] = [
           createSimpleProvider({
-            address: '0x1111111111111111111111111111111111111111',
+            serviceProvider: '0x1111111111111111111111111111111111111111',
             serviceURL: 'https://pdp1.example.com',
           }),
           createSimpleProvider({
-            address: '0x2222222222222222222222222222222222222222',
+            serviceProvider: '0x2222222222222222222222222222222222222222',
             serviceURL: 'https://pdp2.example.com',
           }),
         ]
@@ -2632,7 +2640,7 @@ describe('StorageService', () => {
           const result = await (StorageService as any).selectRandomProvider(testProviders)
 
           // Should have selected the second provider (first one failed ping)
-          assert.equal(result.address, testProviders[1].address)
+          assert.equal(result.serviceProvider, testProviders[1].serviceProvider)
           assert.isAtLeast(pingCallCount, 1, 'Should have called ping at least once')
         } finally {
           global.fetch = originalFetch
@@ -2644,11 +2652,11 @@ describe('StorageService', () => {
       it('should throw error when all providers fail ping', async () => {
         const testProviders: ProviderInfo[] = [
           createSimpleProvider({
-            address: '0x1111111111111111111111111111111111111111',
+            serviceProvider: '0x1111111111111111111111111111111111111111',
             serviceURL: 'https://pdp1.example.com',
           }),
           createSimpleProvider({
-            address: '0x2222222222222222222222222222222222222222',
+            serviceProvider: '0x2222222222222222222222222222222222222222',
             serviceURL: 'https://pdp2.example.com',
           }),
         ]
@@ -2681,11 +2689,11 @@ describe('StorageService', () => {
         // SKIPPED: Requires SPRegistryService mocking
         const testProviders: ProviderInfo[] = [
           createSimpleProvider({
-            address: '0x1111111111111111111111111111111111111111',
+            serviceProvider: '0x1111111111111111111111111111111111111111',
             serviceURL: 'https://pdp1.example.com',
           }),
           createSimpleProvider({
-            address: '0x2222222222222222222222222222222222222222',
+            serviceProvider: '0x2222222222222222222222222222222222222222',
             serviceURL: 'https://pdp2.example.com',
           }),
         ]
@@ -2694,7 +2702,7 @@ describe('StorageService', () => {
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProviders[0].address, // First provider has existing data set
+            payee: testProviders[0].serviceProvider, // First provider has existing data set
             pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 0,
@@ -2712,7 +2720,7 @@ describe('StorageService', () => {
           getClientDataSetsWithDetails: async () => dataSets,
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async (address: string) => {
-            const idx = testProviders.findIndex((p) => p.address.toLowerCase() === address.toLowerCase())
+            const idx = testProviders.findIndex((p) => p.serviceProvider.toLowerCase() === address.toLowerCase())
             return idx >= 0 ? idx + 1 : 0
           },
           getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null,
@@ -2758,11 +2766,11 @@ describe('StorageService', () => {
         // SKIPPED: smartSelectProvider is now a private method requiring full context
         const testProviders: ProviderInfo[] = [
           createSimpleProvider({
-            address: '0x1111111111111111111111111111111111111111',
+            serviceProvider: '0x1111111111111111111111111111111111111111',
             serviceURL: 'https://pdp1.example.com',
           }),
           createSimpleProvider({
-            address: '0x2222222222222222222222222222222222222222',
+            serviceProvider: '0x2222222222222222222222222222222222222222',
             serviceURL: 'https://pdp2.example.com',
           }),
         ]
@@ -2808,7 +2816,7 @@ describe('StorageService', () => {
 
           // Should have selected one of the available providers for new data set
           assert.isTrue(
-            testProviders.some((p) => p.address === result.provider.address),
+            testProviders.some((p) => p.serviceProvider === result.provider.serviceProvider),
             'Should have selected one of the available providers'
           )
           assert.equal(result.dataSetId, -1) // New data set marker
@@ -2821,7 +2829,7 @@ describe('StorageService', () => {
 
       it('should use existing provider if ping succeeds', async () => {
         const testProvider: ProviderInfo = createSimpleProvider({
-          address: '0x1111111111111111111111111111111111111111',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
           serviceURL: 'https://pdp1.example.com',
         })
 
@@ -2829,7 +2837,7 @@ describe('StorageService', () => {
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.address,
+            payee: testProvider.serviceProvider,
             pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 5, // Has pieces, so preferred
@@ -2876,7 +2884,7 @@ describe('StorageService', () => {
           )
 
           // Should use existing provider since ping succeeded
-          assert.equal(result.provider.address, testProvider.address)
+          assert.equal(result.provider.serviceProvider, testProvider.serviceProvider)
           assert.equal(result.dataSetId, 100)
           assert.isTrue(result.isExisting)
         } finally {
@@ -2891,7 +2899,7 @@ describe('StorageService', () => {
 
       it('should deduplicate providers from multiple data sets', async () => {
         const testProvider: ProviderInfo = createSimpleProvider({
-          address: '0x1111111111111111111111111111111111111111',
+          serviceProvider: '0x1111111111111111111111111111111111111111',
           serviceURL: 'https://pdp1.example.com',
         })
 
@@ -2900,7 +2908,7 @@ describe('StorageService', () => {
           {
             railId: 1,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.address,
+            payee: testProvider.serviceProvider,
             pdpVerifierDataSetId: 100,
             nextPieceId: 0,
             currentPieceCount: 5,
@@ -2915,7 +2923,7 @@ describe('StorageService', () => {
           {
             railId: 2,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.address, // Same provider
+            payee: testProvider.serviceProvider, // Same provider
             pdpVerifierDataSetId: 101,
             nextPieceId: 0,
             currentPieceCount: 3,
@@ -2930,7 +2938,7 @@ describe('StorageService', () => {
           {
             railId: 3,
             payer: '0x1234567890123456789012345678901234567890',
-            payee: testProvider.address, // Same provider
+            payee: testProvider.serviceProvider, // Same provider
             pdpVerifierDataSetId: 102,
             nextPieceId: 0,
             currentPieceCount: 1,
@@ -2992,14 +3000,14 @@ describe('StorageService', () => {
   describe('getProviderInfo', () => {
     it('should return provider info through WarmStorageService', async () => {
       const expectedProviderInfo = createSimpleProvider({
-        address: mockProvider.address,
+        serviceProvider: mockProvider.serviceProvider,
         serviceURL: 'https://updated-pdp.example.com',
       })
 
       const mockSynapseWithProvider = {
         ...mockSynapse,
         getProviderInfo: async (address: string) => {
-          assert.equal(address, mockProvider.address)
+          assert.equal(address, mockProvider.serviceProvider)
           return expectedProviderInfo
         },
       } as any
@@ -3438,7 +3446,7 @@ describe('StorageService', () => {
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async (address: string) => {
         // Return the provider with trailing slash when asked for this provider's address
-        if (address === mockProviderWithSlash.address) {
+        if (address === mockProviderWithSlash.serviceProvider) {
           return mockProviderWithSlash
         }
         throw new Error('Provider not found')

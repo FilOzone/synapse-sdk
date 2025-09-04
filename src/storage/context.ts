@@ -137,7 +137,7 @@ export class StorageContext {
 
     // Set public properties
     this.dataSetId = dataSetId
-    this.serviceProvider = provider.address
+    this.serviceProvider = provider.serviceProvider
 
     // Get WarmStorage address from Synapse (which already handles override)
     this._warmStorageAddress = synapse.getWarmStorageAddress()
@@ -244,12 +244,7 @@ export class StorageContext {
 
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
-    const createResult = await pdpServer.createDataSet(
-      nextDatasetId, // clientDataSetId
-      provider.address, // payee (service provider address)
-      withCDN,
-      warmStorageAddress // recordKeeper (WarmStorage contract)
-    )
+    const createResult = await pdpServer.createDataSet(nextDatasetId, provider.payee, withCDN, warmStorageAddress)
     performance.mark('synapse:pdpServer.createDataSet-end')
     performance.measure(
       'synapse:pdpServer.createDataSet',
@@ -476,13 +471,13 @@ export class StorageContext {
       await StorageContext.validateDataSetConsistency(dataSet, options, providerResolver)
     }
 
-    // Look up provider by address
-    const provider = await providerResolver.getApprovedProviderByAddress(dataSet.payee)
+    // Look up provider by ID from the data set
+    const provider = await providerResolver.getApprovedProvider(dataSet.providerId)
     if (provider == null) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Provider ${dataSet.payee} for data set ${dataSetId} is not currently approved`
+        `Provider ID ${dataSet.providerId} for data set ${dataSetId} is not currently approved`
       )
     }
 
@@ -513,12 +508,11 @@ export class StorageContext {
   ): Promise<void> {
     // Validate provider ID if specified
     if (options.providerId != null) {
-      const actualProvider = await providerResolver.getApprovedProviderByAddress(dataSet.payee)
-      if (actualProvider == null || actualProvider.id !== options.providerId) {
+      if (dataSet.providerId !== options.providerId) {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${actualProvider?.id ?? 'unknown'}, ` +
+          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${dataSet.providerId}, ` +
             `but provider ID ${options.providerId} was requested`
         )
       }
@@ -526,11 +520,16 @@ export class StorageContext {
 
     // Validate provider address if specified
     if (options.providerAddress != null) {
-      if (dataSet.payee.toLowerCase() !== options.providerAddress.toLowerCase()) {
+      // Look up the actual provider to get its serviceProvider address
+      const actualProvider = await providerResolver.getApprovedProvider(dataSet.providerId)
+      if (
+        actualProvider == null ||
+        actualProvider.serviceProvider.toLowerCase() !== options.providerAddress.toLowerCase()
+      ) {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${dataSet.payee}, ` +
+          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${actualProvider?.serviceProvider ?? 'unknown'}, ` +
             `but provider ${options.providerAddress} was requested`
         )
       }
@@ -564,7 +563,10 @@ export class StorageContext {
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
       (ps) =>
-        ps.payee.toLowerCase() === provider.address.toLowerCase() && ps.isLive && ps.isManaged && ps.withCDN === withCDN
+        ps.payee.toLowerCase() === provider.serviceProvider.toLowerCase() &&
+        ps.isLive &&
+        ps.isManaged &&
+        ps.withCDN === withCDN
     )
 
     if (providerDataSets.length > 0) {
@@ -663,15 +665,15 @@ export class StorageContext {
 
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
-          const provider = await providerResolver.getApprovedProviderByAddress(dataSet.payee)
+          const provider = await providerResolver.getApprovedProvider(dataSet.providerId)
           if (provider == null) {
             console.warn(
-              `Provider ${dataSet.payee} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
+              `Provider ID ${dataSet.providerId} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
             )
             continue
           }
-          if (!yieldedProviders.has(provider.address.toLowerCase())) {
-            yieldedProviders.add(provider.address.toLowerCase())
+          if (!yieldedProviders.has(provider.serviceProvider.toLowerCase())) {
+            yieldedProviders.add(provider.serviceProvider.toLowerCase())
             yield provider
           }
         }
@@ -680,7 +682,9 @@ export class StorageContext {
       const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
       // Find the first matching data set ID for this provider
-      const matchingDataSet = sorted.find((ps) => ps.payee.toLowerCase() === selectedProvider.address.toLowerCase())
+      const matchingDataSet = sorted.find(
+        (ps) => ps.payee.toLowerCase() === selectedProvider.serviceProvider.toLowerCase()
+      )
 
       if (matchingDataSet == null) {
         throw createError('StorageContext', 'smartSelectProvider', 'Selected provider not found in data sets')
@@ -784,7 +788,7 @@ export class StorageContext {
         return provider
       } catch (error) {
         console.warn(
-          `Provider ${provider.address} failed ping test:`,
+          `Provider ${provider.serviceProvider} failed ping test:`,
           error instanceof Error ? error.message : String(error)
         )
         // Continue to next provider
@@ -1170,7 +1174,7 @@ export class StorageContext {
     // Use storage manager if available (production), otherwise use provider download for tests
     const downloadFn = this._synapse.storage?.download ?? this._synapse.download
     return await downloadFn.call(this._synapse.storage ?? this._synapse, pieceCid, {
-      providerAddress: this._provider.address,
+      providerAddress: this._provider.serviceProvider,
       withCDN: (options as any)?.withCDN ?? this._withCDN,
     })
   }

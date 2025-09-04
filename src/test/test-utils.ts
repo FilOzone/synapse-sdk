@@ -78,12 +78,11 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
 
       // Mock Multicall3 aggregate3 calls - function selector: 0x82ad56cb
       if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
-        // Return mock addresses for all 6 getter functions
+        // Return mock addresses for all 5 getter functions (filCDN removed)
         const mockAddresses = [
           '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
           '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
           '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
-          '0x0000000000000000000000000000000000000000', // filCDN (not used)
           '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
           '0x0000000000000000000000000000000000000001', // spRegistry
         ]
@@ -400,7 +399,7 @@ export function createMockSPRegistryService(providers: ProviderInfo[] = []): SPR
 
   providers.forEach((p) => {
     providerMap.set(p.id, p)
-    addressMap.set(p.address.toLowerCase(), p)
+    addressMap.set(p.serviceProvider.toLowerCase(), p)
   })
 
   const mock: Partial<SPRegistryService> = {
@@ -456,7 +455,7 @@ export function setupProviderRegistryMocks(
       createMockProviderInfo({ id: 1 }),
       createMockProviderInfo({
         id: 2,
-        address: '0x2222222222222222222222222222222222222222',
+        serviceProvider: '0x2222222222222222222222222222222222222222',
         products: {
           PDP: {
             type: 'PDP',
@@ -600,15 +599,15 @@ export function setupProviderRegistryMocks(
           const provider = providers.find((p) => p.id === providerId)
           if (provider) {
             const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(address beneficiary, string name, string description, bool isActive)'],
-              [[provider.address, provider.name, provider.description || '', provider.active]]
+              ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+              [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
             )
             return { success: true, returnData: encoded }
           }
           // Return empty provider
           const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address beneficiary, string name, string description, bool isActive)'],
-            [[ethers.ZeroAddress, '', '', false]]
+            ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+            [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
           )
           return { success: true, returnData: encoded }
         }
@@ -673,14 +672,14 @@ export function setupProviderRegistryMocks(
       const provider = providers.find((p) => p.id === providerId)
       if (provider) {
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(address beneficiary, string name, string description, bool isActive)'],
-          [[provider.address, provider.name, provider.description || '', provider.active]]
+          ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+          [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
         )
       }
       // Return null provider (zero address indicates not found)
       return ethers.AbiCoder.defaultAbiCoder().encode(
-        ['tuple(address beneficiary, string name, string description, bool isActive)'],
-        [[ethers.ZeroAddress, '', '', false]]
+        ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+        [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
       )
     }
 
@@ -803,7 +802,7 @@ export function setupProviderRegistryMocks(
     if (data?.startsWith('0x93ecb91e')) {
       // Decode address from call data
       const addressParam = `0x${data.slice(34, 74)}`
-      const provider = providers.find((p) => p.address.toLowerCase() === addressParam.toLowerCase())
+      const provider = providers.find((p) => p.serviceProvider.toLowerCase() === addressParam.toLowerCase())
       if (provider) {
         return ethers.zeroPadValue(ethers.toBeHex(provider.id), 32)
       }
@@ -814,17 +813,17 @@ export function setupProviderRegistryMocks(
     if (data?.startsWith('0x2335bde0')) {
       // Decode address from call data
       const addressParam = `0x${data.slice(34, 74)}`
-      const provider = providers.find((p) => p.address.toLowerCase() === addressParam.toLowerCase())
+      const provider = providers.find((p) => p.serviceProvider.toLowerCase() === addressParam.toLowerCase())
       if (provider) {
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(address beneficiary, string name, string description, bool isActive)'],
-          [[provider.address, provider.name, provider.description || '', provider.active]]
+          ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+          [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
         )
       }
       // Return zero address struct for not found
       return ethers.AbiCoder.defaultAbiCoder().encode(
-        ['tuple(address beneficiary, string name, string description, bool isActive)'],
-        [[ethers.ZeroAddress, '', '', false]]
+        ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+        [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
       )
     }
 
@@ -870,7 +869,8 @@ export function setupProviderRegistryMocks(
 export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): ProviderInfo {
   const defaults: ProviderInfo = {
     id: 1,
-    address: '0x1234567890123456789012345678901234567890',
+    serviceProvider: '0x1234567890123456789012345678901234567890',
+    payee: '0x1234567890123456789012345678901234567890', // Usually same as serviceProvider for tests
     name: 'Test Provider',
     description: 'A test storage provider',
     active: true,
@@ -900,9 +900,13 @@ export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): Provi
 /**
  * Create a mock provider with minimal fields (for backward compatibility)
  */
-export function createSimpleProvider(props: { address: string; serviceURL: string }): ProviderInfo {
+export function createSimpleProvider(props: {
+  address?: string
+  serviceProvider?: string
+  serviceURL: string
+}): ProviderInfo {
   return createMockProviderInfo({
-    address: props.address,
+    serviceProvider: props.serviceProvider ?? props.address ?? '0x1234567890123456789012345678901234567890',
     products: {
       PDP: {
         type: 'PDP',

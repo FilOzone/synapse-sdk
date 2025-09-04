@@ -288,7 +288,8 @@ export class SubgraphService implements SubgraphRetrievalService {
     const serviceURL = data.serviceURL ?? data.pdpUrl ?? 'https://unknown.provider'
     return {
       id: 1, // Default ID for subgraph providers
-      address: data.address ?? data.id,
+      serviceProvider: data.serviceProvider ?? data.serviceProvider ?? data.id,
+      payee: data.payee ?? data.serviceProvider ?? data.id,
       name: 'Subgraph Provider',
       description: 'Provider from subgraph',
       active: true,
@@ -385,8 +386,8 @@ export class SubgraphService implements SubgraphRetrievalService {
     }
 
     const uniqueProviderMap = data.pieces.reduce((acc: Map<string, any>, piece: any) => {
-      const provider = piece.dataSet.address
-      const address = provider?.address?.toLowerCase() as string
+      const provider = piece.dataSet.serviceProvider
+      const address = provider?.serviceProvider?.toLowerCase() as string
 
       if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
         return acc
@@ -525,7 +526,9 @@ export class SubgraphService implements SubgraphRetrievalService {
       updatedAt: this.parseTimestamp(dataSet.updatedAt),
       owner: dataSet.owner != null ? this.transformProviderData(dataSet.owner) : this.transformProviderData({}), // Create default provider
       serviceProvider:
-        dataSet.address != null ? this.transformProviderData(dataSet.address) : this.transformProviderData({}), // Create default provider
+        dataSet.serviceProvider != null
+          ? this.transformProviderData(dataSet.serviceProvider)
+          : this.transformProviderData({}), // Create default provider
       rail:
         dataSet.rail != null
           ? {
@@ -597,7 +600,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
         isActive: piece.dataSet.isActive,
-        serviceProvider: this.transformProviderData(piece.dataSet.address),
+        serviceProvider: this.transformProviderData(piece.dataSet.serviceProvider),
       },
     }))
   }
@@ -648,7 +651,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       dataSet: {
         id: fault.dataSet.id,
         setId: this.parseTimestamp(fault.dataSet.setId),
-        serviceProvider: this.transformProviderData(fault.dataSet.address),
+        serviceProvider: this.transformProviderData(fault.dataSet.serviceProvider),
       },
     }))
   }

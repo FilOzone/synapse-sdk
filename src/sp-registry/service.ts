@@ -79,6 +79,7 @@ export class SPRegistryService {
    * @example
    * ```typescript
    * const tx = await spRegistry.registerProvider(signer, {
+   *   payee: '0x...', // Address that will receive payments
    *   name: 'My Storage Provider',
    *   description: 'High-performance storage service',
    *   pdpOffering: {
@@ -93,7 +94,7 @@ export class SPRegistryService {
    * // Wait for transaction and get provider ID from event
    * const receipt = await tx.wait()
    * const event = receipt.logs.find(log =>
-   *   log.topics[0] === ethers.id('ProviderRegistered(uint256,address,uint256)')
+   *   log.topics[0] === ethers.id('ProviderRegistered(uint256,address,address)')
    * )
    * const providerId = event ? parseInt(event.topics[1], 16) : null
    * ```
@@ -127,6 +128,7 @@ export class SPRegistryService {
 
     // Register provider with all parameters in a single call
     const tx = await contract.registerProvider(
+      info.payee,
       info.name,
       info.description,
       productType,
@@ -165,20 +167,6 @@ export class SPRegistryService {
     return await contract.removeProvider()
   }
 
-  /**
-   * Transfer provider beneficiary to new address
-   * @param signer - Current beneficiary's signer
-   * @param newBeneficiary - New beneficiary address
-   * @returns Transaction response
-   */
-  async transferProviderBeneficiary(
-    signer: ethers.Signer,
-    newBeneficiary: string
-  ): Promise<ethers.TransactionResponse> {
-    const contract = this._getRegistryContract().connect(signer) as ethers.Contract
-    return await contract.transferProviderBeneficiary(newBeneficiary)
-  }
-
   // ========== Provider Queries ==========
 
   /**
@@ -191,7 +179,7 @@ export class SPRegistryService {
       const contract = this._getRegistryContract()
       const rawProvider = await contract.getProvider(providerId)
 
-      if (rawProvider.beneficiary === ethers.ZeroAddress) {
+      if (rawProvider.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
@@ -223,7 +211,7 @@ export class SPRegistryService {
       ])
 
       // Check if provider exists (beneficiary address will be zero if not found)
-      if (rawProvider.beneficiary === ethers.ZeroAddress) {
+      if (rawProvider.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
@@ -702,7 +690,8 @@ export class SPRegistryService {
 
     return {
       id: providerId,
-      address: rawProvider.beneficiary,
+      serviceProvider: rawProvider.serviceProvider,
+      payee: rawProvider.payee,
       name: rawProvider.name,
       description: rawProvider.description,
       active: rawProvider.isActive,

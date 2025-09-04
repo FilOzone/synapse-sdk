@@ -22,9 +22,15 @@
  * DEPLOYER_PRIVATE_KEY=0x... \
  * SP_PRIVATE_KEY=0x... \
  * CLIENT_PRIVATE_KEY=0x... \
+ * SP_SERVICE_URL=http://your-curio-node:4702 \
+ * node utils/post-deploy-setup.js
+ *
+ * # Or with custom addresses:
+ * DEPLOYER_PRIVATE_KEY=0x... \
+ * SP_PRIVATE_KEY=0x... \
+ * CLIENT_PRIVATE_KEY=0x... \
  * WARM_STORAGE_CONTRACT_ADDRESS=0x... \
  * SP_REGISTRY_ADDRESS=0x... \
- * NETWORK=calibration \
  * SP_SERVICE_URL=http://your-curio-node:4702 \
  * node utils/post-deploy-setup.js
  * ```
@@ -34,38 +40,28 @@
  * - DEPLOYER_PRIVATE_KEY: Private key of the Warm Storage contract deployer/owner
  * - SP_PRIVATE_KEY: Private key of the service provider
  * - CLIENT_PRIVATE_KEY: Private key of the client who will use storage
- * - WARM_STORAGE_CONTRACT_ADDRESS: Deployed Warm Storage contract address
- * - SP_REGISTRY_ADDRESS: Deployed ServiceProviderRegistry address
- * - NETWORK: Either 'mainnet' or 'calibration' (default: calibration)
  * - SP_SERVICE_URL: Service provider's Curio HTTP endpoint
  *
  * === OPTIONAL ENVIRONMENT VARIABLES ===
  *
+ * - WARM_STORAGE_CONTRACT_ADDRESS: Warm Storage address (defaults to address in constants.ts for network)
+ * - SP_REGISTRY_ADDRESS: ServiceProviderRegistry address (auto-discovered from WarmStorage if not provided)
+ * - NETWORK: Either 'mainnet' or 'calibration' (default: calibration)
  * - RPC_URL: Custom RPC endpoint (overrides default network RPC)
  * - SP_NAME: Provider name (default: "Test Service Provider")
  * - SP_DESCRIPTION: Provider description (default: "Test provider for Warm Storage")
- * - MIN_PIECE_SIZE: Minimum piece size in bytes (default: 65)
+ * - MIN_PIECE_SIZE: Minimum piece size in bytes (default: 128)
  * - MAX_PIECE_SIZE: Maximum piece size in bytes (default: 34091302912 - 32GiB minus fr32 padding)
  * - STORAGE_PRICE_PER_TIB_PER_MONTH: Price in smallest USDFC unit (default: 5000000000000000000 - 5 USDFC)
  * - MIN_PROVING_PERIOD: Minimum proving period in epochs (default: 2880)
- * - LOCATION: Provider location in X.509 DN format (default: empty, example: "/C=US/ST=California/L=San Francisco")
+ * - LOCATION: Provider location in X.509 DN format (default: "/C=AU/ST=NSW", example: "/C=US/ST=California/L=San Francisco")
  */
 
 import { ethers } from 'ethers'
 import { PaymentsService } from '../dist/payments/service.js'
 import { SPRegistryService } from '../dist/sp-registry/service.js'
-import { TOKENS } from '../dist/utils/constants.js'
+import { CONTRACT_ADDRESSES, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
 import { WarmStorageService } from '../dist/warm-storage/service.js'
-
-// Network RPC URLs
-const RPC_URLS = {
-  mainnet: {
-    http: 'https://api.node.glif.io/rpc/v1',
-  },
-  calibration: {
-    http: 'https://api.calibration.node.glif.io/rpc/v1',
-  },
-}
 
 // Constants for payment approvals
 const RATE_ALLOWANCE_PER_EPOCH = ethers.parseUnits('0.1', 18) // 0.1 USDFC per epoch
@@ -75,7 +71,7 @@ const INITIAL_DEPOSIT_AMOUNT = ethers.parseUnits('1', 18) // 1 USDFC initial dep
 
 // Default PDP configuration values
 const DEFAULT_STORAGE_PRICE = 5000000000000000000n // 5 USDFC per TiB per month (with 18 decimals)
-const DEFAULT_MIN_PIECE_SIZE = 65n // 65 bytes minimum (required for PieceCID calculation)
+const DEFAULT_MIN_PIECE_SIZE = 128n // 128 bytes minimum (required for PieceCID calculation)
 const DEFAULT_MAX_PIECE_SIZE = 34091302912n // 32 GiB minus fr32 padding (32GB * 127/128)
 
 // Validation helper
@@ -111,12 +107,10 @@ async function main() {
     const deployerPrivateKey = requireEnv('DEPLOYER_PRIVATE_KEY')
     const spPrivateKey = requireEnv('SP_PRIVATE_KEY')
     const clientPrivateKey = requireEnv('CLIENT_PRIVATE_KEY')
-    const warmStorageAddress = requireEnv('WARM_STORAGE_CONTRACT_ADDRESS')
-    const spRegistryAddress = requireEnv('SP_REGISTRY_ADDRESS')
+    const spServiceUrl = requireEnv('SP_SERVICE_URL')
 
     const network = process.env.NETWORK || 'calibration'
     const customRpcUrl = process.env.RPC_URL
-    const spServiceUrl = process.env.SP_SERVICE_URL || 'https://service.example.com'
     const spName = process.env.SP_NAME || 'Test Service Provider'
     const spDescription = process.env.SP_DESCRIPTION || 'Test provider for Warm Storage'
 
@@ -138,15 +132,25 @@ async function main() {
     // Get RPC URL
     const rpcURL = customRpcUrl || RPC_URLS[network].http
 
+    // Get WarmStorage address - use provided or default from constants
+    let warmStorageAddress = process.env.WARM_STORAGE_CONTRACT_ADDRESS
+    if (!warmStorageAddress) {
+      warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
+      if (!warmStorageAddress) {
+        error(`No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS.`)
+        process.exit(1)
+      }
+      log(`Using default Warm Storage address from constants.ts: ${warmStorageAddress}`)
+    }
+
     log(`Starting post-deployment setup for network: ${network}`)
     log(`Warm Storage contract address: ${warmStorageAddress}`)
-    log(`ServiceProviderRegistry address: ${spRegistryAddress}`)
     log(`Using RPC: ${rpcURL}`)
     log(`\nProvider Configuration:`)
     log(`  Name: ${spName}`)
     log(`  Service URL: ${spServiceUrl}`)
     log(`  Location: ${location}`)
-    log(`  Storage Price: ${Number(storagePricePerTibPerMonth) / 1000000} USDFC/TiB/month`)
+    log(`  Storage Price: ${ethers.formatUnits(storagePricePerTibPerMonth, 18)} USDFC/TiB/month`)
 
     // Create providers and signers with extended timeout for Filecoin's 30s block time
     const provider = new ethers.JsonRpcProvider(rpcURL, undefined, {
@@ -171,9 +175,26 @@ async function main() {
     log(`Service Provider address: ${spAddress}`)
     log(`Client address: ${clientAddress}`)
 
-    // Create service instances
-    const spRegistry = new SPRegistryService(provider, spRegistryAddress)
+    // Create WarmStorage service first to potentially discover registry address
     const warmStorage = await WarmStorageService.create(provider, warmStorageAddress)
+
+    // Get registry address - use provided or discover from WarmStorage
+    let spRegistryAddress = process.env.SP_REGISTRY_ADDRESS
+    if (spRegistryAddress) {
+      log(`Using provided ServiceProviderRegistry address: ${spRegistryAddress}`)
+    } else {
+      spRegistryAddress = warmStorage.getServiceProviderRegistryAddress()
+      if (!spRegistryAddress || spRegistryAddress === ethers.ZeroAddress) {
+        error(
+          'Could not discover ServiceProviderRegistry address from WarmStorage. Please provide SP_REGISTRY_ADDRESS.'
+        )
+        process.exit(1)
+      }
+      log(`Auto-discovered ServiceProviderRegistry address: ${spRegistryAddress}`)
+    }
+
+    // Create registry service
+    const spRegistry = new SPRegistryService(provider, spRegistryAddress)
 
     // === Step 1: Register Provider in ServiceProviderRegistry ===
     log('\n📋 Step 1: Service Provider Registration in Registry')
@@ -190,9 +211,14 @@ async function main() {
         success(`Provider already registered with ID ${providerId}`)
         log(`  Name: ${providerInfo.name}`)
         log(`  Description: ${providerInfo.description}`)
+        log(`  Location: ${providerInfo.location}`)
 
         // Check if we need to update the info
-        if (providerInfo.name !== spName || providerInfo.description !== spDescription) {
+        if (
+          providerInfo.name !== spName ||
+          providerInfo.description !== spDescription ||
+          provider.location !== location
+        ) {
           log('Updating provider information...')
           const updateTx = await spRegistry.updateProviderInfo(spSigner, spName, spDescription)
           await updateTx.wait(1)
@@ -231,13 +257,15 @@ async function main() {
       const encodedOffering = await spRegistry.encodePDPOffering(pdpOffering)
 
       // Register with PDP product included
+      // Use the SP's address as both serviceProvider (msg.sender) and payee
       const registerTx = await contract.registerProvider(
+        spSigner.address, // payee address (where payments go)
         spName,
         spDescription,
         0, // ProductType.PDP
         encodedOffering,
-        [location ? 'location' : ''].filter(Boolean), // capability keys
-        [location || ''].filter(Boolean), // capability values
+        location ? ['location'] : [], // capability keys
+        location ? [location] : [], // capability values
         { value: registrationFee }
       )
 
@@ -261,7 +289,9 @@ async function main() {
         success('Provider has active PDP product')
         log(`  Service URL: ${pdpService.offering.serviceURL}`)
         log(`  Location: ${pdpService.offering.location}`)
-        log(`  Storage Price: ${Number(pdpService.offering.storagePricePerTibPerMonth) / 1000000} USDFC/TiB/month`)
+        log(
+          `  Storage Price: ${ethers.formatUnits(pdpService.offering.storagePricePerTibPerMonth, 18)} USDFC/TiB/month`
+        )
         log(`  Min Piece Size: ${pdpService.offering.minPieceSizeInBytes} bytes`)
         log(`  Max Piece Size: ${pdpService.offering.maxPieceSizeInBytes} bytes`)
 

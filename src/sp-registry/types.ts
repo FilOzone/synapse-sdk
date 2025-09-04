@@ -15,7 +15,8 @@ export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
  */
 export interface ProviderInfo {
   id: number
-  address: string
+  serviceProvider: string
+  payee: string
   name: string
   description: string
   active: boolean
@@ -52,6 +53,7 @@ export interface PDPOffering {
  * Provider registration info for new providers
  */
 export interface ProviderRegistrationInfo {
+  payee: string
   name: string
   description: string
   pdpOffering?: PDPOffering
