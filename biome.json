@@ -31,7 +31,8 @@
       "!**/LICENSE*",
       "!**/__snapshots__",
       "!**/components.d.ts",
-      "!**/mockServiceWorker.js"
+      "!**/mockServiceWorker.js",
+      "!**/abis/gen.ts"
     ]
   },
   "vcs": {
