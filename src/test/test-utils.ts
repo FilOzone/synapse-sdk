@@ -78,11 +78,12 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
 
       // Mock Multicall3 aggregate3 calls - function selector: 0x82ad56cb
       if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
-        // Return mock addresses for all 5 getter functions (filCDN removed)
+        // Return mock addresses for all 5 getter functions
         const mockAddresses = [
           '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
           '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
           '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
+          '0x0000000000000000000000000000000000000000', // filCDN (not used)
           '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
           '0x0000000000000000000000000000000000000001', // spRegistry
         ]
@@ -582,7 +583,7 @@ export function setupProviderRegistryMocks(
         }
 
         // Handle calls to WarmStorageView contract for getApprovedProviders
-        if (target === '0x1996b60838871d0bc7980bc02dd6eb920535bE54'.toLowerCase()) {
+        if (target === '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'.toLowerCase()) {
           // Mock getApprovedProviders() - returns array of provider IDs
           if (callData.startsWith('0x266afe1b')) {
             return {
