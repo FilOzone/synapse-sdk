@@ -85,7 +85,7 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'creator', internalType: 'address', type: 'address' },
+      { name: 'serviceProvider', internalType: 'address', type: 'address' },
       { name: 'extraData', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'dataSetCreated',
@@ -595,6 +595,12 @@ export const filecoinWarmStorageServiceAbi = [
       },
       {
         name: 'payer',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
         indexed: false,
@@ -1402,6 +1408,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
           { name: 'payer', internalType: 'address', type: 'address' },
           { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
           { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
@@ -1427,6 +1434,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'cdnRailId', internalType: 'uint256', type: 'uint256' },
           { name: 'payer', internalType: 'address', type: 'address' },
           { name: 'payee', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
           { name: 'commissionBps', internalType: 'uint256', type: 'uint256' },
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
@@ -3846,10 +3854,11 @@ export const serviceProviderRegistryAbi = [
                 type: 'tuple',
                 components: [
                   {
-                    name: 'beneficiary',
+                    name: 'serviceProvider',
                     internalType: 'address',
                     type: 'address',
                   },
+                  { name: 'payee', internalType: 'address', type: 'address' },
                   { name: 'name', internalType: 'string', type: 'string' },
                   {
                     name: 'description',
@@ -4019,7 +4028,8 @@ export const serviceProviderRegistryAbi = [
           'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
         type: 'tuple',
         components: [
-          { name: 'beneficiary', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
           { name: 'name', internalType: 'string', type: 'string' },
           { name: 'description', internalType: 'string', type: 'string' },
           { name: 'isActive', internalType: 'bool', type: 'bool' },
@@ -4041,7 +4051,8 @@ export const serviceProviderRegistryAbi = [
           'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
         type: 'tuple',
         components: [
-          { name: 'beneficiary', internalType: 'address', type: 'address' },
+          { name: 'serviceProvider', internalType: 'address', type: 'address' },
+          { name: 'payee', internalType: 'address', type: 'address' },
           { name: 'name', internalType: 'string', type: 'string' },
           { name: 'description', internalType: 'string', type: 'string' },
           { name: 'isActive', internalType: 'bool', type: 'bool' },
@@ -4099,10 +4110,11 @@ export const serviceProviderRegistryAbi = [
                 type: 'tuple',
                 components: [
                   {
-                    name: 'beneficiary',
+                    name: 'serviceProvider',
                     internalType: 'address',
                     type: 'address',
                   },
+                  { name: 'payee', internalType: 'address', type: 'address' },
                   { name: 'name', internalType: 'string', type: 'string' },
                   {
                     name: 'description',
@@ -4245,7 +4257,8 @@ export const serviceProviderRegistryAbi = [
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'providers',
     outputs: [
-      { name: 'beneficiary', internalType: 'address', type: 'address' },
+      { name: 'serviceProvider', internalType: 'address', type: 'address' },
+      { name: 'payee', internalType: 'address', type: 'address' },
       { name: 'name', internalType: 'string', type: 'string' },
       { name: 'description', internalType: 'string', type: 'string' },
       { name: 'isActive', internalType: 'bool', type: 'bool' },
@@ -4262,6 +4275,7 @@ export const serviceProviderRegistryAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'payee', internalType: 'address', type: 'address' },
       { name: 'name', internalType: 'string', type: 'string' },
       { name: 'description', internalType: 'string', type: 'string' },
       {
@@ -4308,15 +4322,6 @@ export const serviceProviderRegistryAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newBeneficiary', internalType: 'address', type: 'address' },
-    ],
-    name: 'transferProviderBeneficiary',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -4407,31 +4412,6 @@ export const serviceProviderRegistryAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'providerId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'previousBeneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newBeneficiary',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'BeneficiaryTransferred',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
         name: 'version',
         internalType: 'string',
         type: 'string',
@@ -4502,7 +4482,7 @@ export const serviceProviderRegistryAbi = [
         indexed: false,
       },
       {
-        name: 'beneficiary',
+        name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
         indexed: false,
@@ -4564,7 +4544,7 @@ export const serviceProviderRegistryAbi = [
         indexed: false,
       },
       {
-        name: 'beneficiary',
+        name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
         indexed: false,
@@ -4608,7 +4588,13 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'beneficiary',
+        name: 'serviceProvider',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'payee',
         internalType: 'address',
         type: 'address',
         indexed: true,
