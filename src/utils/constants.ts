@@ -2,6 +2,8 @@
  * Constants for the Synapse SDK
  */
 
+import { erc20Abi, multicall3Abi } from 'viem'
+import * as abis from '../abis/gen.ts'
 import type { FilecoinNetworkType } from '../types.ts'
 
 /**
@@ -27,125 +29,44 @@ export const CONTRACT_ABIS = {
   /**
    * ERC20 ABI - minimal interface needed for balance and approval operations
    */
-  ERC20: [
-    'function balanceOf(address owner) view returns (uint256)',
-    'function decimals() view returns (uint8)',
-    'function symbol() view returns (string)',
-    'function approve(address spender, uint256 amount) returns (bool)',
-    'function allowance(address owner, address spender) view returns (uint256)',
-    'function transfer(address to, uint256 amount) returns (bool)',
-  ] as const,
+  ERC20: erc20Abi,
 
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: [
-    'function deposit(address token, address to, uint256 amount) payable',
-    'function withdraw(address token, uint256 amount)',
-    'function accounts(address token, address owner) view returns (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)',
-    'function setOperatorApproval(address token, address operator, bool approved, uint256 rateAllowance, uint256 lockupAllowance, uint256 maxLockupPeriod)',
-    'function operatorApprovals(address token, address client, address operator) view returns (bool isApproved, uint256 rateAllowance, uint256 rateUsed, uint256 lockupAllowance, uint256 lockupUsed, uint256 maxLockupPeriod)',
-  ] as const,
+  PAYMENTS: abis.paymentsAbi,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
-  PDP_VERIFIER: [
-    'function getNextPieceId(uint256 setId) public view returns (uint256)',
-    'function dataSetLive(uint256 setId) public view returns (bool)',
-    'function getDataSetLeafCount(uint256 setId) public view returns (uint256)',
-    'function getDataSetStorageProvider(uint256 setId) public view returns (address, address)',
-    'function getDataSetListener(uint256 setId) public view returns (address)',
-    'event DataSetCreated(uint256 indexed setId, address indexed owner)',
-  ] as const,
+  PDP_VERIFIER: abis.pdpVerifierAbi,
 
   /**
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: [
-    // Service provider approval management
-    'function addApprovedProvider(uint256 providerId) external',
-    'function removeApprovedProvider(uint256 providerId, uint256 index) external',
-
-    // Read functions
-    'function owner() external view returns (address)',
-    'function getServicePrice() external view returns (tuple(uint256 pricePerTiBPerMonthNoCDN, uint256 pricePerTiBPerMonthWithCDN, address tokenAddress, uint256 epochsPerMonth))',
-    'function viewContractAddress() external view returns (address)',
-
-    // Address getter functions for contract discovery
-    'function pdpVerifierAddress() external view returns (address)',
-    'function paymentsContractAddress() external view returns (address)',
-    'function usdfcTokenAddress() external view returns (address)',
-    'function serviceProviderRegistry() external view returns (address)',
-  ] as const,
+  WARM_STORAGE: abis.filecoinWarmStorageServiceAbi,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: [
-    // Data set view functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, address serviceProvider, uint256 commissionBps, uint256 clientDataSetId, uint256 pdpEndEpoch, uint256 providerId, uint256 cdnEndEpoch)[])',
-    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, address serviceProvider, uint256 commissionBps, uint256 clientDataSetId, uint256 pdpEndEpoch, uint256 providerId, uint256 cdnEndEpoch))',
-
-    // Client dataset ID counter
-    'function clientDataSetIDs(address client) external view returns (uint256)',
-
-    // Mapping from rail ID to PDPVerifier data set ID
-    'function railToDataSet(uint256 railId) external view returns (uint256 dataSetId)',
-
-    // Provider approval functions
-    'function getApprovedProviders() external view returns (uint256[])',
-    'function isProviderApproved(uint256 providerId) external view returns (bool)',
-
-    // Proving period and timing functions
-    'function getMaxProvingPeriod() external view returns (uint64)',
-    'function challengeWindow() external view returns (uint256)',
-  ] as const,
+  WARM_STORAGE_VIEW: abis.filecoinWarmStorageServiceStateViewAbi,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
    */
-  MULTICALL3: [
-    'function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public payable returns (tuple(bool success, bytes returnData)[])',
-  ] as const,
+  MULTICALL3: multicall3Abi,
 
   /**
    * ServiceProviderRegistry ABI - for provider management
    */
-  SERVICE_PROVIDER_REGISTRY: [
-    // Constants
-    'function REGISTRATION_FEE() external view returns (uint256)',
+  SERVICE_PROVIDER_REGISTRY: abis.serviceProviderRegistryAbi,
 
-    // Provider management
-    'function registerProvider(address payee, string name, string description, uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external payable returns (uint256)',
-    'function updateProviderInfo(string name, string description) external',
-    'function removeProvider() external',
-
-    // Provider queries
-    'function getProvider(uint256 providerId) external view returns (tuple(address serviceProvider, address payee, string name, string description, bool isActive))',
-    'function getProviderByAddress(address providerAddress) external view returns (tuple(address serviceProvider, address payee, string name, string description, bool isActive))',
-    'function getProviderIdByAddress(address providerAddress) external view returns (uint256)',
-    'function getAllActiveProviders(uint256 offset, uint256 limit) external view returns (uint256[], bool hasMore)',
-    'function getProvidersByProductType(uint8 productType, uint256 offset, uint256 limit) external view returns (tuple(uint256[] providerIds, uint256 totalActive, bool hasMore))',
-    'function isProviderActive(uint256 providerId) external view returns (bool)',
-    'function isRegisteredProvider(address providerAddress) external view returns (bool)',
-    'function getProviderCount() external view returns (uint256)',
-    'function activeProviderCount() external view returns (uint256)',
-
-    // Product management
-    'function addProduct(uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external',
-    'function updateProduct(uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external',
-    'function removeProduct(uint8 productType) external',
-    'function getProduct(uint256 providerId, uint8 productType) external view returns (bytes productData, string[] capabilityKeys, bool isActive)',
-    'function getPDPService(uint256 providerId) external view returns (tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
-    'function providerHasProduct(uint256 providerId, uint8 productType) external view returns (bool)',
-
-    // Encoding/decoding helpers
-    'function decodePDPOffering(bytes data) external pure returns (tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress))',
-    'function encodePDPOffering(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering) external pure returns (bytes)',
-  ] as const,
+  /**
+   * SessionKeyRegistry ABI - for session key management
+   */
+  SESSION_KEY_REGISTRY: abis.sessionKeyRegistryAbi,
 } as const
 
 /**
