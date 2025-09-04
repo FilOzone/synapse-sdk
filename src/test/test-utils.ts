@@ -583,7 +583,7 @@ export function setupProviderRegistryMocks(
         }
 
         // Handle calls to WarmStorageView contract for getApprovedProviders
-        if (target === '0x1996b60838871d0bc7980bc02dd6eb920535bE54'.toLowerCase()) {
+        if (target === '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'.toLowerCase()) {
           // Mock getApprovedProviders() - returns array of provider IDs
           if (callData.startsWith('0x266afe1b')) {
             return {
