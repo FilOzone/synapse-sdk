@@ -19,7 +19,7 @@ describe('PaymentsService', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    mockSigner = createMockSigner(MOCK_ADDRESSES.SIGNER, mockProvider)
     payments = new PaymentsService(mockProvider, mockSigner, mockPaymentsAddress, mockUsdfcAddress, false)
   })
 
