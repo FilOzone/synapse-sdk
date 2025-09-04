@@ -25,7 +25,8 @@ describe('SPRegistryService', () => {
       getProviderByAddress: async (address: string) => {
         if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
           return {
-            beneficiary: mockProviderAddress,
+            serviceProvider: mockProviderAddress,
+            payee: mockProviderAddress,
             name: 'Test Provider',
             description: 'A test storage provider',
             isActive: true,
@@ -33,7 +34,8 @@ describe('SPRegistryService', () => {
         }
         // Return zero address for non-existent provider
         return {
-          beneficiary: ethers.ZeroAddress,
+          serviceProvider: ethers.ZeroAddress,
+          payee: ethers.ZeroAddress,
           name: '',
           description: '',
           isActive: false,
@@ -43,7 +45,8 @@ describe('SPRegistryService', () => {
         if (id === 1) {
           return {
             id: BigInt(1),
-            beneficiary: mockProviderAddress,
+            serviceProvider: mockProviderAddress,
+            payee: mockProviderAddress,
             name: 'Test Provider',
             description: 'A test storage provider',
             isActive: true,
@@ -117,7 +120,16 @@ describe('SPRegistryService', () => {
         return address.toLowerCase() === mockProviderAddress.toLowerCase()
       },
       REGISTRATION_FEE: async () => BigInt(0), // No fee for testing
-      registerProvider: async (_name: string, _description: string, _options?: any) => {
+      registerProvider: async (
+        _payee: string,
+        _name: string,
+        _description: string,
+        _productType: number,
+        _productData: string,
+        _capabilityKeys: string[],
+        _capabilityValues: string[],
+        _options?: any
+      ) => {
         // Mock transaction with hash
         return {
           hash: `0x${'1'.repeat(64)}`,
@@ -211,7 +223,7 @@ describe('SPRegistryService', () => {
       const provider = await service.getProvider(1)
       assert.exists(provider)
       assert.equal(provider?.id, 1)
-      assert.equal(provider?.address, mockProviderAddress)
+      assert.equal(provider?.serviceProvider, mockProviderAddress)
       assert.equal(provider?.name, 'Test Provider')
       assert.equal(provider?.description, 'A test storage provider')
       assert.isTrue(provider?.active)
@@ -226,7 +238,7 @@ describe('SPRegistryService', () => {
       const provider = await service.getProviderByAddress(mockProviderAddress)
       assert.exists(provider)
       assert.equal(provider?.id, 1)
-      assert.equal(provider?.address, mockProviderAddress)
+      assert.equal(provider?.serviceProvider, mockProviderAddress)
     })
 
     it('should return null for unregistered address', async () => {
@@ -269,6 +281,7 @@ describe('SPRegistryService', () => {
   describe('Provider Write Operations', () => {
     it('should register new provider', async () => {
       const tx = await service.registerProvider(mockSigner, {
+        payee: '0x9999999999999999999999999999999999999999',
         name: 'New Provider',
         description: 'Description',
       })

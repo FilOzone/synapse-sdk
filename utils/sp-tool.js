@@ -69,14 +69,15 @@ async function getRegistryService(provider, options) {
 function formatProvider(provider) {
   const product = provider.products?.PDP
   const price = product?.data?.storagePricePerTibPerMonth
-    ? (Number(product.data.storagePricePerTibPerMonth) / 1000000).toFixed(2)
+    ? ethers.formatUnits(product.data.storagePricePerTibPerMonth, 18)
     : 'N/A'
   const serviceURL = product?.data?.serviceURL || 'Not configured'
   return `
 Provider #${provider.id}:
   Name: ${provider.name}
   Description: ${provider.description}
-  Address: ${provider.address}
+  Service Provider: ${provider.serviceProvider}
+  Payee: ${provider.payee}
   HTTP Endpoint: ${serviceURL}
   Active: ${provider.active}
   PDP Service: ${product?.isActive ? `Active (${price} USDFC/TiB/month)` : 'Not configured'}
@@ -191,12 +192,12 @@ async function handleRegister(provider, signer, options) {
   }
 
   const registry = await getRegistryService(provider, options)
-  const beneficiary = options.beneficiary || (await signer.getAddress())
+  const payee = options.payee || (await signer.getAddress())
 
   console.log(`\nRegistering provider:`)
   console.log(`  Name: ${options.name}`)
   console.log(`  HTTP: ${options.http}`)
-  console.log(`  Beneficiary: ${beneficiary}`)
+  console.log(`  Payee: ${payee}`)
   console.log(`  Description: ${options.description || '(none)'}`)
   console.log(`  Registration Fee: 5 FIL`)
 
@@ -225,6 +226,7 @@ async function handleRegister(provider, signer, options) {
 
     // Call registerProvider with value
     const tx = await contract.registerProvider(
+      payee,
       options.name,
       options.description || '',
       0, // ProductType.PDP
@@ -239,7 +241,7 @@ async function handleRegister(provider, signer, options) {
     console.log(`Transaction confirmed in block ${receipt.blockNumber}`)
 
     // Extract provider ID from events
-    const event = receipt.logs.find((log) => log.topics[0] === ethers.id('ProviderRegistered(uint256,address)'))
+    const event = receipt.logs.find((log) => log.topics[0] === ethers.id('ProviderRegistered(uint256,address,address)'))
     if (event) {
       const providerId = parseInt(event.topics[1], 16)
       console.log(`\nProvider registered with ID: ${providerId}`)
@@ -392,13 +394,13 @@ Options:
   --address <address>   Provider address (for info command)
   --name <name>         Provider name (for register/update)
   --http <url>          HTTP endpoint URL (for register only)
-  --beneficiary <addr>  Payment beneficiary address
+  --payee <addr>        Payment recipient address (for register only)
   --description <text>  Provider description (for register/update)
   --location <text>     Provider location (e.g., "us-east")
 
 Examples:
   # Register a new provider (requires 5 FIL fee)
-  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com"
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
   
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
