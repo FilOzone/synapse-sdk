@@ -21,11 +21,19 @@ import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
+/**
+ * Addresses used by testing
+ */
+export const MOCK_ADDRESSES = {
+  PAYMENTS: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0' as const,
+  PDP_VERIFIER: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48' as const,
+  SIGNER: '0x1234567890123456789012345678901234567890' as const,
+  WARM_STORAGE: '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F' as const,
+  WARM_STORAGE_VIEW: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as const,
+}
+
 // Mock signer factory
-export function createMockSigner(
-  address: string = '0x1234567890123456789012345678901234567890',
-  provider?: any
-): ethers.Signer {
+export function createMockSigner(address: string = MOCK_ADDRESSES.SIGNER, provider?: any): ethers.Signer {
   const signer = {
     provider: provider ?? null,
     async getAddress() {
@@ -60,7 +68,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
   const provider: any = {
     getNetwork: async () => network,
     getSigner: async function () {
-      return createMockSigner('0x1234567890123456789012345678901234567890', this)
+      return createMockSigner(MOCK_ADDRESSES.SIGNER, this)
     },
     getBalance: async (_address: string) => ethers.parseEther('100'),
     getTransactionCount: async (_address: string, _blockTag?: string) => 0,
@@ -80,11 +88,11 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
         // Return mock addresses for all 5 getter functions
         const mockAddresses = [
-          '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
-          '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
-          '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
+          MOCK_ADDRESSES.PDP_VERIFIER, // pdpVerifier
+          MOCK_ADDRESSES.PAYMENTS, // payments
+          CONTRACT_ADDRESSES.USDFC.calibration, // usdfcToken
           '0x0000000000000000000000000000000000000000', // filCDN (not used)
-          '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
+          MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
           '0x0000000000000000000000000000000000000001', // spRegistry
         ]
 
@@ -100,7 +108,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       // Mock viewContractAddress response - function selector: 0x7a9ebc15
       if (data?.startsWith('0x7a9ebc15') === true) {
         // Return a mock view contract address (not zero address!)
-        const viewAddress = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' // Use a real-looking address
+        const viewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW // Use a real-looking address
         return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [viewAddress])
       }
 
@@ -114,7 +122,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         // might be used in some tests
         // Return mock pricing data: 2 USDFC per TiB per month, USDFC address, 86400 epochs per month
         const pricePerTiBPerMonth = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
-        const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' // Mock USDFC address
+        const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration // Mock USDFC address
         const epochsPerMonth = 86400n
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'address', 'uint256'],
@@ -148,7 +156,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       if (data.includes('5482bdf9') === true) {
         const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18) // 2 USDFC per TiB per month
         const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18) // 3 USDFC per TiB per month with CDN
-        const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' // USDFC on calibration
+        const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration // USDFC on calibration
         const epochsPerMonth = 86400n
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(uint256,uint256,address,uint256)'],
@@ -168,8 +176,8 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       // Mock getRail response - function selector: 0x0e64d1e0
       if (data.includes('0e64d1e0') === true) {
         const rail = {
-          token: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-          from: '0x1234567890123456789012345678901234567890',
+          token: CONTRACT_ADDRESSES.USDFC.calibration,
+          from: MOCK_ADDRESSES.SIGNER,
           to: '0x78bF4d833fC2ba1Abd42Bc772edbC788EC76A28F',
           operator: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
           arbiter: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
@@ -252,7 +260,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
     getTransactionReceipt: async (hash: string) => {
       return {
         hash,
-        from: '0x1234567890123456789012345678901234567890',
+        from: MOCK_ADDRESSES.SIGNER,
         to: null,
         contractAddress: null,
         index: 0,
@@ -340,7 +348,7 @@ export function extendMockProviderCall(
 /**
  * Helper to handle viewContractAddress calls
  */
-export function createViewContractAddressMock(viewAddress: string = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54') {
+export function createViewContractAddressMock(viewAddress: string = MOCK_ADDRESSES.WARM_STORAGE_VIEW) {
   return (data: string | undefined): string | null => {
     if (data?.startsWith('0x7a9ebc15') === true) {
       return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [viewAddress])
@@ -371,11 +379,11 @@ export function createCustomMulticall3Mock(
     if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
       // Use custom addresses if provided, otherwise use defaults
       const mockAddresses = [
-        customAddresses?.pdpVerifier ?? '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48', // pdpVerifier
-        customAddresses?.payments ?? '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0', // payments
-        customAddresses?.usdfcToken ?? '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0', // usdfcToken
+        customAddresses?.pdpVerifier ?? MOCK_ADDRESSES.PDP_VERIFIER, // pdpVerifier
+        customAddresses?.payments ?? MOCK_ADDRESSES.PAYMENTS, // payments
+        customAddresses?.usdfcToken ?? CONTRACT_ADDRESSES.USDFC.calibration, // usdfcToken
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
-        customAddresses?.viewContract ?? '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54', // viewContract
+        customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
         customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
       ]
 
@@ -527,30 +535,21 @@ export function setupProviderRegistryMocks(
           if (callData.startsWith('0xe5c9821e')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x3ce3C62C4D405d69738530A6A65E4b13E8700C48']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.PDP_VERIFIER]),
             }
           }
           // Mock paymentsContractAddress
           if (callData.startsWith('0x8b893d6f')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.PAYMENTS]),
             }
           }
           // Mock usdfcTokenAddress
           if (callData.startsWith('0x8e2bc1ea')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CONTRACT_ADDRESSES.USDFC.calibration]),
             }
           }
           // Mock filCDNAddress
@@ -564,10 +563,7 @@ export function setupProviderRegistryMocks(
           if (callData.startsWith('0x7a9ebc15')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x1996B60838871D0bc7980Bc02DD6Eb920535bE54']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.WARM_STORAGE_VIEW]),
             }
           }
           // Mock serviceProviderRegistry
@@ -583,7 +579,7 @@ export function setupProviderRegistryMocks(
         }
 
         // Handle calls to WarmStorageView contract for getApprovedProviders
-        if (target === '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'.toLowerCase()) {
+        if (target === MOCK_ADDRESSES.WARM_STORAGE_VIEW.toLowerCase()) {
           // Mock getApprovedProviders() - returns array of provider IDs
           if (callData.startsWith('0x266afe1b')) {
             return {
@@ -870,8 +866,8 @@ export function setupProviderRegistryMocks(
 export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): ProviderInfo {
   const defaults: ProviderInfo = {
     id: 1,
-    serviceProvider: '0x1234567890123456789012345678901234567890',
-    payee: '0x1234567890123456789012345678901234567890', // Usually same as serviceProvider for tests
+    serviceProvider: MOCK_ADDRESSES.SIGNER,
+    payee: MOCK_ADDRESSES.SIGNER, // Usually same as serviceProvider for tests
     name: 'Test Provider',
     description: 'A test storage provider',
     active: true,
@@ -907,7 +903,7 @@ export function createSimpleProvider(props: {
   serviceURL: string
 }): ProviderInfo {
   return createMockProviderInfo({
-    serviceProvider: props.serviceProvider ?? props.address ?? '0x1234567890123456789012345678901234567890',
+    serviceProvider: props.serviceProvider ?? props.address ?? MOCK_ADDRESSES.SIGNER,
     products: {
       PDP: {
         type: 'PDP',

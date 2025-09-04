@@ -6,15 +6,15 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { createMockProvider, extendMockProviderCall } from './test-utils.ts'
+import { createMockProvider, extendMockProviderCall, MOCK_ADDRESSES } from './test-utils.ts'
 
 describe('WarmStorageService', () => {
   let mockProvider: ethers.Provider
   let cleanup: (() => void) | undefined
-  const mockWarmStorageAddress = '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F'
-  const mockViewAddress = '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54'
+  const mockWarmStorageAddress = MOCK_ADDRESSES.WARM_STORAGE
+  const mockViewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW
   const clientAddress = '0x1234567890123456789012345678901234567890'
 
   // Helper to handle viewContractAddress calls
@@ -966,7 +966,7 @@ describe('WarmStorageService', () => {
             // getServicePrice selector
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             // Encode as a tuple (struct)
             return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -1015,7 +1015,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1057,7 +1057,7 @@ describe('WarmStorageService', () => {
             getServicePriceCalled = true
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             // Encode as a tuple (struct)
             return ethers.AbiCoder.defaultAbiCoder().encode(
@@ -1101,7 +1101,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1169,7 +1169,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1225,7 +1225,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1279,7 +1279,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1355,7 +1355,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1432,7 +1432,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],
@@ -1497,7 +1497,7 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
-            const tokenAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             return ethers.AbiCoder.defaultAbiCoder().encode(
               ['tuple(uint256,uint256,address,uint256)'],

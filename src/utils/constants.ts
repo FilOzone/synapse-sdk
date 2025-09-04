@@ -249,4 +249,24 @@ export const CONTRACT_ADDRESSES = {
     mainnet: '0xcA11bde05977b3631167028862bE2a173976CA11',
     calibration: '0xcA11bde05977b3631167028862bE2a173976CA11',
   } as const satisfies Record<FilecoinNetworkType, string>,
+
+  PAYMENTS: {
+    mainnet: '', // TODO
+    calibration: '0x1096025c9D6B29E12E2f04965F6E64d564Ce0750',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  PDP_VERIFIER: {
+    mainnet: '', // TODO
+    calibration: '0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  SESSION_KEY_REGISTRY: {
+    mainnet: '', // TODO
+    calibration: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  USDFC: {
+    mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
+    calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
+  } as const satisfies Record<FilecoinNetworkType, string>,
 } as const
