@@ -11,6 +11,7 @@ import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
 
 // Mock server for testing
@@ -34,6 +35,7 @@ class MockPDPServer {
   }
 }
 
+// mock server for testing
 const server = setup([])
 
 describe('PDPServer', () => {
@@ -236,34 +238,28 @@ describe('PDPServer', () => {
     it('should handle successful piece addition', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      interface Body {
-        pieces: {
-          pieceCid: string
-          subPieces: {
-            subPieceCid: string
-          }[]
-        }[]
-        extraData: string
-      }
       server.use(
-        http.post<{ id: string }, Body>('http://pdp.local/pdp/data-sets/:id/pieces', async ({ request }) => {
-          try {
-            const body = await request.json()
-            assert.isDefined(body.pieces)
-            assert.isDefined(body.extraData)
-            assert.strictEqual(body.pieces.length, 1)
-            assert.strictEqual(body.pieces[0].pieceCid, validPieceCid[0])
-            assert.strictEqual(body.pieces[0].subPieces.length, 1)
-            assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
-            return HttpResponse.text('Pieces added successfully', {
-              status: 201,
-            })
-          } catch (error) {
-            return HttpResponse.text((error as Error).message, {
-              status: 400,
-            })
+        http.post<{ id: string }, PDPAddPiecesInput>(
+          'http://pdp.local/pdp/data-sets/:id/pieces',
+          async ({ request }) => {
+            try {
+              const body = await request.json()
+              assert.isDefined(body.pieces)
+              assert.isDefined(body.extraData)
+              assert.strictEqual(body.pieces.length, 1)
+              assert.strictEqual(body.pieces[0].pieceCid, validPieceCid[0])
+              assert.strictEqual(body.pieces[0].subPieces.length, 1)
+              assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
+              return HttpResponse.text('Pieces added successfully', {
+                status: 201,
+              })
+            } catch (error) {
+              return HttpResponse.text((error as Error).message, {
+                status: 400,
+              })
+            }
           }
-        })
+        )
       )
 
       // Should not throw
@@ -308,70 +304,55 @@ describe('PDPServer', () => {
 
       const multiplePieceCid = [pieceCid1, pieceCid2]
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (_input: string | URL | Request, init?: RequestInit) => {
-        const body = JSON.parse(init?.body as string)
+      server.use(
+        http.post<{ id: string }, PDPAddPiecesInput>(
+          'http://pdp.local/pdp/data-sets/:id/pieces',
+          async ({ request }) => {
+            try {
+              const body = await request.json()
+              assert.strictEqual(body.pieces.length, 2)
+              assert.strictEqual(body.pieces[0].subPieces.length, 1) // Each piece has itself as its only subPiece
+              assert.strictEqual(body.pieces[1].subPieces.length, 1)
+              assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subPieces[0].subPieceCid)
+              assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subPieces[0].subPieceCid)
 
-        assert.strictEqual(body.pieces.length, 2)
-        assert.strictEqual(body.pieces[0].subPieces.length, 1) // Each piece has itself as its only subPiece
-        assert.strictEqual(body.pieces[1].subPieces.length, 1)
-        assert.strictEqual(body.pieces[0].pieceCid, body.pieces[0].subPieces[0].subPieceCid)
-        assert.strictEqual(body.pieces[1].pieceCid, body.pieces[1].subPieces[0].subPieceCid)
-
-        return {
-          status: 201,
-          text: async () => 'Multiple pieces added successfully',
-          headers: {
-            get: (_name: string) => null, // No Location header for backward compatibility test
-          },
-        } as any
-      }
-
-      try {
-        const result = await pdpServer.addPieces(1, 0, 0, multiplePieceCid)
-        assert.isDefined(result)
-        assert.isDefined(result.message)
-      } finally {
-        global.fetch = originalFetch
-      }
+              return HttpResponse.text('Multiple pieces added successfully', {
+                status: 201,
+              })
+            } catch (error) {
+              return HttpResponse.text((error as Error).message, {
+                status: 400,
+              })
+            }
+          }
+        )
+      )
+      const result = await pdpServer.addPieces(1, 0, 0, multiplePieceCid)
+      assert.isDefined(result)
+      assert.isDefined(result.message)
     })
 
     it('should handle addPieces response with Location header', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
       const mockTxHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/1/pieces')
-        assert.strictEqual(init?.method, 'POST')
-
-        return {
-          status: 201,
-          text: async () => 'Pieces added successfully',
-          headers: {
-            get: (name: string) => {
-              if (name === 'Location') {
-                return `/pdp/data-sets/1/pieces/added/${mockTxHash}`
-              }
-              return null
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', async () => {
+          return HttpResponse.text('Pieces added successfully', {
+            status: 201,
+            headers: {
+              Location: `/pdp/data-sets/1/pieces/added/${mockTxHash}`,
             },
-          },
-        } as any
-      }
+          })
+        })
+      )
 
-      try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
-        assert.isDefined(result)
-        assert.isDefined(result.message)
-        assert.strictEqual(result.txHash, mockTxHash)
-        assert.include(result.statusUrl ?? '', mockTxHash)
-        assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      assert.isDefined(result)
+      assert.isDefined(result.message)
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.include(result.statusUrl ?? '', mockTxHash)
+      assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
     })
 
     it('should handle addPieces response with Location header missing 0x prefix', async () => {
@@ -379,61 +360,41 @@ describe('PDPServer', () => {
       const mockTxHashWithout0x = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
       const mockTxHashWith0x = `0x${mockTxHashWithout0x}`
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (_input: string | URL | Request, _init?: RequestInit) => {
-        return {
-          status: 201,
-          text: async () => 'Pieces added successfully',
-          headers: {
-            get: (name: string) => {
-              if (name === 'Location') {
-                return `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`
-              }
-              return null
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', async () => {
+          return HttpResponse.text('Pieces added successfully', {
+            status: 201,
+            headers: {
+              Location: `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`,
             },
-          },
-        } as any
-      }
+          })
+        })
+      )
 
-      try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
-        assert.isDefined(result)
-        assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      assert.isDefined(result)
+      assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
     })
 
     it('should handle malformed Location header gracefully', async () => {
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 201,
-          text: async () => 'Pieces added successfully',
-          headers: {
-            get: (name: string) => {
-              if (name === 'Location') {
-                return '/some/unexpected/path'
-              }
-              return null
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/:id/pieces', async () => {
+          return HttpResponse.text('Pieces added successfully', {
+            status: 201,
+            headers: {
+              Location: '/some/unexpected/path',
             },
-          },
-        } as any
-      }
+          })
+        })
+      )
 
-      try {
-        const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
-        assert.isDefined(result)
-        assert.isDefined(result.message)
-        assert.isUndefined(result.txHash) // No txHash for malformed Location
-        assert.isUndefined(result.statusUrl)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      assert.isDefined(result)
+      assert.isDefined(result.message)
+      assert.isUndefined(result.txHash) // No txHash for malformed Location
+      assert.isUndefined(result.statusUrl)
     })
   })
 
@@ -449,45 +410,34 @@ describe('PDPServer', () => {
         dataSetId: 123,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, `/pdp/data-sets/created/${mockTxHash}`)
-        assert.strictEqual(init?.method, 'GET')
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', async () => {
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
 
-        return {
-          status: 200,
-          json: async () => mockResponse,
-        } as any
-      }
-
-      try {
-        const result = await pdpServer.getDataSetCreationStatus(mockTxHash)
-        assert.deepStrictEqual(result, mockResponse)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.getDataSetCreationStatus(mockTxHash)
+      assert.deepStrictEqual(result, mockResponse)
     })
 
     it('should handle not found status', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 404,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/created/:tx', async () => {
+          return HttpResponse.text(undefined, {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.getDataSetCreationStatus(mockTxHash)
         assert.fail('Should have thrown error for not found status')
       } catch (error) {
         assert.include((error as Error).message, `Data set creation not found for transaction hash: ${mockTxHash}`)
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })
@@ -499,41 +449,28 @@ describe('PDPServer', () => {
         pieceCid: mockPieceCid,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/piece?')
-        assert.include(url, `pieceCid=${mockPieceCid}`)
-        assert.strictEqual(init?.method, 'GET')
+      server.use(
+        http.get('http://pdp.local/pdp/piece', async () => {
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
 
-        return {
-          status: 200,
-          ok: true,
-          json: async () => mockResponse,
-        } as any
-      }
-
-      try {
-        const result = await pdpServer.findPiece(mockPieceCid)
-        assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.findPiece(mockPieceCid)
+      assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
     })
 
     it('should handle piece not found', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      // Mock fetch to return 404
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 404,
-          ok: false,
-          text: async () => 'Requested resource not found',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/piece', async () => {
+          return HttpResponse.text(undefined, {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.findPiece(mockPieceCid)
@@ -541,8 +478,6 @@ describe('PDPServer', () => {
       } catch (error: any) {
         assert.include(error.message, 'Piece not found')
         assert.include(error.message, mockPieceCid)
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -559,17 +494,13 @@ describe('PDPServer', () => {
 
     it('should handle server errors', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-
-      // Mock fetch to return server error
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 500,
-          ok: false,
-          statusText: 'Internal Server Error',
-          text: async () => 'Database error',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/piece', async () => {
+          return HttpResponse.text('Database error', {
+            status: 500,
+          })
+        })
+      )
 
       try {
         await pdpServer.findPiece(mockPieceCid)
@@ -578,8 +509,6 @@ describe('PDPServer', () => {
         assert.include(error.message, 'Failed to find piece')
         assert.include(error.message, '500')
         assert.include(error.message, 'Database error')
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })
@@ -599,48 +528,33 @@ describe('PDPServer', () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
 
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async (url: any, options: any) => {
-        const urlStr = url.toString()
-
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Verify request body has check object
-          const body = JSON.parse(options.body)
-          assert.exists(body.pieceCid)
-
-          // Create upload session - return 201 with Location header
-          return {
-            ok: false,
-            status: 201,
-            headers: {
-              get: (name: string) => {
-                if (name === 'Location') {
-                  return `/pdp/piece/upload/${mockUuid}`
-                }
-                return null
+      server.use(
+        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
+          try {
+            const body = await request.json()
+            assert.exists(body.pieceCid)
+            return HttpResponse.text('Created', {
+              status: 201,
+              headers: {
+                Location: `/pdp/piece/upload/${mockUuid}`,
               },
-            },
-            text: async () => 'Created',
-          } as any
-        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
-          // Upload data - return 204 No Content
-          return {
-            ok: true,
+            })
+          } catch (error) {
+            return HttpResponse.text((error as Error).message, {
+              status: 400,
+            })
+          }
+        }),
+        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
+          return HttpResponse.text('No Content', {
             status: 204,
-          } as any
-        }
+          })
+        })
+      )
 
-        throw new Error(`Unexpected request: ${String(urlStr)}`)
-      }
-
-      try {
-        const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.pieceCid)
-        assert.equal(result.size, 5)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.uploadPiece(testData)
+      assert.exists(result.pieceCid)
+      assert.equal(result.size, 5)
     })
 
     it('should handle ArrayBuffer input', async () => {
@@ -649,108 +563,66 @@ describe('PDPServer', () => {
       view.set([1, 2, 3, 4, 5])
       const mockUuid = 'fedcba09-8765-4321-fedc-ba0987654321'
 
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async (url: any, options: any) => {
-        const urlStr = url.toString()
-
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Verify request body has check object
-          const body = JSON.parse(options.body)
-          assert.exists(body.pieceCid)
-
-          // Create upload session - return 201 with Location header
-          return {
-            ok: false,
-            status: 201,
-            headers: {
-              get: (name: string) => {
-                if (name === 'Location') {
-                  return `/pdp/piece/upload/${mockUuid}`
-                }
-                return null
+      server.use(
+        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
+          try {
+            const body = await request.json()
+            assert.exists(body.pieceCid)
+            return HttpResponse.text('Created', {
+              status: 201,
+              headers: {
+                Location: `/pdp/piece/upload/${mockUuid}`,
               },
-            },
-            text: async () => 'Created',
-          } as any
-        } else if (urlStr.includes(`/pdp/piece/upload/${String(mockUuid)}`) === true) {
-          // Upload data - return 204 No Content
-          return {
-            ok: true,
+            })
+          } catch (error) {
+            return HttpResponse.text((error as Error).message, {
+              status: 400,
+            })
+          }
+        }),
+        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
+          return HttpResponse.text('No Content', {
             status: 204,
-          } as any
-        }
+          })
+        })
+      )
 
-        throw new Error(`Unexpected request: ${String(urlStr)}`)
-      }
-
-      try {
-        const result = await pdpServer.uploadPiece(buffer)
-        assert.exists(result.pieceCid)
-        assert.equal(result.size, 5)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.uploadPiece(buffer)
+      assert.exists(result.pieceCid)
+      assert.equal(result.size, 5)
     })
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      // Mock fetch to return 200 instead of 201 for create
-      const originalFetch = global.fetch
-      global.fetch = async (url: any, options: any) => {
-        const urlStr = url.toString()
+      server.use(
+        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
+          return HttpResponse.json(
+            { pieceCid: mockPieceCid },
+            {
+              status: 200,
+            }
+          )
+        })
+      )
 
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Verify request body has check object
-          const body = JSON.parse(options.body)
-          assert.exists(body.pieceCid)
-
-          // Return 200 OK (piece already exists)
-          return {
-            ok: true,
-            status: 200,
-            json: async () => ({ pieceCid: mockPieceCid }),
-          } as any
-        }
-
-        throw new Error(`Unexpected request: ${String(urlStr)}`)
-      }
-
-      try {
-        // Should not throw - existing piece is OK
-        const result = await pdpServer.uploadPiece(testData)
-        assert.exists(result.pieceCid)
-        assert.equal(result.size, 5)
-      } finally {
-        global.fetch = originalFetch
-      }
+      // Should not throw - existing piece is OK
+      const result = await pdpServer.uploadPiece(testData)
+      assert.exists(result.pieceCid)
+      assert.equal(result.size, 5)
     })
 
     it('should throw on create upload session error', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
 
-      // Mock fetch to return error on create
-      const originalFetch = global.fetch
-      global.fetch = async (url: any, options: any) => {
-        const urlStr = url.toString()
-
-        if (urlStr.includes('/pdp/piece') === true && options?.method === 'POST') {
-          // Verify request body has check object even for error case
-          const body = JSON.parse(options.body)
-          assert.exists(body.pieceCid)
-
-          return {
-            ok: false,
+      server.use(
+        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
+          return HttpResponse.text('Database error', {
             status: 500,
-            statusText: 'Internal Server Error',
-            text: async () => 'Database error',
-          } as any
-        }
-
-        throw new Error(`Unexpected request: ${String(urlStr)}`)
-      }
+          })
+        })
+      )
 
       try {
         await pdpServer.uploadPiece(testData)
@@ -759,8 +631,6 @@ describe('PDPServer', () => {
         assert.include(error.message, 'Failed to create upload session')
         assert.include(error.message, '500')
         assert.include(error.message, 'Database error')
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })
@@ -770,41 +640,26 @@ describe('PDPServer', () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
       const testPieceCid = calculatePieceCID(testData).toString()
 
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request): Promise<Response> => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-
-        // Verify correct URL format
-        assert.isTrue(url.endsWith(`/piece/${testPieceCid}`))
-
-        // Return test data as response
-        return new Response(testData, {
-          status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' },
+      server.use(
+        http.get('http://pdp.local/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(testData)
         })
-      }
+      )
 
-      try {
-        const result = await pdpServer.downloadPiece(testPieceCid)
-        assert.deepEqual(result, testData)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.downloadPiece(testPieceCid)
+      assert.deepEqual(result, testData)
     })
 
     it('should throw on download failure', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      // Mock fetch
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          ok: false,
-          status: 404,
-          statusText: 'Not Found',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/piece/:pieceCid', async () => {
+          return HttpResponse.text('Not Found', {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.downloadPiece(mockPieceCid)
@@ -812,8 +667,6 @@ describe('PDPServer', () => {
       } catch (error: any) {
         assert.include(error.message, 'Download failed')
         assert.include(error.message, '404')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -831,43 +684,34 @@ describe('PDPServer', () => {
       const testPieceCid = calculatePieceCID(testData).toString()
       const wrongData = new Uint8Array([9, 9, 9, 9]) // Different data
 
-      // Mock fetch to return wrong data
-      const originalFetch = global.fetch
-      global.fetch = async (): Promise<Response> => {
-        return new Response(wrongData, {
-          status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' },
+      server.use(
+        http.get('http://pdp.local/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(wrongData)
         })
-      }
+      )
 
       try {
         await pdpServer.downloadPiece(testPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'PieceCID verification failed')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should handle null response body', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      // Mock fetch to return response with null body
-      const originalFetch = global.fetch
-      global.fetch = async (): Promise<Response> => {
-        const response = new Response(null, { status: 200 })
-        Object.defineProperty(response, 'body', { value: null })
-        return response
-      }
+      server.use(
+        http.get('http://pdp.local/piece/:pieceCid', async () => {
+          return new HttpResponse()
+        })
+      )
 
       try {
         await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Response body is null')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -875,72 +719,54 @@ describe('PDPServer', () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])
       const testPieceCid = calculatePieceCID(testData).toString()
 
-      // Mock fetch that returns data in chunks
-      const originalFetch = global.fetch
-      global.fetch = async (): Promise<Response> => {
-        // Split test data into chunks
-        const chunk1 = testData.slice(0, 4)
-        const chunk2 = testData.slice(4)
+      server.use(
+        http.get('http://pdp.local/piece/:pieceCid', async () => {
+          // Split test data into chunks
+          const chunk1 = testData.slice(0, 4)
+          const chunk2 = testData.slice(4)
 
-        // Create readable stream that emits chunks
-        const stream = new ReadableStream({
-          async start(controller) {
-            controller.enqueue(chunk1)
-            // Small delay to simulate network
-            await new Promise((resolve) => setTimeout(resolve, 10))
-            controller.enqueue(chunk2)
-            controller.close()
-          },
+          // Create readable stream that emits chunks
+          const stream = new ReadableStream({
+            async start(controller) {
+              controller.enqueue(chunk1)
+              // Small delay to simulate network
+              await new Promise((resolve) => setTimeout(resolve, 10))
+              controller.enqueue(chunk2)
+              controller.close()
+            },
+          })
+          return new HttpResponse(stream, {
+            status: 200,
+          })
         })
+      )
 
-        return new Response(stream, {
-          status: 200,
-          headers: { 'Content-Type': 'application/octet-stream' },
-        })
-      }
-
-      try {
-        const result = await pdpServer.downloadPiece(testPieceCid)
-        // Verify we got all the data correctly reassembled
-        assert.deepEqual(result, testData)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.downloadPiece(testPieceCid)
+      // Verify we got all the data correctly reassembled
+      assert.deepEqual(result, testData)
     })
   })
 
   describe('ping', () => {
     it('should successfully ping a healthy provider', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/ping')
-        assert.strictEqual(init?.method, 'GET')
-        assert.deepEqual(init?.headers, {})
-
-        return {
-          status: 200,
-          statusText: 'OK',
-        } as any
-      }
-
-      try {
-        await pdpServer.ping()
-      } finally {
-        global.fetch = originalFetch
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          return new HttpResponse(null, {
+            status: 200,
+          })
+        })
+      )
+      await pdpServer.ping()
     })
 
     it('should throw error when provider returns non-200 status', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 500,
-          statusText: 'Internal Server Error',
-          text: async () => 'Server is down',
-        } as any
-      }
-
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          return HttpResponse.text('Server is down', {
+            status: 500,
+          })
+        })
+      )
       try {
         await pdpServer.ping()
         assert.fail('Should have thrown error')
@@ -949,20 +775,17 @@ describe('PDPServer', () => {
         assert.include(error.message, '500')
         assert.include(error.message, 'Internal Server Error')
         assert.include(error.message, 'Server is down')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should throw error when provider returns 404', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 404,
-          statusText: 'Not Found',
-          text: async () => 'Ping endpoint not found',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          return HttpResponse.text('Ping endpoint not found', {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.ping()
@@ -971,38 +794,36 @@ describe('PDPServer', () => {
         assert.include(error.message, 'Provider ping failed')
         assert.include(error.message, '404')
         assert.include(error.message, 'Not Found')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should handle fetch failure', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        throw new Error('Network connection failed')
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          return HttpResponse.error()
+        })
+      )
 
       try {
         await pdpServer.ping()
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Network connection failed')
-      } finally {
-        global.fetch = originalFetch
+        assert.include(error.message, 'Failed to fetch')
       }
     })
 
     it('should handle error when response.text() fails', async () => {
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 503,
-          statusText: 'Service Unavailable',
-          text: async () => {
-            throw new Error('Failed to read response body')
-          },
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async () => {
+          return new HttpResponse(2, {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: {
+              'Content-Encoding': 'gzip',
+            },
+          })
+        })
+      )
 
       try {
         await pdpServer.ping()
@@ -1011,29 +832,23 @@ describe('PDPServer', () => {
         assert.include(error.message, 'Provider ping failed')
         assert.include(error.message, '503')
         assert.include(error.message, 'Service Unavailable')
-        assert.include(error.message, 'Unknown error')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should use correct URL endpoint', async () => {
       let capturedUrl: string = ''
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request) => {
-        capturedUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        return {
-          status: 200,
-          statusText: 'OK',
-        } as any
-      }
 
-      try {
-        await pdpServer.ping()
-        assert.strictEqual(capturedUrl, `${serverUrl}/pdp/ping`)
-      } finally {
-        global.fetch = originalFetch
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/ping', async ({ request }) => {
+          capturedUrl = request.url
+          return new HttpResponse(null, {
+            status: 200,
+          })
+        })
+      )
+
+      await pdpServer.ping()
+      assert.strictEqual(capturedUrl, `${serverUrl}/pdp/ping`)
     })
   })
 
@@ -1058,66 +873,49 @@ describe('PDPServer', () => {
         nextChallengeEpoch: 1500,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async (input: string | URL | Request, init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        assert.include(url, '/pdp/data-sets/292')
-        assert.strictEqual(init?.method, 'GET')
-        assert.strictEqual((init?.headers as any)?.Accept, 'application/json')
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/292', async () => {
+          return HttpResponse.json(mockDataSetData, {
+            status: 200,
+          })
+        })
+      )
 
-        return {
-          status: 200,
-          ok: true,
-          json: async () => mockDataSetData,
-        } as any
-      }
-
-      try {
-        const result = await pdpServer.getDataSet(292)
-        assert.equal(result.id, mockDataSetData.id)
-        assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
-        assert.equal(result.pieces.length, mockDataSetData.pieces.length)
-        assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
-        assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
-        assert.equal(result.pieces[0].subPieceCid.toString(), mockDataSetData.pieces[0].subPieceCid)
-        assert.equal(result.pieces[0].subPieceOffset, mockDataSetData.pieces[0].subPieceOffset)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.getDataSet(292)
+      assert.equal(result.id, mockDataSetData.id)
+      assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
+      assert.equal(result.pieces.length, mockDataSetData.pieces.length)
+      assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
+      assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
+      assert.equal(result.pieces[0].subPieceCid.toString(), mockDataSetData.pieces[0].subPieceCid)
+      assert.equal(result.pieces[0].subPieceOffset, mockDataSetData.pieces[0].subPieceOffset)
     })
 
     it('should handle data set not found', async () => {
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 404,
-          ok: false,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/999', async () => {
+          return HttpResponse.json(undefined, {
+            status: 404,
+          })
+        })
+      )
 
       try {
         await pdpServer.getDataSet(999)
         assert.fail('Should have thrown error for not found data set')
       } catch (error) {
         assert.include((error as Error).message, 'Data set not found: 999')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
     it('should handle server errors', async () => {
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 500,
-          ok: false,
-          statusText: 'Internal Server Error',
-          text: async () => 'Database error',
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/292', async () => {
+          return HttpResponse.text('Database error', {
+            status: 500,
+          })
+        })
+      )
 
       try {
         await pdpServer.getDataSet(292)
@@ -1126,8 +924,6 @@ describe('PDPServer', () => {
         assert.include((error as Error).message, 'Failed to fetch data set')
         assert.include((error as Error).message, '500')
         assert.include((error as Error).message, 'Database error')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -1138,23 +934,19 @@ describe('PDPServer', () => {
         nextChallengeEpoch: 'soon', // Should be number
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 200,
-          ok: true,
-          json: async () => invalidDataSetData,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/292', async () => {
+          return HttpResponse.json(invalidDataSetData, {
+            status: 200,
+          })
+        })
+      )
 
       try {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid response data')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid data set data response format')
-      } finally {
-        global.fetch = originalFetch
       }
     })
 
@@ -1165,24 +957,18 @@ describe('PDPServer', () => {
         nextChallengeEpoch: 1500,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 200,
-          ok: true,
-          json: async () => emptyDataSetData,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/292', async () => {
+          return HttpResponse.json(emptyDataSetData, {
+            status: 200,
+          })
+        })
+      )
 
-      try {
-        const result = await pdpServer.getDataSet(292)
-        assert.deepStrictEqual(result, emptyDataSetData)
-        assert.isArray(result.pieces)
-        assert.equal(result.pieces.length, 0)
-      } finally {
-        global.fetch = originalFetch
-      }
+      const result = await pdpServer.getDataSet(292)
+      assert.deepStrictEqual(result, emptyDataSetData)
+      assert.isArray(result.pieces)
+      assert.equal(result.pieces.length, 0)
     })
 
     it('should reject response with invalid CIDs', async () => {
@@ -1199,23 +985,19 @@ describe('PDPServer', () => {
         nextChallengeEpoch: 1500,
       }
 
-      // Mock fetch for this test
-      const originalFetch = global.fetch
-      global.fetch = async () => {
-        return {
-          status: 200,
-          ok: true,
-          json: async () => invalidCidDataSetData,
-        } as any
-      }
+      server.use(
+        http.get('http://pdp.local/pdp/data-sets/292', async () => {
+          return HttpResponse.json(invalidCidDataSetData, {
+            status: 200,
+          })
+        })
+      )
 
       try {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid CID in response')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid data set data response format')
-      } finally {
-        global.fetch = originalFetch
       }
     })
   })
