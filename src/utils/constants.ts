@@ -77,7 +77,6 @@ export const CONTRACT_ABIS = {
     'function pdpVerifierAddress() external view returns (address)',
     'function paymentsContractAddress() external view returns (address)',
     'function usdfcTokenAddress() external view returns (address)',
-    'function filCDNAddress() external view returns (address)',
     'function serviceProviderRegistry() external view returns (address)',
   ] as const,
 
@@ -87,8 +86,8 @@ export const CONTRACT_ABIS = {
    */
   WARM_STORAGE_VIEW: [
     // Data set view functions
-    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, uint256 clientDataSetId, uint256 paymentEndEpoch, uint256 providerId)[])',
-    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, uint256 commissionBps, uint256 clientDataSetId, uint256 paymentEndEpoch, uint256 providerId))',
+    'function getClientDataSets(address client) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, address serviceProvider, uint256 commissionBps, uint256 clientDataSetId, uint256 pdpEndEpoch, uint256 providerId, uint256 cdnEndEpoch)[])',
+    'function getDataSet(uint256 dataSetId) external view returns (tuple(uint256 pdpRailId, uint256 cacheMissRailId, uint256 cdnRailId, address payer, address payee, address serviceProvider, uint256 commissionBps, uint256 clientDataSetId, uint256 pdpEndEpoch, uint256 providerId, uint256 cdnEndEpoch))',
 
     // Client dataset ID counter
     'function clientDataSetIDs(address client) external view returns (uint256)',
@@ -120,14 +119,13 @@ export const CONTRACT_ABIS = {
     'function REGISTRATION_FEE() external view returns (uint256)',
 
     // Provider management
-    'function registerProvider(string name, string description, uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external payable returns (uint256)',
+    'function registerProvider(address payee, string name, string description, uint8 productType, bytes productData, string[] capabilityKeys, string[] capabilityValues) external payable returns (uint256)',
     'function updateProviderInfo(string name, string description) external',
     'function removeProvider() external',
-    'function transferProviderBeneficiary(address newBeneficiary) external',
 
     // Provider queries
-    'function getProvider(uint256 providerId) external view returns (tuple(address beneficiary, string name, string description, bool isActive))',
-    'function getProviderByAddress(address providerAddress) external view returns (tuple(address beneficiary, string name, string description, bool isActive))',
+    'function getProvider(uint256 providerId) external view returns (tuple(address serviceProvider, address payee, string name, string description, bool isActive))',
+    'function getProviderByAddress(address providerAddress) external view returns (tuple(address serviceProvider, address payee, string name, string description, bool isActive))',
     'function getProviderIdByAddress(address providerAddress) external view returns (uint256)',
     'function getAllActiveProviders(uint256 offset, uint256 limit) external view returns (uint256[], bool hasMore)',
     'function getProvidersByProductType(uint8 productType, uint256 offset, uint256 limit) external view returns (tuple(uint256[] providerIds, uint256 totalActive, bool hasMore))',
@@ -319,7 +317,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '', // TODO: Get actual mainnet address from deployment
-    calibration: '0xe6CD6d7beCD21FbF72452CF8371e505b02134669',
+    calibration: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**

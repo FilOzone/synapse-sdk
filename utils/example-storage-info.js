@@ -98,7 +98,8 @@ async function main() {
         console.log(`\nProvider #${provider.id}:`)
         console.log(`  Name:        ${provider.name}`)
         console.log(`  Description: ${provider.description}`)
-        console.log(`  Address:     ${provider.address}`)
+        console.log(`  Address:     ${provider.serviceProvider}`)
+        console.log(`  Payee:       ${provider.payee}`)
         console.log(`  Active:      ${provider.active}`)
 
         // Show PDP product details if available

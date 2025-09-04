@@ -51,11 +51,12 @@ describe('SubgraphService', () => {
               id: mockPieceCID.toString(),
               dataSet: {
                 setId: '1',
-                address: {
+                serviceProvider: {
                   id: '0x123',
+                  serviceProvider: '0x123',
+                  payee: '0x123',
                   serviceURL: 'http://provider.url/pdp',
                   status: 'Approved',
-                  address: '0x123',
                 },
               },
             },
@@ -77,7 +78,7 @@ describe('SubgraphService', () => {
 
         assert.isArray(providers)
         assert.lengthOf(providers, 1)
-        assert.equal(providers[0].address, '0x123')
+        assert.equal(providers[0].serviceProvider, '0x123')
       } finally {
         global.fetch = originalFetch
       }
@@ -181,7 +182,7 @@ describe('SubgraphService', () => {
       const provider = await service.getProviderByAddress(mockAddress)
 
       assert.isNotNull(provider)
-      assert.equal(provider?.address, mockAddress)
+      assert.equal(provider?.serviceProvider, mockAddress)
     })
 
     it('should return null if provider not found', async () => {
@@ -252,14 +253,16 @@ describe('SubgraphService', () => {
             providers: [
               {
                 id: '0x123',
-                address: '0x123',
+                serviceProvider: '0x123',
+                payee: '0x123',
                 serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
                 approvedAt: '1641081600',
               },
               {
                 id: '0x456',
-                address: '0x456',
+                serviceProvider: '0x456',
+                payee: '0x456',
                 serviceURL: 'https://provider2.com',
                 registeredAt: '1640995300',
                 approvedAt: '1641081700',
@@ -287,8 +290,8 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 2)
-          assert.equal(providers[0].address, '0x123')
-          assert.equal(providers[1].address, '0x456')
+          assert.equal(providers[0].serviceProvider, '0x123')
+          assert.equal(providers[1].serviceProvider, '0x456')
         } finally {
           global.fetch = originalFetch
         }
@@ -300,7 +303,8 @@ describe('SubgraphService', () => {
             providers: [
               {
                 id: '0x123',
-                address: '0x123',
+                serviceProvider: '0x123',
+                payee: '0x123',
                 serviceURL: 'https://provider1.com',
                 registeredAt: '1640995200',
                 approvedAt: '1641081600',
@@ -339,7 +343,7 @@ describe('SubgraphService', () => {
 
           assert.isArray(providers)
           assert.lengthOf(providers, 1)
-          assert.equal(providers[0].address, '0x123')
+          assert.equal(providers[0].serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -399,9 +403,10 @@ describe('SubgraphService', () => {
                 metadata: 'test metadata',
                 createdAt: '1640995200',
                 updatedAt: '1641081600',
-                address: {
+                serviceProvider: {
                   id: '0x123',
-                  address: '0x123',
+                  serviceProvider: '0x123',
+                  payee: '0x123',
                   serviceURL: 'https://provider1.com',
                   registeredAt: '1640995200',
                   approvedAt: '1641081600',
@@ -439,7 +444,7 @@ describe('SubgraphService', () => {
           assert.equal(dataSets[0].id, 'data-set-1')
           assert.equal(dataSets[0].setId, 1)
           assert.equal(dataSets[0].isActive, true)
-          assert.equal(dataSets[0].serviceProvider.address, '0x123')
+          assert.equal(dataSets[0].serviceProvider.serviceProvider, '0x123')
           assert.isObject(dataSets[0].rail)
           assert.equal(dataSets[0].rail?.railId, 1)
         } finally {
@@ -471,9 +476,10 @@ describe('SubgraphService', () => {
                 metadata: 'active data set',
                 createdAt: '1640995300',
                 updatedAt: '1641081700',
-                address: {
+                serviceProvider: {
                   id: '0x456',
-                  address: '0x456',
+                  serviceProvider: '0x456',
+                  payee: '0x456',
                   serviceURL: 'https://provider2.com',
                   registeredAt: '1640995300',
                   approvedAt: '1641081700',
@@ -542,9 +548,10 @@ describe('SubgraphService', () => {
                   id: 'data-set-1',
                   setId: '1',
                   isActive: true,
-                  address: {
+                  serviceProvider: {
                     id: '0x123',
-                    address: '0x123',
+                    serviceProvider: '0x123',
+                    payee: '0x123',
                     serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
                     approvedAt: '1641081600',
@@ -574,7 +581,7 @@ describe('SubgraphService', () => {
           assert.equal(pieces[0].id, 'piece-1')
           assert.equal(pieces[0].pieceId, 100)
           assert.equal(pieces[0].removed, false)
-          assert.equal(pieces[0].dataSet.serviceProvider.address, '0x123')
+          assert.equal(pieces[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -604,9 +611,10 @@ describe('SubgraphService', () => {
                   id: 'data-set-2',
                   setId: '2',
                   isActive: true,
-                  address: {
+                  serviceProvider: {
                     id: '0x456',
-                    address: '0x456',
+                    serviceProvider: '0x456',
+                    payee: '0x456',
                     serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
                     approvedAt: '1641081700',
@@ -667,9 +675,10 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'data-set-1',
                   setId: '1',
-                  address: {
+                  serviceProvider: {
                     id: '0x123',
-                    address: '0x123',
+                    serviceProvider: '0x123',
+                    payee: '0x123',
                     serviceURL: 'https://provider1.com',
                     registeredAt: '1640995200',
                     approvedAt: '1641081600',
@@ -699,7 +708,7 @@ describe('SubgraphService', () => {
           assert.equal(faultRecords[0].id, 'fault-1')
           assert.equal(faultRecords[0].dataSetId, 1)
           assert.deepEqual(faultRecords[0].pieceIds, [100, 101, 102])
-          assert.equal(faultRecords[0].dataSet.serviceProvider.address, '0x123')
+          assert.equal(faultRecords[0].dataSet.serviceProvider.serviceProvider, '0x123')
         } finally {
           global.fetch = originalFetch
         }
@@ -721,9 +730,10 @@ describe('SubgraphService', () => {
                 dataSet: {
                   id: 'data-set-2',
                   setId: '2',
-                  address: {
+                  serviceProvider: {
                     id: '0x456',
-                    address: '0x456',
+                    serviceProvider: '0x456',
+                    payee: '0x456',
                     serviceURL: 'https://provider2.com',
                     registeredAt: '1640995300',
                     approvedAt: '1641081700',

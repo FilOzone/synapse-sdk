@@ -12,7 +12,8 @@ const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitc
 // Mock provider info
 const mockProvider1: ProviderInfo = {
   id: 1,
-  address: '0x1234567890123456789012345678901234567890',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
+  payee: '0x1234567890123456789012345678901234567890',
   name: 'Provider 1',
   description: 'Test provider 1',
   active: true,
@@ -38,7 +39,8 @@ const mockProvider1: ProviderInfo = {
 
 const mockProvider2: ProviderInfo = {
   id: 2,
-  address: '0x2345678901234567890123456789012345678901',
+  serviceProvider: '0x2345678901234567890123456789012345678901',
+  payee: '0x2345678901234567890123456789012345678901',
   name: 'Provider 2',
   description: 'Test provider 2',
   active: true,
@@ -79,11 +81,14 @@ const mockDataSet: EnhancedDataSetInfo = {
   cacheMissRailId: 0,
   cdnRailId: 0,
   payer: '0xClient',
-  payee: mockProvider1.address,
+  payee: mockProvider1.serviceProvider,
+  serviceProvider: mockProvider1.serviceProvider,
   commissionBps: 100,
   clientDataSetId: 1,
-  paymentEndEpoch: 0,
+  pdpEndEpoch: 0,
   providerId: 1,
+  cdnEndEpoch: 0,
+  paymentEndEpoch: 0,
   withCDN: false,
   pdpVerifierDataSetId: 123,
   nextPieceId: 1,
@@ -102,7 +107,7 @@ describe('ChainRetriever', () => {
 
       const mockSPRegistry: Partial<SPRegistryService> = {
         getProviderByAddress: async (addr: string) => {
-          if (addr === mockProvider1.address) return mockProvider1
+          if (addr === mockProvider1.serviceProvider) return mockProvider1
           return null
         },
         getProvider: async (id: number) => {
@@ -132,7 +137,7 @@ describe('ChainRetriever', () => {
       try {
         const retriever = new ChainRetriever(mockWarmStorage as WarmStorageService, mockSPRegistry as SPRegistryService)
         const response = await retriever.fetchPiece(mockPieceCID, '0xClient', {
-          providerAddress: mockProvider1.address,
+          providerAddress: mockProvider1.serviceProvider,
         })
 
         assert.isTrue(findPieceCalled, 'Should call findPiece')
@@ -220,7 +225,8 @@ describe('ChainRetriever', () => {
       const providers: ProviderInfo[] = [
         {
           id: 1,
-          address: '0xProvider1',
+          serviceProvider: '0xProvider1',
+          payee: '0xProvider1',
           name: 'Provider 1',
           description: 'Test provider',
           active: true,
@@ -245,7 +251,8 @@ describe('ChainRetriever', () => {
         },
         {
           id: 2,
-          address: '0xProvider2',
+          serviceProvider: '0xProvider2',
+          payee: '0xProvider2',
           name: 'Provider 2',
           description: 'Test provider',
           active: true,
@@ -328,7 +335,7 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [
           mockDataSet,
-          { ...mockDataSet, providerId: 2, payee: mockProvider2.address },
+          { ...mockDataSet, providerId: 2, payee: mockProvider2.serviceProvider },
         ],
         getProvider: () => null as any,
         isProviderIdApproved: async (providerId: number) => providerId === 1 || providerId === 2,
@@ -543,7 +550,7 @@ describe('ChainRetriever', () => {
       const mockWarmStorage: Partial<WarmStorageService> = {
         getClientDataSetsWithDetails: async () => [
           mockDataSet,
-          { ...mockDataSet, providerId: 2, payee: mockProvider2.address },
+          { ...mockDataSet, providerId: 2, payee: mockProvider2.serviceProvider },
         ],
         getProvider: () => null as any,
         isProviderIdApproved: async (providerId: number) => providerId === 1 || providerId === 2,

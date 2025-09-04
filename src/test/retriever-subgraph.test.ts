@@ -9,7 +9,7 @@ import { createSimpleProvider } from './test-utils.ts'
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 
 const mockProvider: ProviderInfo = createSimpleProvider({
-  address: '0x1234567890123456789012345678901234567890',
+  serviceProvider: '0x1234567890123456789012345678901234567890',
   serviceURL: 'https://provider.example.com',
 })
 
@@ -36,7 +36,7 @@ const createMockSubgraphService = (providersToReturn?: ProviderInfo[] | Error): 
     },
     getProviderByAddress: async (address: string): Promise<ProviderInfo | null> => {
       const providers = providersToReturn instanceof Error ? [] : (providersToReturn ?? [])
-      return providers.find((p) => p.address === address) ?? null
+      return providers.find((p) => p.serviceProvider === address) ?? null
     },
   } as any
 
@@ -157,7 +157,7 @@ describe('SubgraphRetriever', () => {
     it('should filter by providerAddress when provided (providers from service)', async () => {
       const otherProvider: ProviderInfo = {
         ...mockProvider,
-        address: '0xother',
+        serviceProvider: '0xother',
       }
       const mockService = createMockSubgraphService([mockProvider, otherProvider]) // Service returns multiple providers
       let fetchCalledForMockProvider = false
@@ -182,7 +182,7 @@ describe('SubgraphRetriever', () => {
 
       const retriever = new SubgraphRetriever(mockService)
       await retriever.fetchPiece(mockPieceCID, 'client1', {
-        providerAddress: mockProvider.address,
+        providerAddress: mockProvider.serviceProvider,
       })
 
       assert.isTrue(fetchCalledForMockProvider, 'Should have fetched from the specified provider')

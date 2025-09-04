@@ -200,14 +200,20 @@ export interface DataSetInfo {
   payer: string
   /** SP's beneficiary address */
   payee: string
+  /** Service provider address (operator) */
+  serviceProvider: string
   /** Commission rate in basis points (dynamic based on CDN usage) */
   commissionBps: number
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: number
-  /** 0 if payment is not terminated */
-  paymentEndEpoch: number
+  /** Epoch when PDP payments end (0 if not terminated) */
+  pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */
   providerId: number
+  /** Epoch when CDN payments end (0 if not terminated) */
+  cdnEndEpoch: number
+  // Legacy alias for backward compatibility
+  paymentEndEpoch?: number
 }
 
 /**

@@ -329,7 +329,7 @@ export class StorageManager {
       const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
-      const validProviders = providers.filter((p: ProviderInfo) => p.address !== ethers.ZeroAddress)
+      const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
 
       const network = this._synapse.getNetwork()
 

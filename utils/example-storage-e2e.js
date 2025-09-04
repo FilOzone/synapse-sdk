@@ -108,7 +108,7 @@ async function main() {
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
-          console.log(`✓ Selected service provider: ${provider.address}`)
+          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
         },
         onDataSetResolved: (info) => {
           if (info.isExisting) {
@@ -141,7 +141,7 @@ async function main() {
     console.log('\n--- Service Provider Details ---')
     const providerInfo = await storageContext.getProviderInfo()
     console.log(`Provider ID: ${providerInfo.id}`)
-    console.log(`Provider Address: ${providerInfo.address}`)
+    console.log(`Provider Address: ${providerInfo.serviceProvider}`)
     console.log(`Provider Name: ${providerInfo.name}`)
     console.log(`Active: ${providerInfo.active}`)
     if (providerInfo.products.PDP?.data.serviceURL) {
@@ -244,7 +244,10 @@ async function main() {
     console.log(`- Piece CID / hash (PieceCID): ${uploadResult.pieceCid}`)
     console.log(`- Data set ID: ${storageContext.dataSetId}`)
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
-    console.log(`- Service provider: ${storageContext.address}`)
+    console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
+    if (providerInfo.products.PDP?.data.serviceURL) {
+      console.log(`- Direct retrieval URL: ${providerInfo.products.PDP.data.serviceURL}/piece/${uploadResult.pieceCid}`)
+    }
     console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
