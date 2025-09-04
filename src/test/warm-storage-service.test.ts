@@ -106,9 +106,8 @@ describe('WarmStorageService', () => {
             payee: '0xabcdef1234567890123456789012345678901234',
             commissionBps: 100n, // 1%
             clientDataSetId: 0n,
-            pdpEndEpoch: 0n,
+            paymentEndEpoch: 0n,
             providerId: 1n,
-            cdnEndEpoch: 0n,
           }
 
           const dataSet2 = {
@@ -119,9 +118,8 @@ describe('WarmStorageService', () => {
             payee: '0x9876543210987654321098765432109876543210',
             commissionBps: 200n, // 2%
             clientDataSetId: 1n,
-            pdpEndEpoch: 0n,
+            paymentEndEpoch: 0n,
             providerId: 2n,
-            cdnEndEpoch: 0n,
           }
 
           // Create properly ordered arrays for encoding
@@ -602,9 +600,8 @@ describe('WarmStorageService', () => {
             'Metadata', // metadata
             [], // pieceMetadata
             3n, // clientDataSetId
-            0n, // pdpEndEpoch
+            0n, // paymentEndEpoch
             1n, // providerId
-            0n, // cdnEndEpoch
           ]
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)'],

@@ -553,12 +553,12 @@ export function setupProviderRegistryMocks(
             }
           }
           // Mock filCDNAddress
-          // if (callData.startsWith('0xf699dd7e')) {
-          //   return {
-          //     success: true,
-          //     returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ethers.ZeroAddress]),
-          //   }
-          // }
+          if (callData.startsWith('0xf699dd7e')) {
+            return {
+              success: true,
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ethers.ZeroAddress]),
+            }
+          }
           // Mock viewContractAddress
           if (callData.startsWith('0x7a9ebc15')) {
             return {
