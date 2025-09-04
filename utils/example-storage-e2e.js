@@ -246,7 +246,12 @@ async function main() {
     console.log(`- Piece ID: ${uploadResult.pieceId}`)
     console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
     if (providerInfo.products.PDP?.data.serviceURL) {
-      console.log(`- Direct retrieval URL: ${providerInfo.products.PDP.data.serviceURL}/piece/${uploadResult.pieceCid}`)
+      console.log(
+        `- Direct retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(
+          /\/$/,
+          ''
+        )}/piece/${uploadResult.pieceCid}`
+      )
     }
     console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
