@@ -117,6 +117,7 @@ export class WarmStorageService {
     filCDNBeneficiary: string
     viewContract: string
     serviceProviderRegistry: string
+    sessionKeyRegistry: string
   }
 
   /**
@@ -132,6 +133,7 @@ export class WarmStorageService {
       filCDNBeneficiary: string
       viewContract: string
       serviceProviderRegistry: string
+      sessionKeyRegistry: string
     }
   ) {
     this._provider = provider
@@ -186,6 +188,11 @@ export class WarmStorageService {
         allowFailure: false,
         callData: iface.encodeFunctionData('serviceProviderRegistry'),
       },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('sessionKeyRegistry'),
+      },
     ]
 
     const results = await multicall.aggregate3.staticCall(calls)
@@ -197,6 +204,7 @@ export class WarmStorageService {
       filCDNBeneficiary: iface.decodeFunctionResult('filCDNBeneficiaryAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
+      sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
     }
 
     return new WarmStorageService(provider, warmStorageAddress, addresses)
@@ -220,6 +228,10 @@ export class WarmStorageService {
 
   getServiceProviderRegistryAddress(): string {
     return this._addresses.serviceProviderRegistry
+  }
+
+  getSessionKeyRegistryAddress(): string {
+    return this._addresses.sessionKeyRegistry
   }
 
   /**
