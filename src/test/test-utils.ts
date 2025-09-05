@@ -30,6 +30,7 @@ export const MOCK_ADDRESSES = {
   SIGNER: '0x1234567890123456789012345678901234567890' as const,
   WARM_STORAGE: '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F' as const,
   WARM_STORAGE_VIEW: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as const,
+  SESSION_KEY_REGISTRY: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as const,
 }
 
 // Mock signer factory
@@ -94,7 +95,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           '0x0000000000000000000000000000000000000000', // filCDN (not used)
           MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
           '0x0000000000000000000000000000000000000001', // spRegistry
-          CONTRACT_ADDRESSES.SESSION_KEY_REGISTRY.calibration, // sessionKeyRegistry
+          MOCK_ADDRESSES.SESSION_KEY_REGISTRY, // sessionKeyRegistry
         ]
 
         // Encode the response as Multicall3 would
@@ -370,6 +371,7 @@ export function createCustomMulticall3Mock(
     filCDN?: string
     viewContract?: string
     spRegistry?: string
+    sessionKeyRegistry?: string
   }>
 ): () => void {
   return extendMockProviderCall(provider, async (transaction: any) => {
@@ -386,7 +388,7 @@ export function createCustomMulticall3Mock(
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
         customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
         customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
-        customAddresses?.sessionKeyRegistry ?? CONTRACT_ADDRESSES.SESSION_KEY_REGISTRY.calibration, // sessionKeyRegistry
+        customAddresses?.sessionKeyRegistry ?? MOCK_ADDRESSES.SESSION_KEY_REGISTRY, // sessionKeyRegistry
       ]
 
       const results = mockAddresses.map((addr) => ({
