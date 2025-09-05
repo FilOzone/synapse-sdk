@@ -1,3 +1,39 @@
+## [0.24.0](https://github.com/FilOzone/synapse-sdk/compare/v0.23.2...v0.24.0) (2025-09-05)
+
+### Features
+
+* add synapse.storage and StorageContext ([#153](https://github.com/FilOzone/synapse-sdk/issues/153)) ([7485b84](https://github.com/FilOzone/synapse-sdk/commit/7485b848973c129f11d299840236080208fedf9a))
+* **commp:** transition to CommPv2 ([c0c39a4](https://github.com/FilOzone/synapse-sdk/commit/c0c39a446b8127f6f302b78760b76098d28c7736))
+* **commp:** use "PieceCID" terminology, use v2 exclusively ([81f9ea8](https://github.com/FilOzone/synapse-sdk/commit/81f9ea8fa595cff231ad25d478c92fec846c19af))
+* **commpv2:** Curio CommPv2 compatibility ([#156](https://github.com/FilOzone/synapse-sdk/issues/156)) ([d529e0b](https://github.com/FilOzone/synapse-sdk/commit/d529e0bdbc2e11360ae3a5d1bce4559abb3fd752))
+* EIP712 signing support for metadata in CreateDataSet and AddPices ([#173](https://github.com/FilOzone/synapse-sdk/issues/173)) ([f396e0d](https://github.com/FilOzone/synapse-sdk/commit/f396e0d8b59445de9a8de28e2c5565d5bd9f8bac))
+* major rename - pandora->warm storage, proof sets->data sets, roots->pieces ([6e1a743](https://github.com/FilOzone/synapse-sdk/commit/6e1a743fd7f4d168b39afac62c3494394f00a93d))
+* sp registry ([e680f82](https://github.com/FilOzone/synapse-sdk/commit/e680f82ee5be19d2e487554a7347123491ba6ce3))
+* **utils:** split client and provider functionality to make setup easier ([66c9d02](https://github.com/FilOzone/synapse-sdk/commit/66c9d02bca0e90c13d957bd527d2b9c3df83ea1e))
+* **warmstorage:** discover dependent contract addresses from WarmStorage ([984966b](https://github.com/FilOzone/synapse-sdk/commit/984966bf20b50770ec75edc3a765b511258e5993))
+
+### Bug Fixes
+
+* ignore deleted providers when searching for retrieval options ([#159](https://github.com/FilOzone/synapse-sdk/issues/159)) ([2b8c427](https://github.com/FilOzone/synapse-sdk/commit/2b8c4270651224099a79c977814b3c2311016947))
+* **pdp:** encode the metadata correctly in extraData ([c4aea98](https://github.com/FilOzone/synapse-sdk/commit/c4aea98ca442259a9b21c1393f0cc615d1f2fc9b))
+* **pdp:** isComplete on data set creation should include server status ([#158](https://github.com/FilOzone/synapse-sdk/issues/158)) ([5cf3dc1](https://github.com/FilOzone/synapse-sdk/commit/5cf3dc17437f94e338aa3c8bc095c89885f776c3))
+* trim trailing slash from serviceURL ([cf8be53](https://github.com/FilOzone/synapse-sdk/commit/cf8be534fdce262a1bc05b16c5274d2b93eaabde))
+* **warmstorage:** adapt to view contract using extsload ([f56f00e](https://github.com/FilOzone/synapse-sdk/commit/f56f00e704464182eb516f86437bdfd70d04c7f0))
+
+### Trivial Changes
+
+* add biome and git hooks ([#165](https://github.com/FilOzone/synapse-sdk/issues/165)) ([425ba99](https://github.com/FilOzone/synapse-sdk/commit/425ba99552d991967c74d163124b88a2af33140a))
+* change imports to .ts ([#185](https://github.com/FilOzone/synapse-sdk/issues/185)) ([778f779](https://github.com/FilOzone/synapse-sdk/commit/778f77941900d60b61a1d7479e26354457ddb247))
+* **deps-dev:** bump chai from 5.3.3 to 6.0.1 ([#164](https://github.com/FilOzone/synapse-sdk/issues/164)) ([6d64b0b](https://github.com/FilOzone/synapse-sdk/commit/6d64b0b70524f2e92b97eaa83c64eb17127a8740))
+* **deps:** bump actions/setup-node from 4.4.0 to 5.0.0 ([#190](https://github.com/FilOzone/synapse-sdk/issues/190)) ([b43d391](https://github.com/FilOzone/synapse-sdk/commit/b43d391d65143f4cb20fbd92855b5d299ccb2827))
+* FilCDNBeneficiary ([#191](https://github.com/FilOzone/synapse-sdk/issues/191)) ([b394840](https://github.com/FilOzone/synapse-sdk/commit/b3948406fb04da7bfad99e85b6c3baa82d8ac16f))
+* fix biome warnings ([#170](https://github.com/FilOzone/synapse-sdk/issues/170)) ([6d62d88](https://github.com/FilOzone/synapse-sdk/commit/6d62d8841c9d5f59b2d91e9a9179b32ff23f9600))
+* remove simple-git-hooks from devDeps ([d600d5e](https://github.com/FilOzone/synapse-sdk/commit/d600d5efdc409dd2a05941d2074ab906914b4c33))
+* update ABI imports and clean up unused code ([#187](https://github.com/FilOzone/synapse-sdk/issues/187)) ([6bdd507](https://github.com/FilOzone/synapse-sdk/commit/6bdd5071c38e6c84d66803343b0c7f1675e3ded8))
+* update contract addresses ([2227cc9](https://github.com/FilOzone/synapse-sdk/commit/2227cc99f4e70e9f6261fdcdc0127feffc3198ba))
+* update for alpha release contracts ([4a60150](https://github.com/FilOzone/synapse-sdk/commit/4a601502333d5b7f3731b8022fef9181178b4307))
+* update TypeScript configuration ([#172](https://github.com/FilOzone/synapse-sdk/issues/172)) ([0e521d1](https://github.com/FilOzone/synapse-sdk/commit/0e521d1b32f536f1cc36ca35089cd7e0671bef38))
+
 ## [0.23.2](https://github.com/FilOzone/synapse-sdk/compare/v0.23.1...v0.23.2) (2025-08-13)
 
 ### Trivial Changes
