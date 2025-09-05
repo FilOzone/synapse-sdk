@@ -94,6 +94,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           '0x0000000000000000000000000000000000000000', // filCDN (not used)
           MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
           '0x0000000000000000000000000000000000000001', // spRegistry
+          CONTRACT_ADDRESSES.SESSION_KEY_REGISTRY.calibration, // sessionKeyRegistry
         ]
 
         // Encode the response as Multicall3 would
@@ -385,6 +386,7 @@ export function createCustomMulticall3Mock(
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
         customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
         customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
+        customAddresses?.sessionKeyRegistry ?? CONTRACT_ADDRESSES.SESSION_KEY_REGISTRY.calibration, // sessionKeyRegistry
       ]
 
       const results = mockAddresses.map((addr) => ({
