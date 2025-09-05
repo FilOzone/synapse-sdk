@@ -107,6 +107,7 @@ export class WarmStorageService {
   private readonly _warmStorageAddress: string
   private _warmStorageContract: ethers.Contract | null = null
   private _warmStorageViewContract: ethers.Contract | null = null
+  private _sessionKeyRegistry: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
   // All discovered addresses
@@ -230,8 +231,15 @@ export class WarmStorageService {
     return this._addresses.serviceProviderRegistry
   }
 
-  getSessionKeyRegistryAddress(): string {
-    return this._addresses.sessionKeyRegistry
+  getSessionKeyRegistry(): ethers.Contract {
+    if (this._sessionKeyRegistry == null) {
+      this._sessionKeyRegistry = new ethers.Contract(
+        this._addresses.sessionKeyRegistry,
+        CONTRACT_ABIS.SESSION_KEY_REGISTRY,
+        this._provider
+      )
+    }
+    return this._sessionKeyRegistry
   }
 
   /**

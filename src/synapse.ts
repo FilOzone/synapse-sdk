@@ -5,6 +5,7 @@
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
@@ -33,6 +34,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private _session: SessionKey | null = null
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -188,6 +190,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._session = null
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
@@ -206,7 +209,21 @@ export class Synapse {
    * @returns The ethers signer
    */
   getSigner(): ethers.Signer {
-    return this._signer
+    if (this._session == null) {
+      return this._signer
+    } else {
+      return this._session.getSigner()
+    }
+  }
+
+  setSession(sessionKeySigner: ethers.Signer): SessionKey {
+    this._session = new SessionKey(
+      this._provider,
+      this._warmStorageService.getSessionKeyRegistry(),
+      sessionKeySigner,
+      this._signer
+    )
+    return this._session
   }
 
   /**

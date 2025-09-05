@@ -1,19 +1,19 @@
 import { ethers } from 'ethers'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from '../utils/index.ts'
 
-export const CREATE_DATA_SET_TYPEHASH = ethers.keccak256(
+export const CREATE_DATA_SET_TYPEHASH = ethers.id(
   'CreateDataSet(uint256 clientDataSetId,address payee,MetadataEntry[] metadata)MetadataEntry(string key,string value)'
 )
 
-export const ADD_PIECES_TYPEHASH = ethers.keccak256(
+export const ADD_PIECES_TYPEHASH = ethers.id(
   'AddPieces(uint256 clientDataSetId,uint256 firstAdded,Cid[] pieceData,PieceMetadata[] pieceMetadata)Cid(bytes data)MetadataEntry(string key,string value)PieceMetadata(uint256 pieceIndex,MetadataEntry[] metadata)'
 )
 
-export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = ethers.keccak256(
+export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = ethers.id(
   'SchedulePieceRemovals(uint256 clientDataSetId,uint256[] pieceIds)'
 )
 
-export const DELETE_DATA_SET_TYPEHASH = ethers.keccak256('DeleteDataSet(uint256 clientDataSetId)')
+export const DELETE_DATA_SET_TYPEHASH = ethers.id('DeleteDataSet(uint256 clientDataSetId)')
 
 export const PDP_PERMISSIONS = [
   CREATE_DATA_SET_TYPEHASH,
@@ -29,7 +29,7 @@ export class SessionKey {
   private readonly _owner: ethers.Signer
   public readonly expiries: Record<string, bigint | null>
 
-  constructor(
+  public constructor(
     provider: ethers.Provider,
     sessionKeyRegistry: ethers.Contract,
     signer: ethers.Signer,
@@ -45,6 +45,10 @@ export class SessionKey {
       SCHEDULE_PIECE_REMOVALS_TYPEHASH: null,
       DELETE_DATA_SET_TYPEHASH: null,
     }
+  }
+
+  getSigner(): ethers.Signer {
+    return this._signer
   }
 
   /**
