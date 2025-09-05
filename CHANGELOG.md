@@ -1,3 +1,9 @@
+## [0.24.1](https://github.com/FilOzone/synapse-sdk/compare/v0.24.0...v0.24.1) (2025-09-05)
+
+### Trivial Changes
+
+* **deps-dev:** bump typescript from 5.8.3 to 5.9.2 ([#193](https://github.com/FilOzone/synapse-sdk/issues/193)) ([8892319](https://github.com/FilOzone/synapse-sdk/commit/8892319658194be1fba54320a11753bdee47e166))
+
 ## [0.24.0](https://github.com/FilOzone/synapse-sdk/compare/v0.23.2...v0.24.0) (2025-09-05)
 
 ### Features
