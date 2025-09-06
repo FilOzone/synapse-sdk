@@ -73,8 +73,13 @@ export async function downloadAndValidate(
     reader.releaseLock()
   }
 
+  if (chunks.length === 0) {
+    throw new Error('Response body is null')
+  }
+
   // Get the calculated PieceCID
   const calculatedPieceCid = getPieceCID()
+
   if (calculatedPieceCid == null) {
     throw new Error('Failed to calculate PieceCID from stream')
   }
