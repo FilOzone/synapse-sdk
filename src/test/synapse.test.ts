@@ -14,6 +14,7 @@ import {
   createMockProviderInfo,
   createMockSigner,
   extendMockProviderCall,
+  MOCK_ADDRESSES,
   setupProviderRegistryMocks,
 } from './test-utils.ts'
 
@@ -23,7 +24,7 @@ describe('Synapse', () => {
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    mockSigner = createMockSigner(MOCK_ADDRESSES.SIGNER, mockProvider)
   })
 
   describe('Instantiation', () => {
@@ -168,7 +169,7 @@ describe('Synapse', () => {
         provider: calibrationProvider,
       })
       assert.exists(synapse)
-      assert.equal(await synapse.getPDPVerifierAddress(), '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48') // Calibration default
+      assert.equal(await synapse.getPDPVerifierAddress(), MOCK_ADDRESSES.PDP_VERIFIER) // Calibration default
     })
 
     it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {

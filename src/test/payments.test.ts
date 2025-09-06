@@ -7,19 +7,19 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PaymentsService } from '../payments/index.ts'
-import { TOKENS } from '../utils/index.ts'
-import { createMockProvider, createMockSigner } from './test-utils.ts'
+import { CONTRACT_ADDRESSES, TOKENS } from '../utils/index.ts'
+import { createMockProvider, createMockSigner, MOCK_ADDRESSES } from './test-utils.ts'
 
 describe('PaymentsService', () => {
   let mockProvider: ethers.Provider
   let mockSigner: ethers.Signer
   let payments: PaymentsService
-  const mockPaymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
-  const mockUsdfcAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+  const mockPaymentsAddress = MOCK_ADDRESSES.PAYMENTS
+  const mockUsdfcAddress = CONTRACT_ADDRESSES.USDFC.calibration
 
   beforeEach(() => {
     mockProvider = createMockProvider()
-    mockSigner = createMockSigner('0x1234567890123456789012345678901234567890', mockProvider)
+    mockSigner = createMockSigner(MOCK_ADDRESSES.SIGNER, mockProvider)
     payments = new PaymentsService(mockProvider, mockSigner, mockPaymentsAddress, mockUsdfcAddress, false)
   })
 
@@ -90,13 +90,13 @@ describe('PaymentsService', () => {
 
   describe('Token operations', () => {
     it('should check allowance for USDFC', async () => {
-      const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+      const paymentsAddress = MOCK_ADDRESSES.PAYMENTS
       const allowance = await payments.allowance(paymentsAddress)
       assert.equal(allowance.toString(), '0')
     })
 
     it('should approve token spending', async () => {
-      const paymentsAddress = '0x0E690D3e60B0576D01352AB03b258115eb84A047'
+      const paymentsAddress = MOCK_ADDRESSES.PAYMENTS
       const amount = ethers.parseUnits('100', 18)
       const tx = await payments.approve(paymentsAddress, amount)
       assert.exists(tx)

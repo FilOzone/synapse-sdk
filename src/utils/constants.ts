@@ -249,4 +249,9 @@ export const CONTRACT_ADDRESSES = {
     mainnet: '0xcA11bde05977b3631167028862bE2a173976CA11',
     calibration: '0xcA11bde05977b3631167028862bE2a173976CA11',
   } as const satisfies Record<FilecoinNetworkType, string>,
+
+  USDFC: {
+    mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
+    calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
+  } as const satisfies Record<FilecoinNetworkType, string>,
 } as const
