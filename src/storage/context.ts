@@ -679,21 +679,29 @@ export class StorageContext {
         }
       }
 
-      const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
+      try {
+        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
-      // Find the first matching data set ID for this provider
-      const matchingDataSet = sorted.find(
-        (ps) => ps.payee.toLowerCase() === selectedProvider.serviceProvider.toLowerCase()
-      )
+        // Find the first matching data set ID for this provider
+        // Match by provider ID (stable identifier in the registry)
+        const matchingDataSet = sorted.find((ps) => ps.providerId === selectedProvider.id)
 
-      if (matchingDataSet == null) {
-        throw createError('StorageContext', 'smartSelectProvider', 'Selected provider not found in data sets')
-      }
-
-      return {
-        provider: selectedProvider,
-        dataSetId: matchingDataSet.pdpVerifierDataSetId,
-        isExisting: true,
+        if (matchingDataSet == null) {
+          console.warn(
+            `Could not match selected provider ${selectedProvider.serviceProvider} (ID: ${selectedProvider.id}) ` +
+              `to existing data sets. Falling back to selecting from all providers.`
+          )
+          // Fall through to select from all approved providers below
+        } else {
+          return {
+            provider: selectedProvider,
+            dataSetId: matchingDataSet.pdpVerifierDataSetId,
+            isExisting: true,
+          }
+        }
+      } catch (_error) {
+        console.warn('All providers from existing data sets failed health check. Falling back to all providers.')
+        // Fall through to select from all approved providers below
       }
     }
 
