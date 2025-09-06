@@ -1,3 +1,9 @@
+## [0.24.2](https://github.com/FilOzone/synapse-sdk/compare/v0.24.1...v0.24.2) (2025-09-06)
+
+### Bug Fixes
+
+* **pdp:** select provider on ID, allow graceful fallback when no match ([#195](https://github.com/FilOzone/synapse-sdk/issues/195)) ([30d32af](https://github.com/FilOzone/synapse-sdk/commit/30d32af3a70950c0872a261375424aa4f8c35009))
+
 ## [0.24.1](https://github.com/FilOzone/synapse-sdk/compare/v0.24.0...v0.24.1) (2025-09-05)
 
 ### Trivial Changes
