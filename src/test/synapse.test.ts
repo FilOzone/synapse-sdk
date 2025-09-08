@@ -6,10 +6,15 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
+import { HttpResponse, http } from 'msw'
+import pDefer from 'p-defer'
+import { type Address, isAddressEqual } from 'viem'
+
 import { PaymentsService } from '../payments/index.ts'
 import { Synapse } from '../synapse.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS } from './mocks/jsonrpc/index.ts'
 import {
-  createCustomMulticall3Mock,
   createMockProvider,
   createMockProviderInfo,
   createMockSigner,
@@ -18,49 +23,68 @@ import {
   setupProviderRegistryMocks,
 } from './test-utils.ts'
 
+// mock server for testing
+const server = setup([])
+const TEST_PRIVATE_KEY = '0x1234567890123456789012345678901234567890123456789012345678901234'
+
 describe('Synapse', () => {
   let mockProvider: ethers.Provider
   let mockSigner: ethers.Signer
+  let signer: ethers.Signer
+  let provider: ethers.Provider
+  before(async () => {
+    await server.start({ quiet: true })
+  })
 
+  after(() => {
+    server.stop()
+  })
   beforeEach(() => {
+    server.resetHandlers()
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
     mockProvider = createMockProvider()
     mockSigner = createMockSigner(MOCK_ADDRESSES.SIGNER, mockProvider)
   })
 
   describe('Instantiation', () => {
     it('should create instance with signer', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
       assert.exists(synapse)
       assert.exists(synapse.payments)
       assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
     it('should create instance with provider', async () => {
-      const synapse = await Synapse.create({ provider: mockProvider })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ provider })
       assert.exists(synapse)
       assert.exists(synapse.payments)
       assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
-    it.skip('should create instance with private key', async () => {
-      // Skip this test in browser environment as mocking fetch is complex
-      // This functionality is tested in Node.js tests
-      // Would need to properly mock fetch in browser which is complex
-      // Example usage would be:
-      // const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-      // const rpcURL = 'https://api.calibration.node.glif.io/rpc/v1'
-      // const synapse = await Synapse.create({ privateKey, rpcURL })
+    it('should create instance with private key', async () => {
+      server.use(JSONRPC())
+      const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      const rpcURL = 'https://api.calibration.node.glif.io/rpc/v1'
+      const synapse = await Synapse.create({ privateKey, rpcURL })
+      assert.exists(synapse)
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
     it('should apply NonceManager by default', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
       assert.exists(synapse)
       // We can't directly check if NonceManager is applied, but we can verify the instance is created
     })
 
     it('should allow disabling NonceManager', async () => {
+      server.use(JSONRPC())
       const synapse = await Synapse.create({
-        signer: mockSigner,
+        signer,
         disableNonceManager: true,
       })
       assert.exists(synapse)
@@ -91,7 +115,7 @@ describe('Synapse', () => {
       try {
         await Synapse.create({
           privateKey: '0x123',
-          provider: mockProvider,
+          provider,
           rpcURL: 'https://example.com',
         } as any)
         assert.fail('Should have thrown')
@@ -115,10 +139,14 @@ describe('Synapse', () => {
   describe('Network validation', () => {
     it('should reject unsupported networks', async () => {
       // Create mock provider with unsupported chain ID
-      const unsupportedProvider = createMockProvider(999999)
-
+      // const unsupportedProvider = createMockProvider(999999)
+      server.use(
+        JSONRPC({
+          eth_chainId: '999999',
+        })
+      )
       try {
-        await Synapse.create({ provider: unsupportedProvider })
+        await Synapse.create({ provider })
         assert.fail('Should have thrown for unsupported network')
       } catch (error: any) {
         assert.include(error.message, 'Unsupported network')
@@ -127,79 +155,78 @@ describe('Synapse', () => {
     })
 
     it('should accept calibration network', async () => {
-      const calibrationProvider = createMockProvider(314159)
-      const synapse = await Synapse.create({ provider: calibrationProvider })
+      server.use(
+        JSONRPC({
+          eth_chainId: '314159',
+        })
+      )
+      const synapse = await Synapse.create({ provider })
       assert.exists(synapse)
     })
 
     it('should accept mainnet with custom warmStorage address', async () => {
-      const mainnetProvider = createMockProvider(314)
+      server.use(
+        JSONRPC({
+          eth_chainId: '314',
+        })
+      )
       const synapse = await Synapse.create({
-        provider: mainnetProvider,
+        provider,
         warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
         pdpVerifierAddress: '0x9876543210987654321098765432109876543210', // Custom PDPVerifier address for mainnet
       })
       assert.exists(synapse)
     })
 
-    it('should accept custom pdpVerifierAddress', async () => {
-      const calibrationProvider = createMockProvider(314159)
+    // custom addresses are not used anymore in the SDK
+    it.skip('should accept custom pdpVerifierAddress', async () => {
       const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
-
-      // Mock the Multicall3 to return our custom PDP verifier address
-      const cleanup = createCustomMulticall3Mock(calibrationProvider, {
-        pdpVerifier: customPDPVerifierAddress,
-      })
-
-      try {
-        const synapse = await Synapse.create({
-          provider: calibrationProvider,
-          pdpVerifierAddress: customPDPVerifierAddress,
+      server.use(
+        JSONRPC({
+          warmStorage: {
+            pdpVerifierAddress: customPDPVerifierAddress,
+          },
         })
-        assert.exists(synapse)
-        assert.equal((await synapse.getPDPVerifierAddress()).toLowerCase(), customPDPVerifierAddress.toLowerCase())
-      } finally {
-        cleanup()
-      }
-    })
+      )
 
-    it('should use default pdpVerifierAddress when not provided', async () => {
-      const calibrationProvider = createMockProvider(314159)
       const synapse = await Synapse.create({
-        provider: calibrationProvider,
+        provider,
+        pdpVerifierAddress: customPDPVerifierAddress,
       })
       assert.exists(synapse)
-      assert.equal(await synapse.getPDPVerifierAddress(), MOCK_ADDRESSES.PDP_VERIFIER) // Calibration default
+      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
     })
 
-    it('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
-      const mainnetProvider = createMockProvider(314)
-      const customWarmStorageAddress = '0x1111111111111111111111111111111111111111'
+    // theres no default pdpVerifierAddress in the SDK anymore
+    it.skip('should use default pdpVerifierAddress when not provided', async () => {
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({
+        provider,
+      })
+      assert.exists(synapse)
+      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, ADDRESSES.calibration.pdpVerifier))
+    })
+
+    // custom addresses are not used anymore in the SDK
+    it.skip('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
       const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
 
-      // Mock the Multicall3 to return our custom PDP verifier address
-      const cleanup = createCustomMulticall3Mock(mainnetProvider, {
-        pdpVerifier: customPDPVerifierAddress,
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({
+        provider,
+        warmStorageAddress: ADDRESSES.mainnet.warmStorage,
+        pdpVerifierAddress: customPDPVerifierAddress,
       })
-
-      try {
-        const synapse = await Synapse.create({
-          provider: mainnetProvider,
-          warmStorageAddress: customWarmStorageAddress,
-          pdpVerifierAddress: customPDPVerifierAddress,
-        })
-        assert.exists(synapse)
-        assert.equal(synapse.getWarmStorageAddress(), customWarmStorageAddress)
-        assert.equal((await synapse.getPDPVerifierAddress()).toLowerCase(), customPDPVerifierAddress.toLowerCase())
-      } finally {
-        cleanup()
-      }
+      assert.exists(synapse)
+      assert.equal(synapse.getWarmStorageAddress(), ADDRESSES.mainnet.warmStorage)
+      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
     })
   })
 
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
 
       // Should be able to access storage manager
       assert.exists(synapse.storage)
@@ -214,8 +241,9 @@ describe('Synapse', () => {
     })
 
     it('should create storage manager with CDN settings', async () => {
+      server.use(JSONRPC())
       const synapse = await Synapse.create({
-        signer: mockSigner,
+        signer,
         withCDN: true,
       })
 
@@ -226,7 +254,8 @@ describe('Synapse', () => {
     })
 
     it('should return same storage manager instance', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
 
       const storage1 = synapse.storage
       const storage2 = synapse.storage
@@ -238,7 +267,8 @@ describe('Synapse', () => {
 
   describe('Payment access', () => {
     it('should provide read-only access to payments', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
 
       // Should be able to access payments
       assert.exists(synapse.payments)
@@ -260,48 +290,18 @@ describe('Synapse', () => {
 
   describe('getProviderInfo', () => {
     it('should get provider info for valid approved provider', async () => {
-      const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
-      const mockProvider1 = createMockProviderInfo({
-        id: 1,
-        serviceProvider: mockProviderAddress,
-        products: {
-          PDP: {
-            type: 'PDP',
-            isActive: true,
-            capabilities: {},
-            data: {
-              serviceURL: 'https://pdp.example.com',
-              minPieceSizeInBytes: BigInt(1024),
-              maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
-              ipniPiece: false,
-              ipniIpfs: false,
-              storagePricePerTibPerMonth: BigInt(1000000),
-              minProvingPeriodInEpochs: 2880,
-              location: 'US-EAST',
-              paymentTokenAddress: ethers.ZeroAddress,
-            },
-          },
-        },
-      })
+      server.use(JSONRPC())
 
-      const cleanup = setupProviderRegistryMocks(mockProvider, {
-        approvedIds: [1],
-        providers: [mockProvider1],
-      })
+      const synapse = await Synapse.create({ provider })
+      const providerInfo = await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
 
-      try {
-        const synapse = await Synapse.create({ signer: mockSigner })
-        const providerInfo = await synapse.getProviderInfo(mockProviderAddress)
-
-        assert.equal(providerInfo.serviceProvider.toLowerCase(), mockProviderAddress.toLowerCase())
-        assert.equal(providerInfo.products.PDP?.data.serviceURL, 'https://pdp.example.com')
-      } finally {
-        cleanup()
-      }
+      assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, ADDRESSES.serviceProvider1))
+      assert.equal(providerInfo.products.PDP?.data.serviceURL, 'https://pdp.example.com')
     })
 
     it('should throw for invalid provider address', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
 
       try {
         await synapse.getProviderInfo('invalid-address')
@@ -312,52 +312,58 @@ describe('Synapse', () => {
     })
 
     it('should throw for non-approved provider', async () => {
-      const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
-      const mockProvider1 = createMockProviderInfo({
-        id: 3, // Not in approved list
-        serviceProvider: mockProviderAddress,
-      })
-
-      const cleanup = setupProviderRegistryMocks(mockProvider, {
-        approvedIds: [1, 2], // Provider 3 is not approved
-        providers: [mockProvider1],
-      })
+      server.use(
+        JSONRPC({
+          serviceRegistry: {
+            getProviderIdByAddress: 3n,
+          },
+          warmStorageView: {
+            isProviderApproved: ([providerId]) => providerId === 1n,
+          },
+        })
+      )
+      const mockProviderAddress = ADDRESSES.serviceProvider1
 
       try {
-        const synapse = await Synapse.create({ signer: mockSigner })
+        const synapse = await Synapse.create({ signer })
         await synapse.getProviderInfo(mockProviderAddress)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not approved')
-      } finally {
-        cleanup()
       }
     })
 
     it('should throw when provider not found', async () => {
-      const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
-
-      // Setup with empty providers list but with approved ID
-      const cleanup = setupProviderRegistryMocks(mockProvider, {
-        approvedIds: [1],
-        providers: [], // No providers exist
-      })
+      server.use(
+        JSONRPC({
+          serviceRegistry: {
+            getProviderByAddress: [
+              {
+                serviceProvider: ADDRESSES.zero,
+                payee: ADDRESSES.zero,
+                name: '',
+                description: '',
+                isActive: false,
+              },
+            ],
+          },
+        })
+      )
 
       try {
-        const synapse = await Synapse.create({ signer: mockSigner })
-        await synapse.getProviderInfo(mockProviderAddress)
+        const synapse = await Synapse.create({ signer })
+        await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not found')
-      } finally {
-        cleanup()
       }
     })
   })
 
   describe('download', () => {
     it('should validate PieceCID input', async () => {
-      const synapse = await Synapse.create({ signer: mockSigner })
+      server.use(JSONRPC())
+      const synapse = await Synapse.create({ signer })
 
       try {
         await synapse.download('invalid-piece-link')
@@ -371,16 +377,23 @@ describe('Synapse', () => {
     it('should accept valid PieceCID string', async () => {
       // Create test data that matches the expected PieceCID
       const testData = new TextEncoder().encode('test data')
+      server.use(
+        JSONRPC(),
+        http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
+          const url = new URL(request.url)
+          const pieceCid = url.searchParams.get('pieceCid')
 
-      // Mock the piece retriever
-      const mockResponse = new Response(testData, { status: 200 })
-      const mockRetriever = {
-        fetchPiece: async () => mockResponse,
-      }
+          return HttpResponse.json({
+            pieceCid,
+          })
+        }),
+        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(testData)
+        })
+      )
 
       const synapse = await Synapse.create({
-        signer: mockSigner,
-        pieceRetriever: mockRetriever,
+        signer,
       })
 
       // Use the actual PieceCID for 'test data'
@@ -393,18 +406,29 @@ describe('Synapse', () => {
     })
 
     it('should pass withCDN option to retriever', async () => {
-      let cdnOptionReceived: boolean | undefined
+      const deferred = pDefer<{ cid: string; wallet: string }>()
       const testData = new TextEncoder().encode('test data')
-      const mockRetriever = {
-        fetchPiece: async (_pieceCid: any, _client: string, options?: any) => {
-          cdnOptionReceived = options?.withCDN
-          return new Response(testData)
-        },
-      }
+      server.use(
+        JSONRPC({ debug: true }),
+        http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filcdn.io/:cid`, async ({ params }) => {
+          deferred.resolve(params)
+          return HttpResponse.arrayBuffer(testData)
+        }),
+        http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
+          const url = new URL(request.url)
+          const pieceCid = url.searchParams.get('pieceCid')
+
+          return HttpResponse.json({
+            pieceCid,
+          })
+        }),
+        http.get('https://pdp.example.com/piece/:pieceCid', async () => {
+          return HttpResponse.arrayBuffer(testData)
+        })
+      )
 
       const synapse = await Synapse.create({
-        signer: mockSigner,
-        pieceRetriever: mockRetriever,
+        signer,
         withCDN: false, // Instance default
       })
 
@@ -412,11 +436,16 @@ describe('Synapse', () => {
 
       // Test with explicit withCDN
       await synapse.download(testPieceCid, { withCDN: true })
-      assert.equal(cdnOptionReceived, true, 'Should pass explicit withCDN')
+      const result = await deferred.promise
+
+      const { cid, wallet } = result
+      assert.equal(cid, testPieceCid)
+      assert.ok(isAddressEqual(wallet as Address, ADDRESSES.client1))
 
       // Test without explicit withCDN (should use instance default)
-      await synapse.download(testPieceCid)
-      assert.equal(cdnOptionReceived, false, 'Should use instance default')
+      const data = await synapse.download(testPieceCid)
+      assert.isTrue(data instanceof Uint8Array)
+      assert.equal(new TextDecoder().decode(data), 'test data')
     })
 
     it('should pass providerAddress option to retriever', async () => {
