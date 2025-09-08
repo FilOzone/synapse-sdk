@@ -5,17 +5,17 @@ description: Learn how to configure the Synapse SDK for different networks.
 
 All components can be imported and used independently for advanced use cases. The SDK is organized to match the external service structure:
 
-## Payments Service
+### Payments Service
 
 Direct interface to the Payments contract for token operations and operator approvals.
 
-```ts
+```javascript
 import { PaymentsService } from '@filoz/synapse-sdk/payments'
 import { ethers } from 'ethers'
 
 const provider = new ethers.JsonRpcProvider(rpcUrl)
 const signer = await provider.getSigner()
-const paymentsService = new PaymentsService(provider, signer, 'calibration', false)
+const paymentsService = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
 
 // Deposit USDFC to payments contract
 const depositTx = await paymentsService.deposit(amount) // amount in base units
@@ -37,15 +37,64 @@ console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
 ```
 
-## Warm Storage Service
+### Service Provider Registry
+
+Query and manage service providers registered in the on-chain registry.
+
+```javascript
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
+
+// Create service instance
+const spRegistry = new SPRegistryService(provider, registryAddress)
+
+// Query providers
+const allProviders = await spRegistry.getAllActiveProviders()
+const provider = await spRegistry.getProvider(providerId)
+const providerByAddr = await spRegistry.getProviderByAddress(address)
+
+// Check registration status
+const isRegistered = await spRegistry.isRegisteredProvider(address)
+const providerId = await spRegistry.getProviderIdByAddress(address)
+const isActive = await spRegistry.isProviderActive(providerId)
+
+// Provider management (requires signer)
+const registrationInfo = {
+  name: 'My Storage Provider',
+  description: 'Reliable storage service',
+  pdpOffering: {
+    serviceURL: 'https://provider.example.com',
+    minPieceSizeInBytes: 65n,
+    maxPieceSizeInBytes: 34091302912n,
+    storagePricePerTibPerMonth: 5000000000000000000n,
+    location: '/C=US/ST=CA/L=SF',
+    // ... other PDP fields
+  },
+  capabilities: { hyperCompute: '100x' }
+}
+await spRegistry.registerProvider(signer, registrationInfo)
+await spRegistry.updateProviderInfo(signer, name, description)
+await spRegistry.removeProvider(signer)
+
+// Product management for PDP services
+await spRegistry.addPDPProduct(signer, pdpOffering, capabilities)
+await spRegistry.updatePDPProduct(signer, pdpOffering, capabilities)
+await spRegistry.deactivateProduct(signer, 0) // 0 = ProductType.PDP
+
+// Query PDP service details
+const pdpService = await spRegistry.getPDPService(providerId)
+console.log('Service URL:', pdpService.offering.serviceURL)
+console.log('Storage Price:', pdpService.offering.storagePricePerTibPerMonth)
+```
+
+### Warm Storage Service
 
 Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
 
 ```javascript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+// Create WarmStorageService using factory method
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 
 // Storage cost calculations
 const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
@@ -88,7 +137,7 @@ const isApproved = await warmStorageService.isProviderApproved(providerAddress)
 const providers = await warmStorageService.getAllApprovedProviders()
 ```
 
-## Subgraph Service
+### Subgraph Service
 
 The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, data set tracking, and more.
 
@@ -121,7 +170,7 @@ const activeProviders = await subgraphService.queryProviders({
 const providers = await subgraphService.getApprovedProvidersForPieceCID(pieceCid)
 ```
 
-### Custom Subgraph Service Implementations
+#### Custom Subgraph Service Implementations
 
 The SDK supports custom implementations of the `SubgraphRetrievalService` interface, allowing you to provide alternative data sources for provider discovery. This is useful for testing, custom integrations, or cases where you need specialized provider selection logic.
 
@@ -153,18 +202,18 @@ const synapse = await Synapse.create({
 })
 ```
 
-## PDP Components
+### PDP Components
 
 The PDP (Proof of Data Possession) system has three main components:
 
-### PDP Verifier
+#### PDP Verifier
 
 Low-level interface to the PDPVerifier contract for protocol operations.
 
 ```javascript
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
+// Create PDPVerifier instance
 const pdpVerifier = new PDPVerifier(provider, pdpVerifierAddress)
 
 // Check if data set is live
@@ -179,7 +228,7 @@ const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId)
 const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
 ```
 
-### PDP Server
+#### PDP Server
 
 Consolidated interface for all PDP server (Curio) HTTP operations including data sets, uploads, and downloads.
 
@@ -187,7 +236,6 @@ Consolidated interface for all PDP server (Curio) HTTP operations including data
 import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create server instance with auth helper
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
 const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https://pdp.provider.com')
 
@@ -233,15 +281,14 @@ const dataSet = await pdpServer.getDataSet(dataSetId)
 console.log(`Data set ${dataSet.id} has ${dataSet.pieces.length} pieces`)
 ```
 
-### PDP Auth Helper
+#### PDP Auth Helper
 
 Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other browser wallets.
 
 ```javascript
 import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
-// Create auth helper directly
-// Deployed contract addresses are available in CONTRACT_ADDRESSES
+// Create auth helper
 const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 
 // Sign operations
@@ -260,7 +307,7 @@ const addPiecesSig = await authHelper.signAddPieces(
 // All signatures return { signature, v, r, s, signedData }
 ```
 
-## PieceCID Utilities
+### PieceCID Utilities
 
 Utilities for calculating PieceCIDs and converting between formats.
 

@@ -7,7 +7,7 @@ sidebar:
 
 ### RPC Endpoints
 
-```ts twoslash
+```javascript
 import { RPC_URLS } from '@filoz/synapse-sdk'
 
 // Mainnet
@@ -23,7 +23,7 @@ RPC_URLS.calibration.http       // https://api.calibration.node.glif.io/rpc/v1
 
 For higher rate limits with GLIF endpoints:
 
-```ts twoslash
+```javascript
 import { Synapse } from '@filoz/synapse-sdk'
 
 // Using GLIF authorization with private key
@@ -43,3 +43,5 @@ const synapse = await Synapse.create({
 **Filecoin Calibration Testnet**
 - Chain ID: 314159
 - USDFC Contract: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`
+
+---

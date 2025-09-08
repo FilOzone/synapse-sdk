@@ -45,8 +45,7 @@ import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 #### Method Name Changes
 
 **Synapse Class:**
-```ts
-
+```typescript
 // Before (< v0.24.0)
 synapse.getPandoraAddress()
 
@@ -87,26 +86,21 @@ pdpServer.createDataSet(serviceProvider, clientDataSetId)
 pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
 ```
 
-#### Interface Property Changes
+#### Service Provider Registry
 
-**ApprovedProviderInfo:**
+v0.24.0 introduces the `SPRegistryService` for on-chain provider management:
+
 ```typescript
-// Before (< v0.24.0)
-interface ApprovedProviderInfo {
-  owner: string           // Provider's wallet address
-  pdpUrl: string          // PDP server URL
-  pieceRetrievalUrl: string
-  // ...
-}
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
 
-// After (v0.24.0+)
-interface ApprovedProviderInfo {
-  serviceProvider: string  // Service provider address (renamed from 'owner')
-  serviceURL: string       // Combined service URL (replaces pdpUrl/pieceRetrievalUrl)
-  peerId: string           // Added peer ID
-  // ...
-}
+// Query and manage providers through the registry
+const spRegistry = new SPRegistryService(provider, registryAddress)
+const providers = await spRegistry.getAllActiveProviders()
 ```
+
+This replaces previous provider discovery methods and provides a standardized way to register and manage service providers on-chain.
+
+#### Interface Property Changes
 
 **StorageService Properties:**
 ```typescript
@@ -174,7 +168,7 @@ console.log(`Storage provider: ${storage.storageProvider}`)
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 import type { ServiceProvider } from '@filoz/synapse-sdk'
 
-const warmStorageService = new WarmStorageService(provider, warmStorageAddress)
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 const dataSets = await warmStorageService.getClientDataSets(client)
 
 for (const dataSet of dataSets) {
@@ -247,6 +241,28 @@ When upgrading from versions prior to v0.24.0:
 6. **Update method calls** - Use the new method names as shown above
 7. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
 8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
-8. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+9. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
 
-Note: There is no backward compatibility layer. All applications must update to the new terminology when upgrading to v0.24.0 or later.
+#### PaymentsService Parameter Order Changes
+
+All PaymentsService methods now consistently place the `token` parameter last with USDFC as the default:
+
+**Before (< v0.24.0):**
+```typescript
+await payments.allowance(TOKENS.USDFC, spender)
+await payments.approve(TOKENS.USDFC, spender, amount)
+await payments.deposit(amount, TOKENS.USDFC, callbacks)
+```
+
+**After (v0.24.0+):**
+```typescript
+await payments.allowance(spender)  // USDFC is default
+await payments.approve(spender, amount)  // USDFC is default
+await payments.deposit(amount, TOKENS.USDFC, callbacks)  // callbacks last for deposit
+```
+
+#### Contract Address Configuration
+
+The SDK now automatically discovers all necessary contract addresses. The `warmStorageAddress` option in `Synapse.create()` has been removed as addresses are managed internally by the SDK for each network.
+
+Note: There is no backward compatibility layer. All applications must update to the new terminology and API signatures when upgrading to v0.24.0 or later.
