@@ -88,7 +88,8 @@ export class PDPServer {
 
   private async _selectBackend(): Promise<Backend> {
     const baseUrl = this._baseUrl
-    if (await PDPServerPdp1.isSupported(baseUrl)) {
+
+    if (await (new PDPServerPdp1(this._authHelper, baseUrl)).isSupported(baseUrl)) {
       return new PDPServerPdp1(this._authHelper, baseUrl)
     }
     return new PDPServerPdp0(this._authHelper, baseUrl)
