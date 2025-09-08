@@ -388,7 +388,7 @@ describe('Synapse', () => {
           })
         }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
-          return HttpResponse.arrayBuffer(testData)
+          return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
 
@@ -412,7 +412,7 @@ describe('Synapse', () => {
         JSONRPC({ debug: true }),
         http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filcdn.io/:cid`, async ({ params }) => {
           deferred.resolve(params)
-          return HttpResponse.arrayBuffer(testData)
+          return HttpResponse.arrayBuffer(testData.buffer)
         }),
         http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
           const url = new URL(request.url)
@@ -423,7 +423,7 @@ describe('Synapse', () => {
           })
         }),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
-          return HttpResponse.arrayBuffer(testData)
+          return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
 
