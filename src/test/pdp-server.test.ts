@@ -14,34 +14,12 @@ import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
 
-// Mock server for testing
-class MockPDPServer {
-  private readonly handlers: Map<string, (req: any, res: any) => void> = new Map()
-
-  addHandler(method: string, path: string, handler: (req: any, res: any) => void): void {
-    this.handlers.set(`${method}:${path}`, handler)
-  }
-
-  async start(port: number): Promise<string> {
-    return await new Promise((resolve) => {
-      // Mock implementation - in real tests this would be a proper HTTP server
-      const baseUrl = `http://localhost:${port}`
-      resolve(baseUrl)
-    })
-  }
-
-  async stop(): Promise<void> {
-    return await Promise.resolve()
-  }
-}
-
 // mock server for testing
 const server = setup([])
 
 describe('PDPServer', () => {
   let pdpServer: PDPServer
   let authHelper: PDPAuthHelper
-  let mockServer: MockPDPServer
   let serverUrl: string
 
   const TEST_PRIVATE_KEY = '0x1234567890123456789012345678901234567890123456789012345678901234'
@@ -64,15 +42,10 @@ describe('PDPServer', () => {
     authHelper = new PDPAuthHelper(TEST_CONTRACT_ADDRESS, signer, BigInt(TEST_CHAIN_ID))
 
     // Start mock server
-    mockServer = new MockPDPServer()
     serverUrl = 'http://pdp.local'
 
     // Create PDPServer instance
     pdpServer = new PDPServer(authHelper, serverUrl)
-  })
-
-  afterEach(async () => {
-    await mockServer.stop()
   })
 
   describe('constructor', () => {
