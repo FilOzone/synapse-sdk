@@ -615,7 +615,7 @@ describe('PDPServer', () => {
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', async () => {
-          return HttpResponse.arrayBuffer(testData)
+          return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
 
@@ -659,7 +659,7 @@ describe('PDPServer', () => {
 
       server.use(
         http.get('http://pdp.local/piece/:pieceCid', async () => {
-          return HttpResponse.arrayBuffer(wrongData)
+          return HttpResponse.arrayBuffer(wrongData.buffer)
         })
       )
 
