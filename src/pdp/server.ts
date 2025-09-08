@@ -1,609 +1,131 @@
-/**
- * PDPServer - Consolidated interface for all PDP server (Curio) HTTP operations
- *
- * This combines functionality for:
- * - Data set management (create, add pieces, status checks)
- * - Piece uploads
- * - Piece downloads
- * - Piece discovery
- *
- * @example
- * ```typescript
- * import { PDPServer } from '@filoz/synapse-sdk/pdp'
- * import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
- *
- * const authHelper = new PDPAuthHelper(warmStorageAddress, signer)
- * const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com')
- *
- * // Create a data set
- * const { txHash } = await pdpServer.createDataSet(serviceProvider, clientDataSetId)
- *
- * // Upload a piece
- * const { pieceCid, size } = await pdpServer.uploadPiece(data)
- *
- * // Download a piece
- * const data = await pdpServer.downloadPiece(pieceCid, size)
- * ```
- */
-
-import { ethers } from 'ethers'
-import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
-import type { DataSetData, MetadataEntry, PieceCID } from '../types.js'
-import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
 import type { PDPAuthHelper } from './auth.js'
-import {
-  asDataSetData,
-  validateDataSetCreationStatusResponse,
-  validateFindPieceResponse,
-  validatePieceAdditionStatusResponse,
-} from './validation.js'
+import type { PieceCID } from '../types.js'
+import type { DataSetData } from '../types.js'
+import { PDPServerPdp0 } from './server-pdp0.js'
+import { PDPServerPdp1 } from './server-pdp1.js'
 
-/**
- * Response from creating a data set
- */
+// Shared response interfaces
 export interface CreateDataSetResponse {
-  /** Transaction hash for the data set creation */
   txHash: string
-  /** URL to check creation status */
   statusUrl: string
 }
 
-/**
- * Response from checking data set creation status
- */
 export interface DataSetCreationStatusResponse {
-  /** Transaction hash that created the data set */
   createMessageHash: string
-  /** Whether the data set has been created on-chain */
   dataSetCreated: boolean
-  /** Service label that created the data set */
   service: string
-  /** Transaction status (pending, confirmed, failed) */
   txStatus: string
-  /** Whether the transaction was successful (null if still pending) */
   ok: boolean | null
-  /** The server's reported ID for this data set (only available after creation) */
   dataSetId?: number
 }
 
-/**
- * Response from adding pieces to a data set
- */
 export interface AddPiecesResponse {
-  /** Success message from the server */
   message: string
-  /** Transaction hash for the piece addition (optional - new servers only) */
   txHash?: string
-  /** URL to check piece addition status (optional - new servers only) */
   statusUrl?: string
 }
 
-/**
- * Response from finding a piece
- */
 export interface FindPieceResponse {
-  /** The piece CID that was found */
   pieceCid: PieceCID
-  /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
   piece_cid?: string
 }
 
-/**
- * Upload response containing piece information
- */
 export interface UploadResponse {
-  /** PieceCID CID of the uploaded piece */
   pieceCid: PieceCID
-  /** Size of the uploaded piece in bytes */
   size: number
 }
 
-/**
- * Response from checking piece addition status
- */
 export interface PieceAdditionStatusResponse {
-  /** Transaction hash for the piece addition */
   txHash: string
-  /** Transaction status (pending, confirmed, failed) */
   txStatus: string
-  /** The data set ID */
   dataSetId: number
-  /** Number of pieces being added */
   pieceCount: number
-  /** Whether the add message was successful (null if pending) */
   addMessageOk: boolean | null
-  /** Piece IDs assigned after confirmation */
   confirmedPieceIds?: number[]
 }
 
+type Backend = PDPServerPdp0 | PDPServerPdp1
+
 export class PDPServer {
-  private readonly _serviceURL: string
+  private readonly _implPromise: Promise<Backend>
+  private readonly _baseUrl: string
   private readonly _authHelper: PDPAuthHelper | null
 
-  /**
-   * Create a new PDPServer instance
-   * @param authHelper - PDPAuthHelper instance for signing operations
-   * @param serviceURL - The PDP service URL (e.g., https://pdp.provider.com)
-   */
   constructor(authHelper: PDPAuthHelper | null, serviceURL: string) {
-    if (serviceURL.trim() === '') {
-      throw new Error('PDP service URL is required')
-    }
-    // Remove trailing slash from URL
-    this._serviceURL = serviceURL.replace(/\/$/, '')
+    this._baseUrl = serviceURL.replace(/\/$/, '')
     this._authHelper = authHelper
+    this._implPromise = this._selectBackend()
   }
 
-  /**
-   * Create a new data set on the PDP server
-   * @param clientDataSetId - Unique ID for the client's dataset
-   * @param payee - Address that will receive payments (service provider)
-   * @param withCDN - Whether to enable CDN services
-   * @param recordKeeper - Address of the Warm Storage contract
-   * @returns Promise that resolves with transaction hash and status URL
-   */
+  private async _selectBackend(): Promise<Backend> {
+    const baseUrl = this._baseUrl
+    if (await PDPServerPdp1.isSupported(baseUrl)) {
+      return new PDPServerPdp1(this._authHelper, baseUrl)
+    }
+    return new PDPServerPdp0(this._authHelper, baseUrl)
+  }
+
+  private async _impl(): Promise<Backend> {
+    return await this._implPromise
+  }
+
   async createDataSet(
     clientDataSetId: number,
     payee: string,
     withCDN: boolean,
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
-    const metadata = withCDN ? [this.getAuthHelper().WITH_CDN_METADATA] : []
-    // Generate the EIP-712 signature for data set creation
-    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
-
-    // Prepare the extra data for the contract call
-    // This needs to match the DataSetCreateData struct in Warm Storage contract
-    const extraData = this._encodeDataSetCreateData({
-      payer: await this.getAuthHelper().getSignerAddress(),
-      metadata,
-      signature: authData.signature,
-    })
-
-    // Prepare request body
-    const requestBody = {
-      recordKeeper,
-      extraData: `0x${extraData}`,
-    }
-
-    // Make the POST request to create the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to create data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Extract transaction hash from Location header
-    const location = response.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response')
-    }
-
-    // Parse the location to extract the transaction hash
-    // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const txHash = locationMatch[1]
-
-    return {
-      txHash,
-      statusUrl: `${this._serviceURL}${location}`,
-    }
+    const impl = await this._impl()
+    return await impl.createDataSet(clientDataSetId, payee, withCDN, recordKeeper)
   }
 
-  /**
-   * Add pieces to an existing data set
-   * @param dataSetId - The ID of the data set to add pieces to
-   * @param clientDataSetId - The client's dataset ID used when creating the data set
-   * @param nextPieceId - The ID to assign to the first piece being added, this should be
-   *   the next available ID on chain or the signature will fail to be validated
-   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
-   * @returns Promise that resolves when the pieces are added (201 Created)
-   * @throws Error if any CID is invalid
-   *
-   * @example
-   * ```typescript
-   * const pieceData = ['bafkzcibcd...']
-   * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
-   * ```
-   */
   async addPieces(
     dataSetId: number,
     clientDataSetId: number,
     nextPieceId: number,
     pieceDataArray: PieceCID[] | string[]
   ): Promise<AddPiecesResponse> {
-    if (pieceDataArray.length === 0) {
-      throw new Error('At least one piece must be provided')
-    }
-
-    const metadata: MetadataEntry[][] = []
-    // Validate all PieceCIDs
-    for (const pieceData of pieceDataArray) {
-      const pieceCid = asPieceCID(pieceData)
-      if (pieceCid == null) {
-        throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
-      }
-      metadata.push([]) // empty metadata for each piece
-    }
-
-    // Generate the EIP-712 signature for adding pieces
-    const authData = await this.getAuthHelper().signAddPieces(
-      clientDataSetId,
-      nextPieceId,
-      pieceDataArray, // Pass PieceData[] directly to auth helper
-      metadata
-    )
-
-    // Prepare the extra data for the contract call
-    // This needs to match what the Warm Storage contract expects for addPieces
-    const extraData = this._encodeAddPiecesExtraData({
-      signature: authData.signature,
-      metadata: metadata,
-    })
-
-    // Prepare request body matching the Curio handler expectation
-    // Each piece has itself as its only subPiece (internal implementation detail)
-    const requestBody = {
-      pieces: pieceDataArray.map((pieceData) => {
-        // Convert to string for JSON serialization
-        const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
-        return {
-          pieceCid: cidString,
-          subPieces: [
-            {
-              subPieceCid: cidString, // Piece is its own subpiece
-            },
-          ],
-        }
-      }),
-      extraData: `0x${extraData}`,
-    }
-
-    // Make the POST request to add pieces to the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to add pieces to data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Check for Location header (backward compatible with old servers)
-    const location = response.headers.get('Location')
-    let txHash: string | undefined
-    let statusUrl: string | undefined
-
-    if (location != null) {
-      // Expected format: /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
-      const locationMatch = location.match(/\/pieces\/added\/([0-9a-fA-Fx]+)$/)
-      if (locationMatch != null) {
-        txHash = locationMatch[1]
-        // Ensure txHash has 0x prefix
-        if (!txHash.startsWith('0x')) {
-          txHash = `0x${txHash}`
-        }
-        statusUrl = `${this._serviceURL}${location}`
-      }
-    }
-
-    // Success - pieces have been added
-    const responseText = await response.text()
-    return {
-      message: responseText !== '' ? responseText : `Pieces added to data set ID ${dataSetId} successfully`,
-      txHash,
-      statusUrl,
-    }
+    const impl = await this._impl()
+    return await impl.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceDataArray)
   }
 
-  /**
-   * Check the status of a data set creation
-   * @param txHash - Transaction hash from createDataSet
-   * @returns Promise that resolves with the creation status
-   */
   async getDataSetCreationStatus(txHash: string): Promise<DataSetCreationStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Data set creation not found for transaction hash: ${txHash}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(
-        `Failed to get data set creation status: ${response.status} ${response.statusText} - ${errorText}`
-      )
-    }
-
-    const data = await response.json()
-    return validateDataSetCreationStatusResponse(data)
+    const impl = await this._impl()
+    return await impl.getDataSetCreationStatus(txHash)
   }
 
-  /**
-   * Check the status of a piece addition transaction
-   * @param dataSetId - The data set ID
-   * @param txHash - Transaction hash from addPieces
-   * @returns Promise that resolves with the addition status
-   */
   async getPieceAdditionStatus(dataSetId: number, txHash: string): Promise<PieceAdditionStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Piece addition not found for transaction: ${txHash}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(`Failed to get piece addition status: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validatePieceAdditionStatusResponse(data)
+    const impl = await this._impl()
+    return await impl.getPieceAdditionStatus(dataSetId, txHash)
   }
 
-  /**
-   * Find a piece by PieceCID and size
-   * @param pieceCid - The PieceCID CID (as string or PieceCID object)
-   * @param size - The original size of the piece in bytes
-   * @returns Piece information if found
-   */
   async findPiece(pieceCid: string | PieceCID): Promise<FindPieceResponse> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {},
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Piece not found: ${parsedPieceCid.toString()}`)
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validateFindPieceResponse(data)
+    const impl = await this._impl()
+    return await impl.findPiece(pieceCid)
   }
 
-  /**
-   * Upload a piece to the PDP server
-   * @param data - The data to upload
-   * @returns Upload response with PieceCID and size
-   */
   async uploadPiece(data: Uint8Array | ArrayBuffer): Promise<UploadResponse> {
-    // Convert ArrayBuffer to Uint8Array if needed
-    const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-
-    // Calculate PieceCID
-    performance.mark('synapse:calculatePieceCID-start')
-    const pieceCid = calculatePieceCID(uint8Data)
-    performance.mark('synapse:calculatePieceCID-end')
-    performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
-    const size = uint8Data.length
-
-    const requestBody = {
-      pieceCid: pieceCid.toString(),
-      // No notify URL needed
-    }
-
-    // Create upload session or check if piece exists
-    performance.mark('synapse:POST.pdp.piece-start')
-    const createResponse = await fetch(`${this._serviceURL}/pdp/piece`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-    performance.mark('synapse:POST.pdp.piece-end')
-    performance.measure('synapse:POST.pdp.piece', 'synapse:POST.pdp.piece-start', 'synapse:POST.pdp.piece-end')
-
-    if (createResponse.status === 200) {
-      // Piece already exists on server
-      return {
-        pieceCid,
-        size,
-      }
-    }
-
-    if (createResponse.status !== 201) {
-      const errorText = await createResponse.text()
-      throw new Error(
-        `Failed to create upload session: ${createResponse.status} ${createResponse.statusText} - ${errorText}`
-      )
-    }
-
-    // Extract upload ID from Location header
-    const location = createResponse.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response (may be restricted by CORS policy)')
-    }
-
-    // Validate the location format and extract UUID
-    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
-    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const uploadUuid = locationMatch[1] // Extract just the UUID
-
-    // Upload the data
-    performance.mark('synapse:PUT.pdp.piece.upload-start')
-    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/upload/${uploadUuid}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': uint8Data.length.toString(),
-        // No Authorization header needed
-      },
-      body: uint8Data,
-    })
-    performance.mark('synapse:PUT.pdp.piece.upload-end')
-    performance.measure(
-      'synapse:PUT.pdp.piece.upload',
-      'synapse:PUT.pdp.piece.upload-start',
-      'synapse:PUT.pdp.piece.upload-end'
-    )
-
-    if (uploadResponse.status !== 204) {
-      const errorText = await uploadResponse.text()
-      throw new Error(`Failed to upload piece: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`)
-    }
-
-    return {
-      pieceCid,
-      size,
-    }
+    const impl = await this._impl()
+    return await impl.uploadPiece(data)
   }
 
-  /**
-   * Download a piece from a service provider
-   * @param pieceCid - The PieceCID CID of the piece
-   * @returns The downloaded data
-   */
   async downloadPiece(pieceCid: string | PieceCID): Promise<Uint8Array> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    // Use the retrieval endpoint configured at construction time
-    const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
-
-    const response = await fetch(downloadUrl)
-
-    // Use the shared download and validation function
-    return await downloadAndValidate(response, parsedPieceCid)
+    const impl = await this._impl()
+    return await impl.downloadPiece(pieceCid)
   }
 
-  /**
-   * Get data set details from the PDP server
-   * @param dataSetId - The ID of the data set to fetch
-   * @returns Promise that resolves with data set data
-   */
   async getDataSet(dataSetId: number): Promise<DataSetData> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Data set not found: ${dataSetId}`)
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to fetch data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    const converted = asDataSetData(data)
-    if (converted == null) {
-      console.error('Invalid data set data response:', data)
-      throw new Error('Invalid data set data response format')
-    }
-    return converted
+    const impl = await this._impl()
+    return await impl.getDataSet(dataSetId)
   }
 
-  /**
-   * Encode DataSetCreateData for extraData field
-   * This matches the Solidity struct DataSetCreateData in Warm Storage contract
-   */
-  private _encodeDataSetCreateData(data: { payer: string; metadata: MetadataEntry[]; signature: string }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-
-    // ABI encode the struct as a tuple
-    // DataSetCreateData struct:
-    // - address payer
-    // - string[] metadataKeys
-    // - string[] metadataValues
-    // - bytes signature
-    const keys = data.metadata.map((item) => item.key)
-    const values = data.metadata.map((item) => item.value)
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['address', 'string[]', 'string[]', 'bytes'], [data.payer, keys, values, signature])
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
-  }
-
-  /**
-   * Encode AddPieces extraData for the addPieces operation
-   * Based on the Curio handler, this should be (bytes signature, string metadata)
-   */
-  private _encodeAddPiecesExtraData(data: { signature: string; metadata: MetadataEntry[][] }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-    const keys = data.metadata.map((item) => item.map((item) => item.key))
-    const values = data.metadata.map((item) => item.map((item) => item.value))
-
-    // ABI encode as (bytes signature, metadataKeys, metadataValues])
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['bytes', 'string[][]', 'string[][]'], [signature, keys, values])
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
-  }
-
-  /**
-   * Ping the service provider to check connectivity
-   * @returns Promise that resolves if provider is reachable (200 response)
-   * @throws Error if provider is not reachable or returns non-200 status
-   */
   async ping(): Promise<void> {
-    const response = await fetch(`${this._serviceURL}/pdp/ping`, {
-      method: 'GET',
-      headers: {},
-    })
-
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw new Error(`Provider ping failed: ${response.status} ${response.statusText} - ${errorText}`)
-    }
+    const impl = await this._impl()
+    await impl.ping()
   }
 
-  /**
-   * Get the service URL for this PDPServer instance
-   * @returns The service URL
-   */
   getServiceURL(): string {
-    return this._serviceURL
+    return this._baseUrl
   }
 
   getAuthHelper(): PDPAuthHelper {
@@ -613,3 +135,5 @@ export class PDPServer {
     return this._authHelper
   }
 }
+
+
