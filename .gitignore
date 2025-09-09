@@ -7,3 +7,6 @@ pnpm-lock.yaml
 .zed
 FilOzone-*/
 filecoin-project-*/
+
+# VIM 
+*.swp
