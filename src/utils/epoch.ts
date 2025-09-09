@@ -107,10 +107,10 @@ export function calculateLastProofDate(
  * @returns The current epoch as a bigint
  */
 export async function getCurrentEpoch(provider: ethers.Provider): Promise<bigint> {
-  const block = await provider.getBlock('latest')
-  if (block == null) {
-    throw createError('epoch', 'getCurrentEpoch', 'Failed to get latest block')
+  const blockNumber: number = await provider.getBlockNumber()
+  if (blockNumber == null) {
+    throw createError('epoch', 'getCurrentEpoch', 'Failed to get latest block number')
   }
   // In Filecoin, the block number is the epoch
-  return BigInt(block.number)
+  return BigInt(blockNumber)
 }

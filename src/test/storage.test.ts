@@ -3374,13 +3374,8 @@ describe('StorageService', () => {
         nextChallengeEpoch: 5000,
       })
 
-      // Mock provider getBlock for current epoch
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 4000 } as any
-        }
-        return null
-      }
+      // Mock provider getBlockNumber for current epoch
+      mockEthProvider.getBlockNumber = async () => 4000
       const mockSynapseAny = mockSynapse as any
       mockSynapseAny.getNetwork = () => 'calibration'
 
@@ -3423,12 +3418,7 @@ describe('StorageService', () => {
 
       // Mock synapse methods
       const mockSynapseAny = mockSynapse as any
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 4000 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 4000
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
@@ -3475,12 +3465,7 @@ describe('StorageService', () => {
       // nextChallengeEpoch (5000) is the START of the window
       // Window ends at 5000 + 60 = 5060
       // Current epoch 5030 is in the middle of the window
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 5030 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 5030
       const mockSynapseAny = mockSynapse as any
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
@@ -3525,12 +3510,7 @@ describe('StorageService', () => {
       // Mock synapse - current epoch is past the challenge window
       // nextChallengeEpoch (5000) + challengeWindow (60) = 5060 (deadline)
       // Current epoch 5100 is past the deadline
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 5100 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 5100
       const mockSynapseAny = mockSynapse as any
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
@@ -3571,12 +3551,7 @@ describe('StorageService', () => {
       })
 
       // Mock synapse
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 5000 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 5000
       const mockSynapseAny = mockSynapse as any
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
@@ -3619,12 +3594,7 @@ describe('StorageService', () => {
 
       // Mock synapse
       const mockSynapseAny = mockSynapse as any
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 4000 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 4000
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async (address: string) => {
         // Return the provider with trailing slash when asked for this provider's address
@@ -3688,12 +3658,8 @@ describe('StorageService', () => {
       })
 
       // Mock synapse - 120 epochs before challenge window (1 hour)
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 4880 } as any // 5000 - 120 = 4880 (1 hour before window)
-        }
-        return null
-      }
+      // 5000 - 120 = 4880 (1 hour before window)
+      mockEthProvider.getBlockNumber = async () => 4880
       const mockSynapseAny = mockSynapse as any
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
@@ -3729,12 +3695,7 @@ describe('StorageService', () => {
 
       // Mock synapse
       const mockSynapseAny = mockSynapse as any
-      mockEthProvider.getBlock = async (blockTag: any) => {
-        if (blockTag === 'latest') {
-          return { number: 4000 } as any
-        }
-        return null
-      }
+      mockEthProvider.getBlockNumber = async () => 4000
       mockSynapseAny.getNetwork = () => 'calibration'
       mockSynapseAny.getProviderInfo = async () => mockProvider
 
