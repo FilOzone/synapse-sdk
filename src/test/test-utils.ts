@@ -14,6 +14,7 @@
  *   }
  */
 
+import { assert } from 'chai'
 import { ethers } from 'ethers'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
@@ -61,8 +62,15 @@ export function createMockSigner(address: string = MOCK_ADDRESSES.SIGNER, provid
   return signer as unknown as ethers.Signer
 }
 
+function address32(address: string) {
+  return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [address])
+}
+
 // Mock provider factory
-export function createMockProvider(chainId: number = 314159): ethers.Provider {
+export function createMockProvider(
+  chainId: number = 314159,
+  customWarmStorageAddress: null | string = null
+): ethers.Provider {
   const network = new ethers.Network('calibration', chainId)
 
   const provider: any = {
@@ -84,32 +92,68 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       const to = transaction.to?.toLowerCase()
       if (data == null) return '0x'
 
-      // Mock Multicall3 aggregate3 calls - function selector: 0x82ad56cb
+      // Mock Multicall3 aggregate3 calls with recursion
       if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
-        // Return mock addresses for all 5 getter functions
-        const mockAddresses = [
-          MOCK_ADDRESSES.PDP_VERIFIER, // pdpVerifier
-          MOCK_ADDRESSES.PAYMENTS, // payments
-          CONTRACT_ADDRESSES.USDFC.calibration, // usdfcToken
-          '0x0000000000000000000000000000000000000000', // filCDN (not used)
-          MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
-          '0x0000000000000000000000000000000000000001', // spRegistry
-        ]
-
-        // Encode the response as Multicall3 would
-        const results = mockAddresses.map((addr) => ({
-          success: true,
-          returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [addr]),
-        }))
-
-        return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(bool success, bytes returnData)[]'], [results])
+        const iface = new ethers.Interface(CONTRACT_ABIS.MULTICALL3)
+        const decoded = iface.decodeFunctionData('aggregate3', data)
+        const calls = decoded[0]
+        const results = await Promise.all(
+          calls.map(async (call: any) => {
+            try {
+              // struct Call3 doesn't have value
+              assert.isNotNull(provider)
+              const result = await provider.call({
+                from: to,
+                to: call.target,
+                data: call.callData,
+                //value: "0x",
+              })
+              return {
+                success: true,
+                returnData: result as string,
+              }
+            } catch (revert: any /* ethers.CallExceptionError */) {
+              assert.isTrue(call.allowFailure)
+              return {
+                success: false,
+                returnData: revert.data,
+              }
+            }
+          })
+        )
+        return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(bool success,bytes returnData)[]'], [results])
       }
 
-      // Mock viewContractAddress response - function selector: 0x7a9ebc15
-      if (data?.startsWith('0x7a9ebc15') === true) {
-        // Return a mock view contract address (not zero address!)
-        const viewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW // Use a real-looking address
-        return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [viewAddress])
+      if (
+        to === MOCK_ADDRESSES.WARM_STORAGE.toLowerCase() ||
+        to === CONTRACT_ADDRESSES.WARM_STORAGE.calibration.toLowerCase() ||
+        to === '0xe6cd6d7becd21fbf72452cf8371e505b02134669' ||
+        to === customWarmStorageAddress
+      ) {
+        if (data === '0xde4b6b71') {
+          // pdpVerifierAddress()
+          return address32(MOCK_ADDRESSES.PDP_VERIFIER)
+        }
+        if (data === '0xbc471469') {
+          // paymentsContractAddress()
+          return address32(MOCK_ADDRESSES.PAYMENTS)
+        }
+        if (data === '0xd39b33ab') {
+          // usdfcTokenAddress()
+          return address32(CONTRACT_ADDRESSES.USDFC.calibration)
+        }
+        if (data === '0xce4f8d8b') {
+          //filCDNBeneficiaryAddress()
+          return address32('0x0000000000000000000000000000000000000000')
+        }
+        if (data === '0x7a9ebc15') {
+          // viewContractAddress()
+          return address32(MOCK_ADDRESSES.WARM_STORAGE_VIEW)
+        }
+        if (data === '0x05f892ec') {
+          // serviceProviderRegistry()
+          return address32('0x0000000000000000000000000000000000000001')
+        }
       }
 
       // Mock getServicePrice response for WarmStorage contract - function selector: 0x7bca0328
@@ -129,20 +173,25 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           [pricePerTiBPerMonth, tokenAddress, epochsPerMonth]
         )
       }
-      if (data.includes('70a08231') === true) {
+      if (data.startsWith('0x70a08231') === true) {
+        // balanceOf
         return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
       }
-      if (data.includes('313ce567') === true) {
+      if (data.startsWith('0x313ce567') === true) {
+        // decimals
         return ethers.zeroPadValue(ethers.toBeHex(18), 32)
       }
-      if (data.includes('dd62ed3e') === true) {
+      if (data.startsWith('0xdd62ed3e') === true) {
+        // allowance
         return ethers.zeroPadValue(ethers.toBeHex(0), 32)
       }
-      if (data.includes('095ea7b3') === true) {
+      if (data.startsWith('0x095ea7b3') === true) {
+        // approve
         return ethers.zeroPadValue(ethers.toBeHex(1), 32)
       }
       // Mock accounts response with 4 fields (fixed bug)
-      if (data.includes('ad74b775') === true) {
+      if (data.startsWith('0xad74b775') === true) {
+        // accounts(address,address)
         const funds = ethers.parseUnits('500', 18)
         const lockupCurrent = 0n
         const lockupRate = 0n
@@ -487,173 +536,74 @@ export function setupProviderRegistryMocks(
     ],
     throwOnApproval = false,
   } = options
-
   const originalCall = provider.call
 
   provider.call = async (transaction: any) => {
     const data = transaction.data
     const to = transaction.to?.toLowerCase()
 
-    // Handle Multicall3 aggregate3 calls
-    if (to === CONTRACT_ADDRESSES.MULTICALL3.calibration.toLowerCase() && data?.startsWith('0x82ad56cb')) {
-      // First try to handle it with the default multicall mock
-      // This handles the basic WarmStorage address discovery
-      const defaultResult = await originalCall.call(provider, transaction)
-      if (defaultResult && defaultResult !== '0x') {
-        // Decode to check if it's a valid multicall response
-        try {
-          const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-            ['tuple(bool success, bytes returnData)[]'],
-            defaultResult
-          )
-          // If it decoded successfully and has results, use the default
-          if (decoded[0]?.length > 0) {
-            return defaultResult
-          }
-        } catch {
-          // Continue with our custom handling
-        }
+    // Handle calls to WarmStorageView contract for getApprovedProviders
+    if (to === MOCK_ADDRESSES.WARM_STORAGE_VIEW.toLowerCase()) {
+      // Mock getApprovedProviders() - returns array of provider IDs
+      if (data.startsWith('0x266afe1b')) {
+        return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [approvedIds.map(BigInt)])
       }
+    }
 
-      // Decode the multicall data for custom handling
-      const iface = new ethers.Interface(CONTRACT_ABIS.MULTICALL3)
-      const decoded = iface.decodeFunctionData('aggregate3', data)
-      const calls = decoded[0]
+    // Mock getProvider(uint256) calls to SPRegistry
+    // Check if it's to the SPRegistry address
+    if (data.startsWith('0x5c42d079') && to === '0x0000000000000000000000000000000000000001') {
+      const providerId = parseInt(data.slice(10, 74), 16)
+      const provider = providers.find((p) => p.id === providerId)
+      if (provider) {
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+          [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
+        )
+      }
+      // Return empty provider
+      return ethers.AbiCoder.defaultAbiCoder().encode(
+        ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
+        [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
+      )
+    }
 
-      // Process each call and return mock results
-      const results = calls.map((call: any) => {
-        const callData = call.callData
-        const target = call.target?.toLowerCase()
-
-        // Handle calls to WarmStorage contract for address discovery
-        // Check if it's to the WarmStorage address (could be to the actual address)
-        if (
-          target === CONTRACT_ADDRESSES.WARM_STORAGE.calibration.toLowerCase() ||
-          target === '0xe6cd6d7becd21fbf72452cf8371e505b02134669'
-        ) {
-          // Mock pdpVerifierAddress
-          if (callData.startsWith('0xe5c9821e')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.PDP_VERIFIER]),
-            }
-          }
-          // Mock paymentsContractAddress
-          if (callData.startsWith('0x8b893d6f')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.PAYMENTS]),
-            }
-          }
-          // Mock usdfcTokenAddress
-          if (callData.startsWith('0x8e2bc1ea')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CONTRACT_ADDRESSES.USDFC.calibration]),
-            }
-          }
-          // Mock filCDNAddress
-          if (callData.startsWith('0xf699dd7e')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ethers.ZeroAddress]),
-            }
-          }
-          // Mock viewContractAddress
-          if (callData.startsWith('0x7a9ebc15')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.WARM_STORAGE_VIEW]),
-            }
-          }
-          // Mock serviceProviderRegistry
-          if (callData.startsWith('0xab2b3ae5')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x0000000000000000000000000000000000000001']
-              ),
-            }
-          }
-        }
-
-        // Handle calls to WarmStorageView contract for getApprovedProviders
-        if (target === MOCK_ADDRESSES.WARM_STORAGE_VIEW.toLowerCase()) {
-          // Mock getApprovedProviders() - returns array of provider IDs
-          if (callData.startsWith('0x266afe1b')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [approvedIds.map(BigInt)]),
-            }
-          }
-        }
-
-        // Mock getProvider(uint256) calls to SPRegistry
-        // Check if it's to the SPRegistry address
-        if (callData.startsWith('0x5c42d079') && target === '0x0000000000000000000000000000000000000001') {
-          const providerId = parseInt(callData.slice(10, 74), 16)
-          const provider = providers.find((p) => p.id === providerId)
-          if (provider) {
-            const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-              [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
-            )
-            return { success: true, returnData: encoded }
-          }
-          // Return empty provider
-          const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-            [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
-          )
-          return { success: true, returnData: encoded }
-        }
-
-        // Mock getPDPService(uint256) calls
-        if (callData.startsWith('0xc439fd57') && target === '0x0000000000000000000000000000000000000001') {
-          const providerId = parseInt(callData.slice(10, 74), 16)
-          const provider = providers.find((p) => p.id === providerId)
-          if (provider?.products?.PDP) {
-            const pdp = provider.products.PDP
-            const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-              [
-                'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
-              ],
-              [
-                [
-                  [
-                    pdp.data.serviceURL,
-                    pdp.data.minPieceSizeInBytes,
-                    pdp.data.maxPieceSizeInBytes,
-                    pdp.data.ipniPiece,
-                    pdp.data.ipniIpfs,
-                    pdp.data.storagePricePerTibPerMonth,
-                    pdp.data.minProvingPeriodInEpochs,
-                    pdp.data.location || '',
-                    pdp.data.paymentTokenAddress,
-                  ],
-                  Object.keys(pdp.capabilities || {}),
-                  pdp.isActive,
-                ],
-              ]
-            )
-            return { success: true, returnData: encoded }
-          }
-          // Return empty PDP service
-          const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+    // Mock getPDPService(uint256) calls
+    if (data.startsWith('0xc439fd57') && to === '0x0000000000000000000000000000000000000001') {
+      const providerId = parseInt(data.slice(10, 74), 16)
+      const provider = providers.find((p) => p.id === providerId)
+      if (provider?.products?.PDP) {
+        const pdp = provider.products.PDP
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          [
+            'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+          ],
+          [
             [
-              'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+              [
+                pdp.data.serviceURL,
+                pdp.data.minPieceSizeInBytes,
+                pdp.data.maxPieceSizeInBytes,
+                pdp.data.ipniPiece,
+                pdp.data.ipniIpfs,
+                pdp.data.storagePricePerTibPerMonth,
+                pdp.data.minProvingPeriodInEpochs,
+                pdp.data.location || '',
+                pdp.data.paymentTokenAddress,
+              ],
+              Object.keys(pdp.capabilities || {}),
+              pdp.isActive,
             ],
-            [[['', BigInt(0), BigInt(0), false, false, BigInt(0), BigInt(0), '', ethers.ZeroAddress], [], false]]
-          )
-          return { success: true, returnData: encoded }
-        }
-
-        // Default: return failure
-        return { success: false, returnData: '0x' }
-      })
-
-      return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(bool success, bytes returnData)[]'], [results])
+          ]
+        )
+      }
+      // Return empty PDP service
+      return ethers.AbiCoder.defaultAbiCoder().encode(
+        [
+          'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+        ],
+        [[['', BigInt(0), BigInt(0), false, false, BigInt(0), BigInt(0), '', ethers.ZeroAddress], [], false]]
+      )
     }
 
     // Mock getApprovedProviders() - returns array of provider IDs (WarmStorageView)

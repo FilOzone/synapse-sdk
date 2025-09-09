@@ -133,7 +133,7 @@ describe('Synapse', () => {
     })
 
     it('should accept mainnet with custom warmStorage address', async () => {
-      const mainnetProvider = createMockProvider(314)
+      const mainnetProvider = createMockProvider(314, '0x1234567890123456789012345678901234567890')
       const synapse = await Synapse.create({
         provider: mainnetProvider,
         warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
