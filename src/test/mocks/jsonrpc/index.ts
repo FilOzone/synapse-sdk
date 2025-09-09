@@ -1,26 +1,20 @@
 import { HttpResponse, http } from 'msw'
-import { type Address, decodeFunctionData, encodeAbiParameters, type Hex, isAddressEqual, multicall3Abi } from 'viem'
+import type { RequiredDeep } from 'type-fest'
+import {
+  type Address,
+  decodeFunctionData,
+  encodeAbiParameters,
+  type Hex,
+  isAddressEqual,
+  multicall3Abi,
+  parseUnits,
+} from 'viem'
 import { CONTRACT_ADDRESSES } from '../../../utils/constants.ts'
-import {
-  type dataSetLiveInput,
-  type getDataSetListenerInput,
-  type getNextPieceIdInput,
-  pdpVerifierCallHandler,
-} from './pdp.ts'
-import {
-  type getProviderInput,
-  type PDPOffering,
-  type ProviderInfo,
-  serviceProviderRegistryCallHandler,
-} from './service-registry.ts'
-import {
-  type DataSetInfo,
-  type getClientDataSetsInput,
-  type isProviderApprovedInput,
-  type railToDataSetInput,
-  warmStorageCallHandler,
-  warmStorageViewCallHandler,
-} from './warm-storage.ts'
+import { paymentsCallHandler } from './payments.ts'
+import { pdpVerifierCallHandler } from './pdp.ts'
+import { serviceProviderRegistryCallHandler } from './service-registry.ts'
+import type { JSONRPCOptions, RpcRequest, RpcResponse } from './types.ts'
+import { warmStorageCallHandler, warmStorageViewCallHandler } from './warm-storage.ts'
 
 export const PRIVATE_KEYS = {
   key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
@@ -29,6 +23,7 @@ export const ADDRESSES = {
   client1: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB' as Address,
   zero: '0x0000000000000000000000000000000000000000' as Address,
   serviceProvider1: '0x0000000000000000000000000000000000000001' as Address,
+  serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
   payee1: '0x1000000000000000000000000000000000000001' as Address,
   mainnet: {
     warmStorage: '0x1234567890123456789012345678901234567890' as Address,
@@ -45,82 +40,6 @@ export const ADDRESSES = {
     viewContract: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as Address,
     spRegistry: '0x0000000000000000000000000000000000000001' as Address,
   },
-}
-
-type SuccessResult<result> = {
-  method?: undefined
-  result: result
-  error?: undefined
-}
-type ErrorResult<error> = {
-  method?: undefined
-  result?: undefined
-  error: error
-}
-type Subscription<result, error> = {
-  method: 'eth_subscription'
-  error?: undefined
-  result?: undefined
-  params:
-    | {
-        subscription: string
-        result: result
-        error?: undefined
-      }
-    | {
-        subscription: string
-        result?: undefined
-        error: error
-      }
-}
-export type RpcResponse<result = any, error = any> = {
-  jsonrpc: `${number}`
-  id: number
-} & (SuccessResult<result> | ErrorResult<error> | Subscription<result, error>)
-
-export type RpcRequest = {
-  jsonrpc?: '2.0' | undefined
-  method: string
-  params?: any | undefined
-  id?: number | undefined
-}
-/**
- * Options for the JSONRPC server
- *
- * TODO: some types are not exactly correct we should make all input and outputs types strict and infered from the abi. all hooks should functions to override outputs based on inputs.
- */
-export interface JSONRPCOptions {
-  debug?: boolean
-  eth_chainId?: string
-  eth_accounts?: string[]
-  eth_call?: {
-    to: string
-    data: string
-  }
-  warmStorage?: {
-    pdpVerifierAddress?: Address
-    paymentsContractAddress?: Address
-    usdfcTokenAddress?: Address
-    filCDNBeneficiaryAddress?: Address
-    viewContractAddress?: Address
-    serviceProviderRegistry?: Address
-  }
-  pdpVerifier?: {
-    dataSetLive?: (args: dataSetLiveInput) => boolean
-    getDataSetListener?: (args: getDataSetListenerInput) => Address
-    getNextPieceId?: (args: getNextPieceIdInput) => bigint
-  }
-  warmStorageView?: {
-    isProviderApproved?: (args: isProviderApprovedInput) => boolean
-    getClientDataSets?: (args: getClientDataSetsInput) => DataSetInfo
-    railToDataSet?: (args: railToDataSetInput) => [bigint]
-  }
-  serviceRegistry?: {
-    getProviderByAddress?: ProviderInfo
-    getProviderIdByAddress?: bigint
-    getPDPService?: PDPOffering
-    getProvider?: (args: getProviderInput) => ProviderInfo
-  }
 }
 
 /**
@@ -153,7 +72,9 @@ export function JSONRPC(options?: JSONRPCOptions) {
           })
         }
       } catch (error) {
-        console.error(error)
+        if (options?.debug) {
+          console.error(error)
+        }
         return HttpResponse.json({
           jsonrpc: '2.0',
           error: {
@@ -173,10 +94,17 @@ export function JSONRPC(options?: JSONRPCOptions) {
 function handler(body: RpcRequest, options: JSONRPCOptions) {
   const { method, params } = body
   switch (method) {
-    case 'eth_chainId':
-      return options.eth_chainId ?? '314159'
+    case 'eth_chainId': {
+      if (!options.eth_chainId) {
+        throw new Error('eth_chainId is not defined')
+      }
+      return options.eth_chainId
+    }
     case 'eth_accounts':
-      return options.eth_accounts ?? ['0x1234567890123456789012345678901234567890']
+      if (!options.eth_accounts) {
+        throw new Error('eth_accounts is not defined')
+      }
+      return options.eth_accounts
     case 'eth_call': {
       const { to, data } = params[0]
 
@@ -198,8 +126,13 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       if (isAddressEqual(ADDRESSES.calibration.viewContract, to as Address)) {
         return warmStorageViewCallHandler(data as Hex, options)
       }
+
       if (isAddressEqual(ADDRESSES.calibration.pdpVerifier, to as Address)) {
         return pdpVerifierCallHandler(data as Hex, options)
+      }
+
+      if (isAddressEqual(ADDRESSES.calibration.payments, to as Address)) {
+        return paymentsCallHandler(data as Hex, options)
       }
 
       throw new Error(`Unknown eth_call to address: ${to}`)
@@ -260,4 +193,125 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
     ]
   )
   return result
+}
+
+export const presets = {
+  basic: {
+    debug: false,
+    eth_chainId: '314159',
+    eth_accounts: [ADDRESSES.client1],
+    warmStorage: {
+      pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
+      paymentsContractAddress: () => [ADDRESSES.calibration.payments],
+      usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
+      filCDNBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
+      viewContractAddress: () => [ADDRESSES.calibration.viewContract],
+      serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
+      getServicePrice: () => [
+        {
+          pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
+          pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
+          tokenAddress: ADDRESSES.calibration.usdfcToken,
+          epochsPerMonth: 86400n,
+        },
+      ],
+    },
+    warmStorageView: {
+      isProviderApproved: () => [true],
+      getClientDataSets: () => [
+        [
+          {
+            pdpRailId: 1n,
+            cacheMissRailId: 0n,
+            cdnRailId: 0n,
+            payer: ADDRESSES.client1,
+            payee: ADDRESSES.serviceProvider1,
+            serviceProvider: ADDRESSES.serviceProvider1,
+            commissionBps: 100n,
+            clientDataSetId: 0n,
+            pdpEndEpoch: 0n,
+            providerId: 1n,
+            cdnEndEpoch: 0n,
+          },
+        ],
+      ],
+      railToDataSet: () => [1n],
+      getApprovedProviders: () => [[1n, 2n]],
+    },
+    pdpVerifier: {
+      dataSetLive: () => [true],
+      getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
+      getNextPieceId: () => [2n],
+    },
+    serviceRegistry: {
+      getProviderByAddress: (data) => [
+        {
+          serviceProvider: data[0],
+          payee: ADDRESSES.payee1,
+          isActive: true,
+          name: 'Test Provider',
+          description: 'Test Provider',
+        },
+      ],
+      getProviderIdByAddress: () => [1n],
+      getPDPService: () => [
+        {
+          serviceURL: 'https://pdp.example.com',
+          minPieceSizeInBytes: 1024n,
+          maxPieceSizeInBytes: 1024n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: 1000000n,
+          minProvingPeriodInEpochs: 2880n,
+          location: 'US',
+          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+        },
+        [],
+        true,
+      ],
+      getProvider: (data) => {
+        if (data[0] === 1n) {
+          return [
+            {
+              serviceProvider: ADDRESSES.serviceProvider1,
+              payee: ADDRESSES.payee1,
+              isActive: true,
+              name: 'Test Provider',
+              description: 'Test Provider',
+            },
+          ]
+        }
+        if (data[0] === 2n) {
+          return [
+            {
+              serviceProvider: ADDRESSES.serviceProvider2,
+              payee: ADDRESSES.payee1,
+              isActive: true,
+              name: 'Test Provider',
+              description: 'Test Provider',
+            },
+          ]
+        }
+        return [
+          {
+            serviceProvider: ADDRESSES.zero,
+            payee: ADDRESSES.zero,
+            isActive: false,
+            name: '',
+            description: '',
+          },
+        ]
+      },
+    },
+    payments: {
+      operatorApprovals: () => [
+        true, // isApproved
+        BigInt(1000000), // rateAllowance
+        BigInt(10000000), // lockupAllowance
+        BigInt(500000), // rateUsed
+        BigInt(5000000), // lockupUsed
+        BigInt(86400), // maxLockupPeriod
+      ],
+    },
+  } as RequiredDeep<JSONRPCOptions>,
 }

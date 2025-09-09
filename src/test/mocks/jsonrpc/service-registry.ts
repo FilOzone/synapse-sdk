@@ -1,21 +1,32 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
-import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
+import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import { CONTRACT_ABIS } from '../../../utils/constants.ts'
-import { ADDRESSES, type JSONRPCOptions } from './index.ts'
+import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type ProviderInfo = AbiParametersToPrimitiveTypes<
-  ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProviderByAddress'>['outputs']
+export type getProviderByAddress = ExtractAbiFunction<
+  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  'getProviderByAddress'
 >
 
-export type PDPOffering = AbiParametersToPrimitiveTypes<
-  ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getPDPService'>['outputs']
+export type getPDPService = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getPDPService'>
+
+export type getProvider = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProvider'>
+
+export type getProviderIdByAddress = ExtractAbiFunction<
+  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  'getProviderIdByAddress'
 >
 
-export type getProviderInput = AbiParametersToPrimitiveTypes<
-  ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProvider'>['inputs']
->
+export interface ServiceRegistryOptions {
+  getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
+  getProviderIdByAddress?: (
+    args: AbiToType<getProviderIdByAddress['inputs']>
+  ) => AbiToType<getProviderIdByAddress['outputs']>
+  getPDPService?: (args: AbiToType<getPDPService['inputs']>) => AbiToType<getPDPService['outputs']>
+  getProvider?: (args: AbiToType<getProvider['inputs']>) => AbiToType<getProvider['outputs']>
+}
 
 /**
  * Handle service provider registry calls
@@ -32,64 +43,45 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
 
   switch (functionName) {
     case 'getProviderByAddress': {
+      if (!options.serviceRegistry?.getProviderByAddress) {
+        throw new Error('Service Provider Registry: getProviderByAddress is not defined')
+      }
       return encodeAbiParameters(
         CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
           (abi) => abi.type === 'function' && abi.name === 'getProviderByAddress'
         )!.outputs,
-        options.serviceRegistry?.getProviderByAddress ?? [
-          {
-            serviceProvider: ADDRESSES.serviceProvider1,
-            payee: ADDRESSES.payee1,
-            name: 'Test Provider',
-            description: 'Test Provider Description',
-            isActive: true,
-          },
-        ]
+        options.serviceRegistry.getProviderByAddress(args)
       )
     }
     case 'getProviderIdByAddress': {
+      if (!options.serviceRegistry?.getProviderIdByAddress) {
+        throw new Error('Service Provider Registry: getProviderIdByAddress is not defined')
+      }
       return encodeAbiParameters(
         CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
           (abi) => abi.type === 'function' && abi.name === 'getProviderIdByAddress'
         )!.outputs,
-        [options.serviceRegistry?.getProviderIdByAddress ?? BigInt(1)]
+        options.serviceRegistry.getProviderIdByAddress(args)
       )
     }
     case 'getPDPService': {
-      const defaultPDPService: PDPOffering = [
-        {
-          serviceURL: 'https://pdp.example.com',
-          minPieceSizeInBytes: BigInt(1024),
-          maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
-          ipniPiece: false,
-          ipniIpfs: false,
-          storagePricePerTibPerMonth: 1000000n,
-          minProvingPeriodInEpochs: 2880n,
-          location: 'US',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-        },
-        [],
-        true,
-      ]
+      if (!options.serviceRegistry?.getPDPService) {
+        throw new Error('Service Provider Registry: getPDPService is not defined')
+      }
       return encodeAbiParameters(
         CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getPDPService')!
           .outputs,
-        options.serviceRegistry?.getPDPService ?? defaultPDPService
+        options.serviceRegistry.getPDPService(args)
       )
     }
     case 'getProvider': {
+      if (!options.serviceRegistry?.getProvider) {
+        throw new Error('Service Provider Registry: getProvider is not defined')
+      }
       return encodeAbiParameters(
         CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getProvider')!
           .outputs,
-        options.serviceRegistry?.getProvider?.(args as getProviderInput) ?? [
-          {
-            serviceProvider: ADDRESSES.serviceProvider1,
-            payee: ADDRESSES.payee1,
-            name: 'Test Provider',
-            description: 'Test Provider Description',
-            isActive: true,
-          },
-        ]
+        options.serviceRegistry.getProvider(args)
       )
     }
     default: {
