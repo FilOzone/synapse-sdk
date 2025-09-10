@@ -31,7 +31,7 @@ import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
-import { CONTRACT_ABIS, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
+import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
  * Helper information for adding pieces to a data set
@@ -269,6 +269,36 @@ export class WarmStorageService {
   // ========== Client Data Set Operations ==========
 
   /**
+   * Get a single data set by ID
+   * @param dataSetId - The data set ID to retrieve
+   * @returns Data set information
+   * @throws Error if data set doesn't exist
+   */
+  async getDataSet(dataSetId: number): Promise<DataSetInfo> {
+    const viewContract = this._getWarmStorageViewContract()
+    const ds = await viewContract.getDataSet(dataSetId)
+
+    if (Number(ds.pdpRailId) === 0) {
+      throw createError('WarmStorageService', 'getDataSet', `Data set ${dataSetId} does not exist`)
+    }
+
+    // Convert from on-chain format to our interface
+    return {
+      pdpRailId: Number(ds.pdpRailId),
+      cacheMissRailId: Number(ds.cacheMissRailId),
+      cdnRailId: Number(ds.cdnRailId),
+      payer: ds.payer,
+      payee: ds.payee,
+      serviceProvider: ds.serviceProvider,
+      commissionBps: Number(ds.commissionBps),
+      clientDataSetId: Number(ds.clientDataSetId),
+      pdpEndEpoch: Number(ds.pdpEndEpoch),
+      providerId: Number(ds.providerId),
+      cdnEndEpoch: Number(ds.cdnEndEpoch),
+    }
+  }
+
+  /**
    * Get all data sets for a specific client
    * @param clientAddress - The client address
    * @returns Array of data set information
@@ -285,10 +315,12 @@ export class WarmStorageService {
         cdnRailId: Number(ds.cdnRailId),
         payer: ds.payer,
         payee: ds.payee,
+        serviceProvider: ds.serviceProvider,
         commissionBps: Number(ds.commissionBps),
         clientDataSetId: Number(ds.clientDataSetId),
-        paymentEndEpoch: Number(ds.paymentEndEpoch),
+        pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
+        cdnEndEpoch: Number(ds.cdnEndEpoch),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)

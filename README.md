@@ -59,6 +59,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
   * [Commit Message Guidelines](#commit-message-guidelines)
   * [Git hooks](#git-hooks)
   * [Testing](#testing)
+  * [Generating ABIs](#generating-abis)
 * [Migration Guide](#migration-guide)
   * [Terminology Update (v0.24.0+)](#terminology-update-v0240)
 * [License](#license)
@@ -92,6 +93,18 @@ console.log(`Upload complete! PieceCID: ${uploadResult.pieceCid}`)
 // Download data
 const data = await synapse.storage.download(uploadResult.pieceCid)
 console.log('Retrieved:', new TextDecoder().decode(data))
+```
+
+#### Connection Management
+
+When using WebSocket connections (recommended for better performance), it's important to properly clean up when your application is done:
+
+```javascript
+// When you're done with the SDK, close the connection
+const provider = synapse.getProvider()
+if (provider && typeof provider.destroy === 'function') {
+  await provider.destroy()
+}
 ```
 
 #### Payment Setup
@@ -300,6 +313,15 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
+**Rail Settlement:**
+- `getRailsAsPayer(token?)` - Get all payment rails where wallet is the payer, returns `RailInfo[]` with `{railId, isTerminated, endEpoch}` (endEpoch is 0 for active rails)
+- `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
+- `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
+- `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be <= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
+- `settleTerminatedRail(railId)` - Settle a terminated rail without validation, returns `TransactionResponse`
+- `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be <= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
+- `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be <= current epoch for active rails)
+
 #### Storage Context Methods
 
 A `StorageContext` (previously `StorageService`) represents a connection to a specific service provider and data set. Create one with `synapse.storage.createContext()`.
@@ -437,16 +459,13 @@ const result = await context.upload(data, {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
   onPieceAdded: (transaction) => {
-    // For new servers: transaction object with details
-    // For old servers: undefined (backward compatible)
-    if (transaction) {
-      console.log(`Transaction confirmed: ${transaction.hash}`)
-    } else {
-      console.log('Data added to data set (legacy server)')
-    }
+    // Called when the service provider has added the piece and submitted the
+    // transaction to the chain
+    console.log(`Transaction submitted: ${transaction.hash}`)
   },
   onPieceConfirmed: (pieceIds) => {
-    // Only called for new servers with transaction tracking
+    // Called when the service provider agrees that the piece addition is
+    // confirmed on-chain
     console.log(`Piece IDs assigned: ${pieceIds.join(', ')}`)
   }
 })
@@ -593,6 +612,53 @@ All components can be imported and used independently for advanced use cases. Th
 
 Direct interface to the Payments contract for token operations and operator approvals.
 
+#### Understanding Payment Rails
+
+Payment rails are continuous payment streams between clients and service providers that are created automatically when data sets are established. Each data set has associated payment rails (one for PDP storage, optionally additional ones for CDN services).
+
+**How Rails Work vs Traditional Payment:**
+
+Unlike traditional upfront payment models, rails use a **lockup mechanism** that acts as a guarantee without being a separate payment pool:
+
+1. **The Lockup Guarantee**: When a rail is created, the system calculates a lockup requirement:
+   - Formula: `lockup = paymentRate × lockupPeriod` (e.g., 10 days of payments)
+   - Example: Storing 1 GiB at ~0.0000565 USDFC/epoch (based on 5 USDFC/TiB/month) requires ~1.63 USDFC lockup
+   - This amount acts as a **minimum balance floor** - you can't withdraw below it
+
+2. **How Payments Actually Work**:
+   - **During Normal Operation**: Settlements draw from your general funds, NOT from the lockup
+   - **Lockup is NOT prepayment**: It's a safety guarantee that remains untouched during normal operation
+   - **The Rolling Window**: As time passes and settlements occur, the lockup requirement "rolls forward" to always guarantee the next period
+
+3. **What Happens During Settlement**:
+   - Your total funds decrease by the payment amount
+   - Your lockup requirement decreases by the amount that was "guaranteed" for that period
+   - The contract ensures your remaining funds always cover your remaining lockup requirement
+   - If funds are insufficient for settlement, the rail terminates and enters a special state
+
+**Understanding Your Balance:**
+- **Total Funds**: All tokens you've deposited into the payments contract
+- **Lockup Requirement**: The minimum balance you must maintain (not a separate pool!)
+- **Available Balance**: `totalFunds - lockupRequirement` (this is what you can withdraw)
+
+**The Safety Mechanism:**
+- If a payer stops depositing and becomes insolvent, settlement stops for new epochs
+- When a rail is terminated, the lockup becomes a **guaranteed payment window** for the service provider
+- This protects providers by ensuring they can claim payments for the lockup period even if the payer disappears
+
+For more details on the payment mechanics, see [Filecoin Pay documentation](https://github.com/FilOzone/filecoin-pay)
+
+**When to Settle:**
+- **Service Providers**: Periodically settle to receive accumulated earnings
+- **Clients**: Settle before withdrawing to update available balance
+- **Terminated Rails**: Must be settled to finalize and close the payment stream
+
+**Settlement Fee:**
+- Settlement operations require sending a small amount of FIL as a settlement fee (0.0013 FIL)
+- The SDK automatically includes this fee when calling `settle()`
+- The fee is defined as `SETTLEMENT_FEE` constant (corresponds to NETWORK_FEE in the contract)
+- Make sure your wallet has sufficient FIL balance for the settlement fee
+
 ```javascript
 import { PaymentsService } from '@filoz/synapse-sdk/payments'
 import { ethers } from 'ethers'
@@ -619,6 +685,51 @@ const approveTx = await paymentsService.approveService(
 )
 console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
+
+// Rail Settlement - manage continuous payment streams for storage services
+
+// As a CLIENT: Find and settle your payment obligations
+const payerRails = await paymentsService.getRailsAsPayer()
+console.log(`You have ${payerRails.length} payment rails as a payer`)
+
+// Check settlement fee requirement (automatically included in settle())
+import { SETTLEMENT_FEE } from '@filoz/synapse-sdk'
+console.log(`Settlement fee per settlement: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
+
+for (const rail of payerRails) {
+  console.log(`Rail ${rail.railId}: ${rail.isTerminated ? 'terminated' : 'active'}`)
+
+  // Preview what would be settled (useful before withdrawing funds)
+  const preview = await paymentsService.getSettlementAmounts(rail.railId)
+  console.log(`  Accumulated payment: ${preview.totalSettledAmount}`)
+
+  // Settle to clear obligations and update available balance
+  // Note: SDK automatically includes the network fee in the transaction
+  if (!rail.isTerminated && preview.totalSettledAmount > 0n) {
+    const settleTx = await paymentsService.settle(rail.railId)
+    console.log(`  Settling rail ${rail.railId}: ${settleTx.hash}`)
+    await settleTx.wait()
+  }
+}
+
+// As a SERVICE PROVIDER: Find and collect earnings
+const payeeRails = await paymentsService.getRailsAsPayee()
+console.log(`You have ${payeeRails.length} payment rails as a payee`)
+
+for (const rail of payeeRails) {
+  // Check accumulated earnings
+  const preview = await paymentsService.getSettlementAmounts(rail.railId)
+  console.log(`Rail ${rail.railId} earnings: ${preview.totalNetPayeeAmount}`)
+
+  // Settle to receive payments
+  if (preview.totalNetPayeeAmount > 0n) {
+    const settleTx = rail.isTerminated
+      ? await paymentsService.settleTerminatedRail(rail.railId)  // For ended storage
+      : await paymentsService.settle(rail.railId)                // For ongoing storage
+    console.log(`  Collecting payment: ${settleTx.hash}`)
+    await settleTx.wait()
+  }
+}
 ```
 
 ### Service Provider Registry

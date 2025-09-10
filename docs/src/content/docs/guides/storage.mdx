@@ -18,7 +18,7 @@ Behind the scenes, the process may be:
 
 #### Basic Usage
 
-```javascript
+```typescript
 // Option 1: Auto-managed context (simplest)
 await synapse.storage.upload(data)  // Context created/reused automatically
 
@@ -31,7 +31,7 @@ await context.upload(data)  // Upload to this specific context
 
 Monitor the creation process with detailed callbacks:
 
-```javascript
+```typescript
 const context = await synapse.storage.createContext({
   providerAddress: '0x...', // Optional: use specific provider address
   withCDN: true,            // Optional: enable CDN for faster downloads
@@ -90,7 +90,7 @@ interface StorageServiceOptions {
 
 Once created, the storage context provides access to:
 
-```javascript
+```typescript
 // The data set ID being used
 console.log(`Data set ID: ${context.dataSetId}`)
 
@@ -104,7 +104,7 @@ console.log(`Service provider: ${context.serviceProvider}`)
 
 Check if an upload is possible before attempting it:
 
-```javascript
+```typescript
 const preflight = await context.preflightUpload(dataSize)
 console.log('Estimated costs:', preflight.estimatedCost)
 console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
@@ -114,7 +114,7 @@ console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 
 Upload and download data with the storage context:
 
-```javascript
+```typescript
 // Upload with optional progress callbacks
 const result = await context.upload(data, {
   onUploadComplete: (pieceCid) => {
@@ -163,7 +163,7 @@ Attempting to upload data outside these limits will result in an error.
 
 When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
 
-```javascript
+```typescript
 // Efficient: Start all uploads without await - they'll be batched automatically
 const uploads = []
 for (const data of dataArray) {
@@ -183,7 +183,7 @@ The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`)
 
 Get comprehensive information about the storage service:
 
-```javascript
+```typescript
 // Get storage service info including pricing and providers
 const info = await synapse.getStorageInfo()
 console.log('Price per TiB/month:', info.pricing.noCDN.perTiBPerMonth)
@@ -203,7 +203,7 @@ The SDK provides flexible download options with clear semantics:
 
 Download pieces from any available provider using the StorageManager:
 
-```javascript
+```typescript
 // Download from any provider that has the piece
 const data = await synapse.storage.download(pieceCid)
 
@@ -220,7 +220,7 @@ const dataFromProvider = await synapse.storage.download(pieceCid, {
 
 When using a StorageContext, downloads are automatically restricted to that specific provider:
 
-```javascript
+```typescript
 // Downloads from the provider associated with this context
 const context = await synapse.storage.createContext({ providerAddress: '0x...' })
 const data = await context.download(pieceCid)
@@ -238,7 +238,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 2. **StorageService level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
-```javascript
+```typescript
 // Example of inheritance
 const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
 const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled

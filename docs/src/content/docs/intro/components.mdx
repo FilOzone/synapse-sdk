@@ -9,7 +9,7 @@ All components can be imported and used independently for advanced use cases. Th
 
 Direct interface to the Payments contract for token operations and operator approvals.
 
-```javascript
+```typescript
 import { PaymentsService } from '@filoz/synapse-sdk/payments'
 import { ethers } from 'ethers'
 
@@ -41,7 +41,7 @@ await approveTx.wait() // Wait for confirmation
 
 Query and manage service providers registered in the on-chain registry.
 
-```javascript
+```typescript
 import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
 
 // Create service instance
@@ -90,7 +90,7 @@ console.log('Storage Price:', pdpService.offering.storagePricePerTibPerMonth)
 
 Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
 
-```javascript
+```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 
 // Create WarmStorageService using factory method
@@ -141,7 +141,7 @@ const providers = await warmStorageService.getAllApprovedProviders()
 
 The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, data set tracking, and more.
 
-```javascript
+```typescript
 // Create subgraph service
 const subgraphService = new SubgraphService({
   goldsky: {
@@ -174,7 +174,7 @@ const providers = await subgraphService.getApprovedProvidersForPieceCID(pieceCid
 
 The SDK supports custom implementations of the `SubgraphRetrievalService` interface, allowing you to provide alternative data sources for provider discovery. This is useful for testing, custom integrations, or cases where you need specialized provider selection logic.
 
-```javascript
+```typescript
 // Example: Implementing a custom SubgraphRetrievalService
 class CustomProviderService implements SubgraphRetrievalService {
   async getApprovedProvidersForPieceCID(pieceCid) {
@@ -210,7 +210,7 @@ The PDP (Proof of Data Possession) system has three main components:
 
 Low-level interface to the PDPVerifier contract for protocol operations.
 
-```javascript
+```typescript
 import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
 
 // Create PDPVerifier instance
@@ -232,7 +232,7 @@ const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
 
 Consolidated interface for all PDP server (Curio) HTTP operations including data sets, uploads, and downloads.
 
-```javascript
+```typescript
 import { PDPServer, PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create server instance with auth helper
@@ -285,7 +285,7 @@ console.log(`Data set ${dataSet.id} has ${dataSet.pieces.length} pieces`)
 
 Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other browser wallets.
 
-```javascript
+```typescript
 import { PDPAuthHelper } from '@filoz/synapse-sdk/pdp'
 
 // Create auth helper
@@ -311,7 +311,7 @@ const addPiecesSig = await authHelper.signAddPieces(
 
 Utilities for calculating PieceCIDs and converting between formats.
 
-```javascript
+```typescript
 import { calculate, asPieceCID, asLegacyPieceCID, createPieceCIDStream } from '@filoz/synapse-sdk/piece'
 
 // Calculate PieceCID from data

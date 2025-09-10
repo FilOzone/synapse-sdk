@@ -152,7 +152,9 @@ function mockAddPieces(
     return {
       message: 'success',
       txHash,
-      ...(options.txHash && { statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${txHash}` }),
+      ...(options.txHash && {
+        statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${txHash}`,
+      }),
     }
   }
 

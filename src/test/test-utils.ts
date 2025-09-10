@@ -143,14 +143,13 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
       }
       // Mock accounts response with 4 fields (fixed bug)
       if (data.includes('ad74b775') === true) {
-        const funds = ethers.parseUnits('500', 18)
-        const lockupCurrent = 0n
-        const lockupRate = 0n
-        const lockupLastSettledAt = 1000000 // Current epoch (block number)
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['uint256', 'uint256', 'uint256', 'uint256'],
-          [funds, lockupCurrent, lockupRate, lockupLastSettledAt]
-        )
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        return paymentsInterface.encodeFunctionResult('accounts', [
+          ethers.parseUnits('500', 18), // funds
+          0n, // lockupCurrent
+          0n, // lockupRate
+          1000000n, // lockupLastSettledAt (current epoch/block number)
+        ])
       }
       // Mock getServicePrice response - function selector: 0x5482bdf9
       if (data.includes('5482bdf9') === true) {
@@ -173,69 +172,80 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         // Return array of rail IDs
         return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[3n, 4n]])
       }
-      // Mock getRail response - function selector: 0x0e64d1e0
-      if (data.includes('0e64d1e0') === true) {
-        const rail = {
+      // Mock NETWORK_FEE response - function selector: 0x9be5c024
+      // Check if it's to the Payments contract
+      if (to === MOCK_ADDRESSES.PAYMENTS.toLowerCase() && data?.includes('9be5c024') === true) {
+        // Return 0.0013 FIL as the network fee (1300000000000000 attoFIL)
+        return ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [ethers.parseEther('0.0013')])
+      }
+      // Mock getRail response - function selector: 0x22e440b3
+      if (data.includes('22e440b3') === true) {
+        // Use the Payments ABI to properly encode the RailView struct
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        const railData = {
           token: CONTRACT_ADDRESSES.USDFC.calibration,
           from: MOCK_ADDRESSES.SIGNER,
-          to: '0x78bF4d833fC2ba1Abd42Bc772edbC788EC76A28F',
-          operator: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
-          arbiter: '0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5',
-          paymentRate: ethers.parseUnits('0.001', 18), // 0.001 USDFC per epoch
-          paymentRateNew: ethers.parseUnits('0.001', 18),
-          rateChangeEpoch: 0n,
+          to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
+          operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          paymentRate: ethers.parseUnits('1', 18),
+          lockupPeriod: 2880n,
           lockupFixed: 0n,
-          lockupPeriod: 28800n, // 10 days
-          settledUpTo: 1000000,
-          endEpoch: 0n, // Active rail
-          commissionRateBps: 100n, // 1%
+          settledUpTo: 1000000n,
+          endEpoch: 0n, // 0 = active rail
+          commissionRateBps: 500n, // 5%
+          serviceFeeRecipient: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
         }
-        // The getRail function returns a struct, encode all fields in order
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          [
-            'address',
-            'address',
-            'address',
-            'address',
-            'address',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-            'uint256',
-          ],
-          [
-            rail.token,
-            rail.from,
-            rail.to,
-            rail.operator,
-            rail.arbiter,
-            rail.paymentRate,
-            rail.paymentRateNew,
-            rail.rateChangeEpoch,
-            rail.lockupFixed,
-            rail.lockupPeriod,
-            rail.settledUpTo,
-            rail.endEpoch,
-            rail.commissionRateBps,
-          ]
-        )
+        return paymentsInterface.encodeFunctionResult('getRail', [railData])
       }
       // Mock operatorApprovals response
       if (data.includes('e3d4c69e') === true) {
-        const isApproved = false
-        const rateAllowance = 0n
-        const rateUsed = 0n
-        const lockupAllowance = 0n
-        const lockupUsed = 0n
-        const maxLockupPeriod = 86400n // 30 days
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['bool', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-          [isApproved, rateAllowance, rateUsed, lockupAllowance, lockupUsed, maxLockupPeriod]
-        )
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        return paymentsInterface.encodeFunctionResult('operatorApprovals', [
+          false, // isApproved
+          0n, // rateAllowance
+          0n, // lockupAllowance
+          0n, // rateUsed
+          0n, // lockupUsed
+          86400n, // maxLockupPeriod (30 days)
+        ])
+      }
+      // Mock getRailsForPayerAndToken response - function selector: 0x9b85e253
+      if (data.includes('9b85e253') === true) {
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        const rails = [
+          { railId: 1n, isTerminated: false, endEpoch: 0n },
+          { railId: 2n, isTerminated: true, endEpoch: 999999n },
+        ]
+        return paymentsInterface.encodeFunctionResult('getRailsForPayerAndToken', [rails])
+      }
+      // Mock getRailsForPayeeAndToken response - function selector: 0x2ecfb2bf
+      if (data.includes('2ecfb2bf') === true) {
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        const rails = [{ railId: 3n, isTerminated: false, endEpoch: 0n }]
+        return paymentsInterface.encodeFunctionResult('getRailsForPayeeAndToken', [rails])
+      }
+      // Mock settleRail response - function selector: 0xbcd40bf8
+      if (data.includes('bcd40bf8') === true) {
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        return paymentsInterface.encodeFunctionResult('settleRail', [
+          ethers.parseUnits('100', 18), // totalSettledAmount
+          ethers.parseUnits('95', 18), // totalNetPayeeAmount
+          ethers.parseUnits('5', 18), // totalOperatorCommission
+          1000000n, // finalSettledEpoch
+          'Settlement successful', // note
+        ])
+      }
+      // Mock settleTerminatedRailWithoutValidation response - function selector: 0x4341325c
+      if (data.includes('4341325c') === true) {
+        const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
+        return paymentsInterface.encodeFunctionResult('settleTerminatedRailWithoutValidation', [
+          ethers.parseUnits('200', 18), // totalSettledAmount
+          ethers.parseUnits('190', 18), // totalNetPayeeAmount
+          ethers.parseUnits('10', 18), // totalOperatorCommission
+          999999n, // finalSettledEpoch
+          'Terminated rail settlement', // note
+        ])
       }
       return '0x'
     },
@@ -286,7 +296,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         from: transaction.from ?? '',
         to: transaction.to ?? null,
         data: transaction.data ?? '',
-        value: transaction.value ?? 0n,
+        value: transaction.value != null ? BigInt(transaction.value) : 0n,
         chainId: 314159n,
         gasLimit: 100000n,
         gasPrice: 1000000000n,
