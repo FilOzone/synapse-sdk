@@ -151,10 +151,11 @@
         <div class="status info">
             <div class="input-group">
                 <label for="contractAddressInput">WarmStorage Contract Address:</label>
-                <input type="text" id="contractAddressInput" value="0xbB94727BC196eF7457417c09956437A3dd08790A" placeholder="0x...">
+                <input type="text" id="contractAddressInput" value="" placeholder="Will auto-detect based on network">
                 <button onclick="updateContractAddress()" style="margin-top: 5px;">Update Contract</button>
+                <button onclick="resetToDefault()" style="margin-top: 5px;">Reset to Default</button>
             </div>
-            <strong>Network:</strong> Filecoin Calibration Testnet
+            <strong>Network:</strong> <span id="networkDisplay">Connect wallet to detect network</span>
         </div>
 
         <div class="auth-section">
@@ -276,14 +277,14 @@
     </div>
 
     <script>
-        const { SPRegistryService, WarmStorageService } = window.SynapseSDK;
+        const { SPRegistryService, WarmStorageService, CONTRACT_ADDRESSES, getFilecoinNetworkType } = window.SynapseSDK;
         
         let spRegistry = null;
         let warmStorage = null;
         let provider = null;
         let signer = null;
         
-        let CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value;
+        let CONTRACT_ADDRESS = null; // Will be set when connecting
         const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
         
         function log(message, type = 'info') {
@@ -305,6 +306,32 @@
             document.getElementById('privateKeyAuth').style.display = method === 'privateKey' ? 'block' : 'none';
         }
         
+        async function getDefaultWarmStorageAddress(provider) {
+            try {
+                const networkName = await getFilecoinNetworkType(provider);
+                const defaultAddress = CONTRACT_ADDRESSES.WARM_STORAGE[networkName];
+                if (!defaultAddress) {
+                    throw new Error(`No default address available for network: ${networkName}`);
+                }
+                return { address: defaultAddress, network: networkName };
+            } catch (error) {
+                // Fallback to network detection via chainId
+                const network = await provider.getNetwork();
+                const chainId = Number(network.chainId);
+                const networkName = chainId === 314159 ? 'calibration' : chainId === 314 ? 'mainnet' : null;
+                
+                if (!networkName) {
+                    throw new Error(`Unsupported network. Please switch to Filecoin Mainnet (314) or Calibration (314159)`);
+                }
+                
+                const defaultAddress = CONTRACT_ADDRESSES.WARM_STORAGE[networkName];
+                if (!defaultAddress) {
+                    throw new Error(`No default address available for network: ${networkName}`);
+                }
+                return { address: defaultAddress, network: networkName };
+            }
+        }
+        
         function updateContractAddress() {
             const newAddress = document.getElementById('contractAddressInput').value.trim();
             if (!newAddress || !newAddress.startsWith('0x') || newAddress.length !== 42) {
@@ -319,6 +346,25 @@
             log('Please reconnect your wallet to use the new contract', 'info');
         }
         
+        async function resetToDefault() {
+            if (!provider) {
+                log('Please connect wallet first to detect network', 'error');
+                return;
+            }
+            
+            try {
+                const { address, network } = await getDefaultWarmStorageAddress(provider);
+                CONTRACT_ADDRESS = address;
+                document.getElementById('contractAddressInput').value = address;
+                spRegistry = null; // Reset registry instance
+                warmStorage = null;
+                log(`Reset to default ${network} address: ${address}`, 'success');
+                log('Please reconnect your wallet to use the default contract', 'info');
+            } catch (error) {
+                log(`Failed to get default address: ${error.message}`, 'error');
+            }
+        }
+        
         async function connectMetaMask() {
             if (typeof window.ethereum === 'undefined') {
                 log('Please install MetaMask!', 'error');
@@ -329,7 +375,36 @@
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
-                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
+                
+                // Get or auto-detect WarmStorage address
+                let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
+                let detectedNetwork = null;
+                if (!warmStorageAddress) {
+                    log('Auto-detecting WarmStorage address from network...', 'info');
+                    const { address, network } = await getDefaultWarmStorageAddress(provider);
+                    warmStorageAddress = address;
+                    CONTRACT_ADDRESS = address;
+                    detectedNetwork = network;
+                    document.getElementById('contractAddressInput').value = address;
+                    log(`Using default ${network} WarmStorage: ${address}`, 'info');
+                } else {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch (e) {
+                        detectedNetwork = 'unknown';
+                    }
+                }
+                
+                // Update network display
+                const networkNames = {
+                    'calibration': 'Filecoin Calibration Testnet',
+                    'mainnet': 'Filecoin Mainnet',
+                    'unknown': 'Unknown Network'
+                };
+                document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
                 
                 // Initialize WarmStorage and discover SP Registry
                 warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
@@ -338,7 +413,7 @@
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
-                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>Registry: ${registryAddress}`;
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
                 
                 log(`Connected to MetaMask: ${address}`, 'success');
@@ -358,7 +433,36 @@
             try {
                 provider = new ethers.JsonRpcProvider(RPC_URL);
                 signer = new ethers.Wallet(privateKey, provider);
-                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
+                
+                // Get or auto-detect WarmStorage address
+                let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
+                let detectedNetwork = null;
+                if (!warmStorageAddress) {
+                    log('Auto-detecting WarmStorage address from network...', 'info');
+                    const { address, network } = await getDefaultWarmStorageAddress(provider);
+                    warmStorageAddress = address;
+                    CONTRACT_ADDRESS = address;
+                    detectedNetwork = network;
+                    document.getElementById('contractAddressInput').value = address;
+                    log(`Using default ${network} WarmStorage: ${address}`, 'info');
+                } else {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch (e) {
+                        detectedNetwork = 'unknown';
+                    }
+                }
+                
+                // Update network display
+                const networkNames = {
+                    'calibration': 'Filecoin Calibration Testnet',
+                    'mainnet': 'Filecoin Mainnet',
+                    'unknown': 'Unknown Network'
+                };
+                document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
                 
                 // Initialize WarmStorage and discover SP Registry
                 warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
@@ -367,7 +471,7 @@
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
-                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>Registry: ${registryAddress}`;
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
                 
                 log(`Connected with private key: ${address}`, 'success');
