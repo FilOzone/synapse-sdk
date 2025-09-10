@@ -78,6 +78,7 @@ export default defineConfig({
         docsPlugin({
           pagination: true,
           typeDocOptions: {
+            githubPages: true,
             entryPointStrategy: 'resolve',
             entryPoints: [
               '../src/index.ts',
