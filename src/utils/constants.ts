@@ -215,6 +215,16 @@ export const TIMING_CONSTANTS = {
 } as const
 
 /**
+ * Settlement fee required for rail settlement operations
+ * This is the NETWORK_FEE constant in the Payments contract that gets burned to the Filecoin network
+ * Value: 0.0013 FIL (1300000000000000 attoFIL)
+ *
+ * IMPORTANT: This value must be kept in sync with the Payments contract's NETWORK_FEE constant.
+ * If the contract is upgraded with a different fee, this constant must be updated accordingly.
+ */
+export const SETTLEMENT_FEE = 1300000000000000n // 0.0013 FIL in attoFIL
+
+/**
  * Recommended RPC endpoints for Filecoin networks
  */
 export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: string }> = {

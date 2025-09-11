@@ -314,6 +314,328 @@ describe('PaymentsService', () => {
     })
   })
 
+  describe('Rail Settlement Features', () => {
+    describe('getRailsAsPayer', () => {
+      it('should return rails where wallet is payer', async () => {
+        const rails = await payments.getRailsAsPayer()
+        assert.isArray(rails)
+        assert.equal(rails.length, 2)
+        assert.exists(rails[0].railId)
+        assert.exists(rails[0].isTerminated)
+        assert.exists(rails[0].endEpoch)
+      })
+
+      it('should throw for unsupported token', async () => {
+        try {
+          await payments.getRailsAsPayer('FIL' as any)
+          assert.fail('Should have thrown')
+        } catch (error: any) {
+          assert.include(error.message, 'not supported')
+        }
+      })
+    })
+
+    describe('getRailsAsPayee', () => {
+      it('should return rails where wallet is payee', async () => {
+        const rails = await payments.getRailsAsPayee()
+        assert.isArray(rails)
+        assert.equal(rails.length, 1)
+        assert.exists(rails[0].railId)
+        assert.exists(rails[0].isTerminated)
+        assert.exists(rails[0].endEpoch)
+      })
+
+      it('should throw for unsupported token', async () => {
+        try {
+          await payments.getRailsAsPayee('FIL' as any)
+          assert.fail('Should have thrown')
+        } catch (error: any) {
+          assert.include(error.message, 'not supported')
+        }
+      })
+    })
+
+    describe('SETTLEMENT_FEE constant', () => {
+      it('should have correct settlement fee value', () => {
+        // Import the constant
+        const { SETTLEMENT_FEE } = require('../utils/constants.ts')
+
+        assert.exists(SETTLEMENT_FEE)
+        assert.typeOf(SETTLEMENT_FEE, 'bigint')
+        // Settlement fee should be 0.0013 FIL (1300000000000000 attoFIL)
+        assert.equal(SETTLEMENT_FEE, 1300000000000000n)
+      })
+    })
+
+    describe('settle', () => {
+      it('should settle a rail up to current epoch', async () => {
+        const railId = 123
+        const tx = await payments.settle(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+        assert.exists(tx.from)
+        assert.exists(tx.to)
+        assert.exists(tx.data)
+        // Check that the transaction includes the network fee as value
+        assert.exists(tx.value)
+        assert.isTrue(tx.value > 0n)
+      })
+
+      it('should settle a rail up to specific epoch', async () => {
+        const railId = 123
+        const untilEpoch = 999999
+        const tx = await payments.settle(railId, untilEpoch)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+      })
+
+      it('should accept bigint rail ID', async () => {
+        const railId = 123n
+        const tx = await payments.settle(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+      })
+    })
+
+    describe('getSettlementAmounts', () => {
+      it('should get settlement amounts for a rail', async () => {
+        const railId = 123
+        const result = await payments.getSettlementAmounts(railId)
+
+        assert.exists(result)
+        assert.exists(result.totalSettledAmount)
+        assert.exists(result.totalNetPayeeAmount)
+        assert.exists(result.totalOperatorCommission)
+        assert.exists(result.finalSettledEpoch)
+        assert.exists(result.note)
+
+        // Check values from mock
+        assert.equal(result.totalSettledAmount.toString(), ethers.parseUnits('100', 18).toString())
+        assert.equal(result.totalNetPayeeAmount.toString(), ethers.parseUnits('95', 18).toString())
+        assert.equal(result.totalOperatorCommission.toString(), ethers.parseUnits('5', 18).toString())
+        assert.equal(result.finalSettledEpoch.toString(), '1000000')
+        assert.equal(result.note, 'Settlement successful')
+      })
+    })
+
+    describe('settleTerminatedRail', () => {
+      it('should settle a terminated rail', async () => {
+        const railId = 456
+        const tx = await payments.settleTerminatedRail(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+        assert.exists(tx.from)
+        assert.exists(tx.to)
+        assert.exists(tx.data)
+      })
+
+      it('should accept bigint rail ID', async () => {
+        const railId = 456n
+        const tx = await payments.settleTerminatedRail(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+      })
+    })
+
+    describe('getRail', () => {
+      it('should get detailed rail information', async () => {
+        const railId = 123
+        const rail = await payments.getRail(railId)
+
+        assert.exists(rail)
+        assert.exists(rail.token)
+        assert.exists(rail.from)
+        assert.exists(rail.to)
+        assert.exists(rail.operator)
+        assert.exists(rail.validator)
+        assert.exists(rail.paymentRate)
+        assert.exists(rail.lockupPeriod)
+        assert.exists(rail.lockupFixed)
+        assert.exists(rail.settledUpTo)
+        assert.exists(rail.endEpoch)
+        assert.exists(rail.commissionRateBps)
+        assert.exists(rail.serviceFeeRecipient)
+
+        // Check values from mock
+        assert.equal(rail.from, '0x1234567890123456789012345678901234567890')
+        assert.equal(rail.to.toLowerCase(), '0xaabbccddaabbccddaabbccddaabbccddaabbccdd')
+        assert.equal(rail.operator, '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4')
+        assert.equal(rail.paymentRate.toString(), ethers.parseUnits('1', 18).toString())
+        assert.equal(rail.settledUpTo.toString(), '1000000')
+        assert.equal(rail.endEpoch.toString(), '0')
+        assert.equal(rail.lockupPeriod.toString(), '2880')
+        assert.equal(rail.commissionRateBps.toString(), '500')
+      })
+
+      it('should accept bigint rail ID', async () => {
+        const railId = 123n
+        const rail = await payments.getRail(railId)
+
+        assert.exists(rail)
+        assert.exists(rail.from)
+        assert.exists(rail.to)
+      })
+    })
+
+    describe('settleAuto', () => {
+      it('should settle active rail using regular settle', async () => {
+        const railId = 123
+        // This rail has endEpoch = 0 (active)
+        const tx = await payments.settleAuto(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+        // Check that the transaction includes the settlement fee as value
+        assert.exists(tx.value)
+        assert.isTrue(tx.value > 0n)
+      })
+
+      it('should settle terminated rail using settleTerminatedRail', async () => {
+        const railId = 456
+        // Mock getRail to return a terminated rail
+        const originalCall = mockProvider.call
+        mockProvider.call = async (transaction: any) => {
+          const data = transaction.data
+          // Check if this is a getRail call for rail 456
+          if (
+            data != null &&
+            data.includes('22e440b3') === true &&
+            data.includes('00000000000000000000000000000000000000000000000000000000000001c8')
+          ) {
+            // Return rail with endEpoch > 0 (terminated)
+            return ethers.AbiCoder.defaultAbiCoder().encode(
+              [
+                'address',
+                'address',
+                'address',
+                'address',
+                'address',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'address',
+              ],
+              [
+                CONTRACT_ADDRESSES.USDFC.calibration, // token
+                '0x1234567890123456789012345678901234567890', // from
+                '0xaabbccddaabbccddaabbccddaabbccddaabbccdd', // to
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // operator
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // validator
+                ethers.parseUnits('1', 18), // paymentRate
+                2880, // lockupPeriod
+                0, // lockupFixed
+                1000000, // settledUpTo
+                2000000, // endEpoch > 0 means terminated
+                500, // commissionRateBps
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // serviceFeeRecipient
+              ]
+            )
+          }
+          return await originalCall.call(mockProvider, transaction)
+        }
+
+        const tx = await payments.settleAuto(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+        // settleTerminatedRail doesn't require a fee - value should be 0 or undefined
+        assert.isTrue(tx.value === 0n || tx.value == null)
+      })
+
+      it('should pass untilEpoch parameter to settle for active rails', async () => {
+        const railId = 123
+        const untilEpoch = 999999
+        const tx = await payments.settleAuto(railId, untilEpoch)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+        assert.exists(tx.value)
+        assert.isTrue(tx.value > 0n)
+      })
+
+      it('should accept bigint rail ID', async () => {
+        const railId = 123n
+        const tx = await payments.settleAuto(railId)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        assert.typeOf(tx.hash, 'string')
+      })
+
+      it('should ignore untilEpoch for terminated rails', async () => {
+        const railId = 456
+        // Mock getRail to return a terminated rail
+        const originalCall = mockProvider.call
+        mockProvider.call = async (transaction: any) => {
+          const data = transaction.data
+          if (
+            data != null &&
+            data.includes('22e440b3') === true &&
+            data.includes('00000000000000000000000000000000000000000000000000000000000001c8')
+          ) {
+            return ethers.AbiCoder.defaultAbiCoder().encode(
+              [
+                'address',
+                'address',
+                'address',
+                'address',
+                'address',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'address',
+              ],
+              [
+                CONTRACT_ADDRESSES.USDFC.calibration, // token
+                '0x1234567890123456789012345678901234567890', // from
+                '0xaabbccddaabbccddaabbccddaabbccddaabbccdd', // to
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // operator
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // validator
+                ethers.parseUnits('1', 18), // paymentRate
+                2880, // lockupPeriod
+                0, // lockupFixed
+                1000000, // settledUpTo
+                2000000, // endEpoch > 0 means terminated
+                500, // commissionRateBps
+                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // serviceFeeRecipient
+              ]
+            )
+          }
+          return await originalCall.call(mockProvider, transaction)
+        }
+
+        // Pass untilEpoch, but it should be ignored for terminated rails
+        // The mock rail is already terminated, no need to verify
+
+        const tx = await payments.settleAuto(railId, 999999)
+
+        assert.exists(tx)
+        assert.exists(tx.hash)
+        // Terminated rail settlement doesn't require fee - value should be 0 or undefined
+        assert.isTrue(tx.value === 0n || tx.value == null, `Expected tx.value to be 0n or null, but got ${tx.value}`)
+      })
+    })
+  })
+
   describe('Enhanced Payment Features', () => {
     describe('accountInfo', () => {
       it('should return detailed account information with correct fields', async () => {

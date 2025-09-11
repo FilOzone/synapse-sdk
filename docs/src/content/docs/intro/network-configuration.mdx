@@ -7,7 +7,7 @@ sidebar:
 
 ### RPC Endpoints
 
-```javascript
+```typescript
 import { RPC_URLS } from '@filoz/synapse-sdk'
 
 // Mainnet
@@ -23,7 +23,7 @@ RPC_URLS.calibration.http       // https://api.calibration.node.glif.io/rpc/v1
 
 For higher rate limits with GLIF endpoints:
 
-```javascript
+```typescript
 import { Synapse } from '@filoz/synapse-sdk'
 
 // Using GLIF authorization with private key
@@ -31,6 +31,67 @@ const synapse = await Synapse.create({
   privateKey: '0x...',
   rpcURL: 'https://api.node.glif.io/rpc/v1',
   authorization: 'Bearer YOUR_GLIF_TOKEN'
+})
+```
+
+### Connection Management
+
+#### WebSocket vs HTTP
+
+The SDK supports both WebSocket and HTTP connections:
+
+- **WebSocket** (recommended): Better performance for multiple operations, real-time updates, lower latency
+- **HTTP**: Simpler setup, stateless, better for single operations
+
+```typescript
+// WebSocket connection (recommended)
+const synapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: RPC_URLS.calibration.websocket
+})
+
+// HTTP connection
+const synapse = await Synapse.create({
+  privateKey: '0x...',
+  rpcURL: RPC_URLS.calibration.http
+})
+```
+
+#### Cleaning Up Connections
+
+When using WebSocket connections, it's important to properly close them when your application is done:
+
+```typescript
+// Get the provider instance
+const provider = synapse.getProvider()
+
+// Clean up the connection
+if (provider && typeof provider.destroy === 'function') {
+  await provider.destroy()
+}
+```
+
+This is especially important for:
+- **CLI tools**: Ensures the process can exit cleanly
+- **Test suites**: Prevents hanging tests and resource leaks
+- **Server applications**: Frees resources when shutting down
+- **Long-running applications**: Allows graceful reconnection if needed
+
+#### Connection Best Practices
+
+1. **Reuse connections**: Create a single Synapse instance and reuse it for multiple operations
+2. **Handle disconnections**: Implement reconnection logic for long-running applications
+3. **Clean up on exit**: Always destroy connections when your application terminates
+
+```typescript
+// Example: Proper cleanup in a Node.js application
+process.on('SIGINT', async () => {
+  console.log('Shutting down...')
+  const provider = synapse.getProvider()
+  if (provider && typeof provider.destroy === 'function') {
+    await provider.destroy()
+  }
+  process.exit(0)
 })
 ```
 

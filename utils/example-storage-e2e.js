@@ -172,27 +172,17 @@ async function main() {
     console.log('\n--- Uploading File ---')
     console.log('Uploading to service provider...')
 
-    // Note: With updated Curio servers, you'll get enhanced transaction tracking
-    // The callbacks below demonstrate both old and new server compatibility
-
     // Using the context we created earlier (could also use synapse.storage.upload directly)
     const uploadResult = await storageContext.upload(fileData, {
       onUploadComplete: (pieceCid) => {
         console.log(`✓ Upload complete! PieceCID: ${pieceCid}`)
       },
       onPieceAdded: (transaction) => {
-        if (transaction) {
-          // New enhanced callback with transaction info
-          console.log(`✓ Piece addition transaction submitted: ${transaction.hash}`)
-          console.log('  Waiting for confirmation...')
-        } else {
-          // Fallback for old servers
-          console.log('✓ Piece added to data set')
-        }
+        console.log(`✓ Piece addition transaction submitted: ${transaction.hash}`)
+        console.log('  Waiting for confirmation...')
       },
       onPieceConfirmed: (pieceIds) => {
-        // New callback - only called with updated servers
-        console.log('✓ Piece addition confirmed on-chain!')
+        console.log('✓ Piece addition confirmed by the service provider!')
         console.log(`  Assigned piece IDs: ${pieceIds.join(', ')}`)
       },
     })

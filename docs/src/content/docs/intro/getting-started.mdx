@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 description: Learn how to install and use the Synapse SDK.
-sidebar: 
+sidebar:
   order: 0
 ---
 import { FileTree } from '@astrojs/starlight/components';
@@ -53,7 +53,7 @@ The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-t
 
 Get started with storage in just a few lines of code:
 
-```javascript
+```typescript
 import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
 
 // Initialize SDK
@@ -74,11 +74,23 @@ const data = await synapse.storage.download(uploadResult.pieceCid)
 console.log('Retrieved:', new TextDecoder().decode(data))
 ```
 
+#### Connection Management
+
+When using WebSocket connections (recommended for better performance), it's important to properly clean up when your application is done:
+
+```typescript
+// When you're done with the SDK, close the connection
+const provider = synapse.getProvider()
+if (provider && typeof provider.destroy === 'function') {
+  await provider.destroy()
+}
+```
+
 #### Payment Setup
 
 Before uploading data, you'll need to deposit funds and approve the storage service:
 
-```javascript
+```typescript
 import { TOKENS, CONTRACT_ADDRESSES } from '@filoz/synapse-sdk'
 import { ethers } from 'ethers'
 
@@ -101,7 +113,7 @@ await synapse.payments.approveService(
 
 ### With MetaMask
 
-```javascript
+```typescript
 import { Synapse } from '@filoz/synapse-sdk'
 import { ethers } from 'ethers'
 
@@ -119,7 +131,7 @@ console.log(`Stored with PieceCID: ${result.pieceCid}`)
 
 For users who need fine-grained control over token approvals:
 
-```javascript
+```typescript
 import { Synapse, TOKENS } from '@filoz/synapse-sdk'
 
 const synapse = await Synapse.create({ provider })
@@ -179,6 +191,83 @@ console.log(`Revoke transaction: ${revokeTx.hash}`)
 await revokeTx.wait()
 ```
 
+### Rail Settlement
+
+Payment rails are continuous payment streams between clients and service providers. These rails accumulate payment obligations over time that need to be settled periodically to transfer the actual tokens.
+
+**Key Concepts:**
+- **Rails**: Unidirectional payment streams with a defined rate per epoch (30 seconds)
+- **Settlement**: The process of executing accumulated payments and transferring tokens
+- **Network Fee**: 0.0013 FIL burned (destroyed) per settlement, accruing value to the network through supply reduction
+- **Commission**: Optional percentage taken by the operator (service contract)
+
+For a comprehensive guide, see [Rails & Settlement Guide](/guides/rails-settlement).
+
+#### Viewing Rails
+
+```typescript
+// Get rails where you are the payer (client)
+const payerRails = await synapse.payments.getRailsAsPayer()
+for (const rail of payerRails) {
+  console.log(`Rail ${rail.railId}: ${rail.isTerminated ? 'Terminated' : 'Active'}`)
+  if (rail.isTerminated) {
+    console.log(`  Ended at epoch: ${rail.endEpoch}`)
+  }
+}
+
+// Get rails where you are the payee (service provider)
+const payeeRails = await synapse.payments.getRailsAsPayee()
+console.log(`Receiving payments from ${payeeRails.length} rails`)
+```
+
+#### Settling Rails
+
+Settlement converts accumulated payment obligations into actual token transfers. Each settlement requires a network fee that is burned, compensating the Filecoin network for processing the settlement:
+
+```typescript
+// The settlement fee is burned to the network (not paid to any party)
+import { SETTLEMENT_FEE } from '@filoz/synapse-sdk'
+console.log(`Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
+// This fee accrues value to the network by reducing FIL supply
+
+// Preview settlement amounts before executing
+const preview = await synapse.payments.getSettlementAmounts(railId)
+console.log(`Would settle: ${ethers.formatUnits(preview.totalSettledAmount, 18)} USDFC`)
+console.log(`Payee receives: ${ethers.formatUnits(preview.totalNetPayeeAmount, 18)} USDFC`)
+console.log(`Commission: ${ethers.formatUnits(preview.totalOperatorCommission, 18)} USDFC`)
+
+// Settle a rail (automatically includes settlement fee)
+const settleTx = await synapse.payments.settle(railId)
+console.log(`Settlement transaction: ${settleTx.hash}`)
+await settleTx.wait()
+
+// For terminated rails, use the specialized method
+if (rail.isTerminated) {
+  const terminatedTx = await synapse.payments.settleTerminatedRail(railId)
+  await terminatedTx.wait()
+}
+```
+
+#### Settlement Example
+
+```typescript
+// Complete example: Find and settle all rails where you're the payer
+const rails = await synapse.payments.getRailsAsPayer()
+
+for (const rail of rails) {
+  if (!rail.isTerminated) {
+    // Check if there's anything to settle
+    const preview = await synapse.payments.getSettlementAmounts(rail.railId)
+
+    if (preview.totalSettledAmount > 0n) {
+      console.log(`Settling Rail ${rail.railId}...`)
+      const tx = await synapse.payments.settle(rail.railId)
+      await tx.wait()
+      console.log(`✅ Settled ${ethers.formatUnits(preview.totalSettledAmount, 18)} USDFC`)
+    }
+  }
+}
+```
 
 ### API Reference
 
@@ -228,6 +317,7 @@ interface SubgraphConfig {
 - `getProviderInfo(providerAddress)` - Get detailed information about a service provider
 - `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
 - `getChainId()` - Get the numeric chain ID (314 for mainnet, 314159 for calibration)
+- `getProvider()` - Get the underlying ethers Provider instance (useful for cleanup - see [Connection Management](#connection-management))
 
 #### Synapse.storage Methods
 
@@ -281,6 +371,15 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
+**Rail Settlement:**
+- `getRailsAsPayer(token?)` - Get all payment rails where wallet is the payer, returns `RailInfo[]` with `{railId, isTerminated, endEpoch}` (endEpoch is 0 for active rails)
+- `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
+- `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
+- `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be <= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
+- `settleTerminatedRail(railId)` - Settle a terminated rail without validation, returns `TransactionResponse`
+- `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be <= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
+- `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be <= current epoch for active rails)
+
 #### Storage Context Methods
 
 A `StorageContext` (previously `StorageService`) represents a connection to a specific service provider and data set. Create one with `synapse.storage.createContext()`.
@@ -315,7 +414,7 @@ Behind the scenes, the process may be:
 
 #### Basic Usage
 
-```javascript
+```typescript
 // Option 1: Auto-managed context (simplest)
 await synapse.storage.upload(data)  // Context created/reused automatically
 
@@ -328,7 +427,7 @@ await context.upload(data)  // Upload to this specific context
 
 Monitor the creation process with detailed callbacks:
 
-```javascript
+```typescript
 const context = await synapse.storage.createContext({
   providerAddress: '0x...', // Optional: use specific provider address
   withCDN: true,            // Optional: enable CDN for faster downloads
@@ -387,7 +486,7 @@ interface StorageServiceOptions {
 
 Once created, the storage context provides access to:
 
-```javascript
+```typescript
 // The data set ID being used
 console.log(`Data set ID: ${context.dataSetId}`)
 
@@ -401,7 +500,7 @@ console.log(`Service provider: ${context.serviceProvider}`)
 
 Check if an upload is possible before attempting it:
 
-```javascript
+```typescript
 const preflight = await context.preflightUpload(dataSize)
 console.log('Estimated costs:', preflight.estimatedCost)
 console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
@@ -411,7 +510,7 @@ console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 
 Upload and download data with the storage context:
 
-```javascript
+```typescript
 // Upload with optional progress callbacks
 const result = await context.upload(data, {
   onUploadComplete: (pieceCid) => {
@@ -460,7 +559,7 @@ Attempting to upload data outside these limits will result in an error.
 
 When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
 
-```javascript
+```typescript
 // Efficient: Start all uploads without await - they'll be batched automatically
 const uploads = []
 for (const data of dataArray) {
@@ -480,7 +579,7 @@ The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`)
 
 Get comprehensive information about the storage service:
 
-```javascript
+```typescript
 // Get storage service info including pricing and providers
 const info = await synapse.getStorageInfo()
 console.log('Price per TiB/month:', info.pricing.noCDN.perTiBPerMonth)
@@ -500,7 +599,7 @@ The SDK provides flexible download options with clear semantics:
 
 Download pieces from any available provider using the StorageManager:
 
-```javascript
+```typescript
 // Download from any provider that has the piece
 const data = await synapse.storage.download(pieceCid)
 
@@ -517,7 +616,7 @@ const dataFromProvider = await synapse.storage.download(pieceCid, {
 
 When using a StorageContext, downloads are automatically restricted to that specific provider:
 
-```javascript
+```typescript
 // Downloads from the provider associated with this context
 const context = await synapse.storage.createContext({ providerAddress: '0x...' })
 const data = await context.download(pieceCid)
@@ -535,7 +634,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 2. **StorageService level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
-```javascript
+```typescript
 // Example of inheritance
 const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
 const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
@@ -579,7 +678,7 @@ Official documentation for configuring MetaMask with Filecoin (both Mainnet and 
 
 If you want to add the Filecoin network programmatically, you can use the following code snippet, for Mainnet (change accordingly for Calibration Testnet):
 
-```javascript
+```typescript
 // Add Filecoin network to MetaMask
 await window.ethereum.request({
   method: 'wallet_addEthereumChain',
@@ -611,7 +710,7 @@ The SDK is fully typed with TypeScript. Key types include:
 
 All SDK methods use descriptive error messages with proper error chaining:
 
-```javascript
+```typescript
 try {
   await synapse.payments.deposit(amount)
 } catch (error) {

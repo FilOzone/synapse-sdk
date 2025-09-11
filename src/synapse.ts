@@ -67,7 +67,12 @@ export class Synapse {
       }
 
       // Create provider and wallet
-      provider = new ethers.JsonRpcProvider(rpcURL)
+      // if websockets, use correct provider
+      if (/^ws(s)?:\/\//i.test(rpcURL)) {
+        provider = new ethers.WebSocketProvider(rpcURL)
+      } else {
+        provider = new ethers.JsonRpcProvider(rpcURL)
+      }
 
       network = await getFilecoinNetworkType(provider)
 
