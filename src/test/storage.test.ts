@@ -412,6 +412,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
+          providerId: 3,
           pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0, // No pieces
@@ -427,6 +428,7 @@ describe('StorageService', () => {
           railId: 2,
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x3333333333333333333333333333333333333333',
+          providerId: 3,
           pdpVerifierDataSetId: 101,
           nextPieceId: 5,
           currentPieceCount: 5, // Has pieces - should be preferred
@@ -469,6 +471,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.serviceProvider,
+          providerId: 3,
           pdpVerifierDataSetId: 100,
           nextPieceId: 0,
           currentPieceCount: 0,
@@ -566,6 +569,7 @@ describe('StorageService', () => {
           railId: 1,
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.serviceProvider,
+          providerId: 4,
           pdpVerifierDataSetId: 789,
           nextPieceId: 0,
           currentPieceCount: 0,
