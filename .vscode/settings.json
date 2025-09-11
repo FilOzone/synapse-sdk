@@ -6,6 +6,8 @@
   "editor.formatOnSave": true,
   "javascript.format.enable": false,
   "typescript.format.enable": false,
+  "eslint.enable": false,
+  "prettier.enable": false,
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "javascript.preferences.importModuleSpecifierEnding": "js",
   "typescript.preferences.importModuleSpecifierEnding": "js"
