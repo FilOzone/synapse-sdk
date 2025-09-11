@@ -5,6 +5,7 @@
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
@@ -33,6 +34,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private _session: SessionKey | null = null
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -188,6 +190,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._session = null
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
@@ -202,11 +205,52 @@ export class Synapse {
   }
 
   /**
-   * Gets the signer instance
+   * Gets the signer instance, possibly a session key
    * @returns The ethers signer
    */
   getSigner(): ethers.Signer {
+    if (this._session == null) {
+      return this._signer
+    } else {
+      return this._session.getSigner()
+    }
+  }
+
+  /**
+   * Gets the client signer instance
+   * @returns the ethers signer
+   */
+  getClient(): ethers.Signer {
     return this._signer
+  }
+
+  /**
+   * Sets the signer as the session key for storage actions
+   * @param sessionKeySigner The session key signer
+   * @returns The SessionKey object for this signer
+   * @example
+   * ```typescript
+   * const sessionKey = synapse.setSession(privateKey)
+   *
+   * // check for previous login
+   * await sessionKey.fetchExpiries()
+   * const HOUR_MILLIS = 1000 * 60 * 60
+   * if (sessionKey.expiries[ADD_PIECES_TYPEHASH] * 1000 < Date.now() + HOUR_MILLIS) {
+   *   const DAY_MILLIS = 24 * HOUR_MILLIS
+   *   await sessionKey.login(BigInt(Date.now() / 1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS)
+   * }
+   *
+   * const context = await synapse.storage.createContext()
+   * ```
+   */
+  setSession(sessionKeySigner: ethers.Signer): SessionKey {
+    this._session = new SessionKey(
+      this._provider,
+      this._warmStorageService.getSessionKeyRegistry(),
+      sessionKeySigner,
+      this._signer
+    )
+    return this._session
   }
 
   /**

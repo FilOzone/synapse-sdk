@@ -39,6 +39,8 @@ export type viewContractAddress = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_S
 
 export type serviceProviderRegistry = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'serviceProviderRegistry'>
 
+export type sessionKeyRegistry = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'sessionKeyRegistry'>
+
 export type getServicePrice = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'getServicePrice'>
 
 export interface WarmStorageOptions {
@@ -54,6 +56,7 @@ export interface WarmStorageOptions {
   serviceProviderRegistry?: (
     args: AbiToType<serviceProviderRegistry['inputs']>
   ) => AbiToType<serviceProviderRegistry['outputs']>
+  sessionKeyRegistry?: (args: AbiToType<sessionKeyRegistry['inputs']>) => AbiToType<sessionKeyRegistry['outputs']>
   getServicePrice?: (args: AbiToType<getServicePrice['inputs']>) => AbiToType<getServicePrice['outputs']>
 }
 
@@ -126,6 +129,16 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       )
     }
 
+    case 'sessionKeyRegistry': {
+      if (!options.warmStorage?.sessionKeyRegistry) {
+        throw new Error('Warm Storage: sessionKeyRegistry is not defined')
+      }
+      return encodeAbiParameters(
+        [{ name: '', internalType: 'address', type: 'address' }],
+        options.warmStorage.sessionKeyRegistry(args)
+      )
+    }
+
     case 'getServicePrice': {
       if (!options.warmStorage?.getServicePrice) {
         throw new Error('Warm Storage: getServicePrice is not defined')
@@ -135,6 +148,7 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         options.warmStorage.getServicePrice(args)
       )
     }
+
     default: {
       throw new Error(`Warm Storage: unknown function: ${functionName} with args: ${args}`)
     }

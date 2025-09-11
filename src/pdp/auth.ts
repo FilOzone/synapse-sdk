@@ -222,16 +222,16 @@ export class PDPAuthHelper {
    *
    * @param clientDataSetId - Unique dataset ID for the client (typically starts at 0 and increments)
    * @param payee - Service provider's address that will receive payments
-   * @param withCDN - Whether to enable CDN service for faster retrieval (default: false)
+   * @param metadata - Service parameters as key-value pairs
    * @returns Promise resolving to authentication signature for data set creation
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
    * const signature = await auth.signCreateDataSet(
-   *   0,                              // First dataset for this client
-   *   '0x1234...abcd',               // Service provider address
-   *   true                           // Enable CDN service
+   *   0,                                // First dataset for this client
+   *   '0x1234...abcd',                  // Service provider address
+   *   PDPAuthHelper.WITH_CDN_METADATA   // Enable CDN service
    * )
    * ```
    */
