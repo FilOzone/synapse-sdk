@@ -12,7 +12,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
       - name: Use Node.js ${{ matrix.node }}
-        uses: actions/setup-node@v5.0.0
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node }}
       - name: Playwright for Windows
@@ -41,7 +41,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Node.js
-        uses: actions/setup-node@v5.0.0
+        uses: actions/setup-node@v5
         with:
           node-version: lts/*
       - name: Install dependencies
@@ -71,7 +71,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: lts/*
       - run: npm install --no-progress --no-package-lock --no-save
