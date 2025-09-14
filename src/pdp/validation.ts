@@ -7,7 +7,7 @@
 
 import { asPieceCID } from '../piece/index.ts'
 import type { DataSetData, DataSetPieceData } from '../types.ts'
-import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server.ts'
+import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server_selector.ts'
 
 /**
  * Type guard for DataSetCreationStatusResponse

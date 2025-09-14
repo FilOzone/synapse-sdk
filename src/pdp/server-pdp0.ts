@@ -44,7 +44,7 @@ import type {
   FindPieceResponse,
   PieceAdditionStatusResponse,
   UploadResponse,
-} from './server.js'
+} from './server_selector.ts'
 
 export class PDPServerPdp0 {
   private readonly _serviceURL: string
