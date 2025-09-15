@@ -1,3 +1,61 @@
+## [0.25.1](https://github.com/FilOzone/synapse-sdk/compare/v0.25.0...v0.25.1) (2025-09-15)
+
+### Bug Fixes
+
+* mdx formatting ([#218](https://github.com/FilOzone/synapse-sdk/issues/218)) ([f93edec](https://github.com/FilOzone/synapse-sdk/commit/f93edec6af2caf8594635a07cdf21cf018b1d967))
+
+## [0.25.0](https://github.com/FilOzone/synapse-sdk/compare/v0.24.11...v0.25.0) (2025-09-15)
+
+### Features
+
+* payment rail settlement ([#136](https://github.com/FilOzone/synapse-sdk/issues/136)) ([9a5503e](https://github.com/FilOzone/synapse-sdk/commit/9a5503ec0fbedd388e7113ab7f78c7f8563d0ff8))
+
+### Trivial Changes
+
+* **deps-dev:** bump type-fest from 4.41.0 to 5.0.0 ([#217](https://github.com/FilOzone/synapse-sdk/issues/217)) ([d3a3608](https://github.com/FilOzone/synapse-sdk/commit/d3a360873dea9587fdc4643fd8f8a74b2f337891))
+* **no-release:** disable eslint and prettier in VSCode settings ([#214](https://github.com/FilOzone/synapse-sdk/issues/214)) ([0631dbf](https://github.com/FilOzone/synapse-sdk/commit/0631dbfc156b87aaf66adf184ed6b89f91feb1fd))
+
+## [0.24.11](https://github.com/FilOzone/synapse-sdk/compare/v0.24.10...v0.24.11) (2025-09-11)
+
+### Trivial Changes
+
+* **deps-dev:** bump @biomejs/biome from 2.2.3 to 2.2.4 ([#213](https://github.com/FilOzone/synapse-sdk/issues/213)) ([d79ba37](https://github.com/FilOzone/synapse-sdk/commit/d79ba37de99a5f0150e8065bf9d8c5de4c1016bd))
+* **deps:** bump actions/setup-node from 4 to 5 ([#212](https://github.com/FilOzone/synapse-sdk/issues/212)) ([32ec07a](https://github.com/FilOzone/synapse-sdk/commit/32ec07a1df8a81fc6c43fba00e96c18ecea776ed))
+
+## [0.24.10](https://github.com/FilOzone/synapse-sdk/compare/v0.24.9...v0.24.10) (2025-09-11)
+
+### Bug Fixes
+
+* select data set using providerId, not payee ([#211](https://github.com/FilOzone/synapse-sdk/issues/211)) ([6382e81](https://github.com/FilOzone/synapse-sdk/commit/6382e81330c787d328d9234f2a749643aa6ad3d6))
+
+### Trivial Changes
+
+* **no-release:** fix docs ([70d2c43](https://github.com/FilOzone/synapse-sdk/commit/70d2c43b24e9bed6c610a365353bae7010af8d24))
+* **no-release:** fix docs base path ([11ed22d](https://github.com/FilOzone/synapse-sdk/commit/11ed22dd76a147160cffae7983d60ad215d0a683))
+* **no-release:** fix docs index urls for github pages ([d31669b](https://github.com/FilOzone/synapse-sdk/commit/d31669bc824d3dba3886ae8b8bd6ace6afa650a2))
+* **no-release:** github urls again ([1c1aee5](https://github.com/FilOzone/synapse-sdk/commit/1c1aee566d3e409fcf711a37359651286f5c8782))
+* **no-release:** make docs run only on master ([04a6f2b](https://github.com/FilOzone/synapse-sdk/commit/04a6f2b5ba54491286107c7773cc82a60fdc96e6))
+
+## [0.24.9](https://github.com/FilOzone/synapse-sdk/compare/v0.24.8...v0.24.9) (2025-09-10)
+
+### Trivial Changes
+
+* **docs:** add GitHub Pages deployment workflow and enable GitHub Pages in Astro config ([#210](https://github.com/FilOzone/synapse-sdk/issues/210)) ([4158abf](https://github.com/FilOzone/synapse-sdk/commit/4158abfa2aca84523c40b810acaccd0eadb9de6f))
+
+## [0.24.8](https://github.com/FilOzone/synapse-sdk/compare/v0.24.7...v0.24.8) (2025-09-10)
+
+### Trivial Changes
+
+* **docs:** initialize documentation site with Astro and Starlight ([#180](https://github.com/FilOzone/synapse-sdk/issues/180)) ([770efcb](https://github.com/FilOzone/synapse-sdk/commit/770efcbc66205577032be9e2098d151bdd2f3984))
+
+## [0.24.7](https://github.com/FilOzone/synapse-sdk/compare/v0.24.6...v0.24.7) (2025-09-10)
+
+### Trivial Changes
+
+* fix service-provider-tool ([#196](https://github.com/FilOzone/synapse-sdk/issues/196)) ([07374a6](https://github.com/FilOzone/synapse-sdk/commit/07374a632ac89e71ec8c6577c29d106dec43ed0d))
+
+## [0.24.6](https://github.com/FilOzone/synapse-sdk/compare/v0.24.5...v0.24.6) (2025-09-09)
+
 ## [0.24.5](https://github.com/FilOzone/synapse-sdk/compare/v0.24.4...v0.24.5) (2025-09-09)
 
 ### Trivial Changes

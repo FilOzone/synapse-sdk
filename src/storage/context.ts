@@ -562,11 +562,7 @@ export class StorageContext {
 
     // Filter for this provider's data sets
     const providerDataSets = dataSets.filter(
-      (ps) =>
-        ps.payee.toLowerCase() === provider.serviceProvider.toLowerCase() &&
-        ps.isLive &&
-        ps.isManaged &&
-        ps.withCDN === withCDN
+      (ps) => ps.providerId === provider.id && ps.isLive && ps.isManaged && ps.withCDN === withCDN
     )
 
     if (providerDataSets.length > 0) {

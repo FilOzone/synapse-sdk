@@ -235,6 +235,34 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
 }
 
 /**
+ * Information about a payment rail
+ */
+export interface RailInfo {
+  /** Rail ID */
+  railId: number
+  /** Whether the rail is terminated */
+  isTerminated: boolean
+  /** End epoch (0 if not terminated) */
+  endEpoch: number
+}
+
+/**
+ * Settlement result from settling a payment rail
+ */
+export interface SettlementResult {
+  /** Total amount that was settled */
+  totalSettledAmount: bigint
+  /** Net amount sent to payee after commission */
+  totalNetPayeeAmount: bigint
+  /** Commission amount for operator */
+  totalOperatorCommission: bigint
+  /** Final epoch that was settled */
+  finalSettledEpoch: bigint
+  /** Note about the settlement */
+  note: string
+}
+
+/**
  * Callbacks for storage service creation process
  */
 export interface StorageCreationCallbacks {
@@ -321,9 +349,9 @@ export interface PreflightInfo {
 export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
-  /** Called when piece is added to data set (with optional transaction for new servers) */
+  /** Called when the service provider has added the piece and submitted the transaction to the chain */
   onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
-  /** Called when piece addition is confirmed on-chain (new servers only) */
+  /** Called when the service provider agrees that the piece addition is confirmed on-chain */
   onPieceConfirmed?: (pieceIds: number[]) => void
 }
 

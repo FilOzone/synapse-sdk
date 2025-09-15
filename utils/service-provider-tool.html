@@ -150,11 +150,12 @@
         
         <div class="status info">
             <div class="input-group">
-                <label for="contractAddressInput">Contract Address:</label>
-                <input type="text" id="contractAddressInput" value="0xbB94727BC196eF7457417c09956437A3dd08790A" placeholder="0x...">
+                <label for="contractAddressInput">WarmStorage Contract Address:</label>
+                <input type="text" id="contractAddressInput" value="" placeholder="Will auto-detect based on network">
                 <button onclick="updateContractAddress()" style="margin-top: 5px;">Update Contract</button>
+                <button onclick="resetToDefault()" style="margin-top: 5px;">Reset to Default</button>
             </div>
-            <strong>Network:</strong> Filecoin Calibration Testnet
+            <strong>Network:</strong> <span id="networkDisplay">Connect wallet to detect network</span>
         </div>
 
         <div class="auth-section">
@@ -184,57 +185,73 @@
 
         <div class="tabs">
             <div class="tab active" onclick="showTab('register')">Register Provider</div>
-            <div class="tab" onclick="showTab('manage')">Manage Providers</div>
             <div class="tab" onclick="showTab('query')">Query Providers</div>
         </div>
 
         <div id="registerTab" class="tab-content active">
             <h2>Register as Service Provider</h2>
-            <p>Service providers use this to register their service URLs.</p>
+            <p>Service providers use this to register with the new registry system. Registration requires a 5 FIL fee.</p>
             
             <div class="input-group">
-                <label for="pdpUrl">PDP API URL:</label>
-                <input type="text" id="pdpUrl" placeholder="https://pdp.example.com" value="http://192.168.1.5:4702">
+                <label for="providerName">Provider Name:</label>
+                <input type="text" id="providerName" placeholder="My Storage Provider" value="">
             </div>
             
             <div class="input-group">
-                <label for="retrievalUrl">Piece Retrieval URL:</label>
-                <input type="text" id="retrievalUrl" placeholder="https://retrieve.example.com" value="http://192.168.1.5:4702">
+                <label for="providerDescription">Description:</label>
+                <input type="text" id="providerDescription" placeholder="High-performance storage service" value="">
             </div>
             
-            <button onclick="registerProvider()">Register Provider</button>
+            <div class="input-group">
+                <label for="payeeAddress">Payee Address (optional - defaults to your address):</label>
+                <input type="text" id="payeeAddress" placeholder="0x... (leave blank to use your address)" value="">
+            </div>
+            
+            <div class="input-group">
+                <label for="serviceUrl">Service URL:</label>
+                <input type="text" id="serviceUrl" placeholder="https://provider.example.com" value="http://192.168.1.5:4702">
+            </div>
+            
+            <div class="input-group">
+                <label for="location">Location (optional):</label>
+                <input type="text" id="location" placeholder="us-east" value="">
+            </div>
+            
+            <div class="input-group">
+                <label for="storagePrice">Storage Price (USDFC per TiB per month):</label>
+                <input type="number" id="storagePrice" placeholder="1" value="1" min="0" step="0.01">
+            </div>
+            
+            <div class="input-group">
+                <label for="minPieceSize">Min Piece Size (bytes):</label>
+                <input type="number" id="minPieceSize" placeholder="1024" value="1024" min="1">
+            </div>
+            
+            <div class="input-group">
+                <label for="maxPieceSize">Max Piece Size (bytes):</label>
+                <input type="number" id="maxPieceSize" placeholder="34359738368" value="34359738368" min="1024">
+            </div>
+            
+            <div class="input-group">
+                <label for="minProvingPeriod">Min Proving Period (epochs):</label>
+                <input type="number" id="minProvingPeriod" placeholder="30" value="30" min="1">
+            </div>
+            
+            <div class="status warning">
+                <strong>Note:</strong> Registration requires a 5 FIL fee. Make sure your wallet has sufficient balance.
+            </div>
+            
+            <button onclick="registerProvider()">Register Provider (5 FIL fee)</button>
         </div>
 
-        <div id="manageTab" class="tab-content">
-            <h2>Manage Providers (Owner Only)</h2>
-            <p>Only the contract owner can approve, reject, or remove providers.</p>
-            
-            <div class="input-group">
-                <label for="providerAddress">Provider Address:</label>
-                <input type="text" id="providerAddress" placeholder="0x...">
-            </div>
-            
-            <div class="action-buttons">
-                <button onclick="approveProvider()">Approve Provider</button>
-                <button onclick="rejectProvider()">Reject Provider</button>
-            </div>
-            
-            <div class="input-group" style="margin-top: 20px;">
-                <label for="providerId">Provider ID (for removal):</label>
-                <input type="text" id="providerId" placeholder="1">
-            </div>
-            
-            <button onclick="removeProvider()">Remove Provider</button>
-        </div>
 
         <div id="queryTab" class="tab-content">
             <h2>Query Provider Information</h2>
             
             <div class="action-buttons">
-                <button onclick="checkOwner()">Check Contract Owner</button>
-                <button onclick="checkIfOwner()">Am I Owner?</button>
-                <button onclick="getNextProviderId()">Get Next Provider ID</button>
-                <button onclick="getAllProviders()">List All Approved Providers</button>
+                <button onclick="getProviderCount()">Get Provider Count</button>
+                <button onclick="getActiveProviderCount()">Get Active Provider Count</button>
+                <button onclick="getAllProviders()">List All Active Providers</button>
             </div>
             
             <div class="input-group" style="margin-top: 20px;">
@@ -243,9 +260,9 @@
             </div>
             
             <div class="action-buttons">
-                <button onclick="checkApproval()">Check if Approved</button>
+                <button onclick="checkRegistration()">Check if Registered</button>
                 <button onclick="getProviderId()">Get Provider ID</button>
-                <button onclick="getPendingInfo()">Get Pending Info</button>
+                <button onclick="getProviderInfo()">Get Provider Info</button>
             </div>
             
             <div class="input-group" style="margin-top: 20px;">
@@ -260,13 +277,14 @@
     </div>
 
     <script>
-        const { ServiceProviderTool } = window.SynapseSDK;
+        const { SPRegistryService, WarmStorageService, CONTRACT_ADDRESSES, getFilecoinNetworkType } = window.SynapseSDK;
         
-        let tool = null;
+        let spRegistry = null;
+        let warmStorage = null;
         let provider = null;
         let signer = null;
         
-        let CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value;
+        let CONTRACT_ADDRESS = null; // Will be set when connecting
         const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
         
         function log(message, type = 'info') {
@@ -288,6 +306,32 @@
             document.getElementById('privateKeyAuth').style.display = method === 'privateKey' ? 'block' : 'none';
         }
         
+        async function getDefaultWarmStorageAddress(provider) {
+            try {
+                const networkName = await getFilecoinNetworkType(provider);
+                const defaultAddress = CONTRACT_ADDRESSES.WARM_STORAGE[networkName];
+                if (!defaultAddress) {
+                    throw new Error(`No default address available for network: ${networkName}`);
+                }
+                return { address: defaultAddress, network: networkName };
+            } catch (error) {
+                // Fallback to network detection via chainId
+                const network = await provider.getNetwork();
+                const chainId = Number(network.chainId);
+                const networkName = chainId === 314159 ? 'calibration' : chainId === 314 ? 'mainnet' : null;
+                
+                if (!networkName) {
+                    throw new Error(`Unsupported network. Please switch to Filecoin Mainnet (314) or Calibration (314159)`);
+                }
+                
+                const defaultAddress = CONTRACT_ADDRESSES.WARM_STORAGE[networkName];
+                if (!defaultAddress) {
+                    throw new Error(`No default address available for network: ${networkName}`);
+                }
+                return { address: defaultAddress, network: networkName };
+            }
+        }
+        
         function updateContractAddress() {
             const newAddress = document.getElementById('contractAddressInput').value.trim();
             if (!newAddress || !newAddress.startsWith('0x') || newAddress.length !== 42) {
@@ -296,9 +340,29 @@
             }
             
             CONTRACT_ADDRESS = newAddress;
-            tool = null; // Reset tool instance
-            log(`Contract address updated to: ${CONTRACT_ADDRESS}`, 'success');
+            spRegistry = null; // Reset registry instance
+            warmStorage = null;
+            log(`WarmStorage address updated to: ${CONTRACT_ADDRESS}`, 'success');
             log('Please reconnect your wallet to use the new contract', 'info');
+        }
+        
+        async function resetToDefault() {
+            if (!provider) {
+                log('Please connect wallet first to detect network', 'error');
+                return;
+            }
+            
+            try {
+                const { address, network } = await getDefaultWarmStorageAddress(provider);
+                CONTRACT_ADDRESS = address;
+                document.getElementById('contractAddressInput').value = address;
+                spRegistry = null; // Reset registry instance
+                warmStorage = null;
+                log(`Reset to default ${network} address: ${address}`, 'success');
+                log('Please reconnect your wallet to use the default contract', 'info');
+            } catch (error) {
+                log(`Failed to get default address: ${error.message}`, 'error');
+            }
         }
         
         async function connectMetaMask() {
@@ -311,15 +375,49 @@
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
-                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
-                tool = new ServiceProviderTool(CONTRACT_ADDRESS, signer);
+                
+                // Get or auto-detect WarmStorage address
+                let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
+                let detectedNetwork = null;
+                if (!warmStorageAddress) {
+                    log('Auto-detecting WarmStorage address from network...', 'info');
+                    const { address, network } = await getDefaultWarmStorageAddress(provider);
+                    warmStorageAddress = address;
+                    CONTRACT_ADDRESS = address;
+                    detectedNetwork = network;
+                    document.getElementById('contractAddressInput').value = address;
+                    log(`Using default ${network} WarmStorage: ${address}`, 'info');
+                } else {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch (e) {
+                        detectedNetwork = 'unknown';
+                    }
+                }
+                
+                // Update network display
+                const networkNames = {
+                    'calibration': 'Filecoin Calibration Testnet',
+                    'mainnet': 'Filecoin Mainnet',
+                    'unknown': 'Unknown Network'
+                };
+                document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
+                
+                // Initialize WarmStorage and discover SP Registry
+                warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
+                const registryAddress = warmStorage.getServiceProviderRegistryAddress();
+                spRegistry = new SPRegistryService(provider, registryAddress);
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
-                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}`;
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
                 
                 log(`Connected to MetaMask: ${address}`, 'success');
+                log(`SP Registry discovered: ${registryAddress}`, 'info');
             } catch (error) {
                 log(`Failed to connect: ${error.message}`, 'error');
             }
@@ -335,15 +433,49 @@
             try {
                 provider = new ethers.JsonRpcProvider(RPC_URL);
                 signer = new ethers.Wallet(privateKey, provider);
-                CONTRACT_ADDRESS = document.getElementById('contractAddressInput').value.trim();
-                tool = new ServiceProviderTool(CONTRACT_ADDRESS, signer);
+                
+                // Get or auto-detect WarmStorage address
+                let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
+                let detectedNetwork = null;
+                if (!warmStorageAddress) {
+                    log('Auto-detecting WarmStorage address from network...', 'info');
+                    const { address, network } = await getDefaultWarmStorageAddress(provider);
+                    warmStorageAddress = address;
+                    CONTRACT_ADDRESS = address;
+                    detectedNetwork = network;
+                    document.getElementById('contractAddressInput').value = address;
+                    log(`Using default ${network} WarmStorage: ${address}`, 'info');
+                } else {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch (e) {
+                        detectedNetwork = 'unknown';
+                    }
+                }
+                
+                // Update network display
+                const networkNames = {
+                    'calibration': 'Filecoin Calibration Testnet',
+                    'mainnet': 'Filecoin Mainnet',
+                    'unknown': 'Unknown Network'
+                };
+                document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
+                
+                // Initialize WarmStorage and discover SP Registry
+                warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
+                const registryAddress = warmStorage.getServiceProviderRegistryAddress();
+                spRegistry = new SPRegistryService(provider, registryAddress);
                 
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
-                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}`;
+                document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
                 
                 log(`Connected with private key: ${address}`, 'success');
+                log(`SP Registry discovered: ${registryAddress}`, 'info');
             } catch (error) {
                 log(`Failed to connect: ${error.message}`, 'error');
             }
@@ -364,239 +496,187 @@
         }
         
         async function registerProvider() {
-            if (!tool) {
+            if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
-            const pdpUrl = document.getElementById('pdpUrl').value;
-            const retrievalUrl = document.getElementById('retrievalUrl').value;
+            const name = document.getElementById('providerName').value.trim();
+            const description = document.getElementById('providerDescription').value.trim();
+            const payeeAddress = document.getElementById('payeeAddress').value.trim();
+            const serviceUrl = document.getElementById('serviceUrl').value.trim();
+            const location = document.getElementById('location').value.trim();
+            const storagePrice = document.getElementById('storagePrice').value;
+            const minPieceSize = document.getElementById('minPieceSize').value;
+            const maxPieceSize = document.getElementById('maxPieceSize').value;
+            const minProvingPeriod = document.getElementById('minProvingPeriod').value;
             
-            if (!pdpUrl || !retrievalUrl) {
-                log('Please enter both URLs', 'error');
+            if (!name || !description || !serviceUrl || !storagePrice || !minPieceSize || !maxPieceSize || !minProvingPeriod) {
+                log('Please fill in all required fields', 'error');
                 return;
             }
             
             try {
+                log('Checking wallet balance...', 'info');
+                const signerAddress = await signer.getAddress();
+                const balance = await provider.getBalance(signerAddress);
+                const requiredFee = ethers.parseEther('5');
+                
+                if (balance < requiredFee) {
+                    log(`Insufficient balance. Required: 5 FIL, Available: ${ethers.formatEther(balance)} FIL`, 'error');
+                    return;
+                }
+                
+                log('Preparing registration...', 'info');
+                
+                // Prepare registration info
+                const registrationInfo = {
+                    payee: payeeAddress || signerAddress,
+                    name: name,
+                    description: description,
+                    pdpOffering: {
+                        serviceURL: serviceUrl,
+                        minPieceSizeInBytes: BigInt(minPieceSize),
+                        maxPieceSizeInBytes: BigInt(maxPieceSize),
+                        ipniPiece: false,
+                        ipniIpfs: false,
+                        storagePricePerTibPerMonth: ethers.parseUnits(storagePrice, 18),
+                        minProvingPeriodInEpochs: parseInt(minProvingPeriod),
+                        location: location || 'unknown',
+                        paymentTokenAddress: '0x0000000000000000000000000000000000000000'
+                    },
+                    capabilities: location ? { location: location } : {}
+                };
+                
                 log('Registering service provider...', 'info');
-                const tx = await tool.register(pdpUrl, retrievalUrl);
+                const tx = await spRegistry.registerProvider(signer, registrationInfo);
                 log(`Transaction sent: ${tx.hash}`, 'info');
                 
                 const receipt = await tx.wait();
                 log(`Registration successful! Gas used: ${receipt.gasUsed}`, 'success');
-                log('Your registration is now pending. Contact the contract owner for approval.', 'info');
+                
+                // Try to get the provider ID from the transaction logs
+                try {
+                    const providerId = await spRegistry.getProviderIdByAddress(signerAddress);
+                    if (providerId > 0) {
+                        log(`Your Provider ID: ${providerId}`, 'success');
+                    }
+                } catch (e) {
+                    log('Provider registered successfully but could not retrieve ID immediately', 'info');
+                }
+                
             } catch (error) {
                 log(`Registration failed: ${error.message}`, 'error');
             }
         }
         
-        async function approveProvider() {
-            if (!tool) {
-                log('Please connect wallet first', 'error');
-                return;
-            }
-            
-            clearOutput();
-            const providerAddress = document.getElementById('providerAddress').value;
-            
-            if (!providerAddress) {
-                log('Please enter provider address', 'error');
-                return;
-            }
-            
-            try {
-                // Check if we're the owner
-                const isOwner = await tool.isOwner();
-                if (!isOwner) {
-                    log('Only the contract owner can approve providers', 'error');
-                    return;
-                }
-                
-                log('Approving provider...', 'info');
-                const tx = await tool.approve(providerAddress);
-                log(`Transaction sent: ${tx.hash}`, 'info');
-                
-                const receipt = await tx.wait();
-                log(`Provider approved! Gas used: ${receipt.gasUsed}`, 'success');
-            } catch (error) {
-                log(`Approval failed: ${error.message}`, 'error');
-            }
-        }
         
-        async function rejectProvider() {
-            if (!tool) {
-                log('Please connect wallet first', 'error');
-                return;
-            }
-            
-            clearOutput();
-            const providerAddress = document.getElementById('providerAddress').value;
-            
-            if (!providerAddress) {
-                log('Please enter provider address', 'error');
-                return;
-            }
-            
-            try {
-                // Check if we're the owner
-                const isOwner = await tool.isOwner();
-                if (!isOwner) {
-                    log('Only the contract owner can reject providers', 'error');
-                    return;
-                }
-                
-                log('Rejecting provider...', 'info');
-                const tx = await tool.reject(providerAddress);
-                log(`Transaction sent: ${tx.hash}`, 'info');
-                
-                const receipt = await tx.wait();
-                log(`Provider rejected! Gas used: ${receipt.gasUsed}`, 'success');
-            } catch (error) {
-                log(`Rejection failed: ${error.message}`, 'error');
-            }
-        }
         
-        async function removeProvider() {
-            if (!tool) {
-                log('Please connect wallet first', 'error');
-                return;
-            }
-            
-            clearOutput();
-            const providerId = document.getElementById('providerId').value;
-            
-            if (!providerId) {
-                log('Please enter provider ID', 'error');
-                return;
-            }
-            
-            try {
-                // Check if we're the owner
-                const isOwner = await tool.isOwner();
-                if (!isOwner) {
-                    log('Only the contract owner can remove providers', 'error');
-                    return;
-                }
-                
-                log('Removing provider...', 'info');
-                const tx = await tool.remove(BigInt(providerId));
-                log(`Transaction sent: ${tx.hash}`, 'info');
-                
-                const receipt = await tx.wait();
-                log(`Provider removed! Gas used: ${receipt.gasUsed}`, 'success');
-            } catch (error) {
-                log(`Removal failed: ${error.message}`, 'error');
-            }
-        }
         
-        async function checkOwner() {
-            if (!tool) {
+        async function getProviderCount() {
+            if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
             try {
-                const owner = await tool.getOwner();
-                log(`Contract Owner: ${owner}`, 'info');
+                const count = await spRegistry.getProviderCount();
+                log(`Total Providers: ${count}`, 'info');
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
             }
         }
         
-        async function checkIfOwner() {
-            if (!tool) {
+        async function getActiveProviderCount() {
+            if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
             try {
-                const isOwner = await tool.isOwner();
-                const signerAddress = await tool.getSignerAddress();
-                log(`Your address: ${signerAddress}`, 'info');
-                log(`Are you the owner? ${isOwner ? 'YES' : 'NO'}`, isOwner ? 'success' : 'warning');
+                const count = await spRegistry.activeProviderCount();
+                log(`Active Providers: ${count}`, 'info');
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
             }
         }
         
-        async function getNextProviderId() {
-            if (!tool) {
-                log('Please connect wallet first', 'error');
-                return;
-            }
-            
-            clearOutput();
-            try {
-                const nextId = await tool.getNextProviderId();
-                log(`Next Provider ID: ${nextId}`, 'info');
-                log(`This means there are ${nextId - 1n} provider slots (some may be removed)`, 'info');
-            } catch (error) {
-                log(`Error: ${error.message}`, 'error');
-            }
-        }
         
-        async function checkApproval() {
-            if (!tool) {
+        async function checkRegistration() {
+            if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
-            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            const address = document.getElementById('queryAddress').value || await signer.getAddress();
             
             try {
-                const isApproved = await tool.isApproved(address);
+                const isRegistered = await spRegistry.isRegisteredProvider(address);
                 log(`Address: ${address}`, 'info');
-                log(`Is Approved: ${isApproved ? 'YES' : 'NO'}`, isApproved ? 'success' : 'warning');
+                log(`Is Registered: ${isRegistered ? 'YES' : 'NO'}`, isRegistered ? 'success' : 'warning');
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
             }
         }
         
         async function getProviderId() {
-            if (!tool) {
+            if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
-            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            const address = document.getElementById('queryAddress').value || await signer.getAddress();
             
             try {
-                const id = await tool.getProviderIdByAddress(address);
+                const id = await spRegistry.getProviderIdByAddress(address);
                 log(`Address: ${address}`, 'info');
-                log(`Provider ID: ${id}`, id > 0n ? 'success' : 'warning');
-                if (id === 0n) {
-                    log('ID 0 means the provider is not approved', 'info');
+                log(`Provider ID: ${id}`, id > 0 ? 'success' : 'warning');
+                if (id === 0) {
+                    log('ID 0 means the provider is not registered', 'info');
                 }
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
             }
         }
         
-        async function getPendingInfo() {
-            if (!tool) {
+        async function getProviderInfo() {
+            if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
-            const address = document.getElementById('queryAddress').value || await tool.getSignerAddress();
+            const address = document.getElementById('queryAddress').value || await signer.getAddress();
             
             try {
-                const pending = await tool.getPendingProvider(address);
+                const provider = await spRegistry.getProviderByAddress(address);
                 log(`Address: ${address}`, 'info');
                 
-                if (pending.registeredAt > 0n) {
-                    log('Pending Registration Found:', 'success');
-                    log(`PDP URL: ${pending.pdpUrl}`, 'info');
-                    log(`Retrieval URL: ${pending.pieceRetrievalUrl}`, 'info');
-                    log(`Registered at block: ${pending.registeredAt}`, 'info');
+                if (provider) {
+                    log('Provider Information Found:', 'success');
+                    log(`Provider ID: ${provider.id}`, 'info');
+                    log(`Name: ${provider.name}`, 'info');
+                    log(`Description: ${provider.description}`, 'info');
+                    log(`Payee: ${provider.payee}`, 'info');
+                    log(`Active: ${provider.active}`, 'info');
+                    
+                    if (provider.products.PDP) {
+                        const pdp = provider.products.PDP;
+                        log('PDP Service:', 'info');
+                        log(`  Service URL: ${pdp.data.serviceURL}`, 'info');
+                        log(`  Location: ${pdp.data.location}`, 'info');
+                        log(`  Price: ${ethers.formatUnits(pdp.data.storagePricePerTibPerMonth, 18)} USDFC/TiB/month`, 'info');
+                        log(`  Min Piece Size: ${pdp.data.minPieceSizeInBytes} bytes`, 'info');
+                        log(`  Max Piece Size: ${pdp.data.maxPieceSizeInBytes} bytes`, 'info');
+                        log(`  PDP Active: ${pdp.isActive}`, 'info');
+                    }
                 } else {
-                    log('No pending registration found', 'warning');
+                    log('No provider found for this address', 'warning');
                 }
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
@@ -604,7 +684,7 @@
         }
         
         async function getProviderById() {
-            if (!tool) {
+            if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
@@ -618,52 +698,83 @@
             }
             
             try {
-                const provider = await tool.getApprovedProvider(BigInt(id));
+                const provider = await spRegistry.getProvider(parseInt(id));
                 
-                const div = document.createElement('div');
-                div.className = 'provider-info';
-                div.innerHTML = `
-                    <h4>Provider #${id}</h4>
-                    <strong>Owner:</strong> ${provider.owner}<br>
-                    <strong>PDP URL:</strong> ${provider.pdpUrl}<br>
-                    <strong>Retrieval URL:</strong> ${provider.pieceRetrievalUrl}<br>
-                    <strong>Registered Block:</strong> ${provider.registeredAt}<br>
-                    <strong>Approved Block:</strong> ${provider.approvedAt}
-                `;
-                document.getElementById('output').appendChild(div);
+                if (provider) {
+                    const div = document.createElement('div');
+                    div.className = 'provider-info';
+                    
+                    let pdpInfo = '';
+                    if (provider.products.PDP) {
+                        const pdp = provider.products.PDP;
+                        pdpInfo = `
+                            <strong>Service URL:</strong> ${pdp.data.serviceURL}<br>
+                            <strong>Location:</strong> ${pdp.data.location}<br>
+                            <strong>Price:</strong> ${ethers.formatUnits(pdp.data.storagePricePerTibPerMonth, 18)} USDFC/TiB/month<br>
+                            <strong>Min Piece Size:</strong> ${pdp.data.minPieceSizeInBytes} bytes<br>
+                            <strong>Max Piece Size:</strong> ${pdp.data.maxPieceSizeInBytes} bytes<br>
+                            <strong>PDP Active:</strong> ${pdp.isActive}<br>
+                        `;
+                    }
+                    
+                    div.innerHTML = `
+                        <h4>Provider #${id}</h4>
+                        <strong>Name:</strong> ${provider.name}<br>
+                        <strong>Description:</strong> ${provider.description}<br>
+                        <strong>Service Provider:</strong> ${provider.serviceProvider}<br>
+                        <strong>Payee:</strong> ${provider.payee}<br>
+                        <strong>Active:</strong> ${provider.active}<br>
+                        ${pdpInfo}
+                    `;
+                    document.getElementById('output').appendChild(div);
+                } else {
+                    log(`No provider found with ID ${id}`, 'warning');
+                }
             } catch (error) {
                 log(`Error: ${error.message}`, 'error');
             }
         }
         
         async function getAllProviders() {
-            if (!tool) {
+            if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
             
             clearOutput();
             try {
-                log('Fetching all approved providers...', 'info');
-                const providers = await tool.getAllApprovedProviders();
+                log('Fetching all active providers...', 'info');
+                const providers = await spRegistry.getAllActiveProviders();
                 
                 if (providers.length === 0) {
-                    log('No approved providers found', 'warning');
+                    log('No active providers found', 'warning');
                     return;
                 }
                 
-                log(`Found ${providers.length} approved providers:`, 'success');
+                log(`Found ${providers.length} active providers:`, 'success');
                 
-                providers.forEach(({ id, info }) => {
+                providers.forEach((provider) => {
                     const div = document.createElement('div');
                     div.className = 'provider-info';
+                    
+                    let pdpInfo = '';
+                    if (provider.products.PDP) {
+                        const pdp = provider.products.PDP;
+                        pdpInfo = `
+                            <strong>Service URL:</strong> ${pdp.data.serviceURL}<br>
+                            <strong>Location:</strong> ${pdp.data.location}<br>
+                            <strong>Price:</strong> ${ethers.formatUnits(pdp.data.storagePricePerTibPerMonth, 18)} USDFC/TiB/month<br>
+                        `;
+                    }
+                    
                     div.innerHTML = `
-                        <h4>Provider #${id}</h4>
-                        <strong>Owner:</strong> ${info.owner}<br>
-                        <strong>PDP URL:</strong> ${info.pdpUrl}<br>
-                        <strong>Retrieval URL:</strong> ${info.pieceRetrievalUrl}<br>
-                        <strong>Registered Block:</strong> ${info.registeredAt}<br>
-                        <strong>Approved Block:</strong> ${info.approvedAt}
+                        <h4>Provider #${provider.id}</h4>
+                        <strong>Name:</strong> ${provider.name}<br>
+                        <strong>Description:</strong> ${provider.description}<br>
+                        <strong>Service Provider:</strong> ${provider.serviceProvider}<br>
+                        <strong>Payee:</strong> ${provider.payee}<br>
+                        <strong>Active:</strong> ${provider.active}<br>
+                        ${pdpInfo}
                     `;
                     document.getElementById('output').appendChild(div);
                 });

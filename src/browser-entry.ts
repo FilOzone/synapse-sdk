@@ -7,12 +7,14 @@
 import * as SynapseSDKExports from './index.ts'
 import * as pdpExports from './pdp/index.ts'
 import * as pieceCidExports from './piece/index.ts'
+import * as spRegistryExports from './sp-registry/index.ts'
 
 // Create a flat default export with all exports for UMD builds
 const allExports = {
   ...SynapseSDKExports,
   ...pieceCidExports,
   ...pdpExports,
+  ...spRegistryExports,
 }
 
 export default allExports

@@ -1,4 +1,14 @@
-// Export PDP components
+/**
+ * Exports the PDP components
+ *
+ * @packageDocumentation
+ * @module PDP
+ * @example
+ * ```ts
+ * import { PDPAuthHelper, PDPServer, PDPVerifier } from '@filoz/synapse-sdk/pdp'
+ * ```
+ */
+
 export { PDPAuthHelper } from './auth.ts'
 export type {
   AddPiecesResponse,

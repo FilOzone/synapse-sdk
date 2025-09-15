@@ -6,6 +6,7 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { filecoinWarmStorageServiceAbi, filecoinWarmStorageServiceStateViewAbi } from '../abis/gen.ts'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { createMockProvider, extendMockProviderCall, MOCK_ADDRESSES } from './test-utils.ts'
@@ -16,6 +17,10 @@ describe('WarmStorageService', () => {
   const mockWarmStorageAddress = MOCK_ADDRESSES.WARM_STORAGE
   const mockViewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW
   const clientAddress = '0x1234567890123456789012345678901234567890'
+
+  // Create Interface instances for encoding/decoding contract responses
+  const viewInterface = new ethers.Interface(filecoinWarmStorageServiceStateViewAbi)
+  const warmInterface = new ethers.Interface(filecoinWarmStorageServiceAbi)
 
   // Helper to handle viewContractAddress calls
   const handleViewContractAddress = (data: string | undefined): string | null => {
@@ -72,6 +77,111 @@ describe('WarmStorageService', () => {
     })
   })
 
+  describe('getDataSet', () => {
+    it('should return a single data set by ID', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const dataSetId = 123
+
+      cleanup = mockProviderWithView((data) => {
+        // getDataSet call - function selector for getDataSet(uint256)
+        if (data?.startsWith('0xbdaac056') === true) {
+          // Create a valid data set object
+          const dataSetInfo = {
+            pdpRailId: 456,
+            cacheMissRailId: 457,
+            cdnRailId: 458,
+            payer: '0x1234567890123456789012345678901234567890',
+            payee: '0x2345678901234567890123456789012345678901',
+            serviceProvider: '0x3456789012345678901234567890123456789012',
+            commissionBps: 100,
+            clientDataSetId: 5,
+            pdpEndEpoch: 0,
+            providerId: 1,
+            cdnEndEpoch: 0,
+          }
+          // Use the Interface to encode the return data properly
+          return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
+        }
+        return null
+      })
+
+      const result = await warmStorageService.getDataSet(dataSetId)
+      assert.exists(result)
+      assert.equal(result?.pdpRailId, 456)
+      assert.equal(result?.cacheMissRailId, 457)
+      assert.equal(result?.cdnRailId, 458)
+      assert.equal(result?.payer, '0x1234567890123456789012345678901234567890')
+      assert.equal(result?.clientDataSetId, 5)
+    })
+
+    it('should throw for non-existent data set', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const dataSetId = 999
+
+      cleanup = mockProviderWithView((data) => {
+        // getDataSet call
+        if (data?.startsWith('0xbdaac056') === true) {
+          // Return a data set with pdpRailId = 0 (indicates non-existent)
+          const emptyDataSet = {
+            pdpRailId: 0,
+            cacheMissRailId: 0,
+            cdnRailId: 0,
+            payer: ethers.ZeroAddress,
+            payee: ethers.ZeroAddress,
+            serviceProvider: ethers.ZeroAddress,
+            commissionBps: 0,
+            clientDataSetId: 0,
+            pdpEndEpoch: 0,
+            providerId: 0,
+            cdnEndEpoch: 0,
+          }
+          // Use the Interface to encode the return data properly
+          return viewInterface.encodeFunctionResult('getDataSet', [emptyDataSet])
+        }
+        return null
+      })
+
+      try {
+        await warmStorageService.getDataSet(dataSetId)
+        assert.fail('Should have thrown error for non-existent data set')
+      } catch (error: any) {
+        assert.include(error.message, 'Data set 999 does not exist')
+      }
+    })
+
+    it('should handle contract revert gracefully', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const dataSetId = 999
+
+      // Override the call method to simulate a revert
+      const originalCall = mockProvider.call
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+
+        // Check for viewContractAddress first
+        const viewResult = handleViewContractAddress(data)
+        if (viewResult != null) return viewResult
+
+        // Simulate revert for getDataSet
+        if (data?.startsWith('0xbdaac056') === true) {
+          throw new Error('execution reverted: Contract error')
+        }
+
+        return originalCall.call(mockProvider, transaction)
+      }
+
+      try {
+        await warmStorageService.getDataSet(dataSetId)
+        assert.fail('Should have thrown error for contract revert')
+      } catch (error: any) {
+        assert.include(error.message, 'execution reverted')
+      }
+
+      // Restore original call
+      mockProvider.call = originalCall
+    })
+  })
+
   describe('getClientDataSets', () => {
     it('should return empty array when client has no data sets', async () => {
       const warmStorageService = await createWarmStorageService()
@@ -79,10 +189,7 @@ describe('WarmStorageService', () => {
       cleanup = mockProviderWithView((data) => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return empty array
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[]])
         }
         return null
       })
@@ -152,10 +259,7 @@ describe('WarmStorageService', () => {
             ],
           ]
 
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [dataSets]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [dataSets])
         }
         return null
       })
@@ -222,10 +326,7 @@ describe('WarmStorageService', () => {
             1n, // providerId
             0n, // cdnEndEpoch
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[dataSet]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
 
         // railToDataSet call
@@ -305,10 +406,7 @@ describe('WarmStorageService', () => {
               0n, // cdnEndEpoch
             ],
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [dataSets]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [dataSets])
         }
 
         // railToDataSet - both return valid IDs
@@ -384,10 +482,7 @@ describe('WarmStorageService', () => {
             0n, // paymentEndEpoch
             1n, // providerId
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[dataSet]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
 
         // railToDataSet - throw error
@@ -429,10 +524,7 @@ describe('WarmStorageService', () => {
             1n, // providerId
             0n, // cdnEndEpoch
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[dataSet]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
 
         if (data?.startsWith('0x2ad6e6b5') === true) {
@@ -504,31 +596,25 @@ describe('WarmStorageService', () => {
             1n, // providerId
             0n, // cdnEndEpoch
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[dataSet]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
 
         // getDataSet
         if (data?.startsWith('0xbdaac056') === true) {
-          const info = [
-            48n, // pdpRailId
-            0n, // cacheMissRailId
-            0n, // cdnRailId
-            clientAddress, // payer
-            '0xabc1234567890123456789012345678901234567', // payee
-            '0xabc1234567890123456789012345678901234567', // serviceProvider
-            100n, // commissionBps
-            0n, // clientDataSetId - expecting 0
-            0n, // pdpEndEpoch
-            1n, // providerId
-            0n, // cdnEndEpoch
-          ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)'],
-            [info]
-          )
+          const info = {
+            pdpRailId: 48n,
+            cacheMissRailId: 0n,
+            cdnRailId: 0n,
+            payer: clientAddress,
+            payee: '0xabc1234567890123456789012345678901234567',
+            serviceProvider: '0xabc1234567890123456789012345678901234567',
+            commissionBps: 100n,
+            clientDataSetId: 0n, // expecting 0
+            pdpEndEpoch: 0n,
+            providerId: 1n,
+            cdnEndEpoch: 0n,
+          }
+          return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
 
         return null
@@ -567,10 +653,7 @@ describe('WarmStorageService', () => {
             1n, // providerId
             0n, // cdnEndEpoch
           ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)[]'],
-            [[dataSet]]
-          )
+          return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
 
         // dataSetId
@@ -590,23 +673,20 @@ describe('WarmStorageService', () => {
 
         // getDataSet - needed for getAddPiecesInfo
         if (data?.startsWith('0xbdaac056') === true) {
-          const info = [
-            48n, // pdpRailId
-            0n, // cacheMissRailId
-            0n, // cdnRailId
-            clientAddress, // payer
-            '0xabc1234567890123456789012345678901234567', // payee
-            100n, // commissionBps
-            'Metadata', // metadata
-            [], // pieceMetadata
-            3n, // clientDataSetId
-            0n, // paymentEndEpoch
-            1n, // providerId
-          ]
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(uint256,uint256,uint256,address,address,address,uint256,uint256,uint256,uint256,uint256)'],
-            [info]
-          )
+          const info = {
+            pdpRailId: 48n,
+            cacheMissRailId: 0n,
+            cdnRailId: 0n,
+            payer: clientAddress,
+            payee: '0xabc1234567890123456789012345678901234567',
+            serviceProvider: '0xabc1234567890123456789012345678901234567',
+            commissionBps: 100n,
+            clientDataSetId: 3n,
+            pdpEndEpoch: 0n,
+            providerId: 1n,
+            cdnEndEpoch: 0n,
+          }
+          return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
 
         return null
@@ -738,7 +818,7 @@ describe('WarmStorageService', () => {
         // getApprovedProviders selector
         if (data?.startsWith('0x266afe1b') === true) {
           // Return array of provider IDs [1, 4, 7]
-          return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1n, 4n, 7n]])
+          return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
       })
@@ -757,7 +837,7 @@ describe('WarmStorageService', () => {
         // getApprovedProviders selector
         if (data?.startsWith('0x266afe1b') === true) {
           // Return empty array
-          return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[]])
+          return viewInterface.encodeFunctionResult('getApprovedProviders', [[]])
         }
         return null
       })
@@ -773,7 +853,7 @@ describe('WarmStorageService', () => {
         // isProviderApproved selector
         if (data?.startsWith('0xb6133b7a') === true) {
           // Return true for provider ID 4
-          return ethers.AbiCoder.defaultAbiCoder().encode(['bool'], [true])
+          return viewInterface.encodeFunctionResult('isProviderApproved', [true])
         }
         return null
       })
@@ -789,7 +869,7 @@ describe('WarmStorageService', () => {
         // isProviderApproved selector
         if (data?.startsWith('0xb6133b7a') === true) {
           // Return false for provider ID 99
-          return ethers.AbiCoder.defaultAbiCoder().encode(['bool'], [false])
+          return viewInterface.encodeFunctionResult('isProviderApproved', [false])
         }
         return null
       })
@@ -901,7 +981,7 @@ describe('WarmStorageService', () => {
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array with provider 4 at index 1
         if (data?.startsWith('0x266afe1b') === true) {
-          return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1n, 4n, 7n]])
+          return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
       })
@@ -936,7 +1016,7 @@ describe('WarmStorageService', () => {
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array without provider 99
         if (data?.startsWith('0x266afe1b') === true) {
-          return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [[1n, 4n, 7n]])
+          return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
       })
@@ -969,10 +1049,13 @@ describe('WarmStorageService', () => {
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             // Encode as a tuple (struct)
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1017,10 +1100,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1060,10 +1146,13 @@ describe('WarmStorageService', () => {
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
             // Encode as a tuple (struct)
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return await originalCall.call(mockProvider, transaction)
         }
@@ -1103,10 +1192,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1171,10 +1263,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1227,10 +1322,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1281,10 +1379,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1357,10 +1458,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1434,10 +1538,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }
@@ -1499,10 +1606,13 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = 86400n
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(uint256,uint256,address,uint256)'],
-              [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
-            )
+            const servicePriceInfo = {
+              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
+              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              tokenAddress: tokenAddress,
+              epochsPerMonth: epochsPerMonth,
+            }
+            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
           return `0x${'0'.repeat(64)}`
         }

@@ -4,8 +4,15 @@
  */
 
 import { ethers } from 'ethers'
-import type { TokenAmount, TokenIdentifier } from '../types.ts'
-import { CONTRACT_ABIS, createError, getCurrentEpoch, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
+import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
+import {
+  CONTRACT_ABIS,
+  createError,
+  getCurrentEpoch,
+  SETTLEMENT_FEE,
+  TIMING_CONSTANTS,
+  TOKENS,
+} from '../utils/index.ts'
 
 /**
  * Callbacks for deposit operation visibility
@@ -531,5 +538,266 @@ export class PaymentsService {
     const tx = await paymentsContract.withdraw(this._usdfcAddress, withdrawAmountBigint, txOptions)
 
     return tx
+  }
+
+  /**
+   * Settle a payment rail up to a specific epoch (sends a transaction)
+   * Note: This method automatically includes the required network fee (FIL) for burning
+   * @param railId - The rail ID to settle
+   * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
+   *                     Can be used for partial settlements to a past epoch.
+   * @returns Transaction response object
+   * @throws Error if untilEpoch is in the future (contract reverts with CannotSettleFutureEpochs)
+   */
+  async settle(railId: number | bigint, untilEpoch?: number | bigint): Promise<ethers.TransactionResponse> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+
+    const [signerAddress, currentEpoch] = await Promise.all([
+      this._signer.getAddress(),
+      untilEpoch == null ? getCurrentEpoch(this._provider) : Promise.resolve(null),
+    ])
+
+    const untilEpochBigint = untilEpoch == null ? (currentEpoch as bigint) : BigInt(untilEpoch)
+
+    const paymentsContract = this._getPaymentsContract()
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {
+      value: SETTLEMENT_FEE, // Include the settlement fee (NETWORK_FEE in contract) as msg.value
+    }
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      const tx = await paymentsContract.settleRail(railIdBigint, untilEpochBigint, txOptions)
+      return tx
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'settle',
+        `Failed to settle rail ${railIdBigint.toString()} up to epoch ${untilEpochBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Get the expected settlement amounts for a rail (read-only simulation)
+   * Note: The actual settlement will require a network fee (FIL) to be sent with the transaction
+   * @param railId - The rail ID to check
+   * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
+   *                     Can be used to preview partial settlements to a past epoch.
+   * @returns Settlement result with amounts and details
+   */
+  async getSettlementAmounts(railId: number | bigint, untilEpoch?: number | bigint): Promise<SettlementResult> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+
+    const currentEpoch = untilEpoch == null ? await getCurrentEpoch(this._provider) : null
+
+    const untilEpochBigint = untilEpoch == null ? (currentEpoch as bigint) : BigInt(untilEpoch)
+
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      // Use staticCall to simulate the transaction and get the return values
+      // Include the settlement fee (NETWORK_FEE in contract) in the simulation
+      const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint, {
+        value: SETTLEMENT_FEE,
+      })
+
+      return {
+        totalSettledAmount: result[0],
+        totalNetPayeeAmount: result[1],
+        totalOperatorCommission: result[2],
+        finalSettledEpoch: result[3],
+        note: result[4],
+      }
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'getSettlementAmounts',
+        `Failed to get settlement amounts for rail ${railIdBigint.toString()} up to epoch ${untilEpochBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Emergency settlement for terminated rails only - bypasses service contract validation
+   * This ensures payment even if the validator contract is buggy or unresponsive (pays in full)
+   * Can only be called by the client after the max settlement epoch has passed
+   * @param railId - The rail ID to settle
+   * @returns Transaction response object
+   */
+  async settleTerminatedRail(railId: number | bigint): Promise<ethers.TransactionResponse> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+    const signerAddress = await this._signer.getAddress()
+    const paymentsContract = this._getPaymentsContract()
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {}
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      const tx = await paymentsContract.settleTerminatedRailWithoutValidation(railIdBigint, txOptions)
+      return tx
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'settleTerminatedRail',
+        `Failed to settle terminated rail ${railIdBigint.toString()}`,
+        error
+      )
+    }
+  }
+
+  /**
+   * Get detailed information about a specific rail
+   * @param railId - The rail ID to query
+   * @returns Rail information including all parameters and current state
+   * @throws Error if the rail doesn't exist or is inactive (contract reverts with RailInactiveOrSettled)
+   */
+  async getRail(railId: number | bigint): Promise<{
+    token: string
+    from: string
+    to: string
+    operator: string
+    validator: string
+    paymentRate: bigint
+    lockupPeriod: bigint
+    lockupFixed: bigint
+    settledUpTo: bigint
+    endEpoch: bigint
+    commissionRateBps: bigint
+    serviceFeeRecipient: string
+  }> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const rail = await paymentsContract.getRail(railIdBigint)
+      return {
+        token: rail.token,
+        from: rail.from,
+        to: rail.to,
+        operator: rail.operator,
+        validator: rail.validator,
+        paymentRate: rail.paymentRate,
+        lockupPeriod: rail.lockupPeriod,
+        lockupFixed: rail.lockupFixed,
+        settledUpTo: rail.settledUpTo,
+        endEpoch: rail.endEpoch,
+        commissionRateBps: rail.commissionRateBps,
+        serviceFeeRecipient: rail.serviceFeeRecipient,
+      }
+    } catch (error: any) {
+      // Contract reverts with RailInactiveOrSettled error if rail doesn't exist
+      if (error.message?.includes('RailInactiveOrSettled')) {
+        throw createError('PaymentsService', 'getRail', `Rail ${railIdBigint.toString()} does not exist or is inactive`)
+      }
+      throw createError('PaymentsService', 'getRail', `Failed to get rail ${railIdBigint.toString()}`, error)
+    }
+  }
+
+  /**
+   * Automatically settle a rail, detecting whether it's terminated or active
+   * This method checks the rail status and calls the appropriate settlement method:
+   * - For terminated rails: calls settleTerminatedRail()
+   * - For active rails: calls settle() with optional untilEpoch (requires settlement fee)
+   *
+   * @param railId - The rail ID to settle
+   * @param untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
+   * @returns Transaction response object
+   * @throws Error if rail doesn't exist (contract reverts with RailInactiveOrSettled) or other settlement errors
+   *
+   * @example
+   * ```javascript
+   * // Automatically detect and settle appropriately
+   * const tx = await synapse.payments.settleAuto(railId)
+   * await tx.wait()
+   *
+   * // For active rails, can specify epoch
+   * const tx = await synapse.payments.settleAuto(railId, specificEpoch)
+   * ```
+   */
+  async settleAuto(railId: number | bigint, untilEpoch?: number | bigint): Promise<ethers.TransactionResponse> {
+    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
+
+    // Get rail information to check if terminated
+    const rail = await this.getRail(railIdBigint)
+
+    // Check if rail is terminated (endEpoch > 0 means terminated)
+    if (rail.endEpoch > 0n) {
+      // Rail is terminated, use settleTerminatedRail
+      return await this.settleTerminatedRail(railIdBigint)
+    } else {
+      // Rail is active, use regular settle (requires settlement fee)
+      return await this.settle(railIdBigint, untilEpoch)
+    }
+  }
+
+  /**
+   * Get all rails where the wallet is the payer
+   * @param token - The token to filter by (defaults to USDFC)
+   * @returns Array of rail information
+   */
+  async getRailsAsPayer(token: TokenIdentifier = TOKENS.USDFC): Promise<RailInfo[]> {
+    if (token !== TOKENS.USDFC) {
+      throw createError(
+        'PaymentsService',
+        'getRailsAsPayer',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const rails = await paymentsContract.getRailsForPayerAndToken(signerAddress, this._usdfcAddress)
+
+      return rails.map((rail: any) => ({
+        railId: Number(rail.railId),
+        isTerminated: rail.isTerminated,
+        endEpoch: Number(rail.endEpoch),
+      }))
+    } catch (error) {
+      throw createError('PaymentsService', 'getRailsAsPayer', 'Failed to get rails where wallet is payer', error)
+    }
+  }
+
+  /**
+   * Get all rails where the wallet is the payee
+   * @param token - The token to filter by (defaults to USDFC)
+   * @returns Array of rail information
+   */
+  async getRailsAsPayee(token: TokenIdentifier = TOKENS.USDFC): Promise<RailInfo[]> {
+    if (token !== TOKENS.USDFC) {
+      throw createError(
+        'PaymentsService',
+        'getRailsAsPayee',
+        `Token "${token}" is not supported. Currently only USDFC token is supported.`
+      )
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const paymentsContract = this._getPaymentsContract()
+
+    try {
+      const rails = await paymentsContract.getRailsForPayeeAndToken(signerAddress, this._usdfcAddress)
+
+      return rails.map((rail: any) => ({
+        railId: Number(rail.railId),
+        isTerminated: rail.isTerminated,
+        endEpoch: Number(rail.endEpoch),
+      }))
+    } catch (error) {
+      throw createError('PaymentsService', 'getRailsAsPayee', 'Failed to get rails where wallet is payee', error)
+    }
   }
 }

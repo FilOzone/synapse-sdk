@@ -1,0 +1,268 @@
+---
+title: Migration guide
+description: Learn how to migrate to newer versions of the SDK.
+---
+
+
+## 0.24.0+
+
+### Terminology Update
+
+Starting with version 0.24.0, the SDK introduces comprehensive terminology changes to better align with Filecoin ecosystem conventions:
+
+- **Pandora** → **Warm Storage**
+- **Proof Sets** → **Data Sets**
+- **Roots** → **Pieces**
+- **Storage Providers** → **Service Providers**
+  - _Note: most service providers are, in fact, storage providers, however this language reflects the emergence of new service types on Filecoin beyond storage._
+
+This is a breaking change that affects imports, type names, method names, and configuration options throughout the SDK.
+
+#### Import Path Changes
+
+**Before (v0.23.x and earlier):**
+```typescript
+import { PandoraService } from '@filoz/synapse-sdk/pandora'
+```
+
+**After (v0.24.0+):**
+```typescript
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+```
+
+#### Type Name Changes
+
+| Old Type (< v0.24.0) | New Type (v0.24.0+) |
+|----------------------|---------------------|
+| `ProofSetId` | `DataSetId` |
+| `RootData` | `PieceData` |
+| `ProofSetInfo` | `DataSetInfo` |
+| `EnhancedProofSetInfo` | `EnhancedDataSetInfo` |
+| `ProofSetCreationStatusResponse` | `DataSetCreationStatusResponse` |
+| `RootAdditionStatusResponse` | `PieceAdditionStatusResponse` |
+| `StorageProvider` | `ServiceProvider` |
+
+#### Method Name Changes
+
+**Synapse Class:**
+```typescript
+// Before (< v0.24.0)
+synapse.getPandoraAddress()
+
+// After (v0.24.0+)
+synapse.getWarmStorageAddress()
+```
+
+**WarmStorageService (formerly PandoraService):**
+```typescript
+// Before (< v0.24.0)
+pandoraService.getClientProofSets(client)
+pandoraService.getAddRootsInfo(proofSetId)
+
+// After (v0.24.0+)
+warmStorageService.getClientDataSets(client)
+warmStorageService.getAddPiecesInfo(dataSetId)
+```
+
+**PDPAuthHelper:**
+```typescript
+// Before (< v0.24.0)
+authHelper.signCreateProofSet(serviceProvider, clientDataSetId)
+authHelper.signAddRoots(proofSetId, rootData)
+
+// After (v0.24.0+)
+authHelper.signCreateDataSet(serviceProvider, clientDataSetId)
+authHelper.signAddPieces(dataSetId, pieceData)
+```
+
+**PDPServer:**
+```typescript
+// Before (< v0.24.0)
+pdpServer.createProofSet(serviceProvider, clientDataSetId)
+pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
+
+// After (v0.24.0+)
+pdpServer.createDataSet(serviceProvider, clientDataSetId)
+pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
+```
+
+#### Service Provider Registry
+
+v0.24.0 introduces the `SPRegistryService` for on-chain provider management:
+
+```typescript
+import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
+
+// Query and manage providers through the registry
+const spRegistry = new SPRegistryService(provider, registryAddress)
+const providers = await spRegistry.getAllActiveProviders()
+```
+
+This replaces previous provider discovery methods and provides a standardized way to register and manage service providers on-chain.
+
+#### Interface Property Changes
+
+**StorageService Properties:**
+```typescript
+// Before (< v0.24.0)
+storage.storageProvider  // Provider address property
+
+// After (v0.24.0+)
+storage.serviceProvider  // Renamed property
+```
+
+**Callback Interfaces:**
+```typescript
+// Before (< v0.24.0)
+onProofSetResolved?: (info: { proofSetId: number }) => void
+
+// After (v0.24.0+)
+onDataSetResolved?: (info: { dataSetId: number }) => void
+```
+
+#### Configuration Changes
+
+**Before (< v0.24.0):**
+```typescript
+const synapse = await Synapse.create({
+  pandoraAddress: '0x...',
+  // ...
+})
+```
+
+**After (v0.24.0+):**
+```typescript
+const synapse = await Synapse.create({
+  warmStorageAddress: '0x...',
+  // ...
+})
+```
+
+#### Complete Migration Example
+
+**Before (< v0.24.0):**
+```typescript
+import { PandoraService } from '@filoz/synapse-sdk/pandora'
+import type { StorageProvider } from '@filoz/synapse-sdk'
+
+const pandoraService = new PandoraService(provider, pandoraAddress)
+const proofSets = await pandoraService.getClientProofSets(client)
+
+for (const proofSet of proofSets) {
+  console.log(`Proof set ${proofSet.railId} has ${proofSet.rootMetadata.length} roots`)
+}
+
+// Using storage service
+const storage = await synapse.createStorage({
+  callbacks: {
+    onProofSetResolved: (info) => {
+      console.log(`Using proof set ${info.proofSetId}`)
+    }
+  }
+})
+console.log(`Storage provider: ${storage.storageProvider}`)
+```
+
+**After (v0.24.0+):**
+```typescript
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+import type { ServiceProvider } from '@filoz/synapse-sdk'
+
+const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+const dataSets = await warmStorageService.getClientDataSets(client)
+
+for (const dataSet of dataSets) {
+  console.log(`Data set ${dataSet.railId} has ${dataSet.pieceMetadata.length} pieces`)
+}
+
+// Using new storage context API
+const context = await synapse.storage.createContext({
+  callbacks: {
+    onDataSetResolved: (info) => {
+      console.log(`Using data set ${info.dataSetId}`)
+    }
+  }
+})
+console.log(`Service provider: ${context.serviceProvider}`)
+
+// Downloads now use clearer method names
+const data = await context.download(pieceCid)  // Download from this context's provider
+const anyData = await synapse.storage.download(pieceCid)  // Download from any provider
+```
+
+#### Storage Architecture Changes (v0.24.0+)
+
+The storage API has been redesigned for simplicity and clarity:
+
+**Simplified Storage API:**
+```typescript
+// Before (< v0.24.0)
+const storage = await synapse.createStorage()
+await storage.upload(data)
+await storage.providerDownload(pieceCid)  // Confusing method name
+await synapse.download(pieceCid)  // Duplicate functionality
+
+// After (v0.24.0+) - Recommended approach
+await synapse.storage.upload(data)  // Simple: auto-managed contexts
+await synapse.storage.download(pieceCid)  // Simple: download from anywhere
+
+// Advanced usage (when you need explicit control)
+const context = await synapse.storage.createContext({ providerAddress: '0x...' })
+await context.upload(data)  // Upload to specific provider
+await context.download(pieceCid)  // Download from specific provider
+```
+
+**Key improvements:**
+- Access all storage operations via `synapse.storage`
+- Automatic context management - no need to explicitly create contexts for basic usage
+- Clear separation between SP-agnostic downloads (`synapse.storage.download()`) and context-specific downloads (`context.download()`)
+
+#### Migration Checklist
+
+When upgrading from versions prior to v0.24.0:
+
+1. **Update imports** - Replace `@filoz/synapse-sdk/pandora` with `@filoz/synapse-sdk/warm-storage`
+2. **Update type references**:
+   - Replace all `ProofSet`/`proofSet` with `DataSet`/`dataSet`
+   - Replace all `Root`/`root` with `Piece`/`piece`
+   - Replace `StorageProvider` type with `ServiceProvider`
+3. **Update interface properties**:
+   - `ApprovedProviderInfo.owner` → `ApprovedProviderInfo.serviceProvider`
+   - `ApprovedProviderInfo.pdpUrl` → `ApprovedProviderInfo.serviceURL`
+   - `storage.storageProvider` → `storage.serviceProvider`
+4. **Update callback names**:
+   - `onProofSetResolved` → `onDataSetResolved`
+   - Callback parameter `proofSetId` → `dataSetId`
+5. **Simplify storage API calls**:
+   - `synapse.createStorage()` → `synapse.storage.upload()` (for simple usage)
+   - `synapse.createStorage()` → `synapse.storage.createContext()` (for advanced usage)
+   - `storage.providerDownload()` → `context.download()`
+   - `synapse.download()` → `synapse.storage.download()`
+6. **Update method calls** - Use the new method names as shown above
+7. **Update configuration** - Replace `pandoraAddress` with `warmStorageAddress`
+8. **Update environment variables** - `PANDORA_ADDRESS` → `WARM_STORAGE_ADDRESS`
+9. **Update GraphQL queries** (if using subgraph) - `proofSets` → `dataSets`, `roots` → `pieces`
+
+#### PaymentsService Parameter Order Changes
+
+All PaymentsService methods now consistently place the `token` parameter last with USDFC as the default:
+
+**Before (< v0.24.0):**
+```typescript
+await payments.allowance(TOKENS.USDFC, spender)
+await payments.approve(TOKENS.USDFC, spender, amount)
+await payments.deposit(amount, TOKENS.USDFC, callbacks)
+```
+
+**After (v0.24.0+):**
+```typescript
+await payments.allowance(spender)  // USDFC is default
+await payments.approve(spender, amount)  // USDFC is default
+await payments.deposit(amount, TOKENS.USDFC, callbacks)  // callbacks last for deposit
+```
+
+#### Contract Address Configuration
+
+The SDK now automatically discovers all necessary contract addresses. The `warmStorageAddress` option in `Synapse.create()` has been removed as addresses are managed internally by the SDK for each network.
+
+Note: There is no backward compatibility layer. All applications must update to the new terminology and API signatures when upgrading to v0.24.0 or later.

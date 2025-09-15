@@ -382,7 +382,6 @@ export class PDPServer {
   /**
    * Find a piece by PieceCID and size
    * @param pieceCid - The PieceCID CID (as string or PieceCID object)
-   * @param size - The original size of the piece in bytes
    * @returns Piece information if found
    */
   async findPiece(pieceCid: string | PieceCID): Promise<FindPieceResponse> {

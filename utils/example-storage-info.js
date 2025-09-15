@@ -14,7 +14,7 @@
  *   WARM_STORAGE_ADDRESS=0x... (defaults to network default)
  */
 
-import { Synapse } from '@filoz/synapse-sdk'
+import { Synapse, WarmStorageService } from '@filoz/synapse-sdk'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
@@ -153,7 +153,6 @@ async function main() {
     console.log('\n--- Your Data Sets ---')
     try {
       // Create WarmStorage service to check data sets
-      const { WarmStorageService } = await import('@filoz/synapse-sdk')
       const provider = synapse.getProvider()
       const warmStorageAddress = synapse.getWarmStorageAddress()
       const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
