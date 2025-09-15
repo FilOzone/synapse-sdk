@@ -19,21 +19,13 @@
  */
 
 import { ethers } from 'ethers'
+import { getEIP712TypeString } from '../utils/eip712.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from '../utils/index.ts'
 
-export const CREATE_DATA_SET_TYPEHASH = ethers.id(
-  'CreateDataSet(uint256 clientDataSetId,address payee,MetadataEntry[] metadata)MetadataEntry(string key,string value)'
-)
-
-export const ADD_PIECES_TYPEHASH = ethers.id(
-  'AddPieces(uint256 clientDataSetId,uint256 firstAdded,Cid[] pieceData,PieceMetadata[] pieceMetadata)Cid(bytes data)MetadataEntry(string key,string value)PieceMetadata(uint256 pieceIndex,MetadataEntry[] metadata)'
-)
-
-export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = ethers.id(
-  'SchedulePieceRemovals(uint256 clientDataSetId,uint256[] pieceIds)'
-)
-
-export const DELETE_DATA_SET_TYPEHASH = ethers.id('DeleteDataSet(uint256 clientDataSetId)')
+export const CREATE_DATA_SET_TYPEHASH = ethers.id(getEIP712TypeString('CreateDataSet'))
+export const ADD_PIECES_TYPEHASH = ethers.id(getEIP712TypeString('AddPieces'))
+export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = ethers.id(getEIP712TypeString('SchedulePieceRemovals'))
+export const DELETE_DATA_SET_TYPEHASH = ethers.id(getEIP712TypeString('DeleteDataSet'))
 
 export const PDP_PERMISSIONS = [
   CREATE_DATA_SET_TYPEHASH,

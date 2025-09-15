@@ -1,4 +1,5 @@
 export * from './constants.ts'
+export { EIP712_TYPES, getEIP712TypeString } from './eip712.ts'
 export * from './epoch.ts'
 export { createError } from './errors.ts'
 export { getFilecoinNetworkType } from './network.ts'
