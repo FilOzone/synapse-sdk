@@ -625,8 +625,9 @@ export class PaymentsService {
   }
 
   /**
-   * Settle a terminated rail without validation (sends a transaction)
-   * This is used for rails that have been terminated and need final settlement
+   * Emergency settlement for terminated rails only - bypasses service contract validation
+   * This ensures payment even if the validator contract is buggy or unresponsive (pays in full)
+   * Can only be called by the client after the max settlement epoch has passed
    * @param railId - The rail ID to settle
    * @returns Transaction response object
    */

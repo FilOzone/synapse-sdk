@@ -98,7 +98,8 @@ import { ethers } from 'ethers'
 const amount = ethers.parseUnits('100', 18)  // 100 USDFC
 await synapse.payments.deposit(amount)
 
-// 2. Approve the Warm Storage service for automated payments
+// 2. Approve the Warm Storage service contract for automated payments
+// Warm Storage acts as both the storage coordinator and payment validator
 // The SDK automatically uses the correct service address for your network
 const warmStorageAddress = await synapse.getWarmStorageAddress()
 await synapse.payments.approveService(
@@ -199,7 +200,7 @@ Payment rails are continuous payment streams between clients and service provide
 - **Rails**: Unidirectional payment streams with a defined rate per epoch (30 seconds)
 - **Settlement**: The process of executing accumulated payments and transferring tokens
 - **Network Fee**: 0.0013 FIL burned (destroyed) per settlement, accruing value to the network through supply reduction
-- **Commission**: Optional percentage taken by the operator (service contract)
+- **Commission**: Optional percentage taken by the operator (Warm Storage or other service contract)
 
 For a comprehensive guide, see [Rails & Settlement Guide](/guides/rails-settlement).
 
@@ -376,7 +377,7 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 - `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
 - `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
 - `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be <= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
-- `settleTerminatedRail(railId)` - Settle a terminated rail without validation, returns `TransactionResponse`
+- `settleTerminatedRail(railId)` - Emergency settlement for terminated rails only - bypasses Warm Storage (or other validator) validation to ensure payment even if the validator contract is buggy (pays in full), returns `TransactionResponse`
 - `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be <= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
 - `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be <= current epoch for active rails)
 

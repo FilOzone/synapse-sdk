@@ -20,6 +20,14 @@ The Synapse SDK provides an interface to Filecoin's decentralized services ecosy
 
 The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
 
+### Key Concepts
+
+- **Service Contracts**: Smart contracts that manage specific services (like storage). Currently, **Warm Storage** is the primary service contract that handles storage operations and payment validation.
+- **Payment Rails**: Automated payment streams between clients and service providers, managed by the Payments contract. When you create a data set in Warm Storage, it automatically creates a corresponding payment rail.
+- **Data Sets**: Collections of stored data managed by Warm Storage. Each data set has an associated payment rail that handles the ongoing storage payments.
+- **Pieces**: Individual units of data identified by PieceCID (content-addressed identifiers). Multiple pieces can be added to a data set for storage.
+- **Validators**: Service contracts (like Warm Storage) act as validators for payment settlements, ensuring services are delivered before payments are released.
+
 ## Installation
 
 ```bash
@@ -119,7 +127,8 @@ import { ethers } from 'ethers'
 const amount = ethers.parseUnits('100', 18)  // 100 USDFC
 await synapse.payments.deposit(amount)
 
-// 2. Approve the Warm Storage service for automated payments
+// 2. Approve the Warm Storage service contract for automated payments
+// Warm Storage acts as both the storage coordinator and payment validator
 // The SDK automatically uses the correct service address for your network
 const warmStorageAddress = await synapse.getWarmStorageAddress()
 await synapse.payments.approveService(
@@ -318,7 +327,7 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 - `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
 - `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
 - `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be <= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
-- `settleTerminatedRail(railId)` - Settle a terminated rail without validation, returns `TransactionResponse`
+- `settleTerminatedRail(railId)` - Emergency settlement for terminated rails only - bypasses Warm Storage (or other validator) validation to ensure payment even if the validator contract is buggy (pays in full), returns `TransactionResponse`
 - `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be <= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
 - `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be <= current epoch for active rails)
 
@@ -616,35 +625,39 @@ Direct interface to the Payments contract for token operations and operator appr
 
 Payment rails are continuous payment streams between clients and service providers that are created automatically when data sets are established. Each data set has associated payment rails (one for PDP storage, optionally additional ones for CDN services).
 
-**How Rails Work vs Traditional Payment:**
+**How Rails Work:**
 
-Unlike traditional upfront payment models, rails use a **lockup mechanism** that acts as a guarantee without being a separate payment pool:
+Rails ensure reliable payments through a simple lockup mechanism:
 
-1. **The Lockup Guarantee**: When a rail is created, the system calculates a lockup requirement:
-   - Formula: `lockup = paymentRate × lockupPeriod` (e.g., 10 days of payments)
-   - Example: Storing 1 GiB at ~0.0000565 USDFC/epoch (based on 5 USDFC/TiB/month) requires ~1.63 USDFC lockup
-   - This amount acts as a **minimum balance floor** - you can't withdraw below it
+1. **The Lockup Requirement**: When you create a data set (storage), the system calculates how much balance you need to maintain:
+   - Formula: `lockup = paymentRate × lockupPeriod` (e.g., 10 days worth of payments)
+   - Example: Storing 1 GiB costs ~0.0000565 USDFC/epoch, requiring ~1.63 USDFC minimum balance
+   - This protects the service provider by ensuring you always have enough for the next payment period
 
-2. **How Payments Actually Work**:
-   - **During Normal Operation**: Settlements draw from your general funds, NOT from the lockup
-   - **Lockup is NOT prepayment**: It's a safety guarantee that remains untouched during normal operation
-   - **The Rolling Window**: As time passes and settlements occur, the lockup requirement "rolls forward" to always guarantee the next period
+2. **How Your Balance Works**:
+   - You deposit funds into the payments contract (e.g., 100 USDFC)
+   - The lockup requirement reserves part of this balance (e.g., 1.63 USDFC for 1 GiB storage)
+   - You can withdraw anything above the lockup requirement
+   - When you settle, your total balance decreases by the payment amount (lockup requirement stays the same)
 
-3. **What Happens During Settlement**:
-   - Your total funds decrease by the payment amount
-   - Your lockup requirement decreases by the amount that was "guaranteed" for that period
-   - The contract ensures your remaining funds always cover your remaining lockup requirement
-   - If funds are insufficient for settlement, the rail terminates and enters a special state
+3. **Normal vs Abnormal Operations**:
+   - **Normal Operation**: You keep settling regularly, lockup stays reserved but unused
+   - **If you stop settling**: Service continues but unpaid amounts accumulate
+   - **If balance gets too low**: Rail terminates when you can't cover future payments
+   - **After termination**: The lockup NOW becomes available to pay the service provider for the period already provided
 
 **Understanding Your Balance:**
 - **Total Funds**: All tokens you've deposited into the payments contract
-- **Lockup Requirement**: The minimum balance you must maintain (not a separate pool!)
+- **Lockup Requirement**: The minimum balance reserved to guarantee future payments
 - **Available Balance**: `totalFunds - lockupRequirement` (this is what you can withdraw)
 
-**The Safety Mechanism:**
-- If a payer stops depositing and becomes insolvent, settlement stops for new epochs
-- When a rail is terminated, the lockup becomes a **guaranteed payment window** for the service provider
-- This protects providers by ensuring they can claim payments for the lockup period even if the payer disappears
+**When Lockup Gets Used (The Safety Net):**
+
+The lockup finally gets "used" when things go wrong:
+- **Rail terminates** (due to insufficient funds or manual termination)
+- **After termination**, the service provider can settle and claim payment from the lockup
+- **This ensures** the provider gets paid for services already delivered, even if the client disappears
+- **Example**: If you had 10 days of lockup and the rail terminates, the provider can claim up to 10 days of service payments from that locked amount
 
 For more details on the payment mechanics, see [Filecoin Pay documentation](https://github.com/FilOzone/filecoin-pay)
 
