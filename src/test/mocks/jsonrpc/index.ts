@@ -13,11 +13,13 @@ import { CONTRACT_ADDRESSES } from '../../../utils/constants.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
 import { serviceProviderRegistryCallHandler } from './service-registry.ts'
+import { sessionKeyRegistryCallHandler } from './session-key-registry.ts'
 import type { JSONRPCOptions, RpcRequest, RpcResponse } from './types.ts'
 import { warmStorageCallHandler, warmStorageViewCallHandler } from './warm-storage.ts'
 
 export const PRIVATE_KEYS = {
   key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
+  key2: '0x4123456789012345678901234567890123456789012345678901234567890123',
 }
 export const ADDRESSES = {
   client1: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB' as Address,
@@ -39,6 +41,7 @@ export const ADDRESSES = {
     filCDN: '0x0000000000000000000000000000000000000000' as Address,
     viewContract: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as Address,
     spRegistry: '0x0000000000000000000000000000000000000001' as Address,
+    sessionKeyRegistry: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as Address,
   },
 }
 
@@ -100,6 +103,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
       return options.eth_chainId
     }
+    case 'eth_blockNumber': {
+      if (!options.eth_blockNumber) {
+        throw new Error('eth_blockNumber is not defined')
+      }
+      return options.eth_blockNumber
+    }
     case 'eth_accounts':
       if (!options.eth_accounts) {
         throw new Error('eth_accounts is not defined')
@@ -121,6 +130,10 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
 
       if (isAddressEqual(ADDRESSES.calibration.spRegistry, to as Address)) {
         return serviceProviderRegistryCallHandler(data as Hex, options)
+      }
+
+      if (isAddressEqual(ADDRESSES.calibration.sessionKeyRegistry, to as Address)) {
+        return sessionKeyRegistryCallHandler(data as Hex, options)
       }
 
       if (isAddressEqual(ADDRESSES.calibration.viewContract, to as Address)) {
@@ -198,7 +211,8 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
 export const presets = {
   basic: {
     debug: false,
-    eth_chainId: '314159',
+    eth_chainId: '0x4cb2f', // 314159
+    eth_blockNumber: '0x127001',
     eth_accounts: [ADDRESSES.client1],
     warmStorage: {
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
@@ -207,6 +221,7 @@ export const presets = {
       filCDNBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
+      sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
       getServicePrice: () => [
         {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
@@ -303,6 +318,9 @@ export const presets = {
         ]
       },
     },
+    sessionKeyRegistry: {
+      authorizationExpiry: () => [BigInt(0)],
+    },
     payments: {
       operatorApprovals: () => [
         true, // isApproved
@@ -312,6 +330,7 @@ export const presets = {
         BigInt(5000000), // lockupUsed
         BigInt(86400), // maxLockupPeriod
       ],
+      accounts: () => [BigInt(0), BigInt(0), BigInt(0), BigInt(0)],
     },
   } as RequiredDeep<JSONRPCOptions>,
 }

@@ -11,8 +11,10 @@ import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
 import { type Address, isAddressEqual, parseUnits } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
+import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import { PING } from './mocks/ping.ts'
 
 // mock server for testing
 const server = setup([])
@@ -252,6 +254,79 @@ describe('Synapse', () => {
 
       // Should be the same instance
       assert.equal(storage1, storage2)
+    })
+  })
+
+  describe('Session Keys', () => {
+    beforeEach(() => {
+      server.use(PING())
+    })
+
+    it('should storage.createContext with session key', async () => {
+      const signerAddress = await signer.getAddress()
+      const sessionKeySigner = new ethers.Wallet(PRIVATE_KEYS.key2, provider)
+      const sessionKeyAddress = await sessionKeySigner.getAddress()
+      const EXPIRY = BigInt(1757618883)
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          sessionKeyRegistry: {
+            authorizationExpiry: (args) => {
+              const client = args[0]
+              const signer = args[1]
+              assert.equal(client, signerAddress)
+              assert.equal(signer, sessionKeyAddress)
+              const permission = args[2]
+              assert.isTrue(PDP_PERMISSIONS.includes(permission))
+              return [EXPIRY]
+            },
+          },
+          payments: {
+            ...presets.basic.payments,
+            operatorApprovals: (args) => {
+              const token = args[0]
+              const client = args[1]
+              const operator = args[2]
+              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              assert.equal(client, signerAddress)
+              assert.equal(operator, ADDRESSES.calibration.warmStorage)
+              return [
+                true, // isApproved
+                BigInt(127001 * 635000000), // rateAllowance
+                BigInt(127001 * 635000000), // lockupAllowance
+                BigInt(0), // rateUsage
+                BigInt(0), // lockupUsage
+                BigInt(28800), // maxLockupPeriod
+              ]
+            },
+            accounts: (args) => {
+              const token = args[0]
+              const user = args[1]
+              assert.equal(user, signerAddress)
+              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
+            },
+          },
+        })
+      )
+      const synapse = await Synapse.create({ signer })
+      const sessionKey = synapse.setSession(sessionKeySigner)
+      assert.equal(sessionKey.getSigner(), sessionKeySigner)
+
+      await sessionKey.fetchExpiries()
+      for (const permission of PDP_PERMISSIONS) {
+        assert.equal(sessionKey.expiries[permission], EXPIRY)
+      }
+
+      const context = await synapse.storage.createContext()
+      // biome-ignore lint/complexity/useLiteralKeys: checking private
+      assert.equal(context['_signer'], sessionKeySigner)
+      const info = await context.preflightUpload(127)
+      assert.isTrue(info.allowanceCheck.sufficient)
+
+      // Payments uses the original signer
+      const accountInfo = await synapse.payments.accountInfo()
+      assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
     })
   })
 

@@ -107,6 +107,7 @@ export class WarmStorageService {
   private readonly _warmStorageAddress: string
   private _warmStorageContract: ethers.Contract | null = null
   private _warmStorageViewContract: ethers.Contract | null = null
+  private _sessionKeyRegistry: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
 
   // All discovered addresses
@@ -117,6 +118,7 @@ export class WarmStorageService {
     filCDNBeneficiary: string
     viewContract: string
     serviceProviderRegistry: string
+    sessionKeyRegistry: string
   }
 
   /**
@@ -132,6 +134,7 @@ export class WarmStorageService {
       filCDNBeneficiary: string
       viewContract: string
       serviceProviderRegistry: string
+      sessionKeyRegistry: string
     }
   ) {
     this._provider = provider
@@ -186,6 +189,11 @@ export class WarmStorageService {
         allowFailure: false,
         callData: iface.encodeFunctionData('serviceProviderRegistry'),
       },
+      {
+        target: warmStorageAddress,
+        allowFailure: false,
+        callData: iface.encodeFunctionData('sessionKeyRegistry'),
+      },
     ]
 
     const results = await multicall.aggregate3.staticCall(calls)
@@ -197,6 +205,7 @@ export class WarmStorageService {
       filCDNBeneficiary: iface.decodeFunctionResult('filCDNBeneficiaryAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
+      sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
     }
 
     return new WarmStorageService(provider, warmStorageAddress, addresses)
@@ -220,6 +229,17 @@ export class WarmStorageService {
 
   getServiceProviderRegistryAddress(): string {
     return this._addresses.serviceProviderRegistry
+  }
+
+  getSessionKeyRegistry(): ethers.Contract {
+    if (this._sessionKeyRegistry == null) {
+      this._sessionKeyRegistry = new ethers.Contract(
+        this._addresses.sessionKeyRegistry,
+        CONTRACT_ABIS.SESSION_KEY_REGISTRY,
+        this._provider
+      )
+    }
+    return this._sessionKeyRegistry
   }
 
   /**

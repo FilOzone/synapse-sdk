@@ -5,9 +5,12 @@ import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import { CONTRACT_ABIS } from '../../../utils/constants.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
+export type accounts = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'accounts'>
+
 export type operatorApprovals = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'operatorApprovals'>
 
 export interface PaymentsOptions {
+  accounts?: (args: AbiToType<accounts['inputs']>) => AbiToType<accounts['outputs']>
   operatorApprovals?: (args: AbiToType<operatorApprovals['inputs']>) => AbiToType<operatorApprovals['outputs']>
 }
 
@@ -32,6 +35,16 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
       return encodeAbiParameters(
         CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'operatorApprovals')!.outputs,
         options.payments.operatorApprovals(args)
+      )
+    }
+
+    case 'accounts': {
+      if (!options.payments?.accounts) {
+        throw new Error('Payments: accounts is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'accounts')!.outputs,
+        options.payments.accounts(args)
       )
     }
 

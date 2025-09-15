@@ -5,41 +5,13 @@
 import { ethers } from 'ethers'
 import { asPieceCID, type PieceCID } from '../piece/index.ts'
 import type { AuthSignature, MetadataEntry } from '../types.ts'
+import { EIP712_TYPES } from '../utils/eip712.ts'
 
 // Declare window.ethereum for TypeScript
 declare global {
   interface Window {
     ethereum?: any
   }
-}
-
-// EIP-712 Type definitions
-const EIP712_TYPES = {
-  MetadataEntry: [
-    { name: 'key', type: 'string' },
-    { name: 'value', type: 'string' },
-  ],
-  CreateDataSet: [
-    { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'payee', type: 'address' },
-    { name: 'metadata', type: 'MetadataEntry[]' },
-  ],
-  Cid: [{ name: 'data', type: 'bytes' }],
-  PieceMetadata: [
-    { name: 'pieceIndex', type: 'uint256' },
-    { name: 'metadata', type: 'MetadataEntry[]' },
-  ],
-  AddPieces: [
-    { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'firstAdded', type: 'uint256' },
-    { name: 'pieceData', type: 'Cid[]' },
-    { name: 'pieceMetadata', type: 'PieceMetadata[]' },
-  ],
-  SchedulePieceRemovals: [
-    { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'pieceIds', type: 'uint256[]' },
-  ],
-  DeleteDataSet: [{ name: 'clientDataSetId', type: 'uint256' }],
 }
 
 /**
@@ -222,16 +194,16 @@ export class PDPAuthHelper {
    *
    * @param clientDataSetId - Unique dataset ID for the client (typically starts at 0 and increments)
    * @param payee - Service provider's address that will receive payments
-   * @param withCDN - Whether to enable CDN service for faster retrieval (default: false)
+   * @param metadata - Service parameters as key-value pairs
    * @returns Promise resolving to authentication signature for data set creation
    *
    * @example
    * ```typescript
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
    * const signature = await auth.signCreateDataSet(
-   *   0,                              // First dataset for this client
-   *   '0x1234...abcd',               // Service provider address
-   *   true                           // Enable CDN service
+   *   0,                                // First dataset for this client
+   *   '0x1234...abcd',                  // Service provider address
+   *   PDPAuthHelper.WITH_CDN_METADATA   // Enable CDN service
    * )
    * ```
    */

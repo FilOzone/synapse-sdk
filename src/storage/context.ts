@@ -397,8 +397,8 @@ export class StorageContext {
     providerResolver: ProviderResolver,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    const signer = synapse.getSigner()
-    const signerAddress = await signer.getAddress()
+    const client = synapse.getClient()
+    const clientAddress = await client.getAddress()
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {
@@ -406,7 +406,7 @@ export class StorageContext {
         options.dataSetId,
         warmStorageService,
         providerResolver,
-        signerAddress,
+        clientAddress,
         options
       )
     }
@@ -414,7 +414,7 @@ export class StorageContext {
     // Handle explicit provider ID selection
     if (options.providerId != null) {
       return await StorageContext.resolveByProviderId(
-        signerAddress,
+        clientAddress,
         options.providerId,
         options.withCDN ?? false,
         warmStorageService,
@@ -428,18 +428,18 @@ export class StorageContext {
         options.providerAddress,
         warmStorageService,
         providerResolver,
-        signerAddress,
+        clientAddress,
         options.withCDN ?? false
       )
     }
 
     // Smart selection when no specific parameters provided
     return await StorageContext.smartSelectProvider(
-      signerAddress,
+      clientAddress,
       options.withCDN ?? false,
       warmStorageService,
       providerResolver,
-      signer
+      client
     )
   }
 
