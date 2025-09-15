@@ -156,7 +156,7 @@ console.log('Rail settled successfully')
 
 Settle up to a specific past epoch (partial settlement):
 ```typescript
-// Settle up to epoch 1000 (must be <= current epoch)
+// Settle up to epoch 1000 (must be less than or equal to current epoch)
 // Useful for:
 // - Partial settlements to manage cash flow
 // - Testing settlement calculations
@@ -169,7 +169,7 @@ await tx.wait()
 ```
 
 **Important**: The `untilEpoch` parameter:
-- **Must be <= current epoch** - Cannot settle future epochs that haven't occurred yet
+- **Must be less than or equal to current epoch** - Cannot settle future epochs that haven't occurred yet
 - **Can be in the past** - Allows partial settlement up to a historical epoch
 - **Defaults to current epoch** - If omitted, settles all accumulated payments up to now
 - The contract will revert with `CannotSettleFutureEpochs` error if you try to settle beyond the current epoch
@@ -205,7 +205,7 @@ console.log(`  Settled up to epoch: ${amounts.finalSettledEpoch}`)
 console.log(`  Note: ${amounts.note}`)
 
 // Preview partial settlement to a specific past epoch
-const targetEpoch = 1000 // Must be <= current epoch
+const targetEpoch = 1000 // Must be less than or equal to current epoch
 const partialAmounts = await synapse.payments.getSettlementAmounts(railId, targetEpoch)
 console.log(`Partial settlement to epoch ${targetEpoch} would settle: ${ethers.formatUnits(partialAmounts.totalSettledAmount, 18)} USDFC`)
 ```
