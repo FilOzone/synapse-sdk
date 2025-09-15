@@ -45,6 +45,17 @@ This project uses a monorepo structure managed by `pnpm` workspaces. Core librar
 
 </FileTree>
 
+## Key Concepts
+
+Before diving into the code, understand these fundamental concepts:
+
+- **Service Contracts**: Smart contracts that manage specific services (like storage). Currently, **Warm Storage** is the primary service contract that handles storage operations and payment validation.
+- **Payment Rails**: Automated payment streams between clients and service providers, managed by the Payments contract. When you create a data set in Warm Storage, it automatically creates corresponding payment rails.
+- **Data Sets**: Collections of stored data managed by Warm Storage. Each data set has an associated payment rail that handles the ongoing storage payments.
+- **Pieces**: Individual units of data identified by PieceCID (content-addressed identifiers). Multiple pieces can be added to a data set for storage.
+- **PDP (Proof of Data Possession)**: The cryptographic protocol that verifies storage providers are actually storing the data they claim to store. Providers must periodically prove they possess the data.
+- **Validators**: Service contracts (like Warm Storage) act as validators for payment settlements, ensuring services are delivered before payments are released.
+
 ## Usage
 
 The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
