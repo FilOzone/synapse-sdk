@@ -53,6 +53,7 @@ import {
   TIMING_CONSTANTS,
   timeUntilEpoch,
 } from '../utils/index.ts'
+import { hasWithCDN, metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -252,7 +253,7 @@ export class StorageContext {
     const finalMetadata: MetadataEntry[] = [...(metadata ?? [])]
 
     // Handle withCDN backward compatibility - add to metadata if not already present
-    if (withCDN && !finalMetadata.some((m) => m.key === METADATA_KEYS.WITH_CDN)) {
+    if (withCDN && !hasWithCDN(finalMetadata)) {
       finalMetadata.push({ key: METADATA_KEYS.WITH_CDN, value: '' })
     }
 
@@ -425,12 +426,18 @@ export class StorageContext {
       )
     }
 
+    // Convert options to metadata format - merge withCDN flag into metadata if needed
+    const baseMetadata = options.metadata ?? []
+    const requestedMetadata = hasWithCDN(baseMetadata)
+      ? baseMetadata
+      : [...baseMetadata, ...withCDNToMetadata(options.withCDN ?? false)]
+
     // Handle explicit provider ID selection
     if (options.providerId != null) {
       return await StorageContext.resolveByProviderId(
         signerAddress,
         options.providerId,
-        options.withCDN ?? false,
+        requestedMetadata,
         warmStorageService,
         providerResolver
       )
@@ -443,14 +450,14 @@ export class StorageContext {
         warmStorageService,
         providerResolver,
         signerAddress,
-        options.withCDN ?? false
+        requestedMetadata
       )
     }
 
     // Smart selection when no specific parameters provided
     return await StorageContext.smartSelectProvider(
       signerAddress,
-      options.withCDN ?? false,
+      requestedMetadata,
       warmStorageService,
       providerResolver,
       signer
@@ -556,7 +563,7 @@ export class StorageContext {
   private static async resolveByProviderId(
     signerAddress: string,
     providerId: number,
-    withCDN: boolean,
+    metadata: MetadataEntry[],
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver
   ): Promise<{
@@ -574,10 +581,14 @@ export class StorageContext {
       throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} is not currently approved`)
     }
 
-    // Filter for this provider's data sets
-    const providerDataSets = dataSets.filter(
-      (ps) => ps.providerId === provider.id && ps.isLive && ps.isManaged && ps.withCDN === withCDN
-    )
+    // Filter for this provider's data sets with matching metadata
+    const providerDataSets = dataSets.filter((ps) => {
+      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged) {
+        return false
+      }
+      // Check if metadata matches
+      return metadataMatches(ps.metadata, metadata)
+    })
 
     if (providerDataSets.length > 0) {
       // Sort by preference: data sets with pieces first, then by ID
@@ -610,7 +621,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signerAddress: string,
-    withCDN: boolean
+    metadata: MetadataEntry[]
   ): Promise<{
     provider: ProviderInfo
     dataSetId: number
@@ -630,7 +641,7 @@ export class StorageContext {
     return await StorageContext.resolveByProviderId(
       signerAddress,
       provider.id,
-      withCDN,
+      metadata,
       warmStorageService,
       providerResolver
     )
@@ -642,7 +653,7 @@ export class StorageContext {
    */
   private static async smartSelectProvider(
     signerAddress: string,
-    withCDN: boolean,
+    metadata: MetadataEntry[],
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signer: ethers.Signer
@@ -658,8 +669,8 @@ export class StorageContext {
     // Get client's data sets
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
-    // Filter for managed data sets with matching CDN setting
-    const managedDataSets = dataSets.filter((ps) => ps.isLive && ps.isManaged && ps.withCDN === withCDN)
+    // Filter for managed data sets with matching metadata
+    const managedDataSets = dataSets.filter((ps) => ps.isLive && ps.isManaged && metadataMatches(ps.metadata, metadata))
 
     if (managedDataSets.length > 0) {
       // Prefer data sets with pieces, sort by ID (older first)
@@ -834,10 +845,10 @@ export class StorageContext {
    * @returns Preflight check results without provider/dataSet specifics
    */
   static async performPreflightCheck(
-    size: number,
-    withCDN: boolean,
     warmStorageService: WarmStorageService,
-    paymentsService: PaymentsService
+    paymentsService: PaymentsService,
+    size: number,
+    withCDN: boolean
   ): Promise<PreflightInfo> {
     // Validate size before proceeding
     StorageContext.validateRawSize(size, 'preflightUpload')
@@ -869,10 +880,10 @@ export class StorageContext {
   async preflightUpload(size: number): Promise<PreflightInfo> {
     // Use the static method for core logic
     const preflightResult = await StorageContext.performPreflightCheck(
-      size,
-      this._withCDN,
       this._warmStorageService,
-      this._synapse.payments
+      this._synapse.payments,
+      size,
+      this._withCDN
     )
 
     // Return preflight info with provider and dataSet specifics

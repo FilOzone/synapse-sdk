@@ -16,11 +16,25 @@ export type getClientDataSets = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STO
 
 export type getApprovedProviders = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getApprovedProviders'>
 
+export type getAllDataSetMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getAllDataSetMetadata'>
+
+export type getDataSetMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getDataSetMetadata'>
+
+export type getAllPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getAllPieceMetadata'>
+
+export type getPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getPieceMetadata'>
+
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
   getClientDataSets?: (args: AbiToType<getClientDataSets['inputs']>) => AbiToType<getClientDataSets['outputs']>
   railToDataSet?: (args: AbiToType<railToDataSet['inputs']>) => AbiToType<railToDataSet['outputs']>
   getApprovedProviders?: (args: AbiToType<getApprovedProviders['inputs']>) => AbiToType<getApprovedProviders['outputs']>
+  getAllDataSetMetadata?: (
+    args: AbiToType<getAllDataSetMetadata['inputs']>
+  ) => AbiToType<getAllDataSetMetadata['outputs']>
+  getDataSetMetadata?: (args: AbiToType<getDataSetMetadata['inputs']>) => AbiToType<getDataSetMetadata['outputs']>
+  getAllPieceMetadata?: (args: AbiToType<getAllPieceMetadata['inputs']>) => AbiToType<getAllPieceMetadata['outputs']>
+  getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
 }
 
 /**
@@ -193,6 +207,46 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getApprovedProviders')!
           .outputs,
         options.warmStorageView.getApprovedProviders(args)
+      )
+    }
+    case 'getAllDataSetMetadata': {
+      if (!options.warmStorageView?.getAllDataSetMetadata) {
+        throw new Error('Warm Storage View: getAllDataSetMetadata is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getAllDataSetMetadata')!
+          .outputs,
+        options.warmStorageView.getAllDataSetMetadata(args)
+      )
+    }
+    case 'getDataSetMetadata': {
+      if (!options.warmStorageView?.getDataSetMetadata) {
+        throw new Error('Warm Storage View: getDataSetMetadata is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getDataSetMetadata')!
+          .outputs,
+        options.warmStorageView.getDataSetMetadata(args)
+      )
+    }
+    case 'getAllPieceMetadata': {
+      if (!options.warmStorageView?.getAllPieceMetadata) {
+        throw new Error('Warm Storage View: getAllPieceMetadata is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getAllPieceMetadata')!
+          .outputs,
+        options.warmStorageView.getAllPieceMetadata(args)
+      )
+    }
+    case 'getPieceMetadata': {
+      if (!options.warmStorageView?.getPieceMetadata) {
+        throw new Error('Warm Storage View: getPieceMetadata is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getPieceMetadata')!
+          .outputs,
+        options.warmStorageView.getPieceMetadata(args)
       )
     }
 

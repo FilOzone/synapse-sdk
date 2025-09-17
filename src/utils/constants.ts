@@ -173,13 +173,14 @@ export const METADATA_KEYS = {
 
   /**
    * Key used to request that a PDP server perform IPFS indexing and announcing to IPNI should be
-   * enabled for a piece. The contents of the associated piece is assumed to be indexable (i.e. a
-   * CAR or a PoDSI container). The presence of this key does not guarantee that indexing will be
+   * enabled for all pieces in a data set. The contents of the associated data sets are assumed to
+   * be indexable (i.e. a CAR or a PoDSI container) and the PDP server will be requested to perform
+   * best-effort indexing. The presence of this key does not guarantee that indexing will be
    * performed or succeed.
    *
    * The value for this key is always an empty string.
    *
-   * Only valid for *piece* metadata.
+   * Only valid for *data set* metadata.
    */
   WITH_IPFS_INDEXING: 'withIPFSIndexing',
 

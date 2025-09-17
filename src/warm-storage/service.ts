@@ -358,13 +358,15 @@ export class WarmStorageService {
                 isLive: false,
                 isManaged: false,
                 withCDN: dataSet.cdnRailId > 0, // CDN is enabled if cdnRailId is non-zero (should be more reliable than metadata)
+                metadata: [] as MetadataEntry[],
               }
         }
 
         // Parallelize independent calls
-        const [isLive, listenerResult] = await Promise.all([
+        const [isLive, listenerResult, metadata] = await Promise.all([
           pdpVerifier.dataSetLive(pdpVerifierDataSetId),
           pdpVerifier.getDataSetListener(pdpVerifierDataSetId).catch(() => null),
+          this.getDataSetMetadata(pdpVerifierDataSetId).catch(() => [] as MetadataEntry[]),
         ])
 
         // Check if this data set is managed by our Warm Storage contract
@@ -387,6 +389,7 @@ export class WarmStorageService {
           isLive,
           isManaged,
           withCDN: dataSet.cdnRailId > 0, // CDN is enabled if cdnRailId is non-zero
+          metadata,
         }
       } catch (error) {
         // Re-throw the error to let the caller handle it

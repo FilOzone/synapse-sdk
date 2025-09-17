@@ -247,7 +247,7 @@ export class StorageManager {
     }
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(size, withCDN, this._warmStorageService, this._synapse.payments)
+    return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
   }
 
   /**

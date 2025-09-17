@@ -232,6 +232,8 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   isManaged: boolean
   /** Whether the data set is using CDN (derived from cdnRailId > 0) */
   withCDN: boolean
+  /** Metadata associated with this data set */
+  metadata: MetadataEntry[]
 }
 
 /**

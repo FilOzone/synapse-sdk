@@ -95,6 +95,7 @@ const mockDataSet: EnhancedDataSetInfo = {
   currentPieceCount: 5,
   isLive: true,
   isManaged: true,
+  metadata: [],
 }
 
 describe('ChainRetriever', () => {

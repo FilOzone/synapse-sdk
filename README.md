@@ -362,7 +362,7 @@ The SDK automatically handles all the complexity of storage setup for you - sele
 2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
 
 Behind the scenes, the process may be:
-- **Fast (<1 second)**: When reusing existing infrastructure (i.e. an existing data set previously created)
+- **Fast (<1 second)**: When reusing existing data sets that match your requirements (including all metadata)
 - **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
 #### Basic Usage
@@ -374,6 +374,18 @@ await synapse.storage.upload(data)  // Context created/reused automatically
 // Option 2: Explicit context creation
 const context = await synapse.storage.createContext()
 await context.upload(data)  // Upload to this specific context
+
+// Option 3: Context with metadata requirements
+const context = await synapse.storage.createContext({
+  metadata: [
+    { key: 'withIPFSIndexing', value: '' },
+    { key: 'category', value: 'videos' }
+  ]
+})
+// This will reuse any existing data set that has both of these metadata entries,
+// or create a new one if none match
+// Note: the `withCDN` option is an alias for a { key: 'withCDN', value: '' }
+// metadata entry.
 ```
 
 #### Advanced Usage with Callbacks
@@ -425,7 +437,7 @@ interface StorageServiceOptions {
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services
-  metadata?: MetadataEntry[]               // Optional metadata for the data set
+  metadata?: MetadataEntry[]               // Metadata requirements for data set selection/creation
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
@@ -434,6 +446,11 @@ interface StorageServiceOptions {
 // 1. Synapse instance default (set during creation)
 // 2. StorageService override (set during createStorage)
 // 3. Per-method override (set during download)
+
+// Data Set Selection: When creating a context, the SDK attempts to reuse existing
+// data sets that match ALL your requirements. A data set matches if it contains
+// all requested metadata entries with matching values (order doesn't matter).
+// The data set may have additional metadata beyond what you request.
 ```
 
 #### Storage Context Properties
