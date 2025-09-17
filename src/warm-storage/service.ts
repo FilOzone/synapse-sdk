@@ -997,6 +997,20 @@ export class WarmStorageService {
     }
   }
 
+  // ========== Data Set Operations ==========
+
+  /**
+   * Terminate a data set with given ID
+   * @param signer - Signer which created this dataset
+   * @param dataSetId  - ID of the data set to terminate
+   * @returns Transaction receipt
+   */
+  async terminateDataSet(signer: ethers.Signer, dataSetId: number): Promise<ethers.TransactionResponse> {
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.terminateService(dataSetId)
+  }
+
   // ========== Service Provider Approval Operations ==========
 
   /**

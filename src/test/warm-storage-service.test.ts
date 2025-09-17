@@ -940,7 +940,7 @@ describe('WarmStorageService', () => {
       assert.equal(registryAddress, '0x0000000000000000000000000000000000000001')
     })
 
-    it('should add approved provider (mock transaction)', async () => {
+    it('should terminate dataset', async () => {
       const warmStorageService = await createWarmStorageService()
       const mockSigner = {
         getAddress: async () => '0x1234567890123456789012345678901234567890',
@@ -959,7 +959,7 @@ describe('WarmStorageService', () => {
       const originalGetWarmStorageContract = (warmStorageService as any)._getWarmStorageContract
       ;(warmStorageService as any)._getWarmStorageContract = () => ({
         connect: () => ({
-          addApprovedProvider: async () => ({
+          terminateService: async () => ({
             hash: '0xmocktxhash',
             wait: async () => ({ status: 1 }),
           }),
@@ -967,6 +967,32 @@ describe('WarmStorageService', () => {
       })
 
       const tx = await warmStorageService.addApprovedProvider(mockSigner, 4)
+      assert.equal(tx.hash, '0xmocktxhash')
+
+      ;(warmStorageService as any)._getWarmStorageContract = originalGetWarmStorageContract
+    })
+
+    it('should add approved provider (mock transaction)', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const mockSigner = {
+        getAddress: async () => '0x1234567890123456789012345678901234567890',
+      } as any
+
+      // Mock the contract connection
+      const originalGetWarmStorageContract = (warmStorageService as any)._getWarmStorageContract
+      ;(warmStorageService as any)._getWarmStorageContract = () => ({
+        connect: () => ({
+          terminateService: async (id: number) => {
+            assert.equal(id, 4)
+            return {
+              hash: '0xmocktxhash',
+              wait: async () => ({ status: 1 }),
+            }
+          },
+        }),
+      })
+
+      const tx = await warmStorageService.terminateDataSet(mockSigner, 4)
       assert.equal(tx.hash, '0xmocktxhash')
 
       ;(warmStorageService as any)._getWarmStorageContract = originalGetWarmStorageContract

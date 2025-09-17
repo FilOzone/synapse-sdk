@@ -336,6 +336,15 @@ export class StorageManager {
   }
 
   /**
+   * Terminate a dataset with given ID that belongs to the synapse signer
+   * @param dataSetId - The ID of the data set to terminate
+   * @returns Transaction response
+   */
+  async terminateDataSet(dataSetId: number): Promise<ethers.TransactionResponse> {
+    return this._warmStorageService.terminateDataSet(this._synapse.getSigner(), dataSetId)
+  }
+
+  /**
    * Get comprehensive information about the storage service including
    * approved providers, pricing, contract addresses, and current allowances
    * @returns Complete storage service information
