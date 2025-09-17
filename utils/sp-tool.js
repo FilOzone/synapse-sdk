@@ -425,9 +425,8 @@ Examples:
     process.exit(1)
   }
 
-  const defaultRpcUrl = network === 'mainnet'
-    ? 'https://api.node.glif.io/rpc/v1'
-    : 'https://api.calibration.node.glif.io/rpc/v1'
+  const defaultRpcUrl =
+    network === 'mainnet' ? 'https://api.node.glif.io/rpc/v1' : 'https://api.calibration.node.glif.io/rpc/v1'
   const rpcUrl = options['rpc-url'] || defaultRpcUrl
   const provider = new ethers.JsonRpcProvider(rpcUrl)
 
