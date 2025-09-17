@@ -76,6 +76,7 @@ interface StorageServiceOptions {
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services
+  metadata?: MetadataEntry[]               // Optional metadata for the data set
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
@@ -84,6 +85,9 @@ interface StorageServiceOptions {
 // 1. Synapse instance default (set during creation)
 // 2. StorageService override (set during createStorage)
 // 3. Per-method override (set during download)
+
+// The withCDN option exists for backward compatibility and internally converts
+// to metadata: [{ key: 'withCDN', value: '' }] when needed
 ```
 
 #### Storage Context Properties

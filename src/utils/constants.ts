@@ -157,6 +157,46 @@ export const SIZE_CONSTANTS = {
 } as const
 
 /**
+ * Common metadata keys
+ */
+export const METADATA_KEYS = {
+  /**
+   * Key used to request that CDN services should be enabled for a data set. The presence of this
+   * key does not strictly guarantee that CDN services will be provided, but the Warm Storage
+   * contract will attempt to enable payment for CDN services if this key is present.
+   *
+   * The value for this key is always an empty string.
+   *
+   * Only valid for *data set* metadata.
+   */
+  WITH_CDN: 'withCDN',
+
+  /**
+   * Key used to request that a PDP server perform IPFS indexing and announcing to IPNI should be
+   * enabled for a piece. The contents of the associated piece is assumed to be indexable (i.e. a
+   * CAR or a PoDSI container). The presence of this key does not guarantee that indexing will be
+   * performed or succeed.
+   *
+   * The value for this key is always an empty string.
+   *
+   * Only valid for *piece* metadata.
+   */
+  WITH_IPFS_INDEXING: 'withIPFSIndexing',
+
+  /**
+   * Key used to indicate a root CID of an IPFS DAG contained within the associated piece. The
+   * presence of this key implies that the piece contains IPLD blocks in a suitable format (i.e. a
+   * CAR or a PoDSI container). The presence of this key does not guarantee that the CID is valid,
+   * that the piece contains IPLD blocks, or that the piece actually contains the referenced DAG.
+   *
+   * The value for this key must be a valid CID string.
+   *
+   * Only valid for *piece* metadata.
+   */
+  IPFS_ROOT_CID: 'ipfsRootCID',
+} as const
+
+/**
  * Timing constants for blockchain operations
  */
 export const TIMING_CONSTANTS = {

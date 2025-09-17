@@ -5,6 +5,7 @@
 import { ethers } from 'ethers'
 import { asPieceCID, type PieceCID } from '../piece/index.ts'
 import type { AuthSignature, MetadataEntry } from '../types.ts'
+import { METADATA_KEYS } from '../utils/constants.ts'
 
 // Declare window.ethereum for TypeScript
 declare global {
@@ -72,7 +73,7 @@ const EIP712_TYPES = {
 export class PDPAuthHelper {
   private readonly signer: ethers.Signer
   private readonly domain: ethers.TypedDataDomain
-  public readonly WITH_CDN_METADATA: MetadataEntry = { key: 'withCDN', value: '' }
+  public readonly WITH_CDN_METADATA: MetadataEntry = { key: METADATA_KEYS.WITH_CDN, value: '' }
 
   constructor(serviceContractAddress: string, signer: ethers.Signer, chainId: bigint) {
     this.signer = signer

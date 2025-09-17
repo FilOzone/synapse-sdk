@@ -82,8 +82,8 @@ pdpServer.createProofSet(serviceProvider, clientDataSetId)
 pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
 
 // After (v0.24.0+)
-pdpServer.createDataSet(serviceProvider, clientDataSetId)
-pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
+pdpServer.createDataSet(clientDataSetId, serviceProvider, metadata, recordKeeper)
+pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData, metadata)
 ```
 
 #### Service Provider Registry

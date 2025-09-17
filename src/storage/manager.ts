@@ -27,6 +27,7 @@ import type { Synapse } from '../synapse.ts'
 import type {
   DownloadOptions,
   EnhancedDataSetInfo,
+  MetadataEntry,
   PieceCID,
   PieceRetriever,
   PreflightInfo,
@@ -37,7 +38,7 @@ import type {
   UploadCallbacks,
   UploadResult,
 } from '../types.ts'
-import { createError, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
+import { createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
@@ -45,18 +46,46 @@ import { StorageContext } from './context.ts'
 // Combined callbacks type that can include both creation and upload callbacks
 type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks
 
+/**
+ * Upload options for StorageManager.upload() - the all-in-one upload method
+ *
+ * This is the "uber-shortcut" method that can handle everything from context
+ * creation to piece upload in a single call. It combines:
+ * - Storage context creation options (provider selection, data set creation)
+ * - Upload callbacks (both creation and upload progress)
+ * - Piece-specific metadata
+ *
+ * Usage patterns:
+ * 1. With explicit context: `{ context, callbacks?, metadata? }` - routes to context.upload()
+ * 2. Auto-create context: `{ providerId?, dataSetId?, withCDN?, callbacks?, metadata? }` - creates/reuses context
+ * 3. Use default context: `{ callbacks?, metadata? }` - uses cached default context
+ *
+ * @internal This type is intentionally not exported as it's specific to StorageManager
+ */
 interface StorageManagerUploadOptions {
-  // Context routing
+  // Context routing - if provided, all other context options are invalid
   context?: StorageContext
-  // OR auto-context options (from StorageServiceOptions)
+
+  // Auto-context creation options (from StorageServiceOptions)
+  // These are ignored if 'context' is provided
+  /** Specific provider ID to use */
   providerId?: number
+  /** Specific provider address to use */
   providerAddress?: string
+  /** Specific data set ID to use */
   dataSetId?: number
+  /** Whether to enable CDN services */
   withCDN?: boolean
+  /** Force creation of a new data set */
   forceCreateDataSet?: boolean
+  /** Maximum uploads per batch (default: 32) */
   uploadBatchSize?: number
+
   // Callbacks that can include both creation and upload callbacks
   callbacks?: Partial<CombinedCallbacks>
+
+  // Metadata for this specific piece upload
+  metadata?: MetadataEntry[]
 }
 
 interface StorageManagerDownloadOptions extends DownloadOptions {
@@ -122,8 +151,11 @@ export class StorageManager {
         callbacks: options?.callbacks,
       }))
 
-    // Upload using the context
-    return await context.upload(data, options?.callbacks)
+    // Upload using the context with piece metadata
+    return await context.upload(data, {
+      ...options?.callbacks,
+      metadata: options?.metadata,
+    })
   }
 
   /**
@@ -189,12 +221,30 @@ export class StorageManager {
   /**
    * Run preflight checks for an upload without creating a context
    * @param size - The size of data to upload in bytes
-   * @param options - Optional settings including withCDN flag
+   * @param options - Optional settings including withCDN flag and/or metadata
    * @returns Preflight information including costs and allowances
    */
-  async preflightUpload(size: number, options?: { withCDN?: boolean }): Promise<PreflightInfo> {
-    // Use withCDN setting: option > manager default
-    const withCDN = options?.withCDN ?? this._withCDN
+  async preflightUpload(
+    size: number,
+    options?: { withCDN?: boolean; metadata?: MetadataEntry[] }
+  ): Promise<PreflightInfo> {
+    // Determine withCDN from metadata if provided, otherwise use option > manager default
+    let withCDN = options?.withCDN ?? this._withCDN
+
+    // Check metadata for withCDN key - this takes precedence
+    if (options?.metadata != null) {
+      const withCDNEntry = options.metadata.find((m) => m.key === METADATA_KEYS.WITH_CDN)
+      if (withCDNEntry != null) {
+        // The withCDN metadata entry should always have an empty string value by convention,
+        // but the contract only checks for key presence, not value
+        if (withCDNEntry.value !== '') {
+          console.warn(
+            `Warning: withCDN metadata entry has unexpected value "${withCDNEntry.value}". Expected empty string.`
+          )
+        }
+        withCDN = true // Enable CDN when key exists (matches contract behavior)
+      }
+    }
 
     // Use the static method from StorageContext for core logic
     return await StorageContext.performPreflightCheck(size, withCDN, this._warmStorageService, this._synapse.payments)

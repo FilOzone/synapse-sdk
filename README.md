@@ -239,6 +239,7 @@ interface SynapseOptions {
 
   // Advanced Configuration
   withCDN?: boolean               // Enable CDN for retrievals (set a default for all new storage operations)
+  metadata?: MetadataEntry[]      // Optional metadata for data sets (key-value pairs)
   pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
   disableNonceManager?: boolean   // Disable automatic nonce management
   warmStorageAddress?: string     // Override Warm Storage service contract address (all other addresses are discovered from this contract)
@@ -424,6 +425,7 @@ interface StorageServiceOptions {
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services
+  metadata?: MetadataEntry[]               // Optional metadata for the data set
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
@@ -952,7 +954,7 @@ const pdpServer = new PDPServer(authHelper, 'https://pdp.provider.com', 'https:/
 const { txHash, statusUrl } = await pdpServer.createDataSet(
   clientDataSetId,     // number
   payee,               // string (service provider address)
-  withCDN,             // boolean
+  metadata,            // MetadataEntry[] (optional metadata, use [] for none)
   recordKeeper         // string (Warm Storage contract address)
 )
 
@@ -1004,13 +1006,14 @@ const authHelper = new PDPAuthHelper(warmStorageAddress, signer, chainId)
 const createDataSetSig = await authHelper.signCreateDataSet(
   clientDataSetId,    // number
   payeeAddress,       // string
-  withCDN             // boolean
+  metadata            // MetadataEntry[] (optional metadata)
 )
 
 const addPiecesSig = await authHelper.signAddPieces(
   clientDataSetId,    // number
   firstPieceId,       // number
-  pieceDataArray      // Array of { cid: string | PieceCID, rawSize: number }
+  pieceDataArray,     // Array of { cid: string | PieceCID, rawSize: number }
+  metadata            // MetadataEntry[][] (optional per-piece metadata)
 )
 
 // All signatures return { signature, v, r, s, signedData }
@@ -1298,8 +1301,8 @@ pdpServer.createProofSet(serviceProvider, clientDataSetId)
 pdpServer.addRoots(proofSetId, clientDataSetId, nextRootId, rootData)
 
 // After (v0.24.0+)
-pdpServer.createDataSet(serviceProvider, clientDataSetId)
-pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
+pdpServer.createDataSet(clientDataSetId, serviceProvider, metadata, recordKeeper)
+pdpServer.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData, metadata)
 ```
 
 #### Service Provider Registry

@@ -32,6 +32,7 @@ import type { Synapse } from '../synapse.ts'
 import type {
   DownloadOptions,
   EnhancedDataSetInfo,
+  MetadataEntry,
   PieceCID,
   PieceStatus,
   PreflightInfo,
@@ -39,6 +40,7 @@ import type {
   StorageCreationCallbacks,
   StorageServiceOptions,
   UploadCallbacks,
+  UploadOptions,
   UploadResult,
 } from '../types.ts'
 import {
@@ -46,6 +48,7 @@ import {
   createError,
   epochToDate,
   getCurrentEpoch,
+  METADATA_KEYS,
   SIZE_CONSTANTS,
   TIMING_CONSTANTS,
   timeUntilEpoch,
@@ -70,6 +73,7 @@ export class StorageContext {
     resolve: (pieceId: number) => void
     reject: (error: Error) => void
     callbacks?: UploadCallbacks
+    metadata?: MetadataEntry[]
   }> = []
 
   private _isProcessing: boolean = false
@@ -191,7 +195,8 @@ export class StorageContext {
         warmStorageService,
         resolution.provider,
         options.withCDN ?? false,
-        options.callbacks
+        options.callbacks,
+        options.metadata
       )
     } else {
       // Use existing data set
@@ -220,7 +225,8 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     provider: ProviderInfo,
     withCDN: boolean,
-    callbacks?: StorageCreationCallbacks
+    callbacks?: StorageCreationCallbacks,
+    metadata?: MetadataEntry[]
   ): Promise<number> {
     performance.mark('synapse:createDataSet-start')
 
@@ -242,9 +248,17 @@ export class StorageContext {
     }
     const pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
 
+    // Prepare metadata - merge withCDN flag into metadata if needed
+    const finalMetadata: MetadataEntry[] = [...(metadata ?? [])]
+
+    // Handle withCDN backward compatibility - add to metadata if not already present
+    if (withCDN && !finalMetadata.some((m) => m.key === METADATA_KEYS.WITH_CDN)) {
+      finalMetadata.push({ key: METADATA_KEYS.WITH_CDN, value: '' })
+    }
+
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
-    const createResult = await pdpServer.createDataSet(nextDatasetId, provider.payee, withCDN, warmStorageAddress)
+    const createResult = await pdpServer.createDataSet(nextDatasetId, provider.payee, finalMetadata, warmStorageAddress)
     performance.mark('synapse:pdpServer.createDataSet-end')
     performance.measure(
       'synapse:pdpServer.createDataSet',
@@ -872,7 +886,7 @@ export class StorageContext {
   /**
    * Upload data to the service provider
    */
-  async upload(data: Uint8Array | ArrayBuffer, callbacks?: UploadCallbacks): Promise<UploadResult> {
+  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size
@@ -930,8 +944,8 @@ export class StorageContext {
     }
 
     // Notify upload complete
-    if (callbacks?.onUploadComplete != null) {
-      callbacks.onUploadComplete(uploadResult.pieceCid)
+    if (options?.onUploadComplete != null) {
+      options.onUploadComplete(uploadResult.pieceCid)
     }
 
     // Add Piece Phase: Queue the AddPieces operation for sequential processing
@@ -943,7 +957,8 @@ export class StorageContext {
         pieceData,
         resolve,
         reject,
-        callbacks,
+        callbacks: options,
+        metadata: options?.metadata,
       })
 
       // Debounce: defer processing to next event loop tick
@@ -986,8 +1001,9 @@ export class StorageContext {
       performance.mark('synapse:getAddPiecesInfo-end')
       performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')
 
-      // Create piece data array from the batch
+      // Create piece data array and metadata from the batch
       const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
+      const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
 
       // Add pieces to the data set
       performance.mark('synapse:pdpServer.addPieces-start')
@@ -995,7 +1011,8 @@ export class StorageContext {
         this._dataSetId, // PDPVerifier data set ID
         addPiecesInfo.clientDataSetId, // Client's dataset ID
         addPiecesInfo.nextPieceId, // Must match chain state
-        pieceDataArray
+        pieceDataArray,
+        metadataArray
       )
       performance.mark('synapse:pdpServer.addPieces-end')
       performance.measure(

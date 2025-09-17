@@ -29,7 +29,7 @@ import { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/service.ts'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
-import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
+import type { DataSetInfo, EnhancedDataSetInfo, MetadataEntry } from '../types.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
@@ -677,6 +677,66 @@ export class WarmStorageService {
 
     // Timeout
     throw new Error(`Data set creation timed out after ${maxWaitTime / 1000} seconds`)
+  }
+
+  // ========== Metadata Operations ==========
+
+  /**
+   * Get all metadata for a data set
+   * @param dataSetId - The data set ID
+   * @returns Array of metadata entries (key-value pairs)
+   */
+  async getDataSetMetadata(dataSetId: number): Promise<MetadataEntry[]> {
+    const viewContract = this._getWarmStorageViewContract()
+    const [keys, values] = await viewContract.getAllDataSetMetadata(dataSetId)
+
+    const metadata: MetadataEntry[] = []
+    for (let i = 0; i < keys.length; i++) {
+      metadata.push({ key: keys[i], value: values[i] })
+    }
+    return metadata
+  }
+
+  /**
+   * Get specific metadata key for a data set
+   * @param dataSetId - The data set ID
+   * @param key - The metadata key to retrieve
+   * @returns The metadata value if it exists, null otherwise
+   */
+  async getDataSetMetadataByKey(dataSetId: number, key: string): Promise<string | null> {
+    const viewContract = this._getWarmStorageViewContract()
+    const [exists, value] = await viewContract.getDataSetMetadata(dataSetId, key)
+    return exists ? value : null
+  }
+
+  /**
+   * Get all metadata for a piece in a data set
+   * @param dataSetId - The data set ID
+   * @param pieceId - The piece ID
+   * @returns Array of metadata entries (key-value pairs)
+   */
+  async getPieceMetadata(dataSetId: number, pieceId: number): Promise<MetadataEntry[]> {
+    const viewContract = this._getWarmStorageViewContract()
+    const [keys, values] = await viewContract.getAllPieceMetadata(dataSetId, pieceId)
+
+    const metadata: MetadataEntry[] = []
+    for (let i = 0; i < keys.length; i++) {
+      metadata.push({ key: keys[i], value: values[i] })
+    }
+    return metadata
+  }
+
+  /**
+   * Get specific metadata key for a piece in a data set
+   * @param dataSetId - The data set ID
+   * @param pieceId - The piece ID
+   * @param key - The metadata key to retrieve
+   * @returns The metadata value if it exists, null otherwise
+   */
+  async getPieceMetadataByKey(dataSetId: number, pieceId: number, key: string): Promise<string | null> {
+    const viewContract = this._getWarmStorageViewContract()
+    const [exists, value] = await viewContract.getPieceMetadata(dataSetId, pieceId, key)
+    return exists ? value : null
   }
 
   // ========== Storage Cost Operations ==========

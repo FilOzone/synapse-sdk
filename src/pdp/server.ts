@@ -151,17 +151,16 @@ export class PDPServer {
    * Create a new data set on the PDP server
    * @param clientDataSetId - Unique ID for the client's dataset
    * @param payee - Address that will receive payments (service provider)
-   * @param withCDN - Whether to enable CDN services
+   * @param metadata - Metadata entries for the data set (key-value pairs)
    * @param recordKeeper - Address of the Warm Storage contract
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createDataSet(
     clientDataSetId: number,
     payee: string,
-    withCDN: boolean,
+    metadata: MetadataEntry[],
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
-    const metadata = withCDN ? [this.getAuthHelper().WITH_CDN_METADATA] : []
     // Generate the EIP-712 signature for data set creation
     const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
 
@@ -221,33 +220,42 @@ export class PDPServer {
    * @param nextPieceId - The ID to assign to the first piece being added, this should be
    *   the next available ID on chain or the signature will fail to be validated
    * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
+   * @param metadata - Optional metadata for each piece (array of arrays, one per piece)
    * @returns Promise that resolves when the pieces are added (201 Created)
    * @throws Error if any CID is invalid
    *
    * @example
    * ```typescript
    * const pieceData = ['bafkzcibcd...']
-   * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData)
+   * const metadata = [[{ key: 'snapshotDate', value: '20250711' }]]
+   * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData, metadata)
    * ```
    */
   async addPieces(
     dataSetId: number,
     clientDataSetId: number,
     nextPieceId: number,
-    pieceDataArray: PieceCID[] | string[]
+    pieceDataArray: PieceCID[] | string[],
+    metadata?: MetadataEntry[][]
   ): Promise<AddPiecesResponse> {
     if (pieceDataArray.length === 0) {
       throw new Error('At least one piece must be provided')
     }
 
-    const metadata: MetadataEntry[][] = []
     // Validate all PieceCIDs
     for (const pieceData of pieceDataArray) {
       const pieceCid = asPieceCID(pieceData)
       if (pieceCid == null) {
         throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
       }
-      metadata.push([]) // empty metadata for each piece
+    }
+
+    // If no metadata provided, create empty arrays for each piece
+    const finalMetadata = metadata ?? pieceDataArray.map(() => [])
+
+    // Validate metadata length matches pieces
+    if (finalMetadata.length !== pieceDataArray.length) {
+      throw new Error(`Metadata length (${finalMetadata.length}) must match pieces length (${pieceDataArray.length})`)
     }
 
     // Generate the EIP-712 signature for adding pieces
@@ -255,14 +263,14 @@ export class PDPServer {
       clientDataSetId,
       nextPieceId,
       pieceDataArray, // Pass PieceData[] directly to auth helper
-      metadata
+      finalMetadata
     )
 
     // Prepare the extra data for the contract call
     // This needs to match what the Warm Storage contract expects for addPieces
     const extraData = this._encodeAddPiecesExtraData({
       signature: authData.signature,
-      metadata: metadata,
+      metadata: finalMetadata,
     })
 
     // Prepare request body matching the Curio handler expectation

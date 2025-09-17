@@ -262,8 +262,18 @@ export interface SettlementResult {
   note: string
 }
 
+// ============================================================================
+// Storage Context Creation Types
+// ============================================================================
+// These types are used when creating or selecting storage contexts
+// (provider + data set pairs)
+// ============================================================================
+
 /**
  * Callbacks for storage service creation process
+ *
+ * These callbacks provide visibility into the context creation process,
+ * including provider selection and data set creation/reuse.
  */
 export interface StorageCreationCallbacks {
   /**
@@ -303,7 +313,14 @@ export interface StorageCreationCallbacks {
 }
 
 /**
- * Storage service implementation options
+ * Options for creating or selecting a storage context
+ *
+ * Used by StorageManager.createContext() and indirectly by StorageManager.upload()
+ * when auto-creating contexts. Allows specification of:
+ * - Provider selection (by ID or address)
+ * - Data set selection or creation
+ * - CDN enablement and metadata
+ * - Creation process callbacks
  */
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
@@ -314,6 +331,8 @@ export interface StorageServiceOptions {
   dataSetId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
+  /** Custom metadata for the data set (key-value pairs) */
+  metadata?: MetadataEntry[]
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
   /** Callbacks for creation process */
@@ -343,8 +362,24 @@ export interface PreflightInfo {
   selectedDataSetId: number | null
 }
 
+// ============================================================================
+// Upload Types
+// ============================================================================
+// The SDK provides different upload options for different use cases:
+//
+// 1. UploadCallbacks - Progress callbacks only (used by all upload methods)
+// 2. UploadOptions - For StorageContext.upload() (adds piece metadata)
+// 3. StorageManagerUploadOptions - For StorageManager.upload() (internal type
+//    that combines context creation + upload in one call)
+// ============================================================================
+
 /**
- * Upload progress callbacks
+ * Callbacks for tracking upload progress
+ *
+ * These callbacks provide visibility into the upload process stages:
+ * 1. Upload completion (piece uploaded to provider)
+ * 2. Piece addition (transaction submitted to chain)
+ * 3. Confirmation (transaction confirmed on-chain)
  */
 export interface UploadCallbacks {
   /** Called when upload to service provider completes */
@@ -353,6 +388,17 @@ export interface UploadCallbacks {
   onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
   /** Called when the service provider agrees that the piece addition is confirmed on-chain */
   onPieceConfirmed?: (pieceIds: number[]) => void
+}
+
+/**
+ * Options for uploading individual pieces to an existing storage context
+ *
+ * Used by StorageContext.upload() for uploading data to a specific provider
+ * and data set that has already been created/selected.
+ */
+export interface UploadOptions extends UploadCallbacks {
+  /** Custom metadata for this specific piece (key-value pairs) */
+  metadata?: MetadataEntry[]
 }
 
 /**
