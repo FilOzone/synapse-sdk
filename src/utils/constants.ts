@@ -247,7 +247,7 @@ export const CONTRACT_ADDRESSES = {
    * All other contract addresses are discovered from this contract
    */
   WARM_STORAGE: {
-    mainnet: '', // TODO: Get actual mainnet address from deployment
+    mainnet: '0x81DFD9813aDd354f03704F31419b0c6268d46232',
     calibration: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348',
   } as const satisfies Record<FilecoinNetworkType, string>,
 

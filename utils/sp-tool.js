@@ -386,7 +386,8 @@ WarmStorage Commands:
   warm-list   List WarmStorage approved providers
 
 Options:
-  --rpc-url <url>       RPC endpoint (default: calibration)
+  --network <network>   Network to use: 'mainnet' or 'calibration' (default: calibration)
+  --rpc-url <url>       RPC endpoint (overrides network default)
   --key <private-key>   Private key for signing (required for write operations)
   --registry <address>  Registry contract address (overrides discovery)
   --warm <address>      WarmStorage address (for registry discovery or warm commands)
@@ -399,8 +400,11 @@ Options:
   --location <text>     Provider location (e.g., "us-east")
 
 Examples:
-  # Register a new provider (requires 5 FIL fee)
-  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
+  # Register a new provider on mainnet (requires 5 FIL fee)
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --network mainnet
+
+  # Register a new provider on calibration (default network)
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com"
   
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
@@ -414,8 +418,17 @@ Examples:
     process.exit(0)
   }
 
-  // Setup provider
-  const rpcUrl = options['rpc-url'] || 'https://api.calibration.node.glif.io/rpc/v1'
+  // Setup provider based on network flag
+  const network = options.network || 'calibration'
+  if (network !== 'mainnet' && network !== 'calibration') {
+    console.error(`Error: Invalid network '${network}'. Must be 'mainnet' or 'calibration'`)
+    process.exit(1)
+  }
+
+  const defaultRpcUrl = network === 'mainnet'
+    ? 'https://api.node.glif.io/rpc/v1'
+    : 'https://api.calibration.node.glif.io/rpc/v1'
+  const rpcUrl = options['rpc-url'] || defaultRpcUrl
   const provider = new ethers.JsonRpcProvider(rpcUrl)
 
   // Setup signer if needed
