@@ -608,6 +608,10 @@ for (const data of dataArray) {
 
 The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
 
+##### Removing Data Sets
+
+To terminate an entire data set and halt associated payments, call `context.terminate()` or `synapse.storage.terminateDataSet(dataSetId: number)`. This action is irreversible and cannot be canceled once initiated. Following a defined termination period, payments will cease, and the service provider will be able to delete the data set.
+
 ### Storage Information
 
 Get comprehensive information about the storage service:
