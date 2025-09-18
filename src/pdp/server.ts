@@ -1,4 +1,3 @@
-
 /**
  * PDPServer - Consolidated interface for all PDP server (Curio) HTTP operations
  *
@@ -604,5 +603,3 @@ export class PDPServerPdp0 {
     return this._authHelper
   }
 }
-
-

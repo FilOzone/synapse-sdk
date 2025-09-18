@@ -26,17 +26,12 @@
  * ```
  */
 
-import { ethers } from 'ethers'
+import { CurioMarket, type Deal, type PDPV1, type Products, type DataSource, type RetrievalV1 } from '@curiostorage/market-client'
+import { ulid } from 'ulid'
 import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.js'
-import type { DataSetData, MetadataEntry, PieceCID } from '../types.js'
+import type { DataSetData, PieceCID } from '../types.js'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.js'
 import type { PDPAuthHelper } from './auth.js'
-import {
-  asDataSetData,
-  validateDataSetCreationStatusResponse,
-  validateFindPieceResponse,
-  validatePieceAdditionStatusResponse,
-} from './validation.js'
 import type {
   AddPiecesResponse,
   CreateDataSetResponse,
@@ -44,7 +39,8 @@ import type {
   FindPieceResponse,
   PieceAdditionStatusResponse,
   UploadResponse,
-} from './server_selector.ts'
+} from './server.ts'
+import { asDataSetData, validateFindPieceResponse } from './validation.js'
 
 /**
  * Response from creating a data set
@@ -78,7 +74,9 @@ import type {
 export class PDPServerPdp1 {
   private readonly _serviceURL: string
   private readonly _authHelper: PDPAuthHelper | null
-  private _tspdp1: TSPDP1;
+  private _marketClient: InstanceType<typeof CurioMarket.MarketClient>
+  private _recordKeeper: string | null = null
+  private _contractAddress: string | null = null
 
   /**
    * Create a new PDPServer instance
@@ -92,16 +90,16 @@ export class PDPServerPdp1 {
     // Remove trailing slash from URL
     this._serviceURL = serviceURL.replace(/\/$/, '')
     this._authHelper = authHelper
-    this._tspdp1 = new TSPDP1(serviceURL);
+    this._marketClient = new CurioMarket.MarketClient({ serverUrl: serviceURL })
   }
 
-  async isSupported(baseUrl: string): Promise<boolean> {
+  async isSupported(_baseUrl: string): Promise<boolean> {
     try {
-    var p = await this._tspdp1.getProducts();
-    } catch (error) {
-      return false;
+      const products = await this._marketClient.getProducts()
+      return products != null && Object.keys(products).length > 0
+    } catch (_error) {
+      return false
     }
-    return p.length > 0;
   }
 
   /**
@@ -112,62 +110,51 @@ export class PDPServerPdp1 {
    * @param recordKeeper - Address of the Warm Storage contract
    * @returns Promise that resolves with transaction hash and status URL
    */
-  async createDataSet(        /// TODO ANDY - Below here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  async createDataSet(
     clientDataSetId: number,
     payee: string,
     withCDN: boolean,
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
-    const metadata = withCDN ? [this.getAuthHelper().WITH_CDN_METADATA] : []
-    // Generate the EIP-712 signature for data set creation
-    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
+    try {
+      // Create metadata for CDN if requested
+      const metadata = withCDN ? [this.getAuthHelper().WITH_CDN_METADATA] : []
+      
+      // Generate EIP-712 signature for dataset creation
+      const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
+      
+      // Create the deal payload for dataset creation using ULID
+      const datasetId = ulid()
+      const createDataSetDeal: Deal = {
+        identifier: datasetId,
+        client: await this.getAuthHelper().getSignerAddress(),
+        products: {
+          pdpV1: {
+            createDataSet: true,
+            addPiece: false,
+            recordKeeper,
+            extraData: [],
+            deleteDataSet: false,
+            deletePiece: false,
+          } as PDPV1,
+          retrievalV1: {
+            announcePayload: false,
+            announcePiece: withCDN,
+            indexing: false,
+          } as RetrievalV1,
+        } as Products,
+      }
 
-    // Prepare the extra data for the contract call
-    // This needs to match the DataSetCreateData struct in Warm Storage contract
-    const extraData = this._encodeDataSetCreateData({
-      payer: await this.getAuthHelper().getSignerAddress(),
-      metadata,
-      signature: authData.signature,
-    })
-
-    // Prepare request body
-    const requestBody = {
-      recordKeeper,
-      extraData: `0x${extraData}`,
-    }
-
-    // Make the POST request to create the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to create data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Extract transaction hash from Location header
-    const location = response.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response')
-    }
-
-    // Parse the location to extract the transaction hash
-    // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const txHash = locationMatch[1]
-
-    return {
-      txHash,
-      statusUrl: `${this._serviceURL}${location}`,
+      // Submit the dataset creation deal
+      const dealId = await this._marketClient.submitDeal(createDataSetDeal)
+      
+      // Return the result in the expected format
+      return {
+        txHash: createDataSetDeal.identifier, // The ULID from the deal
+        statusUrl: `${this._serviceURL}/pdp/data-sets/created/${createDataSetDeal.identifier}`,
+      }
+    } catch (error) {
+      throw new Error(`Failed to create data set: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -197,87 +184,80 @@ export class PDPServerPdp1 {
       throw new Error('At least one piece must be provided')
     }
 
-    const metadata: MetadataEntry[][] = []
-    // Validate all PieceCIDs
-    for (const pieceData of pieceDataArray) {
-      const pieceCid = asPieceCID(pieceData)
-      if (pieceCid == null) {
-        throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
-      }
-      metadata.push([]) // empty metadata for each piece
-    }
-
-    // Generate the EIP-712 signature for adding pieces
-    const authData = await this.getAuthHelper().signAddPieces(
-      clientDataSetId,
-      nextPieceId,
-      pieceDataArray, // Pass PieceData[] directly to auth helper
-      metadata
-    )
-
-    // Prepare the extra data for the contract call
-    // This needs to match what the Warm Storage contract expects for addPieces
-    const extraData = this._encodeAddPiecesExtraData({
-      signature: authData.signature,
-      metadata: metadata,
-    })
-
-    // Prepare request body matching the Curio handler expectation
-    // Each piece has itself as its only subPiece (internal implementation detail)
-    const requestBody = {
-      pieces: pieceDataArray.map((pieceData) => {
-        // Convert to string for JSON serialization
-        const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
-        return {
-          pieceCid: cidString,
-          subPieces: [
-            {
-              subPieceCid: cidString, // Piece is its own subpiece
-            },
-          ],
+    try {
+      // Validate all PieceCIDs and convert to strings
+      const pieceCidStrings = pieceDataArray.map((pieceData) => {
+        const pieceCid = asPieceCID(pieceData)
+        if (pieceCid == null) {
+          throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
         }
-      }),
-      extraData: `0x${extraData}`,
-    }
+        return pieceCid.toString()
+      })
 
-    // Make the POST request to add pieces to the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
+      // Generate EIP-712 signature for adding pieces
+      const metadata: any[][] = [] // Empty metadata for each piece
+      const authData = await this.getAuthHelper().signAddPieces(
+        clientDataSetId,
+        nextPieceId,
+        pieceDataArray,
+        metadata
+      )
 
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to add pieces to data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
+      // Create a new deal for adding pieces to the existing dataset
+      // Each piece needs its own deal in PDP v1, but we can batch them efficiently
+      const results = []
+      
+      for (let i = 0; i < pieceCidStrings.length; i++) {
+        const pieceCid = pieceCidStrings[i]
+        const pieceId = nextPieceId + i
 
-    // Check for Location header (backward compatible with old servers)
-    const location = response.headers.get('Location')
-    let txHash: string | undefined
-    let statusUrl: string | undefined
-
-    if (location != null) {
-      // Expected format: /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
-      const locationMatch = location.match(/\/pieces\/added\/([0-9a-fA-Fx]+)$/)
-      if (locationMatch != null) {
-        txHash = locationMatch[1]
-        // Ensure txHash has 0x prefix
-        if (!txHash.startsWith('0x')) {
-          txHash = `0x${txHash}`
+        // Create the deal payload for adding this piece using ULID
+        const uploadId = ulid()
+        const addPieceDeal: Deal = {
+          identifier: uploadId,
+          client: await this.getAuthHelper().getSignerAddress(),
+          data: {
+            pieceCid: { "/": pieceCid } as object,
+            format: { raw: {} },
+            sourceHttpPut: {},
+          } as DataSource,
+          products: {
+            pdpV1: {
+              addPiece: true,
+              dataSetId,
+              recordKeeper: this._recordKeeper || '', // Use stored recordKeeper or empty string
+              extraData: [],
+              deleteDataSet: false,
+              deletePiece: false,
+            } as PDPV1,
+            retrievalV1: {
+              announcePayload: false,
+              announcePiece: true,
+              indexing: false,
+            } as RetrievalV1,
+          } as Products,
         }
-        statusUrl = `${this._serviceURL}${location}`
-      }
-    }
 
-    // Success - pieces have been added
-    const responseText = await response.text()
-    return {
-      message: responseText !== '' ? responseText : `Pieces added to data set ID ${dataSetId} successfully`,
-      txHash,
-      statusUrl,
+        // Submit the add piece deal
+        const dealId = await this._marketClient.submitDeal(addPieceDeal)
+        results.push({
+          pieceId,
+          dealId,
+          identifier: addPieceDeal.identifier,
+        })
+      }
+
+
+      // Return the result for the first piece
+      const firstResult = results[0]
+
+      return {
+        message: `Pieces added to data set ID ${dataSetId} successfully`,
+        txHash: firstResult.identifier,
+        statusUrl: `${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${firstResult.identifier}`,
+      }
+    } catch (error) {
+      throw new Error(`Failed to add pieces to data set: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -287,26 +267,28 @@ export class PDPServerPdp1 {
    * @returns Promise that resolves with the creation status
    */
   async getDataSetCreationStatus(txHash: string): Promise<DataSetCreationStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    try {
+      // Use the MarketClient's getStatus method to check the deal status
+      const status = await this._marketClient.getStatus(txHash)
+      const pdp = status.pdpV1
 
-    if (response.status === 404) {
-      throw new Error(`Data set creation not found for transaction hash: ${txHash}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
+      // Convert the MarketClient status response to our expected format
+      return {
+        createMessageHash: txHash,
+        dataSetCreated: pdp?.status === 'complete',
+        service: 'PDPv1',
+        txStatus: pdp?.status || 'unknown',
+        ok: pdp?.status === 'complete' ? true : pdp?.status === 'failed' ? false : null,
+        dataSetId: pdp?.dataSetId,
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('404')) {
+        throw new Error(`Data set creation not found for transaction hash: ${txHash}`)
+      }
       throw new Error(
-        `Failed to get data set creation status: ${response.status} ${response.statusText} - ${errorText}`
+        `Failed to get data set creation status: ${error instanceof Error ? error.message : String(error)}`
       )
     }
-
-    const data = await response.json()
-    return validateDataSetCreationStatusResponse(data)
   }
 
   /**
@@ -316,24 +298,26 @@ export class PDPServerPdp1 {
    * @returns Promise that resolves with the addition status
    */
   async getPieceAdditionStatus(dataSetId: number, txHash: string): Promise<PieceAdditionStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+    try {
+      // Use the MarketClient's getStatus method to check the deal status
+      const status = await this._marketClient.getStatus(txHash)
+      const pdp = status.pdpV1
 
-    if (response.status === 404) {
-      throw new Error(`Piece addition not found for transaction: ${txHash}`)
+      // Convert the MarketClient status response to our expected format
+      return {
+        txHash,
+        txStatus: pdp?.status || 'unknown',
+        dataSetId,
+        pieceCount: 1, // PDP v1 handles one piece per deal
+        addMessageOk: pdp?.status === 'complete' ? true : pdp?.status === 'failed' ? false : null,
+        confirmedPieceIds: pdp?.status === 'complete' ? [dataSetId] : undefined,
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('404')) {
+        throw new Error(`Piece addition not found for transaction: ${txHash}`)
+      }
+      throw new Error(`Failed to get piece addition status: ${error instanceof Error ? error.message : String(error)}`)
     }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(`Failed to get piece addition status: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validatePieceAdditionStatusResponse(data)
   }
 
   /**
@@ -348,23 +332,31 @@ export class PDPServerPdp1 {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {},
-    })
+    try {
+      // For PDP v1, we'll use the MarketClient's capabilities to find pieces
+      // Since the MarketClient doesn't have a direct findPiece method, we'll use
+      // the traditional HTTP endpoint but with the market client's base URL
 
-    if (response.status === 404) {
-      throw new Error(`Piece not found: ${parsedPieceCid.toString()}`)
+      const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid)
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {},
+      })
+
+      if (response.status === 404) {
+        throw new Error(`Piece not found: ${parsedPieceCid.toString()}`)
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      return validateFindPieceResponse(data)
+    } catch (error) {
+      throw new Error(`Failed to find piece: ${error instanceof Error ? error.message : String(error)}`)
     }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validateFindPieceResponse(data)
   }
 
   /**
@@ -383,79 +375,35 @@ export class PDPServerPdp1 {
     performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
     const size = uint8Data.length
 
-    const requestBody = {
-      pieceCid: pieceCid.toString(),
-      // No notify URL needed
-    }
+    try {
+      // Convert Uint8Array to Blob for the MarketClient
+      const blob = new Blob([uint8Data])
 
-    // Create upload session or check if piece exists
-    performance.mark('synapse:POST.pdp.piece-start')
-    const createResponse = await fetch(`${this._serviceURL}/pdp/piece`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-    performance.mark('synapse:POST.pdp.piece-end')
-    performance.measure('synapse:POST.pdp.piece', 'synapse:POST.pdp.piece-start', 'synapse:POST.pdp.piece-end')
+      // Get contract addresses
+      const { recordKeeper, contractAddress } = this._getContractAddresses()
 
-    if (createResponse.status === 200) {
-      // Piece already exists on server
+      // Use the MarketClient's startPDPv1DealForUpload method for complete upload
+      const result = await this._marketClient.startPDPv1DealForUpload({
+        blobs: [blob],
+        client: await this.getAuthHelper().getSignerAddress(),
+        recordKeeper,
+        contractAddress,
+      })
+
+      // Upload the blobs using the returned upload ID
+      const uploadResult = await this._marketClient.uploadBlobs({
+        id: result.id,
+        blobs: [blob],
+        deal: undefined, // Use the deal from startPDPv1DealForUpload
+        chunkSize: 16 * 1024 * 1024, // 16MB chunks as per example
+      })
+
       return {
         pieceCid,
         size,
       }
-    }
-
-    if (createResponse.status !== 201) {
-      const errorText = await createResponse.text()
-      throw new Error(
-        `Failed to create upload session: ${createResponse.status} ${createResponse.statusText} - ${errorText}`
-      )
-    }
-
-    // Extract upload ID from Location header
-    const location = createResponse.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response (may be restricted by CORS policy)')
-    }
-
-    // Validate the location format and extract UUID
-    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
-    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const uploadUuid = locationMatch[1] // Extract just the UUID
-
-    // Upload the data
-    performance.mark('synapse:PUT.pdp.piece.upload-start')
-    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/upload/${uploadUuid}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': uint8Data.length.toString(),
-        // No Authorization header needed
-      },
-      body: uint8Data,
-    })
-    performance.mark('synapse:PUT.pdp.piece.upload-end')
-    performance.measure(
-      'synapse:PUT.pdp.piece.upload',
-      'synapse:PUT.pdp.piece.upload-start',
-      'synapse:PUT.pdp.piece.upload-end'
-    )
-
-    if (uploadResponse.status !== 204) {
-      const errorText = await uploadResponse.text()
-      throw new Error(`Failed to upload piece: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`)
-    }
-
-    return {
-      pieceCid,
-      size,
+    } catch (error) {
+      throw new Error(`Failed to upload piece: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -470,13 +418,19 @@ export class PDPServerPdp1 {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    // Use the retrieval endpoint configured at construction time
-    const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
+    try {
+      // For PDP v1, we'll use the traditional download method
+      // The MarketClient doesn't have a direct download method, so we'll use
+      // the standard HTTP endpoint for piece retrieval
 
-    const response = await fetch(downloadUrl)
+      const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
+      const response = await fetch(downloadUrl)
 
-    // Use the shared download and validation function
-    return await downloadAndValidate(response, parsedPieceCid)
+      // Use the shared download and validation function
+      return await downloadAndValidate(response, parsedPieceCid)
+    } catch (error) {
+      throw new Error(`Failed to download piece: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 
   /**
@@ -485,70 +439,36 @@ export class PDPServerPdp1 {
    * @returns Promise that resolves with data set data
    */
   async getDataSet(dataSetId: number): Promise<DataSetData> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
+    try {
+      // For PDP v1, we'll use the traditional HTTP endpoint for getting dataset details
+      // The MarketClient doesn't have a direct getDataSet method
 
-    if (response.status === 404) {
-      throw new Error(`Data set not found: ${dataSetId}`)
+      const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+
+      if (response.status === 404) {
+        throw new Error(`Data set not found: ${dataSetId}`)
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to fetch data set: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+
+      const data = await response.json()
+      const converted = asDataSetData(data)
+      if (converted == null) {
+        console.error('Invalid data set data response:', data)
+        throw new Error('Invalid data set data response format')
+      }
+      return converted
+    } catch (error) {
+      throw new Error(`Failed to get data set: ${error instanceof Error ? error.message : String(error)}`)
     }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to fetch data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    const converted = asDataSetData(data)
-    if (converted == null) {
-      console.error('Invalid data set data response:', data)
-      throw new Error('Invalid data set data response format')
-    }
-    return converted
-  }
-
-  /**
-   * Encode DataSetCreateData for extraData field
-   * This matches the Solidity struct DataSetCreateData in Warm Storage contract
-   */
-  private _encodeDataSetCreateData(data: { payer: string; metadata: MetadataEntry[]; signature: string }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-
-    // ABI encode the struct as a tuple
-    // DataSetCreateData struct:
-    // - address payer
-    // - string[] metadataKeys
-    // - string[] metadataValues
-    // - bytes signature
-    const keys = data.metadata.map((item) => item.key)
-    const values = data.metadata.map((item) => item.value)
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['address', 'string[]', 'string[]', 'bytes'], [data.payer, keys, values, signature])
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
-  }
-
-  /**
-   * Encode AddPieces extraData for the addPieces operation
-   * Based on the Curio handler, this should be (bytes signature, string metadata)
-   */
-  private _encodeAddPiecesExtraData(data: { signature: string; metadata: MetadataEntry[][] }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-    const keys = data.metadata.map((item) => item.map((item) => item.key))
-    const values = data.metadata.map((item) => item.map((item) => item.value))
-
-    // ABI encode as (bytes signature, metadataKeys, metadataValues])
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['bytes', 'string[][]', 'string[][]'], [signature, keys, values])
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
   }
 
   /**
@@ -557,14 +477,14 @@ export class PDPServerPdp1 {
    * @throws Error if provider is not reachable or returns non-200 status
    */
   async ping(): Promise<void> {
-    const response = await fetch(`${this._serviceURL}/pdp/ping`, {
-      method: 'GET',
-      headers: {},
-    })
+    try {
+      // For PDP v1, we'll use the MarketClient's getProducts method to test connectivity
+      // This is more reliable than a simple ping endpoint
 
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw new Error(`Provider ping failed: ${response.status} ${response.statusText} - ${errorText}`)
+      await this._marketClient.getProducts()
+    } catch (error) {
+      const errorText = error instanceof Error ? error.message : 'Unknown error'
+      throw new Error(`Provider ping failed: ${errorText}`)
     }
   }
 
@@ -582,6 +502,24 @@ export class PDPServerPdp1 {
     }
     return this._authHelper
   }
+
+  /**
+   * Set the record keeper and contract address for PDP v1 operations
+   * @param recordKeeper - Address of the Warm Storage contract
+   * @param contractAddress - Address of the PDP contract
+   */
+  setContractAddresses(recordKeeper: string, contractAddress: string): void {
+    this._recordKeeper = recordKeeper
+    this._contractAddress = contractAddress
+  }
+
+  private _getContractAddresses(): { recordKeeper: string; contractAddress: string } {
+    if (this._recordKeeper == null || this._contractAddress == null) {
+      throw new Error('Contract addresses not set. Call setContractAddresses() first.')
+    }
+    return {
+      recordKeeper: this._recordKeeper,
+      contractAddress: this._contractAddress,
+    }
+  }
 }
-
-

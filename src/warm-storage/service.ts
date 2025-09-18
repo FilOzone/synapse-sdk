@@ -27,7 +27,7 @@
 
 import { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/service.ts'
-import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server_selector.ts'
+import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server-selector.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'

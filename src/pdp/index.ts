@@ -7,8 +7,8 @@ export type {
   FindPieceResponse,
   PieceAdditionStatusResponse,
   UploadResponse,
-} from './server_selector.ts'
-export { PDPServer } from './server_selector.ts'
+} from './server-selector.ts'
+export { PDPServer } from './server-selector.ts'
 // Export validation utilities for advanced use
 export {
   asDataSetData,
