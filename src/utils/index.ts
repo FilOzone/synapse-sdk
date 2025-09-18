@@ -1,5 +1,6 @@
 export * from './constants.ts'
 export * from './epoch.ts'
 export { createError } from './errors.ts'
+export { combineMetadata, metadataMatches } from './metadata.ts'
 export { getFilecoinNetworkType } from './network.ts'
 export { constructFindPieceUrl, constructPieceUrl } from './piece.ts'

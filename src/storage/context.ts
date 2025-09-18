@@ -53,7 +53,7 @@ import {
   TIMING_CONSTANTS,
   timeUntilEpoch,
 } from '../utils/index.ts'
-import { metadataMatches, objectToEntries } from '../utils/metadata.ts'
+import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -67,6 +67,7 @@ export class StorageContext {
   private readonly _dataSetId: number
   private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
+  private readonly _dataSetMetadata: Record<string, string>
 
   // AddPieces batching state
   private _pendingPieces: Array<{
@@ -91,6 +92,11 @@ export class StorageContext {
   // Getter for provider info
   get provider(): ProviderInfo {
     return this._provider
+  }
+
+  // Getter for data set metadata
+  get dataSetMetadata(): Record<string, string> {
+    return this._dataSetMetadata
   }
 
   /**
@@ -130,7 +136,8 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     provider: ProviderInfo,
     dataSetId: number,
-    options: StorageServiceOptions
+    options: StorageServiceOptions,
+    dataSetMetadata: Record<string, string>
   ) {
     this._synapse = synapse
     this._provider = provider
@@ -139,6 +146,7 @@ export class StorageContext {
     this._signer = synapse.getSigner()
     this._warmStorageService = warmStorageService
     this._uploadBatchSize = Math.max(1, options.uploadBatchSize ?? SIZE_CONSTANTS.DEFAULT_UPLOAD_BATCH_SIZE)
+    this._dataSetMetadata = dataSetMetadata
 
     // Set public properties
     this.dataSetId = dataSetId
@@ -215,7 +223,14 @@ export class StorageContext {
       }
     }
 
-    return new StorageContext(synapse, warmStorageService, resolution.provider, finalDataSetId, options)
+    return new StorageContext(
+      synapse,
+      warmStorageService,
+      resolution.provider,
+      finalDataSetId,
+      options,
+      resolution.dataSetMetadata
+    )
   }
 
   /**
@@ -429,13 +444,7 @@ export class StorageContext {
     }
 
     // Convert options to metadata format - merge withCDN flag into metadata if needed
-    const baseMetadata = options.metadata ?? {}
-    const requestedMetadata =
-      METADATA_KEYS.WITH_CDN in baseMetadata
-        ? baseMetadata
-        : options.withCDN
-          ? { ...baseMetadata, withCDN: '' }
-          : baseMetadata
+    const requestedMetadata = combineMetadata(options.metadata, options.withCDN)
 
     // Handle explicit provider ID selection
     if (options.providerId != null) {
@@ -517,10 +526,14 @@ export class StorageContext {
       )
     }
 
+    // Backfill data set metadata from chain
+    const dataSetMetadata = await warmStorageService.getDataSetMetadata(dataSetId)
+
     return {
       provider,
       dataSetId,
       isExisting: true,
+      dataSetMetadata,
     }
   }
 
@@ -568,14 +581,10 @@ export class StorageContext {
   private static async resolveByProviderId(
     signerAddress: string,
     providerId: number,
-    metadata: Record<string, string>,
+    requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver
-  ): Promise<{
-    provider: ProviderInfo
-    dataSetId: number
-    isExisting: boolean
-  }> {
+  ): Promise<ProviderSelectionResult> {
     // Fetch provider info and data sets in parallel
     const [provider, dataSets] = await Promise.all([
       providerResolver.getApprovedProvider(providerId),
@@ -592,7 +601,7 @@ export class StorageContext {
         return false
       }
       // Check if metadata matches
-      return metadataMatches(ps.metadata, metadata)
+      return metadataMatches(ps.metadata, requestedMetadata)
     })
 
     if (providerDataSets.length > 0) {
@@ -603,10 +612,14 @@ export class StorageContext {
         return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
       })
 
+      // Fetch metadata for existing data set
+      const dataSetMetadata = await warmStorageService.getDataSetMetadata(sorted[0].pdpVerifierDataSetId)
+
       return {
         provider,
         dataSetId: sorted[0].pdpVerifierDataSetId,
         isExisting: true,
+        dataSetMetadata,
       }
     }
 
@@ -615,6 +628,7 @@ export class StorageContext {
       provider,
       dataSetId: -1, // Marker for new data set
       isExisting: false,
+      dataSetMetadata: requestedMetadata,
     }
   }
 
@@ -626,12 +640,8 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signerAddress: string,
-    metadata: Record<string, string>
-  ): Promise<{
-    provider: ProviderInfo
-    dataSetId: number
-    isExisting: boolean
-  }> {
+    requestedMetadata: Record<string, string>
+  ): Promise<ProviderSelectionResult> {
     // Get provider by address
     const provider = await providerResolver.getApprovedProviderByAddress(providerAddress)
     if (provider == null) {
@@ -646,7 +656,7 @@ export class StorageContext {
     return await StorageContext.resolveByProviderId(
       signerAddress,
       provider.id,
-      metadata,
+      requestedMetadata,
       warmStorageService,
       providerResolver
     )
@@ -658,15 +668,11 @@ export class StorageContext {
    */
   private static async smartSelectProvider(
     signerAddress: string,
-    metadata: Record<string, string>,
+    requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signer: ethers.Signer
-  ): Promise<{
-    provider: ProviderInfo
-    dataSetId: number
-    isExisting: boolean
-  }> {
+  ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
     // 2. If no existing data sets, find a healthy provider
@@ -675,7 +681,9 @@ export class StorageContext {
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
     // Filter for managed data sets with matching metadata
-    const managedDataSets = dataSets.filter((ps) => ps.isLive && ps.isManaged && metadataMatches(ps.metadata, metadata))
+    const managedDataSets = dataSets.filter(
+      (ps) => ps.isLive && ps.isManaged && metadataMatches(ps.metadata, requestedMetadata)
+    )
 
     if (managedDataSets.length > 0) {
       // Prefer data sets with pieces, sort by ID (older first)
@@ -719,10 +727,14 @@ export class StorageContext {
           )
           // Fall through to select from all approved providers below
         } else {
+          // Fetch metadata for existing data set
+          const dataSetMetadata = await warmStorageService.getDataSetMetadata(matchingDataSet.pdpVerifierDataSetId)
+
           return {
             provider: selectedProvider,
             dataSetId: matchingDataSet.pdpVerifierDataSetId,
             isExisting: true,
+            dataSetMetadata,
           }
         }
       } catch (_error) {
@@ -744,6 +756,7 @@ export class StorageContext {
       provider,
       dataSetId: -1, // Marker for new data set
       isExisting: false,
+      dataSetMetadata: requestedMetadata,
     }
   }
 
@@ -966,6 +979,11 @@ export class StorageContext {
 
     // Add Piece Phase: Queue the AddPieces operation for sequential processing
     const pieceData = uploadResult.pieceCid
+
+    // Validate metadata early (before queueing) to fail fast
+    if (options?.metadata != null) {
+      validatePieceMetadata(options.metadata)
+    }
 
     const finalPieceId = await new Promise<number>((resolve, reject) => {
       // Add to pending batch

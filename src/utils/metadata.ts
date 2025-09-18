@@ -39,19 +39,22 @@ export function entriesToObject(entries: MetadataEntry[]): Record<string, string
 
 /**
  * Validates metadata for data set creation against contract limits.
+ * Accepts both MetadataEntry[] and Record<string, string> formats.
  * Throws descriptive errors if validation fails.
  *
- * @param metadata - The metadata to validate
+ * @param metadata - The metadata to validate (array or object)
  * @throws Error if metadata exceeds contract limits
  */
-export function validateDataSetMetadata(metadata: MetadataEntry[]): void {
-  if (metadata.length > METADATA_LIMITS.MAX_KEYS_PER_DATASET) {
+export function validateDataSetMetadata(metadata: MetadataEntry[] | Record<string, string>): void {
+  // Convert to array format for validation
+  const metadataArray = Array.isArray(metadata) ? metadata : objectToEntries(metadata)
+  if (metadataArray.length > METADATA_LIMITS.MAX_KEYS_PER_DATASET) {
     throw new Error(
-      `Too many metadata keys for data set: ${metadata.length} (max: ${METADATA_LIMITS.MAX_KEYS_PER_DATASET})`
+      `Too many metadata keys for data set: ${metadataArray.length} (max: ${METADATA_LIMITS.MAX_KEYS_PER_DATASET})`
     )
   }
 
-  for (const { key, value } of metadata) {
+  for (const { key, value } of metadataArray) {
     if (key.length > METADATA_LIMITS.MAX_KEY_LENGTH) {
       throw new Error(
         `Metadata key "${key}" exceeds max length: ${key.length} bytes (max: ${METADATA_LIMITS.MAX_KEY_LENGTH})`
@@ -67,17 +70,22 @@ export function validateDataSetMetadata(metadata: MetadataEntry[]): void {
 
 /**
  * Validates metadata for piece addition against contract limits.
+ * Accepts both MetadataEntry[] and Record<string, string> formats.
  * Throws descriptive errors if validation fails.
  *
- * @param metadata - The metadata to validate
+ * @param metadata - The metadata to validate (array or object)
  * @throws Error if metadata exceeds contract limits
  */
-export function validatePieceMetadata(metadata: MetadataEntry[]): void {
-  if (metadata.length > METADATA_LIMITS.MAX_KEYS_PER_PIECE) {
-    throw new Error(`Too many metadata keys for piece: ${metadata.length} (max: ${METADATA_LIMITS.MAX_KEYS_PER_PIECE})`)
+export function validatePieceMetadata(metadata: MetadataEntry[] | Record<string, string>): void {
+  // Convert to array format for validation
+  const metadataArray = Array.isArray(metadata) ? metadata : objectToEntries(metadata)
+  if (metadataArray.length > METADATA_LIMITS.MAX_KEYS_PER_PIECE) {
+    throw new Error(
+      `Too many metadata keys for piece: ${metadataArray.length} (max: ${METADATA_LIMITS.MAX_KEYS_PER_PIECE})`
+    )
   }
 
-  for (const { key, value } of metadata) {
+  for (const { key, value } of metadataArray) {
     if (key.length > METADATA_LIMITS.MAX_KEY_LENGTH) {
       throw new Error(
         `Metadata key "${key}" exceeds max length: ${key.length} bytes (max: ${METADATA_LIMITS.MAX_KEY_LENGTH})`
@@ -118,6 +126,29 @@ export function metadataMatches(
     }
   }
   return true
+}
+
+/**
+ * Combines metadata object with withCDN flag, ensuring consistent behavior.
+ * If withCDN is true, adds the withCDN key only if not already present.
+ * If withCDN is false or undefined, returns metadata unchanged.
+ *
+ * @param metadata - Base metadata object (can be empty)
+ * @param withCDN - Whether to include CDN flag
+ * @returns Combined metadata object
+ */
+export function combineMetadata(metadata: Record<string, string> = {}, withCDN?: boolean): Record<string, string> {
+  // If no CDN preference or already has withCDN key, return as-is
+  if (withCDN == null || METADATA_KEYS.WITH_CDN in metadata) {
+    return metadata
+  }
+
+  // Add withCDN key only if explicitly requested
+  if (withCDN) {
+    return { ...metadata, [METADATA_KEYS.WITH_CDN]: '' }
+  }
+
+  return metadata
 }
 
 /**

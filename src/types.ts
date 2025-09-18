@@ -547,6 +547,8 @@ export interface ProviderSelectionResult {
   isNewDataSet?: boolean
   /** Whether this is an existing data set */
   isExisting?: boolean
+  /** Data set metadata */
+  dataSetMetadata: Record<string, string>
 }
 
 export type MetadataEntry = {

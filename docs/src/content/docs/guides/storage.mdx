@@ -38,6 +38,22 @@ const context = await synapse.storage.createContext({
 // Note: the `withCDN: true` option is an alias for { withCDN: '' } in metadata.
 ```
 
+#### Metadata Limits
+
+Metadata is subject to the following contract-enforced limits:
+
+**Data Set Metadata:**
+- Maximum of 10 key-value pairs per data set
+- Keys: Maximum 32 characters
+- Values: Maximum 128 characters
+
+**Piece Metadata:**
+- Maximum of 5 key-value pairs per piece
+- Keys: Maximum 32 characters
+- Values: Maximum 128 characters
+
+These limits are enforced by the blockchain contracts. The SDK will validate metadata before submission and throw descriptive errors if limits are exceeded.
+
 #### Advanced Usage with Callbacks
 
 Monitor the creation process with detailed callbacks:
@@ -132,8 +148,13 @@ console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 Upload and download data with the storage context:
 
 ```typescript
-// Upload with optional progress callbacks
+// Upload with optional progress callbacks and piece-specific metadata
 const result = await context.upload(data, {
+  // Optional: Add metadata specific to this piece (key-value pairs)
+  metadata: {
+    snapshotVersion: 'v2.1.0',
+    generator: 'backup-system'
+  },
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },

@@ -37,7 +37,15 @@ import type {
   UploadCallbacks,
   UploadResult,
 } from '../types.ts'
-import { createError, METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
+import {
+  combineMetadata,
+  createError,
+  METADATA_KEYS,
+  metadataMatches,
+  SIZE_CONSTANTS,
+  TIME_CONSTANTS,
+  TOKENS,
+} from '../utils/index.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
@@ -255,7 +263,7 @@ export class StorageManager {
     // Check if we can return the default context
     // We can use the default if:
     // 1. No options provided, OR
-    // 2. Only withCDN and/or callbacks are provided (callbacks can fire for cached context)
+    // 2. Only withCDN, metadata and/or callbacks are provided (callbacks can fire for cached context)
     const canUseDefault =
       options == null ||
       (options.providerId == null &&
@@ -265,11 +273,13 @@ export class StorageManager {
         options.uploadBatchSize == null)
 
     if (canUseDefault) {
-      // Check if we have a default context with matching CDN setting
+      // Check if we have a default context with compatible metadata
       if (this._defaultContext != null) {
-        // Check if the CDN setting matches
-        const defaultHasCDN = (this._defaultContext as any).withCDN ?? this._withCDN
-        if (defaultHasCDN === effectiveWithCDN) {
+        // Combine the current request metadata with effective withCDN setting
+        const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
+
+        // Check if the requested metadata matches what the default context was created with
+        if (metadataMatches(this._defaultContext.dataSetMetadata, requestedMetadata)) {
           // Fire callbacks for cached context to ensure consistent behavior
           if (options?.callbacks != null) {
             try {
@@ -294,8 +304,8 @@ export class StorageManager {
 
       // Create new default context with current CDN setting
       const context = await StorageContext.create(this._synapse, this._warmStorageService, {
+        ...options,
         withCDN: effectiveWithCDN,
-        callbacks: options?.callbacks,
       })
       this._defaultContext = context
       return context
