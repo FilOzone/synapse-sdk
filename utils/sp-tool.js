@@ -11,7 +11,7 @@
 
 import { ethers } from 'ethers'
 import { SPRegistryService } from '../dist/sp-registry/index.js'
-import { CONTRACT_ADDRESSES } from '../dist/utils/constants.js'
+import { CONTRACT_ADDRESSES, RPC_URLS } from '../dist/utils/constants.js'
 import { getFilecoinNetworkType } from '../dist/utils/network.js'
 import { WarmStorageService } from '../dist/warm-storage/index.js'
 
@@ -425,10 +425,27 @@ Examples:
     process.exit(1)
   }
 
-  const defaultRpcUrl =
-    network === 'mainnet' ? 'https://api.node.glif.io/rpc/v1' : 'https://api.calibration.node.glif.io/rpc/v1'
+  // Use WebSocket URLs by default for better performance
+  const defaultRpcUrl = RPC_URLS[network].websocket
   const rpcUrl = options['rpc-url'] || defaultRpcUrl
-  const provider = new ethers.JsonRpcProvider(rpcUrl)
+
+  // Smart provider selection based on URL protocol
+  let provider
+  if (/^ws(s)?:\/\//i.test(rpcUrl)) {
+    provider = new ethers.WebSocketProvider(rpcUrl)
+  } else {
+    provider = new ethers.JsonRpcProvider(rpcUrl)
+  }
+
+  // Validate the network matches what was requested
+  const actualNetwork = await getFilecoinNetworkType(provider)
+  if (actualNetwork !== network) {
+    console.error(`Error: Provider connected to ${actualNetwork} network, but ${network} was requested`)
+    process.exit(1)
+  }
+
+  // Print confirmed network
+  console.log(`Connected to Filecoin ${actualNetwork} network`)
 
   // Setup signer if needed
   let signer = null
