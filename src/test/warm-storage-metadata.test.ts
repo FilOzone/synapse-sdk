@@ -31,9 +31,9 @@ describe('WarmStorageService Metadata', () => {
     it('should get all data set metadata', async () => {
       const metadata = await warmStorageService.getDataSetMetadata(1)
 
-      assert.equal(metadata.length, 2)
-      assert.deepEqual(metadata[0], { key: 'environment', value: 'test' })
-      assert.deepEqual(metadata[1], { key: METADATA_KEYS.WITH_CDN, value: '' })
+      assert.equal(Object.keys(metadata).length, 2)
+      assert.equal(metadata.environment, 'test')
+      assert.equal(metadata[METADATA_KEYS.WITH_CDN], '')
     })
 
     it('should get specific data set metadata by key', async () => {
@@ -49,7 +49,7 @@ describe('WarmStorageService Metadata', () => {
 
     it('should return empty metadata for non-existent data set', async () => {
       const metadata = await warmStorageService.getDataSetMetadata(999)
-      assert.equal(metadata.length, 0)
+      assert.equal(Object.keys(metadata).length, 0)
     })
   })
 
@@ -57,12 +57,9 @@ describe('WarmStorageService Metadata', () => {
     it('should get all piece metadata', async () => {
       const metadata = await warmStorageService.getPieceMetadata(1, 0)
 
-      assert.equal(metadata.length, 2)
-      assert.deepEqual(metadata[0], { key: METADATA_KEYS.WITH_IPFS_INDEXING, value: '' })
-      assert.deepEqual(metadata[1], {
-        key: METADATA_KEYS.IPFS_ROOT_CID,
-        value: 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
-      })
+      assert.equal(Object.keys(metadata).length, 2)
+      assert.equal(metadata[METADATA_KEYS.WITH_IPFS_INDEXING], '')
+      assert.equal(metadata[METADATA_KEYS.IPFS_ROOT_CID], 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
     })
 
     it('should get specific piece metadata by key', async () => {
@@ -78,7 +75,7 @@ describe('WarmStorageService Metadata', () => {
 
     it('should return empty metadata for non-existent piece', async () => {
       const metadata = await warmStorageService.getPieceMetadata(1, 999)
-      assert.equal(metadata.length, 0)
+      assert.equal(Object.keys(metadata).length, 0)
     })
   })
 })

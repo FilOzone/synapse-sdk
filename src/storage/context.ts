@@ -53,7 +53,7 @@ import {
   TIMING_CONSTANTS,
   timeUntilEpoch,
 } from '../utils/index.ts'
-import { hasWithCDN, metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
+import { metadataMatches, objectToEntries } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -227,7 +227,7 @@ export class StorageContext {
     provider: ProviderInfo,
     withCDN: boolean,
     callbacks?: StorageCreationCallbacks,
-    metadata?: MetadataEntry[]
+    metadata?: Record<string, string>
   ): Promise<number> {
     performance.mark('synapse:createDataSet-start')
 
@@ -250,12 +250,14 @@ export class StorageContext {
     const pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
 
     // Prepare metadata - merge withCDN flag into metadata if needed
-    const finalMetadata: MetadataEntry[] = [...(metadata ?? [])]
+    const baseMetadataObj = metadata ?? {}
+    const metadataObj =
+      withCDN && !(METADATA_KEYS.WITH_CDN in baseMetadataObj)
+        ? { ...baseMetadataObj, [METADATA_KEYS.WITH_CDN]: '' }
+        : baseMetadataObj
 
-    // Handle withCDN backward compatibility - add to metadata if not already present
-    if (withCDN && !hasWithCDN(finalMetadata)) {
-      finalMetadata.push({ key: METADATA_KEYS.WITH_CDN, value: '' })
-    }
+    // Convert to MetadataEntry[] for PDP operations (requires ordered array)
+    const finalMetadata = objectToEntries(metadataObj)
 
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
@@ -427,10 +429,13 @@ export class StorageContext {
     }
 
     // Convert options to metadata format - merge withCDN flag into metadata if needed
-    const baseMetadata = options.metadata ?? []
-    const requestedMetadata = hasWithCDN(baseMetadata)
-      ? baseMetadata
-      : [...baseMetadata, ...withCDNToMetadata(options.withCDN ?? false)]
+    const baseMetadata = options.metadata ?? {}
+    const requestedMetadata =
+      METADATA_KEYS.WITH_CDN in baseMetadata
+        ? baseMetadata
+        : options.withCDN
+          ? { ...baseMetadata, withCDN: '' }
+          : baseMetadata
 
     // Handle explicit provider ID selection
     if (options.providerId != null) {
@@ -563,7 +568,7 @@ export class StorageContext {
   private static async resolveByProviderId(
     signerAddress: string,
     providerId: number,
-    metadata: MetadataEntry[],
+    metadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver
   ): Promise<{
@@ -621,7 +626,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signerAddress: string,
-    metadata: MetadataEntry[]
+    metadata: Record<string, string>
   ): Promise<{
     provider: ProviderInfo
     dataSetId: number
@@ -653,7 +658,7 @@ export class StorageContext {
    */
   private static async smartSelectProvider(
     signerAddress: string,
-    metadata: MetadataEntry[],
+    metadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signer: ethers.Signer
@@ -969,7 +974,7 @@ export class StorageContext {
         resolve,
         reject,
         callbacks: options,
-        metadata: options?.metadata,
+        metadata: options?.metadata ? objectToEntries(options.metadata) : undefined,
       })
 
       // Debounce: defer processing to next event loop tick

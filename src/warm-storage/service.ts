@@ -29,7 +29,7 @@ import { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/service.ts'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
-import type { DataSetInfo, EnhancedDataSetInfo, MetadataEntry } from '../types.ts'
+import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
@@ -358,7 +358,7 @@ export class WarmStorageService {
                 isLive: false,
                 isManaged: false,
                 withCDN: dataSet.cdnRailId > 0, // CDN is enabled if cdnRailId is non-zero (should be more reliable than metadata)
-                metadata: [] as MetadataEntry[],
+                metadata: Object.create(null) as Record<string, string>,
               }
         }
 
@@ -366,7 +366,7 @@ export class WarmStorageService {
         const [isLive, listenerResult, metadata] = await Promise.all([
           pdpVerifier.dataSetLive(pdpVerifierDataSetId),
           pdpVerifier.getDataSetListener(pdpVerifierDataSetId).catch(() => null),
-          this.getDataSetMetadata(pdpVerifierDataSetId).catch(() => [] as MetadataEntry[]),
+          this.getDataSetMetadata(pdpVerifierDataSetId).catch(() => Object.create(null) as Record<string, string>),
         ])
 
         // Check if this data set is managed by our Warm Storage contract
@@ -687,15 +687,16 @@ export class WarmStorageService {
   /**
    * Get all metadata for a data set
    * @param dataSetId - The data set ID
-   * @returns Array of metadata entries (key-value pairs)
+   * @returns Object with metadata key-value pairs
    */
-  async getDataSetMetadata(dataSetId: number): Promise<MetadataEntry[]> {
+  async getDataSetMetadata(dataSetId: number): Promise<Record<string, string>> {
     const viewContract = this._getWarmStorageViewContract()
     const [keys, values] = await viewContract.getAllDataSetMetadata(dataSetId)
 
-    const metadata: MetadataEntry[] = []
+    // Create a prototype-safe object to avoid pollution risks from arbitrary keys
+    const metadata: Record<string, string> = Object.create(null)
     for (let i = 0; i < keys.length; i++) {
-      metadata.push({ key: keys[i], value: values[i] })
+      metadata[keys[i]] = values[i]
     }
     return metadata
   }
@@ -716,15 +717,16 @@ export class WarmStorageService {
    * Get all metadata for a piece in a data set
    * @param dataSetId - The data set ID
    * @param pieceId - The piece ID
-   * @returns Array of metadata entries (key-value pairs)
+   * @returns Object with metadata key-value pairs
    */
-  async getPieceMetadata(dataSetId: number, pieceId: number): Promise<MetadataEntry[]> {
+  async getPieceMetadata(dataSetId: number, pieceId: number): Promise<Record<string, string>> {
     const viewContract = this._getWarmStorageViewContract()
     const [keys, values] = await viewContract.getAllPieceMetadata(dataSetId, pieceId)
 
-    const metadata: MetadataEntry[] = []
+    // Create a prototype-safe object to avoid pollution risks from arbitrary keys
+    const metadata: Record<string, string> = Object.create(null)
     for (let i = 0; i < keys.length; i++) {
-      metadata.push({ key: keys[i], value: values[i] })
+      metadata[keys[i]] = values[i]
     }
     return metadata
   }

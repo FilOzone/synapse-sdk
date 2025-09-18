@@ -2,9 +2,8 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
-import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { hasWithCDN, metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
+import { metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
@@ -12,70 +11,70 @@ describe('Metadata-based Data Set Selection', () => {
   describe('Metadata Utilities', () => {
     describe('metadataMatches', () => {
       it('should match when all requested metadata exists in data set', () => {
-        const dataSetMetadata: MetadataEntry[] = [
-          { key: 'environment', value: 'production' },
-          { key: METADATA_KEYS.WITH_CDN, value: '' },
-          { key: 'region', value: 'us-east' },
-        ]
+        const dataSetMetadata: Record<string, string> = {
+          environment: 'production',
+          [METADATA_KEYS.WITH_CDN]: '',
+          region: 'us-east',
+        }
 
-        const requested: MetadataEntry[] = [
-          { key: METADATA_KEYS.WITH_CDN, value: '' },
-          { key: 'environment', value: 'production' },
-        ]
+        const requested: Record<string, string> = {
+          [METADATA_KEYS.WITH_CDN]: '',
+          environment: 'production',
+        }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should not match when requested value differs', () => {
-        const dataSetMetadata: MetadataEntry[] = [
-          { key: 'environment', value: 'production' },
-          { key: METADATA_KEYS.WITH_CDN, value: '' },
-        ]
+        const dataSetMetadata: Record<string, string> = {
+          environment: 'production',
+          [METADATA_KEYS.WITH_CDN]: '',
+        }
 
-        const requested: MetadataEntry[] = [{ key: 'environment', value: 'development' }]
+        const requested: Record<string, string> = { environment: 'development' }
 
         assert.isFalse(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should not match when requested key is missing', () => {
-        const dataSetMetadata: MetadataEntry[] = [{ key: 'environment', value: 'production' }]
+        const dataSetMetadata: Record<string, string> = { environment: 'production' }
 
-        const requested: MetadataEntry[] = [{ key: METADATA_KEYS.WITH_CDN, value: '' }]
+        const requested: Record<string, string> = { [METADATA_KEYS.WITH_CDN]: '' }
 
         assert.isFalse(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should match empty request with any data set', () => {
-        const dataSetMetadata: MetadataEntry[] = [{ key: 'environment', value: 'production' }]
+        const dataSetMetadata: Record<string, string> = { environment: 'production' }
 
-        const requested: MetadataEntry[] = []
+        const requested: Record<string, string> = {}
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should be order-independent', () => {
-        const dataSetMetadata: MetadataEntry[] = [
-          { key: 'b', value: '2' },
-          { key: 'a', value: '1' },
-          { key: 'c', value: '3' },
-        ]
+        const dataSetMetadata: Record<string, string> = {
+          b: '2',
+          a: '1',
+          c: '3',
+        }
 
-        const requested: MetadataEntry[] = [
-          { key: 'c', value: '3' },
-          { key: 'a', value: '1' },
-        ]
+        const requested: Record<string, string> = {
+          c: '3',
+          a: '1',
+        }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should allow data set to have extra metadata', () => {
-        const dataSetMetadata: MetadataEntry[] = [
-          { key: METADATA_KEYS.WITH_CDN, value: '' },
-          { key: METADATA_KEYS.WITH_IPFS_INDEXING, value: '' },
-          { key: 'custom', value: 'value' },
-        ]
+        const dataSetMetadata: Record<string, string> = {
+          [METADATA_KEYS.WITH_CDN]: '',
+          [METADATA_KEYS.WITH_IPFS_INDEXING]: '',
+          custom: 'value',
+        }
 
-        const requested: MetadataEntry[] = [{ key: METADATA_KEYS.WITH_CDN, value: '' }]
+        const requested: Record<string, string> = { [METADATA_KEYS.WITH_CDN]: '' }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
@@ -92,26 +91,6 @@ describe('Metadata-based Data Set Selection', () => {
       it('should convert false to empty array', () => {
         const metadata = withCDNToMetadata(false)
         assert.equal(metadata.length, 0)
-      })
-    })
-
-    describe('hasWithCDN', () => {
-      it('should detect withCDN key', () => {
-        const metadata: MetadataEntry[] = [
-          { key: 'environment', value: 'production' },
-          { key: METADATA_KEYS.WITH_CDN, value: '' },
-        ]
-        assert.isTrue(hasWithCDN(metadata))
-      })
-
-      it('should return false when withCDN is absent', () => {
-        const metadata: MetadataEntry[] = [{ key: 'environment', value: 'production' }]
-        assert.isFalse(hasWithCDN(metadata))
-      })
-
-      it('should detect withCDN regardless of value', () => {
-        const metadata: MetadataEntry[] = [{ key: METADATA_KEYS.WITH_CDN, value: 'unexpected' }]
-        assert.isTrue(hasWithCDN(metadata))
       })
     })
   })
@@ -228,17 +207,17 @@ describe('Metadata-based Data Set Selection', () => {
       // Data set 1: no metadata, no CDN from rail
       assert.equal(dataSets[0].pdpVerifierDataSetId, 1)
       assert.isFalse(dataSets[0].withCDN)
-      assert.deepEqual(dataSets[0].metadata, [])
+      assert.deepEqual(dataSets[0].metadata, {})
 
       // Data set 2: withCDN metadata, also has CDN rail
       assert.equal(dataSets[1].pdpVerifierDataSetId, 2)
       assert.isTrue(dataSets[1].withCDN)
-      assert.deepEqual(dataSets[1].metadata, [{ key: METADATA_KEYS.WITH_CDN, value: '' }])
+      assert.deepEqual(dataSets[1].metadata, { [METADATA_KEYS.WITH_CDN]: '' })
 
       // Data set 3: withIPFSIndexing metadata, no CDN
       assert.equal(dataSets[2].pdpVerifierDataSetId, 3)
       assert.isFalse(dataSets[2].withCDN)
-      assert.deepEqual(dataSets[2].metadata, [{ key: METADATA_KEYS.WITH_IPFS_INDEXING, value: '' }])
+      assert.deepEqual(dataSets[2].metadata, { [METADATA_KEYS.WITH_IPFS_INDEXING]: '' })
     })
 
     it('should prefer data sets with matching metadata', async () => {
@@ -246,22 +225,20 @@ describe('Metadata-based Data Set Selection', () => {
 
       // Filter for data sets with withIPFSIndexing
       const withIndexing = dataSets.filter((ds) =>
-        metadataMatches(ds.metadata, [{ key: METADATA_KEYS.WITH_IPFS_INDEXING, value: '' }])
+        metadataMatches(ds.metadata, { [METADATA_KEYS.WITH_IPFS_INDEXING]: '' })
       )
 
       assert.equal(withIndexing.length, 1)
       assert.equal(withIndexing[0].pdpVerifierDataSetId, 3)
 
       // Filter for data sets with withCDN
-      const withCDN = dataSets.filter((ds) =>
-        metadataMatches(ds.metadata, [{ key: METADATA_KEYS.WITH_CDN, value: '' }])
-      )
+      const withCDN = dataSets.filter((ds) => metadataMatches(ds.metadata, { [METADATA_KEYS.WITH_CDN]: '' }))
 
       assert.equal(withCDN.length, 1)
       assert.equal(withCDN[0].pdpVerifierDataSetId, 2)
 
       // Filter for data sets with no specific metadata
-      const noRequirements = dataSets.filter((ds) => metadataMatches(ds.metadata, []))
+      const noRequirements = dataSets.filter((ds) => metadataMatches(ds.metadata, {}))
 
       assert.equal(noRequirements.length, 3) // All match when no requirements
     })

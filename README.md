@@ -238,11 +238,11 @@ interface SynapseOptions {
   authorization?: string          // Authorization header (e.g., 'Bearer TOKEN')
 
   // Advanced Configuration
-  withCDN?: boolean               // Enable CDN for retrievals (set a default for all new storage operations)
-  metadata?: MetadataEntry[]      // Optional metadata for data sets (key-value pairs)
-  pieceRetriever?: PieceRetriever // Optional override for a custom retrieval stack
-  disableNonceManager?: boolean   // Disable automatic nonce management
-  warmStorageAddress?: string     // Override Warm Storage service contract address (all other addresses are discovered from this contract)
+  withCDN?: boolean                 // Enable CDN for retrievals (set a default for all new storage operations)
+  metadata?: Record<string, string> // Optional metadata for data sets (key-value pairs)
+  pieceRetriever?: PieceRetriever   // Optional override for a custom retrieval stack
+  disableNonceManager?: boolean     // Disable automatic nonce management
+  warmStorageAddress?: string       // Override Warm Storage service contract address (all other addresses are discovered from this contract)
 
   // Subgraph Integration (optional, provide only one of these options)
   subgraphService?: SubgraphRetrievalService // Custom implementation for provider discovery
@@ -377,15 +377,14 @@ await context.upload(data)  // Upload to this specific context
 
 // Option 3: Context with metadata requirements
 const context = await synapse.storage.createContext({
-  metadata: [
-    { key: 'withIPFSIndexing', value: '' },
-    { key: 'category', value: 'videos' }
-  ]
+  metadata: {
+    withIPFSIndexing: '',
+    category: 'videos'
+  }
 })
 // This will reuse any existing data set that has both of these metadata entries,
 // or create a new one if none match
-// Note: the `withCDN` option is an alias for a { key: 'withCDN', value: '' }
-// metadata entry.
+// Note: the `withCDN: true` option is an alias for { withCDN: '' } in metadata.
 ```
 
 #### Advanced Usage with Callbacks
@@ -437,7 +436,7 @@ interface StorageServiceOptions {
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services
-  metadata?: MetadataEntry[]               // Metadata requirements for data set selection/creation
+  metadata?: Record<string, string>        // Metadata requirements for data set selection/creation
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }

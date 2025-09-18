@@ -232,8 +232,8 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   isManaged: boolean
   /** Whether the data set is using CDN (derived from cdnRailId > 0) */
   withCDN: boolean
-  /** Metadata associated with this data set */
-  metadata: MetadataEntry[]
+  /** Metadata associated with this data set (key-value pairs) */
+  metadata: Record<string, string>
 }
 
 /**
@@ -334,7 +334,7 @@ export interface StorageServiceOptions {
   /** Whether to enable CDN services */
   withCDN?: boolean
   /** Custom metadata for the data set (key-value pairs) */
-  metadata?: MetadataEntry[]
+  metadata?: Record<string, string>
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
   /** Callbacks for creation process */
@@ -400,7 +400,7 @@ export interface UploadCallbacks {
  */
 export interface UploadOptions extends UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
-  metadata?: MetadataEntry[]
+  metadata?: Record<string, string>
 }
 
 /**

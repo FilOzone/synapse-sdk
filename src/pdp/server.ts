@@ -29,6 +29,7 @@
 import { ethers } from 'ethers'
 import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.ts'
 import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
+import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
 import type { PDPAuthHelper } from './auth.ts'
 import {
@@ -161,6 +162,9 @@ export class PDPServer {
     metadata: MetadataEntry[],
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
+    // Validate metadata against contract limits
+    validateDataSetMetadata(metadata)
+
     // Generate the EIP-712 signature for data set creation
     const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
 
@@ -240,6 +244,19 @@ export class PDPServer {
   ): Promise<AddPiecesResponse> {
     if (pieceDataArray.length === 0) {
       throw new Error('At least one piece must be provided')
+    }
+
+    // Validate piece metadata against contract limits
+    if (metadata != null) {
+      for (let i = 0; i < metadata.length; i++) {
+        if (metadata[i] != null && metadata[i].length > 0) {
+          try {
+            validatePieceMetadata(metadata[i])
+          } catch (error: any) {
+            throw new Error(`Piece ${i} metadata validation failed: ${error.message}`)
+          }
+        }
+      }
     }
 
     // Validate all PieceCIDs

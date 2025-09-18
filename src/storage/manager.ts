@@ -27,7 +27,6 @@ import type { Synapse } from '../synapse.ts'
 import type {
   DownloadOptions,
   EnhancedDataSetInfo,
-  MetadataEntry,
   PieceCID,
   PieceRetriever,
   PreflightInfo,
@@ -85,7 +84,7 @@ interface StorageManagerUploadOptions {
   callbacks?: Partial<CombinedCallbacks>
 
   // Metadata for this specific piece upload
-  metadata?: MetadataEntry[]
+  metadata?: Record<string, string>
 }
 
 interface StorageManagerDownloadOptions extends DownloadOptions {
@@ -226,24 +225,20 @@ export class StorageManager {
    */
   async preflightUpload(
     size: number,
-    options?: { withCDN?: boolean; metadata?: MetadataEntry[] }
+    options?: { withCDN?: boolean; metadata?: Record<string, string> }
   ): Promise<PreflightInfo> {
     // Determine withCDN from metadata if provided, otherwise use option > manager default
     let withCDN = options?.withCDN ?? this._withCDN
 
     // Check metadata for withCDN key - this takes precedence
-    if (options?.metadata != null) {
-      const withCDNEntry = options.metadata.find((m) => m.key === METADATA_KEYS.WITH_CDN)
-      if (withCDNEntry != null) {
-        // The withCDN metadata entry should always have an empty string value by convention,
-        // but the contract only checks for key presence, not value
-        if (withCDNEntry.value !== '') {
-          console.warn(
-            `Warning: withCDN metadata entry has unexpected value "${withCDNEntry.value}". Expected empty string.`
-          )
-        }
-        withCDN = true // Enable CDN when key exists (matches contract behavior)
+    if (options?.metadata != null && METADATA_KEYS.WITH_CDN in options.metadata) {
+      // The withCDN metadata entry should always have an empty string value by convention,
+      // but the contract only checks for key presence, not value
+      const value = options.metadata[METADATA_KEYS.WITH_CDN]
+      if (value !== '') {
+        console.warn(`Warning: withCDN metadata entry has unexpected value "${value}". Expected empty string.`)
       }
+      withCDN = true // Enable CDN when key exists (matches contract behavior)
     }
 
     // Use the static method from StorageContext for core logic

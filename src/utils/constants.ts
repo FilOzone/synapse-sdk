@@ -185,12 +185,12 @@ export const METADATA_KEYS = {
   WITH_IPFS_INDEXING: 'withIPFSIndexing',
 
   /**
-   * Key used to indicate a root CID of an IPFS DAG contained within the associated piece. The
-   * presence of this key implies that the piece contains IPLD blocks in a suitable format (i.e. a
-   * CAR or a PoDSI container). The presence of this key does not guarantee that the CID is valid,
-   * that the piece contains IPLD blocks, or that the piece actually contains the referenced DAG.
+   * Key used to indicate a root CID of an IPLD DAG contained within the associated piece.
+   * Advisory only: do not treat as proof that the CID is valid, that IPLD blocks are present, or
+   * that the referenced DAG is fully present or retrievable. Intended as a secondary identifier
+   * provided by the data producer; not interpreted by contracts.
    *
-   * The value for this key must be a valid CID string.
+   * The value for this key should be a valid CID string.
    *
    * Only valid for *piece* metadata.
    */

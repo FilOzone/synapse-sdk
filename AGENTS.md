@@ -22,8 +22,8 @@ This document serves as context for LLM agent sessions working with the Synapse 
 
 ### Development Tools
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
-- **ts-standard**: TypeScript Standard Style linter for consistent formatting, no semicolons, prefer to run `npm run lint:fix` for lint+fix,
-  - **BEWARE** of common TS code, these rules will cause problems so you should either `lint:fix` regularly or avoid code that produces these: strict-boolean-expressions, no-trailing-spaces, return-await, no-unused-vars, indent
+- **Biome**: Fast linter/formatter replacing ts-standard. Run `npm run lint:fix` for auto-fixes. No semicolons, consistent formatting.
+  - **Important**: Biome is strict about imports, formatting. Always run `lint:fix` before commits.
 - **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
 - **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
 - **Conventional Commits**: Auto-publishing enabled with semantic versioning based on commit messages. Use `feat:` for minor, `fix:`/`chore:`/`docs:`/`test:` for patch. AVOID breaking change signifiers (`!` or `BREAKING CHANGE`) even if there are actual breaking changes. See <README.md#commit-message-guidelines> for full details. IMPORTANT: only create commits if asked to by the user, prefer to provide commit messages.
@@ -69,8 +69,10 @@ src/
 │   ├── manager.ts              # StorageManager - auto-managed contexts, SP-agnostic downloads
 │   └── context.ts              # StorageContext - specific SP + DataSet operations
 ├── utils/                      # Shared utilities
-│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS
+│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS, METADATA_KEYS
 │   ├── errors.ts               # Error creation utilities
+│   ├── metadata.ts             # Metadata validation and conversion utilities
+│   ├── network.ts              # Network detection utilities
 │   └── provider-resolver.ts   # Provider discovery and selection logic
 ├── synapse.ts                  # Main Synapse class (minimal interface)
 └── types.ts                    # TypeScript interfaces
@@ -264,13 +266,33 @@ This architecture enables a clean separation where PDPVerifier handles the crypt
 await synapse.storage.upload(data)
 await synapse.storage.download(pieceCid)  // SP-agnostic
 
-// Advanced: explicit context
-const context = await synapse.storage.createContext({ providerId: 1 })
+// Advanced: explicit context with metadata
+const context = await synapse.storage.createContext({
+  providerId: 1,
+  metadata: { category: 'videos', withIPFSIndexing: '' }
+})
 await context.upload(data)
 await context.download(pieceCid)  // SP-specific
 ```
 
 **Download Optimization**: StorageManager checks default context first when downloading without CDN - if piece exists there, uses fast path to avoid discovery.
+
+### Metadata System
+
+**User-facing APIs use `Record<string, string>`** for cleaner syntax:
+- `StorageServiceOptions.metadata`, `UploadOptions.metadata`
+- `WarmStorageService.getDataSetMetadata()` returns objects
+- Example: `{ category: 'videos', withCDN: '' }`
+
+**PDP operations use `MetadataEntry[]`** for EIP-712 signing:
+- PDPAuthHelper/PDPServer require ordered arrays
+- Converted internally via `objectToEntries()` (alphabetically sorted)
+
+**Validation**: Early validation in PDPServer prevents rejected transactions:
+- Data sets: max 10 keys, pieces: max 5 keys
+- Keys: max 32 chars, values: max 128 chars
+
+**Security**: Uses `Object.create(null)` for prototype-safe objects from contracts.
 
 ## Development Environment
 
