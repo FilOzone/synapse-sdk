@@ -1414,7 +1414,8 @@ export class StorageContext {
   }
 
   /**
-   * terminates the dataset by sending on-chain message
+   * Terminates the data set by sending on-chain message.
+   * This will also result in the removal of all pieces in the data set.
    * @returns Transaction response
    */
   async terminate(): Promise<ethers.TransactionResponse> {

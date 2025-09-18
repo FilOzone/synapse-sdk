@@ -336,7 +336,8 @@ export class StorageManager {
   }
 
   /**
-   * Terminate a dataset with given ID that belongs to the synapse signer
+   * Terminate a data set with given ID that belongs to the synapse signer.
+   * This will also result in the removal of all pieces in the data set.
    * @param dataSetId - The ID of the data set to terminate
    * @returns Transaction response
    */
