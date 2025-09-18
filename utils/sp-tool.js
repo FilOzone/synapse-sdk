@@ -425,8 +425,15 @@ Examples:
     process.exit(1)
   }
 
-  // Use WebSocket URLs by default for better performance
-  const defaultRpcUrl = RPC_URLS[network].websocket
+  // Use WebSocket URLs by default for better performance, fallback to HTTP if not available
+  let defaultRpcUrl = RPC_URLS[network] && RPC_URLS[network].websocket
+  if (!defaultRpcUrl) {
+    defaultRpcUrl = RPC_URLS[network] && RPC_URLS[network].http
+  }
+  if (!options['rpc-url'] && !defaultRpcUrl) {
+    console.error(`Error: No RPC URL available for network '${network}'. Please provide --rpc-url.`)
+    process.exit(1)
+  }
   const rpcUrl = options['rpc-url'] || defaultRpcUrl
 
   // Smart provider selection based on URL protocol
