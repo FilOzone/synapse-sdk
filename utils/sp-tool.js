@@ -404,7 +404,7 @@ Examples:
   node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --network mainnet
 
   # Register a new provider on calibration (default network)
-  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com"
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
   
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
