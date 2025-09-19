@@ -456,6 +456,12 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 - Data sets with existing pieces are preferred over empty ones
 - Within each group (with pieces vs. empty), the oldest data set (lowest ID) is selected
 
+**Provider Selection** (when no matching data sets exist):
+- If you specify a provider (via `providerId` or `providerAddress`), that provider is used
+- Otherwise, the SDK currently uses random selection from all approved providers
+- Before finalizing selection, the SDK verifies the provider is reachable via a ping test
+- If a provider fails the ping test, the SDK tries the next candidate
+
 ```javascript
 // Scenario 1: Explicit data set (no matching required)
 const context1 = await synapse.storage.createContext({
@@ -491,6 +497,15 @@ const contextC = await synapse.storage.createContext({
 const contextD = await synapse.storage.createContext({
   metadata: { app: 'myapp', env: 'prod', extra: 'data' }  // Has extra key
 })
+
+// Provider selection when no data sets match:
+const newContext = await synapse.storage.createContext({
+  metadata: { app: 'newapp', version: 'v1' }
+})
+// If no existing data sets have this exact metadata:
+// 1. SDK randomly selects from approved providers
+// 2. Pings the selected provider to verify availability
+// 3. Creates a new data set with that provider
 ```
 
 **The `withCDN` Option**: This is a convenience alias for adding `{ withCDN: '' }` to metadata:
