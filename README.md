@@ -1238,7 +1238,7 @@ Contributions are welcome! If using an AI tool, you are welcome to load AGENTS.m
 
 ### Commit Message Guidelines
 
-This repository uses **auto-publishing** with semantic versioning based on commit messages. All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+This repository uses **release-please** for automated releases with semantic versioning based on commit messages. All commits must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification.
 
 #### Commit Message Format
 
@@ -1278,11 +1278,21 @@ git commit -m "fix: update API signature
 BREAKING CHANGE: The createStorage method now requires explicit provider selection"
 ```
 
+#### Release Process
+
+1. **Commit**: Make commits following the conventional format
+2. **Push**: Push to main branch or merge PR
+3. **CI**: Release Please analyzes commits and creates/updates a release PR
+4. **Review**: Review the release PR with proposed version bump and changelog
+5. **Merge**: Merge the release PR to trigger the actual release
+6. **Publish**: GitHub Actions automatically publishes to npm and creates a GitHub release
+
 #### Important Notes
 
 - **Stay in 0.x.x range**: Avoid breaking changes (`!` or `BREAKING CHANGE`) until M1 milestone
-- **Auto-publishing**: Every merge to main triggers automatic npm publishing based on commit messages
-- **Changelog generation**: Commit messages are used to generate release notes
+- **Release PR**: Release Please creates a PR titled "chore(main): release X.Y.Z" with changelog updates
+- **Auto-publishing**: Merging the release PR triggers npm publishing
+- **Changelog generation**: Commit messages are automatically formatted into release notes
 - **Standard JS**: We follow [Standard JS](https://standardjs.com/) code style
 
 ### Git hooks
