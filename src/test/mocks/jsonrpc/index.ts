@@ -284,6 +284,7 @@ export const presets = {
           isActive: true,
           name: 'Test Provider',
           description: 'Test Provider',
+          providerId: 1n,
         },
       ],
       getProviderIdByAddress: () => [1n],
@@ -311,6 +312,7 @@ export const presets = {
               isActive: true,
               name: 'Test Provider',
               description: 'Test Provider',
+              providerId: 1n,
             },
           ]
         }
@@ -322,6 +324,7 @@ export const presets = {
               isActive: true,
               name: 'Test Provider',
               description: 'Test Provider',
+              providerId: 2n,
             },
           ]
         }
@@ -332,6 +335,7 @@ export const presets = {
             isActive: false,
             name: '',
             description: '',
+            providerId: 0n,
           },
         ]
       },
