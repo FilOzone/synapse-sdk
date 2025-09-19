@@ -288,7 +288,7 @@ async function handleRegister(provider, signer, options) {
       maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024), // 32 GiB maximum
       ipniPiece: false, // Not using IPNI for piece discovery
       ipniIpfs: false, // Not using IPNI for IPFS content
-      storagePricePerTibPerMonth: BigInt("1000000000000000000"), // 1 USDFC per TiB per month (18 decimals)
+      storagePricePerTibPerMonth: BigInt('1000000000000000000'), // 1 USDFC per TiB per month (18 decimals)
       minProvingPeriodInEpochs: 30, // 30 epochs (15 minutes on calibnet)
       location: options.location || 'unknown',
       paymentTokenAddress: '0x0000000000000000000000000000000000000000', // Native token
@@ -343,10 +343,16 @@ async function handleUpdate(provider, signer, options) {
 
   // Determine which type of updates to perform
   const hasBasicUpdates = options.name || options.description
-  const hasPDPUpdates = options.location || options.price || options['service-url'] || 
-                       options['min-piece-size'] || options['max-piece-size'] ||
-                       options['ipni-piece'] !== undefined || options['ipni-ipfs'] !== undefined ||
-                       options['min-proving-period'] || options['payment-token']
+  const hasPDPUpdates =
+    options.location ||
+    options.price ||
+    options['service-url'] ||
+    options['min-piece-size'] ||
+    options['max-piece-size'] ||
+    options['ipni-piece'] !== undefined ||
+    options['ipni-ipfs'] !== undefined ||
+    options['min-proving-period'] ||
+    options['payment-token']
 
   if (!hasBasicUpdates && !hasPDPUpdates) {
     console.error('Error: No update parameters provided. Use --name, --description, or PDP offering options.')
@@ -384,10 +390,10 @@ async function handleUpdate(provider, signer, options) {
 
 async function handlePDPUpdate(registry, signer, options) {
   const providerId = Number(options.id)
-  
+
   // Get current PDP offering
   const currentPDP = await registry.getPDPService(providerId)
-  
+
   if (!currentPDP && !options['service-url']) {
     console.error('Error: Provider does not have an existing PDP offering. --service-url is required to create one.')
     process.exit(1)
@@ -398,15 +404,28 @@ async function handlePDPUpdate(registry, signer, options) {
 
   // Prepare updated PDP offering by merging current values with new ones
   const updatedOffering = {
-    serviceURL: options['service-url'] || (currentPDP?.offering.serviceURL || ''),
-    minPieceSizeInBytes: options['min-piece-size'] ? BigInt(options['min-piece-size']) : (currentPDP?.offering.minPieceSizeInBytes || BigInt(1024)),
-    maxPieceSizeInBytes: options['max-piece-size'] ? BigInt(options['max-piece-size']) : (currentPDP?.offering.maxPieceSizeInBytes || BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024)),
-    ipniPiece: options['ipni-piece'] !== undefined ? (options['ipni-piece'] === 'true') : (currentPDP?.offering.ipniPiece || false),
-    ipniIpfs: options['ipni-ipfs'] !== undefined ? (options['ipni-ipfs'] === 'true') : (currentPDP?.offering.ipniIpfs || false),
-    storagePricePerTibPerMonth: options.price ? BigInt(options.price) : (currentPDP?.offering.storagePricePerTibPerMonth || BigInt("1000000000000000000")),
-    minProvingPeriodInEpochs: options['min-proving-period'] ? Number(options['min-proving-period']) : (currentPDP?.offering.minProvingPeriodInEpochs || 30),
-    location: options.location || (currentPDP?.offering.location || 'unknown'),
-    paymentTokenAddress: options['payment-token'] || (currentPDP?.offering.paymentTokenAddress || '0x0000000000000000000000000000000000000000')
+    serviceURL: options['service-url'] || currentPDP?.offering.serviceURL || '',
+    minPieceSizeInBytes: options['min-piece-size']
+      ? BigInt(options['min-piece-size'])
+      : currentPDP?.offering.minPieceSizeInBytes || BigInt(1024),
+    maxPieceSizeInBytes: options['max-piece-size']
+      ? BigInt(options['max-piece-size'])
+      : currentPDP?.offering.maxPieceSizeInBytes || BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
+    ipniPiece:
+      options['ipni-piece'] !== undefined ? options['ipni-piece'] === 'true' : currentPDP?.offering.ipniPiece || false,
+    ipniIpfs:
+      options['ipni-ipfs'] !== undefined ? options['ipni-ipfs'] === 'true' : currentPDP?.offering.ipniIpfs || false,
+    storagePricePerTibPerMonth: options.price
+      ? BigInt(options.price)
+      : currentPDP?.offering.storagePricePerTibPerMonth || BigInt('1000000000000000000'),
+    minProvingPeriodInEpochs: options['min-proving-period']
+      ? Number(options['min-proving-period'])
+      : currentPDP?.offering.minProvingPeriodInEpochs || 30,
+    location: options.location || currentPDP?.offering.location || 'unknown',
+    paymentTokenAddress:
+      options['payment-token'] ||
+      currentPDP?.offering.paymentTokenAddress ||
+      '0x0000000000000000000000000000000000000000',
   }
 
   // Validate piece size constraints
@@ -429,15 +448,34 @@ async function handlePDPUpdate(registry, signer, options) {
 
   // Display what's being updated
   console.log('\n  PDP Service Offering Updates:')
-  if (options['service-url']) console.log(`    Service URL: ${currentPDP?.offering.serviceURL || 'none'} → ${updatedOffering.serviceURL}`)
-  if (options.location) console.log(`    Location: ${currentPDP?.offering.location || 'none'} → ${updatedOffering.location}`)
-  if (options.price) console.log(`    Price: ${currentPDP?.offering.storagePricePerTibPerMonth || 'none'} → ${updatedOffering.storagePricePerTibPerMonth} USDFC base units/TiB/month`)
-  if (options['min-piece-size']) console.log(`    Min Piece Size: ${currentPDP?.offering.minPieceSizeInBytes || 'none'} → ${updatedOffering.minPieceSizeInBytes} bytes`)
-  if (options['max-piece-size']) console.log(`    Max Piece Size: ${currentPDP?.offering.maxPieceSizeInBytes || 'none'} → ${updatedOffering.maxPieceSizeInBytes} bytes`)
-  if (options['ipni-piece'] !== undefined) console.log(`    IPNI Piece: ${currentPDP?.offering.ipniPiece || false} → ${updatedOffering.ipniPiece}`)
-  if (options['ipni-ipfs'] !== undefined) console.log(`    IPNI IPFS: ${currentPDP?.offering.ipniIpfs || false} → ${updatedOffering.ipniIpfs}`)
-  if (options['min-proving-period']) console.log(`    Min Proving Period: ${currentPDP?.offering.minProvingPeriodInEpochs || 'none'} → ${updatedOffering.minProvingPeriodInEpochs} epochs`)
-  if (options['payment-token']) console.log(`    Payment Token: ${currentPDP?.offering.paymentTokenAddress || 'none'} → ${updatedOffering.paymentTokenAddress}`)
+  if (options['service-url'])
+    console.log(`    Service URL: ${currentPDP?.offering.serviceURL || 'none'} → ${updatedOffering.serviceURL}`)
+  if (options.location)
+    console.log(`    Location: ${currentPDP?.offering.location || 'none'} → ${updatedOffering.location}`)
+  if (options.price)
+    console.log(
+      `    Price: ${currentPDP?.offering.storagePricePerTibPerMonth || 'none'} → ${updatedOffering.storagePricePerTibPerMonth} USDFC base units/TiB/month`
+    )
+  if (options['min-piece-size'])
+    console.log(
+      `    Min Piece Size: ${currentPDP?.offering.minPieceSizeInBytes || 'none'} → ${updatedOffering.minPieceSizeInBytes} bytes`
+    )
+  if (options['max-piece-size'])
+    console.log(
+      `    Max Piece Size: ${currentPDP?.offering.maxPieceSizeInBytes || 'none'} → ${updatedOffering.maxPieceSizeInBytes} bytes`
+    )
+  if (options['ipni-piece'] !== undefined)
+    console.log(`    IPNI Piece: ${currentPDP?.offering.ipniPiece || false} → ${updatedOffering.ipniPiece}`)
+  if (options['ipni-ipfs'] !== undefined)
+    console.log(`    IPNI IPFS: ${currentPDP?.offering.ipniIpfs || false} → ${updatedOffering.ipniIpfs}`)
+  if (options['min-proving-period'])
+    console.log(
+      `    Min Proving Period: ${currentPDP?.offering.minProvingPeriodInEpochs || 'none'} → ${updatedOffering.minProvingPeriodInEpochs} epochs`
+    )
+  if (options['payment-token'])
+    console.log(
+      `    Payment Token: ${currentPDP?.offering.paymentTokenAddress || 'none'} → ${updatedOffering.paymentTokenAddress}`
+    )
 
   // Update PDP offering
   const pdpTx = await registry.updatePDPProduct(signer, updatedOffering, capabilities)
