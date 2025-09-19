@@ -686,7 +686,7 @@ The `withCDN` option follows a clear inheritance hierarchy:
 
 ```typescript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
+const synapse = await Synapse.create({ withCDN: true })                 // Global default: CDN enabled
 const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
 await synapse.storage.download(pieceCid)                                // Uses Synapse's withCDN: true
 await context.download(pieceCid)                                        // Uses context's withCDN: false

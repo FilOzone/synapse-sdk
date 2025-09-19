@@ -384,7 +384,6 @@ const context = await synapse.storage.createContext({
 })
 // This will reuse any existing data set that has both of these metadata entries,
 // or create a new one if none match
-// Note: the `withCDN: true` option is an alias for { withCDN: '' } in metadata.
 ```
 
 #### Advanced Usage with Callbacks
@@ -435,21 +434,73 @@ interface StorageServiceOptions {
   providerId?: number                      // Specific provider ID to use
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
-  withCDN?: boolean                        // Enable CDN services
+  withCDN?: boolean                        // Enable CDN services (alias for metadata: { withCDN: '' })
   metadata?: Record<string, string>        // Metadata requirements for data set selection/creation
   callbacks?: StorageCreationCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
+```
 
-// Note: The withCDN option follows an inheritance pattern:
-// 1. Synapse instance default (set during creation)
-// 2. StorageService override (set during createStorage)
-// 3. Per-method override (set during download)
+#### Data Set Selection and Matching
 
-// Data Set Selection: When creating a context, the SDK attempts to reuse existing
-// data sets that match ALL your requirements. A data set matches if it contains
-// all requested metadata entries with matching values (order doesn't matter).
-// The data set may have additional metadata beyond what you request.
+The SDK intelligently manages data sets to minimize on-chain transactions. The selection behavior depends on the parameters you provide:
+
+**Selection Scenarios**:
+1. **Explicit data set ID**: If you specify `dataSetId`, that exact data set is used (must exist and be accessible)
+2. **Specific provider**: If you specify `providerId` or `providerAddress`, the SDK searches for matching data sets only within that provider's existing data sets
+3. **Automatic selection**: Without specific parameters, the SDK searches across all your data sets with any approved provider
+
+**Exact Metadata Matching**: In scenarios 2 and 3, the SDK will reuse an existing data set only if it has **exactly** the same metadata keys and values as requested. This ensures data sets remain organized according to your specific requirements.
+
+**Selection Priority**: When multiple data sets match your criteria:
+- Data sets with existing pieces are preferred over empty ones
+- Within each group (with pieces vs. empty), the oldest data set (lowest ID) is selected
+
+```javascript
+// Scenario 1: Explicit data set (no matching required)
+const context1 = await synapse.storage.createContext({
+  dataSetId: 42  // Uses data set 42 directly
+})
+
+// Scenario 2: Provider-specific search
+const context2 = await synapse.storage.createContext({
+  providerId: 3,
+  metadata: { app: 'myapp', env: 'prod' }
+})
+// Searches ONLY within provider 3's data sets for exact metadata match
+
+// Scenario 3: Automatic selection across all providers
+const context3 = await synapse.storage.createContext({
+  metadata: { app: 'myapp', env: 'prod' }
+})
+// Searches ALL your data sets across any approved provider
+
+// Metadata matching examples (exact match required):
+// These will use the SAME data set (if it exists)
+const contextA = await synapse.storage.createContext({
+  metadata: { app: 'myapp', env: 'prod' }
+})
+const contextB = await synapse.storage.createContext({
+  metadata: { env: 'prod', app: 'myapp' }  // Order doesn't matter
+})
+
+// These will use DIFFERENT data sets
+const contextC = await synapse.storage.createContext({
+  metadata: { app: 'myapp' }  // Missing 'env' key
+})
+const contextD = await synapse.storage.createContext({
+  metadata: { app: 'myapp', env: 'prod', extra: 'data' }  // Has extra key
+})
+```
+
+**The `withCDN` Option**: This is a convenience alias for adding `{ withCDN: '' }` to metadata:
+
+```javascript
+// These are equivalent:
+const context1 = await synapse.storage.createContext({ withCDN: true })
+const context2 = await synapse.storage.createContext({
+  metadata: { withCDN: '' }
+})
 ```
 
 #### Storage Context Properties
@@ -593,22 +644,24 @@ const contextWithCDN = await synapse.storage.createContext({ withCDN: true })
 const dataWithCDN = await contextWithCDN.download(pieceCid) // Uses CDN if available
 ```
 
-#### CDN Inheritance Pattern
+#### CDN Option Inheritance
 
-The `withCDN` option follows a clear inheritance hierarchy:
+The `withCDN` option (which is an alias for `metadata: { withCDN: '' }`) follows a clear inheritance hierarchy:
 
 1. **Synapse level**: Default setting for all operations
-2. **StorageService level**: Can override Synapse's default
+2. **StorageContext level**: Can override Synapse's default
 3. **Method level**: Can override instance settings
 
 ```javascript
 // Example of inheritance
-const synapse = await Synapse.create({ withCDN: true })              // Global default: CDN enabled
-const context = await synapse.storage.createContext({ withCDN: false }) // Context override: CDN disabled
-await synapse.storage.download(pieceCid)                                // Uses Synapse's withCDN: true
-await context.download(pieceCid)                                        // Uses context's withCDN: false
-await synapse.storage.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
+const synapse = await Synapse.create({ withCDN: true })                  // Global default: CDN enabled
+const context = await synapse.storage.createContext({ withCDN: false })  // Context override: CDN disabled
+await synapse.storage.download(pieceCid)                                 // Uses Synapse's withCDN: true
+await context.download(pieceCid)                                         // Uses context's withCDN: false
+await synapse.storage.download(pieceCid, { withCDN: false })             // Method override: CDN disabled
 ```
+
+Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's metadata, ensuring CDN-enabled and non-CDN data sets remain separate.
 
 ---
 
