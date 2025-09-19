@@ -1265,6 +1265,7 @@ describe('StorageService', () => {
           cdnRailId: 0,
           cdnEndEpoch: 0,
           cacheMissRailId: 0,
+          metadata: {}, // Empty metadata for exact matching
         },
       ]
 

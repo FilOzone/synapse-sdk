@@ -100,31 +100,36 @@ export function validatePieceMetadata(metadata: MetadataEntry[] | Record<string,
 }
 
 /**
- * Checks if a data set's metadata matches the requested metadata.
+ * Checks if a data set's metadata exactly matches the requested metadata.
  *
- * The data set must contain all requested metadata entries with matching values.
- * The data set may have additional metadata entries that are not in the requested set.
+ * The data set must contain exactly the same keys and values as requested.
+ * Order doesn't matter, but the sets must be identical.
  *
  * @param dataSetMetadata - The metadata from the data set
  * @param requestedMetadata - The metadata requirements to match
- * @returns true if all requested metadata entries are present with matching values
+ * @returns true if metadata sets are exactly equal (same keys and values)
  */
 export function metadataMatches(
   dataSetMetadata: Record<string, string>,
   requestedMetadata: Record<string, string>
 ): boolean {
-  // If no metadata is requested, any data set matches
+  const dataSetKeys = Object.keys(dataSetMetadata)
   const requestedKeys = Object.keys(requestedMetadata)
+
+  if (dataSetKeys.length !== requestedKeys.length) {
+    return false
+  }
+
   if (requestedKeys.length === 0) {
     return true
   }
 
-  // For each requested metadata entry, check if it exists in dataSet with same value
   for (const key of requestedKeys) {
     if (dataSetMetadata[key] !== requestedMetadata[key]) {
       return false
     }
   }
+
   return true
 }
 

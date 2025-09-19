@@ -10,7 +10,7 @@ import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 describe('Metadata-based Data Set Selection', () => {
   describe('Metadata Utilities', () => {
     describe('metadataMatches', () => {
-      it('should match when all requested metadata exists in data set', () => {
+      it('should not match when data set has extra keys', () => {
         const dataSetMetadata: Record<string, string> = {
           environment: 'production',
           [METADATA_KEYS.WITH_CDN]: '',
@@ -22,7 +22,8 @@ describe('Metadata-based Data Set Selection', () => {
           environment: 'production',
         }
 
-        assert.isTrue(metadataMatches(dataSetMetadata, requested))
+        // With exact matching, extra keys in dataSet mean no match
+        assert.isFalse(metadataMatches(dataSetMetadata, requested))
       })
 
       it('should not match when requested value differs', () => {
@@ -44,15 +45,16 @@ describe('Metadata-based Data Set Selection', () => {
         assert.isFalse(metadataMatches(dataSetMetadata, requested))
       })
 
-      it('should match empty request with any data set', () => {
+      it('should not match when data set has metadata but empty requested', () => {
         const dataSetMetadata: Record<string, string> = { environment: 'production' }
 
         const requested: Record<string, string> = {}
 
-        assert.isTrue(metadataMatches(dataSetMetadata, requested))
+        // With exact matching, non-empty dataSet doesn't match empty request
+        assert.isFalse(metadataMatches(dataSetMetadata, requested))
       })
 
-      it('should be order-independent', () => {
+      it('should be order-independent with exact matching', () => {
         const dataSetMetadata: Record<string, string> = {
           b: '2',
           a: '1',
@@ -62,19 +64,31 @@ describe('Metadata-based Data Set Selection', () => {
         const requested: Record<string, string> = {
           c: '3',
           a: '1',
+          b: '2',
         }
 
+        // Order doesn't matter, but must have exact same keys
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
 
-      it('should allow data set to have extra metadata', () => {
+      it('should match when both have empty metadata', () => {
+        const dataSetMetadata: Record<string, string> = {}
+        const requested: Record<string, string> = {}
+
+        // Both empty = exact match
+        assert.isTrue(metadataMatches(dataSetMetadata, requested))
+      })
+
+      it('should match when metadata is exactly the same', () => {
         const dataSetMetadata: Record<string, string> = {
           [METADATA_KEYS.WITH_CDN]: '',
-          [METADATA_KEYS.WITH_IPFS_INDEXING]: '',
-          custom: 'value',
+          environment: 'production',
         }
 
-        const requested: Record<string, string> = { [METADATA_KEYS.WITH_CDN]: '' }
+        const requested: Record<string, string> = {
+          [METADATA_KEYS.WITH_CDN]: '',
+          environment: 'production',
+        }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
       })
@@ -237,10 +251,12 @@ describe('Metadata-based Data Set Selection', () => {
       assert.equal(withCDN.length, 1)
       assert.equal(withCDN[0].pdpVerifierDataSetId, 2)
 
-      // Filter for data sets with no specific metadata
+      // Filter for data sets with no specific metadata (exact empty match)
       const noRequirements = dataSets.filter((ds) => metadataMatches(ds.metadata, {}))
 
-      assert.equal(noRequirements.length, 3) // All match when no requirements
+      // With exact matching, only data set 1 with empty metadata matches
+      assert.equal(noRequirements.length, 1)
+      assert.equal(noRequirements[0].pdpVerifierDataSetId, 1)
     })
   })
 })
