@@ -426,9 +426,9 @@ Examples:
   }
 
   // Use WebSocket URLs by default for better performance, fallback to HTTP if not available
-  let defaultRpcUrl = RPC_URLS[network] && RPC_URLS[network].websocket
+  let defaultRpcUrl = RPC_URLS[network]?.websocket
   if (!defaultRpcUrl) {
-    defaultRpcUrl = RPC_URLS[network] && RPC_URLS[network].http
+    defaultRpcUrl = RPC_URLS[network]?.http
   }
   if (!options['rpc-url'] && !defaultRpcUrl) {
     console.error(`Error: No RPC URL available for network '${network}'. Please provide --rpc-url.`)
@@ -466,35 +466,42 @@ Examples:
   }
 
   // Execute command
-  switch (command) {
-    case 'register':
-      await handleRegister(provider, signer, options)
-      break
-    case 'update':
-      await handleUpdate(provider, signer, options)
-      break
-    case 'deregister':
-      await handleDeregister(provider, signer, options)
-      break
-    case 'info':
-      await handleInfo(provider, options)
-      break
-    case 'list':
-      await handleList(provider, options)
-      break
-    case 'warm-add':
-      await handleWarmAdd(provider, signer, options)
-      break
-    case 'warm-remove':
-      await handleWarmRemove(provider, signer, options)
-      break
-    case 'warm-list':
-      await handleWarmList(provider, options)
-      break
-    default:
-      console.error(`Unknown command: ${command}`)
-      console.log('Run "node utils/sp-tool.js help" for usage information')
-      process.exit(1)
+  try {
+    switch (command) {
+      case 'register':
+        await handleRegister(provider, signer, options)
+        break
+      case 'update':
+        await handleUpdate(provider, signer, options)
+        break
+      case 'deregister':
+        await handleDeregister(provider, signer, options)
+        break
+      case 'info':
+        await handleInfo(provider, options)
+        break
+      case 'list':
+        await handleList(provider, options)
+        break
+      case 'warm-add':
+        await handleWarmAdd(provider, signer, options)
+        break
+      case 'warm-remove':
+        await handleWarmRemove(provider, signer, options)
+        break
+      case 'warm-list':
+        await handleWarmList(provider, options)
+        break
+      default:
+        console.error(`Unknown command: ${command}`)
+        console.log('Run "node utils/sp-tool.js help" for usage information')
+        process.exit(1)
+    }
+  } finally {
+    // Clean up provider connection (important for WebSocket providers)
+    if (provider && typeof provider.destroy === 'function') {
+      await provider.destroy()
+    }
   }
 }
 
