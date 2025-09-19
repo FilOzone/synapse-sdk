@@ -1,4 +1,4 @@
-name: Test & Maybe Release
+name: Test
 on: [push, pull_request]
 jobs:
   test:
@@ -25,36 +25,6 @@ jobs:
         run: |
           npm config set script-shell bash
           npm run test:ci
-  release:
-    name: Release
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: lts/*
-      - name: Install dependencies
-        run: |
-          npm install --no-progress --no-package-lock --no-save
-      - name: Build
-        run: |
-          npm run build
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
   docs:
     name: Docs
     concurrency: 
