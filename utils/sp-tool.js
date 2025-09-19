@@ -65,6 +65,80 @@ async function getRegistryService(provider, options) {
   return new SPRegistryService(provider, registryAddress)
 }
 
+// Validate PDP input parameters
+function validatePDPInputs(options) {
+  // Validate service URL format
+  if (options['service-url']) {
+    try {
+      const url = new URL(options['service-url'])
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        console.error('Error: --service-url must be a valid HTTP or HTTPS URL')
+        process.exit(1)
+      }
+    } catch {
+      console.error('Error: --service-url must be a valid URL')
+      process.exit(1)
+    }
+  }
+
+  // Validate numeric inputs
+  if (options.price) {
+    try {
+      const price = BigInt(options.price)
+      if (price < 0n) {
+        console.error('Error: --price must be a positive number')
+        process.exit(1)
+      }
+    } catch {
+      console.error('Error: --price must be a valid number (in USDFC base units)')
+      process.exit(1)
+    }
+  }
+
+  if (options['min-piece-size']) {
+    const minSize = Number(options['min-piece-size'])
+    if (!Number.isInteger(minSize) || minSize <= 0) {
+      console.error('Error: --min-piece-size must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  if (options['max-piece-size']) {
+    const maxSize = Number(options['max-piece-size'])
+    if (!Number.isInteger(maxSize) || maxSize <= 0) {
+      console.error('Error: --max-piece-size must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  if (options['min-proving-period']) {
+    const period = Number(options['min-proving-period'])
+    if (!Number.isInteger(period) || period <= 0) {
+      console.error('Error: --min-proving-period must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  // Validate boolean inputs
+  if (options['ipni-piece'] !== undefined && !['true', 'false'].includes(options['ipni-piece'])) {
+    console.error('Error: --ipni-piece must be "true" or "false"')
+    process.exit(1)
+  }
+
+  if (options['ipni-ipfs'] !== undefined && !['true', 'false'].includes(options['ipni-ipfs'])) {
+    console.error('Error: --ipni-ipfs must be "true" or "false"')
+    process.exit(1)
+  }
+
+  // Validate payment token address format (basic check)
+  if (options['payment-token']) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(options['payment-token'])) {
+      console.error('Error: --payment-token must be a valid Ethereum address (0x followed by 40 hex characters)')
+      process.exit(1)
+    }
+  }
+}
+
 // Format provider info for display
 function formatProvider(provider) {
   const product = provider.products?.PDP
@@ -214,7 +288,7 @@ async function handleRegister(provider, signer, options) {
       maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024), // 32 GiB maximum
       ipniPiece: false, // Not using IPNI for piece discovery
       ipniIpfs: false, // Not using IPNI for IPFS content
-      storagePricePerTibPerMonth: BigInt(1000000), // 1 USDFC per TiB per month
+      storagePricePerTibPerMonth: BigInt("1000000000000000000"), // 1 USDFC per TiB per month (18 decimals)
       minProvingPeriodInEpochs: 30, // 30 epochs (15 minutes on calibnet)
       location: options.location || 'unknown',
       paymentTokenAddress: '0x0000000000000000000000000000000000000000', // Native token
@@ -267,23 +341,109 @@ async function handleUpdate(provider, signer, options) {
     process.exit(1)
   }
 
-  const name = options.name || current.name
-  const description = options.description || current.description
+  // Determine which type of updates to perform
+  const hasBasicUpdates = options.name || options.description
+  const hasPDPUpdates = options.location || options.price || options['service-url'] || 
+                       options['min-piece-size'] || options['max-piece-size'] ||
+                       options['ipni-piece'] !== undefined || options['ipni-ipfs'] !== undefined ||
+                       options['min-proving-period'] || options['payment-token']
+
+  if (!hasBasicUpdates && !hasPDPUpdates) {
+    console.error('Error: No update parameters provided. Use --name, --description, or PDP offering options.')
+    process.exit(1)
+  }
 
   console.log(`\nUpdating provider #${options.id}:`)
-  console.log(`  Name: ${current.name} → ${name}`)
-  console.log(`  Description: ${current.description} → ${description}`)
 
   try {
-    const tx = await registry.updateProviderInfo(signer, name, description)
-    console.log(`\nTransaction sent: ${tx.hash}`)
-    const receipt = await tx.wait()
-    console.log(`Transaction confirmed in block ${receipt.blockNumber}`)
+    // Handle basic provider info updates
+    if (hasBasicUpdates) {
+      const name = options.name || current.name
+      const description = options.description || current.description
+
+      console.log(`  Name: ${current.name} → ${name}`)
+      console.log(`  Description: ${current.description} → ${description}`)
+
+      const basicTx = await registry.updateProviderInfo(signer, name, description)
+      console.log(`\nBasic info transaction sent: ${basicTx.hash}`)
+      const basicReceipt = await basicTx.wait()
+      console.log(`Basic info transaction confirmed in block ${basicReceipt.blockNumber}`)
+    }
+
+    // Handle PDP offering updates
+    if (hasPDPUpdates) {
+      await handlePDPUpdate(registry, signer, options)
+    }
+
     console.log(`\nProvider #${options.id} updated successfully`)
   } catch (error) {
     console.error(`\nError updating provider: ${error.message}`)
     process.exit(1)
   }
+}
+
+async function handlePDPUpdate(registry, signer, options) {
+  const providerId = Number(options.id)
+  
+  // Get current PDP offering
+  const currentPDP = await registry.getPDPService(providerId)
+  
+  if (!currentPDP && !options['service-url']) {
+    console.error('Error: Provider does not have an existing PDP offering. --service-url is required to create one.')
+    process.exit(1)
+  }
+
+  // Validate inputs before processing
+  validatePDPInputs(options)
+
+  // Prepare updated PDP offering by merging current values with new ones
+  const updatedOffering = {
+    serviceURL: options['service-url'] || (currentPDP?.offering.serviceURL || ''),
+    minPieceSizeInBytes: options['min-piece-size'] ? BigInt(options['min-piece-size']) : (currentPDP?.offering.minPieceSizeInBytes || BigInt(1024)),
+    maxPieceSizeInBytes: options['max-piece-size'] ? BigInt(options['max-piece-size']) : (currentPDP?.offering.maxPieceSizeInBytes || BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024)),
+    ipniPiece: options['ipni-piece'] !== undefined ? (options['ipni-piece'] === 'true') : (currentPDP?.offering.ipniPiece || false),
+    ipniIpfs: options['ipni-ipfs'] !== undefined ? (options['ipni-ipfs'] === 'true') : (currentPDP?.offering.ipniIpfs || false),
+    storagePricePerTibPerMonth: options.price ? BigInt(options.price) : (currentPDP?.offering.storagePricePerTibPerMonth || BigInt("1000000000000000000")),
+    minProvingPeriodInEpochs: options['min-proving-period'] ? Number(options['min-proving-period']) : (currentPDP?.offering.minProvingPeriodInEpochs || 30),
+    location: options.location || (currentPDP?.offering.location || 'unknown'),
+    paymentTokenAddress: options['payment-token'] || (currentPDP?.offering.paymentTokenAddress || '0x0000000000000000000000000000000000000000')
+  }
+
+  // Validate piece size constraints
+  if (updatedOffering.minPieceSizeInBytes >= updatedOffering.maxPieceSizeInBytes) {
+    console.error('Error: min-piece-size must be smaller than max-piece-size')
+    process.exit(1)
+  }
+
+  // Prepare capabilities (preserve existing ones and add location if provided)
+  const capabilities = { ...(currentPDP?.capabilities || {}) }
+  if (options.location) {
+    capabilities.location = options.location
+  }
+
+  // Validate required fields
+  if (!updatedOffering.serviceURL) {
+    console.error('Error: serviceURL is required for PDP offering')
+    process.exit(1)
+  }
+
+  // Display what's being updated
+  console.log('\n  PDP Service Offering Updates:')
+  if (options['service-url']) console.log(`    Service URL: ${currentPDP?.offering.serviceURL || 'none'} → ${updatedOffering.serviceURL}`)
+  if (options.location) console.log(`    Location: ${currentPDP?.offering.location || 'none'} → ${updatedOffering.location}`)
+  if (options.price) console.log(`    Price: ${currentPDP?.offering.storagePricePerTibPerMonth || 'none'} → ${updatedOffering.storagePricePerTibPerMonth} USDFC base units/TiB/month`)
+  if (options['min-piece-size']) console.log(`    Min Piece Size: ${currentPDP?.offering.minPieceSizeInBytes || 'none'} → ${updatedOffering.minPieceSizeInBytes} bytes`)
+  if (options['max-piece-size']) console.log(`    Max Piece Size: ${currentPDP?.offering.maxPieceSizeInBytes || 'none'} → ${updatedOffering.maxPieceSizeInBytes} bytes`)
+  if (options['ipni-piece'] !== undefined) console.log(`    IPNI Piece: ${currentPDP?.offering.ipniPiece || false} → ${updatedOffering.ipniPiece}`)
+  if (options['ipni-ipfs'] !== undefined) console.log(`    IPNI IPFS: ${currentPDP?.offering.ipniIpfs || false} → ${updatedOffering.ipniIpfs}`)
+  if (options['min-proving-period']) console.log(`    Min Proving Period: ${currentPDP?.offering.minProvingPeriodInEpochs || 'none'} → ${updatedOffering.minProvingPeriodInEpochs} epochs`)
+  if (options['payment-token']) console.log(`    Payment Token: ${currentPDP?.offering.paymentTokenAddress || 'none'} → ${updatedOffering.paymentTokenAddress}`)
+
+  // Update PDP offering
+  const pdpTx = await registry.updatePDPProduct(signer, updatedOffering, capabilities)
+  console.log(`\nPDP offering transaction sent: ${pdpTx.hash}`)
+  const pdpReceipt = await pdpTx.wait()
+  console.log(`PDP offering transaction confirmed in block ${pdpReceipt.blockNumber}`)
 }
 
 async function handleDeregister(provider, signer, options) {
@@ -386,18 +546,31 @@ WarmStorage Commands:
   warm-list   List WarmStorage approved providers
 
 Options:
-  --network <network>   Network to use: 'mainnet' or 'calibration' (default: calibration)
-  --rpc-url <url>       RPC endpoint (overrides network default)
-  --key <private-key>   Private key for signing (required for write operations)
-  --registry <address>  Registry contract address (overrides discovery)
-  --warm <address>      WarmStorage address (for registry discovery or warm commands)
-  --id <provider-id>    Provider ID
-  --address <address>   Provider address (for info command)
-  --name <name>         Provider name (for register/update)
-  --http <url>          HTTP endpoint URL (for register only)
-  --payee <addr>        Payment recipient address (for register only)
-  --description <text>  Provider description (for register/update)
-  --location <text>     Provider location (e.g., "us-east")
+  --network <network>       Network to use: 'mainnet' or 'calibration' (default: calibration)
+  --rpc-url <url>           RPC endpoint (overrides network default)
+  --key <private-key>       Private key for signing (required for write operations)
+  --registry <address>      Registry contract address (overrides discovery)
+  --warm <address>          WarmStorage address (for registry discovery or warm commands)
+  --id <provider-id>        Provider ID
+  --address <address>       Provider address (for info command)
+
+Provider Info Options (register/update):
+  --name <name>             Provider name
+  --description <text>      Provider description
+  --payee <addr>            Payment recipient address (register only)
+
+PDP Service Options (register/update):
+  --http <url>              HTTP endpoint URL (alias for --service-url, register only)
+  --service-url <url>       PDP service endpoint URL
+  --location <text>         Provider location (e.g., "us-east-1", "eu-west-2")
+  --price <amount>          Storage price per TiB per month in USDFC base units (18 decimals)
+                           Example: "5000000000000000000" = 5 USDFC per TiB per month
+  --min-piece-size <bytes>  Minimum piece size in bytes (default: 1024)
+  --max-piece-size <bytes>  Maximum piece size in bytes (default: 34359738368)
+  --ipni-piece <bool>       Enable IPNI piece discovery (true/false, default: false)
+  --ipni-ipfs <bool>        Enable IPNI IPFS content (true/false, default: false)
+  --min-proving-period <n>  Minimum proving period in epochs (default: 30)
+  --payment-token <addr>    Payment token address (default: native token)
 
 Examples:
   # Register a new provider on mainnet (requires 5 FIL fee)
@@ -405,6 +578,21 @@ Examples:
 
   # Register a new provider on calibration (default network)
   node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
+  
+  # Update basic provider information
+  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Provider Name" --description "New description"
+  
+  # Update PDP service offering location
+  node utils/sp-tool.js update --key 0x... --id 123 --location "us-west-2"
+  
+  # Update PDP service pricing and location (5 USDFC per TiB per month)
+  node utils/sp-tool.js update --key 0x... --id 123 --location "eu-central-1" --price "5000000000000000000"
+  
+  # Update PDP service endpoint and piece size limits
+  node utils/sp-tool.js update --key 0x... --id 123 --service-url "https://new-endpoint.example.com" --max-piece-size "68719476736"
+  
+  # Update both basic info and PDP offering (4 USDFC per TiB per month)
+  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Name" --location "ap-southeast-1" --price "4000000000000000000"
   
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
