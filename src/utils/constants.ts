@@ -3,6 +3,7 @@
  */
 
 import { erc20Abi, multicall3Abi } from 'viem'
+import { erc20PermitAbi } from '../abis/erc20-permit.ts'
 import * as abis from '../abis/gen.ts'
 import type { FilecoinNetworkType } from '../types.ts'
 
@@ -30,6 +31,11 @@ export const CONTRACT_ABIS = {
    * ERC20 ABI - minimal interface needed for balance and approval operations
    */
   ERC20: erc20Abi,
+
+  /**
+   * Minimal ERC20Permit ABI - for reading nonces() and version()
+   */
+  ERC20_PERMIT: erc20PermitAbi,
 
   /**
    * Payments contract ABI - based on fws-payments contract
@@ -68,6 +74,19 @@ export const CONTRACT_ABIS = {
    */
   SESSION_KEY_REGISTRY: abis.sessionKeyRegistryAbi,
 } as const
+
+/**
+ * EIP-2612 typed data schema (Permit)
+ */
+export const EIP2612_PERMIT_TYPES: Record<string, { name: string; type: string }[]> = {
+  Permit: [
+    { name: 'owner', type: 'address' },
+    { name: 'spender', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+}
 
 /**
  * Time and size constants

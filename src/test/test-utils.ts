@@ -46,7 +46,11 @@ export function createMockSigner(address: string = MOCK_ADDRESSES.SIGNER, provid
       return '0xsignedmessage'
     },
     async signTypedData() {
-      return '0xsignedtypeddata'
+      // Return a dummy 65-byte signature: r (32 bytes) + s (32 bytes) + v (1 byte)
+      const r = '11'.repeat(32)
+      const s = '22'.repeat(32)
+      const v = '1b' // 27 in hex
+      return `0x${r}${s}${v}`
     },
     connect(newProvider: any) {
       return createMockSigner(address, newProvider)
@@ -129,11 +133,27 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           [pricePerTiBPerMonth, tokenAddress, epochsPerMonth]
         )
       }
+      // ERC20.balanceOf(address)
       if (data.includes('70a08231') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(ethers.parseUnits('1000', 18)), 32)
       }
+      // ERC20.decimals()
       if (data.includes('313ce567') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(18), 32)
+      }
+      // ERC20.name()
+      if (data.startsWith('0x06fdde03') === true) {
+        // Return "USDFC"
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['USDFC'])
+      }
+      // ERC20Permit.nonces(address)
+      if (data.startsWith('0x7ecebe00') === true) {
+        // Return nonce 0
+        return ethers.zeroPadValue(ethers.toBeHex(0), 32)
+      }
+      // ERC20Permit.version()
+      if (data.startsWith('0x54fd4d50') === true) {
+        return ethers.AbiCoder.defaultAbiCoder().encode(['string'], ['1'])
       }
       if (data.includes('dd62ed3e') === true) {
         return ethers.zeroPadValue(ethers.toBeHex(0), 32)

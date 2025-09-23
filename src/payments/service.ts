@@ -8,6 +8,7 @@ import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '.
 import {
   CONTRACT_ABIS,
   createError,
+  EIP2612_PERMIT_TYPES,
   getCurrentEpoch,
   SETTLEMENT_FEE,
   TIMING_CONSTANTS,
@@ -500,6 +501,307 @@ export class PaymentsService {
     const depositTx = await paymentsContract.deposit(this._usdfcAddress, signerAddress, depositAmountBigint, txOptions)
 
     return depositTx
+  }
+
+  /**
+   * Deposit funds using ERC-2612 permit to approve and deposit in a single transaction
+   * This method creates an EIP-712 typed-data signature for the USDFC token's permit,
+   * then calls the Payments contract `depositWithPermit` to pull funds and credit the account.
+   *
+   * @param amount - Amount of USDFC to deposit (in base units)
+   * @param token - Token identifier (currently only USDFC is supported)
+   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction response object
+   */
+  async depositWithPermit(
+    amount: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC,
+    deadline?: number | bigint
+  ): Promise<ethers.TransactionResponse> {
+    // Only support USDFC for now
+    if (token !== TOKENS.USDFC) {
+      throw createError('PaymentsService', 'depositWithPermit', `Unsupported token: ${token}`)
+    }
+
+    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
+    if (depositAmountBigint <= 0n) {
+      throw createError('PaymentsService', 'depositWithPermit', 'Invalid amount')
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const usdfcContract = this._getUsdfcContract()
+    const paymentsContract = this._getPaymentsContract()
+
+    // Check balance
+    const usdfcBalance = await usdfcContract.balanceOf(signerAddress)
+    if (usdfcBalance < depositAmountBigint) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermit',
+        `Insufficient USDFC: have ${BigInt(usdfcBalance).toString()}, need ${depositAmountBigint.toString()}`
+      )
+    }
+
+    // Prepare EIP-2612 permit signature
+    // Read token name (ERC20) and nonce (ERC20Permit)
+    let tokenName: string
+    try {
+      tokenName = await usdfcContract.name()
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermit',
+        'Failed to read token name for permit domain. Ensure token contract is reachable.',
+        error
+      )
+    }
+
+    // Minimal ERC-2612 interface reader
+    const permitReader = new ethers.Contract(this._usdfcAddress, CONTRACT_ABIS.ERC20_PERMIT, this._provider)
+
+    let nonce: bigint
+    try {
+      nonce = await permitReader.nonces(signerAddress)
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermit',
+        'Token does not appear to support EIP-2612 permit (nonces() unavailable).',
+        error
+      )
+    }
+
+    const network = await this._provider.getNetwork()
+    const chainId = Number((network as any).chainId)
+
+    const permitDeadline: bigint =
+      deadline == null
+        ? BigInt(Math.floor(Date.now() / 1000) + 3600) // default: 1 hour from now
+        : BigInt(deadline)
+
+    let domainVersion = '1'
+    try {
+      const maybeVersion: string = await permitReader.version()
+      if (typeof maybeVersion === 'string' && maybeVersion.length > 0) {
+        domainVersion = maybeVersion
+      }
+    } catch {
+      // silently fallback to '1'
+    }
+    const domain = {
+      name: tokenName,
+      version: domainVersion,
+      chainId,
+      verifyingContract: this._usdfcAddress,
+    }
+
+    const value = {
+      owner: signerAddress,
+      spender: this._paymentsAddress,
+      value: depositAmountBigint,
+      nonce,
+      deadline: permitDeadline,
+    }
+
+    let signatureHex: string
+    try {
+      signatureHex = await this._signer.signTypedData(domain, EIP2612_PERMIT_TYPES, value)
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermit',
+        'Failed to sign EIP-2612 permit. Ensure your wallet supports typed data signing.',
+        error
+      )
+    }
+
+    const signature = ethers.Signature.from(signatureHex)
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {}
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      const tx = await paymentsContract.depositWithPermit(
+        this._usdfcAddress,
+        signerAddress,
+        depositAmountBigint,
+        permitDeadline,
+        signature.v,
+        signature.r,
+        signature.s,
+        txOptions
+      )
+      return tx
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermit',
+        'Failed to execute depositWithPermit on Payments contract.',
+        error
+      )
+    }
+  }
+
+  /**
+   * Deposit funds using ERC-2612 permit and approve an operator in a single transaction
+   * This signs an EIP-712 permit for the USDFC token and calls the Payments contract
+   * function `depositWithPermitAndApproveOperator` which both deposits and sets operator approval.
+   *
+   * @param amount - Amount of USDFC to deposit (in base units)
+   * @param operator - Service/operator address to approve
+   * @param rateAllowance - Max payment rate per epoch operator can set
+   * @param lockupAllowance - Max lockup amount operator can set
+   * @param maxLockupPeriod - Max lockup period in epochs operator can set
+   * @param token - Token identifier (currently only USDFC supported)
+   * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
+   * @returns Transaction response object
+   */
+  async depositWithPermitAndApproveOperator(
+    amount: TokenAmount,
+    operator: string,
+    rateAllowance: TokenAmount,
+    lockupAllowance: TokenAmount,
+    maxLockupPeriod: TokenAmount,
+    token: TokenIdentifier = TOKENS.USDFC,
+    deadline?: number | bigint
+  ): Promise<ethers.TransactionResponse> {
+    // Only support USDFC for now
+    if (token !== TOKENS.USDFC) {
+      throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', `Unsupported token: ${token}`)
+    }
+
+    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
+    if (depositAmountBigint <= 0n) {
+      throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', 'Invalid amount')
+    }
+
+    const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
+    const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
+    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
+    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
+      throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', 'Allowance values cannot be negative')
+    }
+
+    const signerAddress = await this._signer.getAddress()
+    const usdfcContract = this._getUsdfcContract()
+    const paymentsContract = this._getPaymentsContract()
+
+    // Check balance
+    const usdfcBalance = await usdfcContract.balanceOf(signerAddress)
+    if (usdfcBalance < depositAmountBigint) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermitAndApproveOperator',
+        `Insufficient USDFC: have ${BigInt(usdfcBalance).toString()}, need ${depositAmountBigint.toString()}`
+      )
+    }
+
+    // Prepare EIP-2612 permit signature
+    // Read token name (ERC20) and nonce (ERC20Permit)
+    let tokenName: string
+    try {
+      tokenName = await usdfcContract.name()
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermitAndApproveOperator',
+        'Failed to read token name for permit domain. Ensure token contract is reachable.',
+        error
+      )
+    }
+
+    const permitReader = new ethers.Contract(this._usdfcAddress, CONTRACT_ABIS.ERC20_PERMIT, this._provider)
+
+    let nonce: bigint
+    try {
+      nonce = await permitReader.nonces(signerAddress)
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermitAndApproveOperator',
+        'Token does not appear to support EIP-2612 permit (nonces() unavailable).',
+        error
+      )
+    }
+
+    const network = await this._provider.getNetwork()
+    const chainId = Number((network as any).chainId)
+
+    const permitDeadline: bigint = deadline == null ? BigInt(Math.floor(Date.now() / 1000) + 3600) : BigInt(deadline)
+
+    let domainVersion = '1'
+    try {
+      const maybeVersion: string = await permitReader.version()
+      if (typeof maybeVersion === 'string' && maybeVersion.length > 0) {
+        domainVersion = maybeVersion
+      }
+    } catch {
+      // silently fallback to '1'
+    }
+    const domain = {
+      name: tokenName,
+      version: domainVersion,
+      chainId,
+      verifyingContract: this._usdfcAddress,
+    }
+
+    const value = {
+      owner: signerAddress,
+      spender: this._paymentsAddress,
+      value: depositAmountBigint,
+      nonce,
+      deadline: permitDeadline,
+    }
+
+    let signatureHex: string
+    try {
+      signatureHex = await this._signer.signTypedData(domain, EIP2612_PERMIT_TYPES, value)
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermitAndApproveOperator',
+        'Failed to sign EIP-2612 permit. Ensure your wallet supports typed data signing.',
+        error
+      )
+    }
+
+    const signature = ethers.Signature.from(signatureHex)
+
+    // Only set explicit nonce if NonceManager is disabled
+    const txOptions: any = {}
+    if (this._disableNonceManager) {
+      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
+      txOptions.nonce = currentNonce
+    }
+
+    try {
+      const tx = await paymentsContract.depositWithPermitAndApproveOperator(
+        this._usdfcAddress,
+        signerAddress,
+        depositAmountBigint,
+        permitDeadline,
+        signature.v,
+        signature.r,
+        signature.s,
+        operator,
+        rateAllowanceBigint,
+        lockupAllowanceBigint,
+        maxLockupPeriodBigint,
+        txOptions
+      )
+      return tx
+    } catch (error) {
+      throw createError(
+        'PaymentsService',
+        'depositWithPermitAndApproveOperator',
+        'Failed to execute depositWithPermitAndApproveOperator on Payments contract.',
+        error
+      )
+    }
   }
 
   async withdraw(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
