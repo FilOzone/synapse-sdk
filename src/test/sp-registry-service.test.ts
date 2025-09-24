@@ -3,6 +3,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 describe('SPRegistryService', () => {
   let mockProvider: ethers.Provider
@@ -75,8 +76,8 @@ describe('SPRegistryService', () => {
           return {
             offering: {
               serviceURL: 'https://provider.example.com',
-              minPieceSizeInBytes: BigInt(1024),
-              maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
               ipniPiece: true,
               ipniIpfs: false,
               storagePricePerTibPerMonth: BigInt(1000000),
@@ -98,7 +99,7 @@ describe('SPRegistryService', () => {
         return {
           serviceURL: 'https://provider.example.com',
           minPieceSizeInBytes: BigInt(1024),
-          maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+          maxPieceSizeInBytes: SIZE_CONSTANTS,
           ipniPiece: true,
           ipniIpfs: false,
           storagePricePerTibPerMonth: BigInt(1000000),
@@ -325,8 +326,8 @@ describe('SPRegistryService', () => {
 
       if (product?.type === 'PDP') {
         assert.equal(product.data.serviceURL, 'https://provider.example.com')
-        assert.equal(product.data.minPieceSizeInBytes, BigInt(1024))
-        assert.equal(product.data.maxPieceSizeInBytes, BigInt(1024 * 1024 * 1024))
+        assert.equal(product.data.minPieceSizeInBytes, SIZE_CONSTANTS.KiB)
+        assert.equal(product.data.maxPieceSizeInBytes, SIZE_CONSTANTS.GiB)
         assert.isTrue(product.data.ipniPiece)
         assert.isFalse(product.data.ipniIpfs)
         assert.equal(product.data.location, 'US-EAST')
@@ -336,8 +337,8 @@ describe('SPRegistryService', () => {
     it('should add new product', async () => {
       const pdpData = {
         serviceURL: 'https://new.example.com',
-        minPieceSizeInBytes: BigInt(1024),
-        maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+        minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+        maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
         ipniPiece: true,
         ipniIpfs: false,
         storagePricePerTibPerMonth: BigInt(1000000),
@@ -355,8 +356,8 @@ describe('SPRegistryService', () => {
       // SKIPPED: Mock implementation issue
       const pdpData = {
         serviceURL: 'https://updated.example.com',
-        minPieceSizeInBytes: BigInt(2048),
-        maxPieceSizeInBytes: BigInt(2 * 1024 * 1024 * 1024),
+        minPieceSizeInBytes: SIZE_CONSTANTS.KiB * 2n,
+        maxPieceSizeInBytes: SIZE_CONSTANTS.GiB * 2n,
         ipniPiece: true,
         ipniIpfs: true,
         storagePricePerTibPerMonth: BigInt(2000000),

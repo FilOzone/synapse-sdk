@@ -29,6 +29,7 @@ import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asPieceCID } from '../piece/index.ts'
 import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.ts'
+import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { createError } from '../utils/errors.ts'
 import { QUERIES } from './queries.ts'
 
@@ -300,12 +301,12 @@ export class SubgraphService implements SubgraphRetrievalService {
           capabilities: {},
           data: {
             serviceURL,
-            minPieceSizeInBytes: BigInt(1024),
-            maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+            minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+            maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
             ipniPiece: false,
             ipniIpfs: false,
             storagePricePerTibPerMonth: BigInt(1000000),
-            minProvingPeriodInEpochs: 2880,
+            minProvingPeriodInEpochs: Number(TIME_CONSTANTS.EPOCHS_PER_DAY),
             location: 'Unknown',
             paymentTokenAddress: '0x0000000000000000000000000000000000000000',
           },

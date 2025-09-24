@@ -7,7 +7,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { PaymentsService } from '../payments/index.ts'
-import { CONTRACT_ADDRESSES, TOKENS } from '../utils/index.ts'
+import { CONTRACT_ADDRESSES, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
 import { createMockProvider, createMockSigner, MOCK_ADDRESSES } from './test-utils.ts'
 
 describe('PaymentsService', () => {
@@ -134,7 +134,7 @@ describe('PaymentsService', () => {
         serviceAddress,
         rateAllowance,
         lockupAllowance,
-        86400n // 30 days max lockup period
+        TIME_CONSTANTS.EPOCHS_PER_MONTH // 30 days max lockup period
       )
       assert.exists(tx)
       assert.exists(tx.hash)
@@ -161,7 +161,7 @@ describe('PaymentsService', () => {
 
     it('should throw for unsupported token in service operations', async () => {
       try {
-        await payments.approveService(serviceAddress, 100n, 1000n, 86400n, 'FIL' as any)
+        await payments.approveService(serviceAddress, 100n, 1000n, TIME_CONSTANTS.EPOCHS_PER_MONTH, 'FIL' as any)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not supported')

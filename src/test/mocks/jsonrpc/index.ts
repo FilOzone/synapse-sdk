@@ -9,7 +9,7 @@ import {
   multicall3Abi,
   parseUnits,
 } from 'viem'
-import { CONTRACT_ADDRESSES } from '../../../utils/constants.ts'
+import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
 import { serviceProviderRegistryCallHandler } from './service-registry.ts'
@@ -212,7 +212,7 @@ export const presets = {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
           pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
           tokenAddress: ADDRESSES.calibration.usdfcToken,
-          epochsPerMonth: 86400n,
+          epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },
       ],
     },

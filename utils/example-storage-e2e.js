@@ -65,7 +65,7 @@ async function main() {
     console.log(`File size: ${formatBytes(fileData.length)}`)
 
     // Check size limit (200 MiB)
-    const MAX_SIZE = 200 * 1024 * 1024
+    const MAX_SIZE = SIZE_CONSTANTS.MAX_UPLOAD_SIZE
     if (fileData.length > MAX_SIZE) {
       throw new Error(`File size exceeds maximum allowed size of ${formatBytes(MAX_SIZE)}`)
     }

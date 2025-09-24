@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
@@ -1233,8 +1234,8 @@ describe('StorageService', () => {
             capabilities: {},
             data: {
               serviceURL: 'https://provider3.example.com',
-              minPieceSizeInBytes: BigInt(1024),
-              maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
               ipniPiece: false,
               ipniIpfs: false,
               storagePricePerTibPerMonth: BigInt(1000000),
@@ -1362,7 +1363,7 @@ describe('StorageService', () => {
         {}
       )
 
-      const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
+      const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
 
       assert.equal(preflight.estimatedCost.perEpoch, BigInt(100))
       assert.equal(preflight.estimatedCost.perDay, BigInt(28800))
@@ -1400,7 +1401,7 @@ describe('StorageService', () => {
         {}
       )
 
-      const preflight = await service.preflightUpload(1024 * 1024) // 1 MiB
+      const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
 
       // Should use CDN costs
       assert.equal(preflight.estimatedCost.perEpoch, BigInt(200))
@@ -1440,7 +1441,7 @@ describe('StorageService', () => {
         {}
       )
 
-      const preflight = await service.preflightUpload(100 * 1024 * 1024) // 100 MiB
+      const preflight = await service.preflightUpload(Number(100n * SIZE_CONSTANTS.MiB)) // 100 MiB
 
       assert.isFalse(preflight.allowanceCheck.sufficient)
       assert.include(preflight.allowanceCheck.message, 'Rate allowance insufficient')
@@ -1486,7 +1487,7 @@ describe('StorageService', () => {
       )
 
       try {
-        await service.preflightUpload(210 * 1024 * 1024) // 210 MiB
+        await service.preflightUpload(Number(210n * SIZE_CONSTANTS.MiB)) // 210 MiB
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
@@ -2090,7 +2091,7 @@ describe('StorageService', () => {
       )
 
       // Create data that exceeds the limit
-      const oversizedData = new Uint8Array(210 * 1024 * 1024) // 210 MiB
+      const oversizedData = new Uint8Array(Number(210n * SIZE_CONSTANTS.MiB)) // 210 MiB
 
       try {
         await service.upload(oversizedData)
@@ -2198,7 +2199,7 @@ describe('StorageService', () => {
       )
 
       // Create data at exactly the limit
-      const maxSizeData = new Uint8Array(200 * 1024 * 1024) // 200 MiB
+      const maxSizeData = new Uint8Array(SIZE_CONSTANTS.MAX_UPLOAD_SIZE) // 200 MiB
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
 
       // Mock the required services
@@ -2206,7 +2207,7 @@ describe('StorageService', () => {
 
       // Mock uploadPiece
       serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        assert.equal(data.length, 200 * 1024 * 1024)
+        assert.equal(data.length, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
         return { pieceCid: testPieceCID, size: data.length }
       }
 
@@ -2252,7 +2253,7 @@ describe('StorageService', () => {
       // Should not throw
       const result = await service.upload(maxSizeData)
       assert.equal(result.pieceCid.toString(), testPieceCID)
-      assert.equal(result.size, 200 * 1024 * 1024)
+      assert.equal(result.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
       assert.equal(result.pieceId, 0)
     })
 

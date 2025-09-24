@@ -6,7 +6,7 @@ import { Synapse } from '../dist/synapse.js'
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 const PROVIDER_ADDRESS = process.env.PROVIDER_ADDRESS
-const PIECE_SIZE = 100 * 1024 * 1024 // 100 MiB
+const PIECE_SIZE = Number(100n * SIZE_CONSTANTS.MiB) // 100 MiB
 const NUM_RUNS = 4
 const PANDORA_ADDRESS = process.env.PANDORA_ADDRESS
 
@@ -70,7 +70,7 @@ async function generateRandomData(size) {
 async function runBenchmark() {
   console.log('Starting Synapse SDK Benchmark')
   console.log(`Provider: ${PROVIDER_ADDRESS}`)
-  console.log(`Piece size: ${PIECE_SIZE / (1024 * 1024)} MiB`)
+  console.log(`Piece size: ${PIECE_SIZE / Number(SIZE_CONSTANTS.MiB)} MiB`)
   console.log(`Number of runs: ${NUM_RUNS}`)
   console.log('')
 

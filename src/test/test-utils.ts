@@ -17,7 +17,7 @@
 import { ethers } from 'ethers'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
+import { CONTRACT_ABIS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
@@ -123,7 +123,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         // Return mock pricing data: 2 USDFC per TiB per month, USDFC address, 86400 epochs per month
         const pricePerTiBPerMonth = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
         const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration // Mock USDFC address
-        const epochsPerMonth = 86400n
+        const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['uint256', 'address', 'uint256'],
           [pricePerTiBPerMonth, tokenAddress, epochsPerMonth]
@@ -156,7 +156,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18) // 2 USDFC per TiB per month
         const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18) // 3 USDFC per TiB per month with CDN
         const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration // USDFC on calibration
-        const epochsPerMonth = 86400n
+        const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
         return ethers.AbiCoder.defaultAbiCoder().encode(
           ['tuple(uint256,uint256,address,uint256)'],
           [[pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, tokenAddress, epochsPerMonth]]
@@ -207,7 +207,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           0n, // lockupAllowance
           0n, // rateUsed
           0n, // lockupUsed
-          86400n, // maxLockupPeriod (30 days)
+          TIME_CONSTANTS.EPOCHS_PER_MONTH, // maxLockupPeriod (30 days)
         ])
       }
       // Mock getRailsForPayerAndToken response - function selector: 0x9b85e253
@@ -888,8 +888,8 @@ export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): Provi
         capabilities: {},
         data: {
           serviceURL: 'https://provider.example.com',
-          minPieceSizeInBytes: BigInt(1024),
-          maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: false,
           ipniIpfs: false,
           storagePricePerTibPerMonth: BigInt(1000000),
@@ -921,8 +921,8 @@ export function createSimpleProvider(props: {
         capabilities: {},
         data: {
           serviceURL: props.serviceURL,
-          minPieceSizeInBytes: BigInt(1024),
-          maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: false,
           ipniIpfs: false,
           storagePricePerTibPerMonth: BigInt(1000000),

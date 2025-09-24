@@ -7,7 +7,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { filecoinWarmStorageServiceAbi, filecoinWarmStorageServiceStateViewAbi } from '../abis/gen.ts'
-import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../utils/constants.ts'
+import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { createMockProvider, extendMockProviderCall, MOCK_ADDRESSES } from './test-utils.ts'
 
@@ -1073,7 +1073,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             // Encode as a tuple (struct)
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
@@ -1086,7 +1086,7 @@ describe('WarmStorageService', () => {
           return `0x${'0'.repeat(64)}`
         }
 
-        const sizeInBytes = 1024 * 1024 * 1024 // 1 GiB
+        const sizeInBytes = Number(SIZE_CONSTANTS.GiB) // 1 GiB
         const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
 
         assert.exists(costs.perEpoch)
@@ -1125,7 +1125,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1137,8 +1137,8 @@ describe('WarmStorageService', () => {
           return `0x${'0'.repeat(64)}`
         }
 
-        const costs1GiB = await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
-        const costs10GiB = await warmStorageService.calculateStorageCost(10 * 1024 * 1024 * 1024)
+        const costs1GiB = await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
+        const costs10GiB = await warmStorageService.calculateStorageCost(Number(10n * SIZE_CONSTANTS.GiB))
 
         // 10 GiB should cost approximately 10x more than 1 GiB
         // Allow for small rounding differences in bigint division
@@ -1148,7 +1148,7 @@ describe('WarmStorageService', () => {
         // Verify the relationship holds for day and month calculations
         assert.equal(costs10GiB.perDay.toString(), (costs10GiB.perEpoch * 2880n).toString())
         // For month calculation, allow for rounding errors due to integer division
-        const expectedMonth = costs10GiB.perEpoch * 86400n
+        const expectedMonth = costs10GiB.perEpoch * TIME_CONSTANTS.EPOCHS_PER_MONTH
         const monthRatio = Number(costs10GiB.perMonth) / Number(expectedMonth)
         assert.closeTo(monthRatio, 1, 0.0001) // Allow 0.01% difference due to rounding
       })
@@ -1170,7 +1170,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             // Encode as a tuple (struct)
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
@@ -1183,7 +1183,7 @@ describe('WarmStorageService', () => {
           return await originalCall.call(mockProvider, transaction)
         }
 
-        await warmStorageService.calculateStorageCost(1024 * 1024 * 1024)
+        await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
         assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on WarmStorage contract')
       })
     })
@@ -1217,7 +1217,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1230,7 +1230,7 @@ describe('WarmStorageService', () => {
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
-          10 * 1024 * 1024 * 1024, // 10 GiB
+          Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
           false,
           mockPaymentsService
         )
@@ -1288,7 +1288,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1301,7 +1301,7 @@ describe('WarmStorageService', () => {
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
-          1024 * 1024, // 1 MiB - small amount
+          Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
           false,
           mockPaymentsService
         )
@@ -1347,7 +1347,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1360,7 +1360,7 @@ describe('WarmStorageService', () => {
         }
 
         const check = await warmStorageService.checkAllowanceForStorage(
-          1024 * 1024 * 1024, // 1 GiB
+          Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService
         )
@@ -1404,7 +1404,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1419,7 +1419,7 @@ describe('WarmStorageService', () => {
         // Test with custom lockup period of 20 days
         const customLockupDays = 20
         const check = await warmStorageService.checkAllowanceForStorage(
-          1024 * 1024 * 1024, // 1 GiB
+          Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService,
           customLockupDays
@@ -1431,7 +1431,7 @@ describe('WarmStorageService', () => {
 
         // Compare with default (10 days) to ensure they're different
         const defaultCheck = await warmStorageService.checkAllowanceForStorage(
-          1024 * 1024 * 1024, // 1 GiB
+          Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService
         )
@@ -1483,7 +1483,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1497,7 +1497,7 @@ describe('WarmStorageService', () => {
 
         const prep = await warmStorageService.prepareStorageUpload(
           {
-            dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
             withCDN: false,
           },
           mockPaymentsService
@@ -1563,7 +1563,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1577,7 +1577,7 @@ describe('WarmStorageService', () => {
 
         const prep = await warmStorageService.prepareStorageUpload(
           {
-            dataSize: 10 * 1024 * 1024 * 1024, // 10 GiB
+            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
             withCDN: false,
           },
           mockPaymentsService
@@ -1631,7 +1631,7 @@ describe('WarmStorageService', () => {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
             const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = 86400n
+            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
               pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
@@ -1645,7 +1645,7 @@ describe('WarmStorageService', () => {
 
         const prep = await warmStorageService.prepareStorageUpload(
           {
-            dataSize: 1024 * 1024, // 1 MiB - small amount
+            dataSize: Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
             withCDN: false,
           },
           mockPaymentsService

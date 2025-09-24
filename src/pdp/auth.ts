@@ -305,7 +305,7 @@ export class PDPAuthHelper {
    * const auth = new PDPAuthHelper(contractAddress, signer, chainId)
    * const pieceData = [{
    *   cid: 'bafkzcibc...', // PieceCID of aggregated data
-   *   rawSize: 1024 * 1024     // Raw size in bytes before padding
+   *   rawSize: Number(SIZE_CONSTANTS.MiB)     // Raw size in bytes before padding
    * }]
    * const signature = await auth.signAddPieces(
    *   0,           // Same dataset ID as data set creation

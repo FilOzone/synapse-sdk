@@ -101,7 +101,7 @@ import { WarmStorageService } from '../dist/warm-storage/service.js'
 // Constants for payment approvals
 const RATE_ALLOWANCE_PER_EPOCH = ethers.parseUnits('0.1', 18) // 0.1 USDFC per epoch
 const LOCKUP_ALLOWANCE = ethers.parseUnits('10', 18) // 10 USDFC lockup allowance
-const MAX_LOCKUP_PERIOD = 86400n // 30 days in epochs (30 * 2880 epochs/day)
+const MAX_LOCKUP_PERIOD = TIME_CONSTANTS.EPOCHS_PER_MONTH // 30 days in epochs (30 * 2880 epochs/day)
 const INITIAL_DEPOSIT_AMOUNT = ethers.parseUnits('1', 18) // 1 USDFC initial deposit
 
 // Default PDP configuration values

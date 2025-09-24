@@ -903,7 +903,7 @@ export class WarmStorageService {
    * @example
    * ```typescript
    * const prep = await warmStorageService.prepareStorageUpload(
-   *   { dataSize: 1024 * 1024 * 1024, withCDN: true },
+   *   { dataSize: Number(SIZE_CONSTANTS.GiB), withCDN: true },
    *   paymentsService
    * )
    *
@@ -975,7 +975,7 @@ export class WarmStorageService {
             this._warmStorageAddress,
             allowanceCheck.rateAllowanceNeeded,
             allowanceCheck.lockupAllowanceNeeded,
-            86400n, // 30 days max lockup period
+            TIME_CONSTANTS.EPOCHS_PER_MONTH, // 30 days max lockup period
             TOKENS.USDFC
           ),
       })

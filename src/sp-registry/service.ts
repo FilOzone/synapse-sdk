@@ -84,8 +84,8 @@ export class SPRegistryService {
    *   description: 'High-performance storage service',
    *   pdpOffering: {
    *     serviceURL: 'https://provider.example.com',
-   *     minPieceSizeInBytes: BigInt(1024),
-   *     maxPieceSizeInBytes: BigInt(1024 * 1024 * 1024),
+   *     minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+   *     maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
    *     // ... other PDP fields
    *   },
    *   capabilities: { 'region': 'us-east', 'tier': 'premium' }

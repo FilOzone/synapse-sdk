@@ -125,17 +125,22 @@ export const SIZE_CONSTANTS = {
   /**
    * Bytes in 1 MiB
    */
-  MiB: 1024n * 1024n,
+  MiB: 1n << 20n,
 
   /**
    * Bytes in 1 GiB
    */
-  GiB: 1024n * 1024n * 1024n,
+  GiB: 1n << 30n,
 
   /**
    * Bytes in 1 TiB
    */
-  TiB: 1024n * 1024n * 1024n * 1024n,
+  TiB: 1n << 40n,
+
+  /**
+   * Bytes in 1 PiB
+   */
+  PiB: 1n << 50n,
 
   /**
    * Maximum upload size (200 MiB)
