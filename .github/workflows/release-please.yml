@@ -31,7 +31,7 @@ jobs:
 
       - name: Install dependencies
         if: ${{ steps.release.outputs.release_created }}
-				run: npm install --no-progress --no-package-lock --no-save
+        run: npm install --no-progress --no-package-lock --no-save
 
       - name: Build
         if: ${{ steps.release.outputs.release_created }}
