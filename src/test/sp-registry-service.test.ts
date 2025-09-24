@@ -2,7 +2,7 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { SPRegistryService } from '../sp-registry/service.ts'
-import { PRODUCTS } from '../sp-registry/types.ts'
+import { type PDPOffering, PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 describe('SPRegistryService', () => {
@@ -95,15 +95,15 @@ describe('SPRegistryService', () => {
         // Return mock encoded data
         return `0x${'a'.repeat(64)}`
       },
-      decodePDPOffering: async (_data: string) => {
+      decodePDPOffering: async (_data: string): Promise<PDPOffering> => {
         return {
           serviceURL: 'https://provider.example.com',
-          minPieceSizeInBytes: BigInt(1024),
-          maxPieceSizeInBytes: SIZE_CONSTANTS,
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: false,
           storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: BigInt(2880),
+          minProvingPeriodInEpochs: 2880,
           location: 'US-EAST',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         }
