@@ -403,7 +403,7 @@ describe('Synapse', () => {
       const testData = new TextEncoder().encode('test data')
       server.use(
         JSONRPC({ ...presets.basic }),
-        http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filcdn.io/:cid`, async ({ params }) => {
+        http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filbeam.io/:cid`, async ({ params }) => {
           deferred.resolve(params)
           return HttpResponse.arrayBuffer(testData.buffer)
         }),

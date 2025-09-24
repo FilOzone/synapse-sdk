@@ -1,13 +1,13 @@
 /* globals describe it */
 import { assert } from 'chai'
 import { asPieceCID } from '../piece/index.ts'
-import { FilCdnRetriever } from '../retriever/filcdn.ts'
+import { FilBeamRetriever } from '../retriever/filbeam.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
 
-describe('FilCdnRetriever', () => {
+describe('FilBeamRetriever', () => {
   describe('pass-through behavior', () => {
     it('should pass through when withCDN=false', async () => {
       let baseCalled = false
@@ -29,7 +29,7 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: false,
         })
@@ -60,7 +60,7 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'mainnet')
         await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           signal: controller.signal,
           withCDN: false,
@@ -94,7 +94,7 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -129,7 +129,7 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -163,7 +163,7 @@ describe('FilCdnRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -194,14 +194,14 @@ describe('FilCdnRetriever', () => {
         cdnCalled = true
         assert.strictEqual(
           url,
-          `https://0xClient.calibration.filcdn.io/${mockPieceCID.toString()}`,
+          `https://0xClient.calibration.filbeam.io/${mockPieceCID.toString()}`,
           'CDN URL should be constructed correctly'
         )
         return cdnResponse
       }
 
       try {
-        const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -221,9 +221,9 @@ describe('FilCdnRetriever', () => {
         fetchPiece: async () => new Response(),
       }
 
-      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'mainnet')
+      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'mainnet')
       assert.exists(cdnRetriever)
-      assert.strictEqual(cdnRetriever.hostname(), 'filcdn.io')
+      assert.strictEqual(cdnRetriever.hostname(), 'filbeam.io')
     })
 
     it('should accept calibration network', () => {
@@ -231,9 +231,9 @@ describe('FilCdnRetriever', () => {
         fetchPiece: async () => new Response(),
       }
 
-      const cdnRetriever = new FilCdnRetriever(mockBaseRetriever, 'calibration')
+      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
       assert.exists(cdnRetriever)
-      assert.strictEqual(cdnRetriever.hostname(), 'calibration.filcdn.io')
+      assert.strictEqual(cdnRetriever.hostname(), 'calibration.filbeam.io')
     })
   })
 })

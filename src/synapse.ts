@@ -4,7 +4,7 @@
 
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.ts'
-import { ChainRetriever, FilCdnRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
@@ -146,7 +146,7 @@ export class Synapse {
     if (options.pieceRetriever != null) {
       pieceRetriever = options.pieceRetriever
     } else {
-      // Create default retriever chain: FilCDN wraps the base retriever
+      // Create default retriever chain: FilBeam wraps the base retriever
       const chainRetriever = new ChainRetriever(warmStorageService, spRegistry)
 
       // Check for subgraph option
@@ -159,8 +159,8 @@ export class Synapse {
         baseRetriever = new SubgraphRetriever(subgraphService)
       }
 
-      // Wrap with FilCDN retriever
-      pieceRetriever = new FilCdnRetriever(baseRetriever, network)
+      // Wrap with FilBeam retriever
+      pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
     return new Synapse(

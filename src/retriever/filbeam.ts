@@ -1,5 +1,5 @@
 /**
- * FilCdnRetriever - CDN optimization wrapper for piece retrieval
+ * FilBeamRetriever - CDN optimization wrapper for piece retrieval
  *
  * This intercepts piece requests and attempts CDN retrieval before falling back
  * to the base retriever.
@@ -7,7 +7,7 @@
 
 import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.ts'
 
-export class FilCdnRetriever implements PieceRetriever {
+export class FilBeamRetriever implements PieceRetriever {
   private readonly baseRetriever: PieceRetriever
   private readonly network: FilecoinNetworkType
 
@@ -17,7 +17,7 @@ export class FilCdnRetriever implements PieceRetriever {
   }
 
   hostname(): string {
-    return this.network === 'mainnet' ? 'filcdn.io' : 'calibration.filcdn.io'
+    return this.network === 'mainnet' ? 'filbeam.io' : 'calibration.filbeam.io'
   }
 
   async fetchPiece(
