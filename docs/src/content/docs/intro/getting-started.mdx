@@ -387,10 +387,10 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 - `getRailsAsPayer(token?)` - Get all payment rails where wallet is the payer, returns `RailInfo[]` with `{railId, isTerminated, endEpoch}` (endEpoch is 0 for active rails)
 - `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
 - `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
-- `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be <= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
+- `settle(railId, untilEpoch?)` - Settle a payment rail up to specified epoch (must be \<= current epoch; defaults to current if not specified), automatically includes settlement fee (0.0013 FIL), returns `TransactionResponse`
 - `settleTerminatedRail(railId)` - Emergency settlement for terminated rails only - bypasses Warm Storage (or other validator) validation to ensure payment even if the validator contract is buggy (pays in full), returns `TransactionResponse`
-- `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be <= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
-- `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be <= current epoch for active rails)
+- `getSettlementAmounts(railId, untilEpoch?)` - Preview settlement amounts without executing (untilEpoch must be \<= current epoch; defaults to current), returns `SettlementResult` with `{totalSettledAmount, totalNetPayeeAmount, totalOperatorCommission, finalSettledEpoch, note}`
+- `settleAuto(railId, untilEpoch?)` - Automatically detect rail status and settle appropriately (untilEpoch must be \<= current epoch for active rails)
 
 #### Storage Context Methods
 
