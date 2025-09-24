@@ -4,6 +4,25 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.29.0](https://github.com/FilOzone/synapse-sdk/compare/v0.28.0...v0.29.0) (2025-09-24)
+
+
+### Features
+
+* rename FilCDN to FilBeam ([#239](https://github.com/FilOzone/synapse-sdk/issues/239)) ([8511b33](https://github.com/FilOzone/synapse-sdk/commit/8511b333cc235f5babe6a6a80e74361f1ccc40f9))
+
+
+### Bug Fixes
+
+* **ci:** no tabs in workflow file ([#237](https://github.com/FilOzone/synapse-sdk/issues/237)) ([b9c2275](https://github.com/FilOzone/synapse-sdk/commit/b9c2275fda73b5e40320795675de980887230cbe))
+* **doc:** \&lt; ([5f5af43](https://github.com/FilOzone/synapse-sdk/commit/5f5af436bf6126bd3a0b4630b5b394fb6023944d))
+* Escape &lt; in mdx ([#241](https://github.com/FilOzone/synapse-sdk/issues/241)) ([5f5af43](https://github.com/FilOzone/synapse-sdk/commit/5f5af436bf6126bd3a0b4630b5b394fb6023944d))
+
+
+### Chores
+
+* **ci:** switch from semantic-release to release-please ([#233](https://github.com/FilOzone/synapse-sdk/issues/233)) ([9f84cc6](https://github.com/FilOzone/synapse-sdk/commit/9f84cc6d0db1f99d9c81f962e3f06584c49dd461))
+
 ## [0.27.0](https://github.com/FilOzone/synapse-sdk/compare/v0.26.0...v0.27.0) (2025-09-19)
 
 ### Features
