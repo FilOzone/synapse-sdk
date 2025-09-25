@@ -95,7 +95,7 @@
 import { ethers } from 'ethers'
 import { PaymentsService } from '../dist/payments/service.js'
 import { SPRegistryService } from '../dist/sp-registry/service.js'
-import { CONTRACT_ADDRESSES, RPC_URLS, TOKENS } from '../dist/utils/constants.js'
+import { CONTRACT_ADDRESSES, RPC_URLS, TIME_CONSTANTS, TOKENS } from '../dist/utils/constants.js'
 import { WarmStorageService } from '../dist/warm-storage/service.js'
 
 // Constants for payment approvals
