@@ -337,6 +337,7 @@ describe('Synapse', () => {
                 name: '',
                 description: '',
                 isActive: false,
+                providerId: 0n,
               },
             ],
           },
@@ -582,6 +583,7 @@ describe('Synapse', () => {
                     isActive: true,
                     name: 'Test Provider',
                     description: 'Test Provider',
+                    providerId: 1n,
                   },
                 ]
               }
@@ -592,6 +594,7 @@ describe('Synapse', () => {
                   isActive: false,
                   name: '',
                   description: '',
+                  providerId: 0n,
                 },
               ]
             },
