@@ -10,28 +10,47 @@ export const QUERIES = {
         id
         dataSet {
           setId
-          owner {
+          serviceProvider {
             id
-            address
-            pdpUrl
-            pieceRetrievalUrl
+            providerId
+            serviceProvider
+            payee
+            name
+            description
             registeredAt
             status
             approvedAt
+            products {
+              decodedProductData
+              productType
+              isActive
+              capabilityValues
+              capabilityKeys
+            }
           }
         }
       }
     }
   `,
   GET_PROVIDER_BY_ADDRESS: `
-    query Provider($providerId: ID!) {
-      provider(id: $providerId) {
+    query Provider($serviceProvider: ID!) {
+      provider (id: $serviceProvider) {
         id
-        address
-        pdpUrl
-        pieceRetrievalUrl
+        providerId
+        serviceProvider
+        payee
+        name
+        description
         registeredAt
+        status
         approvedAt
+        products {
+          decodedProductData
+          productType
+          isActive
+          capabilityValues
+          capabilityKeys
+        }
       }
     }
   `,
@@ -46,9 +65,9 @@ export const QUERIES = {
         orderDirection: $orderDirection
       ) {
         id
-        address
-        pdpUrl
-        pieceRetrievalUrl
+        providerId
+        serviceProvider
+        payee
         registeredAt
         approvedAt
         status
@@ -59,6 +78,13 @@ export const QUERIES = {
         totalDataSize
         createdAt
         updatedAt
+        products {
+          decodedProductData
+          productType
+          isActive
+          capabilityValues
+          capabilityKeys
+        }
       }
     }
   `,
@@ -74,7 +100,7 @@ export const QUERIES = {
         id
         setId
         listener
-        clientAddr
+        payer
         withCDN
         isActive
         leafCount
@@ -87,23 +113,34 @@ export const QUERIES = {
         totalProvedPieces
         totalFaultedPeriods
         totalFaultedPieces
-        metadata
+        metadataKeys
+        metadataValues
         createdAt
         updatedAt
-        owner {
+        serviceProvider {
           id
-          address
-          pdpUrl
-          pieceRetrievalUrl
+          providerId
+          serviceProvider
+          payee
+          name
+          description
           registeredAt
+          status
           approvedAt
+          products {
+            decodedProductData
+            productType
+            isActive
+            capabilityValues
+            capabilityKeys
+          }
         }
-        rail {
+        rails {
           id
+          type
           railId
           token
           paymentRate
-          lockupPeriod
           settledUpto
           endEpoch
         }
@@ -133,18 +170,29 @@ export const QUERIES = {
         lastFaultedEpoch
         lastFaultedAt
         createdAt
-        metadata
+        metadataKeys
+        metadataValues
         dataSet {
           id
           setId
           isActive
-          owner {
+          serviceProvider {
             id
-            address
-            pdpUrl
-            pieceRetrievalUrl
+            providerId
+            serviceProvider
+            payee
+            name
+            description
             registeredAt
+            status
             approvedAt
+            products {
+              decodedProductData
+              productType
+              isActive
+              capabilityValues
+              capabilityKeys
+            }
           }
         }
       }
@@ -170,13 +218,23 @@ export const QUERIES = {
         dataSet {
           id
           setId
-          owner {
+          serviceProvider {
             id
-            address
-            pdpUrl
-            pieceRetrievalUrl
+            providerId
+            serviceProvider
+            payee
+            name
+            description
             registeredAt
+            status
             approvedAt
+            products {
+              decodedProductData
+              productType
+              isActive
+              capabilityValues
+              capabilityKeys
+            }
           }
         }
       }

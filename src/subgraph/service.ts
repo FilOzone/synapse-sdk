@@ -28,8 +28,8 @@
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
 import { asPieceCID } from '../piece/index.ts'
+import { type PDPOffering, PRODUCTS, type ProductType, type ServiceProduct } from '../sp-registry/types.ts'
 import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.ts'
-import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { createError } from '../utils/errors.ts'
 import { QUERIES } from './queries.ts'
 
@@ -99,23 +99,24 @@ export interface SubgraphDataSetInfo {
  */
 export interface DetailedSubgraphDataSetInfo extends SubgraphDataSetInfo {
   listener: string
-  clientAddr: string
+  payer: string
   withCDN: boolean
   challengeRange: number
   lastProvenEpoch: number
   nextChallengeEpoch: number
   totalFaultedPeriods: number
-  metadata: string
+  metadataKeys: string[]
+  metadataValues: string[]
   serviceProvider: ProviderInfo
-  rail?: {
+  rails?: {
     id: string
+    type: string
     railId: number
     token: string
     paymentRate: number
-    lockupPeriod: number
     settledUpto: number
     endEpoch: number
-  }
+  }[]
 }
 
 /**
@@ -136,7 +137,8 @@ export interface PieceInfo {
   lastFaultedEpoch: number
   lastFaultedAt: number
   createdAt: number
-  metadata: string
+  metadataKeys: string[]
+  metadataValues: string[]
   dataSet: {
     id: string
     setId: number
@@ -279,39 +281,140 @@ export class SubgraphService implements SubgraphRetrievalService {
   }
 
   /**
-   * Transforms provider data to ProviderInfo
+   * Maps a ProductType value back to its corresponding key in the PRODUCTS constant.
    *
-   * TODO: this needs to be updated when the subgraph is finalised for the latest WarmStorage &
-   * ProviderRegistry contracts.
+   * This method performs a reverse lookup to find the key that corresponds to the given
+   * ProductType value.
+   *
+   */
+  private getProductType(productType: ProductType): keyof typeof PRODUCTS {
+    const entry = Object.entries(PRODUCTS).find(([, value]) => value === productType)
+    return entry != null ? (entry[0] as keyof typeof PRODUCTS) : 'PDP'
+  }
+
+  /**
+   * Transforms raw provider data from the subgraph into a structured ProviderInfo object.
+   *
+   * This method safely converts subgraph provider data into the SDK's ProviderInfo format,
+   * handling potential missing fields and parsing errors gracefully.
+   *
    */
   private transformProviderData(data: any): ProviderInfo {
-    // Create a provider with minimal required fields for subgraph compatibility
-    const serviceURL = data.serviceURL ?? data.pdpUrl ?? 'https://unknown.provider'
+    // Provide safe defaults for required fields
+    const safeData = {
+      providerId: data?.providerId ?? 0,
+      serviceProvider: data?.serviceProvider ?? '',
+      payee: data?.payee ?? '',
+      name: data?.name ?? '',
+      description: data?.description ?? '',
+      status: data?.status ?? 'UNKNOWN',
+      products: Array.isArray(data?.products) ? data.products : [],
+    }
+
     return {
-      id: 1, // Default ID for subgraph providers
-      serviceProvider: data.serviceProvider ?? data.serviceProvider ?? data.id,
-      payee: data.payee ?? data.serviceProvider ?? data.id,
-      name: 'Subgraph Provider',
-      description: 'Provider from subgraph',
-      active: true,
-      products: {
-        PDP: {
-          type: 'PDP',
-          isActive: true,
-          capabilities: {},
-          data: {
-            serviceURL,
-            minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-            maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-            ipniPiece: false,
-            ipniIpfs: false,
-            storagePricePerTibPerMonth: BigInt(1000000),
-            minProvingPeriodInEpochs: Number(TIME_CONSTANTS.EPOCHS_PER_DAY),
-            location: 'Unknown',
-            paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-          },
-        },
+      id: safeData.providerId,
+      serviceProvider: safeData.serviceProvider,
+      payee: safeData.payee,
+      name: safeData.name,
+      description: safeData.description,
+      active: safeData.status === 'APPROVED',
+      products: this.transformProducts(safeData.products),
+    }
+  }
+
+  /**
+   * Transforms an array of product data into a structured products record.
+   */
+  private transformProducts(products: any[]): Partial<Record<'PDP', ServiceProduct>> {
+    return products.reduce(
+      (productAcc: Record<string, ServiceProduct>, product: any) => {
+        const productType = this.getProductType(product?.productType)
+        const serviceProduct = this.createServiceProduct(product, productType)
+
+        if (serviceProduct != null) {
+          productAcc[productType] = serviceProduct
+        }
+
+        return productAcc
       },
+      {} as Record<string, ServiceProduct>
+    )
+  }
+
+  /**
+   * Creates a ServiceProduct from raw product data with error handling.
+   */
+  private createServiceProduct(product: any, productType: keyof typeof PRODUCTS): ServiceProduct | null {
+    try {
+      return {
+        type: productType,
+        isActive: product?.isActive ?? false,
+        capabilities: this.transformCapabilities(product?.capabilityValues),
+        data: this.parseProductData(product?.decodedProductData),
+      }
+    } catch (error) {
+      console.warn(
+        `SubgraphService: Failed to create service product for type ${productType}:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      )
+      return null
+    }
+  }
+
+  /**
+   * Transforms capability values into a key-value record.
+   */
+  private transformCapabilities(capabilityValues: any[]): Record<string, string> {
+    if (!Array.isArray(capabilityValues)) {
+      return {}
+    }
+
+    return capabilityValues.reduce(
+      (capabilityAcc: Record<string, string>, capability: any) => {
+        if (capability?.key != null && capability?.value != null) {
+          capabilityAcc[capability.key] = String(capability.value)
+        }
+        return capabilityAcc
+      },
+      {} as Record<string, string>
+    )
+  }
+
+  /**
+   * Safely parses product data JSON with error handling.
+   */
+  private parseProductData(decodedProductData: string): PDPOffering {
+    try {
+      if (decodedProductData == null || decodedProductData.trim() === '') {
+        throw new Error('Empty or null product data')
+      }
+
+      const parsed = JSON.parse(decodedProductData) as PDPOffering
+
+      // Validate required fields exist
+      if (parsed?.serviceURL == null) {
+        throw new Error('Missing required serviceURL field')
+      }
+
+      return parsed
+    } catch (error) {
+      console.warn(
+        `SubgraphService: Failed to parse product data, using defaults:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      )
+
+      // Return safe defaults for PDPOffering
+      return {
+        serviceURL: '',
+        minPieceSizeInBytes: 0n,
+        maxPieceSizeInBytes: 0n,
+        ipniPiece: false,
+        ipniIpfs: false,
+        storagePricePerTibPerMonth: 0n,
+        minProvingPeriodInEpochs: 0,
+        location: '',
+        paymentTokenAddress: '',
+      }
     }
   }
 
@@ -355,7 +458,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * Validates provider data completeness
    */
   private isValidProviderData(data: any): boolean {
-    return data?.id != null && data.id.trim() !== '' && data?.serviceURL != null && data.serviceURL.trim() !== ''
+    return data?.id != null && data.id.trim() !== '' && data?.products != null && data.products.length > 0
   }
 
   /**
@@ -390,7 +493,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       const provider = piece.dataSet.serviceProvider
       const address = provider?.serviceProvider?.toLowerCase() as string
 
-      if (provider?.status !== 'Approved' || address == null || address === '' || acc.has(address)) {
+      if (address == null || address === '' || acc.has(address)) {
         return acc
       }
 
@@ -416,7 +519,7 @@ export class SubgraphService implements SubgraphRetrievalService {
   async getProviderByAddress(address: string): Promise<ProviderInfo | null> {
     const data = await this.executeQuery<{ provider: any | null }>(
       QUERIES.GET_PROVIDER_BY_ADDRESS,
-      { providerId: address },
+      { serviceProvider: address },
       'getProviderByAddress'
     )
 
@@ -509,7 +612,7 @@ export class SubgraphService implements SubgraphRetrievalService {
       id: dataSet.id,
       setId: this.parseTimestamp(dataSet.setId),
       listener: dataSet.listener ?? '',
-      clientAddr: dataSet.clientAddr ?? '',
+      payer: dataSet.payer ?? '',
       withCDN: dataSet.withCDN ?? false,
       isActive: dataSet.isActive,
       leafCount: this.parseTimestamp(dataSet.leafCount),
@@ -522,25 +625,25 @@ export class SubgraphService implements SubgraphRetrievalService {
       totalProvedPieces: this.parseTimestamp(dataSet.totalProvedPieces),
       totalFaultedPeriods: this.parseTimestamp(dataSet.totalFaultedPeriods),
       totalFaultedPieces: this.parseTimestamp(dataSet.totalFaultedPieces),
-      metadata: dataSet.metadata ?? '',
+      metadataKeys: dataSet.metadataKeys ?? [],
+      metadataValues: dataSet.metadataValues ?? [],
       createdAt: this.parseTimestamp(dataSet.createdAt),
       updatedAt: this.parseTimestamp(dataSet.updatedAt),
-      owner: dataSet.owner != null ? this.transformProviderData(dataSet.owner) : this.transformProviderData({}), // Create default provider
       serviceProvider:
         dataSet.serviceProvider != null
           ? this.transformProviderData(dataSet.serviceProvider)
           : this.transformProviderData({}), // Create default provider
-      rail:
-        dataSet.rail != null
-          ? {
-              id: dataSet.rail.id,
-              railId: this.parseTimestamp(dataSet.rail.railId),
-              token: dataSet.rail.token,
-              paymentRate: this.parseTimestamp(dataSet.rail.paymentRate),
-              lockupPeriod: this.parseTimestamp(dataSet.rail.lockupPeriod),
-              settledUpto: this.parseTimestamp(dataSet.rail.settledUpto),
-              endEpoch: this.parseTimestamp(dataSet.rail.endEpoch),
-            }
+      rails:
+        dataSet.rails != null
+          ? dataSet.rails.map((rail: any) => ({
+              id: rail.id,
+              type: rail.type,
+              railId: this.parseTimestamp(rail.railId),
+              token: rail.token,
+              paymentRate: this.parseTimestamp(rail.paymentRate),
+              settledUpto: this.parseTimestamp(rail.settledUpto),
+              endEpoch: this.parseTimestamp(rail.endEpoch),
+            }))
           : undefined,
     }))
   }
@@ -596,7 +699,8 @@ export class SubgraphService implements SubgraphRetrievalService {
       lastFaultedEpoch: this.parseTimestamp(piece.lastFaultedEpoch),
       lastFaultedAt: this.parseTimestamp(piece.lastFaultedAt),
       createdAt: this.parseTimestamp(piece.createdAt),
-      metadata: piece.metadata ?? '',
+      metadataKeys: piece.metadataKeys ?? [],
+      metadataValues: piece.metadataValues ?? [],
       dataSet: {
         id: piece.dataSet.id,
         setId: this.parseTimestamp(piece.dataSet.setId),
