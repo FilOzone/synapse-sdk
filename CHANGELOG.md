@@ -4,6 +4,14 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.29.1](https://github.com/FilOzone/synapse-sdk/compare/v0.29.0...v0.29.1) (2025-09-26)
+
+
+### Bug Fixes
+
+* import constants ([#246](https://github.com/FilOzone/synapse-sdk/issues/246)) ([53e0c97](https://github.com/FilOzone/synapse-sdk/commit/53e0c97268b1c5b0838c1a3979297aa3652ebf4c))
+* resolve data sets in getClientDataSetsWithDetails without rail indirection ([#235](https://github.com/FilOzone/synapse-sdk/issues/235)) ([d0e8fb9](https://github.com/FilOzone/synapse-sdk/commit/d0e8fb955105ff23cdd0bcd7efb627fc4ca95067))
+
 ## [0.29.0](https://github.com/FilOzone/synapse-sdk/compare/v0.28.0...v0.29.0) (2025-09-24)
 
 
