@@ -1091,4 +1091,17 @@ export class WarmStorageService {
     const window = await viewContract.challengeWindow()
     return Number(window)
   }
+
+  /**
+   * Get the number of leaves for a specific piece
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param pieceId - The piece ID within the data set
+   * @returns The number of leaves for this piece
+   */
+  async getPieceLeafCount(dataSetId: number, pieceId: number): Promise<number> {
+    const pdpVerifier = this._getPDPVerifier()
+    const leafCount = await pdpVerifier.getPieceLeafCount(dataSetId, pieceId)
+
+    return leafCount
+  }
 }

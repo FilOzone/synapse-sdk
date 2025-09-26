@@ -2051,4 +2051,44 @@ describe('WarmStorageService', () => {
       mockProvider.call = originalCall
     })
   })
+
+  describe('getPieceLeafCount', () => {
+    it('should return leaf count for a specific piece', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const dataSetId = 123
+      const pieceId = 456
+      const mockLeafCount = 1000
+
+      // Mock the internal _getPDPVerifier method to avoid complex contract mocking
+      const mockPDPVerifier = {
+        getPieceLeafCount: async () => mockLeafCount,
+      }
+
+      // Replace the private method with our mock
+      ;(warmStorageService as any)._getPDPVerifier = () => mockPDPVerifier
+
+      const leafCount = await warmStorageService.getPieceLeafCount(dataSetId, pieceId)
+
+      assert.isNumber(leafCount)
+      assert.equal(leafCount, mockLeafCount)
+    })
+
+    it('should handle PDPVerifier errors gracefully', async () => {
+      const warmStorageService = await createWarmStorageService()
+      const dataSetId = 123
+      const pieceId = 456
+
+      // Mock the internal _getPDPVerifier method to throw error
+      ;(warmStorageService as any)._getPDPVerifier = () => {
+        throw new Error('PDPVerifier error')
+      }
+
+      try {
+        await warmStorageService.getPieceLeafCount(dataSetId, pieceId)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'PDPVerifier error')
+      }
+    })
+  })
 })

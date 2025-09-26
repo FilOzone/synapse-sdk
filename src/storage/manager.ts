@@ -433,4 +433,14 @@ export class StorageManager {
       )
     }
   }
+
+  /**
+   * Get piece data with leaf count for a specific piece
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param pieceId - The piece ID within the data set
+   * @returns The number of leaves for this piece
+   */
+  async getDataSetPieceDataWithLeafCount(dataSetId: number, pieceId: number): Promise<number> {
+    return await this._warmStorageService.getPieceLeafCount(dataSetId, pieceId)
+  }
 }
