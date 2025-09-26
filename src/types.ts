@@ -512,6 +512,17 @@ export interface DataSetPieceData {
 }
 
 /**
+ * Enhanced piece data with leaf count information
+ * The rawSize is calculated as leafCount * 32 bytes
+ */
+export interface DataSetPieceDataWithLeafCount extends DataSetPieceData {
+  /** Number of leaves in the piece's merkle tree */
+  leafCount: number
+  /** Raw size in bytes (calculated as leafCount * 32) */
+  rawSize: number
+}
+
+/**
  * Status information for a piece stored on a provider
  * Note: Proofs are submitted for entire data sets, not individual pieces.
  * The timing information reflects the data set's status.

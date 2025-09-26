@@ -30,6 +30,7 @@ import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  DataSetPieceDataWithLeafCount,
   DownloadOptions,
   EnhancedDataSetInfo,
   MetadataEntry,
@@ -1258,6 +1259,25 @@ export class StorageContext {
   async getDataSetPieces(): Promise<PieceCID[]> {
     const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
     return dataSetData.pieces.map((piece) => piece.pieceCid)
+  }
+
+  /**
+   * Get detailed piece information including leaf counts for this service provider's data set.
+   * @returns Array of piece data with leaf count information
+   */
+  async getDataSetPiecesWithDetails(): Promise<DataSetPieceDataWithLeafCount[]> {
+    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
+    const piecesWithLeafCount = await Promise.all(
+      dataSetData.pieces.map(async (piece) => {
+        const leafCount = await this._warmStorageService.getPieceLeafCount(this._dataSetId, piece.pieceId)
+        return {
+          ...piece,
+          leafCount,
+          rawSize: leafCount * 32,
+        }
+      })
+    )
+    return piecesWithLeafCount
   }
 
   /**
