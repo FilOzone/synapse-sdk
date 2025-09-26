@@ -20,6 +20,7 @@ const mockEthProvider = {
 // Mock Synapse instance
 const mockSynapse = {
   getSigner: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
+  getClient: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
   getProvider: () => mockEthProvider,
   getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
   getChainId: () => BigInt(314159),

@@ -2,6 +2,7 @@ import type { AbiParameter, AbiParameterKind, AbiParametersToPrimitiveTypes } fr
 import type { PaymentsOptions } from './payments.ts'
 import type { PDPVerifierOptions } from './pdp.ts'
 import type { ServiceRegistryOptions } from './service-registry.ts'
+import type { SessionKeyRegistryOptions } from './session-key-registry.ts'
 import type { WarmStorageOptions, WarmStorageViewOptions } from './warm-storage.ts'
 
 /**
@@ -18,12 +19,17 @@ export type AbiToType<
 export interface JSONRPCOptions {
   debug?: boolean
   eth_chainId?: string
+  eth_blockNumber?: string
+  eth_getTransactionByHash?: (params: any) => any
+  eth_getTransactionReceipt?: (params: any) => any
+  eth_signTypedData_v4?: (params: any) => string
   eth_accounts?: string[]
   warmStorage?: WarmStorageOptions
   pdpVerifier?: PDPVerifierOptions
   payments?: PaymentsOptions
   warmStorageView?: WarmStorageViewOptions
   serviceRegistry?: ServiceRegistryOptions
+  sessionKeyRegistry?: SessionKeyRegistryOptions
 }
 
 /**

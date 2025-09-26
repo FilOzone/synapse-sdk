@@ -18,7 +18,15 @@
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
  */
 
-import { SIZE_CONSTANTS, Synapse } from '@filoz/synapse-sdk'
+import {
+  ADD_PIECES_TYPEHASH,
+  CREATE_DATA_SET_TYPEHASH,
+  PDP_PERMISSION_NAMES,
+  SIZE_CONSTANTS,
+  Synapse,
+  TIME_CONSTANTS,
+} from '@filoz/synapse-sdk'
+import { ethers } from 'ethers'
 import { readFile } from 'fs/promises'
 
 // Configuration from environment
@@ -99,6 +107,45 @@ async function main() {
     const usdfcBalance = await synapse.payments.walletBalance('USDFC')
     console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
     console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
+
+    // Check session keys
+    if (process.env.SESSION_KEY) {
+      let sessionPrivateKey = process.env.SESSION_KEY
+      if (!sessionPrivateKey.startsWith('0x')) {
+        sessionPrivateKey = `0x${sessionPrivateKey}`
+      }
+      const sessionKeyWallet = new ethers.Wallet(sessionPrivateKey, synapse.getProvider())
+      const sessionKey = synapse.setSession(sessionKeyWallet)
+      await sessionKey.fetchExpiries()
+      const sessionKeyAddress = await sessionKeyWallet.getAddress()
+
+      console.log('\n--- SessionKey Login ---')
+      console.log(`Session Key: ${sessionKeyAddress})`)
+      const permissionsToRefresh = []
+      const day = BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(TIME_CONSTANTS.EPOCH_DURATION))
+      const soon = BigInt(Date.now()) / BigInt(1000) + day / BigInt(6)
+      const refresh = soon + day
+      for (const permission of [CREATE_DATA_SET_TYPEHASH, ADD_PIECES_TYPEHASH]) {
+        if (sessionKey.expiries[permission] < soon) {
+          console.log(
+            `  refreshing ${PDP_PERMISSION_NAMES[permission]}: ${sessionKey.expiries[permission]} to ${refresh}`
+          )
+          permissionsToRefresh.push(permission)
+        }
+      }
+      if (permissionsToRefresh.length > 0) {
+        const loginTx = await sessionKey.login(refresh, permissionsToRefresh)
+        console.log(`  tx: ${loginTx.hash}`)
+        const loginReceipt = await loginTx.wait()
+        if (loginReceipt.status === 1) {
+          console.log('✓ login successful')
+        } else {
+          throw new Error('Login failed')
+        }
+      } else {
+        console.log('✓ session active')
+      }
+    }
 
     // Step 4: Create storage context (optional - synapse.storage.upload() will auto-create if needed)
     // We create it explicitly here to show provider selection and data set creation callbacks
