@@ -232,6 +232,31 @@ describe('PaymentsService', () => {
       assert.exists(tx.data)
     })
 
+    it('should deposit with permit', async () => {
+      const depositAmount = ethers.parseUnits('10', 18)
+      const tx = await payments.depositWithPermit(depositAmount)
+      assert.exists(tx)
+      assert.exists(tx.hash)
+    })
+
+    it('should deposit with permit and approve operator', async () => {
+      const depositAmount = ethers.parseUnits('10', 18)
+      const operator = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
+      const rateAllowance = ethers.parseUnits('5', 18)
+      const lockupAllowance = ethers.parseUnits('100', 18)
+      const maxLockupPeriod = 86400n
+
+      const tx = await payments.depositWithPermitAndApproveOperator(
+        depositAmount,
+        operator,
+        rateAllowance,
+        lockupAllowance,
+        maxLockupPeriod
+      )
+      assert.exists(tx)
+      assert.exists(tx.hash)
+    })
+
     it('should withdraw USDFC tokens', async () => {
       const withdrawAmount = ethers.parseUnits('50', 18)
       const tx = await payments.withdraw(withdrawAmount)
