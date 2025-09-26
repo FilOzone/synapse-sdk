@@ -58,7 +58,7 @@ async function main() {
     }
 
     // Find a data set with pieces (currentPieceCount > 0)
-    const dataSetWithPieces = dataSets.find(ds => ds.currentPieceCount > 0)
+    const dataSetWithPieces = dataSets.find((ds) => ds.currentPieceCount > 0)
     if (!dataSetWithPieces) {
       console.log('❌ No data sets with pieces found. Please upload some data first using example-storage-simple.js')
       return
@@ -71,7 +71,7 @@ async function main() {
       pieceCount: dataSetWithPieces.currentPieceCount,
       clientDataSetId: dataSetWithPieces.clientDataSetId,
       isLive: dataSetWithPieces.isLive,
-      withCDN: dataSetWithPieces.withCDN
+      withCDN: dataSetWithPieces.withCDN,
     }
 
     console.log(`\n📊 Data Set Summary:`)
@@ -87,7 +87,7 @@ async function main() {
     try {
       const context = await synapse.storage.createContext({
         dataSetId: dataSetInfo.dataSetId,
-        providerId: dataSetInfo.providerId
+        providerId: dataSetInfo.providerId,
       })
 
       const piecesWithDetails = await context.getDataSetPiecesWithDetails()
@@ -112,11 +112,9 @@ async function main() {
       console.log(`   Total Leaf Count: ${totalLeafCount}`)
       console.log(`   Total Raw Size: ${totalRawSize} bytes (${(totalRawSize / 1024).toFixed(2)} KB)`)
       console.log(`   Average Piece Size: ${(totalRawSize / piecesWithDetails.length).toFixed(2)} bytes`)
-
     } catch (error) {
       console.error('❌ Error getting pieces with details:', error.message)
     }
-
   } catch (error) {
     console.error('❌ Error:', error.message)
     console.error('Stack trace:', error.stack)
