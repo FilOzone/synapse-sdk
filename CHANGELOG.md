@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.29.2](https://github.com/FilOzone/synapse-sdk/compare/v0.29.1...v0.29.2) (2025-09-26)
+
+
+### Bug Fixes
+
+* **subgraph:** update subgraph queries and service to support new schema ([#245](https://github.com/FilOzone/synapse-sdk/issues/245)) ([7d1e47d](https://github.com/FilOzone/synapse-sdk/commit/7d1e47df588b9e491a6bf52f8990ad6b78f33cf5))
+
 ## [0.29.1](https://github.com/FilOzone/synapse-sdk/compare/v0.29.0...v0.29.1) (2025-09-26)
 
 
