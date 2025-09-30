@@ -1271,7 +1271,9 @@ export class StorageContext {
     const pieces: DataSetPieceDataWithLeafCount[] = []
 
     for await (const piece of this.getAllActivePiecesGenerator(options)) {
+      // TODO: should we call the contract for leaf count? i.e. pdpVerifier.getPieceLeafCount(this._dataSetId, piece.pieceId)
       const leafCount = getLeafCount(piece.pieceCid) ?? 0
+      // TODO: is there a better way to get the raw size?
       const rawSize = getRawSize(piece.pieceCid) ?? 0
       pieces.push({
         pieceId: piece.pieceId,

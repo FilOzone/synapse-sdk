@@ -89,6 +89,7 @@ export class PDPVerifier {
    * @returns The number of leaves for this piece
    */
   async getPieceLeafCount(dataSetId: number, pieceId: number): Promise<number> {
+    // TODO: DO we need to call the contract for leaf count?
     const leafCount = await this._contract.getPieceLeafCount(dataSetId, pieceId)
     return Number(leafCount)
   }
