@@ -125,6 +125,45 @@ export class PDPVerifier {
   }
 
   /**
+   * Get active pieces for a data set with pagination
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param options - Optional configuration object
+   * @param options.offset - The offset to start from (default: 0)
+   * @param options.limit - The maximum number of pieces to return (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @returns Object containing pieces, piece IDs, raw sizes, and hasMore flag
+   */
+  async getActivePieces(
+    dataSetId: number,
+    options?: {
+      offset?: number
+      limit?: number
+      signal?: AbortSignal
+    }
+  ): Promise<{
+    pieces: Array<{ data: string }>
+    pieceIds: number[]
+    rawSizes: number[]
+    hasMore: boolean
+  }> {
+    const offset = options?.offset ?? 0
+    const limit = options?.limit ?? 100
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted')
+    }
+
+    const result = await this._contract.getActivePieces(dataSetId, offset, limit)
+    return {
+      pieces: result[0].map((piece: any) => ({ data: piece.data })),
+      pieceIds: result[1].map((id: bigint) => Number(id)),
+      rawSizes: result[2].map((size: bigint) => Number(size)),
+      hasMore: result[3],
+    }
+  }
+
+  /**
    * Get the PDPVerifier contract address for the current network
    */
   getContractAddress(): string {

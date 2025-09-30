@@ -167,6 +167,44 @@ describe('PDPVerifier', () => {
     })
   })
 
+  describe('getActivePieces', () => {
+    it('should handle AbortSignal', async () => {
+      const controller = new AbortController()
+      controller.abort()
+
+      try {
+        await pdpVerifier.getActivePieces(123, { signal: controller.signal })
+        assert.fail('Should have thrown an error')
+      } catch (error: any) {
+        assert.equal(error.message, 'Operation aborted')
+      }
+    })
+
+    it('should be callable with default options', async () => {
+      assert.isFunction(pdpVerifier.getActivePieces)
+
+      mockProvider.call = async (transaction: any) => {
+        const data = transaction.data
+        if (data?.startsWith('0x39f51544') === true) {
+          // getActivePieces selector
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
+            [[{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }], [1, 2, 3], [4, 5, 6], false]
+          )
+        }
+        return `0x${'0'.repeat(64)}`
+      }
+
+
+      const result = await pdpVerifier.getActivePieces(123)
+      assert.equal(result.pieces.length, 1)
+      assert.equal(result.pieceIds.length, 3)
+      assert.equal(result.rawSizes.length, 3)
+      assert.equal(result.hasMore, false)
+      assert.equal(result.pieces[0].data, '0x1234567890123456789012345678901234567890123456789012345678901234')
+    })
+  })
+
   describe('getContractAddress', () => {
     it('should return the contract address', () => {
       const address = pdpVerifier.getContractAddress()

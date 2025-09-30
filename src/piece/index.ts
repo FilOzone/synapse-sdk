@@ -18,6 +18,8 @@ export {
   asPieceCID,
   calculate,
   createPieceCIDStream,
+  getLeafCount,
+  getRawSize,
   type LegacyPieceCID,
   type PieceCID,
 } from './piece.ts'

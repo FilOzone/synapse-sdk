@@ -25,7 +25,8 @@
 import type { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
-import { asPieceCID } from '../piece/index.ts'
+import { PDPVerifier } from '../pdp/verifier.ts'
+import { asPieceCID, getLeafCount } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
@@ -1262,22 +1263,86 @@ export class StorageContext {
   }
 
   /**
-   * Get detailed piece information including leaf counts for this service provider's data set.
-   * @returns Array of piece data with leaf count information
+   * Get all active pieces for this data set directly from the PDPVerifier contract.
+   * This bypasses Curio and gets the authoritative piece list from the blockchain.
+   * @param options - Optional configuration object
+   * @param options.batchSize - The batch size for each pagination call (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @returns Array of all active pieces with their details
    */
-  async getDataSetPiecesWithDetails(): Promise<DataSetPieceDataWithLeafCount[]> {
-    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
-    const piecesWithLeafCount = await Promise.all(
-      dataSetData.pieces.map(async (piece) => {
-        const leafCount = await this._warmStorageService.getPieceLeafCount(this._dataSetId, piece.pieceId)
-        return {
+  async getAllActivePieces(options?: { batchSize?: number; signal?: AbortSignal }): Promise<
+    Array<{
+      pieceId: number
+      pieceData: string
+      rawSize: number
+      leafCount: number
+    }>
+  > {
+    const allPieces: Array<{
+      pieceId: number
+      pieceData: string
+      rawSize: number
+      leafCount: number
+    }> = []
+
+    for await (const piece of this.getAllActivePiecesGenerator(options)) {
+      allPieces.push(piece)
+    }
+
+    return allPieces
+  }
+
+  /**
+   * Get all active pieces for this data set as an async generator.
+   * This provides lazy evaluation and better memory efficiency for large data sets.
+   * @param options - Optional configuration object
+   * @param options.batchSize - The batch size for each pagination call (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @yields Individual pieces with their details including leaf count
+   */
+  async *getAllActivePiecesGenerator(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<{
+    pieceId: number
+    pieceData: string
+    rawSize: number
+    leafCount: number
+  }> {
+    const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
+    const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
+
+    const batchSize = options?.batchSize ?? 100
+    const signal = options?.signal
+    let offset = 0
+    let hasMore = true
+
+    while (hasMore) {
+      if (signal?.aborted) {
+        throw new Error('Operation aborted')
+      }
+
+      const result = await pdpVerifier.getActivePieces(this._dataSetId, { offset, limit: batchSize, signal })
+
+      // Yield pieces one by one for lazy evaluation
+      for (let i = 0; i < result.pieces.length; i++) {
+        if (signal?.aborted) {
+          throw new Error('Operation aborted')
+        }
+
+        const piece = {
+          pieceId: result.pieceIds[i],
+          pieceData: result.pieces[i].data,
+          rawSize: result.rawSizes[i],
+        }
+
+        const leafCount = getLeafCount(piece.pieceData) || 0
+        yield {
           ...piece,
           leafCount,
-          rawSize: leafCount * 32,
         }
-      })
-    )
-    return piecesWithLeafCount
+      }
+
+      hasMore = result.hasMore
+      offset += batchSize
+    }
   }
 
   /**
