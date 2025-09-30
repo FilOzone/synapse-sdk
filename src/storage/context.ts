@@ -22,15 +22,17 @@
  * ```
  */
 
-import type { ethers } from 'ethers'
+import { ethers } from 'ethers'
+import { CID } from 'multiformats/cid'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
-import { asPieceCID, getLeafCount } from '../piece/index.ts'
+import { asPieceCID, getLeafCount, getRawSize } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  DataSetPieceData,
   DataSetPieceDataWithLeafCount,
   DownloadOptions,
   EnhancedDataSetInfo,
@@ -1262,31 +1264,46 @@ export class StorageContext {
     return dataSetData.pieces.map((piece) => piece.pieceCid)
   }
 
+  async getPiecesWithDetails(options?: {
+    batchSize?: number
+    signal?: AbortSignal
+  }): Promise<DataSetPieceDataWithLeafCount[]> {
+    const pieces: DataSetPieceDataWithLeafCount[] = []
+
+    for await (const piece of this.getAllActivePiecesGenerator(options)) {
+      const leafCount = getLeafCount(piece.pieceCid) ?? 0
+      const rawSize = getRawSize(piece.pieceCid) ?? 0
+      pieces.push({
+        pieceId: piece.pieceId,
+        pieceCid: piece.pieceCid,
+        rawSize,
+        leafCount,
+        subPieceCid: piece.pieceCid,
+        subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
+      } satisfies DataSetPieceDataWithLeafCount)
+    }
+
+    return pieces
+  }
+
   /**
    * Get all active pieces for this data set directly from the PDPVerifier contract.
    * This bypasses Curio and gets the authoritative piece list from the blockchain.
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @param options.signal - Optional AbortSignal to cancel the operation
-   * @returns Array of all active pieces with their details
+   * @returns Array of all active pieces with their details including PieceCID
    */
-  async getAllActivePieces(options?: { batchSize?: number; signal?: AbortSignal }): Promise<
-    Array<{
-      pieceId: number
-      pieceData: string
-      rawSize: number
-      leafCount: number
-    }>
-  > {
-    const allPieces: Array<{
-      pieceId: number
-      pieceData: string
-      rawSize: number
-      leafCount: number
-    }> = []
+  async getAllActivePieces(options?: { batchSize?: number; signal?: AbortSignal }): Promise<Array<DataSetPieceData>> {
+    const allPieces: Array<DataSetPieceData> = []
 
     for await (const piece of this.getAllActivePiecesGenerator(options)) {
-      allPieces.push(piece)
+      allPieces.push({
+        pieceId: piece.pieceId,
+        pieceCid: piece.pieceCid,
+        subPieceCid: piece.pieceCid,
+        subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
+      } satisfies DataSetPieceData)
     }
 
     return allPieces
@@ -1295,17 +1312,16 @@ export class StorageContext {
   /**
    * Get all active pieces for this data set as an async generator.
    * This provides lazy evaluation and better memory efficiency for large data sets.
+   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @param options.signal - Optional AbortSignal to cancel the operation
-   * @yields Individual pieces with their details including leaf count
+   * @yields Individual pieces with their details including PieceCID
    */
-  async *getAllActivePiecesGenerator(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<{
-    pieceId: number
-    pieceData: string
-    rawSize: number
-    leafCount: number
-  }> {
+  async *getAllActivePiecesGenerator(options?: {
+    batchSize?: number
+    signal?: AbortSignal
+  }): AsyncGenerator<DataSetPieceData> {
     const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
     const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
 
@@ -1316,7 +1332,7 @@ export class StorageContext {
 
     while (hasMore) {
       if (signal?.aborted) {
-        throw new Error('Operation aborted')
+        throw createError('StorageContext', 'getAllActivePiecesGenerator', 'Operation aborted')
       }
 
       const result = await pdpVerifier.getActivePieces(this._dataSetId, { offset, limit: batchSize, signal })
@@ -1324,20 +1340,31 @@ export class StorageContext {
       // Yield pieces one by one for lazy evaluation
       for (let i = 0; i < result.pieces.length; i++) {
         if (signal?.aborted) {
-          throw new Error('Operation aborted')
+          throw createError('StorageContext', 'getAllActivePiecesGenerator', 'Operation aborted')
         }
 
-        const piece = {
-          pieceId: result.pieceIds[i],
-          pieceData: result.pieces[i].data,
-          rawSize: result.rawSizes[i],
+        // Parse the piece data as a PieceCID
+        // The contract stores the full PieceCID multihash digest (including height and padding)
+        // The data comes as a hex string from ethers, we need to decode it as bytes then as a CID
+        const pieceDataHex = result.pieces[i].data
+        const pieceDataBytes = ethers.getBytes(pieceDataHex)
+
+        const cid = CID.decode(pieceDataBytes)
+        const pieceCid = asPieceCID(cid)
+        if (!pieceCid) {
+          throw createError(
+            'StorageContext',
+            'getAllActivePiecesGenerator',
+            `Invalid PieceCID returned from contract for piece ${result.pieceIds[i]}`
+          )
         }
 
-        const leafCount = getLeafCount(piece.pieceData) || 0
         yield {
-          ...piece,
-          leafCount,
-        }
+          pieceId: result.pieceIds[i],
+          pieceCid,
+          subPieceCid: pieceCid,
+          subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
+        } satisfies DataSetPieceData
       }
 
       hasMore = result.hasMore

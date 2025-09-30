@@ -189,12 +189,16 @@ describe('PDPVerifier', () => {
           // getActivePieces selector
           return ethers.AbiCoder.defaultAbiCoder().encode(
             ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
-            [[{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }], [1, 2, 3], [4, 5, 6], false]
+            [
+              [{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }],
+              [1, 2, 3],
+              [4, 5, 6],
+              false,
+            ]
           )
         }
         return `0x${'0'.repeat(64)}`
       }
-
 
       const result = await pdpVerifier.getActivePieces(123)
       assert.equal(result.pieces.length, 1)
