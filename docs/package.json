@@ -12,10 +12,11 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.35.2",
-    "@filoz/synapse-sdk": "^0.23.2",
+    "@filoz/synapse-sdk": "^0.28.0",
     "astro": "^5.13.0",
     "ethers": "^6.15.0",
     "expressive-code-twoslash": "^0.5.3",
+    "markdown-table": "^3.0.4",
     "starlight-llms-txt": "^0.6.0",
     "typedoc": "^0.28.9",
     "typedoc-plugin-mdn-links": "^5.0.9"
