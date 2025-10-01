@@ -28,8 +28,10 @@ export const MOCK_ADDRESSES = {
   PAYMENTS: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0' as const,
   PDP_VERIFIER: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48' as const,
   SIGNER: '0x1234567890123456789012345678901234567890' as const,
+  SESSION_KEY: '0x5555555555555555555555555555555555555555' as const,
   WARM_STORAGE: '0xEB022abbaa66D9F459F3EC2FeCF81a6D03c2Cb6F' as const,
   WARM_STORAGE_VIEW: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as const,
+  SESSION_KEY_REGISTRY: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as const,
 }
 
 // Mock signer factory
@@ -150,6 +152,10 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         // serviceProviderRegistry() - function selector: 0x05f892ec
         if (data?.startsWith('0x05f892ec') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(['address'], ['0x0000000000000000000000000000000000000001'])
+        }
+        // sessionKeyRegistry() - function selector: 0x9f6aa572
+        if (data?.startsWith('0x9f6aa572') === true) {
+          return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [MOCK_ADDRESSES.SESSION_KEY_REGISTRY])
         }
       }
 
@@ -436,6 +442,7 @@ export function createCustomMulticall3Mock(
     filCDN?: string
     viewContract?: string
     spRegistry?: string
+    sessionKeyRegistry?: string
   }>
 ): () => void {
   return extendMockProviderCall(provider, async (transaction: any) => {
@@ -452,6 +459,7 @@ export function createCustomMulticall3Mock(
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
         customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
         customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
+        customAddresses?.sessionKeyRegistry ?? MOCK_ADDRESSES.SESSION_KEY_REGISTRY, // sessionKeyRegistry
       ]
 
       const results = mockAddresses.map((addr) => ({

@@ -11,8 +11,12 @@ import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
 import { type Address, isAddressEqual, parseUnits } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
+import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
+import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import { createDataSetHandler, dataSetCreationStatusHandler, type PDPMockOptions } from './mocks/pdp/handlers.ts'
+import { PING } from './mocks/ping.ts'
 
 // mock server for testing
 const server = setup([])
@@ -252,6 +256,131 @@ describe('Synapse', () => {
 
       // Should be the same instance
       assert.equal(storage1, storage2)
+    })
+  })
+
+  describe('Session Keys', () => {
+    const DATA_SET_ID = 7
+    const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
+    const FAKE_TX = {
+      hash: FAKE_TX_HASH,
+      from: ADDRESSES.serviceProvider1,
+      gas: '0x5208',
+      value: '0x0',
+      nonce: '0x444',
+      input: '0x',
+      v: '0x01',
+      r: '0x4e2eef88cc6f2dc311aa3b1c8729b6485bd606960e6ae01522298278932c333a',
+      s: '0x5d0e08d8ecd6ed8034aa956ff593de9dc1d392e73909ef0c0f828918b58327c9',
+    }
+    const FAKE_RECEIPT = {
+      ...FAKE_TX,
+      transactionHash: FAKE_TX_HASH,
+      transactionIndex: '0x10',
+      blockHash: '0xb91b7314248aaae06f080ad427dbae78b8c5daf72b2446cf843739aef80c6417',
+      status: '0x1',
+      blockNumber: '0x127001',
+      cumulativeGasUsed: '0x52080',
+      gasUsed: '0x5208',
+      logs: [makeDataSetCreatedLog(DATA_SET_ID, 1)],
+    }
+    beforeEach(() => {
+      server.use(PING())
+      const pdpOptions: PDPMockOptions = {
+        baseUrl: 'https://pdp.example.com',
+      }
+      server.use(createDataSetHandler(FAKE_TX_HASH, pdpOptions))
+      server.use(
+        dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            ok: true,
+            dataSetId: DATA_SET_ID,
+            createMessageHash: '',
+            dataSetCreated: true,
+            service: '',
+            txStatus: '',
+          },
+          pdpOptions
+        )
+      )
+    })
+
+    it('should storage.createContext with session key', async () => {
+      const signerAddress = await signer.getAddress()
+      const sessionKeySigner = new ethers.Wallet(PRIVATE_KEYS.key2)
+      const sessionKeyAddress = await sessionKeySigner.getAddress()
+      const EXPIRY = BigInt(1757618883)
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          sessionKeyRegistry: {
+            authorizationExpiry: (args) => {
+              const client = args[0]
+              const signer = args[1]
+              assert.equal(client, signerAddress)
+              assert.equal(signer, sessionKeyAddress)
+              const permission = args[2]
+              assert.isTrue(PDP_PERMISSIONS.includes(permission))
+              return [EXPIRY]
+            },
+          },
+          payments: {
+            ...presets.basic.payments,
+            operatorApprovals: (args) => {
+              const token = args[0]
+              const client = args[1]
+              const operator = args[2]
+              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              assert.equal(client, signerAddress)
+              assert.equal(operator, ADDRESSES.calibration.warmStorage)
+              return [
+                true, // isApproved
+                BigInt(127001 * 635000000), // rateAllowance
+                BigInt(127001 * 635000000), // lockupAllowance
+                BigInt(0), // rateUsage
+                BigInt(0), // lockupUsage
+                BigInt(28800), // maxLockupPeriod
+              ]
+            },
+            accounts: (args) => {
+              const token = args[0]
+              const user = args[1]
+              assert.equal(user, signerAddress)
+              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
+            },
+          },
+          eth_getTransactionByHash: (params) => {
+            const hash = params[0]
+            assert.equal(hash, FAKE_TX_HASH)
+            return FAKE_TX
+          },
+          eth_getTransactionReceipt: (params) => {
+            const hash = params[0]
+            assert.equal(hash, FAKE_TX_HASH)
+            return FAKE_RECEIPT
+          },
+        })
+      )
+      const synapse = await Synapse.create({ signer })
+      const sessionKey = synapse.createSessionKey(sessionKeySigner)
+      synapse.setSession(sessionKey)
+      assert.equal(sessionKey.getSigner(), sessionKeySigner)
+
+      const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
+      for (const permission of PDP_PERMISSIONS) {
+        assert.equal(expiries[permission], EXPIRY)
+      }
+
+      const context = await synapse.storage.createContext()
+      assert.equal((context as any)._signer, sessionKeySigner)
+      const info = await context.preflightUpload(127)
+      assert.isTrue(info.allowanceCheck.sufficient)
+
+      // Payments uses the original signer
+      const accountInfo = await synapse.payments.accountInfo()
+      assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
     })
   })
 

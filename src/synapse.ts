@@ -5,6 +5,7 @@
 import { ethers } from 'ethers'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
@@ -33,6 +34,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private _session: SessionKey | null = null
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -193,6 +195,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._session = null
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
@@ -207,11 +210,61 @@ export class Synapse {
   }
 
   /**
-   * Gets the signer instance
+   * Gets the signer instance, possibly a session key
    * @returns The ethers signer
    */
   getSigner(): ethers.Signer {
+    if (this._session == null) {
+      return this._signer
+    } else {
+      return this._session.getSigner()
+    }
+  }
+
+  /**
+   * Gets the client signer instance
+   * @returns the ethers signer
+   */
+  getClient(): ethers.Signer {
     return this._signer
+  }
+
+  /**
+   * Wraps the signer as a session key
+   * @param sessionKeySigner The signer for the session key
+   * @returns The SessionKey object for this signer
+   */
+  createSessionKey(sessionKeySigner: ethers.Signer): SessionKey {
+    return new SessionKey(
+      this._provider,
+      this._warmStorageService.getSessionKeyRegistryAddress(),
+      sessionKeySigner,
+      this._signer
+    )
+  }
+
+  /**
+   * Sets the signer as the session key for storage actions
+   * @param sessionKey The session key used by storage contexts
+   * @example
+   * ```typescript
+   * const sessionKey = synapse.createSessionKey(privateKey)
+   *
+   * // check for previous login
+   * const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
+   * const HOUR_MILLIS = BigInt(1000 * 60 * 60)
+   * if (expiries[ADD_PIECES_TYPEHASH] * BigInt(1000) < BigInt(Date.now()) + HOUR_MILLIS) {
+   *   const DAY_MILLIS = BigInt(24) * HOUR_MILLIS
+   *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS)
+   *   const loginReceipt = await loginTx.wait()
+   * }
+   *
+   * synapse.setSession(sessionKey)
+   * const context = await synapse.storage.createContext()
+   * ```
+   */
+  setSession(sessionKey: SessionKey | null) {
+    this._session = sessionKey
   }
 
   /**

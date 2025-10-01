@@ -16,6 +16,7 @@
 
 export * from './payments/index.ts'
 export * from './pdp/index.ts'
+export * from './session/index.ts'
 export * from './storage/index.ts'
 export * from './subgraph/index.ts'
 export { Synapse } from './synapse.ts'

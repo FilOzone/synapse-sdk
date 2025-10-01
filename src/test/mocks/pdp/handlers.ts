@@ -115,7 +115,14 @@ export function addPiecesHandler(dataSetId: number, txHash: string, options: PDP
  */
 export function dataSetCreationStatusHandler(
   txHash: string,
-  response: { ok: boolean | null; dataSetId?: number },
+  response: {
+    createMessageHash: string
+    dataSetCreated: boolean
+    service: string
+    txStatus: string
+    ok: boolean | null
+    dataSetId?: number
+  },
   options: PDPMockOptions = {}
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'

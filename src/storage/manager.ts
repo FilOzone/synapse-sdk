@@ -214,7 +214,7 @@ export class StorageManager {
     }
 
     // Fall back to normal SP-agnostic download with discovery
-    const clientAddress = await this._synapse.getSigner().getAddress()
+    const clientAddress = await this._synapse.getClient().getAddress()
 
     // Use piece retriever to fetch
     const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
@@ -331,7 +331,7 @@ export class StorageManager {
    * @returns Array of enhanced data set information including management status
    */
   async findDataSets(clientAddress?: string): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? (await this._synapse.getSigner().getAddress())
+    const address = clientAddress ?? (await this._synapse.getClient().getAddress())
     return await this._warmStorageService.getClientDataSetsWithDetails(address)
   }
 
