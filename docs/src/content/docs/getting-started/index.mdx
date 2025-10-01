@@ -4,3 +4,59 @@ description: Getting Started with Filecoin Onchain Cloud.
 sidebar:
   order: 0
 ---
+
+import { FileTree } from '@astrojs/starlight/components';
+
+A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
+
+> ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. Additionally, the storage API has been improved with a new context-based architecture. See the [Migration Guide](/guides/migration-guide/#0240) section for migration instructions.
+
+
+The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
+
+- **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
+- **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
+
+The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
+
+## Installation
+
+```bash
+npm install @filoz/synapse-sdk ethers
+```
+
+Note: `ethers` v6 is a peer dependency and must be installed separately.
+
+---
+
+## Project Structure
+
+This project uses a monorepo structure managed by `pnpm` workspaces. Core libraries reside in the `packages/` directory, examples in `examples/`, and this documentation site in `docs/`.
+
+
+<FileTree>
+
+- packages/
+  - synapse-sdk/ Core Synapse SDK library
+  - synapse-sdk-react/ React hooks and context
+- examples/ Usage examples and demos
+- docs/ This documentation site
+- pnpm-workspace.yaml Workspace configuration
+- package.json Root package file
+
+</FileTree>
+
+## Key Concepts
+
+Before diving into the code, understand these fundamental concepts:
+
+- **Service Contracts**: Smart contracts that manage specific services (like storage). Currently, **Warm Storage** is the primary service contract that handles storage operations and payment validation.
+- **Payment Rails**: Automated payment streams between clients and service providers, managed by the Payments contract. When you create a data set in Warm Storage, it automatically creates corresponding payment rails.
+- **Data Sets**: Collections of stored data managed by Warm Storage. Each data set has an associated payment rail that handles the ongoing storage payments.
+- **Pieces**: Individual units of data identified by PieceCID (content-addressed identifiers). Multiple pieces can be added to a data set for storage.
+- **PDP (Proof of Data Possession)**: The cryptographic protocol that verifies storage providers are actually storing the data they claim to store. Providers must periodically prove they possess the data.
+- **Validators**: Service contracts (like Warm Storage) act as validators for payment settlements, ensuring services are delivered before payments are released.
+
+## Usage
+
+The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
