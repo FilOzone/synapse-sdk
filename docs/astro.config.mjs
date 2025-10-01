@@ -9,12 +9,11 @@ const site = 'https://FilOzone.github.io'
 // https://astro.build/config
 export default defineConfig({
   site,
-  base: '/synapse-sdk',
   integrations: [
     starlight({
-      title: 'Synapse',
-      logo: { src: './public/filoz.svg', alt: 'synapse' },
-      favicon: 'filoz.svg',
+      title: 'Filecoin Onchain Cloud',
+      logo: { src: './public/filecoin-logo.svg', alt: 'synapse' },
+      favicon: 'filecoin-logo.svg',
       head: [
         {
           tag: 'meta',
@@ -51,16 +50,28 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Introduction',
-          autogenerate: { directory: 'intro' },
+          autogenerate: { directory: 'introduction' },
         },
         {
-          label: 'Guides',
-          autogenerate: { directory: 'guides' },
+          label: 'Getting Started',
+          autogenerate: { directory: 'getting-started' },
+        },
+        {
+          label: 'Core Concepts',
+          autogenerate: { directory: 'core-concepts' },
+        },
+        {
+          label: 'Developers',
+          autogenerate: { directory: 'developers' },
         },
         {
           label: 'API',
           collapsed: true,
           autogenerate: { directory: 'api' },
+        },
+        {
+          label: 'Resources',
+          autogenerate: { directory: 'resources' },
         },
       ],
       expressiveCode: {
