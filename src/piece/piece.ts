@@ -6,6 +6,7 @@
 
 import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
+import { fromLink } from '@web3-storage/data-segment/piece'
 import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
 import * as Digest from 'multiformats/hashes/digest'
@@ -162,6 +163,47 @@ export function calculate(data: Uint8Array): PieceCID {
   }
   const digest = hasher.digest()
   return Link.create(Raw.code, digest)
+}
+
+/**
+ * Extract leaf count from a PieceCID v2
+ * @param pieceCid - The PieceCID to extract leaf count from
+ * @returns The leaf count (number of leaves in the merkle tree) or null if invalid
+ */
+export function getLeafCount(pieceCid: PieceCID | CID | string): number | null {
+  const validPieceCid = asPieceCID(pieceCid)
+  if (!validPieceCid) {
+    return null
+  }
+
+  try {
+    const piece = fromLink(validPieceCid)
+    // The leaf count is 2^height
+    return 2 ** piece.height
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Extract raw size from a PieceCID v2
+ * @param pieceCid - The PieceCID to extract raw size from
+ * @returns The raw size in bytes or null if invalid
+ */
+export function getRawSize(pieceCid: PieceCID | CID | string): number | null {
+  const validPieceCid = asPieceCID(pieceCid)
+  if (!validPieceCid) {
+    return null
+  }
+
+  try {
+    const piece = fromLink(validPieceCid)
+    // Raw size is leaf count * 32 bytes
+    const leafCount = 2 ** piece.height
+    return leafCount * 32
+  } catch {
+    return null
+  }
 }
 
 /**

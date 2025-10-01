@@ -8,7 +8,15 @@ import type { API } from '@web3-storage/data-segment'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import { asLegacyPieceCID, asPieceCID, calculate, createPieceCIDStream, type PieceCID } from '../piece/index.ts'
+import {
+  asLegacyPieceCID,
+  asPieceCID,
+  calculate,
+  createPieceCIDStream,
+  getLeafCount,
+  getRawSize,
+  type PieceCID,
+} from '../piece/index.ts'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -244,6 +252,59 @@ describe('PieceCID utilities', () => {
 
       // Note: We can't easily test the "during streaming" state without
       // more complex async coordination, so we keep this test simple
+    })
+  })
+
+  describe('getLeafCount', () => {
+    zeroPieceCidFixture.forEach(([size, , v1]) => {
+      it(`should extract correct leaf count for size ${size}`, () => {
+        const v2 = toPieceCID(BigInt(size), v1)
+        const leafCount = getLeafCount(v2)
+
+        // Expected leaf count is 2^height where height is calculated from size
+        const expectedHeight = Size.Unpadded.toHeight(BigInt(size))
+        const expectedLeafCount = 2 ** expectedHeight
+
+        assert.isNotNull(leafCount)
+        assert.strictEqual(leafCount, expectedLeafCount)
+      })
+    })
+
+    it('should return null for invalid PieceCID', () => {
+      const result = getLeafCount(invalidCidString)
+      assert.isNull(result)
+    })
+
+    it('should return null for null input', () => {
+      const result = getLeafCount(null as any)
+      assert.isNull(result)
+    })
+  })
+
+  describe('getRawSize', () => {
+    zeroPieceCidFixture.forEach(([size, , v1]) => {
+      it(`should extract correct raw size for size ${size}`, () => {
+        const v2 = toPieceCID(BigInt(size), v1)
+        const rawSize = getRawSize(v2)
+
+        // Expected raw size is leaf count * 32
+        const expectedHeight = Size.Unpadded.toHeight(BigInt(size))
+        const expectedLeafCount = 2 ** expectedHeight
+        const expectedRawSize = expectedLeafCount * 32
+
+        assert.isNotNull(rawSize)
+        assert.strictEqual(rawSize, expectedRawSize)
+      })
+    })
+
+    it('should return null for invalid PieceCID', () => {
+      const result = getRawSize(invalidCidString)
+      assert.isNull(result)
+    })
+
+    it('should return null for null input', () => {
+      const result = getRawSize(null as any)
+      assert.isNull(result)
     })
   })
 })

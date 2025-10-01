@@ -83,6 +83,18 @@ export class PDPVerifier {
   }
 
   /**
+   * Get the leaf count for a specific piece
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param pieceId - The piece ID within the data set
+   * @returns The number of leaves for this piece
+   */
+  async getPieceLeafCount(dataSetId: number, pieceId: number): Promise<number> {
+    // TODO: DO we need to call the contract for leaf count?
+    const leafCount = await this._contract.getPieceLeafCount(dataSetId, pieceId)
+    return Number(leafCount)
+  }
+
+  /**
    * Extract data set ID from a transaction receipt by looking for DataSetCreated events
    * @param receipt - Transaction receipt
    * @returns Data set ID if found, null otherwise
@@ -110,6 +122,45 @@ export class PDPVerifier {
       throw new Error(
         `Failed to extract data set ID from receipt: ${error instanceof Error ? error.message : String(error)}`
       )
+    }
+  }
+
+  /**
+   * Get active pieces for a data set with pagination
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param options - Optional configuration object
+   * @param options.offset - The offset to start from (default: 0)
+   * @param options.limit - The maximum number of pieces to return (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @returns Object containing pieces, piece IDs, raw sizes, and hasMore flag
+   */
+  async getActivePieces(
+    dataSetId: number,
+    options?: {
+      offset?: number
+      limit?: number
+      signal?: AbortSignal
+    }
+  ): Promise<{
+    pieces: Array<{ data: string }>
+    pieceIds: number[]
+    rawSizes: number[]
+    hasMore: boolean
+  }> {
+    const offset = options?.offset ?? 0
+    const limit = options?.limit ?? 100
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted')
+    }
+
+    const result = await this._contract.getActivePieces(dataSetId, offset, limit)
+    return {
+      pieces: result[0].map((piece: any) => ({ data: piece.data })),
+      pieceIds: result[1].map((id: bigint) => Number(id)),
+      rawSizes: result[2].map((size: bigint) => Number(size)),
+      hasMore: result[3],
     }
   }
 
