@@ -57,8 +57,8 @@
     "build": "tsc --build",
     "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
     "test": "pnpm run lint && pnpm run test:node",
-    "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
-    "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}' --assets ./src/test/mocks",
+    "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
+    "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build"
   },
