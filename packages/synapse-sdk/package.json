@@ -64,27 +64,25 @@
   },
   "dependencies": {
     "@web3-storage/data-segment": "^5.3.0",
-    "ethers": "^6.14.3",
-    "multiformats": "^13.3.6",
-    "viem": "^2.37.9"
+    "ethers": "^6.15.0",
+    "multiformats": "^13.4.1",
+    "viem": "^2.37.11"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.2.4",
+    "@biomejs/biome": "~2.2.5",
     "@types/chai": "^5.2.2",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24.6.1",
+    "@types/node": "^24.6.2",
     "@wagmi/cli": "^2.6.0",
     "abitype": "^1.1.1",
-    "chai": "^6.0.1",
+    "chai": "^6.2.0",
     "iso-web": "^1.4.0",
-    "mocha": "^11.5.0",
-    "msw": "~2.10",
+    "mocha": "^11.7.4",
+    "msw": "~2.10.5",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.0.1",
-    "typescript": "5.9.3",
-    "webpack": "^5.99.9",
-    "webpack-cli": "^6.0.1"
+    "typescript": "5.9.3"
   },
   "publishConfig": {
     "access": "public"

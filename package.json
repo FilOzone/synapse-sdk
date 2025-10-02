@@ -7,19 +7,22 @@
   "workspaces": [
     "./packages/*",
     "./examples/*",
-    "./docs",
-    "./apps/*"
+    "./docs"
   ],
   "scripts": {
     "fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
-    "check:markdown": "npx markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
+    "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
+    "check:repo": "npx sherif@latest -r root-package-manager-field",
+    "check:knip": "knip --config .github/knip.jsonc",
     "build": "npm run build --workspace=packages --if-present",
     "lint": "npm run lint --workspace=packages --if-present",
     "test": "npm run test --workspace=packages --if-present",
     "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.2.4",
+    "@biomejs/biome": "~2.2.5",
+    "knip": "^5.64.1",
+    "markdownlint-cli2": "^0.18.1",
     "typescript": "5.9.3"
   },
   "simple-git-hooks": {
