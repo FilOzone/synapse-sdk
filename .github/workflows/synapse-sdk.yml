@@ -35,7 +35,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install
       - name: Run tests
-        run: pnpm -r --filter @filoz/synapse-sdk run test
+        run: |
+          pnpm config set script-shell bash
+          pnpm -r --filter @filoz/synapse-sdk run test
       - name: Check docs build
         run: pnpm -r --filter docs run build
   # docs:
