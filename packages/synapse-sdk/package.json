@@ -56,11 +56,11 @@
     "generate-abi": "wagmi generate",
     "build": "tsc --build",
     "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
-    "test": "npm run lint && npm run test:node",
+    "test": "pnpm run lint && pnpm run test:node",
     "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
     "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}' --assets ./src/test/mocks",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "pnpm run clean && pnpm run build"
   },
   "dependencies": {
     "@web3-storage/data-segment": "^5.3.0",

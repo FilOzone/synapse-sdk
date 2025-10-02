@@ -31,7 +31,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Playwright for Windows
         if: matrix.os == 'windows-latest'
-        run: npx playwright install winldd
+        run: pnpx playwright install winldd
       - name: Install Dependencies
         run: pnpm install
       - name: Run tests
