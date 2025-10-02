@@ -26,9 +26,9 @@ This document serves as context for LLM agent sessions working with the Synapse 
 ### Development Tools
 
 - **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
-- **Biome**: Fast linter/formatter replacing ts-standard. Run `npm run lint:fix` for auto-fixes. No semicolons, consistent formatting.
+- **Biome**: Fast linter/formatter replacing ts-standard. Run `pnpm run lint:fix` for auto-fixes. No semicolons, consistent formatting.
   - **Important**: Biome is strict about imports, formatting. Always run `lint:fix` before commits.
-- **Build Scripts**: `npm run build` but prefer `npm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
+- **Build Scripts**: `pnpm run build` but prefer `pnpm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
 - **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
 - **Conventional Commits**: Auto-publishing enabled with semantic versioning based on commit messages. Use `feat:` for minor, `fix:`/`chore:`/`docs:`/`test:` for patch. AVOID breaking change signifiers (`!` or `BREAKING CHANGE`) even if there are actual breaking changes. See <README.md#commit-message-guidelines> for full details. IMPORTANT: only create commits if asked to by the user, prefer to provide commit messages.
 

@@ -73,7 +73,7 @@ A comprehensive benchmark tool is available in `utils/benchmark.js`:
 
 ```bash
 # Build the SDK first
-npm run build
+pnpm run build
 
 # Run benchmark with your private key
 PRIVATE_KEY=0x... RPC_URL=https://api.calibration.node.glif.io/rpc/v1 node utils/benchmark.js

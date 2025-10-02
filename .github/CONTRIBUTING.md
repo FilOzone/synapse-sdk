@@ -38,9 +38,9 @@ We very much appreciate it if you could include a [short, self-contained, correc
 If you have been assigned to fix an issue or develop a new feature, please follow these steps to get started:
 
 - Fork this repository.
-- Install dependencies by running `npm install` or `pnpm install`.
+- Install dependencies by running `pnpm install`.
+  - We use pnpm for package management.
   - Make sure you have Node LTS installed in your system.
-  - `pnpm` is configured to work like npm workspaces, workspace protocol, catalog and other pnpm specific will not work.
 - Optionally run `npx simple-git-hooks` to install git hooks for linting and formatting.
   - Current configuration run biome on staged files.
 - Implement your changes to files in the `src/` directory and corresponding test files in the `/test` directory.
@@ -63,7 +63,7 @@ If using an AI tool, you are welcome to load AGENTS.md into your context to teac
 ### Generating ABIs
 
 ```bash
-npm run generate-abi # in the synapse-sdk package
+pnpm run generate-abi # in the synapse-sdk package
 ```
 
 ### Codespaces
@@ -88,15 +88,15 @@ If your change alters existing code, please run the test suites:
 
 ```sh
 
-npm run lint
+pnpm run lint
 
-npm run test
+pnpm run test
 
 # Node.js only tests 
-npm test:node # add --watch for watch mode
+pnpm test:node # add --watch for watch mode
 
 # Browser only tests
-npm test:browser # add --watch for watch mode
+pnpm test:browser # add --watch for watch mode
 ```
 
 If you are adding a new feature, please add tests that prove the code works correctly and reference them when you submit the pull request.

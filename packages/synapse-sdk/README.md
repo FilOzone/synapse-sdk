@@ -33,7 +33,7 @@ The SDK handles all the complexity of blockchain interactions, provider selectio
 ## Installation
 
 ```bash
-npm install @filoz/synapse-sdk ethers
+pnpm install @filoz/synapse-sdk ethers
 ```
 
 Note: `ethers` v6 is a peer dependency and must be installed separately.
@@ -1336,15 +1336,15 @@ Current configuration run [biome](https://biomejs.dev/guides/getting-started/) o
 Run the test suite:
 
 ```bash
-npm test              # Run all tests and linting
-npm run test:node     # Node.js tests only
-npm run test:browser  # Browser tests only
+pnpm test              # Run all tests and linting
+pnpm run test:node     # Node.js tests only
+pnpm run test:browser  # Browser tests only
 ```
 
 ### Generating ABIs
 
 ```bash
-npm run generate-abi
+pnpm run generate-abi
 ```
 
 ## Migration Guide

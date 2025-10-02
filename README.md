@@ -24,7 +24,7 @@ To clone it locally:
 ```bash
 npx tiged FilOzone/synapse-sdk/examples/script-tag script-tag
 cd script-tag
-npm install
+pnpm install
 ```
 
 You can try any of the examples by replacing `script-tag` with the name of the example you want to try.
