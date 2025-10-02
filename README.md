@@ -10,7 +10,7 @@
 
 ## Docs
 
-Check the documentation [website](https://filozone.github.io/synapse-sdk)
+Check the documentation [website](https://synapse.filecoin.services/)
 
 ## Examples
 
