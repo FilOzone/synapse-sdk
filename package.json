@@ -10,13 +10,14 @@
     "./docs"
   ],
   "scripts": {
+    "preinstall": "pnpx only-allow pnpm",
     "fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
-    "check:repo": "npx sherif@latest -r root-package-manager-field",
+    "check:repo": "pnpx sherif@latest -r root-package-manager-field",
     "check:knip": "knip --config .github/knip.jsonc",
-    "build": "npm run build --workspace=packages --if-present",
-    "lint": "npm run lint --workspace=packages --if-present",
-    "test": "npm run test --workspace=packages --if-present",
+    "build": "pnpm run build --workspace=packages --if-present",
+    "lint": "pnpm run lint --workspace=packages --if-present",
+    "test": "pnpm run test --workspace=packages --if-present",
     "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
@@ -26,7 +27,7 @@
     "typescript": "5.9.3"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
+    "pre-commit": "pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
   },
   "engines": {
     "node": ">=22"
