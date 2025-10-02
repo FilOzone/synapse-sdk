@@ -37,9 +37,7 @@ jobs:
       - name: Run tests
         run: pnpm -r --filter @filoz/synapse-sdk run test
       - name: Check docs build
-        run: |
-          pnpm config set script-shell bash
-          pnpm -r --filter docs run build
+        run: pnpm -r --filter docs run build
   # docs:
   #   name: Docs
   #   concurrency:
