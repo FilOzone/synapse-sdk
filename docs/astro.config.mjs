@@ -5,12 +5,12 @@ import ecTwoSlash from 'expressive-code-twoslash'
 import starlightLlmsTxt from 'starlight-llms-txt'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
 
-const site = 'https://FilOzone.github.io'
+const site = 'https://synapse.filecoin.services'
 
 // https://astro.build/config
 export default defineConfig({
   site,
-  base: '/synapse-sdk',
+  base: '/',
   vite: {
     plugins: [viteTsconfigPaths()],
   },
