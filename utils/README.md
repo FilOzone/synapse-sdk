@@ -11,6 +11,7 @@ Post-deployment setup script for newly deployed Warm Storage contracts. This scr
 ### Prerequisites
 
 1. **Deploy a Warm Storage contract** using the FilOzone deployment tools:
+
    ```bash
    # Clone the FilOzone filecoin-services repository
    git clone https://github.com/FilOzone/filecoin-services.git
@@ -102,6 +103,7 @@ npx st --dir . -nc -p 8000
 Interactive demonstration of PDP (Proof of Data Possession) authentication using EIP-712 signatures.
 
 **Features:**
+
 - Connect to MetaMask or other browser wallets
 - Generate EIP-712 signatures for PDP operations
 - Test signature verification
@@ -109,6 +111,7 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 - Visual interface for understanding the authentication flow
 
 **Use Cases:**
+
 - Learning how PDP authentication works
 - Testing wallet integration
 - Debugging signature generation issues
@@ -119,6 +122,7 @@ Interactive demonstration of PDP (Proof of Data Possession) authentication using
 Browser-based interface for service provider management operations.
 
 **Features:**
+
 - Connect to Warm Storage contracts
 - Register as a service provider
 - Check approval status
@@ -127,12 +131,14 @@ Browser-based interface for service provider management operations.
 - Real-time status updates
 
 **Use Cases:**
+
 - Service provider onboarding
 - Contract administration
 - Testing provider registration flow
 - Debugging provider approval issues
 
 **Typical Workflow:**
+
 1. Connect wallet (service provider or contract owner)
 2. Enter Warm Storage contract address
 3. Register as provider (if you're an SP)
@@ -144,6 +150,7 @@ Browser-based interface for service provider management operations.
 Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
 
 **Features:**
+
 - Full account balance and information display
 - Storage cost calculator with CDN/non-CDN pricing
 - Automatic funding analysis for storage requirements
@@ -151,6 +158,7 @@ Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
 - Interactive storage readiness checker
 
 **Key Capabilities:**
+
 1. **Account Management:**
    - View USDFC balances (wallet and payments contract)
    - Check account details including lockup information
@@ -174,12 +182,14 @@ Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
    - Prepare for storage uploads with pre-flight checks
 
 **Use Cases:**
+
 - Understanding payment requirements before storing data
 - Testing payment flows in development
 - Debugging allowance and balance issues
 - Educational tool for learning about Filecoin storage economics
 
 **Understanding the Payment System:**
+
 - **Balance**: USDFC deposited in the Payments contract for storage costs
 - **Rate Allowance**: Maximum per-epoch payment rate a service can set
 - **Lockup Allowance**: Security deposit (10 days of storage) locked during rail creation
@@ -189,6 +199,7 @@ Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
 ### File Serving Requirements
 
 All HTML files require HTTP/HTTPS serving because they:
+
 - Load the Synapse SDK via ES6 modules
 - Make blockchain RPC calls
 - Access browser wallet APIs (MetaMask, etc.)
@@ -204,6 +215,7 @@ All HTML files require HTTP/HTTPS serving because they:
 ### Integration
 
 The HTML tools are designed to work with:
+
 - MetaMask and other browser wallets
 - Both Calibration testnet and Filecoin mainnet
 - The latest version of the Synapse SDK

@@ -1,0 +1,18 @@
+packages:
+  - packages/*
+  - examples/*
+  - apps/*
+  - docs
+
+autoInstallPeers: false
+
+# make it work link npm
+linkWorkspacePackages: deep
+preferWorkspacePackages: true
+saveWorkspaceProtocol: false
+
+onlyBuiltDependencies:
+  - esbuild
+  - msw
+  - sharp
+  - workerd

@@ -1,0 +1,97 @@
+{
+  "name": "@filoz/synapse-sdk",
+  "version": "0.29.1",
+  "description": "Synapse SDK for Filecoin Onchain Cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "synapse",
+    "filecoin pay",
+    "filecoin onchain cloud",
+    "web3"
+  ],
+  "author": "Rod Vagg <rod@vagg.org>",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/main/packages/synapse-sdk",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./piece": {
+      "import": "./dist/piece/index.js",
+      "types": "./dist/piece/index.d.ts"
+    },
+    "./pdp": {
+      "import": "./dist/pdp/index.js",
+      "types": "./dist/pdp/index.d.ts"
+    },
+    "./payments": {
+      "import": "./dist/payments/index.js",
+      "types": "./dist/payments/index.d.ts"
+    },
+    "./warm-storage": {
+      "import": "./dist/warm-storage/index.js",
+      "types": "./dist/warm-storage/index.d.ts"
+    },
+    "./subgraph": {
+      "import": "./dist/subgraph/index.js",
+      "types": "./dist/subgraph/index.d.ts"
+    },
+    "./sp-registry": {
+      "import": "./dist/sp-registry/index.js",
+      "types": "./dist/sp-registry/index.d.ts"
+    }
+  },
+  "scripts": {
+    "generate-abi": "wagmi generate",
+    "build": "tsc --build",
+    "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "test": "npm run lint && npm run test:node",
+    "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
+    "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}' --assets ./src/test/mocks",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@web3-storage/data-segment": "^5.3.0",
+    "ethers": "^6.14.3",
+    "multiformats": "^13.3.6",
+    "viem": "^2.37.9"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "~2.2.4",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.6.1",
+    "@wagmi/cli": "^2.6.0",
+    "abitype": "^1.1.1",
+    "chai": "^6.0.1",
+    "iso-web": "^1.4.0",
+    "mocha": "^11.5.0",
+    "msw": "~2.10",
+    "p-defer": "^4.0.1",
+    "playwright-test": "^14.1.12",
+    "type-fest": "^5.0.1",
+    "typescript": "5.9.3",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "msw": {
+    "workerDirectory": [
+      "src/test/mocks"
+    ]
+  }
+}
