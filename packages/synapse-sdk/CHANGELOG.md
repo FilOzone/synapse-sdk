@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.29.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.29.2...synapse-sdk-v0.29.3) (2025-10-03)
+
+
+### Bug Fixes
+
+* update package.json paths to use 'dist/src' directory ([625b269](https://github.com/FilOzone/synapse-sdk/commit/625b2699266a42a272bc27af3127475fee107b28))
+
 ## [0.29.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.29.1...synapse-sdk-v0.29.2) (2025-10-03)
 
 
