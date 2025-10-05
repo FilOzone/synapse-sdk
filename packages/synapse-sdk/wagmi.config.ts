@@ -57,7 +57,7 @@ const config = defineConfig(() => {
           cacheDuration: 100,
           request(contract) {
             const baseUrl =
-              'https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/heads/main/service_contracts/abi'
+              'https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/tags/alpha/calibnet/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348-v2/service_contracts/abi'
 
             return {
               url: `${baseUrl}/${contract.name}.abi.json`,
