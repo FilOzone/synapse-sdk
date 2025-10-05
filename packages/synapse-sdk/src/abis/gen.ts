@@ -821,6 +821,13 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: true,
       },
       {
+        name: 'pieceCid',
+        internalType: 'struct Cids.Cid',
+        type: 'tuple',
+        components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
+        indexed: false,
+      },
+      {
         name: 'keys',
         internalType: 'string[]',
         type: 'string[]',
@@ -1717,7 +1724,7 @@ export const pdpVerifierAbi = [
     ],
     name: 'calculateProofFee',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1859,7 +1866,7 @@ export const pdpVerifierAbi = [
       { name: '', internalType: 'uint64', type: 'uint64' },
       { name: '', internalType: 'int32', type: 'int32' },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -2246,14 +2253,6 @@ export const pdpVerifierAbi = [
     type: 'event',
     anonymous: false,
     inputs: [
-      { name: 'reason', internalType: 'bytes', type: 'bytes', indexed: false },
-    ],
-    name: 'PriceOracleFailure',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
       {
         name: 'setId',
         internalType: 'uint256',
@@ -2386,13 +2385,6 @@ export const paymentsAbi = [
     inputs: [],
     name: 'NETWORK_FEE',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'UPGRADE_INTERFACE_VERSION',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
   },
   {
@@ -2596,13 +2588,6 @@ export const paymentsAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '', internalType: 'address', type: 'address' }],
-    name: 'hasCollectedFees',
-    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [
       { name: 'token', internalType: 'address', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
@@ -2618,13 +2603,6 @@ export const paymentsAbi = [
       },
     ],
     name: 'increaseOperatorApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'initialize',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2667,27 +2645,6 @@ export const paymentsAbi = [
       { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'owner',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'proxiableUUID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'renounceOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -2746,23 +2703,6 @@ export const paymentsAbi = [
     name: 'terminateRail',
     outputs: [],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
-    name: 'transferOwnership',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'newImplementation', internalType: 'address', type: 'address' },
-      { name: 'data', internalType: 'bytes', type: 'bytes' },
-    ],
-    name: 'upgradeToAndCall',
-    outputs: [],
-    stateMutability: 'payable',
   },
   {
     type: 'function',
@@ -2854,19 +2794,6 @@ export const paymentsAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'version',
-        internalType: 'uint64',
-        type: 'uint64',
-        indexed: false,
-      },
-    ],
-    name: 'Initialized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
         name: 'token',
         internalType: 'address',
         type: 'address',
@@ -2905,25 +2832,6 @@ export const paymentsAbi = [
       },
     ],
     name: 'OperatorApprovalUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'previousOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'newOwner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'OwnershipTransferred',
   },
   {
     type: 'event',
@@ -3142,19 +3050,6 @@ export const paymentsAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'implementation',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-    ],
-    name: 'Upgraded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
         name: 'token',
         internalType: 'address',
         type: 'address',
@@ -3170,11 +3065,6 @@ export const paymentsAbi = [
       },
     ],
     name: 'WithdrawRecorded',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
-    name: 'AddressEmptyCode',
   },
   {
     type: 'error',
@@ -3221,15 +3111,6 @@ export const paymentsAbi = [
     ],
     name: 'CurrentLockupLessThanOldLockup',
   },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'implementation', internalType: 'address', type: 'address' },
-    ],
-    name: 'ERC1967InvalidImplementation',
-  },
-  { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
-  { type: 'error', inputs: [], name: 'FailedCall' },
   {
     type: 'error',
     inputs: [
@@ -3286,7 +3167,6 @@ export const paymentsAbi = [
     ],
     name: 'InsufficientUnlockedFunds',
   },
-  { type: 'error', inputs: [], name: 'InvalidInitialization' },
   {
     type: 'error',
     inputs: [
@@ -3445,7 +3325,6 @@ export const paymentsAbi = [
     ],
     name: 'NotAuthorizedToTerminateRail',
   },
-  { type: 'error', inputs: [], name: 'NotInitializing' },
   {
     type: 'error',
     inputs: [
@@ -3507,16 +3386,6 @@ export const paymentsAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
-    name: 'OwnableInvalidOwner',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
-    name: 'OwnableUnauthorizedAccount',
-  },
-  {
-    type: 'error',
     inputs: [
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
@@ -3555,12 +3424,6 @@ export const paymentsAbi = [
     type: 'error',
     inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
     name: 'SafeERC20FailedOperation',
-  },
-  { type: 'error', inputs: [], name: 'UUPSUnauthorizedCallContext' },
-  {
-    type: 'error',
-    inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
-    name: 'UUPSUnsupportedProxiableUUID',
   },
   {
     type: 'error',
@@ -3866,6 +3729,11 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
+                  {
+                    name: 'providerId',
+                    internalType: 'uint256',
+                    type: 'uint256',
+                  },
                 ],
               },
               {
@@ -4033,6 +3901,7 @@ export const serviceProviderRegistryAbi = [
           { name: 'name', internalType: 'string', type: 'string' },
           { name: 'description', internalType: 'string', type: 'string' },
           { name: 'isActive', internalType: 'bool', type: 'bool' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -4056,6 +3925,7 @@ export const serviceProviderRegistryAbi = [
           { name: 'name', internalType: 'string', type: 'string' },
           { name: 'description', internalType: 'string', type: 'string' },
           { name: 'isActive', internalType: 'bool', type: 'bool' },
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -4122,6 +3992,11 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
+                  {
+                    name: 'providerId',
+                    internalType: 'uint256',
+                    type: 'uint256',
+                  },
                 ],
               },
               {
@@ -4262,6 +4137,7 @@ export const serviceProviderRegistryAbi = [
       { name: 'name', internalType: 'string', type: 'string' },
       { name: 'description', internalType: 'string', type: 'string' },
       { name: 'isActive', internalType: 'bool', type: 'bool' },
+      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
