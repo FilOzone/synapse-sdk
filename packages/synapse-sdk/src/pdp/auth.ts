@@ -209,7 +209,10 @@ export class PDPAuthHelper {
     metadata: MetadataEntry[] = []
   ): Promise<AuthSignature> {
     let signature: string
-    const types = { CreateDataSet: EIP712_TYPES.CreateDataSet, MetadataEntry: EIP712_TYPES.MetadataEntry }
+    const types = {
+      CreateDataSet: EIP712_TYPES.CreateDataSet,
+      MetadataEntry: EIP712_TYPES.MetadataEntry,
+    }
 
     // Check if we should use MetaMask-friendly signing
     const useMetaMask = await this.isMetaMaskSigner()

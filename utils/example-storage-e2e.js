@@ -18,6 +18,8 @@
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
  */
 
+import { ethers } from 'ethers'
+import { readFile } from 'fs/promises'
 import {
   ADD_PIECES_TYPEHASH,
   CREATE_DATA_SET_TYPEHASH,
@@ -25,9 +27,7 @@ import {
   SIZE_CONSTANTS,
   Synapse,
   TIME_CONSTANTS,
-} from '@filoz/synapse-sdk'
-import { ethers } from 'ethers'
-import { readFile } from 'fs/promises'
+} from '../packages/synapse-sdk/dist/src/index.js'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY

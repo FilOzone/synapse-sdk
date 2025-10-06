@@ -542,25 +542,22 @@ describe('PDPServer', () => {
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
 
       server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
-          try {
-            const body = await request.json()
-            assert.exists(body.pieceCid)
-            return HttpResponse.text('Created', {
-              status: 201,
-              headers: {
-                Location: `/pdp/piece/upload/${mockUuid}`,
-              },
-            })
-          } catch (error) {
-            return HttpResponse.text((error as Error).message, {
-              status: 400,
-            })
-          }
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Created', {
+            status: 201,
+            headers: {
+              Location: `/pdp/piece/uploads/${mockUuid}`,
+            },
+          })
         }),
-        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
+        http.put('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
           return HttpResponse.text('No Content', {
             status: 204,
+          })
+        }),
+        http.post('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
+          return HttpResponse.text('OK', {
+            status: 200,
           })
         })
       )
@@ -577,25 +574,22 @@ describe('PDPServer', () => {
       const mockUuid = 'fedcba09-8765-4321-fedc-ba0987654321'
 
       server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
-          try {
-            const body = await request.json()
-            assert.exists(body.pieceCid)
-            return HttpResponse.text('Created', {
-              status: 201,
-              headers: {
-                Location: `/pdp/piece/upload/${mockUuid}`,
-              },
-            })
-          } catch (error) {
-            return HttpResponse.text((error as Error).message, {
-              status: 400,
-            })
-          }
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Created', {
+            status: 201,
+            headers: {
+              Location: `/pdp/piece/uploads/${mockUuid}`,
+            },
+          })
         }),
-        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
+        http.put('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
           return HttpResponse.text('No Content', {
             status: 204,
+          })
+        }),
+        http.post('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
+          return HttpResponse.text('OK', {
+            status: 200,
           })
         })
       )
@@ -605,32 +599,11 @@ describe('PDPServer', () => {
       assert.equal(result.size, 5)
     })
 
-    it('should handle existing piece (200 response)', async () => {
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
-      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-
-      server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
-          return HttpResponse.json(
-            { pieceCid: mockPieceCid },
-            {
-              status: 200,
-            }
-          )
-        })
-      )
-
-      // Should not throw - existing piece is OK
-      const result = await pdpServer.uploadPiece(testData)
-      assert.exists(result.pieceCid)
-      assert.equal(result.size, 5)
-    })
-
     it('should throw on create upload session error', async () => {
       const testData = new Uint8Array([1, 2, 3, 4, 5])
 
       server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
           return HttpResponse.text('Database error', {
             status: 500,
           })
@@ -644,6 +617,71 @@ describe('PDPServer', () => {
         assert.include(error.message, 'Failed to create upload session')
         assert.include(error.message, '500')
         assert.include(error.message, 'Database error')
+      }
+    })
+
+    it('should throw on upload error', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+      server.use(
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Created', {
+            status: 201,
+            headers: {
+              Location: `/pdp/piece/uploads/${mockUuid}`,
+            },
+          })
+        }),
+        http.put('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
+          return HttpResponse.text('Upload failed', {
+            status: 500,
+          })
+        })
+      )
+
+      try {
+        await pdpServer.uploadPiece(testData)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to upload piece')
+        assert.include(error.message, '500')
+        assert.include(error.message, 'Upload failed')
+      }
+    })
+
+    it('should throw on finalization error', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+      server.use(
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
+          return HttpResponse.text('Created', {
+            status: 201,
+            headers: {
+              Location: `/pdp/piece/uploads/${mockUuid}`,
+            },
+          })
+        }),
+        http.put('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
+          return HttpResponse.text('No Content', {
+            status: 204,
+          })
+        }),
+        http.post('http://pdp.local/pdp/piece/uploads/:uuid', async () => {
+          return HttpResponse.text('CommP mismatch', {
+            status: 400,
+          })
+        })
+      )
+
+      try {
+        await pdpServer.uploadPiece(testData)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to finalize upload')
+        assert.include(error.message, '400')
+        assert.include(error.message, 'CommP mismatch')
       }
     })
   })

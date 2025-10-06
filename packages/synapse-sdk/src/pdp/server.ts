@@ -27,7 +27,7 @@
  */
 
 import { ethers } from 'ethers'
-import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.ts'
+import { asPieceCID, createPieceCIDStream, downloadAndValidate } from '../piece/index.ts'
 import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
 import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
@@ -444,38 +444,19 @@ export class PDPServer {
   async uploadPiece(data: Uint8Array | ArrayBuffer): Promise<UploadResponse> {
     // Convert ArrayBuffer to Uint8Array if needed
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-
-    // Calculate PieceCID
-    performance.mark('synapse:calculatePieceCID-start')
-    const pieceCid = calculatePieceCID(uint8Data)
-    performance.mark('synapse:calculatePieceCID-end')
-    performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
     const size = uint8Data.length
 
-    const requestBody = {
-      pieceCid: pieceCid.toString(),
-      // No notify URL needed
-    }
-
-    // Create upload session or check if piece exists
-    performance.mark('synapse:POST.pdp.piece-start')
-    const createResponse = await fetch(`${this._serviceURL}/pdp/piece`, {
+    // Create upload session
+    performance.mark('synapse:POST.pdp.piece.uploads-start')
+    const createResponse = await fetch(`${this._serviceURL}/pdp/piece/uploads`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
     })
-    performance.mark('synapse:POST.pdp.piece-end')
-    performance.measure('synapse:POST.pdp.piece', 'synapse:POST.pdp.piece-start', 'synapse:POST.pdp.piece-end')
-
-    if (createResponse.status === 200) {
-      // Piece already exists on server
-      return {
-        pieceCid,
-        size,
-      }
-    }
+    performance.mark('synapse:POST.pdp.piece.uploads-end')
+    performance.measure(
+      'synapse:POST.pdp.piece.uploads',
+      'synapse:POST.pdp.piece.uploads-start',
+      'synapse:POST.pdp.piece.uploads-end'
+    )
 
     if (createResponse.status !== 201) {
       const errorText = await createResponse.text()
@@ -491,35 +472,78 @@ export class PDPServer {
     }
 
     // Validate the location format and extract UUID
-    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
-    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
+    // Match /pdp/piece/uploads/UUID anywhere in the path
+    const locationMatch = location.match(/\/pdp\/piece\/uploads\/([a-fA-F0-9-]+)/)
     if (locationMatch == null) {
       throw new Error(`Invalid Location header format: ${location}`)
     }
 
     const uploadUuid = locationMatch[1] // Extract just the UUID
 
-    // Upload the data
-    performance.mark('synapse:PUT.pdp.piece.upload-start')
-    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/upload/${uploadUuid}`, {
+    // Create streaming CommP calculator
+    const { stream: pieceCidStream, getPieceCID } = createPieceCIDStream()
+
+    // Convert Uint8Array to ReadableStream for streaming through the CommP calculator
+    const dataStream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(uint8Data)
+        controller.close()
+      },
+    })
+
+    // Upload the data while calculating CommP in parallel
+    performance.mark('synapse:PUT.pdp.piece.uploads-start')
+    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/uploads/${uploadUuid}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Length': uint8Data.length.toString(),
-        // No Authorization header needed
       },
-      body: uint8Data,
-    })
-    performance.mark('synapse:PUT.pdp.piece.upload-end')
+      body: dataStream.pipeThrough(pieceCidStream),
+      duplex: 'half',
+    } as RequestInit)
+    performance.mark('synapse:PUT.pdp.piece.uploads-end')
     performance.measure(
-      'synapse:PUT.pdp.piece.upload',
-      'synapse:PUT.pdp.piece.upload-start',
-      'synapse:PUT.pdp.piece.upload-end'
+      'synapse:PUT.pdp.piece.uploads',
+      'synapse:PUT.pdp.piece.uploads-start',
+      'synapse:PUT.pdp.piece.uploads-end'
     )
 
     if (uploadResponse.status !== 204) {
       const errorText = await uploadResponse.text()
       throw new Error(`Failed to upload piece: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`)
+    }
+
+    // Get the calculated PieceCID (available after stream completes)
+    const pieceCid = getPieceCID()
+    if (pieceCid == null) {
+      throw new Error('Failed to calculate PieceCID during upload')
+    }
+
+    // Finalize the upload with CommP validation
+    performance.mark('synapse:POST.pdp.piece.uploads.finalize-start')
+    const finalizeResponse = await fetch(`${this._serviceURL}/pdp/piece/uploads/${uploadUuid}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        pieceCid: pieceCid.toString(),
+        // notify field is optional - we don't use it
+      }),
+    })
+    performance.mark('synapse:POST.pdp.piece.uploads.finalize-end')
+    performance.measure(
+      'synapse:POST.pdp.piece.uploads.finalize',
+      'synapse:POST.pdp.piece.uploads.finalize-start',
+      'synapse:POST.pdp.piece.uploads.finalize-end'
+    )
+
+    if (finalizeResponse.status !== 200) {
+      const errorText = await finalizeResponse.text()
+      throw new Error(
+        `Failed to finalize upload: ${finalizeResponse.status} ${finalizeResponse.statusText} - ${errorText}`
+      )
     }
 
     return {
