@@ -66,6 +66,7 @@
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
+    "ox": "^0.9.6",
     "viem": "^2.37.11"
   },
   "devDependencies": {
