@@ -136,6 +136,7 @@ async function main() {
         }
       }
       if (permissionsToRefresh.length > 0) {
+        // Use login() to reset the expiry of existing permissions to the new value
         const loginTx = await sessionKey.login(refresh, permissionsToRefresh)
         console.log(`  tx: ${loginTx.hash}`)
         const loginReceipt = await loginTx.wait()
