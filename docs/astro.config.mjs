@@ -3,13 +3,17 @@ import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
 import ecTwoSlash from 'expressive-code-twoslash'
 import starlightLlmsTxt from 'starlight-llms-txt'
+import viteTsconfigPaths from 'vite-tsconfig-paths'
 
-const site = 'https://FilOzone.github.io'
+const site = 'https://synapse.filecoin.services'
 
 // https://astro.build/config
 export default defineConfig({
   site,
-  base: '/synapse-sdk',
+  base: '/',
+  vite: {
+    plugins: [viteTsconfigPaths()],
+  },
   integrations: [
     starlight({
       title: 'Synapse',
@@ -80,15 +84,8 @@ export default defineConfig({
           pagination: true,
           typeDocOptions: {
             githubPages: true,
-            entryPointStrategy: 'resolve',
-            entryPoints: [
-              '../src/index.ts',
-              '../src/piece/index.ts',
-              '../src/pdp/index.ts',
-              '../src/payments/index.ts',
-              '../src/warm-storage/index.ts',
-              '../src/subgraph/index.ts',
-            ],
+            entryPointStrategy: 'packages',
+            entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
             useCodeBlocks: true,
             parametersFormat: 'table',

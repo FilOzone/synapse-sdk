@@ -72,6 +72,7 @@ if (provider && typeof provider.destroy === 'function') {
 ```
 
 This is especially important for:
+
 - **CLI tools**: Ensures the process can exit cleanly
 - **Test suites**: Prevents hanging tests and resource leaks
 - **Server applications**: Frees resources when shutting down
@@ -97,11 +98,13 @@ process.on('SIGINT', async () => {
 
 ### Network Details
 
-**Filecoin Mainnet**
+#### Filecoin Mainnet
+
 - Chain ID: 314
 - USDFC Contract: `0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`
 
-**Filecoin Calibration Testnet**
+#### Filecoin Calibration Testnet
+
 - Chain ID: 314159
 - USDFC Contract: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`
 

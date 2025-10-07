@@ -10,5 +10,26 @@
   "prettier.enable": false,
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "javascript.preferences.importModuleSpecifierEnding": "js",
-  "typescript.preferences.importModuleSpecifierEnding": "js"
+  "typescript.preferences.importModuleSpecifierEnding": "js",
+  "markdownlint.configFile": "./.github/.markdownlint-cli2.jsonc",
+  "search.exclude": {
+    "**/dist/**": true,
+    "pnpm-lock.yaml": true
+  },
+  "files.associations": {
+    ".vscode/*.json": "jsonc",
+    "*.css": "tailwindcss",
+    "*.svg": "html",
+    "**/wrangler.json": "jsonc",
+    "biome.json": "jsonc"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+  },
+  "[mdx]": {
+    "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
+  }
 }

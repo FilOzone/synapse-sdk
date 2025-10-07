@@ -10,7 +10,6 @@ A JavaScript/TypeScript SDK for interacting with Filecoin Synapse - a smart-cont
 
 > ⚠️ **BREAKING CHANGES in v0.24.0**: Major terminology updates have been introduced. **Pandora** is now **Warm Storage**, **Proof Sets** are now **Data Sets**, **Roots** are now **Pieces** and **Storage Providers** are now **Service Providers**. Additionally, the storage API has been improved with a new context-based architecture. See the [Migration Guide](/guides/migration-guide/#0240) section for migration instructions.
 
-
 The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
 
 - **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
@@ -21,7 +20,7 @@ The SDK handles all the complexity of blockchain interactions, provider selectio
 ## Installation
 
 ```bash
-npm install @filoz/synapse-sdk ethers
+pnpm install @filoz/synapse-sdk ethers
 ```
 
 Note: `ethers` v6 is a peer dependency and must be installed separately.
@@ -31,7 +30,6 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 ## Project Structure
 
 This project uses a monorepo structure managed by `pnpm` workspaces. Core libraries reside in the `packages/` directory, examples in `examples/`, and this documentation site in `docs/`.
-
 
 <FileTree>
 
@@ -208,6 +206,7 @@ await revokeTx.wait()
 Payment rails are continuous payment streams between clients and service providers. These rails accumulate payment obligations over time that need to be settled periodically to transfer the actual tokens.
 
 **Key Concepts:**
+
 - **Rails**: Unidirectional payment streams with a defined rate per epoch (30 seconds)
 - **Settlement**: The process of executing accumulated payments and transferring tokens
 - **Network Fee**: 0.0013 FIL burned (destroyed) per settlement, accruing value to the network through supply reduction
@@ -321,10 +320,12 @@ interface SubgraphConfig {
 #### Synapse Methods
 
 **Instance Properties:**
+
 - `payments` - PaymentsService instance for token operations (see [Payment Methods](#synapepayments-methods) below)
 - `storage` - StorageManager instance for all storage operations (see [Storage Operations](#synapsestorage-methods) below)
 
 **Core Operations:**
+
 - `preflightUpload(dataSize options?)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check (with or without CDN)
 - `getProviderInfo(providerAddress)` - Get detailed information about a service provider
 - `getNetwork()` - Get the network this instance is connected to ('mainnet' or 'calibration')
@@ -334,11 +335,13 @@ interface SubgraphConfig {
 #### Synapse.storage Methods
 
 **Context Management:**
+
 - `createContext(options?)` - Create a storage context for a specific provider + data set (returns `StorageContext`)
 - `upload(data, options?)` - Upload data using auto-managed context or route to specific context
 - `download(pieceCid, options?)` - Download from any available provider (SP-agnostic)
 
 **Upload Options:**
+
 ```typescript
 // Simple upload (auto-creates/reuses context)
 await synapse.storage.upload(data)
@@ -351,6 +354,7 @@ await synapse.storage.upload(data, { context: storageContext })
 ```
 
 **Download Options:**
+
 ```typescript
 // Download from any available provider
 await synapse.storage.download(pieceCid)
@@ -365,6 +369,7 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 #### Synapse.payments Methods
 
 **Balance Operations:**
+
 - `walletBalance(token?)` - Get wallet balance (FIL or USDFC)
 - `balance()` - Get available USDFC balance in payments contract (accounting for lockups)
 - `accountInfo()` - Get detailed USDFC account info including funds, lockup details, and available balance
@@ -373,17 +378,20 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 *Note: Currently only USDFC token is supported for payments contract operations. FIL is also supported for `walletBalance()`.*
 
 **Token Operations:**
+
 - `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
 - `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
 - `approve(spender, amount, token?)` - Approve token spending (for manual control), returns `TransactionResponse`
 - `allowance(spender, token?)` - Check current token allowance
 
 **Service Approvals:**
+
 - `approveService(service, rateAllowance, lockupAllowance, maxLockupPeriod, token?)` - Approve a service contract as operator, returns `TransactionResponse`
 - `revokeService(service, token?)` - Revoke service operator approval, returns `TransactionResponse`
 - `serviceApproval(service, token?)` - Check service approval status and allowances
 
 **Rail Settlement:**
+
 - `getRailsAsPayer(token?)` - Get all payment rails where wallet is the payer, returns `RailInfo[]` with `{railId, isTerminated, endEpoch}` (endEpoch is 0 for active rails)
 - `getRailsAsPayee(token?)` - Get all payment rails where wallet is the payee (recipient), returns `RailInfo[]`
 - `getRail(railId)` - Get detailed rail information, returns `{token, from, to, operator, validator, paymentRate, lockupPeriod, lockupFixed, settledUpTo, endEpoch, commissionRateBps, serviceFeeRecipient}`. Throws if rail doesn't exist.
@@ -399,15 +407,18 @@ A `StorageContext` (previously `StorageService`) represents a connection to a sp
 By using `StorageContext` directly you have efficiently deal with a specific service provider and data set for both upload and download options.
 
 **Instance Properties:**
+
 - `dataSetId` - The data set ID being used (string)
 - `serviceProvider` - The service provider address (string)
 
 **Core Storage Operations:**
+
 - `upload(data, callbacks?)` - Upload data to this context's service provider, returns `UploadResult` with `pieceCid`, `size`, and `pieceId`
 - `download(pieceCid, options?)` - Download data from this context's specific provider, returns `Uint8Array`
 - `preflightUpload(dataSize)` - Check if an upload is possible before attempting it, returns preflight info with cost estimates and allowance check
 
 **Information & Status:**
+
 - `getProviderInfo()` - Get detailed information about the selected service provider
 - `getDataSetPieces()` - Get the list of piece CIDs in the data set by querying the provider
 - `hasPiece(pieceCid)` - Check if a piece exists on this service provider (returns boolean)
@@ -421,6 +432,7 @@ The SDK automatically handles all the complexity of storage setup for you - sele
 2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
 
 Behind the scenes, the process may be:
+
 - **Fast ( < 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
 - **Slower ( 2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
@@ -451,11 +463,13 @@ const context = await synapse.storage.createContext({
 Metadata is subject to the following contract-enforced limits:
 
 **Data Set Metadata:**
+
 - Maximum of 10 key-value pairs per data set
 - Keys: Maximum 32 characters
 - Values: Maximum 128 characters
 
 **Piece Metadata:**
+
 - Maximum of 5 key-value pairs per piece
 - Keys: Maximum 32 characters
 - Values: Maximum 128 characters
@@ -598,6 +612,7 @@ console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 ##### Size Constraints
 
 The storage service enforces the following size limits for uploads:
+
 - **Minimum**: 127 bytes
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
@@ -693,15 +708,10 @@ await context.download(pieceCid)                                        // Uses 
 await synapse.storage.download(pieceCid, { withCDN: false })            // Method override: CDN disabled
 ```
 
-
-
-
-
-
-
 ## PieceCID
 
 PieceCID is Filecoin's native content address identifier, a variant of [CID](https://docs.ipfs.tech/concepts/content-addressing/). When you upload data, the SDK calculates a PieceCID—an identifier that:
+
 - Uniquely identifies your bytes, regardless of size, in a short string form
 - Enables retrieval from any provider storing those bytes
 - Contains embedded size information
@@ -717,14 +727,13 @@ LegacyPieceCID (v1 format) conversion utilities are provided for interoperabilit
 
 **Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
 
-
 ## Browser Integration
 
 The SDK works seamlessly in browsers.
 
 ### MetaMask Setup
 
-Official documentation for configuring MetaMask with Filecoin (both Mainnet and the Calibration Test network) can be found at: https://docs.filecoin.io/basics/assets/metamask-setup
+Official documentation for configuring MetaMask with Filecoin (both Mainnet and the Calibration Test network) can be found at: [https://docs.filecoin.io/basics/assets/metamask-setup](https://docs.filecoin.io/basics/assets/metamask-setup)
 
 If you want to add the Filecoin network programmatically, you can use the following code snippet, for Mainnet (change accordingly for Calibration Testnet):
 
@@ -769,8 +778,7 @@ try {
 }
 ```
 
-
 ## Further Resources
 
--   [API Reference](/api/readme)
--   [GitHub Repository](https://github.com/FilOzone/synapse-sdk)
+- [API Reference](/api/readme)
+- [GitHub Repository](https://github.com/FilOzone/synapse-sdk)

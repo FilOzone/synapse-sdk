@@ -1,8 +1,8 @@
 The contents of this repository are Copyright (c) corresponding authors and
 contributors, licensed under the `Permissive License Stack` meaning either of:
 
-- Apache-2.0 Software License: https://www.apache.org/licenses/LICENSE-2.0
-- MIT Software License: https://opensource.org/licenses/MIT
+- Apache-2.0 Software License: <https://www.apache.org/licenses/LICENSE-2.0>
+- MIT Software License: <https://opensource.org/licenses/MIT>
 
 You may not use the contents of this repository except in compliance
 with one of the listed Licenses. For an extended clarification of the
@@ -22,7 +22,7 @@ Verbatim copies of both licenses are included below:
 
 <details><summary>Apache-2.0 Software License</summary>
 
-```
+```text
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -200,11 +200,12 @@ Verbatim copies of both licenses are included below:
 
    END OF TERMS AND CONDITIONS
 ```
+
 </details>
 
 <details><summary>MIT Software License</summary>
 
-```
+```text
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -223,4 +224,5 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
+
 </details>

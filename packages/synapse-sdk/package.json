@@ -1,0 +1,95 @@
+{
+  "name": "@filoz/synapse-sdk",
+  "version": "0.29.3",
+  "description": "JavaScript SDK for Filecoin Onchain Cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "synapse",
+    "filecoin pay",
+    "filecoin onchain cloud",
+    "web3"
+  ],
+  "author": "Rod Vagg <rod@vagg.org>",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/main/packages/synapse-sdk",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    },
+    "./piece": {
+      "import": "./dist/src/piece/index.js",
+      "types": "./dist/src/piece/index.d.ts"
+    },
+    "./pdp": {
+      "import": "./dist/src/pdp/index.js",
+      "types": "./dist/src/pdp/index.d.ts"
+    },
+    "./payments": {
+      "import": "./dist/src/payments/index.js",
+      "types": "./dist/src/payments/index.d.ts"
+    },
+    "./warm-storage": {
+      "import": "./dist/src/warm-storage/index.js",
+      "types": "./dist/src/warm-storage/index.d.ts"
+    },
+    "./subgraph": {
+      "import": "./dist/src/subgraph/index.js",
+      "types": "./dist/src/subgraph/index.d.ts"
+    },
+    "./sp-registry": {
+      "import": "./dist/src/sp-registry/index.js",
+      "types": "./dist/src/sp-registry/index.d.ts"
+    }
+  },
+  "scripts": {
+    "generate-abi": "wagmi generate",
+    "build": "tsc --build",
+    "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "test": "pnpm run lint && pnpm run test:node",
+    "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
+    "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm run clean && pnpm run build"
+  },
+  "dependencies": {
+    "@web3-storage/data-segment": "^5.3.0",
+    "ethers": "^6.15.0",
+    "multiformats": "^13.4.1",
+    "viem": "^2.37.11"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "~2.2.5",
+    "@types/chai": "^5.2.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.6.2",
+    "@wagmi/cli": "^2.6.0",
+    "abitype": "^1.1.1",
+    "chai": "^6.2.0",
+    "iso-web": "^1.4.0",
+    "mocha": "^11.7.4",
+    "msw": "~2.10.5",
+    "p-defer": "^4.0.1",
+    "playwright-test": "^14.1.12",
+    "type-fest": "^5.0.1",
+    "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "msw": {
+    "workerDirectory": [
+      "src/test/mocks"
+    ]
+  }
+}
