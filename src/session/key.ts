@@ -113,7 +113,9 @@ export class SessionKey {
   }
 
   /**
-   * Owner authorizes signer with permissions until expiry
+   * Authorize signer with permissions until expiry. This can also be used to
+   * renew or invalidate existing authorization by updating the expiry.
+   *
    * @param expiry unix time (block.timestamp) that the permissions expire
    * @param permissions list of permissions granted to the signer
    */
