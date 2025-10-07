@@ -123,6 +123,8 @@ async function main() {
 
       console.log('\n--- SessionKey Login ---')
       console.log(`Session Key: ${sessionKeyAddress})`)
+      // Check the existing expiry of the permissions for this session key,
+      // if it's not far enough in the future update them with a new login()
       const permissionsToRefresh = []
       const day = TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(TIME_CONSTANTS.EPOCH_DURATION)
       const soon = BigInt(Date.now()) / BigInt(1000) + day / BigInt(6)
