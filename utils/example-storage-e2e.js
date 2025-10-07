@@ -18,8 +18,8 @@
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path>
  */
 
-import { SIZE_CONSTANTS, Synapse } from '@filoz/synapse-sdk'
 import { readFile } from 'fs/promises'
+import { SIZE_CONSTANTS, Synapse } from '../dist/index.js'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY

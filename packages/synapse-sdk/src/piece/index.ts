@@ -20,4 +20,5 @@ export {
   createPieceCIDStream,
   type LegacyPieceCID,
   type PieceCID,
+  rawSizeFromPieceCID,
 } from './piece.ts'
