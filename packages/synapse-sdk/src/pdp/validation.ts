@@ -134,6 +134,22 @@ export function validateDataSetCreationStatusResponse(value: unknown): DataSetCr
   return value
 }
 
+export function validatePieceDeleteResponse(value: unknown): { txHash: string } {
+  if (typeof value !== 'object' || value == null) {
+    throw new Error('Invalid piece delete response format')
+  }
+
+  const obj = value as Record<string, unknown>
+
+  if (typeof obj.txHash !== 'string') {
+    throw new Error('Invalid piece delete response format')
+  }
+
+  return {
+    txHash: obj.txHash,
+  }
+}
+
 /**
  * Validates and returns a PieceAdditionStatusResponse
  * @param value - The value to validate

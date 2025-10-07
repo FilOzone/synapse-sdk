@@ -1261,6 +1261,28 @@ export class StorageContext {
   }
 
   /**
+   * Delete a piece with given CID from this data set
+   * @param pieceCid - The PieceCID identifier
+   * @returns Transaction hash of the delete operation
+   */
+  async deletePiece(pieceCid: string | PieceCID): Promise<string> {
+    const parsedPieceCID = asPieceCID(pieceCid)
+    if (parsedPieceCID == null) {
+      throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
+    }
+
+    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
+    const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+
+    if (pieceData == null) {
+      throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
+    }
+    const dataSetInfo = await this._warmStorageService.getDataSet(this._dataSetId)
+
+    return await this._pdpServer.deletePiece(this._dataSetId, dataSetInfo.clientDataSetId, pieceData.pieceId)
+  }
+
+  /**
    * Check if a piece exists on this service provider.
    * @param pieceCid - The PieceCID (piece CID) to check
    * @returns True if the piece exists on this provider, false otherwise

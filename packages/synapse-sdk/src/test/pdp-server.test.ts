@@ -371,6 +371,44 @@ describe('PDPServer', () => {
     })
   })
 
+  describe('deletePiece', () => {
+    it('should handle successful delete', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockResponse = {
+        txHash: mockTxHash,
+      }
+      server.use(
+        // check that extraData is included
+        http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async ({ request }) => {
+          const body = await request.json()
+          assert.hasAllKeys(body, ['extraData'])
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
+      const result = await pdpServer.deletePiece(1, 0, 2)
+      assert.strictEqual(result, mockTxHash)
+    })
+
+    it('should handle server errors', async () => {
+      server.use(
+        http.delete('http://pdp.local/pdp/data-sets/1/pieces/2', async () => {
+          return HttpResponse.text('Database error', {
+            status: 500,
+          })
+        })
+      )
+      try {
+        await pdpServer.deletePiece(1, 0, 2)
+        assert.fail('Should have thrown error for server error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to delete piece')
+        assert.include(error.message, '500')
+      }
+    })
+  })
+
   describe('getDataSetCreationStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'

@@ -37,6 +37,7 @@ import {
   validateDataSetCreationStatusResponse,
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
+  validatePieceDeleteResponse,
 } from './validation.ts'
 
 /**
@@ -575,6 +576,35 @@ export class PDPServer {
       throw new Error('Invalid data set data response format')
     }
     return converted
+  }
+
+  /**
+   * Delete a piece from a data set
+   * @param dataSetId - The ID of dataset to delete
+   * @param clientDataSetId - Client dataset ID of the dataset to delete
+   * @param pieceID -  The ID of the piece to delete
+   * @returns Promise for transaction hash of the delete operation
+   */
+  async deletePiece(dataSetId: number, clientDataSetId: number, pieceID: number): Promise<string> {
+    const authData = await this.getAuthHelper().signSchedulePieceRemovals(clientDataSetId, [pieceID])
+    const payload = {
+      extraData: `0x${authData.signature}`,
+    }
+
+    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/${pieceID}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+
+    if (response.status !== 200) {
+      const errorText = await response.text()
+      throw new Error(`Failed to delete piece: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+    const data = await response.json()
+    return validatePieceDeleteResponse(data).txHash
   }
 
   /**
