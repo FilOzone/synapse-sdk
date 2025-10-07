@@ -30,6 +30,8 @@ export const ADD_PIECES_TYPEHASH = EIP712_TYPE_HASHES.AddPieces
 export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = EIP712_TYPE_HASHES.SchedulePieceRemovals
 export const DELETE_DATA_SET_TYPEHASH = EIP712_TYPE_HASHES.DeleteDataSet
 
+// These are the PDP-related permissions that can be granted to a session key.
+// They are bytes32 hex strings that can be supplied to fetchExpiries, login, and revoke.
 export const PDP_PERMISSIONS = [
   CREATE_DATA_SET_TYPEHASH,
   ADD_PIECES_TYPEHASH,
@@ -68,6 +70,8 @@ export class SessionKey {
 
   /**
    * Queries current permission expiries from the registry
+   * @param permissions Expiries to fetch, as a list of bytes32 hex strings
+   * @return map of each permission to its expiry for this session key
    */
   async fetchExpiries(permissions: string[] = PDP_PERMISSIONS): Promise<Record<string, bigint>> {
     const network = await getFilecoinNetworkType(this._provider)
@@ -114,12 +118,23 @@ export class SessionKey {
 
   /**
    * Authorize signer with permissions until expiry. This can also be used to
-   * renew or invalidate existing authorization by updating the expiry.
+   * renew existing authorization by updating the expiry.
    *
    * @param expiry unix time (block.timestamp) that the permissions expire
-   * @param permissions list of permissions granted to the signer
+   * @param permissions list of permissions granted to the signer, as a list of bytes32 hex strings
+   * @return signed and broadcasted login transaction details
    */
   async login(expiry: bigint, permissions: string[] = PDP_PERMISSIONS): Promise<ethers.TransactionResponse> {
     return await this._registry.login(await this._signer.getAddress(), expiry, permissions)
+  }
+
+  /**
+   * Invalidate signer permissions, setting their expiry to zero.
+   *
+   * @param permissions list of permissions removed from the signer, as a list of bytes32 hex strings
+   * @return signed and broadcasted revoke transaction details
+   */
+  async revoke(permissions: string[] = PDP_PERMISSIONS): Promise<ethers.TransactionResponse> {
+    return await this._registry.revoke(await this._signer.getAddress(), permissions)
   }
 }
