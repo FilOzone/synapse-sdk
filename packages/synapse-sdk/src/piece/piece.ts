@@ -6,6 +6,7 @@
 
 import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
+import { Unpadded } from '@web3-storage/data-segment/piece/size'
 import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
 import * as Digest from 'multiformats/hashes/digest'
@@ -203,4 +204,38 @@ export function createPieceCIDStream(): {
       return pieceCid
     },
   }
+}
+
+/**
+ * Extract the raw (unpadded) size from a PieceCIDv2
+ *
+ * PieceCIDv2 encodes the original data size in its multihash digest through
+ * the tree height and padding values. This function decodes those values to
+ * calculate the original raw data size.
+ *
+ * @param pieceCidInput - PieceCID as either a CID object or string
+ * @returns The raw size in bytes
+ * @throws {Error} If the input is not a valid PieceCIDv2
+ */
+export function getSizeFromPieceCID(pieceCidInput: PieceCID | CID | string): number {
+  const pieceCid = asPieceCID(pieceCidInput)
+  if (pieceCid == null) {
+    throw new Error('Invalid PieceCID: input must be a valid PieceCIDv2')
+  }
+
+  // The multihash digest contains: [padding (varint)][height (1 byte)][root (32 bytes)]
+  const digest = Hasher.Digest.fromBytes(pieceCid.multihash.bytes)
+  const height = digest.height
+  const padding = digest.padding
+
+  // rawSize = paddedSize - padding
+  // where paddedSize = 2^(height-2) * 127 (fr32 expansion)
+  const rawSize = Unpadded.fromPiece({ height, padding })
+
+  // This should be safe for all practical file sizes
+  if (rawSize > Number.MAX_SAFE_INTEGER) {
+    throw new Error(`Raw size ${rawSize} exceeds maximum safe integer`)
+  }
+
+  return Number(rawSize)
 }
