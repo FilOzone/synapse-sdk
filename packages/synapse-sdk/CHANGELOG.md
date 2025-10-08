@@ -4,6 +4,24 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.30.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.29.3...synapse-sdk-v0.30.0) (2025-10-08)
+
+
+### Features
+
+* add piece deletion to storage context ([#285](https://github.com/FilOzone/synapse-sdk/issues/285)) ([ac946dc](https://github.com/FilOzone/synapse-sdk/commit/ac946dce9dbbc77d9d559532ba0c4d8ebeafcd09))
+* add session key support ([#209](https://github.com/FilOzone/synapse-sdk/issues/209)) ([0b0c983](https://github.com/FilOzone/synapse-sdk/commit/0b0c9836ef6d355cb74a3daa28d616c413be10cb))
+
+
+### Bug Fixes
+
+* generate-abi from correct contracts git tag ([#279](https://github.com/FilOzone/synapse-sdk/issues/279)) ([742c041](https://github.com/FilOzone/synapse-sdk/commit/742c041c355b41f5b14af53aa5ef956913fc79bf))
+
+
+### Chores
+
+* update mock service worker package version to 2.10.5 ([e201a48](https://github.com/FilOzone/synapse-sdk/commit/e201a483c24a4527afe610c1a23f46eb6d124268))
+
 ## [0.29.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.29.2...synapse-sdk-v0.29.3) (2025-10-03)
 
 
