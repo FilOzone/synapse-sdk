@@ -56,6 +56,7 @@
     "generate-abi": "wagmi generate",
     "build": "tsc --build",
     "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test": "pnpm run lint && pnpm run test:node",
     "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
     "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
