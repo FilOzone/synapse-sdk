@@ -234,6 +234,10 @@ export class WarmStorageService {
     return this._addresses.sessionKeyRegistry
   }
 
+  getAddress(): string {
+    return this._warmStorageAddress
+  }
+
   /**
    * Get the provider instance
    * @returns The ethers provider

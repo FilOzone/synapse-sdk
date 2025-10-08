@@ -111,7 +111,6 @@ export class PaymentsService {
 
     // Create interfaces for encoding/decoding
     const erc20Interface = new ethers.Interface(CONTRACT_ABIS.ERC20)
-    const permitInterface = new ethers.Interface(CONTRACT_ABIS.ERC20_PERMIT)
 
     // Prepare multicall batch: balanceOf, name, version (with fallback), nonces
     const calls = [
@@ -128,12 +127,12 @@ export class PaymentsService {
       {
         target: this._usdfcAddress,
         allowFailure: true, // Allow failure for version, we'll fallback to '1'
-        callData: permitInterface.encodeFunctionData('version'),
+        callData: erc20Interface.encodeFunctionData('version'),
       },
       {
         target: this._usdfcAddress,
         allowFailure: false,
-        callData: permitInterface.encodeFunctionData('nonces', [signerAddress]),
+        callData: erc20Interface.encodeFunctionData('nonces', [signerAddress]),
       },
     ]
 
@@ -187,7 +186,7 @@ export class PaymentsService {
     let domainVersion = '1'
     if (results[2].success) {
       try {
-        const decoded = permitInterface.decodeFunctionResult('version', results[2].returnData)
+        const decoded = erc20Interface.decodeFunctionResult('version', results[2].returnData)
         const maybeVersion = decoded[0]
         if (typeof maybeVersion === 'string' && maybeVersion.length > 0) {
           domainVersion = maybeVersion
@@ -200,7 +199,7 @@ export class PaymentsService {
     // Result 3: nonces
     let nonce: bigint
     try {
-      const decoded = permitInterface.decodeFunctionResult('nonces', results[3].returnData)
+      const decoded = erc20Interface.decodeFunctionResult('nonces', results[3].returnData)
       nonce = decoded[0]
     } catch (error) {
       throw createError(

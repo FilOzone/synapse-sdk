@@ -53,22 +53,65 @@
     }
   },
   "scripts": {
-    "generate-abi": "wagmi generate",
-    "build": "tsc --build",
-    "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
-    "test": "pnpm run lint && pnpm run test:node",
-    "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
-    "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
+    "build": "wireit",
+    "lint": "wireit",
+    "test": "pnpm run lint && pnpm run test:node && pnpm run test:browser",
+    "test:node": "wireit",
+    "test:browser": "wireit",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "files": [
+        "src/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    },
+    "test:node": {
+      "command": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "../synapse-core:build"
+      ]
+    },
+    "test:browser": {
+      "command": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "../synapse-core:build"
+      ]
+    }
   },
   "dependencies": {
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
     "ox": "^0.9.6",
-    "viem": "^2.37.11"
+    "viem": "2.x",
+    "@filoz/synapse-core": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.5",

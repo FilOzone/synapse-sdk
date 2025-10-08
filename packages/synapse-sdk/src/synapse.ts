@@ -2,7 +2,11 @@
  * Main Synapse class for interacting with Filecoin storage and other on-chain services
  */
 
+import { UnsupportedChainError } from '@filoz/synapse-core'
+import { calibration, getChain, mainnet } from '@filoz/synapse-core/chains'
+import { clientFromTransport, clientToProvider, walletClientToSigner } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
+import type { Account, Chain, Client, Transport } from 'viem'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
 import { SessionKey } from './session/key.ts'
@@ -20,20 +24,20 @@ import type {
   SubgraphConfig,
   SynapseOptions,
 } from './types.ts'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
 import { ProviderResolver } from './utils/provider-resolver.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 export class Synapse {
   private readonly _signer: ethers.Signer
-  private readonly _network: FilecoinNetworkType
   private readonly _withCDN: boolean
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
-  private readonly _warmStorageAddress: string
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+
+  private readonly _walletClient: Client<Transport, Chain, Account>
+  private readonly _publicClient: Client<Transport, Chain>
   private _session: SessionKey | null = null
 
   /**
@@ -42,102 +46,28 @@ export class Synapse {
    * @returns A fully initialized Synapse instance
    */
   static async create(options: SynapseOptions): Promise<Synapse> {
-    // Validate options
-    const providedOptions = [options.privateKey, options.provider, options.signer].filter(Boolean).length
-    if (providedOptions !== 1) {
-      throw new Error('Must provide exactly one of: privateKey, provider, or signer')
+    if (options.client.chain.id !== mainnet.id && options.client.chain.id !== calibration.id) {
+      throw new UnsupportedChainError(options.client.chain.id)
     }
 
-    // Detect network from chain
-    let network: FilecoinNetworkType | undefined
+    const publicClient = clientFromTransport({
+      chain: options.client.chain,
+      transportConfig: options.transportConfig ?? options.client.transport,
+    })
 
-    // Create or derive signer and provider
-    let signer: ethers.Signer
-    let provider: ethers.Provider
-
-    if (options.privateKey != null) {
-      // Handle private key input
-      const rpcURL = options.rpcURL ?? options.rpcURL
-      if (rpcURL == null) {
-        throw new Error('rpcURL is required when using privateKey')
-      }
-
-      // Sanitize private key
-      let privateKey = options.privateKey
-      if (!privateKey.startsWith('0x')) {
-        privateKey = `0x${privateKey}`
-      }
-
-      // Create provider and wallet
-      // if websockets, use correct provider
-      if (/^ws(s)?:\/\//i.test(rpcURL)) {
-        provider = new ethers.WebSocketProvider(rpcURL)
-      } else {
-        provider = new ethers.JsonRpcProvider(rpcURL)
-      }
-
-      network = await getFilecoinNetworkType(provider)
-
-      // Create wallet with provider - always use NonceManager unless disabled
-      const wallet = new ethers.Wallet(privateKey, provider)
-      signer = options.disableNonceManager === true ? wallet : new ethers.NonceManager(wallet)
-    } else if (options.provider != null) {
-      // Handle provider input
-      provider = options.provider
-
-      network = await getFilecoinNetworkType(provider)
-
-      // Get signer - apply NonceManager unless disabled
-      // For ethers v6, we need to check if provider has getSigner method
-      if ('getSigner' in provider && typeof provider.getSigner === 'function') {
-        const baseSigner = await (provider as any).getSigner(0)
-        signer = options.disableNonceManager === true ? baseSigner : new ethers.NonceManager(baseSigner)
-      } else {
-        throw new Error('Provider does not support signing operations')
-      }
-    } else if (options.signer != null) {
-      // Handle signer input
-      signer = options.signer
-
-      // Apply NonceManager wrapper unless disabled
-      if (options.disableNonceManager !== true && !(signer instanceof ethers.NonceManager)) {
-        signer = new ethers.NonceManager(signer)
-      }
-
-      // Get provider from signer
-      if (signer.provider == null) {
-        throw new Error('Signer must have a provider')
-      }
-      provider = signer.provider
-
-      network = await getFilecoinNetworkType(provider)
-    } else {
-      // This should never happen due to validation above
-      throw new Error('No valid authentication method provided')
-    }
-
-    // Final network validation
-    if (network !== 'mainnet' && network !== 'calibration') {
-      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
-    }
+    const chain = getChain(options.client.chain.id)
+    const network = chain.id === mainnet.id ? 'mainnet' : 'calibration'
+    const signer = walletClientToSigner(options.client)
+    const provider = clientToProvider(publicClient)
 
     // Create Warm Storage service with initialized addresses
-    const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    if (!warmStorageAddress) {
-      throw new Error(`No Warm Storage address configured for network: ${network}`)
-    }
+    const warmStorageAddress = options.warmStorageAddress ?? chain.contracts.storage.address
     const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
 
     // Create payments service with discovered addresses
     const paymentsAddress = warmStorageService.getPaymentsAddress()
     const usdfcAddress = warmStorageService.getUSDFCTokenAddress()
-    const payments = new PaymentsService(
-      provider,
-      signer,
-      paymentsAddress,
-      usdfcAddress,
-      options.disableNonceManager === true
-    )
+    const payments = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
@@ -166,35 +96,31 @@ export class Synapse {
     }
 
     return new Synapse(
-      signer,
-      provider,
-      network,
+      options.client,
+      publicClient,
       payments,
       options.withCDN === true,
-      warmStorageAddress,
       warmStorageService,
       pieceRetriever
     )
   }
 
   private constructor(
-    signer: ethers.Signer,
-    provider: ethers.Provider,
-    network: FilecoinNetworkType,
+    walletClient: Client<Transport, Chain, Account>,
+    publicClient: Client<Transport, Chain>,
     payments: PaymentsService,
     withCDN: boolean,
-    warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever
   ) {
-    this._signer = signer
-    this._provider = provider
-    this._network = network
+    this._walletClient = walletClient
+    this._publicClient = publicClient
+    this._signer = walletClientToSigner(walletClient)
+    this._provider = clientToProvider(publicClient)
     this._payments = payments
     this._withCDN = withCDN
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
-    this._warmStorageAddress = warmStorageAddress
     this._session = null
 
     // Initialize StorageManager
@@ -206,7 +132,7 @@ export class Synapse {
    * @returns The network type ('mainnet' or 'calibration')
    */
   getNetwork(): FilecoinNetworkType {
-    return this._network
+    return this._walletClient.chain.id === mainnet.id ? 'mainnet' : 'calibration'
   }
 
   /**
@@ -276,11 +202,27 @@ export class Synapse {
   }
 
   /**
+   * Gets the public client instance
+   * @returns The public client
+   */
+  getPublicClient(): Client<Transport, Chain> {
+    return this._publicClient
+  }
+
+  /**
+   * Gets the wallet client instance
+   * @returns The wallet client
+   */
+  getWalletClient(): Client<Transport, Chain, Account> {
+    return this._walletClient
+  }
+
+  /**
    * Gets the current chain ID
    * @returns The numeric chain ID
    */
   getChainId(): number {
-    return this._network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration
+    return this._walletClient.chain.id
   }
 
   /**
@@ -288,7 +230,7 @@ export class Synapse {
    * @returns The Warm Storage service address
    */
   getWarmStorageAddress(): string {
-    return this._warmStorageAddress
+    return this._warmStorageService.getAddress()
   }
 
   /**

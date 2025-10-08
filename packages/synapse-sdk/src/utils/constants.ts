@@ -2,9 +2,8 @@
  * Constants for the Synapse SDK
  */
 
-import { erc20Abi, multicall3Abi } from 'viem'
-import { erc20PermitAbi } from '../abis/erc20-permit.ts'
-import * as abis from '../abis/gen.ts'
+import { chains } from '@filoz/synapse-core'
+import { multicall3Abi } from 'viem'
 import type { FilecoinNetworkType } from '../types.ts'
 
 /**
@@ -30,34 +29,29 @@ export const CONTRACT_ABIS = {
   /**
    * ERC20 ABI - minimal interface needed for balance and approval operations
    */
-  ERC20: erc20Abi,
-
-  /**
-   * Minimal ERC20Permit ABI - for reading nonces() and version()
-   */
-  ERC20_PERMIT: erc20PermitAbi,
+  ERC20: chains.mainnet.contracts.usdfc.abi,
 
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: abis.paymentsAbi,
+  PAYMENTS: chains.mainnet.contracts.payments.abi,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
-  PDP_VERIFIER: abis.pdpVerifierAbi,
+  PDP_VERIFIER: chains.mainnet.contracts.pdp.abi,
 
   /**
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: abis.filecoinWarmStorageServiceAbi,
+  WARM_STORAGE: chains.mainnet.contracts.storage.abi,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: abis.filecoinWarmStorageServiceStateViewAbi,
+  WARM_STORAGE_VIEW: chains.mainnet.contracts.storageView.abi,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
@@ -67,12 +61,12 @@ export const CONTRACT_ABIS = {
   /**
    * ServiceProviderRegistry ABI - for provider management
    */
-  SERVICE_PROVIDER_REGISTRY: abis.serviceProviderRegistryAbi,
+  SERVICE_PROVIDER_REGISTRY: chains.mainnet.contracts.serviceProviderRegistry.abi,
 
   /**
    * SessionKeyRegistry ABI - for session key management
    */
-  SESSION_KEY_REGISTRY: abis.sessionKeyRegistryAbi,
+  SESSION_KEY_REGISTRY: chains.mainnet.contracts.sessionKeyRegistry.abi,
 } as const
 
 /**

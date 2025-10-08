@@ -17,7 +17,7 @@ import { sessionKeyRegistryCallHandler } from './session-key-registry.ts'
 import type { JSONRPCOptions, RpcRequest, RpcResponse } from './types.ts'
 import { warmStorageCallHandler, warmStorageViewCallHandler } from './warm-storage.ts'
 
-export const PRIVATE_KEYS = {
+export const PRIVATE_KEYS: Record<string, Hex> = {
   key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
   key2: '0x4123456789012345678901234567890123456789012345678901234567890123',
 }
@@ -101,6 +101,9 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       if (!options.eth_chainId) {
         throw new Error('eth_chainId is not defined')
       }
+      if (options.debug) {
+        console.debug('eth_chainId: calling function', 'with args', params)
+      }
       return options.eth_chainId
     }
     case 'eth_blockNumber': {
@@ -112,6 +115,9 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
     case 'eth_accounts':
       if (!options.eth_accounts) {
         throw new Error('eth_accounts is not defined')
+      }
+      if (options.debug) {
+        console.debug('eth_accounts: calling function', 'with args', params)
       }
       return options.eth_accounts
     case 'eth_getTransactionByHash': {

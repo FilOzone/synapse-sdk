@@ -4,12 +4,25 @@
  * Basic tests for Synapse class
  */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
-import { type Address, isAddressEqual, parseUnits } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  createPublicClient,
+  createWalletClient,
+  isAddressEqual,
+  parseUnits,
+  type Transport,
+  http as viemHttp,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base } from 'viem/chains'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
@@ -22,8 +35,8 @@ import { PING } from './mocks/ping.ts'
 const server = setup([])
 
 describe('Synapse', () => {
-  let signer: ethers.Signer
-  let provider: ethers.Provider
+  let walletClient: Client<Transport, Chain, Account>
+  let publicClient: Client<Transport, Chain>
   before(async () => {
     await server.start({ quiet: true })
   })
@@ -33,14 +46,23 @@ describe('Synapse', () => {
   })
   beforeEach(() => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+
+    walletClient = createWalletClient({
+      account: privateKeyToAccount(PRIVATE_KEYS.key1),
+      chain: calibration,
+      transport: viemHttp(),
+    })
+
+    publicClient = createPublicClient({
+      chain: calibration,
+      transport: viemHttp(),
+    })
   })
 
   describe('Instantiation', () => {
     it('should create instance with signer', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
       assert.exists(synapse)
       assert.exists(synapse.payments)
       assert.isTrue(synapse.payments instanceof PaymentsService)
@@ -48,100 +70,38 @@ describe('Synapse', () => {
 
     it('should create instance with provider', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ provider })
+      const synapse = await Synapse.create({ client: walletClient, transportConfig: publicClient.transport })
       assert.exists(synapse)
       assert.exists(synapse.payments)
       assert.isTrue(synapse.payments instanceof PaymentsService)
-    })
-
-    it('should create instance with private key', async () => {
-      server.use(JSONRPC(presets.basic))
-      const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-      const rpcURL = 'https://api.calibration.node.glif.io/rpc/v1'
-      const synapse = await Synapse.create({ privateKey, rpcURL })
-      assert.exists(synapse)
-      assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof PaymentsService)
-    })
-
-    it('should apply NonceManager by default', async () => {
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
-      assert.exists(synapse)
-      // We can't directly check if NonceManager is applied, but we can verify the instance is created
-    })
-
-    it('should allow disabling NonceManager', async () => {
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({
-        signer,
-        disableNonceManager: true,
-      })
-      assert.exists(synapse)
-      // We can't directly check if NonceManager is not applied, but we can verify the instance is created
+      assert.equal(synapse.getPublicClient().transport.url, 'https://api.calibration.node.glif.io/rpc/v1')
     })
 
     it.skip('should allow enabling CDN', async () => {
       // Skip this test as it requires real contract interactions
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
         withCDN: true,
       })
       const storageService = await synapse.createStorage()
       assert.exists(storageService)
       // CDN is part of the storage service configuration
     })
-
-    it('should reject when no authentication method provided', async () => {
-      try {
-        await Synapse.create({} as any)
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'Must provide exactly one of')
-      }
-    })
-
-    it('should reject when multiple authentication methods provided', async () => {
-      try {
-        await Synapse.create({
-          privateKey: '0x123',
-          provider,
-          rpcURL: 'https://example.com',
-        } as any)
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'Must provide exactly one of')
-      }
-    })
-
-    it('should reject privateKey without rpcURL', async () => {
-      try {
-        await Synapse.create({
-          privateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        })
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'rpcURL is required when using privateKey')
-      }
-    })
   })
 
   describe('Network validation', () => {
-    it('should reject unsupported networks', async () => {
-      // Create mock provider with unsupported chain ID
-      // const unsupportedProvider = createMockProvider(999999)
-      server.use(
-        JSONRPC({
-          ...presets.basic,
-          eth_chainId: '999999',
-        })
-      )
+    it('should reject create with unsupported chain', async () => {
       try {
-        await Synapse.create({ provider })
-        assert.fail('Should have thrown for unsupported network')
+        await Synapse.create({
+          client: createWalletClient({
+            account: privateKeyToAccount(PRIVATE_KEYS.key1),
+            chain: base,
+            transport: viemHttp(),
+          }),
+        })
+        assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Unsupported network')
-        assert.include(error.message, '999999')
+        assert.include(error.message, 'Unsupported chain: 8453')
       }
     })
 
@@ -152,75 +112,15 @@ describe('Synapse', () => {
           eth_chainId: '314159',
         })
       )
-      const synapse = await Synapse.create({ provider })
+      const synapse = await Synapse.create({ client: walletClient })
       assert.exists(synapse)
-    })
-
-    it('should accept mainnet with custom warmStorage address', async () => {
-      server.use(
-        JSONRPC({
-          ...presets.basic,
-          eth_chainId: '314',
-        })
-      )
-      const synapse = await Synapse.create({
-        provider,
-        warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
-        pdpVerifierAddress: '0x9876543210987654321098765432109876543210', // Custom PDPVerifier address for mainnet
-      })
-      assert.exists(synapse)
-    })
-
-    // custom addresses are not used anymore in the SDK
-    it.skip('should accept custom pdpVerifierAddress', async () => {
-      const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
-      server.use(
-        JSONRPC({
-          ...presets.basic,
-          warmStorage: {
-            pdpVerifierAddress: () => [customPDPVerifierAddress],
-          },
-        })
-      )
-
-      const synapse = await Synapse.create({
-        provider,
-        pdpVerifierAddress: customPDPVerifierAddress,
-      })
-      assert.exists(synapse)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
-    })
-
-    // theres no default pdpVerifierAddress in the SDK anymore
-    it.skip('should use default pdpVerifierAddress when not provided', async () => {
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({
-        provider,
-      })
-      assert.exists(synapse)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, ADDRESSES.calibration.pdpVerifier))
-    })
-
-    // custom addresses are not used anymore in the SDK
-    it.skip('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
-      const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
-
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({
-        provider,
-        warmStorageAddress: ADDRESSES.mainnet.warmStorage,
-        pdpVerifierAddress: customPDPVerifierAddress,
-      })
-      assert.exists(synapse)
-      assert.equal(synapse.getWarmStorageAddress(), ADDRESSES.mainnet.warmStorage)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
     })
   })
 
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
 
       // Should be able to access storage manager
       assert.exists(synapse.storage)
@@ -237,7 +137,7 @@ describe('Synapse', () => {
     it('should create storage manager with CDN settings', async () => {
       server.use(JSONRPC(presets.basic))
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
         withCDN: true,
       })
 
@@ -249,7 +149,7 @@ describe('Synapse', () => {
 
     it('should return same storage manager instance', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
 
       const storage1 = synapse.storage
       const storage2 = synapse.storage
@@ -387,7 +287,7 @@ describe('Synapse', () => {
   describe('Payment access', () => {
     it('should provide read-only access to payments', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
 
       // Should be able to access payments
       assert.exists(synapse.payments)
@@ -411,7 +311,7 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       server.use(JSONRPC(presets.basic))
 
-      const synapse = await Synapse.create({ provider })
+      const synapse = await Synapse.create({ client: walletClient })
       const providerInfo = await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
 
       assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, ADDRESSES.serviceProvider1))
@@ -420,7 +320,7 @@ describe('Synapse', () => {
 
     it('should throw for invalid provider address', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
 
       try {
         await synapse.getProviderInfo('invalid-address')
@@ -445,7 +345,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client: walletClient })
         await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -474,7 +374,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client: walletClient })
         await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -486,7 +386,7 @@ describe('Synapse', () => {
   describe('download', () => {
     it('should validate PieceCID input', async () => {
       server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
 
       try {
         await synapse.download('invalid-piece-link')
@@ -516,7 +416,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
       })
 
       // Use the actual PieceCID for 'test data'
@@ -551,7 +451,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
         withCDN: false, // Instance default
       })
 
@@ -599,7 +499,7 @@ describe('Synapse', () => {
         })
       )
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -618,7 +518,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client: walletClient,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -639,7 +539,7 @@ describe('Synapse', () => {
     it('should return comprehensive storage information', async () => {
       server.use(JSONRPC({ ...presets.basic }))
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
       const storageInfo = await synapse.getStorageInfo()
 
       // Check pricing
@@ -681,7 +581,7 @@ describe('Synapse', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
       const storageInfo = await synapse.getStorageInfo()
 
       // Should still return data with null allowances
@@ -731,7 +631,7 @@ describe('Synapse', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client: walletClient })
       const storageInfo = await synapse.getStorageInfo()
 
       // Should filter out zero address provider
@@ -752,7 +652,7 @@ describe('Synapse', () => {
         })
       )
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client: walletClient })
         await synapse.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
