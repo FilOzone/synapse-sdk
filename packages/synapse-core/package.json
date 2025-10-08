@@ -1,0 +1,111 @@
+{
+  "name": "@filoz/synapse-core",
+  "version": "0.0.1",
+  "description": "JavaScript Standard Library for Filecoin Onchain Cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "synapse",
+    "filecoin pay",
+    "filecoin onchain cloud",
+    "web3"
+  ],
+  "author": "Hugo Dias <hugomrdias@gmail.com>",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/main/packages/synapse-core",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./chains": {
+      "types": "./dist/src/chains.d.ts",
+      "default": "./dist/src/chains.js"
+    },
+    "./utils": {
+      "types": "./dist/src/utils.d.ts",
+      "default": "./dist/src/utils.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "chains": [
+        "./dist/src/chains"
+      ],
+      "utils": [
+        "./dist/src/utils"
+      ]
+    }
+  },
+  "files": [
+    "src",
+    "dist/src",
+    "dist/src/**/*.d.ts",
+    "dist/src/**/*.d.ts.map"
+  ],
+  "scripts": {
+    "generate-abi": "wagmi generate",
+    "build": "wireit",
+    "lint": "wireit",
+    "test": "pnpm run lint && pnpm run test:node",
+    "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
+    "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "files": [
+        "src/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "~2.2.5",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.6.2",
+    "@wagmi/cli": "^2.6.0",
+    "mocha": "^11.7.4",
+    "msw": "~2.10.5",
+    "p-defer": "^4.0.1",
+    "playwright-test": "^14.1.12",
+    "type-fest": "^5.0.1",
+    "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "msw": {
+    "workerDirectory": [
+      "src/test/mocks"
+    ]
+  },
+  "peerDependencies": {
+    "viem": "2.x",
+    "ethers": "6.x"
+  }
+}
