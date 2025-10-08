@@ -85,7 +85,7 @@
       ]
     },
     "test:node": {
-      "command": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
+      "command": "playwright-test 'src/test/**/*.test.ts' --mode node",
       "files": [
         "src/**/*.ts"
       ],
@@ -95,7 +95,7 @@
       ]
     },
     "test:browser": {
-      "command": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
+      "command": "playwright-test 'src/test/**/*.test.ts' --assets ./src/test/mocks",
       "files": [
         "src/**/*.ts"
       ],
