@@ -1260,7 +1260,7 @@ export class StorageContext {
     return dataSetData.pieces.map((piece) => piece.pieceCid)
   }
 
-  async _getPieceIdByCID(pieceCID: string | PieceCID): Promise<number> {
+  private async _getPieceIdByCID(pieceCID: string | PieceCID): Promise<number> {
     const parsedPieceCID = asPieceCID(pieceCID)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
