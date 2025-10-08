@@ -19,6 +19,7 @@ const server = setup([])
 
 describe('PDPServer', () => {
   let pdpServer: PDPServer
+  let signer: ethers.Wallet
   let authHelper: PDPAuthHelper
   let serverUrl: string
 
@@ -38,7 +39,7 @@ describe('PDPServer', () => {
     server.resetHandlers()
 
     // Create test signer and auth helper
-    const signer = new ethers.Wallet(TEST_PRIVATE_KEY)
+    signer = new ethers.Wallet(TEST_PRIVATE_KEY)
     authHelper = new PDPAuthHelper(TEST_CONTRACT_ADDRESS, signer, BigInt(TEST_CHAIN_ID))
 
     // Start mock server
@@ -84,6 +85,7 @@ describe('PDPServer', () => {
       const result = await pdpServer.createDataSet(
         0, // clientDataSetId
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        await signer.getAddress(), // payer
         [], // metadata (empty for no CDN)
         TEST_CONTRACT_ADDRESS // recordKeeper
       )

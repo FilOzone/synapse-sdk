@@ -159,6 +159,7 @@ export class PDPServer {
   async createDataSet(
     clientDataSetId: number,
     payee: string,
+    payer: string,
     metadata: MetadataEntry[],
     recordKeeper: string
   ): Promise<CreateDataSetResponse> {
@@ -171,7 +172,7 @@ export class PDPServer {
     // Prepare the extra data for the contract call
     // This needs to match the DataSetCreateData struct in Warm Storage contract
     const extraData = this._encodeDataSetCreateData({
-      payer: await this.getAuthHelper().getSignerAddress(),
+      payer,
       metadata,
       signature: authData.signature,
     })

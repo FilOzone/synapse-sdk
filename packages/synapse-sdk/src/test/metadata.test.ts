@@ -65,7 +65,8 @@ describe('Metadata Support', () => {
 
       const result = await pdpServer.createDataSet(
         1,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         dataSetMetadata,
         TEST_CONTRACT_ADDRESS
       )
@@ -156,7 +157,8 @@ describe('Metadata Support', () => {
 
       await pdpServer.createDataSet(
         1,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         metadataWithCDN,
         TEST_CONTRACT_ADDRESS
       )
@@ -170,7 +172,8 @@ describe('Metadata Support', () => {
 
       await pdpServer.createDataSet(
         1,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         metadataWithoutCDN,
         TEST_CONTRACT_ADDRESS
       )

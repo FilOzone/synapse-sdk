@@ -247,7 +247,7 @@ export class StorageContext {
     performance.mark('synapse:createDataSet-start')
 
     const signer = synapse.getSigner()
-    const signerAddress = await signer.getAddress()
+    const [signerAddress, clientAddress] = await Promise.all([signer.getAddress(), synapse.getClient().getAddress()])
 
     // Create a new data set
 
@@ -276,7 +276,13 @@ export class StorageContext {
 
     // Create the data set through the provider
     performance.mark('synapse:pdpServer.createDataSet-start')
-    const createResult = await pdpServer.createDataSet(nextDatasetId, provider.payee, finalMetadata, warmStorageAddress)
+    const createResult = await pdpServer.createDataSet(
+      nextDatasetId,
+      provider.payee,
+      clientAddress,
+      finalMetadata,
+      warmStorageAddress
+    )
     performance.mark('synapse:pdpServer.createDataSet-end')
     performance.measure(
       'synapse:pdpServer.createDataSet',
