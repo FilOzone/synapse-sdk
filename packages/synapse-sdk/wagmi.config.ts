@@ -2,6 +2,9 @@ import { defineConfig } from '@wagmi/cli'
 import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
+const GIT_REF = 'tags/alpha/calibnet/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348-v2'
+const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/${GIT_REF}/service_contracts/abi`
+
 const config = defineConfig(() => {
   const contracts = [
     {
@@ -56,11 +59,8 @@ const config = defineConfig(() => {
           contracts,
           cacheDuration: 100,
           request(contract) {
-            const baseUrl =
-              'https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/tags/alpha/calibnet/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348-v2/service_contracts/abi'
-
             return {
-              url: `${baseUrl}/${contract.name}.abi.json`,
+              url: `${BASE_URL}/${contract.name}.abi.json`,
             }
           },
         }),
