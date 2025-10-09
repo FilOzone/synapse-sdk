@@ -1,6 +1,20 @@
-export function randU256(): bigint {
-  //TODO
+const crypto = globalThis.crypto
+
+export function fallbackRandU256(): bigint {
+  // TODO
   return BigInt(0)
+}
+
+export function randU256(): bigint {
+  if (crypto?.getRandomValues != null) {
+    return BigInt(0)
+  } else {
+    return fallbackRandU256()
+  }
+}
+
+export function fallbackRandIndex(length: number): number {
+  return Math.floor(Math.random() * length)
 }
 
 /**
@@ -8,13 +22,12 @@ export function randU256(): bigint {
  *
  */
 export function randIndex(length: number): number {
-  // Try crypto.getRandomValues if available (HTTPS contexts)
-  if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
+  // Try crypto.getRandomValues if available
+  if (crypto?.getRandomValues != null) {
     const randomBytes = new Uint32Array(1)
-    globalThis.crypto.getRandomValues(randomBytes)
+    crypto.getRandomValues(randomBytes)
     return randomBytes[0] % length
   } else {
-    // Fallback for HTTP contexts - use multiple entropy sources
-    return Math.floor(Math.random() * length)
+    return fallbackRandIndex(length)
   }
 }
