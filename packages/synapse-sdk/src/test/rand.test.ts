@@ -35,6 +35,7 @@ randIndexMethods.forEach((randIndexMethod) => {
           counts[j][index & 1]++
           index >>= 1
         }
+        assert.equal(index, 0)
       }
       // this test can fail probabilistically but the probability is low
       // each bit should be independent with 50% likelihood
@@ -57,12 +58,12 @@ randU256Methods.forEach((randU256Method) => {
         counts.push([0, 0])
       }
       for (let j = 0; j < 32; j++) {
-        let rand = randU256()
+        let rand = randU256Method()
         for (let i = 0; i < 256; i++) {
           counts[i][Number(rand & 1n)]++
           rand >>= 1n
         }
-        assert.equal(rand, BigInt(0))
+        assert.equal(rand, 0n)
       }
       // this test can fail probabilistically but the probability is low
       // each bit should be independent with 50% likelihood

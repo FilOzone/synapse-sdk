@@ -7,7 +7,14 @@ export function fallbackRandU256(): bigint {
 
 export function randU256(): bigint {
   if (crypto?.getRandomValues != null) {
-    return BigInt(0)
+    const randU64s = new BigUint64Array(4)
+    crypto.getRandomValues(randU64s)
+    let result = 0n
+    randU64s.forEach((randU64) => {
+      result <<= 64n
+      result |= randU64
+    })
+    return result
   } else {
     return fallbackRandU256()
   }
