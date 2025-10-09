@@ -158,7 +158,7 @@ export class PDPServer {
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createDataSet(
-    clientDataSetId: number,
+    clientDataSetId: number | bigint,
     payee: string,
     payer: string,
     metadata: MetadataEntry[],
