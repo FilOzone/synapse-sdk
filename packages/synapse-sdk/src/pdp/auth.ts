@@ -95,16 +95,14 @@ export class PDPAuthHelper {
         return true
       }
 
-      // Check for window.ethereum (browser environment)
-      if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
-        const win = globalThis as any
-        if (win.window?.ethereum != null) {
-          return true
-        }
+      // If it's a JsonRpcProvider or WebSocketProvider, it's not a browser provider
+      // These can sign locally with a wallet
+      if (provider instanceof ethers.JsonRpcProvider || provider instanceof ethers.WebSocketProvider) {
+        return false
       }
 
-      // Check for provider with send method
-      if ('send' in provider || 'request' in provider) {
+      // For any other provider with request method (potential EIP-1193 provider)
+      if ('request' in provider && typeof (provider as any).request === 'function') {
         return true
       }
     } catch {
