@@ -22,7 +22,7 @@ randIndexMethods.forEach((randIndexMethod) => {
       assert.isAtLeast(counts[0], 1)
       assert.isAtLeast(counts[1], 1)
     })
-    it('has at least 10 bits of entropy', () => {
+    it('has at least 10 random bits', () => {
       const counts = []
       for (let i = 0; i < 10; i++) {
         counts.push([0, 0])
@@ -49,11 +49,30 @@ randIndexMethods.forEach((randIndexMethod) => {
 })
 
 const randU256Methods = [randU256, fallbackRandU256]
+const BIG_ONE = BigInt(1)
 randU256Methods.forEach((randU256Method) => {
   describe(randU256Method.name, () => {
-    // TODO
-    it('currently only returns 0', () => {
-      assert.equal(randU256Method(), BigInt(0))
+    it('has 256 random bits', () => {
+      const counts = []
+      for (let i = 0; i < 256; i++) {
+        counts.push([0, 0])
+      }
+      for (let j = 0; j < 32; j++) {
+        let rand = randU256()
+        for (let i = 0; i < 256; i++) {
+          counts[i][Number(rand & BIG_ONE)]++
+          rand >>= BIG_ONE
+        }
+        assert.equal(rand, BigInt(0))
+      }
+      // this test can fail probabilistically but the probability is low
+      // each bit should be independent with 50% likelihood
+      // the probability of getting the same bitvalue N times is 2**(1-N)
+      // so if this test fails, the 50% assumption is likely wrong
+      for (let i = 0; i < 256; i++) {
+        assert.isAtLeast(counts[i][0], 1)
+        assert.isAtLeast(counts[i][1], 1)
+      }
     })
   })
 })
