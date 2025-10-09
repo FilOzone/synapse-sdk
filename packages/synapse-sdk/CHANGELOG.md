@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.31.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.30.1...synapse-sdk-v0.31.0) (2025-10-09)
+
+
+### Features
+
+* **sp-tool:** add full PDP offering updates and capabilities ([#294](https://github.com/FilOzone/synapse-sdk/issues/294)) ([e71fb8c](https://github.com/FilOzone/synapse-sdk/commit/e71fb8ca43d1f0f8621cf424529681370167a8d0))
+
 ## [0.30.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.30.0...synapse-sdk-v0.30.1) (2025-10-09)
 
 
