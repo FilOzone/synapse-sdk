@@ -147,6 +147,11 @@ function validateDNLocation(location) {
   return true
 }
 
+// Normalize capability option to array
+function normalizeCapabilities(capabilityOption) {
+  return Array.isArray(capabilityOption) ? capabilityOption : capabilityOption ? [capabilityOption] : []
+}
+
 // Validate PDP input parameters
 function validatePDPInputs(options) {
   // Validate service URL format
@@ -231,7 +236,7 @@ function validatePDPInputs(options) {
 
   // Validate capability format (key=value)
   if (options.capability) {
-    const capabilities = Array.isArray(options.capability) ? options.capability : [options.capability]
+    const capabilities = normalizeCapabilities(options.capability)
     for (const cap of capabilities) {
       const tokens = cap.split('=')
       if (tokens.length !== 2 || tokens[0].length === 0 || tokens[1].length === 0) {
@@ -435,11 +440,7 @@ async function handleRegister(provider, signer, options) {
     })
 
     // Prepare capability arrays from --capability flags
-    const capabilities = Array.isArray(options.capability)
-      ? options.capability
-      : options.capability
-        ? [options.capability]
-        : []
+    const capabilities = normalizeCapabilities(options.capability)
     const capabilityKeys = []
     const capabilityValues = []
     for (const cap of capabilities) {
@@ -592,11 +593,7 @@ async function handlePDPUpdate(registry, signer, options, provider) {
 
   // Prepare capabilities from --capability flags (preserve existing ones)
   const capabilities = { ...(currentPDP?.capabilities || {}) }
-  const capabilityList = Array.isArray(options.capability)
-    ? options.capability
-    : options.capability
-      ? [options.capability]
-      : []
+  const capabilityList = normalizeCapabilities(options.capability)
   for (const cap of capabilityList) {
     const [key, value] = cap.split('=')
     capabilities[key] = value
@@ -766,7 +763,7 @@ PDP Service Options (register/update):
   --price <amount>          Storage price per TiB per month in USDFC base units (18 decimals)
                             Example: "5000000000000000000" = 5 USDFC per TiB per month
   --min-piece-size <bytes>  Minimum piece size in bytes (default: 127)
-  --max-piece-size <bytes>  Maximum piece size in bytes (default: ~1 GiB fr32-adjusted)
+  --max-piece-size <bytes>  Maximum piece size in bytes (default: ~32 GiB fr32-adjusted)
   --ipni-piece <bool>       Enable IPNI piece discovery (true/false, default: true)
   --ipni-ipfs <bool>        Enable IPNI IPFS content (true/false, default: true)
   --min-proving-period <n>  Minimum proving period in epochs (default: 30)
@@ -892,7 +889,11 @@ Examples:
   } finally {
     // Clean up provider connection (important for WebSocket providers)
     if (provider && typeof provider.destroy === 'function') {
-      await provider.destroy()
+      try {
+        await provider.destroy()
+      } catch {
+        // Ignore cleanup errors (e.g., WebSocket already closed)
+      }
     }
   }
 }
