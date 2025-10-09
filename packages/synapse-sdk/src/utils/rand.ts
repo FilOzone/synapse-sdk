@@ -10,7 +10,7 @@ export function randU256(): bigint {
 export function randIndex(length: number): number {
   // Try crypto.getRandomValues if available (HTTPS contexts)
   if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
-    const randomBytes = new Uint8Array(1)
+    const randomBytes = new Uint32Array(1)
     globalThis.crypto.getRandomValues(randomBytes)
     return randomBytes[0] % length
   } else {
