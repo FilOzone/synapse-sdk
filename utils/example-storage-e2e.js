@@ -27,7 +27,7 @@ import {
   SIZE_CONSTANTS,
   Synapse,
   TIME_CONSTANTS,
-} from '../packages/synapse-sdk/dist/src/index.js'
+} from '../packages/synapse-sdk/src/index.ts'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
