@@ -160,11 +160,11 @@ export class Synapse {
    * @param sessionKeySigner The signer for the session key
    * @returns The SessionKey object for this signer
    */
-  createSessionKey(sessionKeySigner: ethers.Signer): SessionKey {
+  createSessionKey(client: Client<Transport, Chain, Account>): SessionKey {
     return new SessionKey(
       this._provider,
       this._warmStorageService.getSessionKeyRegistryAddress(),
-      sessionKeySigner,
+      walletClientToSigner(client),
       this._signer
     )
   }

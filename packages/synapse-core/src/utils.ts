@@ -1,4 +1,4 @@
-import { BrowserProvider, FallbackProvider, JsonRpcProvider, JsonRpcSigner } from 'ethers'
+import { BrowserProvider, FallbackProvider, JsonRpcProvider, JsonRpcSigner, Wallet } from 'ethers'
 import {
   type Account,
   type Chain,
@@ -45,14 +45,26 @@ export function clientToProvider(client: Client<Transport, Chain>) {
  */
 export function walletClientToSigner(client: Client<Transport, Chain, Account>) {
   const { account, chain, transport } = client
+
   const network = {
     chainId: chain.id,
     name: chain.name,
     ensAddress: chain.contracts?.ensRegistry?.address,
   }
-  const provider = new BrowserProvider(transport, network)
-  const signer = new JsonRpcSigner(provider, account.address)
-  return signer
+
+  if (account.type === 'json-rpc') {
+    const provider = new BrowserProvider(transport, network)
+    const signer = new JsonRpcSigner(provider, account.address)
+    return signer
+  } else if (account.type === 'local') {
+    const provider = new JsonRpcProvider(transport.url, network)
+    // @ts-ignore
+    const signer = new Wallet(account.privateKey, provider)
+
+    return signer
+  } else {
+    throw new Error('Unsupported account type')
+  }
 }
 
 /**

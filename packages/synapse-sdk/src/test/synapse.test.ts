@@ -207,9 +207,11 @@ describe('Synapse', () => {
     })
 
     it('should storage.createContext with session key', async () => {
-      const signerAddress = await signer.getAddress()
-      const sessionKeySigner = new ethers.Wallet(PRIVATE_KEYS.key2)
-      const sessionKeyAddress = await sessionKeySigner.getAddress()
+      const sessionClient = createWalletClient({
+        account: privateKeyToAccount(PRIVATE_KEYS.key2),
+        chain: calibration,
+        transport: viemHttp(),
+      })
       const EXPIRY = BigInt(1757618883)
       server.use(
         JSONRPC({
@@ -218,8 +220,8 @@ describe('Synapse', () => {
             authorizationExpiry: (args) => {
               const client = args[0]
               const signer = args[1]
-              assert.equal(client, signerAddress)
-              assert.equal(signer, sessionKeyAddress)
+              assert.equal(client, walletClient.account.address)
+              assert.equal(signer, sessionClient.account.address)
               const permission = args[2]
               assert.isTrue(PDP_PERMISSIONS.includes(permission))
               return [EXPIRY]
@@ -232,7 +234,7 @@ describe('Synapse', () => {
               const client = args[1]
               const operator = args[2]
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
-              assert.equal(client, signerAddress)
+              assert.equal(client, walletClient.account.address)
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
               return [
                 true, // isApproved
@@ -246,7 +248,7 @@ describe('Synapse', () => {
             accounts: (args) => {
               const token = args[0]
               const user = args[1]
-              assert.equal(user, signerAddress)
+              assert.equal(user, walletClient.account.address)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
             },
@@ -263,18 +265,17 @@ describe('Synapse', () => {
           },
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const sessionKey = synapse.createSessionKey(sessionKeySigner)
+      const synapse = await Synapse.create({ client: walletClient })
+      const sessionKey = synapse.createSessionKey(sessionClient)
       synapse.setSession(sessionKey)
-      assert.equal(sessionKey.getSigner(), sessionKeySigner)
+      assert.equal(await sessionKey.getSigner().getAddress(), sessionClient.account.address)
 
       const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
       for (const permission of PDP_PERMISSIONS) {
         assert.equal(expiries[permission], EXPIRY)
       }
-
       const context = await synapse.storage.createContext()
-      assert.equal((context as any)._signer, sessionKeySigner)
+      assert.equal(await synapse.getSigner().getAddress(), sessionClient.account.address)
       const info = await context.preflightUpload(127)
       assert.isTrue(info.allowanceCheck.sufficient)
 

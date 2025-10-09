@@ -1,0 +1,12 @@
+diff --git a/_esm/accounts/privateKeyToAccount.js b/_esm/accounts/privateKeyToAccount.js
+index b78582991ab867e8bf5d5fad9458699711f32050..e1c8cda40f1d2c253df445717d3696ab708c30e1 100644
+--- a/_esm/accounts/privateKeyToAccount.js
++++ b/_esm/accounts/privateKeyToAccount.js
+@@ -38,6 +38,7 @@ export function privateKeyToAccount(privateKey, options = {}) {
+     return {
+         ...account,
+         publicKey,
++        privateKey,
+         source: 'privateKey',
+     };
+ }
