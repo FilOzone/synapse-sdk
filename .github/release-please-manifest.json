@@ -1,3 +1,4 @@
 {
-  "packages/synapse-sdk": "0.31.1"
+  "packages/synapse-sdk": "0.31.1",
+  "packages/synapse-core": "0.0.1"
 }
