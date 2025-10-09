@@ -10,10 +10,22 @@
  */
 
 import { ethers } from 'ethers'
-import { SPRegistryService } from '../dist/sp-registry/index.js'
-import { CONTRACT_ADDRESSES, RPC_URLS } from '../dist/utils/constants.js'
-import { getFilecoinNetworkType } from '../dist/utils/network.js'
-import { WarmStorageService } from '../dist/warm-storage/index.js'
+import { SPRegistryService } from '../packages/synapse-sdk/dist/src/sp-registry/index.js'
+import { CONTRACT_ADDRESSES, RPC_URLS } from '../packages/synapse-sdk/dist/src/utils/constants.js'
+import { getFilecoinNetworkType } from '../packages/synapse-sdk/dist/src/utils/network.js'
+import { WarmStorageService } from '../packages/synapse-sdk/dist/src/warm-storage/index.js'
+
+// Default PDP offering values
+const PDP_DEFAULTS = {
+  MIN_PIECE_SIZE: 127n,
+  MAX_PIECE_SIZE: (32n * 1024n ** 3n * 126n) / 127n, // ~32 GiB adjusted for fr32 padding (127/126 expansion)
+  IPNI_PIECE: true,
+  IPNI_IPFS: true,
+  STORAGE_PRICE_PER_TIB_PER_MONTH: 5000000000000000000n, // 5 USDFC (18 decimals)
+  MIN_PROVING_PERIOD_EPOCHS: 30, // 30 epochs (15 minutes on calibnet)
+  LOCATION: '',
+  // PAYMENT_TOKEN_ADDRESS resolved dynamically from CONTRACT_ADDRESSES.USDFC[network]
+}
 
 // Parse command line arguments
 function parseArgs() {
@@ -26,7 +38,15 @@ function parseArgs() {
       const key = args[i].substring(2)
       const value = args[i + 1]
       if (value && !value.startsWith('--')) {
-        options[key] = value
+        // Handle repeated --capability flags by collecting them in an array
+        if (key === 'capability') {
+          if (!options.capability) {
+            options.capability = []
+          }
+          options.capability.push(value)
+        } else {
+          options[key] = value
+        }
         i++
       } else {
         options[key] = true
@@ -65,23 +85,213 @@ async function getRegistryService(provider, options) {
   return new SPRegistryService(provider, registryAddress)
 }
 
+// Validate Distinguished Name (DN) format for location
+function validateDNLocation(location) {
+  if (!location) {
+    return true // Optional field
+  }
+
+  // Split by semicolon
+  const parts = location.split(';')
+  const dnMap = new Map()
+  const allowedKeys = new Set(['C', 'ST', 'L'])
+
+  for (const part of parts) {
+    // Split each token by =
+    const tokens = part.split('=')
+
+    // Must yield exactly 2 non-zero length strings
+    if (tokens.length !== 2 || tokens[0].length === 0 || tokens[1].length === 0) {
+      console.error(
+        `Error: Invalid DN format for --location. Each component must be in key=value format.\nExample: "C=US;ST=California;L=San Francisco"`
+      )
+      process.exit(1)
+    }
+
+    const key = tokens[0]
+    const value = tokens[1]
+
+    // Reject leading or trailing spaces on keys or values
+    if (key !== key.trim() || value !== value.trim()) {
+      console.error(
+        `Error: --location keys and values must not have leading or trailing spaces.\nFound: "${part}"\nExample: "C=US;ST=California;L=San Francisco"`
+      )
+      process.exit(1)
+    }
+
+    // Check for allowed keys (case sensitive)
+    if (!allowedKeys.has(key)) {
+      console.error(
+        `Error: Invalid DN key "${key}" in --location. Only C (country), ST (state/province), and L (locality) are allowed.\nExample: "C=US;ST=California;L=San Francisco"`
+      )
+      process.exit(1)
+    }
+
+    // Check for duplicates
+    if (dnMap.has(key)) {
+      console.error(`Error: Duplicate key "${key}" in --location. Each key can only appear once.`)
+      process.exit(1)
+    }
+
+    dnMap.set(key, value)
+  }
+
+  // Require C= (country)
+  if (!dnMap.has('C')) {
+    console.error(
+      `Error: --location must include C= (country) component.\nExample: "C=US;ST=California;L=San Francisco"`
+    )
+    process.exit(1)
+  }
+
+  return true
+}
+
+// Validate PDP input parameters
+function validatePDPInputs(options) {
+  // Validate service URL format
+  if (options['service-url']) {
+    try {
+      const url = new URL(options['service-url'])
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        console.error('Error: --service-url must use HTTP or HTTPS protocol')
+        process.exit(1)
+      }
+      // Warn about HTTP for production networks
+      if (url.protocol === 'http:') {
+        console.warn('Warning: HTTP URLs are acceptable for testing only. Use HTTPS for calibnet/mainnet.')
+      }
+    } catch {
+      console.error('Error: --service-url must be a valid URL')
+      process.exit(1)
+    }
+  }
+
+  // Validate numeric inputs
+  if (options.price) {
+    try {
+      const price = BigInt(options.price)
+      if (price < 0n) {
+        console.error('Error: --price must be a positive number')
+        process.exit(1)
+      }
+    } catch {
+      console.error('Error: --price must be a valid number (in USDFC base units)')
+      process.exit(1)
+    }
+  }
+
+  if (options['min-piece-size']) {
+    const minSize = Number(options['min-piece-size'])
+    if (!Number.isInteger(minSize) || minSize <= 0) {
+      console.error('Error: --min-piece-size must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  if (options['max-piece-size']) {
+    const maxSize = Number(options['max-piece-size'])
+    if (!Number.isInteger(maxSize) || maxSize <= 0) {
+      console.error('Error: --max-piece-size must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  if (options['min-proving-period']) {
+    const period = Number(options['min-proving-period'])
+    if (!Number.isInteger(period) || period <= 0) {
+      console.error('Error: --min-proving-period must be a positive integer')
+      process.exit(1)
+    }
+  }
+
+  // Validate boolean inputs
+  if (options['ipni-piece'] !== undefined && !['true', 'false'].includes(options['ipni-piece'])) {
+    console.error('Error: --ipni-piece must be "true" or "false"')
+    process.exit(1)
+  }
+
+  if (options['ipni-ipfs'] !== undefined && !['true', 'false'].includes(options['ipni-ipfs'])) {
+    console.error('Error: --ipni-ipfs must be "true" or "false"')
+    process.exit(1)
+  }
+
+  // Validate payment token address format (basic check)
+  if (options['payment-token']) {
+    if (!/^0x[a-fA-F0-9]{40}$/.test(options['payment-token'])) {
+      console.error('Error: --payment-token must be a valid Ethereum address (0x followed by 40 hex characters)')
+      process.exit(1)
+    }
+  }
+
+  // Validate location format (Distinguished Name)
+  if (options.location) {
+    validateDNLocation(options.location)
+  }
+
+  // Validate capability format (key=value)
+  if (options.capability) {
+    const capabilities = Array.isArray(options.capability) ? options.capability : [options.capability]
+    for (const cap of capabilities) {
+      const tokens = cap.split('=')
+      if (tokens.length !== 2 || tokens[0].length === 0 || tokens[1].length === 0) {
+        console.error(`Error: --capability must be in key=value format. Got: "${cap}"`)
+        process.exit(1)
+      }
+      // Check for leading/trailing spaces
+      if (tokens[0] !== tokens[0].trim() || tokens[1] !== tokens[1].trim()) {
+        console.error(`Error: --capability keys and values must not have leading or trailing spaces.\nFound: "${cap}"`)
+        process.exit(1)
+      }
+    }
+  }
+}
+
 // Format provider info for display
 function formatProvider(provider) {
   const product = provider.products?.PDP
-  const price = product?.data?.storagePricePerTibPerMonth
-    ? ethers.formatUnits(product.data.storagePricePerTibPerMonth, 18)
-    : 'N/A'
-  const serviceURL = product?.data?.serviceURL || 'Not configured'
-  return `
+  const pdpOffering = product?.data
+
+  let output = `
 Provider #${provider.id}:
   Name: ${provider.name}
   Description: ${provider.description}
   Service Provider: ${provider.serviceProvider}
   Payee: ${provider.payee}
-  HTTP Endpoint: ${serviceURL}
   Active: ${provider.active}
-  PDP Service: ${product?.isActive ? `Active (${price} USDFC/TiB/month)` : 'Not configured'}
 `
+
+  if (product?.isActive && pdpOffering) {
+    const price = ethers.formatUnits(pdpOffering.storagePricePerTibPerMonth, 18)
+    const minSize = pdpOffering.minPieceSizeInBytes.toString()
+    const maxSize = pdpOffering.maxPieceSizeInBytes.toString()
+
+    output += `
+  PDP Service: Active
+    Service URL: ${pdpOffering.serviceURL}
+    Location: ${pdpOffering.location || '(not set)'}
+    Price: ${price} USDFC/TiB/month
+    Piece Size Range: ${minSize} - ${maxSize} bytes
+    IPNI Piece Discovery: ${pdpOffering.ipniPiece}
+    IPNI IPFS Indexing: ${pdpOffering.ipniIpfs}
+    Min Proving Period: ${pdpOffering.minProvingPeriodInEpochs} epochs
+    Payment Token: ${pdpOffering.paymentTokenAddress}
+`
+
+    // Display capabilities if any
+    const capabilities = product.capabilities || {}
+    const capabilityKeys = Object.keys(capabilities)
+    if (capabilityKeys.length > 0) {
+      output += `    Capabilities:\n`
+      for (const key of capabilityKeys) {
+        output += `      ${key}: ${capabilities[key]}\n`
+      }
+    }
+  } else {
+    output += `  PDP Service: Not configured\n`
+  }
+
+  return output
 }
 
 // WarmStorage command handlers
@@ -207,22 +417,36 @@ async function handleRegister(provider, signer, options) {
     const contract = registry._getRegistryContract().connect(signer)
     const registrationFee = await contract.REGISTRATION_FEE()
 
+    // Get network-specific USDFC address
+    const network = await getFilecoinNetworkType(provider)
+    const usdfcAddress = CONTRACT_ADDRESSES.USDFC[network]
+
     // Encode PDP offering
     const encodedOffering = await registry.encodePDPOffering({
       serviceURL: options.http,
-      minPieceSizeInBytes: BigInt(1024), // 1 KiB minimum
-      maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024), // 32 GiB maximum
-      ipniPiece: false, // Not using IPNI for piece discovery
-      ipniIpfs: false, // Not using IPNI for IPFS content
-      storagePricePerTibPerMonth: BigInt(1000000), // 1 USDFC per TiB per month
-      minProvingPeriodInEpochs: 30, // 30 epochs (15 minutes on calibnet)
-      location: options.location || 'unknown',
-      paymentTokenAddress: '0x0000000000000000000000000000000000000000', // Native token
+      minPieceSizeInBytes: PDP_DEFAULTS.MIN_PIECE_SIZE,
+      maxPieceSizeInBytes: PDP_DEFAULTS.MAX_PIECE_SIZE,
+      ipniPiece: PDP_DEFAULTS.IPNI_PIECE,
+      ipniIpfs: PDP_DEFAULTS.IPNI_IPFS,
+      storagePricePerTibPerMonth: PDP_DEFAULTS.STORAGE_PRICE_PER_TIB_PER_MONTH,
+      minProvingPeriodInEpochs: PDP_DEFAULTS.MIN_PROVING_PERIOD_EPOCHS,
+      location: options.location || PDP_DEFAULTS.LOCATION,
+      paymentTokenAddress: options['payment-token'] || usdfcAddress,
     })
 
-    // Prepare capability arrays
-    const capabilityKeys = options.location ? ['location'] : []
-    const capabilityValues = options.location ? [options.location] : []
+    // Prepare capability arrays from --capability flags
+    const capabilities = Array.isArray(options.capability)
+      ? options.capability
+      : options.capability
+        ? [options.capability]
+        : []
+    const capabilityKeys = []
+    const capabilityValues = []
+    for (const cap of capabilities) {
+      const [key, value] = cap.split('=')
+      capabilityKeys.push(key)
+      capabilityValues.push(value)
+    }
 
     // Call registerProvider with value
     const tx = await contract.registerProvider(
@@ -267,23 +491,159 @@ async function handleUpdate(provider, signer, options) {
     process.exit(1)
   }
 
-  const name = options.name || current.name
-  const description = options.description || current.description
+  // Determine which type of updates to perform
+  const hasBasicUpdates = options.name || options.description
+  const hasPDPUpdates =
+    options.location ||
+    options.price ||
+    options['service-url'] ||
+    options['min-piece-size'] ||
+    options['max-piece-size'] ||
+    options['ipni-piece'] !== undefined ||
+    options['ipni-ipfs'] !== undefined ||
+    options['min-proving-period'] ||
+    options['payment-token'] ||
+    options.capability
+
+  if (!hasBasicUpdates && !hasPDPUpdates) {
+    console.error('Error: No update parameters provided. Use --name, --description, or PDP offering options.')
+    process.exit(1)
+  }
 
   console.log(`\nUpdating provider #${options.id}:`)
-  console.log(`  Name: ${current.name} → ${name}`)
-  console.log(`  Description: ${current.description} → ${description}`)
 
   try {
-    const tx = await registry.updateProviderInfo(signer, name, description)
-    console.log(`\nTransaction sent: ${tx.hash}`)
-    const receipt = await tx.wait()
-    console.log(`Transaction confirmed in block ${receipt.blockNumber}`)
+    // Handle basic provider info updates
+    if (hasBasicUpdates) {
+      const name = options.name || current.name
+      const description = options.description || current.description
+
+      console.log(`  Name: ${current.name} → ${name}`)
+      console.log(`  Description: ${current.description} → ${description}`)
+
+      const basicTx = await registry.updateProviderInfo(signer, name, description)
+      console.log(`\nBasic info transaction sent: ${basicTx.hash}`)
+      const basicReceipt = await basicTx.wait()
+      console.log(`Basic info transaction confirmed in block ${basicReceipt.blockNumber}`)
+    }
+
+    // Handle PDP offering updates
+    if (hasPDPUpdates) {
+      await handlePDPUpdate(registry, signer, options, provider)
+    }
+
     console.log(`\nProvider #${options.id} updated successfully`)
   } catch (error) {
     console.error(`\nError updating provider: ${error.message}`)
     process.exit(1)
   }
+}
+
+async function handlePDPUpdate(registry, signer, options, provider) {
+  const providerId = Number(options.id)
+
+  // Get current PDP offering
+  const currentPDP = await registry.getPDPService(providerId)
+
+  if (!currentPDP && !options['service-url']) {
+    console.error('Error: Provider does not have an existing PDP offering. --service-url is required to create one.')
+    process.exit(1)
+  }
+
+  // Validate inputs before processing
+  validatePDPInputs(options)
+
+  // Get network-specific USDFC address
+  const network = await getFilecoinNetworkType(provider)
+  const usdfcAddress = CONTRACT_ADDRESSES.USDFC[network]
+
+  // Prepare updated PDP offering by merging current values with new ones
+  const updatedOffering = {
+    serviceURL: options['service-url'] || currentPDP?.offering.serviceURL || '',
+    minPieceSizeInBytes: options['min-piece-size']
+      ? BigInt(options['min-piece-size'])
+      : currentPDP?.offering.minPieceSizeInBytes || PDP_DEFAULTS.MIN_PIECE_SIZE,
+    maxPieceSizeInBytes: options['max-piece-size']
+      ? BigInt(options['max-piece-size'])
+      : currentPDP?.offering.maxPieceSizeInBytes || PDP_DEFAULTS.MAX_PIECE_SIZE,
+    ipniPiece:
+      options['ipni-piece'] !== undefined
+        ? options['ipni-piece'] === 'true'
+        : currentPDP?.offering.ipniPiece || PDP_DEFAULTS.IPNI_PIECE,
+    ipniIpfs:
+      options['ipni-ipfs'] !== undefined
+        ? options['ipni-ipfs'] === 'true'
+        : currentPDP?.offering.ipniIpfs || PDP_DEFAULTS.IPNI_IPFS,
+    storagePricePerTibPerMonth: options.price
+      ? BigInt(options.price)
+      : currentPDP?.offering.storagePricePerTibPerMonth || PDP_DEFAULTS.STORAGE_PRICE_PER_TIB_PER_MONTH,
+    minProvingPeriodInEpochs: options['min-proving-period']
+      ? Number(options['min-proving-period'])
+      : currentPDP?.offering.minProvingPeriodInEpochs || PDP_DEFAULTS.MIN_PROVING_PERIOD_EPOCHS,
+    location: options.location || currentPDP?.offering.location || PDP_DEFAULTS.LOCATION,
+    paymentTokenAddress: options['payment-token'] || currentPDP?.offering.paymentTokenAddress || usdfcAddress,
+  }
+
+  // Validate piece size constraints
+  if (updatedOffering.minPieceSizeInBytes >= updatedOffering.maxPieceSizeInBytes) {
+    console.error('Error: min-piece-size must be smaller than max-piece-size')
+    process.exit(1)
+  }
+
+  // Prepare capabilities from --capability flags (preserve existing ones)
+  const capabilities = { ...(currentPDP?.capabilities || {}) }
+  const capabilityList = Array.isArray(options.capability)
+    ? options.capability
+    : options.capability
+      ? [options.capability]
+      : []
+  for (const cap of capabilityList) {
+    const [key, value] = cap.split('=')
+    capabilities[key] = value
+  }
+
+  // Validate required fields
+  if (!updatedOffering.serviceURL) {
+    console.error('Error: serviceURL is required for PDP offering')
+    process.exit(1)
+  }
+
+  // Display what's being updated
+  console.log('\n  PDP Service Offering Updates:')
+  if (options['service-url'])
+    console.log(`    Service URL: ${currentPDP?.offering.serviceURL || 'none'} → ${updatedOffering.serviceURL}`)
+  if (options.location)
+    console.log(`    Location: ${currentPDP?.offering.location || 'none'} → ${updatedOffering.location}`)
+  if (options.price)
+    console.log(
+      `    Price: ${currentPDP?.offering.storagePricePerTibPerMonth || 'none'} → ${updatedOffering.storagePricePerTibPerMonth} USDFC base units/TiB/month`
+    )
+  if (options['min-piece-size'])
+    console.log(
+      `    Min Piece Size: ${currentPDP?.offering.minPieceSizeInBytes || 'none'} → ${updatedOffering.minPieceSizeInBytes} bytes`
+    )
+  if (options['max-piece-size'])
+    console.log(
+      `    Max Piece Size: ${currentPDP?.offering.maxPieceSizeInBytes || 'none'} → ${updatedOffering.maxPieceSizeInBytes} bytes`
+    )
+  if (options['ipni-piece'] !== undefined)
+    console.log(`    IPNI Piece: ${currentPDP?.offering.ipniPiece || false} → ${updatedOffering.ipniPiece}`)
+  if (options['ipni-ipfs'] !== undefined)
+    console.log(`    IPNI IPFS: ${currentPDP?.offering.ipniIpfs || false} → ${updatedOffering.ipniIpfs}`)
+  if (options['min-proving-period'])
+    console.log(
+      `    Min Proving Period: ${currentPDP?.offering.minProvingPeriodInEpochs || 'none'} → ${updatedOffering.minProvingPeriodInEpochs} epochs`
+    )
+  if (options['payment-token'])
+    console.log(
+      `    Payment Token: ${currentPDP?.offering.paymentTokenAddress || 'none'} → ${updatedOffering.paymentTokenAddress}`
+    )
+
+  // Update PDP offering
+  const pdpTx = await registry.updatePDPProduct(signer, updatedOffering, capabilities)
+  console.log(`\nPDP offering transaction sent: ${pdpTx.hash}`)
+  const pdpReceipt = await pdpTx.wait()
+  console.log(`PDP offering transaction confirmed in block ${pdpReceipt.blockNumber}`)
 }
 
 async function handleDeregister(provider, signer, options) {
@@ -386,18 +746,32 @@ WarmStorage Commands:
   warm-list   List WarmStorage approved providers
 
 Options:
-  --network <network>   Network to use: 'mainnet' or 'calibration' (default: calibration)
-  --rpc-url <url>       RPC endpoint (overrides network default)
-  --key <private-key>   Private key for signing (required for write operations)
-  --registry <address>  Registry contract address (overrides discovery)
-  --warm <address>      WarmStorage address (for registry discovery or warm commands)
-  --id <provider-id>    Provider ID
-  --address <address>   Provider address (for info command)
-  --name <name>         Provider name (for register/update)
-  --http <url>          HTTP endpoint URL (for register only)
-  --payee <addr>        Payment recipient address (for register only)
-  --description <text>  Provider description (for register/update)
-  --location <text>     Provider location (e.g., "us-east")
+  --network <network>       Network to use: 'mainnet' or 'calibration' (default: calibration)
+  --rpc-url <url>           RPC endpoint (overrides network default)
+  --key <private-key>       Private key for signing (required for write operations)
+  --registry <address>      Registry contract address (overrides discovery)
+  --warm <address>          WarmStorage address (for registry discovery or warm commands)
+  --id <provider-id>        Provider ID
+  --address <address>       Provider address (for info command)
+
+Provider Info Options (register/update):
+  --name <name>             Provider name
+  --description <text>      Provider description
+  --payee <addr>            Payment recipient address (register only)
+
+PDP Service Options (register/update):
+  --http <url>              HTTP endpoint URL (alias for --service-url, register only)
+  --service-url <url>       PDP service endpoint URL
+  --location <text>         Provider location in DN format (e.g., "C=US;ST=California;L=San Francisco")
+  --price <amount>          Storage price per TiB per month in USDFC base units (18 decimals)
+                            Example: "5000000000000000000" = 5 USDFC per TiB per month
+  --min-piece-size <bytes>  Minimum piece size in bytes (default: 127)
+  --max-piece-size <bytes>  Maximum piece size in bytes (default: ~1 GiB fr32-adjusted)
+  --ipni-piece <bool>       Enable IPNI piece discovery (true/false, default: true)
+  --ipni-ipfs <bool>        Enable IPNI IPFS content (true/false, default: true)
+  --min-proving-period <n>  Minimum proving period in epochs (default: 30)
+  --payment-token <addr>    Payment token address (default: USDFC)
+  --capability <key=value>  Add arbitrary capability (can be repeated for multiple capabilities)
 
 Examples:
   # Register a new provider on mainnet (requires 5 FIL fee)
@@ -405,13 +779,31 @@ Examples:
 
   # Register a new provider on calibration (default network)
   node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
-  
+
+  # Update basic provider information
+  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Provider Name" --description "New description"
+
+  # Update PDP service offering location
+  node utils/sp-tool.js update --key 0x... --id 123 --location "C=US;ST=California;L=San Francisco"
+
+  # Update PDP service pricing and location (5 USDFC per TiB per month)
+  node utils/sp-tool.js update --key 0x... --id 123 --location "C=GB;ST=England;L=London" --price "5000000000000000000"
+
+  # Update PDP service endpoint and piece size limits
+  node utils/sp-tool.js update --key 0x... --id 123 --service-url "https://new-endpoint.example.com" --max-piece-size "68719476736"
+
+  # Update both basic info and PDP offering (4 USDFC per TiB per month)
+  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Name" --location "C=JP;ST=Tokyo;L=Shibuya" --price "4000000000000000000"
+
+  # Register with custom capabilities
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --capability tier=premium --capability region=apac
+
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
-  
+
   # List WarmStorage approved providers
   node utils/sp-tool.js warm-list
-  
+
   # Remove provider from WarmStorage
   node utils/sp-tool.js warm-remove --key 0x... --id 2
 `)

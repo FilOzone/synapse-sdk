@@ -433,6 +433,18 @@ export class SPRegistryService {
         return null
       }
 
+      // Fetch capability values using the keys
+      let capabilities: Record<string, string> = {}
+      if (result.capabilityKeys && result.capabilityKeys.length > 0) {
+        // Convert to plain array to avoid ethers.js frozen array issues
+        const keys = Array.from(result.capabilityKeys) as string[]
+        const capResult = await contract.getProductCapabilities(providerId, 0, keys) // 0 = ProductType.PDP
+        // getProductCapabilities returns tuple: (bool[] exists, string[] values)
+        // Access as capResult[1] for values array
+        const values = Array.from(capResult[1] || []) as string[]
+        capabilities = this._convertCapabilitiesToObject(keys, values)
+      }
+
       return {
         offering: {
           serviceURL: result.pdpOffering.serviceURL,
@@ -445,7 +457,7 @@ export class SPRegistryService {
           location: result.pdpOffering.location,
           paymentTokenAddress: result.pdpOffering.paymentTokenAddress,
         },
-        capabilities: this._convertCapabilitiesToObject(result.capabilityKeys, result.capabilityValues || []),
+        capabilities,
         isActive: result.isActive,
       }
     } catch {
@@ -569,6 +581,8 @@ export class SPRegistryService {
 
   /**
    * Extract products from multicall PDP service result
+   * Note: For multicall batching, capability values are set to empty strings for performance.
+   * Use getProvider() or getPDPService() for full capability values.
    */
   private _extractProductsFromMulticallResult(pdpServiceResult: any, iface: ethers.Interface): ServiceProduct[] {
     const products: ServiceProduct[] = []
@@ -588,7 +602,9 @@ export class SPRegistryService {
         return products
       }
 
-      // Build capabilities object
+      // Note: Capability values are not included in multicall for performance
+      // They would require additional contract calls per provider
+      // Use getProvider() or getPDPService() for full capability values
       const capabilities = this._buildCapabilitiesFromKeys(capabilityKeys)
 
       // Build PDP product
@@ -616,15 +632,16 @@ export class SPRegistryService {
   }
 
   /**
-   * Build capabilities object from keys array
+   * Build capabilities object from keys array (values set to empty for multicall performance)
+   * For full capability values, use getProvider() or getPDPService()
    */
   private _buildCapabilitiesFromKeys(capabilityKeys: any): Record<string, string> {
     const capabilities: Record<string, string> = {}
 
     if (capabilityKeys && Array.isArray(capabilityKeys)) {
       for (const key of capabilityKeys) {
-        // For getPDPService, capabilities are returned as keys only
-        // Values would need to be fetched separately if needed
+        // For multicall batching, we only get keys to avoid N additional contract calls
+        // Values would need separate getProductCapabilities() calls per provider
         capabilities[key] = ''
       }
     }
