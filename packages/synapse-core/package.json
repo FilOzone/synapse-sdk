@@ -90,10 +90,7 @@
     "@types/node": "^24.6.2",
     "@wagmi/cli": "^2.6.0",
     "mocha": "^11.7.4",
-    "msw": "~2.10.5",
-    "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.0.1",
     "typescript": "5.9.3"
   },
   "publishConfig": {
@@ -105,7 +102,7 @@
     ]
   },
   "peerDependencies": {
-    "viem": "2.x",
-    "ethers": "6.x"
+    "ethers": "6.x",
+    "viem": "2.x"
   }
 }

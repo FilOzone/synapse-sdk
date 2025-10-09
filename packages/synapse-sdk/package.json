@@ -116,12 +116,12 @@
     }
   },
   "dependencies": {
+    "@filoz/synapse-core": "workspace:*",
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
     "ox": "^0.9.6",
-    "viem": "2.x",
-    "@filoz/synapse-core": "workspace:*"
+    "viem": "2.x"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.5",
