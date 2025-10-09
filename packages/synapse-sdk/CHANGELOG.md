@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.30.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.30.0...synapse-sdk-v0.30.1) (2025-10-09)
+
+
+### Bug Fixes
+
+* more careful checks for EIP-1193 provider ([#290](https://github.com/FilOzone/synapse-sdk/issues/290)) ([bfeee48](https://github.com/FilOzone/synapse-sdk/commit/bfeee489ee2df9d86b6c940ef28a0049bf78b273))
+
 ## [0.30.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.29.3...synapse-sdk-v0.30.0) (2025-10-08)
 
 
