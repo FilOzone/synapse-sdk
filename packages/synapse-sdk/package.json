@@ -55,7 +55,7 @@
   "scripts": {
     "build": "wireit",
     "lint": "wireit",
-    "test": "pnpm run lint && pnpm run test:node && pnpm run test:browser",
+    "test": "wireit",
     "test:node": "wireit",
     "test:browser": "wireit",
     "clean": "rm -rf dist",
@@ -82,6 +82,16 @@
       "output": [],
       "dependencies": [
         "build"
+      ]
+    },
+    "test": {
+      "command": "pnpm run test:node && pnpm run test:browser",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "lint"
       ]
     },
     "test:node": {
