@@ -49,7 +49,6 @@ randIndexMethods.forEach((randIndexMethod) => {
 })
 
 const randU256Methods = [randU256, fallbackRandU256]
-const BIG_ONE = BigInt(1)
 randU256Methods.forEach((randU256Method) => {
   describe(randU256Method.name, () => {
     it('has 256 random bits', () => {
@@ -60,8 +59,8 @@ randU256Methods.forEach((randU256Method) => {
       for (let j = 0; j < 32; j++) {
         let rand = randU256()
         for (let i = 0; i < 256; i++) {
-          counts[i][Number(rand & BIG_ONE)]++
-          rand >>= BIG_ONE
+          counts[i][Number(rand & 1n)]++
+          rand >>= 1n
         }
         assert.equal(rand, BigInt(0))
       }
