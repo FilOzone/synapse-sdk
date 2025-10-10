@@ -677,23 +677,6 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getNextClientDataSetId', () => {
-    it('should return the next client dataset ID', async () => {
-      const warmStorageService = await createWarmStorageService()
-      cleanup = mockProviderWithView((data) => {
-        // clientDataSetIDs mapping call
-        if (data?.startsWith('0x196ed89b') === true) {
-          return ethers.zeroPadValue('0x05', 32) // Return 5
-        }
-
-        return null
-      })
-
-      const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
-      assert.equal(nextId, 5)
-    })
-  })
-
   describe('verifyDataSetCreation', () => {
     it('should verify successful data set creation', async () => {
       const warmStorageService = await createWarmStorageService()

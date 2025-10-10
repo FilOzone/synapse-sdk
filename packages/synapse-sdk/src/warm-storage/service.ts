@@ -448,27 +448,6 @@ export class WarmStorageService {
   }
 
   /**
-   * Get the next client dataset ID for a given client
-   * This reads the current counter from the WarmStorage contract
-   * @param clientAddress - The client's wallet address
-   * @returns  next client dataset ID that will be assigned by this WarmStorage contract
-   */
-  async getNextClientDataSetId(clientAddress: string): Promise<number> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-
-      // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
-      // This is the value that will be used for the next data set creation
-      const currentCounter = await viewContract.clientDataSetIDs(clientAddress)
-
-      // Return the current counter value (it will be incremented during data set creation)
-      return Number(currentCounter)
-    } catch (error) {
-      throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
    * Verify that a data set creation transaction was successful
    * This checks both the transaction status and on-chain data set state
    * @param txHashOrTransaction - Transaction hash or transaction object

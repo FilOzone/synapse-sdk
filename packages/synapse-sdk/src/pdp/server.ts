@@ -182,7 +182,7 @@ export class PDPServer {
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createDataSet(
-    clientDataSetId: number,
+    clientDataSetId: number | bigint,
     payee: string,
     payer: string,
     metadata: MetadataEntry[],
@@ -198,6 +198,7 @@ export class PDPServer {
     // This needs to match the DataSetCreateData struct in Warm Storage contract
     const extraData = this._encodeDataSetCreateData({
       payer,
+      clientDataSetId,
       metadata,
       signature: authData.signature,
     })
@@ -669,20 +670,29 @@ export class PDPServer {
    * Encode DataSetCreateData for extraData field
    * This matches the Solidity struct DataSetCreateData in Warm Storage contract
    */
-  private _encodeDataSetCreateData(data: { payer: string; metadata: MetadataEntry[]; signature: string }): string {
+  private _encodeDataSetCreateData(data: {
+    payer: string
+    clientDataSetId: number | bigint
+    metadata: MetadataEntry[]
+    signature: string
+  }): string {
     // Ensure signature has 0x prefix
     const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
 
     // ABI encode the struct as a tuple
     // DataSetCreateData struct:
     // - address payer
+    // - uint256 clientDataSetId
     // - string[] metadataKeys
     // - string[] metadataValues
     // - bytes signature
     const keys = data.metadata.map((item) => item.key)
     const values = data.metadata.map((item) => item.value)
     const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['address', 'string[]', 'string[]', 'bytes'], [data.payer, keys, values, signature])
+    const encoded = abiCoder.encode(
+      ['address', 'uint256', 'string[]', 'string[]', 'bytes'],
+      [data.payer, data.clientDataSetId, keys, values, signature]
+    )
 
     // Return hex string without 0x prefix (since we add it in the calling code)
     return encoded.slice(2)
