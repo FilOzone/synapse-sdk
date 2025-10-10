@@ -166,6 +166,59 @@ export class StorageManager {
   }
 
   /**
+   * Upload data and create a new dataset with the piece in a single operation (M3 combined flow)
+   * This method combines dataset creation and piece addition for improved performance
+   * @param data - The data to upload
+   * @param options - Optional settings including provider selection, metadata, and callbacks
+   * @returns Promise that resolves with upload result and dataset information
+   */
+  async uploadAndCreate(
+    data: Uint8Array | ArrayBuffer,
+    options?: StorageManagerUploadOptions
+  ): Promise<UploadResult & { dataSetId: number }> {
+
+    if (options?.context != null) {
+      const invalidOptions = []
+      if (options.providerId !== undefined) invalidOptions.push('providerId')
+      if (options.providerAddress !== undefined) invalidOptions.push('providerAddress')
+      if (options.dataSetId !== undefined) invalidOptions.push('dataSetId')
+      if (options.withCDN !== undefined) invalidOptions.push('withCDN')
+      if (options.forceCreateDataSet !== undefined) invalidOptions.push('forceCreateDataSet')
+      if (options.uploadBatchSize !== undefined) invalidOptions.push('uploadBatchSize')
+
+      if (invalidOptions.length > 0) {
+        throw createError(
+          'StorageManager',
+          'uploadAndCreate',
+          `Cannot specify both 'context' and other options: ${invalidOptions.join(', ')}`
+        )
+      }
+    }
+
+    const context =
+      options?.context ??
+      (await this.createContext({
+        providerId: options?.providerId,
+        providerAddress: options?.providerAddress,
+        dataSetId: options?.dataSetId,
+        withCDN: options?.withCDN,
+        forceCreateDataSet: true, 
+        uploadBatchSize: options?.uploadBatchSize,
+        callbacks: options?.callbacks,
+      }))
+
+    const uploadResult = await context.uploadAndCreate(data, {
+      ...options?.callbacks,
+      metadata: options?.metadata,
+    })
+
+    return {
+      ...uploadResult,
+      dataSetId: context.dataSetId,
+    }
+  }
+
+  /**
    * Download data from storage
    * If context is provided, routes to context.download()
    * Otherwise performs SP-agnostic download

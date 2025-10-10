@@ -51,6 +51,16 @@ export interface CreateDataSetResponse {
 }
 
 /**
+ * Response from creating a data set with pieces (combined flow)
+ */
+export interface CreateDataSetWithPiecesResponse extends CreateDataSetResponse {
+  /** Transaction hash for the piece addition (if pieces were provided) */
+  piecesTxHash?: string
+  /** URL to check piece addition status (if pieces were provided) */
+  piecesStatusUrl?: string
+}
+
+/**
  * Response from checking data set creation status
  */
 export interface DataSetCreationStatusResponse {
@@ -206,6 +216,127 @@ export class PDPServer {
 
     // Parse the location to extract the transaction hash
     // Expected format: /pdp/data-sets/created/{txHash}
+    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
+    if (locationMatch == null) {
+      throw new Error(`Invalid Location header format: ${location}`)
+    }
+
+    const txHash = locationMatch[1]
+
+    return {
+      txHash,
+      statusUrl: `${this._serviceURL}${location}`,
+    }
+  }
+
+  /**
+   * Create a new data set with pieces in a single operation (M3 combined flow)
+   * @param clientDataSetId - Unique ID for the client's dataset
+   * @param payee - Address that will receive payments (service provider)
+   * @param metadata - Metadata entries for the data set (key-value pairs)
+   * @param recordKeeper - Address of the Warm Storage contract
+   * @param pieces - Optional pieces to add to the dataset immediately after creation
+   * @param piecesMetadata - Optional metadata for each piece (array of arrays, one per piece)
+   * @returns Promise that resolves with transaction hash and status URL for both operations
+   */
+  async createDataSetWithPieces(
+    clientDataSetId: number,
+    payee: string,
+    metadata: MetadataEntry[],
+    recordKeeper: string,
+    pieces?: PieceCID[] | string[],
+    piecesMetadata?: MetadataEntry[][]
+  ): Promise<CreateDataSetWithPiecesResponse> {
+    validateDataSetMetadata(metadata)
+
+    if (pieces != null && pieces.length > 0) {
+      if (piecesMetadata != null) {
+        for (let i = 0; i < piecesMetadata.length; i++) {
+          if (piecesMetadata[i] != null && piecesMetadata[i].length > 0) {
+            try {
+              validatePieceMetadata(piecesMetadata[i])
+            } catch (error: any) {
+              throw new Error(`Piece ${i} metadata validation failed: ${error.message}`)
+            }
+          }
+        }
+      }
+
+      for (const pieceData of pieces) {
+        const pieceCid = asPieceCID(pieceData)
+        if (pieceCid == null) {
+          throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
+        }
+      }
+
+      const finalPiecesMetadata = piecesMetadata ?? pieces.map(() => [])
+      if (finalPiecesMetadata.length !== pieces.length) {
+        throw new Error(
+          `Pieces metadata length (${finalPiecesMetadata.length}) must match pieces length (${pieces.length})`
+        )
+      }
+    }
+
+    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
+
+    const extraData = this._encodeDataSetCreateData({
+      payer: await this.getAuthHelper().getSignerAddress(),
+      metadata,
+      signature: authData.signature,
+    })
+
+    const requestBody: any = {
+      recordKeeper,
+      extraData: `0x${extraData}`,
+    }
+
+    if (pieces != null && pieces.length > 0) {
+      const piecesAuthData = await this.getAuthHelper().signAddPieces(
+        clientDataSetId,
+        0, // nextPieceId will be determined by the server after dataset creation
+        pieces,
+        piecesMetadata ?? pieces.map(() => [])
+      )
+
+      const piecesExtraData = this._encodeAddPiecesExtraData({
+        signature: piecesAuthData.signature,
+        metadata: piecesMetadata ?? pieces.map(() => []),
+      })
+
+      requestBody.pieces = {
+        pieces: pieces.map((pieceData) => {
+          const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
+          return {
+            pieceCid: cidString,
+            subPieces: [
+              {
+                subPieceCid: cidString,
+              },
+            ],
+          }
+        }),
+        extraData: `0x${piecesExtraData}`,
+      }
+    }
+
+    const response = await fetch(`${this._serviceURL}/pdp/data-sets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (response.status !== 201) {
+      const errorText = await response.text()
+      throw new Error(`Failed to create data set with pieces: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const location = response.headers.get('Location')
+    if (location == null) {
+      throw new Error('Server did not provide Location header in response')
+    }
+
     const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
     if (locationMatch == null) {
       throw new Error(`Invalid Location header format: ${location}`)

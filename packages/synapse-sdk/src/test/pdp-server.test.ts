@@ -95,6 +95,95 @@ describe('PDPServer', () => {
     })
   })
 
+  describe('createDataSetWithPieces', () => {
+    it('should handle successful data set creation with pieces', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
+          })
+        })
+      )
+
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const pieceCid = calculatePieceCID(testData)
+
+      const result = await pdpServer.createDataSetWithPieces(
+        0, // clientDataSetId
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        [], // metadata (empty for no CDN)
+        TEST_CONTRACT_ADDRESS, // recordKeeper
+        [pieceCid], // pieces
+        [[{ key: 'test', value: 'metadata' }]] // piecesMetadata
+      )
+
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.include(result.statusUrl, mockTxHash)
+    })
+
+    it('should handle data set creation without pieces', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
+          })
+        })
+      )
+
+      const result = await pdpServer.createDataSetWithPieces(
+        0, // clientDataSetId
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+        [], // metadata (empty for no CDN)
+        TEST_CONTRACT_ADDRESS // recordKeeper
+        // No pieces provided
+      )
+
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.include(result.statusUrl, mockTxHash)
+    })
+
+    it('should validate piece metadata length matches pieces length', async () => {
+      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const pieceCid = calculatePieceCID(testData)
+
+      try {
+        await pdpServer.createDataSetWithPieces(
+          0, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS, // recordKeeper
+          [pieceCid], // pieces
+          [[{ key: 'test', value: 'metadata' }], [{ key: 'extra', value: 'metadata' }]] // piecesMetadata - wrong length
+        )
+        assert.fail('Should have thrown an error for mismatched metadata length')
+      } catch (error: any) {
+        assert.include(error.message, 'Pieces metadata length')
+      }
+    })
+
+    it('should validate piece CIDs', async () => {
+      try {
+        await pdpServer.createDataSetWithPieces(
+          0, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS, // recordKeeper
+          ['invalid-cid'], // pieces - invalid CID
+          [[]] // piecesMetadata
+        )
+        assert.fail('Should have thrown an error for invalid PieceCID')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid PieceCID')
+      }
+    })
+  })
+
   describe('getPieceAdditionStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'

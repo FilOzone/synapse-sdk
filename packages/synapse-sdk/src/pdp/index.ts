@@ -13,6 +13,7 @@ export { PDPAuthHelper } from './auth.ts'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
+  CreateDataSetWithPiecesResponse,
   DataSetCreationStatusResponse,
   FindPieceResponse,
   PieceAdditionStatusResponse,

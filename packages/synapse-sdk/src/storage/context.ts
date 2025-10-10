@@ -234,6 +234,164 @@ export class StorageContext {
   }
 
   /**
+   * Create a new data set with pieces in a single operation (M3 combined flow)
+   */
+  private static async createDataSetWithPieces(
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    provider: ProviderInfo,
+    withCDN: boolean,
+    pieces: PieceCID[],
+    piecesMetadata: MetadataEntry[][],
+    callbacks?: StorageCreationCallbacks,
+    metadata?: Record<string, string>
+  ): Promise<number> {
+    performance.mark('synapse:createDataSetWithPieces-start')
+
+    const signer = synapse.getSigner()
+    const signerAddress = await signer.getAddress()
+
+    const nextDatasetId = await warmStorageService.getNextClientDataSetId(signerAddress)
+
+    const warmStorageAddress = synapse.getWarmStorageAddress()
+    const authHelper = new PDPAuthHelper(warmStorageAddress, signer, BigInt(synapse.getChainId()))
+
+    if (!provider.products.PDP?.data.serviceURL) {
+      throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
+    }
+    const pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
+
+    const baseMetadataObj = metadata ?? {}
+    const metadataObj =
+      withCDN && !(METADATA_KEYS.WITH_CDN in baseMetadataObj)
+        ? { ...baseMetadataObj, [METADATA_KEYS.WITH_CDN]: '' }
+        : baseMetadataObj
+
+    const finalMetadata = objectToEntries(metadataObj)
+
+    performance.mark('synapse:pdpServer.createDataSetWithPieces-start')
+    const createResult = await pdpServer.createDataSetWithPieces(
+      nextDatasetId,
+      provider.payee,
+      finalMetadata,
+      warmStorageAddress,
+      pieces,
+      piecesMetadata
+    )
+    performance.mark('synapse:pdpServer.createDataSetWithPieces-end')
+    performance.measure(
+      'synapse:pdpServer.createDataSetWithPieces',
+      'synapse:pdpServer.createDataSetWithPieces-start',
+      'synapse:pdpServer.createDataSetWithPieces-end'
+    )
+
+    const { txHash, statusUrl } = createResult
+
+    const ethersProvider = synapse.getProvider()
+    let transaction: ethers.TransactionResponse | null = null
+
+    const txRetryStartTime = Date.now()
+    const txPropagationTimeout = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS
+    const txPropagationPollInterval = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS
+
+    performance.mark('synapse:getTransaction-start')
+    while (Date.now() - txRetryStartTime < txPropagationTimeout) {
+      try {
+        transaction = await ethersProvider.getTransaction(txHash)
+        if (transaction !== null) {
+          break
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch transaction ${txHash}, retrying...`, error)
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, txPropagationPollInterval))
+    }
+    performance.mark('synapse:getTransaction-end')
+    performance.measure('synapse:getTransaction', 'synapse:getTransaction-start', 'synapse:getTransaction-end')
+
+    if (transaction === null) {
+      throw createError(
+        'StorageContext',
+        'createDataSetWithPieces',
+        `Transaction ${txHash} not found after ${
+          txPropagationTimeout / 1000
+        } seconds. The transaction may not have propagated to the RPC node.`
+      )
+    }
+
+    try {
+      callbacks?.onDataSetCreationStarted?.(transaction, statusUrl)
+    } catch (error) {
+      console.error('Error in onDataSetCreationStarted callback:', error)
+    }
+
+    let finalStatus: Awaited<ReturnType<typeof warmStorageService.getComprehensiveDataSetStatus>>
+
+    performance.mark('synapse:waitForDataSetCreationWithStatus-start')
+    try {
+      finalStatus = await warmStorageService.waitForDataSetCreationWithStatus(
+        transaction,
+        pdpServer,
+        TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
+        TIMING_CONSTANTS.DATA_SET_CREATION_POLL_INTERVAL_MS,
+        async (status, elapsedMs) => {
+          try {
+            callbacks?.onDataSetCreationProgress?.({
+              transactionMined: status.chainStatus.transactionMined,
+              transactionSuccess: status.chainStatus.transactionSuccess,
+              dataSetLive: status.chainStatus.dataSetLive,
+              serverConfirmed: status.serverStatus?.dataSetCreated ?? false,
+              dataSetId: status.summary.dataSetId ?? undefined,
+              elapsedMs,
+            })
+          } catch (error) {
+            console.error('Error in onDataSetCreationProgress callback:', error)
+          }
+        }
+      )
+    } catch (error) {
+      performance.mark('synapse:waitForDataSetCreationWithStatus-end')
+      performance.measure(
+        'synapse:waitForDataSetCreationWithStatus',
+        'synapse:waitForDataSetCreationWithStatus-start',
+        'synapse:waitForDataSetCreationWithStatus-end'
+      )
+      throw createError('StorageContext', 'createDataSetWithPieces', 'Failed to wait for data set creation', error)
+    }
+    performance.mark('synapse:waitForDataSetCreationWithStatus-end')
+    performance.measure(
+      'synapse:waitForDataSetCreationWithStatus',
+      'synapse:waitForDataSetCreationWithStatus-start',
+      'synapse:waitForDataSetCreationWithStatus-end'
+    )
+
+    const dataSetId = finalStatus.summary.dataSetId
+    if (dataSetId == null) {
+      throw createError('StorageContext', 'createDataSetWithPieces', 'Data set ID not found in creation status')
+    }
+
+    try {
+      callbacks?.onDataSetResolved?.({
+        isExisting: false,
+        dataSetId,
+        provider: provider,
+      })
+    } catch (error) {
+      console.error('Error in onDataSetResolved callback:', error)
+    }
+
+    performance.mark('synapse:createDataSetWithPieces-end')
+    performance.measure(
+      'synapse:createDataSetWithPieces',
+      'synapse:createDataSetWithPieces-start',
+      'synapse:createDataSetWithPieces-end'
+    )
+
+    return dataSetId
+  }
+
+  /**
    * Create a new data set with the selected provider
    */
   private static async createDataSet(
@@ -915,6 +1073,109 @@ export class StorageContext {
       ...preflightResult,
       selectedProvider: this._provider,
       selectedDataSetId: this._dataSetId,
+    }
+  }
+
+  /**
+   * Upload data and create a new dataset with the piece in a single operation (M3 combined flow)
+   * This method combines dataset creation and piece addition for improved performance
+   * @param data - The data to upload
+   * @param options - Optional upload options including metadata and callbacks
+   * @returns Promise that resolves with upload result including piece ID
+   */
+  async uploadAndCreate(data: Uint8Array | ArrayBuffer, options?: UploadOptions): Promise<UploadResult> {
+    performance.mark('synapse:uploadAndCreate-start')
+
+    // Validation Phase: Check data size
+    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+    const sizeBytes = dataBytes.length
+
+    // Validate size before proceeding
+    StorageContext.validateRawSize(sizeBytes, 'uploadAndCreate')
+
+    // Upload Phase: Upload data to service provider
+    let uploadResult: { pieceCid: PieceCID; size: number }
+    try {
+      performance.mark('synapse:pdpServer.uploadPiece-start')
+      uploadResult = await this._pdpServer.uploadPiece(dataBytes)
+      performance.mark('synapse:pdpServer.uploadPiece-end')
+      performance.measure(
+        'synapse:pdpServer.uploadPiece',
+        'synapse:pdpServer.uploadPiece-start',
+        'synapse:pdpServer.uploadPiece-end'
+      )
+    } catch (error) {
+      performance.mark('synapse:pdpServer.uploadPiece-end')
+      performance.measure(
+        'synapse:pdpServer.uploadPiece',
+        'synapse:pdpServer.uploadPiece-start',
+        'synapse:pdpServer.uploadPiece-end'
+      )
+      throw createError('StorageContext', 'uploadPiece', 'Failed to upload piece to service provider', error)
+    }
+
+    // Poll for piece to be "parked" (ready)
+    const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
+    const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
+    const startTime = Date.now()
+    let pieceReady = false
+
+    performance.mark('synapse:findPiece-start')
+    while (Date.now() - startTime < maxWaitTime) {
+      try {
+        await this._pdpServer.findPiece(uploadResult.pieceCid)
+        pieceReady = true
+        break
+      } catch {
+        // Piece not ready yet, wait and retry if we haven't exceeded timeout
+        if (Date.now() - startTime + pollInterval < maxWaitTime) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval))
+        }
+      }
+    }
+    performance.mark('synapse:findPiece-end')
+    performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
+
+    if (!pieceReady) {
+      throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
+    }
+
+    // Notify upload complete
+    if (options?.onUploadComplete != null) {
+      options.onUploadComplete(uploadResult.pieceCid)
+    }
+
+    // Validate metadata early (before dataset creation) to fail fast
+    if (options?.metadata != null) {
+      validatePieceMetadata(options.metadata)
+    }
+
+    // Create dataset with the piece using combined flow
+    const pieceData = uploadResult.pieceCid
+    const pieceMetadata = options?.metadata ? objectToEntries(options.metadata) : []
+
+    // Use the combined flow to create dataset with piece
+    const dataSetId = await StorageContext.createDataSetWithPieces(
+      this._synapse,
+      this._warmStorageService,
+      this._provider,
+      this._withCDN,
+      [pieceData],
+      [pieceMetadata],
+      undefined,
+      this._dataSetMetadata
+    )
+
+    // Update this context's dataset ID
+    ;(this as any)._dataSetId = dataSetId
+
+    // Return upload result with piece ID (for combined flow, piece ID is 0 since it's the first piece)
+    performance.mark('synapse:uploadAndCreate-end')
+    performance.measure('synapse:uploadAndCreate', 'synapse:uploadAndCreate-start', 'synapse:uploadAndCreate-end')
+    return {
+      pieceCid: uploadResult.pieceCid,
+      size: uploadResult.size,
+      pieceId: 0, // First piece in new dataset
     }
   }
 
