@@ -4,6 +4,14 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.31.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.31.0...synapse-sdk-v0.31.1) (2025-10-10)
+
+
+### Bug Fixes
+
+* resolves bug of using client address instead of signer for datsetId lookup ([7320c2b](https://github.com/FilOzone/synapse-sdk/commit/7320c2b3405125df17c33e19270a9dd09915b3e9))
+* Use clientAddress for next dataset ID ([#299](https://github.com/FilOzone/synapse-sdk/issues/299)) ([7320c2b](https://github.com/FilOzone/synapse-sdk/commit/7320c2b3405125df17c33e19270a9dd09915b3e9))
+
 ## [0.31.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.30.1...synapse-sdk-v0.31.0) (2025-10-09)
 
 
