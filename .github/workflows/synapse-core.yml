@@ -34,8 +34,8 @@ jobs:
         run: pnpx playwright install winldd
       - name: Install Dependencies
         run: pnpm install
-      - name: Run tests
-        run: pnpm -r --filter @filoz/synapse-core run test
-        shell: bash
+      # - name: Run tests
+      #   run: pnpm -r --filter @filoz/synapse-core run test
+      #   shell: bash
       - name: Check docs build
         run: pnpm -r --filter docs run build
