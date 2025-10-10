@@ -2,7 +2,7 @@
  * EIP-712 Authentication helpers for PDP operations
  */
 
-import { ethers } from 'ethers'
+import { BrowserProvider, ethers, JsonRpcProvider } from 'ethers'
 import { asPieceCID, type PieceCID } from '../piece/index.ts'
 import type { AuthSignature, MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
@@ -79,31 +79,11 @@ export class PDPAuthHelper {
       // Get the actual signer (unwrap NonceManager if needed)
       const actualSigner = this.getUnderlyingSigner()
 
-      // If it's a Wallet, it can sign locally, so not a MetaMask signer
-      if (actualSigner.constructor.name === 'Wallet') {
-        return false
-      }
-
-      // Check if signer has a provider
-      const provider = actualSigner.provider
-      if (provider == null) {
-        return false
-      }
-
-      // Check for ethers v6 BrowserProvider
-      if ('_eip1193Provider' in provider) {
+      if (actualSigner.provider instanceof BrowserProvider) {
         return true
       }
-
-      // If it's a JsonRpcProvider or WebSocketProvider, it's not a browser provider
-      // These can sign locally with a wallet
-      if (provider instanceof ethers.JsonRpcProvider || provider instanceof ethers.WebSocketProvider) {
+      if (actualSigner.provider instanceof JsonRpcProvider) {
         return false
-      }
-
-      // For any other provider with request method (potential EIP-1193 provider)
-      if ('request' in provider && typeof (provider as any).request === 'function') {
-        return true
       }
     } catch {
       // Silently fail and return false

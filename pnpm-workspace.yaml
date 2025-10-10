@@ -9,3 +9,6 @@ onlyBuiltDependencies:
   - msw
   - sharp
   - workerd
+
+patchedDependencies:
+  viem: patches/viem.patch
