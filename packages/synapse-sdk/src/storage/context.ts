@@ -55,6 +55,7 @@ import {
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
+import { randIndex, randU256 } from '../utils/rand.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class StorageContext {
@@ -247,12 +248,12 @@ export class StorageContext {
     performance.mark('synapse:createDataSet-start')
 
     const signer = synapse.getSigner()
-    const [signerAddress, clientAddress] = await Promise.all([signer.getAddress(), synapse.getClient().getAddress()])
+    const clientAddress = await synapse.getClient().getAddress()
 
     // Create a new data set
 
     // Get next client dataset ID
-    const nextDatasetId = await warmStorageService.getNextClientDataSetId(signerAddress)
+    const nextDatasetId = randU256()
 
     // Create auth helper for signing
     const warmStorageAddress = synapse.getWarmStorageAddress()
@@ -435,8 +436,7 @@ export class StorageContext {
     providerResolver: ProviderResolver,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    const client = synapse.getClient()
-    const clientAddress = await client.getAddress()
+    const clientAddress = await synapse.getClient().getAddress()
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null) {
@@ -479,8 +479,7 @@ export class StorageContext {
       clientAddress,
       requestedMetadata,
       warmStorageService,
-      providerResolver,
-      client
+      providerResolver
     )
   }
 
@@ -676,8 +675,7 @@ export class StorageContext {
     signerAddress: string,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
-    providerResolver: ProviderResolver,
-    signer: ethers.Signer
+    providerResolver: ProviderResolver
   ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
@@ -756,7 +754,7 @@ export class StorageContext {
     }
 
     // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders, signer)
+    const provider = await StorageContext.selectRandomProvider(allProviders)
 
     return {
       provider,
@@ -772,7 +770,7 @@ export class StorageContext {
    * @param signer - Signer for additional entropy
    * @returns Selected provider
    */
-  private static async selectRandomProvider(providers: ProviderInfo[], signer?: ethers.Signer): Promise<ProviderInfo> {
+  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo> {
     if (providers.length === 0) {
       throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
     }
@@ -782,34 +780,8 @@ export class StorageContext {
       const remaining = [...providers]
 
       while (remaining.length > 0) {
-        let randomIndex: number
-
-        // Try crypto.getRandomValues if available (HTTPS contexts)
-        if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
-          const randomBytes = new Uint8Array(1)
-          globalThis.crypto.getRandomValues(randomBytes)
-          randomIndex = randomBytes[0] % remaining.length
-        } else {
-          // Fallback for HTTP contexts - use multiple entropy sources
-          const timestamp = Date.now()
-          const random = Math.random()
-
-          if (signer != null) {
-            // Use wallet address as additional entropy
-            const addressBytes = await signer.getAddress()
-            const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-
-            // Combine sources for better distribution
-            const combined = (timestamp * random * addressSum) % remaining.length
-            randomIndex = Math.floor(Math.abs(combined))
-          } else {
-            // No signer available, use simpler fallback
-            randomIndex = Math.floor(Math.random() * remaining.length)
-          }
-        }
-
         // Remove and yield the selected provider
-        const selected = remaining.splice(randomIndex, 1)[0]
+        const selected = remaining.splice(randIndex(remaining.length), 1)[0]
         yield selected
       }
     }
