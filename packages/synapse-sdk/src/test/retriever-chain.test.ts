@@ -87,7 +87,6 @@ const mockDataSet: EnhancedDataSetInfo = {
   clientDataSetId: 1,
   pdpEndEpoch: 0,
   providerId: 1,
-  cdnEndEpoch: 0,
   paymentEndEpoch: 0,
   withCDN: false,
   pdpVerifierDataSetId: 123,
@@ -95,6 +94,7 @@ const mockDataSet: EnhancedDataSetInfo = {
   currentPieceCount: 5,
   isLive: true,
   isManaged: true,
+  dataSetId: 1,
   metadata: {},
 }
 

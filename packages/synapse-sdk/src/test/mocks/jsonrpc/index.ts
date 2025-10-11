@@ -245,7 +245,7 @@ export const presets = {
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
       usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
-      filCDNBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
+      filBeamBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
@@ -275,6 +275,7 @@ export const presets = {
             pdpEndEpoch: 0n,
             providerId: 1n,
             cdnEndEpoch: 0n,
+            dataSetId: 1n,
           },
         ],
       ],
@@ -293,6 +294,7 @@ export const presets = {
           pdpEndEpoch: 0n,
           providerId: 1n,
           cdnEndEpoch: 0n,
+          dataSetId: 1n,
         },
       ],
       getApprovedProviders: () => [[1n, 2n]],
@@ -329,7 +331,7 @@ export const presets = {
           return [true, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi']
         return [false, ''] // key not found
       },
-      clientDataSetIDs: () => {
+      clientDataSetIds: () => {
         return [BigInt(0)]
       },
     },
@@ -341,12 +343,14 @@ export const presets = {
     serviceRegistry: {
       getProviderByAddress: (data) => [
         {
-          serviceProvider: data[0],
-          payee: ADDRESSES.payee1,
-          isActive: true,
-          name: 'Test Provider',
-          description: 'Test Provider',
           providerId: 1n,
+          info: {
+            serviceProvider: data[0],
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          },
         },
       ],
       getProviderIdByAddress: () => [1n],
@@ -369,35 +373,41 @@ export const presets = {
         if (data[0] === 1n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider1,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 1n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         if (data[0] === 2n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider2,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 2n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         return [
           {
-            serviceProvider: ADDRESSES.zero,
-            payee: ADDRESSES.zero,
-            isActive: false,
-            name: '',
-            description: '',
             providerId: 0n,
+            info: {
+              serviceProvider: ADDRESSES.zero,
+              payee: ADDRESSES.zero,
+              isActive: false,
+              name: '',
+              description: '',
+            },
           },
         ]
       },

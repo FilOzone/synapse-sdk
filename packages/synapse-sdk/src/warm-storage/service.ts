@@ -114,7 +114,7 @@ export class WarmStorageService {
     pdpVerifier: string
     payments: string
     usdfcToken: string
-    filCDNBeneficiary: string
+    filBeamBeneficiary: string
     viewContract: string
     serviceProviderRegistry: string
     sessionKeyRegistry: string
@@ -130,7 +130,7 @@ export class WarmStorageService {
       pdpVerifier: string
       payments: string
       usdfcToken: string
-      filCDNBeneficiary: string
+      filBeamBeneficiary: string
       viewContract: string
       serviceProviderRegistry: string
       sessionKeyRegistry: string
@@ -176,7 +176,7 @@ export class WarmStorageService {
       {
         target: warmStorageAddress,
         allowFailure: false,
-        callData: iface.encodeFunctionData('filCDNBeneficiaryAddress'),
+        callData: iface.encodeFunctionData('filBeamBeneficiaryAddress'),
       },
       {
         target: warmStorageAddress,
@@ -201,7 +201,7 @@ export class WarmStorageService {
       pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
-      filCDNBeneficiary: iface.decodeFunctionResult('filCDNBeneficiaryAddress', results[3].returnData)[0],
+      filBeamBeneficiary: iface.decodeFunctionResult('filBeamBeneficiaryAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
@@ -306,7 +306,7 @@ export class WarmStorageService {
       clientDataSetId: Number(ds.clientDataSetId),
       pdpEndEpoch: Number(ds.pdpEndEpoch),
       providerId: Number(ds.providerId),
-      cdnEndEpoch: Number(ds.cdnEndEpoch),
+      dataSetId,
     }
   }
 
@@ -332,7 +332,6 @@ export class WarmStorageService {
         clientDataSetId: Number(ds.clientDataSetId),
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
-        cdnEndEpoch: Number(ds.cdnEndEpoch),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -1011,7 +1010,7 @@ export class WarmStorageService {
 
     // First, we need to find the index of this provider in the array
     const viewContract = this._getWarmStorageViewContract()
-    const approvedIds = await viewContract.getApprovedProviders()
+    const approvedIds = await viewContract.getApprovedProviders(0n, 0n)
     const index = approvedIds.findIndex((id: bigint) => Number(id) === providerId)
 
     if (index === -1) {
@@ -1027,7 +1026,7 @@ export class WarmStorageService {
    */
   async getApprovedProviderIds(): Promise<number[]> {
     const viewContract = this._getWarmStorageViewContract()
-    const providerIds = await viewContract.getApprovedProviders()
+    const providerIds = await viewContract.getApprovedProviders(0n, 0n)
     return providerIds.map((id: bigint) => Number(id))
   }
 
