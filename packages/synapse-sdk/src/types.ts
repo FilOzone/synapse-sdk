@@ -210,10 +210,10 @@ export interface DataSetInfo {
   pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */
   providerId: number
-  /** Epoch when CDN payments end (0 if not terminated) */
-  cdnEndEpoch: number
   // Legacy alias for backward compatibility
   paymentEndEpoch?: number
+  /** PDP Data Set ID */
+  dataSetId: bigint | number
 }
 
 /**

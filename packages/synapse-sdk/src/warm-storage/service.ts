@@ -306,6 +306,7 @@ export class WarmStorageService {
       clientDataSetId: Number(ds.clientDataSetId),
       pdpEndEpoch: Number(ds.pdpEndEpoch),
       providerId: Number(ds.providerId),
+      dataSetId,
     }
   }
 
