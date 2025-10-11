@@ -922,16 +922,15 @@ export class PaymentsService {
     try {
       // Use staticCall to simulate the transaction and get the return values
       // Include the settlement fee (NETWORK_FEE in contract) in the simulation
-      const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint, {
-        value: SETTLEMENT_FEE,
-      })
+      const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint)
 
       return {
         totalSettledAmount: result[0],
         totalNetPayeeAmount: result[1],
         totalOperatorCommission: result[2],
-        finalSettledEpoch: result[3],
-        note: result[4],
+        totalNetworkFee: result[3],
+        finalSettledEpoch: result[4],
+        note: result[5],
       }
     } catch (error) {
       throw createError(
@@ -1078,7 +1077,7 @@ export class PaymentsService {
     const paymentsContract = this._getPaymentsContract()
 
     try {
-      const rails = await paymentsContract.getRailsForPayerAndToken(signerAddress, this._usdfcAddress)
+      const [rails] = await paymentsContract.getRailsForPayerAndToken(signerAddress, this._usdfcAddress, 0n, 0n)
 
       return rails.map((rail: any) => ({
         railId: Number(rail.railId),
@@ -1108,7 +1107,7 @@ export class PaymentsService {
     const paymentsContract = this._getPaymentsContract()
 
     try {
-      const rails = await paymentsContract.getRailsForPayeeAndToken(signerAddress, this._usdfcAddress)
+      const [rails] = await paymentsContract.getRailsForPayeeAndToken(signerAddress, this._usdfcAddress, 0n, 0n)
 
       return rails.map((rail: any) => ({
         railId: Number(rail.railId),

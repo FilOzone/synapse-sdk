@@ -148,6 +148,7 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpEndEpoch: 0n,
                   providerId: 1n,
                   cdnEndEpoch: 0n,
+                  dataSetId,
                 },
               ]
             }
@@ -165,6 +166,7 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpEndEpoch: 0n,
                   providerId: 1n,
                   cdnEndEpoch: 0n,
+                  dataSetId,
                 },
               ]
             }
@@ -182,6 +184,7 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpEndEpoch: 0n,
                   providerId: 2n,
                   cdnEndEpoch: 0n,
+                  dataSetId,
                 },
               ]
             }
@@ -199,6 +202,7 @@ describe('Metadata-based Data Set Selection', () => {
                 pdpEndEpoch: 0n,
                 providerId: 0n,
                 cdnEndEpoch: 0n,
+                dataSetId,
               },
             ]
           },

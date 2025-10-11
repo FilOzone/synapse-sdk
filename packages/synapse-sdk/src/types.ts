@@ -214,10 +214,10 @@ export interface DataSetInfo {
   pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */
   providerId: number
-  /** Epoch when CDN payments end (0 if not terminated) */
-  cdnEndEpoch: number
   // Legacy alias for backward compatibility
   paymentEndEpoch?: number
+  /** PDP Data Set ID */
+  dataSetId: bigint | number
 }
 
 /**
@@ -262,6 +262,8 @@ export interface SettlementResult {
   totalNetPayeeAmount: bigint
   /** Commission amount for operator */
   totalOperatorCommission: bigint
+  /** Payments contract network fee */
+  totalNetworkFee: bigint
   /** Final epoch that was settled */
   finalSettledEpoch: bigint
   /** Note about the settlement */
