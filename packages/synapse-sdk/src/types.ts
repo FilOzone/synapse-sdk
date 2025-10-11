@@ -258,6 +258,8 @@ export interface SettlementResult {
   totalNetPayeeAmount: bigint
   /** Commission amount for operator */
   totalOperatorCommission: bigint
+  /** Payments contract network fee */
+  totalNetworkFee: bigint
   /** Final epoch that was settled */
   finalSettledEpoch: bigint
   /** Note about the settlement */

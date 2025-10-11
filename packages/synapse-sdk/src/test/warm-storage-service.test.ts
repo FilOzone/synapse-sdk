@@ -97,7 +97,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 5,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(dataSetId),
           }
           // Use the Interface to encode the return data properly
           return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
@@ -133,7 +133,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 0,
             pdpEndEpoch: 0,
             providerId: 0,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(dataSetId),
           }
           // Use the Interface to encode the return data properly
           return viewInterface.encodeFunctionResult('getDataSet', [emptyDataSet])
@@ -206,6 +206,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return two data sets
           const dataSet1 = {
+            id: 1n,
             pdpRailId: 123n,
             cacheMissRailId: 0n,
             cdnRailId: 0n,
@@ -218,6 +219,7 @@ describe('WarmStorageService', () => {
           }
 
           const dataSet2 = {
+            id: 2n,
             pdpRailId: 456n,
             cacheMissRailId: 457n,
             cdnRailId: 458n, // Has CDN
@@ -242,7 +244,7 @@ describe('WarmStorageService', () => {
               dataSet1.clientDataSetId,
               dataSet1.paymentEndEpoch, // pdpEndEpoch
               dataSet1.providerId,
-              0, // cdnEndEpoch
+              dataSet1.id,
             ],
             [
               dataSet2.pdpRailId,
@@ -255,7 +257,7 @@ describe('WarmStorageService', () => {
               dataSet2.clientDataSetId,
               dataSet2.paymentEndEpoch, // pdpEndEpoch
               dataSet2.providerId,
-              0, // cdnEndEpoch
+              dataSet2.id,
             ],
           ]
 
@@ -347,7 +349,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 0,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: 242n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
         }
@@ -422,7 +424,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: id === 242 ? 0 : 1,
             pdpEndEpoch: 0,
             providerId: id === 242 ? 1 : 2,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(id),
           })
           const id = dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2) ? 242 : 243
           return viewInterface.encodeFunctionResult('getDataSet', [baseInfo(id)])
@@ -511,7 +513,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 0,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: 242n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -567,7 +569,7 @@ describe('WarmStorageService', () => {
             3n, // clientDataSetId
             0n, // pdpEndEpoch
             1n, // providerId
-            0n, // cdnEndEpoch
+            BigInt(dataSetId),
           ]
           return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
@@ -585,7 +587,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 0n, // expecting 0
             pdpEndEpoch: 0n,
             providerId: 1n,
-            cdnEndEpoch: 0n,
+            dataSetId: BigInt(dataSetId),
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -624,7 +626,7 @@ describe('WarmStorageService', () => {
             3n, // clientDataSetId
             0n, // pdpEndEpoch
             1n, // providerId
-            0n, // cdnEndEpoch
+            BigInt(dataSetId),
           ]
           return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
@@ -657,7 +659,6 @@ describe('WarmStorageService', () => {
             clientDataSetId: 3n,
             pdpEndEpoch: 0n,
             providerId: 1n,
-            cdnEndEpoch: 0n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -772,7 +773,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           // Return array of provider IDs [1, 4, 7]
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
@@ -791,7 +792,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           // Return empty array
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[]])
         }
@@ -962,7 +963,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array with provider 4 at index 1
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
@@ -997,7 +998,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array without provider 99
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
