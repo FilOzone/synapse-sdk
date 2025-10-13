@@ -80,6 +80,12 @@ export class StorageContext {
 
   private _isProcessing: boolean = false
 
+  // Upload tracking for batching (using symbols for simple idempotency)
+  private _activeUploads: Set<symbol> = new Set()
+  // Timeout to wait before processing batch if there are other in-progress uploads, this allows
+  // more uploads to join our batch
+  private readonly _uploadBatchWaitTimeout: number = 15000 // 15 seconds, half Filecoin's blocktime
+
   // Public properties from interface
   public readonly dataSetId: number
   public readonly serviceProvider: string
@@ -931,92 +937,103 @@ export class StorageContext {
     // Validate size before proceeding
     StorageContext.validateRawSize(sizeBytes, 'upload')
 
-    // Upload Phase: Upload data to service provider
-    let uploadResult: { pieceCid: PieceCID; size: number }
+    // Track this upload for batching purposes
+    const uploadId = Symbol('upload')
+    this._activeUploads.add(uploadId)
+
     try {
-      performance.mark('synapse:pdpServer.uploadPiece-start')
-      uploadResult = await this._pdpServer.uploadPiece(dataBytes)
-      performance.mark('synapse:pdpServer.uploadPiece-end')
-      performance.measure(
-        'synapse:pdpServer.uploadPiece',
-        'synapse:pdpServer.uploadPiece-start',
-        'synapse:pdpServer.uploadPiece-end'
-      )
-    } catch (error) {
-      performance.mark('synapse:pdpServer.uploadPiece-end')
-      performance.measure(
-        'synapse:pdpServer.uploadPiece',
-        'synapse:pdpServer.uploadPiece-start',
-        'synapse:pdpServer.uploadPiece-end'
-      )
-      throw createError('StorageContext', 'uploadPiece', 'Failed to upload piece to service provider', error)
-    }
-
-    // Poll for piece to be "parked" (ready)
-    const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
-    const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
-    const startTime = Date.now()
-    let pieceReady = false
-
-    performance.mark('synapse:findPiece-start')
-    while (Date.now() - startTime < maxWaitTime) {
+      // Upload Phase: Upload data to service provider and agree on PieceCID
+      let uploadResult: { pieceCid: PieceCID; size: number }
       try {
-        await this._pdpServer.findPiece(uploadResult.pieceCid)
-        pieceReady = true
-        break
-      } catch {
-        // Piece not ready yet, wait and retry if we haven't exceeded timeout
-        if (Date.now() - startTime + pollInterval < maxWaitTime) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval))
+        performance.mark('synapse:pdpServer.uploadPiece-start')
+        uploadResult = await this._pdpServer.uploadPiece(dataBytes)
+        performance.mark('synapse:pdpServer.uploadPiece-end')
+        performance.measure(
+          'synapse:pdpServer.uploadPiece',
+          'synapse:pdpServer.uploadPiece-start',
+          'synapse:pdpServer.uploadPiece-end'
+        )
+      } catch (error) {
+        performance.mark('synapse:pdpServer.uploadPiece-end')
+        performance.measure(
+          'synapse:pdpServer.uploadPiece',
+          'synapse:pdpServer.uploadPiece-start',
+          'synapse:pdpServer.uploadPiece-end'
+        )
+        throw createError('StorageContext', 'uploadPiece', 'Failed to upload piece to service provider', error)
+      }
+
+      // Poll for piece to be "parked" (ready)
+      const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
+      const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
+      const startTime = Date.now()
+      let pieceReady = false
+
+      performance.mark('synapse:findPiece-start')
+      while (Date.now() - startTime < maxWaitTime) {
+        try {
+          await this._pdpServer.findPiece(uploadResult.pieceCid)
+          pieceReady = true
+          break
+        } catch {
+          // Piece not ready yet, wait and retry if we haven't exceeded timeout
+          if (Date.now() - startTime + pollInterval < maxWaitTime) {
+            await new Promise((resolve) => setTimeout(resolve, pollInterval))
+          }
         }
       }
-    }
-    performance.mark('synapse:findPiece-end')
-    performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
+      performance.mark('synapse:findPiece-end')
+      performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
 
-    if (!pieceReady) {
-      throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
-    }
+      if (!pieceReady) {
+        throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
+      }
 
-    // Notify upload complete
-    if (options?.onUploadComplete != null) {
-      options.onUploadComplete(uploadResult.pieceCid)
-    }
+      // Upload phase complete - remove from active tracking
+      this._activeUploads.delete(uploadId)
 
-    // Add Piece Phase: Queue the AddPieces operation for sequential processing
-    const pieceData = uploadResult.pieceCid
+      // Notify upload complete
+      if (options?.onUploadComplete != null) {
+        options.onUploadComplete(uploadResult.pieceCid)
+      }
 
-    // Validate metadata early (before queueing) to fail fast
-    if (options?.metadata != null) {
-      validatePieceMetadata(options.metadata)
-    }
+      // Add Piece Phase: Queue the AddPieces operation for sequential processing
+      const pieceData = uploadResult.pieceCid
 
-    const finalPieceId = await new Promise<number>((resolve, reject) => {
-      // Add to pending batch
-      this._pendingPieces.push({
-        pieceData,
-        resolve,
-        reject,
-        callbacks: options,
-        metadata: options?.metadata ? objectToEntries(options.metadata) : undefined,
+      // Validate metadata early (before queueing) to fail fast
+      if (options?.metadata != null) {
+        validatePieceMetadata(options.metadata)
+      }
+
+      const finalPieceId = await new Promise<number>((resolve, reject) => {
+        // Add to pending batch
+        this._pendingPieces.push({
+          pieceData,
+          resolve,
+          reject,
+          callbacks: options,
+          metadata: options?.metadata ? objectToEntries(options.metadata) : undefined,
+        })
+
+        // Debounce: defer processing to next event loop tick
+        // This allows multiple synchronous upload() calls to queue up before processing
+        setTimeout(() => {
+          void this._processPendingPieces().catch((error) => {
+            console.error('Failed to process pending pieces batch:', error)
+          })
+        }, 0)
       })
 
-      // Debounce: defer processing to next event loop tick
-      // This allows multiple synchronous upload() calls to queue up before processing
-      setTimeout(() => {
-        void this._processPendingPieces().catch((error) => {
-          console.error('Failed to process pending pieces batch:', error)
-        })
-      }, 0)
-    })
-
-    // Return upload result
-    performance.mark('synapse:upload-end')
-    performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
-    return {
-      pieceCid: uploadResult.pieceCid,
-      size: uploadResult.size,
-      pieceId: finalPieceId,
+      // Return upload result
+      performance.mark('synapse:upload-end')
+      performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
+      return {
+        pieceCid: uploadResult.pieceCid,
+        size: uploadResult.size,
+        pieceId: finalPieceId,
+      }
+    } finally {
+      this._activeUploads.delete(uploadId)
     }
   }
 
@@ -1029,6 +1046,34 @@ export class StorageContext {
       return
     }
     this._isProcessing = true
+
+    // Wait for any in-flight uploads to complete before processing, but only if we don't
+    // already have a full batch - no point waiting for more if we can process a full batch now.
+    // Snapshot the current uploads so we don't wait for new uploads that start during our wait.
+    const uploadsToWaitFor = new Set(this._activeUploads)
+
+    if (uploadsToWaitFor.size > 0 && this._pendingPieces.length < this._uploadBatchSize) {
+      const waitStart = Date.now()
+      const pollInterval = 200
+
+      while (uploadsToWaitFor.size > 0 && Date.now() - waitStart < this._uploadBatchWaitTimeout) {
+        // Check which of our snapshot uploads have completed
+        for (const uploadId of uploadsToWaitFor) {
+          if (!this._activeUploads.has(uploadId)) {
+            uploadsToWaitFor.delete(uploadId)
+          }
+        }
+
+        if (uploadsToWaitFor.size > 0) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval))
+        }
+      }
+
+      const waited = Date.now() - waitStart
+      if (waited > pollInterval) {
+        console.debug(`Waited ${waited}ms for ${uploadsToWaitFor.size} active upload(s) to complete`)
+      }
+    }
 
     // Extract up to uploadBatchSize pending pieces
     const batch = this._pendingPieces.slice(0, this._uploadBatchSize)
