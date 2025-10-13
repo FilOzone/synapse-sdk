@@ -707,7 +707,7 @@ export function setupProviderRegistryMocks(
                     pdp.data.location || '',
                     pdp.data.paymentTokenAddress,
                   ],
-                  Object.keys(pdp.capabilities || {}),
+                  Object.keys(pdp.capabilities || []),
                   pdp.isActive,
                 ],
               ]
@@ -737,6 +737,7 @@ export function setupProviderRegistryMocks(
     }
 
     // Mock getProvider(uint256) - returns provider info by ID (SPRegistry)
+
     // Function returns: tuple(address beneficiary, string name, string description, bool isActive)
     if (data?.startsWith('0x5c42d079')) {
       // Decode the provider ID from the call data
@@ -780,7 +781,7 @@ export function setupProviderRegistryMocks(
             'string[]',
             'bool',
           ],
-          [pdpOffering, [], pdp.isActive]
+          [pdpOffering, Object.keys(pdp.capabilities ?? []), pdp.isActive]
         )
       }
       // Return empty PDP service for provider without PDP
@@ -811,6 +812,7 @@ export function setupProviderRegistryMocks(
       const provider = providers.find((p) => p.id === providerId)
       if (provider?.products?.PDP) {
         const pdp = provider.products.PDP
+
         // Encode PDP product data (simplified for testing)
         const encodedPDP = ethers.AbiCoder.defaultAbiCoder().encode(
           ['string', 'uint256', 'uint256', 'bool', 'bool', 'uint256', 'uint256', 'string', 'address'],
@@ -834,7 +836,7 @@ export function setupProviderRegistryMocks(
               [
                 0, // productType: PDP
                 pdp.isActive,
-                [], // capabilityKeys (empty for simplicity)
+                pdp.capabilities ?? [], // capabilityKeys (empty for simplicity)
                 encodedPDP,
               ],
             ],

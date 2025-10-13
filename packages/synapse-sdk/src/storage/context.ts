@@ -197,7 +197,7 @@ export class StorageContext {
 
     // If we need to create a new data set
     let finalDataSetId: number
-    if (resolution.dataSetId === -1 || options.forceCreateDataSet === true) {
+    if (resolution.dataSetId === -1) {
       // Need to create new data set
       finalDataSetId = await StorageContext.createDataSet(
         synapse,
@@ -439,7 +439,7 @@ export class StorageContext {
     const clientAddress = await client.getAddress()
 
     // Handle explicit data set ID selection (highest priority)
-    if (options.dataSetId != null) {
+    if (options.dataSetId != null && options.forceCreateDataSet !== true) {
       return await StorageContext.resolveByDataSetId(
         options.dataSetId,
         warmStorageService,
@@ -480,7 +480,10 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       providerResolver,
-      client
+      client,
+      options.forceCreateDataSet,
+      options.withIpni,
+      options.dev
     )
   }
 
@@ -677,7 +680,10 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
-    signer: ethers.Signer
+    signer: ethers.Signer,
+    forceCreateDataSet?: boolean,
+    withIpni?: boolean,
+    dev?: boolean
   ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
@@ -691,7 +697,7 @@ export class StorageContext {
       (ps) => ps.isLive && ps.isManaged && metadataMatches(ps.metadata, requestedMetadata)
     )
 
-    if (managedDataSets.length > 0) {
+    if (managedDataSets.length > 0 && !forceCreateDataSet) {
       // Prefer data sets with pieces, sort by ID (older first)
       const sorted = managedDataSets.sort((a, b) => {
         if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
@@ -706,6 +712,7 @@ export class StorageContext {
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
           const provider = await providerResolver.getApprovedProvider(dataSet.providerId)
+
           if (provider == null) {
             console.warn(
               `Provider ID ${dataSet.providerId} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
@@ -720,7 +727,10 @@ export class StorageContext {
       }
 
       try {
-        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
+        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders(), {
+          dev,
+          withIpni,
+        })
 
         // Find the first matching data set ID for this provider
         // Match by provider ID (stable identifier in the registry)
@@ -751,12 +761,13 @@ export class StorageContext {
 
     // No existing data sets - select from all approved providers
     const allProviders = await providerResolver.getApprovedProviders()
+
     if (allProviders.length === 0) {
       throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
     }
 
     // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders, signer)
+    const provider = await StorageContext.selectRandomProvider(allProviders, signer, withIpni, dev)
 
     return {
       provider,
@@ -772,7 +783,12 @@ export class StorageContext {
    * @param signer - Signer for additional entropy
    * @returns Selected provider
    */
-  private static async selectRandomProvider(providers: ProviderInfo[], signer?: ethers.Signer): Promise<ProviderInfo> {
+  private static async selectRandomProvider(
+    providers: ProviderInfo[],
+    signer?: ethers.Signer,
+    withIpni?: boolean,
+    dev?: boolean
+  ): Promise<ProviderInfo> {
     if (providers.length === 0) {
       throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
     }
@@ -814,7 +830,10 @@ export class StorageContext {
       }
     }
 
-    return await StorageContext.selectProviderWithPing(generateRandomProviders())
+    return await StorageContext.selectProviderWithPing(generateRandomProviders(), {
+      withIpni,
+      dev,
+    })
   }
 
   /**
@@ -824,11 +843,23 @@ export class StorageContext {
    * @returns The first provider that responds
    * @throws If all providers fail
    */
-  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo> {
+  private static async selectProviderWithPing(
+    providers: AsyncIterable<ProviderInfo>,
+    options?: { withIpni?: boolean; dev?: boolean }
+  ): Promise<ProviderInfo> {
     let providerCount = 0
+    const { withIpni, dev } = options ?? {}
 
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
+      if (withIpni && provider?.products.PDP?.data.ipniIpfs === false) {
+        continue
+      }
+
+      if (!dev && provider?.products.PDP?.capabilities?.dev != null) {
+        continue
+      }
+
       providerCount++
       try {
         // Create a temporary PDPServer for this specific provider's endpoint

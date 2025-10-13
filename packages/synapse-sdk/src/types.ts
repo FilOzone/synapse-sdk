@@ -55,6 +55,10 @@ export interface SynapseOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
+  /** Whether to filter providers by IPNI availability */
+  withIpni?: boolean
+  /** Whether to filter providers by dev availability */
+  dev?: boolean
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
   /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
@@ -333,14 +337,16 @@ export interface StorageServiceOptions {
   dataSetId?: number
   /** Whether to enable CDN services */
   withCDN?: boolean
-  /** Custom metadata for the data set (key-value pairs) */
-  metadata?: Record<string, string>
+  withIpni?: boolean
+  dev?: boolean
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
-  /** Callbacks for creation process */
-  callbacks?: StorageCreationCallbacks
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
   uploadBatchSize?: number
+  /** Callbacks for creation process */
+  callbacks?: StorageCreationCallbacks
+  /** Custom metadata for the data set (key-value pairs) */
+  metadata?: Record<string, string>
 }
 
 /**

@@ -69,30 +69,12 @@ type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks
  *
  * @internal This type is intentionally not exported as it's specific to StorageManager
  */
-interface StorageManagerUploadOptions {
+interface StorageManagerUploadOptions extends StorageServiceOptions {
   // Context routing - if provided, all other context options are invalid
   context?: StorageContext
 
-  // Auto-context creation options (from StorageServiceOptions)
-  // These are ignored if 'context' is provided
-  /** Specific provider ID to use */
-  providerId?: number
-  /** Specific provider address to use */
-  providerAddress?: string
-  /** Specific data set ID to use */
-  dataSetId?: number
-  /** Whether to enable CDN services */
-  withCDN?: boolean
-  /** Force creation of a new data set */
-  forceCreateDataSet?: boolean
-  /** Maximum uploads per batch (default: 32) */
-  uploadBatchSize?: number
-
   // Callbacks that can include both creation and upload callbacks
   callbacks?: Partial<CombinedCallbacks>
-
-  // Metadata for this specific piece upload
-  metadata?: Record<string, string>
 }
 
 interface StorageManagerDownloadOptions extends DownloadOptions {
@@ -106,18 +88,24 @@ export class StorageManager {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
+  private readonly _dev: boolean
+  private readonly _withIpni: boolean | undefined
   private _defaultContext?: StorageContext
 
   constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
-    withCDN: boolean
+    withCDN: boolean,
+    dev: boolean,
+    withIpni?: boolean
   ) {
     this._synapse = synapse
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._withCDN = withCDN
+    this._dev = dev
+    this._withIpni = withIpni
   }
 
   /**
@@ -146,17 +134,7 @@ export class StorageManager {
     }
 
     // Get the context to use
-    const context =
-      options?.context ??
-      (await this.createContext({
-        providerId: options?.providerId,
-        providerAddress: options?.providerAddress,
-        dataSetId: options?.dataSetId,
-        withCDN: options?.withCDN,
-        forceCreateDataSet: options?.forceCreateDataSet,
-        uploadBatchSize: options?.uploadBatchSize,
-        callbacks: options?.callbacks,
-      }))
+    const context = options?.context ?? (await this.createContext(options))
 
     // Upload using the context with piece metadata
     return await context.upload(data, {
@@ -306,6 +284,8 @@ export class StorageManager {
       const context = await StorageContext.create(this._synapse, this._warmStorageService, {
         ...options,
         withCDN: effectiveWithCDN,
+        withIpni: options?.withIpni ?? this._withIpni,
+        dev: options?.dev ?? this._dev,
       })
       this._defaultContext = context
       return context
@@ -315,6 +295,8 @@ export class StorageManager {
     return await StorageContext.create(this._synapse, this._warmStorageService, {
       ...options,
       withCDN: effectiveWithCDN,
+      withIpni: options?.withIpni ?? this._withIpni,
+      dev: options?.dev ?? this._dev,
     })
   }
 
