@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.32.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.31.1...synapse-sdk-v0.32.0) (2025-10-13)
+
+
+### Features
+
+* add new provider filters ([#309](https://github.com/FilOzone/synapse-sdk/issues/309)) ([f71a7f1](https://github.com/FilOzone/synapse-sdk/commit/f71a7f19f34110588bfe28da8baf80b7e910b4bd))
+
 ## [0.31.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.31.0...synapse-sdk-v0.31.1) (2025-10-10)
 
 
