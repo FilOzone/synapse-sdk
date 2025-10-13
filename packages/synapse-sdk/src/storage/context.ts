@@ -197,12 +197,38 @@ export class StorageContext {
 
     // If we need to create a new data set
     let finalDataSetId: number
+    let finalProvider = resolution.provider
+
     if (resolution.dataSetId === -1 || options.forceCreateDataSet === true) {
       // Need to create new data set
+
+      // If no specific provider was requested and we're creating a new data set,
+      // re-select provider using random algorithm to avoid magnetic bias
+      const hasSpecificProvider =
+        options.providerId != null || options.providerAddress != null || options.dataSetId != null
+
+      if (!hasSpecificProvider) {
+        // Re-run provider selection with random algorithm only
+        const allProviders = await providerResolver.getApprovedProviders()
+        if (allProviders.length === 0) {
+          throw createError('StorageContext', 'create', 'No approved service providers available')
+        }
+
+        // Use random selection for new data set creation
+        finalProvider = await StorageContext.selectRandomProvider(allProviders, synapse.getSigner())
+
+        // Update the callback to reflect the newly selected provider
+        try {
+          options.callbacks?.onProviderSelected?.(finalProvider)
+        } catch (error) {
+          console.error('Error in onProviderSelected callback:', error)
+        }
+      }
+
       finalDataSetId = await StorageContext.createDataSet(
         synapse,
         warmStorageService,
-        resolution.provider,
+        finalProvider,
         options.withCDN ?? false,
         options.callbacks,
         options.metadata
@@ -226,7 +252,7 @@ export class StorageContext {
     return new StorageContext(
       synapse,
       warmStorageService,
-      resolution.provider,
+      finalProvider,
       finalDataSetId,
       options,
       resolution.dataSetMetadata
