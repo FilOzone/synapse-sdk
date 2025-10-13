@@ -24,7 +24,8 @@
     "@biomejs/biome": "~2.2.5",
     "knip": "^5.64.1",
     "markdownlint-cli2": "^0.18.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wireit": "^0.14.12"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"

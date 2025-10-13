@@ -116,7 +116,7 @@ export default defineConfig({
             parametersFormat: 'table',
             indexFormat: 'table',
             groupOrder: ['classes', 'functions', 'variables', 'types', '*'],
-            plugin: ['typedoc-plugin-mdn-links', 'typedoc-plugin-missing-exports'],
+            plugin: ['typedoc-plugin-mdn-links'],
           },
         }),
         starlightLlmsTxt(),

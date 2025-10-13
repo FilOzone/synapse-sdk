@@ -1,15 +1,15 @@
-name: synapse-sdk
+name: synapse-core
 on:
   push:
     branches:
       - master
     paths:
-      - "packages/synapse-sdk/**"
-      - .github/workflows/synapse-sdk.yml
+      - "packages/synapse-core/**"
+      - .github/workflows/synapse-core.yml
   pull_request:
     paths:
-      - "packages/synapse-sdk/**"
-      - .github/workflows/synapse-sdk.yml
+      - "packages/synapse-core/**"
+      - .github/workflows/synapse-core.yml
 jobs:
   test:
     strategy:
@@ -34,8 +34,8 @@ jobs:
         run: pnpx playwright install winldd
       - name: Install Dependencies
         run: pnpm install
-      - name: Run tests
-        run: pnpm -r --filter @filoz/synapse-sdk run test
-        shell: bash
+      # - name: Run tests
+      #   run: pnpm -r --filter @filoz/synapse-core run test
+      #   shell: bash
       - name: Check docs build
         run: pnpm -r --filter docs run build

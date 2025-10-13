@@ -6,6 +6,7 @@
  */
 
 import type { ethers } from 'ethers'
+import type { Account, Chain, Client, Transport, TransportConfig } from 'viem'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
 
@@ -35,34 +36,33 @@ export type TokenIdentifier = 'USDFC' | string
  * 3. signer (for direct ethers.js integration)
  */
 export interface SynapseOptions {
-  // Wallet Configuration (exactly one required)
+  /**
+   * Viem wallet client for signing transactions and typed data
+   *
+   * @see https://viem.sh/docs/clients/wallet
+   * @see https://wagmi.sh/react/api/hooks/useConnectorClient
+   * @see https://wagmi.sh/core/api/actions/getConnectorClient
+   */
+  client: Client<Transport, Chain, Account>
 
-  /** Private key for signing transactions (requires rpcURL) */
-  privateKey?: PrivateKey
-  /** Ethers Provider instance (handles both reads and transactions) */
-  provider?: ethers.Provider
-  /** Ethers Signer instance (for direct ethers.js integration) */
-  signer?: ethers.Signer
-
-  // Network Configuration
-
-  /** RPC URL for Filecoin node (required with privateKey) */
-  rpcURL?: string
-  /** Authorization header value for API authentication (e.g., Bearer token) */
-  authorization?: string
-
-  // Advanced Configuration
+  /**
+   * Viem transport configuration for creating a public client for reading data from the chain
+   *
+   * When not provided, a public client will be created using {@link https://viem.sh/docs/clients/transports/http} based on the {@link SynapseOptions.client} chain.
+   *
+   * Only [http](https://viem.sh/docs/clients/transports/http), [websocket](https://viem.sh/docs/clients/transports/websocket), and [fallback](https://viem.sh/docs/clients/transports/fallback) transports config are supported.
+   *
+   * @see https://viem.sh/docs/clients/public
+   *
+   */
+  transportConfig?: TransportConfig
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
-  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
-  disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
-  /** Override PDPVerifier contract address (defaults to network's default) */
-  pdpVerifierAddress?: string
 
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
