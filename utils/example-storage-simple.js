@@ -10,7 +10,7 @@
  *   PRIVATE_KEY=0x... WARM_STORAGE_ADDRESS=0x... node example-storage-simple.js
  */
 
-import { Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '../packages/synapse-sdk/src/index.ts'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
