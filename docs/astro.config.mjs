@@ -17,22 +17,47 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Synapse',
-      logo: { src: './public/filoz.svg', alt: 'synapse' },
-      favicon: 'filoz.svg',
+      logo: { src: './src/assets/foc-logo.svg', alt: 'synapse' },
+      favicon: 'favicon.ico',
+      customCss: ['./src/custom.css'],
       head: [
         {
-          tag: 'meta',
+          tag: 'link',
           attrs: {
-            property: 'og:image',
-            content: new URL('og.jpg?v=1', site).href,
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: '/favicon.svg',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/png',
+            href: '/favicon-96x96.png',
+            sizes: '96x96',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'apple-touch-icon',
+            href: '/apple-touch-icon.png',
+            sizes: '180x180',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'manifest',
+            href: '/site.webmanifest',
           },
         },
         {
           tag: 'meta',
           attrs: {
-            property: 'og:image:alt',
-            content:
-              'Connect apps with Filecoin Services - a smart-contract based marketplace for storage and other services',
+            property: 'og:image',
+            content: new URL('og.jpg?v=1', site).href,
           },
         },
       ],

@@ -173,7 +173,9 @@ export class Synapse {
       options.withCDN === true,
       warmStorageAddress,
       warmStorageService,
-      pieceRetriever
+      pieceRetriever,
+      options.dev === false,
+      options.withIpni
     )
   }
 
@@ -183,9 +185,12 @@ export class Synapse {
     network: FilecoinNetworkType,
     payments: PaymentsService,
     withCDN: boolean,
+
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
-    pieceRetriever: PieceRetriever
+    pieceRetriever: PieceRetriever,
+    dev: boolean,
+    withIpni?: boolean
   ) {
     this._signer = signer
     this._provider = provider
@@ -198,7 +203,14 @@ export class Synapse {
     this._session = null
 
     // Initialize StorageManager
-    this._storageManager = new StorageManager(this, this._warmStorageService, this._pieceRetriever, this._withCDN)
+    this._storageManager = new StorageManager(
+      this,
+      this._warmStorageService,
+      this._pieceRetriever,
+      this._withCDN,
+      dev,
+      withIpni
+    )
   }
 
   /**

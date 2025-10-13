@@ -50,12 +50,48 @@ const TEST_PROVIDERS = {
     id: 1,
     serviceProvider: '0x1111111111111111111111111111111111111111',
     name: 'Test Provider 1',
+    products: {
+      PDP: {
+        type: 'PDP',
+        isActive: true,
+        capabilities: { dev: '' },
+        data: {
+          serviceURL: 'https://provider.example.com',
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880,
+          location: 'US',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+        },
+      },
+    },
   }),
   // Provider with ID 2
   provider2: createMockProviderInfo({
     id: 2,
     serviceProvider: '0x2222222222222222222222222222222222222222',
     name: 'Test Provider 2',
+    products: {
+      PDP: {
+        type: 'PDP',
+        isActive: true,
+        capabilities: {},
+        data: {
+          serviceURL: 'https://provider.example.com',
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+          ipniPiece: true,
+          ipniIpfs: true,
+          storagePricePerTibPerMonth: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880,
+          location: 'US',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+        },
+      },
+    },
   }),
   // Provider with ID 3
   provider3: createMockProviderInfo({
@@ -272,13 +308,123 @@ describe('StorageService', () => {
       const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
 
       // Create storage service without specifying providerId
-      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {})
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
 
       // Should have selected one of the providers
       assert.isTrue(
         service.serviceProvider === mockProviders[0].serviceProvider ||
           service.serviceProvider === mockProviders[1].serviceProvider
       )
+    })
+
+    it('should select a random provider but filter allow IPNI providers', async () => {
+      // Create mock providers
+      const mockProviders: ProviderInfo[] = [TEST_PROVIDERS.provider1, TEST_PROVIDERS.provider2]
+
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[0].serviceProvider, // Matches first provider
+          providerId: 1, // Provider ID for first provider
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 0,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+        {
+          railId: 2,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[1].serviceProvider, // Matches second provider
+          providerId: 2, // Provider ID for second provider
+          pdpVerifierDataSetId: 101,
+          nextPieceId: 0,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 2,
+        },
+      ]
+
+      // Set up registry mocks with our providers
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: mockProviders,
+        approvedIds: [1, 2],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+
+      // Create storage service without specifying providerId
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        withIpni: true,
+      })
+
+      // Should have selected one of the providers
+      assert.isTrue(service.serviceProvider === mockProviders[1].serviceProvider)
+    })
+
+    it('should never select a dev provider by default', async () => {
+      // Create mock providers
+      const mockProviders: ProviderInfo[] = [TEST_PROVIDERS.provider1, TEST_PROVIDERS.provider2]
+
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[0].serviceProvider, // Matches first provider
+          providerId: 1, // Provider ID for first provider
+          pdpVerifierDataSetId: 100,
+          nextPieceId: 0,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+        {
+          railId: 2,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[1].serviceProvider, // Matches second provider
+          providerId: 2, // Provider ID for second provider
+          pdpVerifierDataSetId: 101,
+          nextPieceId: 0,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 2,
+        },
+      ]
+
+      // Set up registry mocks with our providers
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: mockProviders,
+        approvedIds: [1, 2],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+
+      // Create storage service without specifying providerId
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
+
+      // Should have selected one of the providers
+      assert.isTrue(service.serviceProvider === mockProviders[1].serviceProvider)
     })
 
     it('should use specific provider when providerId specified', async () => {

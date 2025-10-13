@@ -234,18 +234,22 @@ function validatePDPInputs(options) {
     validateDNLocation(options.location)
   }
 
-  // Validate capability format (key=value)
+  // Validate capability format (key=value, value can be empty string)
   if (options.capability) {
     const capabilities = normalizeCapabilities(options.capability)
     for (const cap of capabilities) {
       const tokens = cap.split('=')
-      if (tokens.length !== 2 || tokens[0].length === 0 || tokens[1].length === 0) {
+      if (tokens.length !== 2 || tokens[0].length === 0) {
         console.error(`Error: --capability must be in key=value format. Got: "${cap}"`)
         process.exit(1)
       }
-      // Check for leading/trailing spaces
-      if (tokens[0] !== tokens[0].trim() || tokens[1] !== tokens[1].trim()) {
-        console.error(`Error: --capability keys and values must not have leading or trailing spaces.\nFound: "${cap}"`)
+      // Check for leading/trailing spaces (only check key if value is non-empty)
+      if (tokens[0] !== tokens[0].trim()) {
+        console.error(`Error: --capability keys must not have leading or trailing spaces.\nFound: "${cap}"`)
+        process.exit(1)
+      }
+      if (tokens[1].length > 0 && tokens[1] !== tokens[1].trim()) {
+        console.error(`Error: --capability values must not have leading or trailing spaces.\nFound: "${cap}"`)
         process.exit(1)
       }
     }
@@ -478,17 +482,36 @@ async function handleRegister(provider, signer, options) {
 }
 
 async function handleUpdate(provider, signer, options) {
-  if (!options.id) {
-    console.error('Error: --id is required for update')
-    process.exit(1)
+  const registry = await getRegistryService(provider, options)
+  const signerAddress = await signer.getAddress()
+
+  // If --id is provided, validate that the signer owns this provider
+  if (options.id) {
+    const specifiedProvider = await registry.getProvider(Number(options.id))
+    if (!specifiedProvider) {
+      console.error(`Provider #${options.id} not found`)
+      process.exit(1)
+    }
+
+    if (specifiedProvider.serviceProvider.toLowerCase() !== signerAddress.toLowerCase()) {
+      console.error(
+        `Error: Provider #${options.id} is owned by ${specifiedProvider.serviceProvider}, but you are using signer ${signerAddress}`
+      )
+      console.error(`\nYou can only update providers you own. Either:`)
+      console.error(`  1. Use the correct private key for provider #${options.id}`)
+      console.error(`  2. Omit --id to update your own provider`)
+      process.exit(1)
+    }
   }
 
-  const registry = await getRegistryService(provider, options)
-
-  // Get current provider info
-  const current = await registry.getProvider(Number(options.id))
+  // Get the provider owned by this signer
+  const current = await registry.getProviderByAddress(signerAddress)
   if (!current) {
-    console.error(`Provider #${options.id} not found`)
+    console.error(`Error: No provider registered for signer address ${signerAddress}`)
+    if (options.id) {
+      console.error(`\nNote: --id ${options.id} cannot be updated because it's owned by a different address`)
+    }
+    console.error(`\nTo register a new provider, use: node utils/sp-tool.js register --help`)
     process.exit(1)
   }
 
@@ -732,7 +755,7 @@ Usage: node utils/sp-tool.js <command> [options]
 
 Registry Commands:
   register    Register a new service provider
-  update      Update existing provider details
+  update      Update your provider's details (requires --key for provider owner)
   deregister  Deregister a provider
   info        Get provider information
   list        List all active providers
@@ -768,7 +791,7 @@ PDP Service Options (register/update):
   --ipni-ipfs <bool>        Enable IPNI IPFS content (true/false, default: true)
   --min-proving-period <n>  Minimum proving period in epochs (default: 30)
   --payment-token <addr>    Payment token address (default: USDFC)
-  --capability <key=value>  Add arbitrary capability (can be repeated for multiple capabilities)
+  --capability <key=value>  Add arbitrary capability (value can be empty string, can be repeated for multiples)
 
 Examples:
   # Register a new provider on mainnet (requires 5 FIL fee)
@@ -777,23 +800,26 @@ Examples:
   # Register a new provider on calibration (default network)
   node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --payee 0x...
 
-  # Update basic provider information
-  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Provider Name" --description "New description"
+  # Update basic provider information (updates your provider)
+  node utils/sp-tool.js update --key 0x... --name "Updated Provider Name" --description "New description"
 
   # Update PDP service offering location
-  node utils/sp-tool.js update --key 0x... --id 123 --location "C=US;ST=California;L=San Francisco"
+  node utils/sp-tool.js update --key 0x... --location "C=US;ST=California;L=San Francisco"
 
   # Update PDP service pricing and location (5 USDFC per TiB per month)
-  node utils/sp-tool.js update --key 0x... --id 123 --location "C=GB;ST=England;L=London" --price "5000000000000000000"
+  node utils/sp-tool.js update --key 0x... --location "C=GB;ST=England;L=London" --price "5000000000000000000"
 
   # Update PDP service endpoint and piece size limits
-  node utils/sp-tool.js update --key 0x... --id 123 --service-url "https://new-endpoint.example.com" --max-piece-size "68719476736"
+  node utils/sp-tool.js update --key 0x... --service-url "https://new-endpoint.example.com" --max-piece-size "68719476736"
 
-  # Update both basic info and PDP offering (4 USDFC per TiB per month)
-  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Name" --location "C=JP;ST=Tokyo;L=Shibuya" --price "4000000000000000000"
+  # Update capabilities (values can be empty strings)
+  node utils/sp-tool.js update --key 0x... --capability "dev=" --capability "tier=premium"
 
-  # Register with custom capabilities
-  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --capability tier=premium --capability region=apac
+  # Update with --id for validation (must be your provider)
+  node utils/sp-tool.js update --key 0x... --id 123 --name "Updated Name" --location "C=JP;ST=Tokyo;L=Shibuya"
+
+  # Register with custom capabilities (empty values are allowed for flags)
+  node utils/sp-tool.js register --key 0x... --name "My Provider" --http "https://provider.example.com" --capability tier=premium --capability dev=
 
   # Add provider to WarmStorage approved list
   node utils/sp-tool.js warm-add --key 0x... --id 2
@@ -890,9 +916,16 @@ Examples:
     // Clean up provider connection (important for WebSocket providers)
     if (provider && typeof provider.destroy === 'function') {
       try {
+        // Suppress console errors during cleanup (nasty hack, but this appears to be an Ethers.js issue)
+        const originalConsoleError = console.error
+        console.error = () => {
+          /* nothing to see here */
+        }
         await provider.destroy()
+        console.error = originalConsoleError
       } catch {
-        // Ignore cleanup errors (e.g., WebSocket already closed)
+        // Ignore cleanup errors (e.g., WebSocket already closed, subscription cancellations)
+        // These are harmless and expected during shutdown
       }
     }
   }
