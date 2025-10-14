@@ -526,6 +526,160 @@ describe('PDPServer', () => {
     })
   })
 
+  describe('getPieceStatus', () => {
+    it('should successfully get piece status', async () => {
+      const mockPieceCid = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
+      const mockResponse = {
+        pieceCid: mockPieceCid,
+        status: 'retrieved',
+        indexed: true,
+        advertised: true,
+        retrieved: true,
+        retrievedAt: '2025-10-11T13:35:26.541494+02:00',
+      }
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
+
+      const result = await pdpServer.getPieceStatus(mockPieceCid)
+      assert.deepStrictEqual(result, mockResponse)
+    })
+
+    it('should handle pending status', async () => {
+      const mockPieceCid = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
+      const mockResponse = {
+        pieceCid: mockPieceCid,
+        status: 'pending',
+        indexed: false,
+        advertised: false,
+        retrieved: false,
+      }
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
+
+      const result = await pdpServer.getPieceStatus(mockPieceCid)
+      assert.strictEqual(result.status, 'pending')
+      assert.strictEqual(result.indexed, false)
+      assert.strictEqual(result.advertised, false)
+      assert.strictEqual(result.retrieved, false)
+      assert.isUndefined(result.retrievedAt)
+    })
+
+    it('should handle piece not found (404)', async () => {
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+          return HttpResponse.text('Piece not found or does not belong to service', {
+            status: 404,
+          })
+        })
+      )
+
+      try {
+        await pdpServer.getPieceStatus(mockPieceCid)
+        assert.fail('Should have thrown error for not found')
+      } catch (error: any) {
+        assert.include(error.message, 'Piece not found or does not belong to service')
+      }
+    })
+
+    it('should validate PieceCID input', async () => {
+      const invalidPieceCid = 'invalid-piece-cid-string'
+
+      try {
+        await pdpServer.getPieceStatus(invalidPieceCid)
+        assert.fail('Should have thrown error for invalid PieceCID')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid PieceCID')
+      }
+    })
+
+    it('should handle server errors', async () => {
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      server.use(
+        http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+          return HttpResponse.text('Database error', {
+            status: 500,
+          })
+        })
+      )
+
+      try {
+        await pdpServer.getPieceStatus(mockPieceCid)
+        assert.fail('Should have thrown error for server error')
+      } catch (error: any) {
+        assert.include(error.message, 'Failed to get piece status')
+        assert.include(error.message, '500')
+        assert.include(error.message, 'Database error')
+      }
+    })
+
+    it('should validate response structure', async () => {
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const invalidResponse = {
+        pieceCid: mockPieceCid,
+        status: 'retrieved',
+        // Missing required fields
+      }
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+          return HttpResponse.json(invalidResponse, {
+            status: 200,
+          })
+        })
+      )
+
+      try {
+        await pdpServer.getPieceStatus(mockPieceCid)
+        assert.fail('Should have thrown error for invalid response format')
+      } catch (error: any) {
+        assert.include(error.message, 'Invalid piece status response format')
+      }
+    })
+
+    it('should handle different status values', async () => {
+      const mockPieceCid = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
+      const statuses = ['pending', 'indexing', 'creating_ad', 'announced', 'retrieved']
+
+      for (const status of statuses) {
+        const mockResponse = {
+          pieceCid: mockPieceCid,
+          status,
+          indexed: status === 'creating_ad' || status === 'announced' || status === 'retrieved',
+          advertised: status === 'announced' || status === 'retrieved',
+          retrieved: status === 'retrieved',
+        }
+
+        server.use(
+          http.get('http://pdp.local/pdp/piece/:pieceCid/status', async () => {
+            return HttpResponse.json(mockResponse, {
+              status: 200,
+            })
+          })
+        )
+
+        const result = await pdpServer.getPieceStatus(mockPieceCid)
+        assert.strictEqual(result.status, status)
+        assert.strictEqual(result.indexed, mockResponse.indexed)
+        assert.strictEqual(result.advertised, mockResponse.advertised)
+        assert.strictEqual(result.retrieved, mockResponse.retrieved)
+      }
+    })
+  })
+
   describe('getters', () => {
     it('should return service URL', () => {
       assert.strictEqual(pdpServer.getServiceURL(), serverUrl)

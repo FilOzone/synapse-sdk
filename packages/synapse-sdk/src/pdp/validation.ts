@@ -7,7 +7,12 @@
 
 import { asPieceCID } from '../piece/index.ts'
 import type { DataSetData, DataSetPieceData } from '../types.ts'
-import type { DataSetCreationStatusResponse, FindPieceResponse, PieceAdditionStatusResponse } from './server.ts'
+import type {
+  DataSetCreationStatusResponse,
+  FindPieceResponse,
+  PieceAdditionStatusResponse,
+  PieceStatusResponse,
+} from './server.ts'
 
 /**
  * Type guard for DataSetCreationStatusResponse
@@ -198,6 +203,57 @@ export function validateFindPieceResponse(value: unknown): FindPieceResponse {
     pieceCid,
     piece_cid: obj.piece_cid, // Keep legacy field if it exists
   }
+}
+
+/**
+ * Type guard for PieceStatusResponse
+ * Validates the response from checking piece indexing and IPNI status
+ *
+ * @param value - The value to validate
+ * @returns True if the value matches PieceStatusResponse interface
+ */
+export function isPieceStatusResponse(value: unknown): value is PieceStatusResponse {
+  if (typeof value !== 'object' || value == null) {
+    return false
+  }
+
+  const obj = value as Record<string, unknown>
+
+  // Required fields
+  if (typeof obj.pieceCid !== 'string') {
+    return false
+  }
+  if (typeof obj.status !== 'string') {
+    return false
+  }
+  if (typeof obj.indexed !== 'boolean') {
+    return false
+  }
+  if (typeof obj.advertised !== 'boolean') {
+    return false
+  }
+  if (typeof obj.retrieved !== 'boolean') {
+    return false
+  }
+
+  // Optional field
+  if (obj.retrievedAt !== undefined && typeof obj.retrievedAt !== 'string') {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Validates and returns a PieceStatusResponse
+ * @param value - The value to validate
+ * @throws Error if validation fails
+ */
+export function validatePieceStatusResponse(value: unknown): PieceStatusResponse {
+  if (!isPieceStatusResponse(value)) {
+    throw new Error('Invalid piece status response format')
+  }
+  return value
 }
 
 /**

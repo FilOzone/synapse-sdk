@@ -38,6 +38,7 @@ import {
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
   validatePieceDeleteResponse,
+  validatePieceStatusResponse,
 } from './validation.ts'
 
 /**
@@ -88,6 +89,29 @@ export interface FindPieceResponse {
   pieceCid: PieceCID
   /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
   piece_cid?: string
+}
+
+/**
+ * Response from checking piece indexing and IPNI status
+ */
+export interface PieceStatusResponse {
+  /** The piece CID */
+  pieceCid: string
+  /** Current processing status */
+  status: string
+  /** Whether the piece has been indexed */
+  indexed: boolean
+  /** Whether the piece has been advertised to IPNI */
+  advertised: boolean
+  /**
+   * Whether the piece has been retrieved
+   * This does not necessarily mean it was retrieved by a particular indexer,
+   * only that the PDP server witnessed a retrieval event. Care should be
+   * taken when interpreting this field.
+   */
+  retrieved: boolean
+  /** Timestamp when the piece was retrieved (optional) */
+  retrievedAt?: string
 }
 
 /**
@@ -434,6 +458,39 @@ export class PDPServer {
 
     const data = await response.json()
     return validateFindPieceResponse(data)
+  }
+
+  /**
+   * Get indexing and IPNI status for a piece
+   * @param pieceCid - The PieceCID CID (as string or PieceCID object)
+   * @returns Piece status information including indexing and IPNI advertisement status
+   * @throws Error if piece not found or doesn't belong to service (404)
+   */
+  async getPieceStatus(pieceCid: string | PieceCID): Promise<PieceStatusResponse> {
+    const parsedPieceCid = asPieceCID(pieceCid)
+    if (parsedPieceCid == null) {
+      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
+    }
+
+    const response = await fetch(`${this._serviceURL}/pdp/piece/${parsedPieceCid.toString()}/status`, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+
+    if (response.status === 404) {
+      const errorText = await response.text()
+      throw new Error(`Piece not found or does not belong to service: ${errorText}`)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to get piece status: ${response.status} ${response.statusText} - ${errorText}`)
+    }
+
+    const data = await response.json()
+    return validatePieceStatusResponse(data)
   }
 
   /**
