@@ -465,7 +465,8 @@ export class StorageContext {
         options.providerId,
         requestedMetadata,
         warmStorageService,
-        providerResolver
+        providerResolver,
+        options.forceCreateDataSet
       )
     }
 
@@ -476,7 +477,8 @@ export class StorageContext {
         warmStorageService,
         providerResolver,
         clientAddress,
-        requestedMetadata
+        requestedMetadata,
+        options.forceCreateDataSet
       )
     }
 
@@ -598,20 +600,35 @@ export class StorageContext {
     providerId: number,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
-    providerResolver: ProviderResolver
+    providerResolver: ProviderResolver,
+    forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
-    // Fetch provider info and data sets in parallel
+    // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
       providerResolver.getApprovedProvider(providerId),
-      warmStorageService.getClientDataSetsWithDetails(signerAddress),
+      forceCreateDataSet ? Promise.resolve(null) : warmStorageService.getClientDataSetsWithDetails(signerAddress),
     ])
 
     if (provider == null) {
       throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} is not currently approved`)
     }
 
+    // If forcing creation, skip the search for existing data sets
+    if (forceCreateDataSet === true) {
+      return {
+        provider,
+        dataSetId: -1, // Marker for new data set
+        isExisting: false,
+        dataSetMetadata: requestedMetadata,
+      }
+    }
+
+    // dataSets is guaranteed non-null here since forceCreateDataSet is false
+
     // Filter for this provider's data sets with matching metadata
-    const providerDataSets = dataSets.filter((ps) => {
+    const providerDataSets = (
+      dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
+    ).filter((ps) => {
       if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged) {
         return false
       }
@@ -655,7 +672,8 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
     signerAddress: string,
-    requestedMetadata: Record<string, string>
+    requestedMetadata: Record<string, string>,
+    forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Get provider by address
     const provider = await providerResolver.getApprovedProviderByAddress(providerAddress)
@@ -673,7 +691,8 @@ export class StorageContext {
       provider.id,
       requestedMetadata,
       warmStorageService,
-      providerResolver
+      providerResolver,
+      forceCreateDataSet
     )
   }
 
