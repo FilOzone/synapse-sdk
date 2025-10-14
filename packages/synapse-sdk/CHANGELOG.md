@@ -4,6 +4,20 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.33.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.32.0...synapse-sdk-v0.33.0) (2025-10-14)
+
+
+### Features
+
+* getSizeFromPieceCID(cid) to extract size from PieceCIDv2 ([#283](https://github.com/FilOzone/synapse-sdk/issues/283)) ([5fac7a6](https://github.com/FilOzone/synapse-sdk/commit/5fac7a697db438ddb6023f14868d6bd4ca963bb9))
+* PDPServer#getPieceStatus(pieceCid) ([#315](https://github.com/FilOzone/synapse-sdk/issues/315)) ([fb45df4](https://github.com/FilOzone/synapse-sdk/commit/fb45df485f73b739b29e0c643d2124d229679c01))
+
+
+### Bug Fixes
+
+* multi-uploads, smarter batching, handle multiple files in example ([#301](https://github.com/FilOzone/synapse-sdk/issues/301)) ([3d41d21](https://github.com/FilOzone/synapse-sdk/commit/3d41d218fb8c9b8ee27534d8f0fd6fbf1fed0eac))
+* use providerId or providerAddress if provided with forceCreateDataSet ([#314](https://github.com/FilOzone/synapse-sdk/issues/314)) ([9d717d3](https://github.com/FilOzone/synapse-sdk/commit/9d717d3cd234a13c258e450e3c18a459feb6ae3c))
+
 ## [0.32.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.31.1...synapse-sdk-v0.32.0) (2025-10-13)
 
 
