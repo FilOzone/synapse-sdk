@@ -6,9 +6,11 @@ import {
   isDataSetCreationStatusResponse,
   isFindPieceResponse,
   isPieceAdditionStatusResponse,
+  isPieceStatusResponse,
   validateDataSetCreationStatusResponse,
   validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
+  validatePieceStatusResponse,
 } from '../pdp/validation.ts'
 
 describe('PDP Validation', () => {
@@ -141,6 +143,81 @@ describe('PDP Validation', () => {
       for (const invalid of invalidResponses) {
         assert.isFalse(isPieceAdditionStatusResponse(invalid))
         assert.throws(() => validatePieceAdditionStatusResponse(invalid))
+      }
+    })
+  })
+
+  describe('PieceStatusResponse validation', () => {
+    it('should validate a valid response with all fields', () => {
+      const validResponse = {
+        pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+        status: 'retrieved',
+        indexed: true,
+        advertised: true,
+        retrieved: true,
+        retrievedAt: '2025-10-11T13:35:26.541494+02:00',
+      }
+
+      assert.isTrue(isPieceStatusResponse(validResponse))
+      assert.deepEqual(validatePieceStatusResponse(validResponse), validResponse)
+    })
+
+    it('should validate response without optional retrievedAt field', () => {
+      const validResponse = {
+        pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+        status: 'pending',
+        indexed: false,
+        advertised: false,
+        retrieved: false,
+      }
+
+      assert.isTrue(isPieceStatusResponse(validResponse))
+      assert.deepEqual(validatePieceStatusResponse(validResponse), validResponse)
+    })
+
+    it('should reject invalid responses', () => {
+      const invalidResponses = [
+        null,
+        undefined,
+        'string',
+        123,
+        [],
+        {}, // Empty object
+        { pieceCid: 123 }, // Wrong type
+        {
+          pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+          status: 123, // Wrong type
+          indexed: true,
+          advertised: true,
+          retrieved: true,
+        },
+        {
+          pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+          status: 'pending',
+          indexed: 'yes', // Wrong type
+          advertised: false,
+          retrieved: false,
+        },
+        {
+          pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+          status: 'pending',
+          indexed: false,
+          // Missing advertised field
+          retrieved: false,
+        },
+        {
+          pieceCid: 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk',
+          status: 'retrieved',
+          indexed: true,
+          advertised: true,
+          retrieved: true,
+          retrievedAt: 123, // Wrong type
+        },
+      ]
+
+      for (const invalid of invalidResponses) {
+        assert.isFalse(isPieceStatusResponse(invalid))
+        assert.throws(() => validatePieceStatusResponse(invalid), Error, 'Invalid piece status response format')
       }
     })
   })

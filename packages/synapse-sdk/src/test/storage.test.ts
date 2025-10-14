@@ -470,6 +470,192 @@ describe('StorageService', () => {
       assert.equal(service.serviceProvider, mockProvider.serviceProvider)
     })
 
+    it('should skip existing datasets and return -1 with providerId when forceCreateDataSet is true', async () => {
+      const mockProvider: ProviderInfo = TEST_PROVIDERS.provider3
+
+      // Create existing data set for this provider
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProvider.serviceProvider,
+          providerId: 3,
+          pdpVerifierDataSetId: 100, // Existing data set
+          nextPieceId: 0,
+          currentPieceCount: 5, // Has pieces
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+      ]
+
+      // Set up registry mocks
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: [mockProvider],
+        approvedIds: [3],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
+        getApprovedProvider: async (id: number) => {
+          assert.equal(id, 3)
+          return mockProvider
+        },
+      })
+
+      // Track if getClientDataSetsWithDetails was called (should be skipped with forceCreateDataSet)
+      let fetchedDataSets = false
+      const originalGetClientDataSets = mockWarmStorageService.getClientDataSetsWithDetails
+      mockWarmStorageService.getClientDataSetsWithDetails = async (address: string) => {
+        fetchedDataSets = true
+        return await originalGetClientDataSets(address)
+      }
+
+      // Call the resolution method directly to test without data set creation
+      const resolution = await (StorageContext as any).resolveProviderAndDataSet(
+        mockSynapse,
+        mockWarmStorageService,
+        {
+          getApprovedProvider: async () => mockProvider,
+          getApprovedProviders: async () => [mockProvider],
+          getApprovedProviderByAddress: async () => mockProvider,
+        },
+        { providerId: 3, forceCreateDataSet: true }
+      )
+
+      // Should signal new data set creation with -1
+      assert.equal(resolution.dataSetId, -1, 'Should return -1 to signal new data set creation')
+      assert.equal(resolution.provider.id, 3, 'Should select the requested provider')
+      assert.isFalse(fetchedDataSets, 'Should not have fetched existing data sets when forceCreateDataSet is true')
+    })
+
+    it('should skip existing datasets and return -1 with providerAddress when forceCreateDataSet is true', async () => {
+      const mockProvider: ProviderInfo = TEST_PROVIDERS.provider3
+
+      // Create existing data set for this provider
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProvider.serviceProvider,
+          providerId: 3,
+          pdpVerifierDataSetId: 100, // Existing data set
+          nextPieceId: 0,
+          currentPieceCount: 5, // Has pieces
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+      ]
+
+      // Set up registry mocks
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: [mockProvider],
+        approvedIds: [3],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
+        getApprovedProviderByAddress: async (address: string) => {
+          assert.equal(address.toLowerCase(), mockProvider.serviceProvider.toLowerCase())
+          return mockProvider
+        },
+        getApprovedProvider: async (id: number) => {
+          assert.equal(id, 3)
+          return mockProvider
+        },
+      })
+
+      // Track if getClientDataSetsWithDetails was called (should be skipped with forceCreateDataSet)
+      let fetchedDataSets = false
+      const originalGetClientDataSets = mockWarmStorageService.getClientDataSetsWithDetails
+      mockWarmStorageService.getClientDataSetsWithDetails = async (address: string) => {
+        fetchedDataSets = true
+        return await originalGetClientDataSets(address)
+      }
+
+      // Call the resolution method directly to test without data set creation
+      const resolution = await (StorageContext as any).resolveProviderAndDataSet(
+        mockSynapse,
+        mockWarmStorageService,
+        {
+          getApprovedProvider: async () => mockProvider,
+          getApprovedProviders: async () => [mockProvider],
+          getApprovedProviderByAddress: async () => mockProvider,
+        },
+        { providerAddress: mockProvider.serviceProvider, forceCreateDataSet: true }
+      )
+
+      // Should signal new data set creation with -1
+      assert.equal(resolution.dataSetId, -1, 'Should return -1 to signal new data set creation')
+      assert.equal(
+        resolution.provider.serviceProvider.toLowerCase(),
+        mockProvider.serviceProvider.toLowerCase(),
+        'Should select the requested provider'
+      )
+      assert.isFalse(fetchedDataSets, 'Should not have fetched existing data sets when forceCreateDataSet is true')
+    })
+
+    it('should reuse existing data set with providerId when forceCreateDataSet is not set', async () => {
+      const mockProvider: ProviderInfo = TEST_PROVIDERS.provider3
+
+      // Create existing data set for this provider
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProvider.serviceProvider,
+          providerId: 3,
+          pdpVerifierDataSetId: 100, // Existing data set
+          nextPieceId: 0,
+          currentPieceCount: 5, // Has pieces
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+      ]
+
+      // Set up registry mocks
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: [mockProvider],
+        approvedIds: [3],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
+        getApprovedProvider: async (id: number) => {
+          assert.equal(id, 3)
+          return mockProvider
+        },
+      })
+
+      // Track if a new data set was created
+      let createdDataSet = false
+      mockWarmStorageService.getNextClientDataSetId = async () => {
+        createdDataSet = true
+        return 2
+      }
+
+      // Create storage service with just providerId (no forceCreateDataSet)
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        providerId: 3,
+      })
+
+      // Should have reused existing data set (not created new one)
+      assert.equal(service.serviceProvider, mockProvider.serviceProvider)
+      assert.equal(service.dataSetId, 100, 'Should reuse existing data set ID')
+      assert.isFalse(createdDataSet, 'Should not have created a new data set')
+    })
+
     it('should throw when no approved providers available', async () => {
       // Set up registry mocks with no providers
       cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {

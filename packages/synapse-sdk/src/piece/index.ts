@@ -9,15 +9,13 @@
  * ```
  */
 
-export {
-  downloadAndValidate,
-  downloadAndValidateFromUrl,
-} from './download.ts'
+export { downloadAndValidate, downloadAndValidateFromUrl } from './download.ts'
 export {
   asLegacyPieceCID,
   asPieceCID,
   calculate,
   createPieceCIDStream,
+  getSizeFromPieceCID,
   type LegacyPieceCID,
   type PieceCID,
 } from './piece.ts'

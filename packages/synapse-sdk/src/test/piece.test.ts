@@ -8,7 +8,14 @@ import type { API } from '@web3-storage/data-segment'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
 import { CID } from 'multiformats/cid'
-import { asLegacyPieceCID, asPieceCID, calculate, createPieceCIDStream, type PieceCID } from '../piece/index.ts'
+import {
+  asLegacyPieceCID,
+  asPieceCID,
+  calculate,
+  createPieceCIDStream,
+  getSizeFromPieceCID,
+  type PieceCID,
+} from '../piece/index.ts'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -244,6 +251,88 @@ describe('PieceCID utilities', () => {
 
       // Note: We can't easily test the "during streaming" state without
       // more complex async coordination, so we keep this test simple
+    })
+  })
+
+  describe('getSizeFromPieceCID', () => {
+    // Real-world PieceCIDv2 fixtures from FRC-0069 specification
+    // These are authoritative test vectors with known sizes
+    describe('FRC-0069 specification fixtures', () => {
+      const frcFixtures: Array<[string, number]> = [
+        // Empty 0-byte payload (127 bytes padding, height 2)
+        ['bafkzcibcp4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy', 0],
+        // 127 bytes of zeros (0 bytes padding, height 2)
+        ['bafkzcibcaabdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy', 127],
+        // 128 bytes of zeros (126 bytes padding, height 3)
+        ['bafkzcibcpybwiktap34inmaex4wbs6cghlq5i2j2yd2bb2zndn5ep7ralzphkdy', 128],
+      ]
+
+      frcFixtures.forEach(([pieceCid, expectedSize]) => {
+        it(`should extract size ${expectedSize} from FRC-0069 fixture`, () => {
+          const extractedSize = getSizeFromPieceCID(pieceCid)
+          assert.strictEqual(extractedSize, expectedSize)
+        })
+      })
+    })
+
+    // birb.mp4, 16110964 bytes
+    it('should extract size from real-world fixture', () => {
+      const pieceCid = 'bafkzcibertksae2h5gohz3y4gc6o3uvrljmh4fyz4bexjywokbejjiy63uv2vxzqcq'
+      const extractedSize = getSizeFromPieceCID(pieceCid)
+      assert.strictEqual(extractedSize, 16110964)
+    })
+
+    // Use the fixture data which has the format: [rawSize, paddedSize, v1CID]
+    // We convert v1CID to v2 PieceCID using the toPieceCID helper
+    zeroPieceCidFixture.forEach(([rawSize, , v1]) => {
+      it(`should extract raw size ${rawSize} from PieceCID`, () => {
+        const v2 = toPieceCID(BigInt(rawSize), v1)
+        const extractedSize = getSizeFromPieceCID(v2)
+        assert.strictEqual(extractedSize, rawSize)
+      })
+
+      it(`should extract raw size ${rawSize} from PieceCID string`, () => {
+        const v2 = toPieceCID(BigInt(rawSize), v1)
+        const extractedSize = getSizeFromPieceCID(v2.toString())
+        assert.strictEqual(extractedSize, rawSize)
+      })
+    })
+
+    it('should throw for invalid PieceCID string', () => {
+      assert.throws(() => {
+        getSizeFromPieceCID(invalidCidString)
+      }, /Invalid PieceCID/)
+    })
+
+    it('should throw for invalid CID object', () => {
+      const invalidCid = CID.parse(invalidCidString)
+      assert.throws(() => {
+        getSizeFromPieceCID(invalidCid)
+      }, /Invalid PieceCID/)
+    })
+
+    it('should throw for malformed string', () => {
+      assert.throws(() => {
+        getSizeFromPieceCID('not-a-cid')
+      }, /Invalid PieceCID/)
+    })
+
+    it('should extract raw size from calculated PieceCID', () => {
+      const testData = new Uint8Array(1000).fill(42)
+      const pieceCid = calculate(testData)
+      const extractedSize = getSizeFromPieceCID(pieceCid)
+      assert.strictEqual(extractedSize, testData.length)
+    })
+
+    it('should handle various data sizes correctly', () => {
+      const testSizes = [1, 50, 100, 127, 128, 500, 1000, 2048, 4096]
+
+      testSizes.forEach((size) => {
+        const testData = new Uint8Array(size).fill(1)
+        const pieceCid = calculate(testData)
+        const extractedSize = getSizeFromPieceCID(pieceCid)
+        assert.strictEqual(extractedSize, size, `Failed for size ${size}`)
+      })
     })
   })
 })

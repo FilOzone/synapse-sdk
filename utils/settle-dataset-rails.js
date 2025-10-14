@@ -10,8 +10,8 @@
  */
 
 import { ethers } from 'ethers'
-import { SETTLEMENT_FEE, Synapse } from '../dist/index.js'
-import { WarmStorageService } from '../dist/warm-storage/index.js'
+import { SETTLEMENT_FEE, Synapse } from '../packages/synapse-sdk/src/index.ts'
+import { WarmStorageService } from '../packages/synapse-sdk/src/warm-storage/index.ts'
 
 async function main() {
   // Parse arguments

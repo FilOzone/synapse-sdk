@@ -45,9 +45,9 @@ async function main() {
   // No need to explicitly create a storage context unless you need specific control
   console.log('Storage API ready. Will auto-select provider on first upload.')
 
-  // Create test data (must be at least 65 bytes for PieceCID calculation)
+  // Create test data (must be at least 127 bytes)
   const testMessage =
-    'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
+    'Hello, Filecoin storage! This message is at least 127 bytes long to meet the minimum piece size requirement for PDP.\nHave a great day!'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 
