@@ -488,6 +488,7 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       providerResolver,
+      options.excludeProviderIds,
       options.forceCreateDataSet,
       options.withIpni,
       options.dev
@@ -704,6 +705,7 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
+    excludeProviderIds?: number[],
     forceCreateDataSet?: boolean,
     withIpni?: boolean,
     dev?: boolean
@@ -730,7 +732,7 @@ export class StorageContext {
 
       // Create async generator that yields providers lazily
       async function* generateProviders(): AsyncGenerator<ProviderInfo> {
-        const yieldedProviders = new Set<string>()
+        const skipProviderIds = new Set<number>(excludeProviderIds)
 
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
@@ -742,8 +744,8 @@ export class StorageContext {
             )
             continue
           }
-          if (!yieldedProviders.has(provider.serviceProvider.toLowerCase())) {
-            yieldedProviders.add(provider.serviceProvider.toLowerCase())
+          if (!skipProviderIds.has(provider.id)) {
+            skipProviderIds.add(provider.id)
             yield provider
           }
         }
@@ -783,7 +785,9 @@ export class StorageContext {
     }
 
     // No existing data sets - select from all approved providers
-    const allProviders = await providerResolver.getApprovedProviders()
+    const allProviders = (await providerResolver.getApprovedProviders()).filter(
+      (provider: ProviderInfo) => excludeProviderIds?.includes(provider.id) !== true
+    )
 
     if (allProviders.length === 0) {
       throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
