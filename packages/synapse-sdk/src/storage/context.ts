@@ -194,6 +194,15 @@ export class StorageContext {
       options
     )
 
+    return await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+  }
+
+  static async createWithSelectedProvider(
+    resolution: ProviderSelectionResult,
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: StorageServiceOptions = {}
+  ): Promise<StorageContext> {
     // Notify callback about provider selection
     try {
       options.callbacks?.onProviderSelected?.(resolution.provider)

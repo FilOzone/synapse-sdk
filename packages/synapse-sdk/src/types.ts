@@ -585,8 +585,6 @@ export interface ProviderSelectionResult {
   provider: ProviderInfo
   /** Selected data set ID */
   dataSetId: number
-  /** Whether this is a new data set that was created */
-  isNewDataSet?: boolean
   /** Whether this is an existing data set */
   isExisting?: boolean
   /** Data set metadata */
