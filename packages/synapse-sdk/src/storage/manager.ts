@@ -25,6 +25,7 @@ import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
   PieceCID,
@@ -229,6 +230,27 @@ export class StorageManager {
 
     // Use the static method from StorageContext for core logic
     return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
+  }
+
+  async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
+    const count = options?.count ?? 2
+    const contexts: StorageContext[] = []
+    if (options?.providerIds) {
+      for (const providerId of options.providerIds) {
+        //try {
+          const context = await this.createContext({
+            ...options,
+            providerId,
+          })
+          contexts.push(context)
+        //} catch {}
+      }
+      if (contexts.length >= count) {
+        return contexts
+      }
+    }
+    // TODO
+    return contexts
   }
 
   /**

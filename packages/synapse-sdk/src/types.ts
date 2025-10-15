@@ -320,6 +320,38 @@ export interface StorageCreationCallbacks {
   }) => void
 }
 
+export interface CreateContextsOptions {
+  /** Number of contexts to create (optional, defaults to 2) */
+  count?: number
+  /**
+   * Specific provider IDs to use (if not using providerAddresses)
+   * Must be no longer than count
+   */
+  providerIds?: number[]
+  /**
+   * Specific provider addresses to use (if not using providerIds)
+   * Must be no longer than count
+   */
+  providerAddresses?: string[]
+  /**
+   * Specific data set IDs to use
+   * Cannot be used with provider options
+   * Must be no longer than count
+   */
+  dataSetIds?: number[]
+  /**
+   * Custom metadata for the data sets (key-value pairs)
+   * When smart-selecting data sets, this metadata will be used to match.
+   */
+  metadata?: Record<string, string>
+  /** Create new data sets, even if candidates exist */
+  forceCreateDataSets?: boolean
+  /** Callbacks for creation process (will need to change to handle multiples) */
+  callbacks?: StorageCreationCallbacks
+  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
+  uploadBatchSize?: number
+}
+
 /**
  * Options for creating or selecting a storage context
  *

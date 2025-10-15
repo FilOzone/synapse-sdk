@@ -1,10 +1,13 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
 import { StorageContext } from '../storage/context.ts'
+import { StorageManager } from '../storage/manager.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
@@ -4359,6 +4362,35 @@ describe('StorageService', () => {
       assert.isNull(status.dataSetLastProven)
       assert.isNull(status.dataSetNextProofDue)
       assert.isUndefined(status.pieceId)
+    })
+  })
+})
+
+describe('StorageManager', () => {
+  let manager: StorageManager
+  beforeEach(() => {
+    const server = setup([])
+    server.use(JSONRPC(presets.basic))
+    const mockProviders: ProviderInfo[] = [TEST_PROVIDERS.provider1, TEST_PROVIDERS.provider2]
+    const dataSets: any[] = []
+    const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+    const mockPieceRetriever = {} as any
+    manager = new StorageManager(
+      mockSynapse,
+      mockWarmStorageService,
+      mockPieceRetriever,
+      true, // withCDN
+      false, // dev
+      false // withIpni
+    )
+  })
+  describe('createContexts', () => {
+    it('selects specified providerIds', async () => {
+      const contexts = await manager.createContexts({
+        count: 2,
+        providerIds: [TEST_PROVIDERS.provider1.id, TEST_PROVIDERS.provider2.id],
+      })
+      assert.equal(contexts.length, 2)
     })
   })
 })
