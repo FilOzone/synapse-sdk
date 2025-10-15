@@ -333,6 +333,8 @@ export interface StorageCreationCallbacks {
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
   providerId?: number
+  /** Do not select any of these providers */
+  excludeProviderIds?: number[]
   /** Specific provider address to use (optional) */
   providerAddress?: string
   /** Specific data set ID to use (optional) */
