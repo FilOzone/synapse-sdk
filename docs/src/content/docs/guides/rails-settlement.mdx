@@ -3,8 +3,6 @@ title: Rails & Settlement
 description: Guide to payment rails and settlement operations
 ---
 
-# Payment Rails & Settlement
-
 Payment rails are the core mechanism for streaming payments between parties in the Synapse ecosystem. They enable continuous, per-epoch payments for services like storage.
 
 ## Understanding Payment Rails
@@ -16,18 +14,22 @@ Payment rails are continuous payment streams between clients and service provide
 Rails ensure reliable payments through a simple lockup mechanism:
 
 #### 1. The Lockup Requirement
+
 When you create a data set (storage), the system calculates how much balance you need to maintain:
+
 - **Formula**: `lockup = paymentRate × lockupPeriod` (e.g., 10 days worth of payments)
 - **Example**: Storing 1 GiB costs ~0.0000565 USDFC/epoch, requiring ~1.63 USDFC minimum balance
 - **Purpose**: This protects the service provider by ensuring you always have enough for the next payment period
 
 #### 2. How Your Balance Works
+
 - You deposit funds into the payments contract (e.g., 100 USDFC)
 - The lockup requirement reserves part of this balance (e.g., 1.63 USDFC for 1 GiB storage)
 - You can withdraw anything above the lockup requirement
 - When you settle, your total balance decreases by the payment amount (lockup requirement stays the same)
 
 #### 3. Normal vs Abnormal Operations
+
 - **Normal Operation**: You keep settling regularly, lockup stays reserved but unused
 - **If you stop settling**: Service continues but unpaid amounts accumulate
 - **If balance gets too low**: Rail terminates when you can't cover future payments
@@ -36,6 +38,7 @@ When you create a data set (storage), the system calculates how much balance you
 ### Understanding Your Balance
 
 Think of your account as having these components:
+
 - **Total Funds**: All tokens you've deposited into the payments contract
 - **Lockup Requirement**: The minimum balance reserved to guarantee future payments
 - **Available Balance**: `totalFunds - lockupRequirement` (this is what you can withdraw)
@@ -43,6 +46,7 @@ Think of your account as having these components:
 ### When Lockup Gets Used (The Safety Net)
 
 The lockup finally gets "used" when things go wrong:
+
 - **Rail terminates** (due to insufficient funds or manual termination)
 - **After termination**, the service provider can settle and claim payment from the lockup
 - **This ensures** the provider gets paid for services already delivered, even if the client disappears
@@ -53,6 +57,7 @@ For more details on the payment mechanics, see the [Filecoin Pay documentation](
 ### Rail Components
 
 Each rail consists of:
+
 - **Payer**: The account paying for services
 - **Payee**: The recipient of payments (service provider)
 - **Operator**: The contract managing the rail (e.g., WarmStorage contract)
@@ -65,6 +70,7 @@ Each rail consists of:
 ### Viewing Your Rails
 
 Check rails where you're the payer:
+
 ```typescript
 const payerRails = await synapse.payments.getRailsAsPayer()
 console.log(`You have ${payerRails.length} outgoing payment rails`)
@@ -79,6 +85,7 @@ for (const rail of payerRails) {
 ```
 
 Check rails where you're receiving payments:
+
 ```typescript
 const payeeRails = await synapse.payments.getRailsAsPayee()
 console.log(`You have ${payeeRails.length} incoming payment rails`)
@@ -87,6 +94,7 @@ console.log(`You have ${payeeRails.length} incoming payment rails`)
 ### Getting Rail Details
 
 For detailed information about a specific rail:
+
 ```typescript
 const railInfo = await synapse.payments.getRail(railId)
 console.log('Rail details:', {
@@ -147,6 +155,7 @@ For more control, you can use the specific settlement methods:
 ##### Active Rails
 
 Settle up to the current epoch:
+
 ```typescript
 // Settle a specific rail (requires settlement fee)
 const tx = await synapse.payments.settle(railId)
@@ -155,6 +164,7 @@ console.log('Rail settled successfully')
 ```
 
 Settle up to a specific past epoch (partial settlement):
+
 ```typescript
 // Settle up to epoch 1000 (must be less than or equal to current epoch)
 // Useful for:
@@ -169,6 +179,7 @@ await tx.wait()
 ```
 
 **Important**: The `untilEpoch` parameter:
+
 - **Must be less than or equal to current epoch** - Cannot settle future epochs that haven't occurred yet
 - **Can be in the past** - Allows partial settlement up to a historical epoch
 - **Defaults to current epoch** - If omitted, settles all accumulated payments up to now
@@ -194,6 +205,7 @@ if (railInfo.endEpoch > 0) {
 #### Preview Settlement Amounts
 
 Check settlement amounts before executing:
+
 ```typescript
 // Preview settlement to current epoch
 const amounts = await synapse.payments.getSettlementAmounts(railId)
@@ -244,6 +256,7 @@ async function settleAllIncomingRails() {
 ### For Clients
 
 Clients (payers) typically don't need to settle unless:
+
 - They want to update their available balance before withdrawal
 - A rail is terminated and needs finalization
 

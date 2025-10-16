@@ -1,28 +1,40 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "lib": ["ES2022"],
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "rewriteRelativeImportExtensions": true,
-    "erasableSyntaxOnly": true,
-    "moduleDetection": "force",
-    "esModuleInterop": true,
+    // "rootDir": "./src",
+    /* Projects */
+    "incremental": true,
+    "composite": true,
+    // Emit
+
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
+
+    // Language and Environment
+    "lib": ["ES2022"],
+    "target": "ES2022",
+    "moduleDetection": "force",
+
+    // Modules
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "rewriteRelativeImportExtensions": true,
+
+    // Interop Constraints
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "esModuleInterop": true,
+
+    // Type Checking
     "strict": true,
+    "noImplicitOverride": true,
     // TODO: enable this when we remove ethers.Contract
     // "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
+
+    // Completeness
     "skipLibCheck": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  }
 }

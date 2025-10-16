@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "typedocOptions": {
+    "entryPointStrategy": "resolve",
+    "entryPoints": [
+      "src/index.ts",
+      "src/piece/index.ts",
+      "src/pdp/index.ts",
+      "src/payments/index.ts",
+      "src/storage/index.ts"
+    ]
+  }
+}

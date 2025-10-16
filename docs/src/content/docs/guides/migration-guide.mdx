@@ -21,11 +21,13 @@ This is a breaking change that affects imports, type names, method names, and co
 #### Import Path Changes
 
 **Before (v0.23.x and earlier):**
+
 ```typescript
 import { PandoraService } from '@filoz/synapse-sdk/pandora'
 ```
 
 **After (v0.24.0+):**
+
 ```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 ```
@@ -45,6 +47,7 @@ import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 #### Method Name Changes
 
 **Synapse Class:**
+
 ```typescript
 // Before (< v0.24.0)
 synapse.getPandoraAddress()
@@ -54,6 +57,7 @@ synapse.getWarmStorageAddress()
 ```
 
 **WarmStorageService (formerly PandoraService):**
+
 ```typescript
 // Before (< v0.24.0)
 pandoraService.getClientProofSets(client)
@@ -65,6 +69,7 @@ warmStorageService.getAddPiecesInfo(dataSetId)
 ```
 
 **PDPAuthHelper:**
+
 ```typescript
 // Before (< v0.24.0)
 authHelper.signCreateProofSet(serviceProvider, clientDataSetId)
@@ -76,6 +81,7 @@ authHelper.signAddPieces(dataSetId, pieceData)
 ```
 
 **PDPServer:**
+
 ```typescript
 // Before (< v0.24.0)
 pdpServer.createProofSet(serviceProvider, clientDataSetId)
@@ -103,6 +109,7 @@ This replaces previous provider discovery methods and provides a standardized wa
 #### Interface Property Changes
 
 **StorageService Properties:**
+
 ```typescript
 // Before (< v0.24.0)
 storage.storageProvider  // Provider address property
@@ -112,6 +119,7 @@ storage.serviceProvider  // Renamed property
 ```
 
 **Callback Interfaces:**
+
 ```typescript
 // Before (< v0.24.0)
 onProofSetResolved?: (info: { proofSetId: number }) => void
@@ -123,6 +131,7 @@ onDataSetResolved?: (info: { dataSetId: number }) => void
 #### Configuration Changes
 
 **Before (< v0.24.0):**
+
 ```typescript
 const synapse = await Synapse.create({
   pandoraAddress: '0x...',
@@ -131,6 +140,7 @@ const synapse = await Synapse.create({
 ```
 
 **After (v0.24.0+):**
+
 ```typescript
 const synapse = await Synapse.create({
   warmStorageAddress: '0x...',
@@ -141,6 +151,7 @@ const synapse = await Synapse.create({
 #### Complete Migration Example
 
 **Before (< v0.24.0):**
+
 ```typescript
 import { PandoraService } from '@filoz/synapse-sdk/pandora'
 import type { StorageProvider } from '@filoz/synapse-sdk'
@@ -164,6 +175,7 @@ console.log(`Storage provider: ${storage.storageProvider}`)
 ```
 
 **After (v0.24.0+):**
+
 ```typescript
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 import type { ServiceProvider } from '@filoz/synapse-sdk'
@@ -195,6 +207,7 @@ const anyData = await synapse.storage.download(pieceCid)  // Download from any p
 The storage API has been redesigned for simplicity and clarity:
 
 **Simplified Storage API:**
+
 ```typescript
 // Before (< v0.24.0)
 const storage = await synapse.createStorage()
@@ -213,6 +226,7 @@ await context.download(pieceCid)  // Download from specific provider
 ```
 
 **Key improvements:**
+
 - Access all storage operations via `synapse.storage`
 - Automatic context management - no need to explicitly create contexts for basic usage
 - Clear separation between SP-agnostic downloads (`synapse.storage.download()`) and context-specific downloads (`context.download()`)
@@ -248,6 +262,7 @@ When upgrading from versions prior to v0.24.0:
 All PaymentsService methods now consistently place the `token` parameter last with USDFC as the default:
 
 **Before (< v0.24.0):**
+
 ```typescript
 await payments.allowance(TOKENS.USDFC, spender)
 await payments.approve(TOKENS.USDFC, spender, amount)
@@ -255,6 +270,7 @@ await payments.deposit(amount, TOKENS.USDFC, callbacks)
 ```
 
 **After (v0.24.0+):**
+
 ```typescript
 await payments.allowance(spender)  // USDFC is default
 await payments.approve(spender, amount)  // USDFC is default

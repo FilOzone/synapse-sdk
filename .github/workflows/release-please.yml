@@ -7,42 +7,48 @@ on:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
-  release-please:
+  release:
     runs-on: ubuntu-latest
+    outputs:
+      paths_released: ${{ steps.release.outputs.paths_released }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          # needs to be personal token so release PRs can run workflows
           token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-
-      - name: Checkout
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-node@v5
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
+  npm:
+    needs: release
+    if: |
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
-          node-version: 'lts/*'
-
-      - name: Install dependencies
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm install --no-progress --no-package-lock --no-save
-
-      - name: Build
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm run build
-
-      - name: Build browser bundles
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm run build:browser
-
-      - name: Publish to npm
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm publish --access public
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install
+      - run: pnpm run lint
+      - run: pnpm run build
+      - run: pnpm -r --filter './packages/**' publish --access=public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+  docs:
+    needs: release
+    if: |
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit

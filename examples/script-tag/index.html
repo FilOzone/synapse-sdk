@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Home</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <script type="module">
+       import { Synapse, RPC_URLS } from 'https://esm.sh/@filoz/synapse-sdk'
+       import { ethers } from 'https://esm.sh/ethers'
+
+       const rpcUrl = document.getElementById('rpc')
+       rpcUrl.value = JSON.stringify(RPC_URLS, null, 2)
+
+
+       const provider = new ethers.BrowserProvider(window.ethereum)
+       try {
+         const synapse = await Synapse.create({ provider })
+       } catch (error) {
+
+         console.log("🚀 ~ error:", error)
+
+         const errorEl = document.getElementById('error')
+         errorEl.value = error.message
+       }
+
+      </script>
+  </head>
+  <body>
+    <main>
+      <h1>Synapse SDK using script tag</h1>
+    </main>
+    <label for="rpc">RPC URLs</label>
+    <textarea id="rpc" rows="10" cols="50"></textarea>
+
+    <label for="error">Error</label>
+    <textarea id="error" rows="10" cols="50"></textarea>
+  </body>
+</html>

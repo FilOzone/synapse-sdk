@@ -1,61 +1,55 @@
 #!/usr/bin/env node
 
 /**
- * Example: Check Piece Status
+ * Example: Check Piece Status or List Data Set Pieces
  *
- * This example demonstrates how to check the status of a piece stored on Filecoin,
- * including whether it exists, when it was last proven, and when the next proof is due.
+ * This tool supports two modes:
+ * 1. Piece Mode: Check status of a specific piece including proof timing
+ * 2. Data set Mode: List all pieces in a data set with metadata
  *
  * Usage:
- *   node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]
+ *   node example-piece-status.js piece <pieceCid> [options]
+ *   node example-piece-status.js dataset <dataSetId> [options]
  *
- * Arguments:
- *   pieceCid        - Required: The PieceCID (piece commitment / pieceCid) to check
- *   providerAddress - Optional: Specific provider address to check
- *   dataSetId       - Optional: Specific data set ID to use
+ * Piece Mode Arguments:
+ *   pieceCid                    - The PieceCID to check
+ *   --provider <id|address>     - Optional: Specific provider (ID or address)
+ *   --dataset <id>              - Optional: Specific data set ID
+ *
+ * Data set Mode Arguments:
+ *   dataSetId                   - The data set ID to inspect
+ *   --hide-metadata             - Optional: Don't show piece metadata
  *
  * Environment variables:
- *   PRIVATE_KEY     - Your Ethereum private key (with 0x prefix)
- *   RPC_URL         - Filecoin RPC endpoint (defaults to calibration)
- *   WARM_STORAGE_ADDRESS - Warm Storage service contract address (optional)
- *   LOCALE          - Date/time locale (optional, defaults to system locale)
+ *   PRIVATE_KEY                 - Your Ethereum private key (with 0x prefix)
+ *   RPC_URL                     - Filecoin RPC endpoint (defaults to calibration)
+ *   WARM_STORAGE_ADDRESS        - Warm Storage service contract address (optional)
+ *   LOCALE                      - Date/time locale (optional, defaults to system locale)
  *
  * Examples:
- *   # Check piece on any provider
- *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci...
+ *   # Check piece status (auto-discover provider)
+ *   PRIVATE_KEY=0x... node example-piece-status.js piece bafkzci...
  *
- *   # Check piece on specific provider
- *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123...
+ *   # Check piece on specific provider (by address)
+ *   PRIVATE_KEY=0x... node example-piece-status.js piece bafkzci... --provider 0x123...
  *
- *   # Check piece with specific provider and data set
- *   PRIVATE_KEY=0x... node example-piece-status.js bafkzci... 0x123... 456
+ *   # Check piece on specific provider (by ID)
+ *   PRIVATE_KEY=0x... node example-piece-status.js piece bafkzci... --provider 3
+ *
+ *   # List all pieces in data set 240
+ *   PRIVATE_KEY=0x... node example-piece-status.js dataset 240
+ *
+ *   # List data set without metadata
+ *   PRIVATE_KEY=0x... node example-piece-status.js dataset 240 --hide-metadata
  */
 
-import { Synapse } from '@filoz/synapse-sdk'
+import { PDPServer, Synapse, WarmStorageService } from '../packages/synapse-sdk/src/index.ts'
+import { SPRegistryService } from '../packages/synapse-sdk/src/sp-registry/index.ts'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional
-
-// Parse command line arguments
-const args = process.argv.slice(2)
-const pieceCid = args[0]
-const providerAddress = args[1]
-const dataSetId = args[2] ? parseInt(args[2], 10) : undefined
-
-// Validate inputs
-if (!PRIVATE_KEY) {
-  console.error('ERROR: PRIVATE_KEY environment variable is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
-  process.exit(1)
-}
-
-if (!pieceCid) {
-  console.error('ERROR: PieceCID argument is required')
-  console.error('Usage: PRIVATE_KEY=0x... node example-piece-status.js <pieceCid> [providerAddress[, dataSetId]]')
-  process.exit(1)
-}
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
 
 // Get user's locale or fallback to en-US
 const userLocale = process.env.LOCALE || Intl.DateTimeFormat().resolvedOptions().locale || 'en-US'
@@ -71,7 +65,7 @@ const dateTimeOptions = {
   hour12: true,
 }
 
-// Helper to format dates in user's locale
+// Helper to format dates
 function formatDate(date) {
   if (!date) return 'N/A'
   return date.toLocaleString(userLocale, dateTimeOptions)
@@ -101,20 +95,402 @@ function formatTimeDiff(date) {
   return diff > 0 ? `in ${timeStr}` : `${timeStr} ago`
 }
 
+// Helper to determine proof status message
+function getProofStatus(pieceStatus) {
+  if (!pieceStatus.dataSetNextProofDue) {
+    return 'Unknown (no proof schedule)'
+  }
+  if (pieceStatus.isProofOverdue) {
+    return 'Proof overdue'
+  }
+  if (pieceStatus.inChallengeWindow) {
+    return 'Proof needed urgently'
+  }
+  if (pieceStatus.hoursUntilChallengeWindow && pieceStatus.hoursUntilChallengeWindow < 24) {
+    return 'Proof needed soon'
+  }
+  return 'All good'
+}
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2)
+
+  if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
+    showHelp()
+    process.exit(0)
+  }
+
+  const mode = args[0]
+  const target = args[1]
+
+  if (mode !== 'piece' && mode !== 'dataset') {
+    console.error(`ERROR: Invalid mode '${mode}'. Must be 'piece' or 'dataset'`)
+    showHelp()
+    process.exit(1)
+  }
+
+  if (!target) {
+    console.error(`ERROR: Missing target for ${mode} mode`)
+    showHelp()
+    process.exit(1)
+  }
+
+  const options = {}
+  for (let i = 2; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === '--provider') {
+      const value = args[++i]
+      // Auto-detect if it's an ID (number) or address (0x...)
+      if (value.startsWith('0x')) {
+        options.providerAddress = value
+      } else {
+        options.providerId = Number.parseInt(value, 10)
+      }
+    } else if (arg === '--dataset') {
+      options.datasetId = Number.parseInt(args[++i], 10)
+    } else if (arg === '--hide-metadata') {
+      options.hideMetadata = true
+    } else {
+      console.error(`ERROR: Unknown option '${arg}'`)
+      showHelp()
+      process.exit(1)
+    }
+  }
+
+  return { mode, target, options }
+}
+
+function showHelp() {
+  console.log(`
+Usage:
+  node example-piece-status.js piece <pieceCid> [options]
+  node example-piece-status.js dataset <dataSetId> [options]
+
+Piece Mode Options:
+  --provider <id|address>     Specific provider (ID number or 0x address)
+  --dataset <id>              Specific dataset ID
+
+Data set Mode Options:
+  --hide-metadata             Don't show piece metadata
+
+Examples:
+  node example-piece-status.js piece bafkzci...
+  node example-piece-status.js piece bafkzci... --provider 3
+  node example-piece-status.js piece bafkzci... --provider 0x123...
+  node example-piece-status.js dataset 240
+  node example-piece-status.js dataset 240 --hide-metadata
+  `)
+}
+
+// Helper to find piece on a provider using PDPServer (read-only)
+async function findPieceOnProvider(pdpServer, pieceCid) {
+  try {
+    // Query the provider's HTTP endpoint to find the piece
+    const pieceInfo = await pdpServer.findPiece(pieceCid)
+    if (pieceInfo) {
+      return pieceInfo // Returns piece info
+    }
+  } catch {
+    // Piece not found on this provider
+  }
+  return null
+}
+
+// Piece mode: Check status of a specific piece
+async function runPieceMode(synapse, pieceCid, options) {
+  console.log('=== Piece Status ===')
+  console.log(`Date: ${formatDate(new Date())}`)
+  console.log(`PieceCID: ${pieceCid}\n`)
+
+  const warmStorageService = await WarmStorageService.create(synapse.getProvider(), synapse.getWarmStorageAddress())
+  const spRegistryAddress = warmStorageService.getServiceProviderRegistryAddress()
+  const spRegistry = new SPRegistryService(synapse.getProvider(), spRegistryAddress)
+
+  let providerInfo = null
+  const dataSetId = options.datasetId || null
+
+  // Determine provider
+  if (options.providerAddress) {
+    // Look up provider info by address
+    const storageInfo = await synapse.storage.getStorageInfo()
+    providerInfo = storageInfo.providers.find((p) => p.serviceProvider === options.providerAddress)
+    if (!providerInfo) {
+      throw new Error(`Provider ${options.providerAddress} not found in approved providers`)
+    }
+  } else if (options.providerId) {
+    // Look up provider info by ID
+    providerInfo = await spRegistry.getProvider(options.providerId)
+    if (!providerInfo) {
+      throw new Error(`Provider with ID ${options.providerId} not found`)
+    }
+  }
+
+  // If we have a specific provider but no data set, try to find the data set
+  if (providerInfo && !dataSetId) {
+    console.log(`Searching for piece on provider ${providerInfo.serviceProvider}...`)
+    if (!providerInfo.products.PDP?.data.serviceURL) {
+      throw new Error('Provider does not have a PDP product with serviceURL')
+    }
+    const pdpServer = new PDPServer(null, providerInfo.products.PDP.data.serviceURL)
+    const pieceInfo = await findPieceOnProvider(pdpServer, pieceCid)
+    if (!pieceInfo) {
+      console.log(`Piece not found on provider ${providerInfo.serviceProvider}`)
+      return
+    }
+    console.log(`Found piece on provider ${providerInfo.serviceProvider}`)
+    // Note: findPieces might not return dataSetId, we'll need to handle that
+  }
+
+  // If we still don't have a provider, auto-discover
+  if (!providerInfo) {
+    console.log('Auto-discovering provider...')
+    const storageInfo = await synapse.storage.getStorageInfo()
+
+    for (const provider of storageInfo.providers) {
+      console.log(`Checking provider ${provider.serviceProvider}...`)
+      if (!provider.products.PDP?.data.serviceURL) {
+        continue
+      }
+      const pdpServer = new PDPServer(null, provider.products.PDP.data.serviceURL)
+      const pieceInfo = await findPieceOnProvider(pdpServer, pieceCid)
+      if (pieceInfo) {
+        console.log(`Found piece on provider ${provider.serviceProvider}\n`)
+        providerInfo = provider
+        // Note: findPieces might not return dataSetId, we'll need to handle that
+        break
+      }
+    }
+
+    if (!providerInfo) {
+      console.log('\nPiece not found on any approved provider')
+      return
+    }
+  }
+
+  console.log('Setting up storage context...')
+
+  // Now create context with known provider (and data set if we have it)
+  const storageOptions = {
+    providerAddress: providerInfo.serviceProvider,
+  }
+
+  if (dataSetId) {
+    storageOptions.dataSetId = dataSetId
+  }
+
+  const storageContext = await synapse.storage.createContext(storageOptions)
+
+  // Get piece status
+  console.log('Checking piece status...\n')
+  const status = await storageContext.pieceStatus(pieceCid)
+
+  if (!status.exists) {
+    console.log('Piece does not exist on the selected service provider')
+    return
+  }
+
+  // Display results
+  console.log(`Provider: ${storageContext.serviceProvider}`)
+  if (storageContext.provider.name) {
+    console.log(`Provider Name: ${storageContext.provider.name}`)
+  }
+  if (storageContext.provider.id !== undefined) {
+    console.log(`Provider ID: ${storageContext.provider.id}`)
+  }
+  console.log(`Data set: ${storageContext.dataSetId}`)
+
+  if (status.pieceId !== undefined) {
+    console.log(`Piece ID: ${status.pieceId}`)
+  }
+
+  if (status.retrievalUrl) {
+    console.log(`Retrieval URL: ${status.retrievalUrl}`)
+  }
+
+  // Proof timing
+  console.log('\nProof Status:')
+  if (status.dataSetLastProven) {
+    console.log(`  Last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`)
+  } else {
+    console.log('  Last proven: Never')
+  }
+
+  if (status.dataSetNextProofDue) {
+    console.log(
+      `  Next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`
+    )
+
+    if (status.inChallengeWindow) {
+      const timeRemaining = status.dataSetNextProofDue.getTime() - Date.now()
+      const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
+      console.log(`  Challenge window: Open (${minutesRemaining} minutes remaining)`)
+    } else if (status.hoursUntilChallengeWindow !== undefined && status.hoursUntilChallengeWindow > 0) {
+      console.log(`  Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
+    }
+  } else {
+    console.log('  Next proof due: Not scheduled')
+  }
+
+  console.log(`  Status: ${getProofStatus(status)}`)
+}
+
+// Data set mode: List all pieces in a data set
+async function runDatasetMode(synapse, dataSetId, options) {
+  console.log(`=== Data set ${dataSetId} ===`)
+  console.log(`Date: ${formatDate(new Date())}\n`)
+
+  const provider = synapse.getProvider()
+  const warmStorageAddress = synapse.getWarmStorageAddress()
+  const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+  // Get data set info
+  console.log('Fetching data set information...')
+  const dataSetInfo = await warmStorageService.getDataSet(dataSetId)
+  console.log('Data set found\n')
+
+  // Get service provider info
+  const spRegistryAddress = warmStorageService.getServiceProviderRegistryAddress()
+  const spRegistry = new SPRegistryService(provider, spRegistryAddress)
+  const providerInfo = await spRegistry.getProvider(dataSetInfo.providerId)
+
+  if (!providerInfo || !providerInfo.products.PDP?.data.serviceURL) {
+    throw new Error(`Provider ${dataSetInfo.providerId} does not have a PDP product with serviceURL`)
+  }
+
+  console.log(`Provider: ${providerInfo.name} (${providerInfo.serviceProvider}, ID: ${providerInfo.id})`)
+  console.log(`PDP Service: ${providerInfo.products.PDP.data.serviceURL}`)
+  console.log(`Payer: ${dataSetInfo.payer}`)
+  console.log(`Payee: ${dataSetInfo.payee}`)
+
+  // Get data set metadata
+  console.log('\nData set Metadata:')
+  const dataSetMetadata = await warmStorageService.getDataSetMetadata(dataSetId)
+  const metadataKeys = Object.keys(dataSetMetadata)
+  if (metadataKeys.length === 0) {
+    console.log('  (none)')
+  } else {
+    for (const key of metadataKeys) {
+      console.log(`  ${key}: ${dataSetMetadata[key] || '(empty)'}`)
+    }
+  }
+
+  // Get all pieces from PDP server
+  const pdpServer = new PDPServer(null, providerInfo.products.PDP.data.serviceURL)
+  const dataSetData = await pdpServer.getDataSet(dataSetId)
+
+  // Try to get proof timing if we own the data set
+  console.log('\nFetching proof status...')
+  let firstPieceStatus = null
+  const walletAddress = await synapse.getSigner().getAddress()
+
+  // Only try to get proof status if we own this data set (payer)
+  if (dataSetInfo.payer.toLowerCase() === walletAddress.toLowerCase() && dataSetData.pieces.length > 0) {
+    try {
+      const storageContext = await synapse.storage.createContext({
+        dataSetId,
+        providerAddress: dataSetInfo.serviceProvider,
+      })
+      firstPieceStatus = await storageContext.pieceStatus(dataSetData.pieces[0].pieceCid)
+    } catch (error) {
+      console.log(`  (Could not fetch proof status: ${error.message})`)
+    }
+  } else if (dataSetInfo.payer.toLowerCase() !== walletAddress.toLowerCase()) {
+    console.log('  (Proof status not available - data set not owned by this wallet)')
+  }
+
+  // Display proof timing if available
+  if (firstPieceStatus) {
+    console.log('\nProof Status:')
+    if (firstPieceStatus.dataSetLastProven) {
+      console.log(
+        `  Last proven: ${formatDate(firstPieceStatus.dataSetLastProven)} (${formatTimeDiff(firstPieceStatus.dataSetLastProven)})`
+      )
+    } else {
+      console.log('  Last proven: Never')
+    }
+
+    if (firstPieceStatus.dataSetNextProofDue) {
+      console.log(
+        `  Next proof due: ${formatDate(firstPieceStatus.dataSetNextProofDue)} (${formatTimeDiff(firstPieceStatus.dataSetNextProofDue)})`
+      )
+
+      if (firstPieceStatus.inChallengeWindow) {
+        const timeRemaining = firstPieceStatus.dataSetNextProofDue.getTime() - Date.now()
+        const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
+        console.log(`  Challenge window: Open (${minutesRemaining} minutes remaining)`)
+      } else if (
+        firstPieceStatus.hoursUntilChallengeWindow !== undefined &&
+        firstPieceStatus.hoursUntilChallengeWindow > 0
+      ) {
+        console.log(`  Challenge window opens in: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)} hours`)
+      }
+    } else {
+      console.log('  Next proof due: Not scheduled')
+    }
+
+    console.log(`  Next challenge epoch: ${dataSetData.nextChallengeEpoch}`)
+    console.log(`  Status: ${getProofStatus(firstPieceStatus)}`)
+  } else if (dataSetData.pieces.length === 0) {
+    console.log('\nProof Status:')
+    console.log('  (no pieces to check status)')
+  }
+
+  // Display pieces
+  console.log(`\nPieces (${dataSetData.pieces.length} total):\n`)
+
+  if (dataSetData.pieces.length === 0) {
+    console.log('(No pieces in this data set)')
+    return
+  }
+
+  for (let i = 0; i < dataSetData.pieces.length; i++) {
+    const pieceData = dataSetData.pieces[i]
+
+    console.log(`Piece ${i + 1}:`)
+    console.log(`  PieceCID: ${pieceData.pieceCid}`)
+    console.log(`  Piece ID: ${pieceData.pieceId}`)
+
+    if (!options.hideMetadata) {
+      const pieceMetadata = await warmStorageService.getPieceMetadata(dataSetId, pieceData.pieceId)
+      const pieceMetadataKeys = Object.keys(pieceMetadata)
+
+      if (pieceMetadataKeys.length > 0) {
+        console.log('  Metadata:')
+        for (const key of pieceMetadataKeys) {
+          console.log(`    ${key}: ${pieceMetadata[key] || '(empty)'}`)
+        }
+      }
+    }
+
+    const retrievalUrl = `${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${pieceData.pieceCid}`
+    console.log(`  Retrieval URL: ${retrievalUrl}`)
+    console.log()
+  }
+
+  // Summary
+  console.log(`${'='.repeat(70)}`)
+  console.log('Summary:')
+  console.log(`  Total pieces: ${dataSetData.pieces.length}`)
+  console.log(`  Data set: ${dataSetId}`)
+  console.log(`  Provider: ${dataSetInfo.serviceProvider}`)
+  if (firstPieceStatus) {
+    console.log(`  Status: ${getProofStatus(firstPieceStatus)}`)
+  }
+}
+
 async function main() {
   try {
-    console.log('=== Piece Status Check ===\n')
-    console.log(`Date: ${formatDate(new Date())}`)
-    console.log(`\nPieceCID: ${pieceCid}`)
-    if (providerAddress) {
-      console.log(`Provider: ${providerAddress}`)
-    }
-    if (dataSetId !== undefined) {
-      console.log(`Data Set ID: ${dataSetId}`)
+    // Parse arguments first (handles --help)
+    const { mode, target, options } = parseArgs()
+
+    // Validate environment
+    if (!PRIVATE_KEY) {
+      console.error('ERROR: PRIVATE_KEY environment variable is required')
+      process.exit(1)
     }
 
     // Initialize Synapse SDK
-    console.log('\nInitializing Synapse SDK...')
     const synapseOptions = {
       privateKey: PRIVATE_KEY,
       rpcURL: RPC_URL,
@@ -125,165 +501,22 @@ async function main() {
     }
 
     const synapse = await Synapse.create(synapseOptions)
-    console.log('✓ Synapse instance created')
 
-    // Create storage context (or let the SDK auto-manage if checking across all providers)
-    console.log('\nSetting up storage context...')
-
-    let storageContext
-    if (providerAddress || dataSetId !== undefined) {
-      // Create explicit context for specific provider/dataset
-      const storageOptions = {}
-
-      // Add provider address if specified
-      if (providerAddress) {
-        storageOptions.providerAddress = providerAddress
+    // Run the appropriate mode
+    if (mode === 'piece') {
+      await runPieceMode(synapse, target, options)
+    } else if (mode === 'dataset') {
+      const datasetId = Number.parseInt(target, 10)
+      if (Number.isNaN(datasetId)) {
+        console.error(`ERROR: Invalid data set ID '${target}'`)
+        process.exit(1)
       }
-
-      // Add data set ID if specified
-      if (dataSetId !== undefined) {
-        storageOptions.dataSetId = dataSetId
-      }
-
-      // Add callbacks to show what's happening
-      storageOptions.callbacks = {
-        onProviderSelected: (provider) => {
-          console.log(`✓ Using provider: ${provider.serviceProvider}`)
-        },
-        onDataSetResolved: (info) => {
-          console.log(`✓ Using data set: ${info.dataSetId}`)
-        },
-      }
-
-      storageContext = await synapse.storage.createContext(storageOptions)
-    } else {
-      // Auto-select provider based on who has the piece
-      console.log('✓ Will auto-select provider based on piece availability')
-      // We'll create a context after finding a provider with the piece
-      storageContext = null
-    }
-
-    // Check piece status
-    console.log('\n--- Checking Piece Status ---')
-
-    let status
-    if (storageContext) {
-      // Check on specific provider/dataset
-      status = await storageContext.pieceStatus(pieceCid)
-    } else {
-      // Find any provider with the piece and check status there
-      // First, try to find providers with the piece
-      const storageInfo = await synapse.getStorageInfo()
-
-      for (const provider of storageInfo.providers) {
-        try {
-          // Create context for this provider and check if piece exists
-          const ctx = await synapse.storage.createContext({
-            providerAddress: provider.serviceProvider,
-            callbacks: {
-              onProviderSelected: (p) => {
-                console.log(`  Checking provider: ${p.serviceProvider}`)
-              },
-            },
-          })
-          const exists = await ctx.hasPiece(pieceCid)
-          if (exists) {
-            console.log(`✓ Found piece on provider: ${provider.serviceProvider}`)
-            storageContext = ctx
-            break
-          }
-        } catch {
-          // Continue to next provider
-        }
-      }
-
-      if (!storageContext) {
-        console.log('\n❌ Piece not found on any approved provider')
-        return
-      }
-
-      status = await storageContext.pieceStatus(pieceCid)
-    }
-
-    // Display results
-    console.log('\n📊 Piece Status Report:')
-    console.log('─'.repeat(50))
-
-    // Basic status
-    console.log(`\n✅ Exists on provider: ${status.exists ? 'Yes' : 'No'}`)
-
-    if (!status.exists) {
-      console.log('\n❌ This piece does not exist on the selected service provider.')
-      return
-    }
-
-    // Retrieval URL
-    if (status.retrievalUrl) {
-      console.log(`\n🔗 Retrieval URL: ${status.retrievalUrl}`)
-    }
-
-    // Piece ID
-    if (status.pieceId !== undefined) {
-      console.log(`\n🆔 Piece ID: ${status.pieceId}`)
-    }
-
-    // Proof timing
-    console.log('\n⏱️  Data Set Timing (proofs cover all pieces in the set):')
-
-    if (status.dataSetLastProven) {
-      console.log(
-        `   Data set last proven: ${formatDate(status.dataSetLastProven)} (${formatTimeDiff(status.dataSetLastProven)})`
-      )
-    } else {
-      console.log('   Data set last proven: Never (data set not yet proven)')
-    }
-
-    if (status.dataSetNextProofDue) {
-      console.log(
-        `   Data set next proof due: ${formatDate(status.dataSetNextProofDue)} (${formatTimeDiff(status.dataSetNextProofDue)})`
-      )
-
-      // Challenge window status
-      if (status.isProofOverdue) {
-        console.log('\n🚨 PROOF IS OVERDUE!')
-        console.log('   The service provider has missed the proof deadline and may face penalties.')
-      } else if (status.inChallengeWindow) {
-        // Calculate time remaining in challenge window
-        const timeRemaining = status.dataSetNextProofDue.getTime() - Date.now()
-        const minutesRemaining = Math.floor(timeRemaining / (1000 * 60))
-        console.log('\n⚠️  CURRENTLY IN CHALLENGE WINDOW!')
-        console.log(`   The service provider has ${minutesRemaining} minutes to submit a proof.`)
-      } else if (status.hoursUntilChallengeWindow !== undefined && status.hoursUntilChallengeWindow > 0) {
-        console.log(`\n⏳ Challenge window opens in: ${status.hoursUntilChallengeWindow.toFixed(1)} hours`)
-      }
-    } else {
-      console.log('   Data set next proof due: Not scheduled')
-    }
-
-    // Additional info
-    console.log('\n📝 Storage Details:')
-    if (storageContext) {
-      console.log(`   Provider: ${storageContext.serviceProvider}`)
-      console.log(`   Data Set: ${storageContext.dataSetId}`)
-    }
-
-    // Summary
-    console.log(`\n${'─'.repeat(50)}`)
-    if (status.isProofOverdue) {
-      console.log('🚨 Status: PROOF OVERDUE - Penalties may apply')
-    } else if (status.inChallengeWindow) {
-      console.log('⚠️  Status: Proof urgently needed')
-    } else if (status.hoursUntilChallengeWindow && status.hoursUntilChallengeWindow < 24) {
-      console.log('⏰ Status: Proof needed soon')
-    } else if (status.dataSetNextProofDue) {
-      console.log('✅ Status: All good')
-    } else {
-      console.log('❓ Status: Unknown (no proof schedule)')
+      await runDatasetMode(synapse, datasetId, options)
     }
   } catch (error) {
-    console.error('\n❌ Error:', error.message)
+    console.error(`\nError: ${error.message}`)
     if (error.cause) {
-      console.error('Caused by:', error.cause.message)
+      console.error(`Caused by: ${error.cause.message}`)
     }
     process.exit(1)
   }
