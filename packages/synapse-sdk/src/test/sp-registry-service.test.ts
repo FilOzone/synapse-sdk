@@ -53,7 +53,6 @@ describe('SPRegistryService', () => {
           return {
             providerId: 1,
             info: {
-              id: BigInt(1),
               serviceProvider: mockProviderAddress,
               payee: mockProviderAddress,
               name: 'Test Provider',
@@ -83,7 +82,7 @@ describe('SPRegistryService', () => {
       getPDPService: async (id: number) => {
         if (id === 1) {
           return {
-            offering: {
+            pdpOffering: {
               serviceURL: 'https://provider.example.com',
               minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
               maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
@@ -415,7 +414,20 @@ describe('SPRegistryService', () => {
       // Override to return provider without products
       ;(service as any)._getRegistryContract = () => ({
         ...createMockContract(),
-        getProviderProducts: async () => [],
+        getPDPService: async () => ({
+          pdpOffering: {
+            serviceURL: '',
+            minPieceSizeInBytes: 0,
+            maxPieceSizeInBytes: 0,
+            ipniPiece: false,
+            ipniIpfs: false,
+            minProvingPeriodInEpochs: 0,
+            storagePricePerTibPerMonth: 0,
+            location: '',
+          },
+          capabilityKeys: [],
+          isActive: false,
+        }),
       })
 
       const provider = await service.getProvider(1)
