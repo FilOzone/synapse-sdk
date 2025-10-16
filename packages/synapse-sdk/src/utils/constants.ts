@@ -319,7 +319,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '0x81DFD9813aDd354f03704F31419b0c6268d46232',
-    calibration: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348',
+    calibration: '0x468342072e0dc86AFFBe15519bc5B1A1aa86e4dc',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
