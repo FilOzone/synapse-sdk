@@ -173,7 +173,6 @@ export class StorageContext {
     this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
   }
 
-
   static async createContexts(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
@@ -193,7 +192,7 @@ export class StorageContext {
           options.metadata ?? {},
           warmStorageService,
           providerResolver,
-          options.forceCreateDataSets,
+          options.forceCreateDataSets
         )
         resolutions.push(resolution)
         if (resolutions.length >= count) {
@@ -201,7 +200,12 @@ export class StorageContext {
         }
       }
     }
-    return await Promise.all(resolutions.map(async resolution => await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)))
+    return await Promise.all(
+      resolutions.map(
+        async (resolution) =>
+          await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+      )
+    )
   }
 
   /**

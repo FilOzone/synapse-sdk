@@ -233,16 +233,12 @@ export class StorageManager {
   }
 
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
-    return await StorageContext.createContexts(
-      this._synapse,
-      this._warmStorageService,
-      {
-        ...options,
-        withCDN: options?.withCDN ?? this._withCDN,
-        withIpni: options?.withIpni ?? this._withIpni,
-        dev: options?.dev ?? this._dev,
-      }
-    )
+    return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+      ...options,
+      withCDN: options?.withCDN ?? this._withCDN,
+      withIpni: options?.withIpni ?? this._withIpni,
+      dev: options?.dev ?? this._dev,
+    })
   }
 
   /**

@@ -7,7 +7,7 @@ import { StorageManager } from '../storage/manager.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { JSONRPC, presets } from './mocks/jsonrpc/index.ts'
+import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
@@ -146,7 +146,7 @@ function createMockWarmStorageService(providers: ProviderInfo[], dataSets: any[]
       return provider?.id ?? 0
     },
     getApprovedProvider: async (id: number) => providers.find((p) => p.id === id) ?? null,
-    getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+    getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
     getApprovedProviderIds: async () => providers.map((p) => p.id),
     isProviderIdApproved: async (id: number) => providers.some((p) => p.id === id),
     getDataSetMetadata: async (dataSetId: number) => {
