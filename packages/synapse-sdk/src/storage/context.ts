@@ -30,6 +30,7 @@ import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
   MetadataEntry,
@@ -170,6 +171,37 @@ export class StorageContext {
       throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
     }
     this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
+  }
+
+
+  static async createContexts(
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: CreateContextsOptions = {}
+  ): Promise<StorageContext[]> {
+    const count = options?.count ?? 2
+    const resolutions: ProviderSelectionResult[] = []
+    const clientAddress = await synapse.getClient().getAddress()
+    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
+    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const providerResolver = new ProviderResolver(warmStorageService, spRegistry)
+    if (options?.providerIds) {
+      for (const providerId of options.providerIds) {
+        const resolution = await StorageContext.resolveByProviderId(
+          clientAddress,
+          providerId,
+          options.metadata ?? {},
+          warmStorageService,
+          providerResolver,
+          options.forceCreateDataSets,
+        )
+        resolutions.push(resolution)
+        if (resolutions.length >= count) {
+          break
+        }
+      }
+    }
+    return await Promise.all(resolutions.map(async resolution => await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)))
   }
 
   /**

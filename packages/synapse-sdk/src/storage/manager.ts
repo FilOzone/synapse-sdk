@@ -233,24 +233,16 @@ export class StorageManager {
   }
 
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
-    const count = options?.count ?? 2
-    const contexts: StorageContext[] = []
-    if (options?.providerIds) {
-      for (const providerId of options.providerIds) {
-        //try {
-          const context = await this.createContext({
-            ...options,
-            providerId,
-          })
-          contexts.push(context)
-        //} catch {}
+    return await StorageContext.createContexts(
+      this._synapse,
+      this._warmStorageService,
+      {
+        ...options,
+        withCDN: options?.withCDN ?? this._withCDN,
+        withIpni: options?.withIpni ?? this._withIpni,
+        dev: options?.dev ?? this._dev,
       }
-      if (contexts.length >= count) {
-        return contexts
-      }
-    }
-    // TODO
-    return contexts
+    )
   }
 
   /**

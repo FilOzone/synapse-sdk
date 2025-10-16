@@ -339,6 +339,10 @@ export interface CreateContextsOptions {
    * Must be no longer than count
    */
   dataSetIds?: number[]
+  /** Whether to enable CDN services */
+  withCDN?: boolean
+  withIpni?: boolean
+  dev?: boolean
   /**
    * Custom metadata for the data sets (key-value pairs)
    * When smart-selecting data sets, this metadata will be used to match.
