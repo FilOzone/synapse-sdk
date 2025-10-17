@@ -55,19 +55,6 @@ describe('SPRegistryService', () => {
         }
         throw new Error('Provider not found')
       },
-      getProviderProducts: async (id: number) => {
-        if (id === 1) {
-          return [
-            {
-              productType: 0, // PDP
-              isActive: true,
-              capabilityKeys: [],
-              productData: '0x', // Encoded PDP offering
-            },
-          ]
-        }
-        return []
-      },
       providerHasProduct: async (id: number, productType: number) => {
         return id === 1 && productType === 0
       },
