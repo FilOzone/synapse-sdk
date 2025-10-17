@@ -1,13 +1,12 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { setup } from 'iso-web/msw'
 import { StorageContext } from '../storage/context.ts'
 import { StorageManager } from '../storage/manager.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
+import { ADDRESSES } from './mocks/jsonrpc/index.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
 // Create a mock Ethereum provider that doesn't try to connect
@@ -4368,11 +4367,26 @@ describe('StorageService', () => {
 
 describe('StorageManager', () => {
   let manager: StorageManager
+  let cleanupMocks: (() => void) | null = null
+  let originalFetch: typeof global.fetch
+
   beforeEach(() => {
-    const server = setup([])
-    server.use(JSONRPC(presets.basic))
+    originalFetch = global.fetch
+    // Default mock for ping validation - can be overridden in specific tests
+    global.fetch = async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      if (url.includes('/ping')) {
+        return { status: 200, statusText: 'OK' } as any
+      }
+      throw new Error(`Unexpected URL: ${url}`)
+    }
     const mockProviders: ProviderInfo[] = [TEST_PROVIDERS.provider1, TEST_PROVIDERS.provider2]
     const dataSets: any[] = []
+    // Set up registry mocks with our providers
+    cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+      providers: mockProviders,
+      approvedIds: mockProviders.map((provider: ProviderInfo) => provider.id),
+    })
     const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
     const mockPieceRetriever = {} as any
     manager = new StorageManager(
@@ -4384,6 +4398,15 @@ describe('StorageManager', () => {
       false // withIpni
     )
   })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    if (cleanupMocks) {
+      cleanupMocks()
+      cleanupMocks = null
+    }
+  })
+
   describe('createContexts', () => {
     it('selects specified providerIds', async () => {
       const contexts = await manager.createContexts({
