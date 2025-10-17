@@ -15,6 +15,8 @@ import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import type { PDPServiceInfoView, ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 import { createDataSetHandler, dataSetCreationStatusHandler, type PDPMockOptions } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
@@ -327,10 +329,7 @@ describe('Synapse', () => {
           },
           payments: {
             ...presets.basic.payments,
-            operatorApprovals: (args) => {
-              const token = args[0]
-              const client = args[1]
-              const operator = args[2]
+            operatorApprovals: ([token, client, operator]) => {
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               assert.equal(client, signerAddress)
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
@@ -343,9 +342,7 @@ describe('Synapse', () => {
                 BigInt(28800), // maxLockupPeriod
               ]
             },
-            accounts: (args) => {
-              const token = args[0]
-              const user = args[1]
+            accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
@@ -766,6 +763,79 @@ describe('Synapse', () => {
         // The error should bubble up from the contract call
         assert.include(error.message, 'RPC error')
       }
+    })
+  })
+
+  describe('createContexts', () => {
+    let synapse: Synapse
+    const mockProviders: ServiceProviderInfoView[] = [
+      {
+        providerId: 1n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider1,
+          payee: ADDRESSES.serviceProvider1,
+          name: 'serviceProvider1',
+          description: 'mockProviders[0]',
+          isActive: true,
+        },
+      },
+      {
+        providerId: 2n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider2,
+          payee: ADDRESSES.serviceProvider2,
+          name: 'serviceProvider2',
+          description: 'mockProviders[1]',
+          isActive: true,
+        },
+      },
+    ]
+    const mockPDPProducts: PDPServiceInfoView[] = [
+      [
+        {
+          serviceURL: 'http://serviceProvider1.com',
+          minPieceSizeInBytes: 0n,
+          maxPieceSizeInBytes: 1n << 32n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: 1000n,
+          minProvingPeriodInEpochs: 3n,
+          location: 'narnia',
+          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+        },
+        [], // capabilityKeys
+        true, // isActive
+      ],
+      [
+        {
+          serviceURL: 'http://serviceProvider2.org',
+          minPieceSizeInBytes: 0n,
+          maxPieceSizeInBytes: 1n << 32n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: 1000n,
+          minProvingPeriodInEpochs: 3n,
+          location: 'krypton',
+          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+        },
+        [], // capabilityKeys
+        true, // isActive
+      ],
+    ]
+    beforeEach(async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: mockServiceProviderRegistry(mockProviders, mockPDPProducts),
+        })
+      )
+      synapse = await Synapse.create({ signer })
+    })
+    it('selects specified providerIds', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId, mockProviders[1].providerId].map(Number),
+      })
+      assert.equal(contexts.length, 2)
     })
   })
 })
