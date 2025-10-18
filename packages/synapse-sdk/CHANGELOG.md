@@ -4,6 +4,14 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.34.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.33.0...synapse-sdk-v0.34.0) (2025-10-18)
+
+
+### Features
+
+* allowing deposits to secondary addresses ([4629f1f](https://github.com/FilOzone/synapse-sdk/commit/4629f1fd1d3e5b2ef66164dbf3321640854d5fce))
+* deposit to any address ([#316](https://github.com/FilOzone/synapse-sdk/issues/316)) ([4629f1f](https://github.com/FilOzone/synapse-sdk/commit/4629f1fd1d3e5b2ef66164dbf3321640854d5fce))
+
 ## [0.33.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.32.0...synapse-sdk-v0.33.0) (2025-10-14)
 
 
