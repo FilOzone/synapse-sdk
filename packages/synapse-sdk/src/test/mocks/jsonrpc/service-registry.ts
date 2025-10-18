@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
 import type { ExtractAbiFunction } from 'abitype'
+import { assert } from 'chai'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import { CONTRACT_ABIS } from '../../../utils/constants.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
@@ -62,6 +63,7 @@ export function mockServiceProviderRegistry(
   providers: ServiceProviderInfoView[],
   services?: (PDPServiceInfoView | null)[]
 ): ServiceRegistryOptions {
+  assert.isAtMost(services?.length ?? 0, providers.length)
   return {
     getProvider: ([providerId]) => {
       if (providerId < 0n || providerId > providers.length) {
@@ -78,11 +80,8 @@ export function mockServiceProviderRegistry(
       if (!services) {
         return EMPTY_PDP_SERVICE
       }
-      for (let i = 0; i < providers.length; i++) {
+      for (let i = 0; i < services.length; i++) {
         if (providers[i].providerId === providerId) {
-          if (i < services.length) {
-            return EMPTY_PDP_SERVICE
-          }
           const service = services[i]
           if (service == null) {
             return EMPTY_PDP_SERVICE
