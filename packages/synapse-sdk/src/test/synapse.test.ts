@@ -890,11 +890,29 @@ describe('Synapse', () => {
         )
       }
     })
+
     it('selects specified providerIds', async () => {
       const contexts = await synapse.storage.createContexts({
         providerIds: [mockProviders[0].providerId, mockProviders[1].providerId].map(Number),
       })
       assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[1].providerId)
+      // created new data sets; got the mocked data set id
+      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
+      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
+    })
+
+    it('selects providers specified by address', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[1].info.serviceProvider, mockProviders[0].info.serviceProvider],
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
+      // created new data sets; got the mocked data set id
+      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
+      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
     })
   })
 })

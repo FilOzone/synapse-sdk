@@ -199,6 +199,21 @@ export class StorageContext {
           break
         }
       }
+    } else if (options?.providerAddresses) {
+      for (const providerAddress of options.providerAddresses) {
+        const resolution = await StorageContext.resolveByProviderAddress(
+          providerAddress,
+          warmStorageService,
+          providerResolver,
+          clientAddress,
+          options.metadata ?? {},
+          options.forceCreateDataSets
+        )
+        resolutions.push(resolution)
+        if (resolutions.length >= count) {
+          break
+        }
+      }
     }
     return await Promise.all(
       resolutions.map(
