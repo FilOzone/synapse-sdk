@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
 import type { ExtractAbiFunction } from 'abitype'
+import { assert } from 'chai'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import { CONTRACT_ABIS } from '../../../utils/constants.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
@@ -26,6 +27,87 @@ export interface ServiceRegistryOptions {
   ) => AbiToType<getProviderIdByAddress['outputs']>
   getPDPService?: (args: AbiToType<getPDPService['inputs']>) => AbiToType<getPDPService['outputs']>
   getProvider?: (args: AbiToType<getProvider['inputs']>) => AbiToType<getProvider['outputs']>
+}
+
+export type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
+export type PDPServiceInfoView = AbiToType<getPDPService['outputs']>
+
+const EMPTY_PROVIDER: ServiceProviderInfoView = {
+  providerId: 0n,
+  info: {
+    serviceProvider: '0x0000000000000000000000000000000000000000',
+    payee: '0x0000000000000000000000000000000000000000',
+    name: '',
+    description: '',
+    isActive: false,
+  },
+}
+
+const EMPTY_PDP_SERVICE: PDPServiceInfoView = [
+  {
+    serviceURL: '',
+    minPieceSizeInBytes: 0n,
+    maxPieceSizeInBytes: 0n,
+    ipniPiece: false,
+    ipniIpfs: false,
+    storagePricePerTibPerMonth: 0n,
+    minProvingPeriodInEpochs: 0n,
+    location: '',
+    paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+  },
+  [], // capabilityKeys
+  false, // isActive
+]
+
+export function mockServiceProviderRegistry(
+  providers: ServiceProviderInfoView[],
+  services?: (PDPServiceInfoView | null)[]
+): ServiceRegistryOptions {
+  assert.isAtMost(services?.length ?? 0, providers.length)
+  return {
+    getProvider: ([providerId]) => {
+      if (providerId < 0n || providerId > providers.length) {
+        throw new Error('Provider does not exist')
+      }
+      for (const provider of providers) {
+        if (providerId === provider.providerId) {
+          return [provider]
+        }
+      }
+      throw new Error('Provider not found')
+    },
+    getPDPService: ([providerId]) => {
+      if (!services) {
+        return EMPTY_PDP_SERVICE
+      }
+      for (let i = 0; i < services.length; i++) {
+        if (providers[i].providerId === providerId) {
+          const service = services[i]
+          if (service == null) {
+            return EMPTY_PDP_SERVICE
+          }
+          return service
+        }
+      }
+      return EMPTY_PDP_SERVICE
+    },
+    getProviderByAddress: ([address]) => {
+      for (const provider of providers) {
+        if (address === provider.info.serviceProvider) {
+          return [provider]
+        }
+      }
+      return [EMPTY_PROVIDER]
+    },
+    getProviderIdByAddress: ([address]) => {
+      for (const provider of providers) {
+        if (address === provider.info.serviceProvider) {
+          return [provider.providerId]
+        }
+      }
+      return [0n]
+    },
+  }
 }
 
 /**

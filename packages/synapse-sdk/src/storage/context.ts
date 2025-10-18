@@ -30,6 +30,7 @@ import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
   MetadataEntry,
@@ -172,6 +173,56 @@ export class StorageContext {
     this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
   }
 
+  static async createContexts(
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: CreateContextsOptions = {}
+  ): Promise<StorageContext[]> {
+    const count = options?.count ?? 2
+    const resolutions: ProviderSelectionResult[] = []
+    const clientAddress = await synapse.getClient().getAddress()
+    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
+    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const providerResolver = new ProviderResolver(warmStorageService, spRegistry)
+    if (options?.providerIds) {
+      for (const providerId of options.providerIds) {
+        const resolution = await StorageContext.resolveByProviderId(
+          clientAddress,
+          providerId,
+          options.metadata ?? {},
+          warmStorageService,
+          providerResolver,
+          options.forceCreateDataSets
+        )
+        resolutions.push(resolution)
+        if (resolutions.length >= count) {
+          break
+        }
+      }
+    } else if (options?.providerAddresses) {
+      for (const providerAddress of options.providerAddresses) {
+        const resolution = await StorageContext.resolveByProviderAddress(
+          providerAddress,
+          warmStorageService,
+          providerResolver,
+          clientAddress,
+          options.metadata ?? {},
+          options.forceCreateDataSets
+        )
+        resolutions.push(resolution)
+        if (resolutions.length >= count) {
+          break
+        }
+      }
+    }
+    return await Promise.all(
+      resolutions.map(
+        async (resolution) =>
+          await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+      )
+    )
+  }
+
   /**
    * Static factory method to create a StorageContext
    * Handles provider selection and data set selection/creation
@@ -194,6 +245,15 @@ export class StorageContext {
       options
     )
 
+    return await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+  }
+
+  static async createWithSelectedProvider(
+    resolution: ProviderSelectionResult,
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: StorageServiceOptions = {}
+  ): Promise<StorageContext> {
     // Notify callback about provider selection
     try {
       options.callbacks?.onProviderSelected?.(resolution.provider)
