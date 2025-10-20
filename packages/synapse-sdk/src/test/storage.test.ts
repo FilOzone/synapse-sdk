@@ -1,6 +1,7 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { CID } from 'multiformats/cid'
 import { calculate as calculatePieceCID, getSizeFromPieceCID } from '../piece/index.ts'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
@@ -4363,11 +4364,10 @@ describe('StorageService', () => {
     })
   })
 
-  describe('getAllActivePieces', () => {
+  describe('getPieces', () => {
     it('should be available on StorageContext', () => {
       // Basic test to ensure the method exists
-      assert.isFunction(StorageContext.prototype.getAllActivePieces)
-      assert.isFunction(StorageContext.prototype.getAllActivePiecesGenerator)
+      assert.isFunction(StorageContext.prototype.getPieces)
     })
 
     it('should get all active pieces with pagination', async () => {
@@ -4455,18 +4455,21 @@ describe('StorageService', () => {
         {}
       )
 
-      // Test getAllActivePieces - should collect all pages
-      const allPieces = await context.getAllActivePieces({ batchSize: 2 })
+      // Test getPieces - should collect all pages
+      const allPieces = []
+      for await (const piece of context.getPieces({ batchSize: 2 })) {
+        allPieces.push(piece)
+      }
 
       assert.equal(allPieces.length, 3, 'Should return all 3 pieces across pages')
-      assert.equal(allPieces[0].pieceId, 1)
-      assert.equal(allPieces[0].pieceCid.toString(), piece1Cid.toString())
+      assert.equal(allPieces[0][1], 1) // pieceId
+      assert.equal(allPieces[0][0].toString(), piece1Cid.toString()) // pieceCid
 
-      assert.equal(allPieces[1].pieceId, 2)
-      assert.equal(allPieces[1].pieceCid.toString(), piece2Cid.toString())
+      assert.equal(allPieces[1][1], 2)
+      assert.equal(allPieces[1][0].toString(), piece2Cid.toString())
 
-      assert.equal(allPieces[2].pieceId, 3)
-      assert.equal(allPieces[2].pieceCid.toString(), piece3Cid.toString())
+      assert.equal(allPieces[2][1], 3)
+      assert.equal(allPieces[2][0].toString(), piece3Cid.toString())
     })
 
     it('should handle empty results', async () => {
@@ -4508,11 +4511,14 @@ describe('StorageService', () => {
         {}
       )
 
-      const allPieces = await context.getAllActivePieces()
+      const allPieces = []
+      for await (const piece of context.getPieces()) {
+        allPieces.push(piece)
+      }
       assert.equal(allPieces.length, 0, 'Should return empty array for data set with no pieces')
     })
 
-    it('should handle AbortSignal in getAllActivePieces', async () => {
+    it('should handle AbortSignal in getPieces', async () => {
       const pdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
       const dataSetId = 123
       const controller = new AbortController()
@@ -4552,14 +4558,16 @@ describe('StorageService', () => {
       controller.abort()
 
       try {
-        await context.getAllActivePieces({ signal: controller.signal })
+        for await (const _piece of context.getPieces({ signal: controller.signal })) {
+          // Should not reach here
+        }
         assert.fail('Should have thrown an error')
       } catch (error: any) {
-        assert.equal(error.message, 'StorageContext getAllActivePiecesGenerator failed: Operation aborted')
+        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
       }
     })
 
-    it('should work with getAllActivePiecesGenerator', async () => {
+    it('should work with getPieces generator', async () => {
       const pdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
       const dataSetId = 123
 
@@ -4622,18 +4630,18 @@ describe('StorageService', () => {
 
       // Test the async generator
       const pieces = []
-      for await (const piece of context.getAllActivePiecesGenerator({ batchSize: 1 })) {
+      for await (const piece of context.getPieces({ batchSize: 1 })) {
         pieces.push(piece)
       }
 
       assert.equal(pieces.length, 2, 'Should yield 2 pieces')
-      assert.equal(pieces[0].pieceId, 1)
-      assert.equal(pieces[0].pieceCid.toString(), piece1Cid.toString())
-      assert.equal(pieces[1].pieceId, 2)
-      assert.equal(pieces[1].pieceCid.toString(), piece2Cid.toString())
+      assert.equal(pieces[0][1], 1) // pieceId
+      assert.equal(pieces[0][0].toString(), piece1Cid.toString()) // pieceCid
+      assert.equal(pieces[1][1], 2)
+      assert.equal(pieces[1][0].toString(), piece2Cid.toString())
     })
 
-    it('should handle AbortSignal in getAllActivePiecesGenerator', async () => {
+    it('should handle AbortSignal in getPieces generator during iteration', async () => {
       const pdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
       const dataSetId = 123
       const controller = new AbortController()
@@ -4687,7 +4695,7 @@ describe('StorageService', () => {
 
       try {
         const pieces = []
-        for await (const piece of context.getAllActivePiecesGenerator({
+        for await (const piece of context.getPieces({
           batchSize: 1,
           signal: controller.signal,
         })) {
@@ -4697,84 +4705,8 @@ describe('StorageService', () => {
         }
         assert.fail('Should have thrown an error')
       } catch (error: any) {
-        assert.equal(error.message, 'StorageContext getAllActivePiecesGenerator failed: Operation aborted')
+        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
       }
-    })
-  })
-
-  describe('getPiecesWithDetails', () => {
-    it('should return pieces with leaf count and calculated raw size from blockchain', async () => {
-      const pdpVerifierAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
-      const dataSetId = 123
-
-      // Use actual valid PieceCIDs from test data
-      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
-      const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
-
-      // Get actual metadata from the PieceCIDs
-      const piece1RawSize = getSizeFromPieceCID(piece1Cid)
-      const piece2RawSize = getSizeFromPieceCID(piece2Cid)
-
-      // Create a mock provider that returns pieces from contract
-      const testProvider = {
-        getNetwork: async () => ({ chainId: BigInt(314159), name: 'calibration' }),
-        call: async (transaction: any) => {
-          const data = transaction.data
-          // getActivePieces selector: 0x39f51544
-          if (data?.startsWith('0x39f51544') === true) {
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
-              [
-                [{ data: piece1Cid.bytes }, { data: piece2Cid.bytes }],
-                [1, 2],
-                [piece1RawSize, piece2RawSize],
-                false, // No more pieces
-              ]
-            )
-          }
-          return '0x'
-        },
-      } as any
-
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => pdpVerifierAddress,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => testProvider,
-        getSigner: () => new ethers.Wallet(ethers.hexlify(ethers.randomBytes(32))),
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
-
-      // Test the actual getPiecesWithDetails method
-      const result = await context.getPiecesWithDetails()
-
-      assert.isArray(result)
-      assert.lengthOf(result, 2)
-
-      // Check first piece - extracted from blockchain
-      assert.equal(result[0].pieceId, 1)
-      assert.equal(result[0].pieceCid.toString(), piece1Cid.toString())
-      assert.equal(result[0].rawSize, piece1RawSize)
-      assert.equal(result[0].subPieceCid.toString(), piece1Cid.toString())
-      assert.equal(result[0].subPieceOffset, 0)
-
-      // Check second piece - extracted from blockchain
-      assert.equal(result[1].pieceId, 2)
-      assert.equal(result[1].pieceCid.toString(), piece2Cid.toString())
-      assert.equal(result[1].rawSize, piece2RawSize)
-      assert.equal(result[1].subPieceCid.toString(), piece2Cid.toString())
-      assert.equal(result[1].subPieceOffset, 0)
     })
   })
 })

@@ -28,13 +28,10 @@ import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import { asPieceCID } from '../piece/index.ts'
-import { getSizeFromPieceCID } from '../piece/piece.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
-  DataSetPieceData,
-  DataSetPieceDataWithLeafCount,
   DownloadOptions,
   EnhancedDataSetInfo,
   MetadataEntry,
@@ -1358,55 +1355,17 @@ export class StorageContext {
   }
 
   /**
-   * Get the list of piece CIDs for this service service's data set by querying the PDP server.
+   * Get the list of piece CIDs for this service service's data set.
+   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
    * @returns Array of piece CIDs as PieceCID objects
-   * @deprecated
+   * @deprecated Use getPieces() generator for better memory efficiency with large data sets
    */
   async getDataSetPieces(): Promise<PieceCID[]> {
-    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
-    return dataSetData.pieces.map((piece) => piece.pieceCid)
-  }
-
-  async getPiecesWithDetails(options?: {
-    batchSize?: number
-    signal?: AbortSignal
-  }): Promise<DataSetPieceDataWithLeafCount[]> {
-    const pieces: DataSetPieceDataWithLeafCount[] = []
-
-    for await (const piece of this.getAllActivePiecesGenerator(options)) {
-      pieces.push({
-        pieceId: piece.pieceId,
-        pieceCid: piece.pieceCid,
-        rawSize: getSizeFromPieceCID(piece.pieceCid),
-        subPieceCid: piece.pieceCid,
-        subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
-      } satisfies DataSetPieceDataWithLeafCount)
+    const pieces: PieceCID[] = []
+    for await (const [pieceCid] of this.getPieces()) {
+      pieces.push(pieceCid)
     }
-
     return pieces
-  }
-
-  /**
-   * Get all active pieces for this data set directly from the PDPVerifier contract.
-   * This bypasses Curio and gets the authoritative piece list from the blockchain.
-   * @param options - Optional configuration object
-   * @param options.batchSize - The batch size for each pagination call (default: 100)
-   * @param options.signal - Optional AbortSignal to cancel the operation
-   * @returns Array of all active pieces with their details including PieceCID
-   */
-  async getAllActivePieces(options?: { batchSize?: number; signal?: AbortSignal }): Promise<Array<DataSetPieceData>> {
-    const allPieces: Array<DataSetPieceData> = []
-
-    for await (const piece of this.getAllActivePiecesGenerator(options)) {
-      allPieces.push({
-        pieceId: piece.pieceId,
-        pieceCid: piece.pieceCid,
-        subPieceCid: piece.pieceCid,
-        subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
-      } satisfies DataSetPieceData)
-    }
-
-    return allPieces
   }
 
   /**
@@ -1416,12 +1375,9 @@ export class StorageContext {
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @param options.signal - Optional AbortSignal to cancel the operation
-   * @yields Individual pieces with their details including PieceCID
+   * @yields Tuple of [PieceCID, pieceId] - the piece ID is needed for certain operations like deletion
    */
-  async *getAllActivePiecesGenerator(options?: {
-    batchSize?: number
-    signal?: AbortSignal
-  }): AsyncGenerator<DataSetPieceData> {
+  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<[PieceCID, number]> {
     const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
     const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
 
@@ -1432,7 +1388,7 @@ export class StorageContext {
 
     while (hasMore) {
       if (signal?.aborted) {
-        throw createError('StorageContext', 'getAllActivePiecesGenerator', 'Operation aborted')
+        throw createError('StorageContext', 'getPieces', 'Operation aborted')
       }
 
       const result = await pdpVerifier.getActivePieces(this._dataSetId, { offset, limit: batchSize, signal })
@@ -1440,7 +1396,7 @@ export class StorageContext {
       // Yield pieces one by one for lazy evaluation
       for (let i = 0; i < result.pieces.length; i++) {
         if (signal?.aborted) {
-          throw createError('StorageContext', 'getAllActivePiecesGenerator', 'Operation aborted')
+          throw createError('StorageContext', 'getPieces', 'Operation aborted')
         }
 
         // Parse the piece data as a PieceCID
@@ -1454,17 +1410,12 @@ export class StorageContext {
         if (!pieceCid) {
           throw createError(
             'StorageContext',
-            'getAllActivePiecesGenerator',
+            'getPieces',
             `Invalid PieceCID returned from contract for piece ${result.pieceIds[i]}`
           )
         }
 
-        yield {
-          pieceId: result.pieceIds[i],
-          pieceCid,
-          subPieceCid: pieceCid,
-          subPieceOffset: 0, // TODO: figure out how to get the sub piece offset
-        } satisfies DataSetPieceData
+        yield [pieceCid, result.pieceIds[i]]
       }
 
       hasMore = result.hasMore

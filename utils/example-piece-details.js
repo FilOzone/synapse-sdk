@@ -4,12 +4,12 @@
  * Piece Details Example - Demonstrates how to get piece information directly from blockchain
  *
  * This example shows how to use the blockchain-based piece retrieval to get
- * authoritative piece data with leaf counts and raw sizes extracted from PieceCIDs.
+ * authoritative piece data directly from the PDPVerifier contract.
  *
  * The script will:
  * 1. Find your data sets
  * 2. Get piece information directly from PDPVerifier contract (source of truth)
- * 3. Extract leaf counts and raw sizes from the PieceCID metadata
+ * 3. Extract raw sizes from the PieceCID metadata
  * 4. Display a summary of all pieces with their calculated sizes
  *
  * Usage:
@@ -17,6 +17,7 @@
  */
 
 import { Synapse } from '@filoz/synapse-sdk'
+import { getSizeFromPieceCID } from '@filoz/synapse-sdk/piece'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
@@ -83,7 +84,7 @@ async function main() {
     console.log(`  Is Live: ${dataSetInfo.isLive}`)
     console.log(`  With CDN: ${dataSetInfo.withCDN}`)
 
-    // Get all pieces with details directly from blockchain
+    // Get all pieces directly from blockchain
     console.log('\n--- Getting Pieces from Blockchain (PDPVerifier) ---')
     try {
       const context = await synapse.storage.createContext({
@@ -91,28 +92,29 @@ async function main() {
         providerId: dataSetInfo.providerId,
       })
 
-      const piecesWithDetails = await context.getPiecesWithDetails()
-      console.log(`✅ Retrieved ${piecesWithDetails.length} pieces from blockchain:`)
+      // Collect all pieces using the generator
+      const pieces = []
+      for await (const [pieceCid, pieceId] of context.getPieces()) {
+        const rawSize = getSizeFromPieceCID(pieceCid)
+        pieces.push({ pieceCid, pieceId, rawSize })
+      }
 
-      piecesWithDetails.forEach((piece, index) => {
+      console.log(`✅ Retrieved ${pieces.length} pieces from blockchain:`)
+
+      pieces.forEach((piece, index) => {
         console.log(`\n  Piece ${index + 1}:`)
         console.log(`    ID: ${piece.pieceId}`)
         console.log(`    CID: ${piece.pieceCid}`)
-        console.log(`    Leaf Count: ${piece.leafCount} (extracted from PieceCID)`)
         console.log(`    Raw Size: ${piece.rawSize} bytes (${(piece.rawSize / 1024).toFixed(2)} KB)`)
-        console.log(`    Sub-piece CID: ${piece.subPieceCid}`)
-        console.log(`    Sub-piece Offset: ${piece.subPieceOffset}`)
       })
 
       // Calculate totals
-      const totalLeafCount = piecesWithDetails.reduce((sum, piece) => sum + piece.leafCount, 0)
-      const totalRawSize = piecesWithDetails.reduce((sum, piece) => sum + piece.rawSize, 0)
+      const totalRawSize = pieces.reduce((sum, piece) => sum + piece.rawSize, 0)
 
       console.log(`\n📈 Data Set Summary:`)
-      console.log(`   Total Pieces: ${piecesWithDetails.length}`)
-      console.log(`   Total Leaf Count: ${totalLeafCount}`)
+      console.log(`   Total Pieces: ${pieces.length}`)
       console.log(`   Total Raw Size: ${totalRawSize} bytes (${(totalRawSize / 1024).toFixed(2)} KB)`)
-      console.log(`   Average Piece Size: ${(totalRawSize / piecesWithDetails.length).toFixed(2)} bytes`)
+      console.log(`   Average Piece Size: ${(totalRawSize / pieces.length).toFixed(2)} bytes`)
 
       console.log(`\n✅ All data retrieved directly from PDPVerifier contract (blockchain)`)
       console.log(`   This is the authoritative source of truth, not Curio`)
