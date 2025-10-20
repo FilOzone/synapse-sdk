@@ -1,345 +1,166 @@
-# Synapse SDK AI Context File
+# Synapse SDK
 
-This document serves as context for LLM agent sessions working with the Synapse SDK. It will be updated as development progresses.
+TypeScript/JavaScript SDK for Filecoin Onchain Cloud (FOC). Published as `@filoz/synapse-sdk`.
 
-## Overview
+## What This Is
 
-- Synapse SDK: JavaScript/TypeScript interface to Filecoin Synapse, a smart-contract marketplace for Filecoin services (focus: storage).
-- Supports HTTP and WebSocket connections for interacting with Filecoin services.
+Primary interface for developers building on the FOC services marketplace. Abstracts contract interactions and storage provider HTTP APIs into high-level TypeScript library. Works in Node.js and browsers.
 
-### Design Philosophy
+**Design**: Simple golden path (main `Synapse` class) + composable components (all services exported independently).
 
-- Simple Golden Path: Main `Synapse` class offers high-level API, sensible defaults, abstracts complexity.
-- Composable Components: All components exported for advanced/independent use.
+**Stack**: Applications → Synapse SDK → Smart contracts (FWSS, Payments, PDPVerifier, SPRegistry) + Storage providers (Curio HTTP API)
 
-## Source Structure
+## Architecture
 
-### Key Components
-
-- `Synapse`: Main SDK entry; minimal interface with `payments` property and `storage` manager; strict network validation (mainnet/calibration).
-- `PaymentsService`: Payment operations - deposits, withdrawals, balances, service approvals. The `deposit()` method accepts an optional `DepositOptions` object with `to` property to deposit funds to a different address than the signer, plus callback functions for visibility.
-- `SPRegistryService`: Service provider registry - registration, updates, product management, provider discovery.
-- `WarmStorageService`: Storage coordination - costs, allowances, data sets. Factory method `WarmStorageService.create(provider, address)`. Source of all contract addresses via discovery.
-- `StorageManager/StorageContext`: Storage operations with auto-managed or explicit contexts.
-- `PDPVerifier/PDPServer/PDPAuthHelper`: Direct PDP protocol interactions.
-
-### Development Tools
-
-- **TypeScript**: Strict mode enabled, source maps, declaration files, ES2022 target with NodeNext module resolution, build output to `dist/` directory; package.json is `"module"`, source is compiled with .js extensions.
-- **Biome**: Fast linter/formatter replacing ts-standard. Run `pnpm run lint:fix` for auto-fixes. No semicolons, consistent formatting.
-  - **Important**: Biome is strict about imports, formatting. Always run `lint:fix` before commits.
-- **Build Scripts**: `pnpm run build` but prefer `pnpm run build:browser` to to build browser bundles to `dist/browser/{synapse-sdk.esm.js,synapse-sdk.min.js}`
-- **Testing**: Mocha with `/* globals describe it */`, Chai for `{ assert }` in `src/test/`
-- **Conventional Commits**: Auto-publishing enabled with semantic versioning based on commit messages. Use `feat:` for minor, `fix:`/`chore:`/`docs:`/`test:` for patch. AVOID breaking change signifiers (`!` or `BREAKING CHANGE`) even if there are actual breaking changes. See <README.md#commit-message-guidelines> for full details. IMPORTANT: only create commits if asked to by the user, prefer to provide commit messages.
-
-## Design Decisions
-
-1. **VERY IMPORTANT: Environment Agnosticism**:
-   - Core SDK has no dependencies on environment-specific APIs (Node.js/Browser)
-   - AVOID `Buffer` and other Node.js-specific types unless writing Node.js-specific code
-     - `toHex` is available from the 'multiformats/bytes' import for browser compatibility (no Buffer)
-   - PREFER web standard APIs like `fetch` and WebStreams
-
-2. **Core API Design**:
-   - Factory method pattern (`Synapse.create()`) for proper async initialization
-   - Minimal Synapse class: only `payments` property and `createStorage()` method
-   - Payment methods via `synapse.payments.*` (PaymentsService)
-   - Storage costs/allowances via WarmStorageService (separate instantiation)
-   - **Network Detection**: Uses chainId-based validation with `getFilecoinNetworkType(provider)` utility - network is auto-detected from provider, eliminating need for manual network parameters
-   - Strict network validation - only supports Filecoin mainnet and calibration
-
-### Contract Addresses
-
-- SDK automatically discovers all addresses from network (using Multicall3)
-- Only WarmStorage address varies by deployment (handled internally)
-- Address discovery pattern: WarmStorage → All other contracts
-
-### File Structure
-
-```text
-src/
-├── browser-entry.ts            # Browser bundle entry point
-├── piece/                      # PieceCID utilities (Piece Commitment calculations)
-├── payments/                   # Payment contract interactions
-│   └── service.ts              # PaymentsService - consistent token-last API
-├── warm-storage/               # Warm Storage contract interactions
-│   └── service.ts              # WarmStorageService - costs, allowances, address discovery
-├── sp-registry/                # Service Provider Registry
-│   ├── service.ts              # SPRegistryService - provider management
-│   └── types.ts                # Registry types and interfaces
-├── pdp/                        # PDP protocol implementations
-│   ├── auth.ts                 # PDPAuthHelper - EIP-712 signatures
-│   ├── server.ts               # PDPServer - Curio HTTP API client
-│   ├── verifier.ts             # PDPVerifier - contract interactions
-├── storage/                    # Storage implementation
-│   ├── manager.ts              # StorageManager - auto-managed contexts, SP-agnostic downloads
-│   └── context.ts              # StorageContext - specific SP + DataSet operations
-├── utils/                      # Shared utilities
-│   ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS, SIZE_CONSTANTS, METADATA_KEYS
-│   ├── errors.ts               # Error creation utilities
-│   ├── metadata.ts             # Metadata validation and conversion utilities
-│   ├── network.ts              # Network detection utilities
-│   └── provider-resolver.ts   # Provider discovery and selection logic
-├── synapse.ts                  # Main Synapse class (minimal interface)
-└── types.ts                    # TypeScript interfaces
+```
+packages/synapse-sdk/src/
+├── synapse.ts                  # Main entry point
+├── types.ts                    # TypeScript interfaces
+├── payments/service.ts         # PaymentsService (deposits, withdrawals, rails)
+├── warm-storage/service.ts     # WarmStorageService (storage costs, allowances, data sets)
+├── sp-registry/                # SPRegistryService (provider discovery, products)
+├── storage/
+│   ├── manager.ts              # StorageManager (auto-managed contexts)
+│   └── context.ts              # StorageContext (explicit provider+dataset ops)
+├── pdp/
+│   ├── auth.ts                 # PDPAuthHelper (EIP-712 signatures)
+│   ├── server.ts               # PDPServer (Curio HTTP client)
+│   └── verifier.ts             # PDPVerifier (contract wrapper)
+├── piece/                      # PieceCID utilities
+├── session/                    # Session key support
+├── subgraph/                   # Subgraph queries
+├── retriever/                  # Content retrieval
+└── utils/
+    ├── constants.ts            # CONTRACT_ADDRESSES, CONTRACT_ABIS, TOKENS
+    ├── errors.ts
+    ├── metadata.ts
+    ├── network.ts
+    └── provider-resolver.ts
 ```
 
-### Key Features
+**Data flow**: Client signs for FWSS → Curio HTTP API → PDPVerifier contract → FWSS callback → Payments contract.
 
-#### Wallet Integration
+## Development
 
-- **Private Key Support**: Simple initialization with `privateKey` + `rpcUrl` options
-- **Provider Support**: Compatible with browser providers via `provider` option
-- **External Signer Support**: Compatible with MetaMask, WalletConnect, hardware wallets via `signer` option
-- **Ethers v6 Signer Abstraction**: Works with any ethers-compatible signer
-- **Validation**: Ensures exactly one of `privateKey`, `provider`, or `signer` is provided
-- **Nonce Management**: Uses NonceManager by default to handle transaction nonces automatically
-- **PaymentsService Design**: Takes both provider and signer for NonceManager compatibility. Provider for balance/nonce, signer for transactions.
+**Monorepo**: pnpm workspace, packages in `packages/*`, examples in `examples/*`
 
-#### Token Integration
+**Commands**:
+- Root: `pnpm run fix` (Biome auto-fix all), `pnpm run build` (all packages), `pnpm test`
+- Package: `pnpm run lint:fix`, `pnpm run build`, `pnpm test` (from `packages/synapse-sdk/`)
 
-- **USDFC Address**: Discovered automatically
-- **Balance Checking**: `walletBalance()` for FIL, `walletBalance(TOKENS.USDFC)` for USDFC (bigint)
-- **BigInt**: All amounts use bigint
-- **Constants**: `CONTRACT_ADDRESSES`, `CONTRACT_ABIS`, `TOKENS`
+**Build**: TypeScript → `dist/` (in package), ES modules with `.js` extensions, strict mode, NodeNext resolution
 
-#### Browser Distribution
+**Tests**: Mocha + Chai, `src/test/`, run with `pnpm test`
 
-- **UMD Bundle**: `dist/browser/synapse-sdk.js` - Works with script tags
-- **Minified Bundle**: `dist/browser/synapse-sdk.min.js` - Production-optimized
-- **Entry Point**: `dist/browser-entry.js` - Flattens all exports for browser use
-- **External Dependencies**: ethers.js must be loaded separately (<https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js> can be used)
-- **Global Variable**: `window.SynapseSDK` when loaded via script tag
+## Biome Linting (Critical)
 
-## PieceCID Format and 32-Byte Digests
+**NO** `!` operator → use `?.` or explicit checks
+**MUST** use `.js` extensions in imports (`import {x} from './y.js'` even for .ts)
+**NO** semicolons at line end (`semicolons: "asNeeded"`)
+**MUST** use kebab-case filenames
 
-**CRITICAL KNOWLEDGE**: PieceCID (also known as CommP or Piece Commitment) is Filecoin's content-addressed identifier for data pieces. Reference: [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md)
+Run `pnpm run fix` before commits.
 
-### PieceCID Structure (v2 format)
+## Key Components
 
-```text
-uvarint padding | uint8 height | 32 byte piece data
-```
+**Synapse** (`Synapse.create({privateKey, rpcUrl})` or `{provider}` or `{signer}`): Main entry, auto-detects network (mainnet/calibration only), minimal interface (`synapse.payments`, `synapse.storage`).
 
-- **32-Byte Piece Data**: The last 32 bytes = root of binary merkle tree
-- **Contract Compatibility**: Solidity contracts expect only the 32-byte digest, not full CID
-- **SDK Extraction**: `digest.bytes.subarray(digest.bytes.length - 32)` gets the digest
+**PaymentsService**: Deposits, withdrawals, operator approvals, payment rails. Wraps Payments contract.
 
-### PieceCID Utilities
+**WarmStorageService**: Storage costs, allowances, data sets. Source of all contract addresses via auto-discovery. Wraps FWSS contract.
 
-- Import path: `@filoz/synapse-sdk/piece` / `src/piece`
-- `calculate()` - Compute PieceCID from data
-- `asPieceCID()` - Validate/convert to PieceCID type
-- `asLegacyPieceCID()` - Convert to v1 format for compatibility
-- `createPieceCIDStream()` - Streaming calculation without buffering
+**SPRegistryService**: Provider discovery, metadata, products. Wraps ServiceProviderRegistry contract.
 
-## Contract Architecture and Integration
+**StorageManager**: High-level storage ops with auto-managed contexts, SP-agnostic downloads.
 
-### System Architecture Overview
+**StorageContext**: Explicit provider+dataset operations with metadata.
 
-The PDP (Proof of Data Possession) system follows a layered architecture with clear separation of concerns:
+**PDPServer**: HTTP client for Curio PDP API (`POST /pdp/data-sets`, `POST /pdp/piece`, etc.).
 
-```text
-Client SDK → Curio Storage Provider → PDPVerifier Contract → Service Contract
-     ↓              ↓                       ↓                    ↓
- Auth Signatures  HTTP API              Core Protocol       Business Logic
+**PDPAuthHelper**: EIP-712 signature creation for operations (CreateDataSet, AddPieces, ScheduleRemovals, DeleteDataSet).
 
-SDK Component Hierarchy:
-Synapse (minimal interface)
-   └── PaymentsService (pure payments)
+## Contract Architecture
 
-WarmStorageService (storage coordination)
-   ├── Depends on PaymentsService
-   └── Depends on PDPVerifier
-```
+**Base**: :"Filecoin Pay" payments contract (generic payment rails, deposits, withdrawals, operator approvals)
 
-### Core Contracts and Their Roles
+**Service**: FilecoinWarmStorageService (FWSS) - client auth (EIP-712), provider whitelist, payment rail creation, implements PDPListener callbacks. Split into main contract (write ops) + StateView contract (read ops).
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                     Warm Storage                                      │
-│  • Client auth (EIP-712 signatures)                              │
-│  • Provider management (whitelist)                               │
-│  • Integrates Payments contract                                  │
-│  • Implements PDPListener callbacks                              │
-└────────────────────────┬────────────────────────────────────────┘
-                         │ Inherits & Integrates
-┌────────────────────────┴────────────┬───────────────────────────┐
-│          PDPVerifier                │       Payments             │
-│  • Core protocol logic              │  • Token deposits/withdraws│
-│  • Proof verification               │  • Balance management      │
-│  • Neutral (no business logic)      │  • Rail settlements        │
-│  • Calls recordKeeper callbacks     │  • Generic payment system  │
-└─────────────────────────────────────┴───────────────────────────┘
-```
+**Protocol**: PDPVerifier - neutral proof verification, no business logic, delegates to service contracts via callbacks. Curio only talks to PDPVerifier.
 
-#### 1. PDPVerifier Contract (`FilOzone-pdp/src/PDPVerifier.sol`)
+**Discovery**: ServiceProviderRegistry - provider registration, metadata, products.
 
-- **Purpose**: The neutral, protocol-level contract that manages data sets and verification
-- **Responsibilities**:
-  - Creates and manages data sets on-chain
-  - Handles adding/removing pieces from data sets
-  - Performs cryptographic proof verification
-  - Emits events and calls listener contracts
-- **Key Functions**: `createDataSet()`, `addPieces()`, `provePieces()`
-- **Address**: Discovered from WarmStorage
-- **Client Interaction**: Indirect (through Curio API)
+**Flow**: Client signs for FWSS → Curio includes signature in extraData when calling PDPVerifier → PDPVerifier calls FWSS callback → FWSS validates signature + manages payments.
 
-#### 3. Warm Storage (`FilOzone-filecoin-services/service_contracts/src/FilecoinWarmStorageService.sol`)
+## PieceCID (Critical)
 
-- **Purpose**: The business logic layer that handles payments, authentication, and service management (SimplePDPService with payments integration)
-- **Architecture**: Split into two contracts:
-  - Main contract: Write operations and service provider management
-  - View contract (`FilecoinWarmStorageServiceStateView.sol`): Read-only view methods for contract size optimization
-- **Responsibilities**:
-  - Validates client authentication signatures (EIP-712)
-  - Manages service whitelist via `registerServiceProvider()`
-  - Creates payment rails on data set creation
-  - Receives callbacks from PDPVerifier via `PDPListener` interface
-  - Provides pricing information via `getServicePrice()` returning both CDN and non-CDN rates
-- **Address**: Network-specific, handled internally
-- **Client Interaction**: Direct (for signatures) and indirect (via Curio callbacks)
-- **Inheritance**: Inherits SimplePDPService, integrates Payments contract
+Filecoin's content-addressed identifier for data pieces. Format: `uvarint padding | uint8 height | 32-byte piece data`.
 
-#### 4. Payments Contract (`FilOzone-fws-payments/src/Payments.sol`)
+**Last 32 bytes** = root of binary merkle tree. Contracts expect **32-byte digest only**, not full CID.
 
-- Generic payment infrastructure for any service
-- Handles USDFC token deposits/withdrawals
-- Manages payment rails between parties
-- Supports operator approvals for account management
-- Address discovered from WarmStorage
-- **Deposit Flexibility**: The `deposit(token, to, amount)` function allows depositing to any address, not just the signer. SDK's `PaymentsService.deposit()` exposes this via `DepositOptions` object with optional `to` property.
+Extract digest: `digest.bytes.subarray(digest.bytes.length - 32)`
 
-#### 5. Curio Storage Provider (Service Node)
+**Utilities** (`@filoz/synapse-sdk/piece`): `calculate()`, `asPieceCID()`, `asLegacyPieceCID()`, `createPieceCIDStream()`
 
-- HTTP API layer that orchestrates blockchain interactions and storage operations
-- Exposes REST API for PDP operations at provider HTTP endpoints
-- Manages Ethereum transactions, piece storage/retrieval, authentication
+Ref: FRC-0069
 
-### Contract Interaction Flow
+## Metadata System
 
-1. **Client Operations Flow**:
-   - Client signs operation with Warm Storage address
-   - Calls Curio API with signature
-   - Curio calls PDPVerifier with signature as extraData
-   - PDPVerifier calls Warm Storage callback
-   - Service contract validates signature and executes business logic
+**User-facing**: `Record<string, string>` (e.g., `{category: 'videos', withCDN: ''}`)
 
-2. **Critical Data Structures**:
-   - SDK's `PieceData` interface: `{ cid: PieceCID | string, rawSize: number }`
-   - Contract expects just the 32-byte digest from PieceCID for operations
-   - Solidity uses `Cids.Cid` struct which wraps the bytes32 digest
+**Internal**: `MetadataEntry[]` (alphabetically sorted for EIP-712)
 
-3. **Authentication Schema**:
-   - All client operations use EIP-712 typed signatures
-   - Domain separator uses Warm Storage address
-   - Operations: CreateDataSet, AddPieces, ScheduleRemovals, DeleteDataSet
-   - Clients sign for Warm Storage, NOT PDPVerifier
-   - Service contract must have operator approval in Payments contract before creating rails
-
-### Data Flow Patterns
-
-#### Piece Storage Flow
-
-1. **Client** calculates PieceCID and uploads to **Curio**
-2. **Curio** stores piece and creates `pdp_piecerefs` record
-3. **Client** references stored pieces when adding pieces to data sets
-4. **Curio** validates piece ownership and calls **PDPVerifier**
-
-#### Authentication Flow
-
-1. **Client** signs operation data with private key targeting **Warm Storage**
-2. **Curio** includes signature in `extraData` when calling **PDPVerifier**
-3. **PDPVerifier** passes `extraData` to **Warm Storage** callback
-4. **Warm Storage** validates signature and processes business logic
-
-#### Payment Flow
-
-1. **Warm Storage** creates payment rails during data set creation
-2. Payments flow from client to service provider based on storage size and time
-3. **Warm Storage** acts as arbiter for fault-based payment adjustments
-
-### PDP Overview
-
-1. Clients and providers establish data sets for storage verification
-2. Providers add pieces (PieceCID) to data sets and submit periodic proofs
-3. System verifies proofs using randomized challenges
-4. All client operations use EIP-712 signatures via PDPAuthHelper
-
-### Curio PDP API Endpoints
-
-- `POST /pdp/data-sets` - Create new data set
-- `GET /pdp/data-sets/created/{txHash}` - Check data set creation status
-- `GET /pdp/data-sets/{dataSetId}` - Get data set details
-- `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces to data set
-- `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule piece removal
-- `POST /pdp/piece` - Create piece upload session
-- `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
-- `GET /pdp/piece/` - Find existing pieces
-
-This architecture enables a clean separation where PDPVerifier handles the cryptographic protocol, Warm Storage manages business logic and payments, and Curio provides the operational HTTP interface for clients.
-
-### Storage Operations
-
-```javascript
-// Simple: auto-managed contexts
-await synapse.storage.upload(data)
-await synapse.storage.download(pieceCid)  // SP-agnostic
-
-// Advanced: explicit context with metadata
-const context = await synapse.storage.createContext({
-  providerId: 1,
-  metadata: { category: 'videos', withIPFSIndexing: '' }
-})
-await context.upload(data)
-await context.download(pieceCid)  // SP-specific
-```
-
-**Download Optimization**: StorageManager checks default context first when downloading without CDN - if piece exists there, uses fast path to avoid discovery.
-
-### Metadata System
-
-**User-facing APIs use `Record<string, string>`** for cleaner syntax:
-
-- `StorageServiceOptions.metadata`, `UploadOptions.metadata`
-- `WarmStorageService.getDataSetMetadata()` returns objects
-- Example: `{ category: 'videos', withCDN: '' }`
-
-**PDP operations use `MetadataEntry[]`** for EIP-712 signing:
-
-- PDPAuthHelper/PDPServer require ordered arrays
-- Converted internally via `objectToEntries()` (alphabetically sorted)
-
-**Validation**: Early validation in PDPServer prevents rejected transactions:
-
-- Data sets: max 10 keys, pieces: max 5 keys
-- Keys: max 32 chars, values: max 128 chars
+**Validation**: Data sets max 10 keys, pieces max 5 keys, keys max 32 chars, values max 128 chars. Validated early in PDPServer.
 
 **Security**: Uses `Object.create(null)` for prototype-safe objects from contracts.
 
-## Development Environment
+## Critical Rules
 
-**Local Repository Convention**: Clone related repos as `{org-name}-{repo-name}` (e.g., `filecoin-project-curio`, `FilOzone-pdp`) in same directory as SDK for testing. Do not check in.
+**Environment agnostic**: NO `Buffer`, `fs`, `path`, `process` in core code. Use `toHex` from `multiformats/bytes`, web standard APIs (`fetch`, WebStreams).
 
-### Blockchain Interaction Tools
+**Wallet integration**: Exactly one of `privateKey`, `provider`, or `signer` required. Uses NonceManager by default.
 
-#### Using `cast` with Filecoin
+**Contract addresses**: Auto-discovered from network via Multicall3. WarmStorage address is entry point, all others discovered from it.
 
-- `cast` (Foundry tool) may be available for blockchain queries if needed
-- **Critical**: Filecoin's `eth_call` only accepts 2 parameters: `[{to, data}, blockTag]`
-- **DO NOT** use cast's default behavior which sends 3 parameters (includes state override)
-- Workaround: Use `cast calldata` to generate hex, then make direct RPC calls:
+**Tokens**: USDFC (auto-discovered), FIL (native). All amounts use `bigint`.
 
-  ```bash
-  # Generate calldata
-  cast calldata "functionName(address,uint256)" 0xaddr 123
+**Network**: Auto-detected from chainId. Only mainnet and calibration supported. Filecoin has a block time of 30 seconds, be patient.
 
-  # Make RPC call with curl (2 params only)
-  curl -X POST $RPC_URL -H "Content-Type: application/json" \
-    -d '{"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x...","data":"0x..."},"latest"],"id":1}'
-  ```
+## Storage API
 
-- Decode results: `cast --to-dec 0xhexvalue` for individual values
-- Common RPC endpoints:
-  - Calibration: `https://api.calibration.node.glif.io/rpc/v1`
-  - Mainnet: `https://api.node.glif.io/rpc/v1`
+```typescript
+// Simple: auto-managed
+const synapse = await Synapse.create({privateKey, rpcUrl})
+await synapse.storage.upload(data)
+await synapse.storage.download(pieceCid)  // SP-agnostic
+
+// Advanced: explicit context
+const ctx = await synapse.storage.createContext({
+  providerId: 1,
+  metadata: {category: 'videos', withCDN: ''}
+})
+await ctx.upload(data)
+await ctx.download(pieceCid)  // SP-specific
+```
+
+## Curio PDP API
+
+- `POST /pdp/data-sets` - Create data set
+- `GET /pdp/data-sets/created/{txHash}` - Check creation status
+- `GET /pdp/data-sets/{dataSetId}` - Get details
+- `POST /pdp/data-sets/{dataSetId}/pieces` - Add pieces
+- `DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}` - Schedule removal
+- `POST /pdp/piece` - Create upload session
+- `PUT /pdp/piece/upload/{uploadUUID}` - Upload piece data
+- `GET /pdp/piece/` - Find pieces
+
+## Conventional Commits
+
+Auto-publishing enabled. `feat:` → minor bump, `fix:`/`chore:`/`docs:`/`test:` → patch bump. AVOID `!` or `BREAKING CHANGE` (pre-v1).
+
+Format: `<type>(<scope>): <description>`
+
+Only commit when explicitly asked. Draft messages for user review.
+
+## Blockchain Tools
+
+**RPC endpoints**: Calibration `https://api.calibration.node.glif.io/rpc/v1`, Mainnet `https://api.node.glif.io/rpc/v1`
