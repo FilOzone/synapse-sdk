@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "NODE_OPTIONS=\"--localstorage-file=.astro-localstorage.json\" astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

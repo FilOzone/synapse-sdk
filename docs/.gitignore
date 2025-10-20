@@ -21,3 +21,6 @@ pnpm-debug.log*
 .DS_Store
 src/content/docs/api
 .wrangler/
+
+# Node.js v25 localStorage file
+.astro-localstorage.json
