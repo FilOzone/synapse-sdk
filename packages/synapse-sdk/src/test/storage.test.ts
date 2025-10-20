@@ -9,12 +9,26 @@ import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
+// Mock piece CIDs for testing
+const mockPieceCids = [
+  'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy',
+  'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
+]
+
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {
   getTransaction: async (_hash: string) => null,
   getNetwork: async () => ({ chainId: BigInt(314159), name: 'calibration' }),
-  call: async (_tx: any) => {
-    // Mock contract calls - return empty data for registry calls
+  call: async (tx: any) => {
+    // Handle getActivePieces contract calls (function selector: 0x39f51544)
+    if (tx.data?.startsWith('0x39f51544')) {
+      // For now, return empty results - individual tests can override this behavior
+      return ethers.AbiCoder.defaultAbiCoder().encode(
+        ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
+        [[], [], [], false]
+      )
+    }
+    // Mock contract calls - return empty data for other calls
     return '0x'
   },
 } as any
@@ -3791,6 +3805,7 @@ describe('StorageService', () => {
     it('should successfully fetch data set pieces', async () => {
       const mockWarmStorageService = {
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getPDPVerifierAddress: () => '0x0000000000000000000000000000000000000002',
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -3822,14 +3837,27 @@ describe('StorageService', () => {
         nextChallengeEpoch: 1500,
       }
 
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (dataSetId: number): Promise<any> => {
-        assert.equal(dataSetId, 123)
-        return mockDataSetData
+      // Override the mock provider to return the expected pieces for this test
+      const originalCall = mockEthProvider.call
+      mockEthProvider.call = async (tx: any) => {
+        if (tx.data?.startsWith('0x39f51544')) {
+          // Return mock pieces as encoded CID bytes
+          const piecesData = mockPieceCids.map((cidStr) => {
+            const cid = CID.parse(cidStr)
+            return { data: ethers.hexlify(cid.bytes) }
+          })
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
+            [piecesData, [101, 102], [128, 128], false]
+          )
+        }
+        return originalCall(tx)
       }
 
       const result = await service.getDataSetPieces()
+
+      // Restore the original mock
+      mockEthProvider.call = originalCall
 
       assert.isArray(result)
       assert.equal(result.length, 2)
@@ -3840,6 +3868,7 @@ describe('StorageService', () => {
     it('should handle empty data set pieces', async () => {
       const mockWarmStorageService = {
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getPDPVerifierAddress: () => '0x1234567890123456789012345678901234567890',
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -3851,18 +3880,6 @@ describe('StorageService', () => {
         },
         {}
       )
-
-      const mockDataSetData = {
-        id: 292,
-        pieces: [],
-        nextChallengeEpoch: 1500,
-      }
-
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockDataSetData
-      }
 
       const result = await service.getDataSetPieces()
 
@@ -3873,6 +3890,7 @@ describe('StorageService', () => {
     it('should handle invalid CID in response', async () => {
       const mockWarmStorageService = {
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getPDPVerifierAddress: () => '0x1234567890123456789012345678901234567890',
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -3885,34 +3903,38 @@ describe('StorageService', () => {
         {}
       )
 
-      const mockDataSetData = {
-        id: 292,
-        pieces: [
-          {
-            pieceId: 101,
-            pieceCid: 'invalid-cid-format',
-            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceOffset: 0,
-          },
-        ],
-        nextChallengeEpoch: 1500,
+      // Override the mock provider to return invalid CID data
+      const originalCall = mockEthProvider.call
+      mockEthProvider.call = async (tx: any) => {
+        if (tx.data?.startsWith('0x39f51544')) {
+          // Return invalid CID data - this should cause an error in the new implementation
+          // But the test expects it to work, so we'll return the invalid CID as bytes
+          const invalidCidBytes = ethers.hexlify(ethers.toUtf8Bytes('invalid-cid-format'))
+          return ethers.AbiCoder.defaultAbiCoder().encode(
+            ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
+            [[{ data: invalidCidBytes }], [101], [128], false]
+          )
+        }
+        return originalCall(tx)
       }
 
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockDataSetData
+      // The new implementation should throw an error when trying to decode invalid CID data
+      try {
+        await service.getDataSetPieces()
+        assert.fail('Expected an error to be thrown for invalid CID data')
+      } catch (error: any) {
+        // The error occurs during CID.decode(), not during PieceCID validation
+        assert.include(error.message, 'Invalid CID version')
+      } finally {
+        // Restore the original mock
+        mockEthProvider.call = originalCall
       }
-
-      const result = await service.getDataSetPieces()
-      assert.isArray(result)
-      assert.equal(result.length, 1)
-      assert.equal(result[0].toString(), 'invalid-cid-format')
     })
 
     it('should handle PDP server errors', async () => {
       const mockWarmStorageService = {
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getPDPVerifierAddress: () => '0x1234567890123456789012345678901234567890',
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -3925,17 +3947,23 @@ describe('StorageService', () => {
         {}
       )
 
-      // Mock the PDP server getDataSet method to throw error
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        throw new Error('Data set not found: 999')
+      // Mock the contract call to throw an error
+      const originalCall = mockEthProvider.call
+      mockEthProvider.call = async (tx: any) => {
+        if (tx.data?.startsWith('0x39f51544')) {
+          throw new Error('Data set not found: 999')
+        }
+        return originalCall(tx)
       }
 
       try {
         await service.getDataSetPieces()
-        assert.fail('Should have thrown error for server error')
+        assert.fail('Should have thrown error for contract call error')
       } catch (error: any) {
         assert.include(error.message, 'Data set not found: 999')
+      } finally {
+        // Restore the original mock
+        mockEthProvider.call = originalCall
       }
     })
   })
