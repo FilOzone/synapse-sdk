@@ -132,6 +132,7 @@ export class PDPVerifier {
   ): Promise<{
     pieces: Array<{ data: string }>
     pieceIds: number[]
+    // NOTE: the contract returns rawSizes here, but we do not return it from here.
     hasMore: boolean
   }> {
     const offset = options?.offset ?? 0
