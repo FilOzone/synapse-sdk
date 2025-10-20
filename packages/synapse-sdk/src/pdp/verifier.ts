@@ -83,18 +83,6 @@ export class PDPVerifier {
   }
 
   /**
-   * Get the leaf count for a specific piece
-   * @param dataSetId - The PDPVerifier data set ID
-   * @param pieceId - The piece ID within the data set
-   * @returns The number of leaves for this piece
-   */
-  async getPieceLeafCount(dataSetId: number, pieceId: number): Promise<number> {
-    // TODO: DO we need to call the contract for leaf count?
-    const leafCount = await this._contract.getPieceLeafCount(dataSetId, pieceId)
-    return Number(leafCount)
-  }
-
-  /**
    * Extract data set ID from a transaction receipt by looking for DataSetCreated events
    * @param receipt - Transaction receipt
    * @returns Data set ID if found, null otherwise
