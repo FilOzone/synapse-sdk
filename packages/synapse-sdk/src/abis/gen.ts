@@ -2984,7 +2984,7 @@ export const paymentsAbi = [
       { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
       { name: 'note', internalType: 'string', type: 'string' },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
   },
   {
     type: 'function',

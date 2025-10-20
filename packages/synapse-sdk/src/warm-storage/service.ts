@@ -6,6 +6,7 @@
  * - Service provider registration and management
  * - Client dataset ID tracking
  * - Data set creation verification
+ * - CDN service management
  *
  * @example
  * ```typescript
@@ -1080,5 +1081,18 @@ export class WarmStorageService {
     const viewContract = this._getWarmStorageViewContract()
     const window = await viewContract.challengeWindow()
     return Number(window)
+  }
+
+  // ========== CDN Operations ==========
+
+  async topUpCDNPaymentRails(
+    signer: ethers.Signer,
+    dataSetId: number,
+    cdnAmountToAdd: bigint,
+    cacheMissAmountToAdd: bigint
+  ): Promise<ethers.TransactionResponse> {
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.topUpCDNPaymentRails(dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
   }
 }
