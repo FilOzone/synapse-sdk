@@ -11,6 +11,7 @@ The SDK strategically places performance marks throughout key operations, allowi
 The SDK measures the following operations (all prefixed with `synapse:` to avoid collisions):
 
 ### createDataSet() Timing Points
+
 - `synapse:createDataSet` - Overall data set creation time
 - `synapse:pdpServer.createDataSet` - Server response time for data set creation
 - `synapse:getTransaction` - Time to retrieve transaction from blockchain
@@ -19,6 +20,7 @@ The SDK measures the following operations (all prefixed with `synapse:` to avoid
 - `synapse:verifyDataSetCreation` - Data set liveness verification time
 
 ### upload() Timing Points
+
 - `synapse:upload` - Overall upload operation time
 - `synapse:calculatePieceCID` - PieceCID calculation time
 - `synapse:POST.pdp.piece` - Piece upload initiation time
@@ -71,13 +73,14 @@ A comprehensive benchmark tool is available in `utils/benchmark.js`:
 
 ```bash
 # Build the SDK first
-npm run build
+pnpm run build
 
 # Run benchmark with your private key
 PRIVATE_KEY=0x... RPC_URL=https://api.calibration.node.glif.io/rpc/v1 node utils/benchmark.js
 ```
 
 The benchmark:
+
 - Runs 4 iterations of data set creation + 4 unique piece uploads (100 MiB each)
 - Collects all timing measurements
 - Provides statistical analysis (min, max, average)
@@ -86,6 +89,7 @@ The benchmark:
 ## Performance Characteristics
 
 ### Typical Timing Ranges (Calibration Testnet, 100 MiB pieces)
+
 - **PieceCID Calculation**: 2-8 seconds (CPU-dependent)
 - **Data Set Creation**: 30-75 seconds total
   - Server response: 1-8 seconds
@@ -100,6 +104,7 @@ The benchmark:
 **Note on Timing Variance**: Operations that wait for blockchain confirmation show high variance due to Filecoin's 30-second block time. If a transaction is submitted just before a new block, confirmation can be very fast (~1 second). If submitted just after a block, you must wait nearly the full 30 seconds for the next block. This explains why operations like `verifyDataSetCreation` and `getPieceAdditionStatus` can range from under 1 second to 60+ seconds.
 
 **Piece Upload Timing**: Upload times are highly dependent on multiple factors:
+
 - **Upload bandwidth**: 100 MiB at 50 Mbps ≈ 16 seconds (theoretical), but real-world is 30-45 seconds with overhead
 - **Upload bandwidth**: 100 MiB at 1 Gbps ≈ 1 second (theoretical), likely 5-10 seconds real-world
 - **Server performance**: Service provider server specs significantly impact processing time
@@ -107,6 +112,7 @@ The benchmark:
 - **Piece size**: Larger pieces scale linearly with bandwidth constraints
 
 **Scaling with Piece Size**: The timing data above is for 100 MiB pieces. For different piece sizes:
+
 - **PieceCID calculation**: Scales linearly (e.g., 1 GiB ≈ 20-80 seconds)
 - **Piece upload**: Scales linearly with size and bandwidth constraints
 - **Other operations**: Generally size-independent (transaction confirmations, server acknowledgments)
@@ -116,6 +122,7 @@ The benchmark:
 ### Understanding Wait Times
 
 Most operation time is spent waiting for:
+
 1. **Blockchain Confirmations** - Transaction finality (largest component, Filecoin's block time is 30 seconds)
 2. **Server Processing** - Service provider internal operations
 3. **Network Propagation** - RPC node synchronization

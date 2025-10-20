@@ -22,6 +22,10 @@ const depositTx = await paymentsService.deposit(amount) // amount in base units
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait() // Wait for confirmation
 
+// Optional: Deposit to a different address
+const recipientAddress = '0x1234...'
+await paymentsService.deposit(amount, TOKENS.USDFC, { to: recipientAddress })
+
 // Check account info
 const info = await paymentsService.accountInfo() // Uses USDFC by default
 console.log('Available funds:', info.availableFunds)

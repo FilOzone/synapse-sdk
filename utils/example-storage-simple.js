@@ -10,7 +10,7 @@
  *   PRIVATE_KEY=0x... WARM_STORAGE_ADDRESS=0x... node example-storage-simple.js
  */
 
-import { Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '../packages/synapse-sdk/src/index.ts'
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
@@ -45,9 +45,9 @@ async function main() {
   // No need to explicitly create a storage context unless you need specific control
   console.log('Storage API ready. Will auto-select provider on first upload.')
 
-  // Create test data (must be at least 65 bytes for PieceCID calculation)
+  // Create test data (must be at least 127 bytes)
   const testMessage =
-    'Hello, Filecoin storage! This message is at least 65 bytes long to meet the minimum requirement for PieceCID calculation.\n'
+    'Hello, Filecoin storage! This message is at least 127 bytes long to meet the minimum piece size requirement for PDP.\nHave a great day!'
   const testData = new TextEncoder().encode(testMessage)
   console.log(`\nUploading test data (${testData.length} bytes)...`)
 

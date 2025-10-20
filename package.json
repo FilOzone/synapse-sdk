@@ -1,107 +1,35 @@
 {
-  "name": "@filoz/synapse-sdk",
-  "version": "0.29.1",
-  "description": "A JavaScript interface to Filecoin Synapse",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./piece": {
-      "import": "./dist/piece/index.js",
-      "types": "./dist/piece/index.d.ts"
-    },
-    "./pdp": {
-      "import": "./dist/pdp/index.js",
-      "types": "./dist/pdp/index.d.ts"
-    },
-    "./payments": {
-      "import": "./dist/payments/index.js",
-      "types": "./dist/payments/index.d.ts"
-    },
-    "./warm-storage": {
-      "import": "./dist/warm-storage/index.js",
-      "types": "./dist/warm-storage/index.d.ts"
-    },
-    "./subgraph": {
-      "import": "./dist/subgraph/index.js",
-      "types": "./dist/subgraph/index.d.ts"
-    },
-    "./sp-registry": {
-      "import": "./dist/sp-registry/index.js",
-      "types": "./dist/sp-registry/index.d.ts"
-    },
-    "./browser": {
-      "import": "./dist/browser/synapse-sdk.esm.js",
-      "require": "./dist/browser/synapse-sdk.min.js",
-      "script": "./dist/browser/synapse-sdk.min.js"
-    }
-  },
-  "scripts": {
-    "generate-abi": "wagmi generate",
-    "build": "tsc",
-    "build:browser": "npm run build && webpack --config webpack.config.cjs && webpack --config webpack.config.esm.cjs",
-    "watch": "tsc -w",
-    "lint": "tsc && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
-    "test:ci": "npm run test",
-    "test": "npm run lint && npm run test:node && npm run test:browser",
-    "test:node": "playwright-test 'src/test/**/!(*.browser).test.{js,ts}' --mode node",
-    "test:browser": "playwright-test 'src/test/**/!(*.node).test.{js,ts}' --assets ./src/test/mocks",
-    "test:watch": "npm run test:node -- --watch",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build && npm run build:browser"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "npm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
-  },
-  "keywords": [
-    "filecoin",
-    "web3"
-  ],
-  "author": "Rod Vagg <rod@vagg.org>",
+  "name": "synapse",
+  "version": "0.0.0",
+  "private": true,
+  "description": "JavaScript packages for Filecoin Onchain Cloud",
   "license": "Apache-2.0 OR MIT",
-  "bugs": {
-    "url": "https://github.com/FilOzone/synapse-sdk/issues"
-  },
-  "homepage": "https://github.com/FilOzone/synapse-sdk#readme",
-  "dependencies": {
-    "@web3-storage/data-segment": "^5.3.0",
-    "ethers": "^6.14.3",
-    "multiformats": "^13.3.6",
-    "viem": "^2.37.2"
+  "workspaces": [
+    "./packages/*",
+    "./examples/*",
+    "./docs"
+  ],
+  "scripts": {
+    "preinstall": "pnpx only-allow pnpm",
+    "fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
+    "build": "pnpm -r --filter='./packages/*' --if-present run build",
+    "lint": "pnpm -r --filter='./packages/*' --if-present run lint",
+    "test": "pnpm -r --filter='./packages/*' --if-present run test",
+    "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
+    "check:repo": "pnpx sherif@latest -r root-package-manager-field",
+    "check:knip": "knip --config .github/knip.jsonc",
+    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.2.4",
-    "@types/chai": "^5.2.2",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^24.0.0",
-    "@wagmi/cli": "^2.5.1",
-    "abitype": "^1.1.0",
-    "chai": "^6.0.1",
-    "iso-web": "^1.3.0",
-    "mocha": "^11.5.0",
-    "msw": "~2.10",
-    "p-defer": "^4.0.1",
-    "playwright-test": "^14.1.12",
-    "type-fest": "^5.0.0",
-    "typescript": "5.9.2",
-    "webpack": "^5.99.9",
-    "webpack-cli": "^6.0.1"
+    "@biomejs/biome": "~2.2.5",
+    "knip": "^5.64.1",
+    "markdownlint-cli2": "^0.18.1",
+    "typescript": "5.9.3"
   },
-  "publishConfig": {
-    "access": "public"
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
   },
-  "msw": {
-    "workerDirectory": [
-      "src/test/mocks"
-    ]
+  "engines": {
+    "node": ">=22"
   }
 }

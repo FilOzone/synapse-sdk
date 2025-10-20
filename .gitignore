@@ -10,3 +10,4 @@ filecoin-project-*/
 
 # VIM
 *.swp
+.env

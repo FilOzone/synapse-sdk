@@ -1,0 +1,33 @@
+name: documentation
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: docs
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'master'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - run: pnpm install
+      - run: pnpm -r --filter docs run build
+      - run: pnpx wrangler deploy --cwd docs --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

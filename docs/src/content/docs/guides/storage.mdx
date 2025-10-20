@@ -13,6 +13,7 @@ You have two options:
 2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
 
 Behind the scenes, the process may be:
+
 - **Fast (< 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
 - **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
@@ -42,11 +43,13 @@ const context = await synapse.storage.createContext({
 Metadata is subject to the following contract-enforced limits:
 
 **Data Set Metadata:**
+
 - Maximum of 10 key-value pairs per data set
 - Keys: Maximum 32 characters
 - Values: Maximum 128 characters
 
 **Piece Metadata:**
+
 - Maximum of 5 key-value pairs per piece
 - Keys: Maximum 32 characters
 - Values: Maximum 128 characters
@@ -113,6 +116,7 @@ interface StorageServiceOptions {
 The SDK intelligently manages data sets to minimize on-chain transactions. The selection behavior depends on the parameters you provide:
 
 **Selection Scenarios**:
+
 1. **Explicit data set ID**: If you specify `dataSetId`, that exact data set is used (must exist and be accessible)
 2. **Specific provider**: If you specify `providerId` or `providerAddress`, the SDK searches for matching data sets only within that provider's existing data sets
 3. **Automatic selection**: Without specific parameters, the SDK searches across all your data sets with any approved provider
@@ -120,10 +124,12 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 **Exact Metadata Matching**: In scenarios 2 and 3, the SDK will reuse an existing data set only if it has **exactly** the same metadata keys and values as requested. This ensures data sets remain organized according to your specific requirements.
 
 **Selection Priority**: When multiple data sets match your criteria:
+
 - Data sets with existing pieces are preferred over empty ones
 - Within each group (with pieces vs. empty), the oldest data set (lowest ID) is selected
 
 **Provider Selection** (when no matching data sets exist):
+
 - If you specify a provider (via `providerId` or `providerAddress`), that provider is used
 - Otherwise, the SDK currently uses random selection from all approved providers
 - Before finalizing selection, the SDK verifies the provider is reachable via a ping test
@@ -256,6 +262,7 @@ console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 ##### Size Constraints
 
 The storage service enforces the following size limits for uploads:
+
 - **Minimum**: 65 bytes
 - **Maximum**: 200 MiB (209,715,200 bytes)
 
@@ -293,8 +300,6 @@ You can also terminate a data set using `synapse.storage.terminateDataSet(dataSe
 **Important:** Data set termination is irreversible and cannot be canceled once initiated.
 
 Deletion of individual pieces is not supported at this time but is on the roadmap.
-
-
 
 ### Storage Information
 

@@ -3,32 +3,61 @@ import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
 import ecTwoSlash from 'expressive-code-twoslash'
 import starlightLlmsTxt from 'starlight-llms-txt'
+import viteTsconfigPaths from 'vite-tsconfig-paths'
 
-const site = 'https://FilOzone.github.io'
+const site = 'https://synapse.filecoin.services'
 
 // https://astro.build/config
 export default defineConfig({
   site,
-  base: '/synapse-sdk',
+  base: '/',
+  vite: {
+    plugins: [viteTsconfigPaths()],
+  },
   integrations: [
     starlight({
       title: 'Synapse',
-      logo: { src: './public/filoz.svg', alt: 'synapse' },
-      favicon: 'filoz.svg',
+      logo: { src: './src/assets/foc-logo.svg', alt: 'synapse' },
+      favicon: 'favicon.ico',
+      customCss: ['./src/custom.css'],
       head: [
         {
-          tag: 'meta',
+          tag: 'link',
           attrs: {
-            property: 'og:image',
-            content: new URL('og.jpg?v=1', site).href,
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: '/favicon.svg',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/png',
+            href: '/favicon-96x96.png',
+            sizes: '96x96',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'apple-touch-icon',
+            href: '/apple-touch-icon.png',
+            sizes: '180x180',
+          },
+        },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'manifest',
+            href: '/site.webmanifest',
           },
         },
         {
           tag: 'meta',
           attrs: {
-            property: 'og:image:alt',
-            content:
-              'Connect apps with Filecoin Services - a smart-contract based marketplace for storage and other services',
+            property: 'og:image',
+            content: new URL('og.jpg?v=1', site).href,
           },
         },
       ],
@@ -80,15 +109,8 @@ export default defineConfig({
           pagination: true,
           typeDocOptions: {
             githubPages: true,
-            entryPointStrategy: 'resolve',
-            entryPoints: [
-              '../src/index.ts',
-              '../src/piece/index.ts',
-              '../src/pdp/index.ts',
-              '../src/payments/index.ts',
-              '../src/warm-storage/index.ts',
-              '../src/subgraph/index.ts',
-            ],
+            entryPointStrategy: 'packages',
+            entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
             useCodeBlocks: true,
             parametersFormat: 'table',
