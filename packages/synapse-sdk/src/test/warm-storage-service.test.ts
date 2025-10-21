@@ -1328,8 +1328,8 @@ describe('WarmStorageService', () => {
         assert.exists(check.depositAmountNeeded)
         assert.isTrue(check.depositAmountNeeded > 0n)
 
-        // depositAmountNeeded should equal 10 days of costs (default lockup)
-        const expectedDeposit = check.costs.perEpoch * BigInt(10) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        // depositAmountNeeded should equal 30 days of costs (default lockup)
+        const expectedDeposit = check.costs.perEpoch * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
       })
 
@@ -1373,27 +1373,27 @@ describe('WarmStorageService', () => {
           return `0x${'0'.repeat(64)}`
         }
 
-        // Test with custom lockup period of 20 days
-        const customLockupDays = 20
+        // Test with custom lockup period of 60 days
+        const customLockupDays = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * 2n
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService,
-          customLockupDays
+          Number(customLockupDays)
         )
 
         // Verify depositAmountNeeded uses custom lockup period
-        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        const expectedDeposit = check.costs.perEpoch * customLockupDays * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
 
-        // Compare with default (10 days) to ensure they're different
+        // Compare with default (30 days) to ensure they're different
         const defaultCheck = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService
         )
 
-        // Custom should be exactly 2x default (20 days vs 10 days)
+        // Custom should be exactly 2x default (60 days vs 30 days)
         assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
       })
     })
