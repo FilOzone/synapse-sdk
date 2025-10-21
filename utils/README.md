@@ -192,7 +192,7 @@ Comprehensive demonstration of the enhanced payment APIs in the Synapse SDK.
 
 - **Balance**: USDFC deposited in the Payments contract for storage costs
 - **Rate Allowance**: Maximum per-epoch payment rate a service can set
-- **Lockup Allowance**: Security deposit (10 days of storage) locked during rail creation
+- **Lockup Allowance**: Security deposit (30 days of storage) locked during rail creation
 
 ## Development Notes
 

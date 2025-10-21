@@ -115,7 +115,7 @@ export const TIME_CONSTANTS = {
   /**
    * Default lockup period in days
    */
-  DEFAULT_LOCKUP_DAYS: 10n,
+  DEFAULT_LOCKUP_DAYS: 30n,
 } as const
 
 /**
