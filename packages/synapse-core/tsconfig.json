@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "typedocOptions": {
+    "entryPointStrategy": "resolve",
+    "entryPoints": [
+      "src/index.ts",
+      "src/chains.ts",
+      "src/curio.ts",
+      "src/usdfc.ts",
+      "src/erc20.ts",
+      "src/abis/index.ts",
+      "src/pay/index.ts",
+      "src/warm-storage/index.ts",
+      "src/typed-data/index.ts",
+      "src/session-key/index.ts",
+      "src/errors/index.ts"
+    ]
+  }
+}
