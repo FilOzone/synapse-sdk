@@ -1082,9 +1082,17 @@ export class WarmStorageService {
     const window = await viewContract.challengeWindow()
     return Number(window)
   }
-
-  // ========== CDN Operations ==========
-
+  /**
+   * Increments the fixed locked-up amounts for CDN payment rails.
+   * 
+   * This method tops up the prepaid balance for CDN services by adding to the existing
+   * lockup amounts. Both CDN and cache miss rails can be incremented independently.
+   * 
+   * @param dataSetId - The ID of the data set
+   * @param cdnAmountToAdd - Amount to add to the CDN rail lockup
+   * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
+   * @returns Transaction response
+   */
   async topUpCDNPaymentRails(
     signer: ethers.Signer,
     dataSetId: number,
