@@ -4,7 +4,7 @@
  * Basic tests for Synapse class
  */
 
-import { assert } from 'chai'
+import { assert, expect } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -923,6 +923,22 @@ describe('Synapse', () => {
       assert.equal(contexts.length, 1)
       assert.equal(contexts[0].provider.id, 1)
       assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('fails when provided an invalid data set id', async () => {
+      for (const dataSetId of [0, 2]) {
+        try {
+          await synapse.storage.createContexts({
+            count: 1,
+            dataSetIds: [dataSetId],
+          })
+          expect.fail('Expected createContexts to fail for invalid specified data set id')
+        } catch (error) {
+          expect(error.message).to.equal(
+            `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
+          )
+        }
+      }
     })
   })
 })
