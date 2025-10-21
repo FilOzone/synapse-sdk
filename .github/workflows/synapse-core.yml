@@ -39,3 +39,4 @@ jobs:
       #   shell: bash
       - name: Check docs build
         run: pnpm -r --filter docs run build
+        shell: bash
