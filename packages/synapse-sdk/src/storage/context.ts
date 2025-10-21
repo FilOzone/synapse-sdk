@@ -184,34 +184,56 @@ export class StorageContext {
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
     const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
     const providerResolver = new ProviderResolver(warmStorageService, spRegistry)
-    if (options?.providerIds) {
-      for (const providerId of options.providerIds) {
-        const resolution = await StorageContext.resolveByProviderId(
-          clientAddress,
-          providerId,
-          options.metadata ?? {},
+    if (options?.dataSetIds) {
+      for (const dataSetId of options.dataSetIds) {
+        const resolution = await StorageContext.resolveByDataSetId(
+          dataSetId,
           warmStorageService,
           providerResolver,
-          options.forceCreateDataSets
+          clientAddress,
+          {
+            withCDN: options.withCDN,
+            withIpni: options.withIpni,
+            dev: options.dev,
+            metadata: options.metadata,
+          }
         )
         resolutions.push(resolution)
         if (resolutions.length >= count) {
           break
         }
       }
-    } else if (options?.providerAddresses) {
-      for (const providerAddress of options.providerAddresses) {
-        const resolution = await StorageContext.resolveByProviderAddress(
-          providerAddress,
-          warmStorageService,
-          providerResolver,
-          clientAddress,
-          options.metadata ?? {},
-          options.forceCreateDataSets
-        )
-        resolutions.push(resolution)
-        if (resolutions.length >= count) {
-          break
+    }
+    if (resolutions.length < count) {
+      if (options?.providerIds) {
+        for (const providerId of options.providerIds) {
+          const resolution = await StorageContext.resolveByProviderId(
+            clientAddress,
+            providerId,
+            options.metadata ?? {},
+            warmStorageService,
+            providerResolver,
+            options.forceCreateDataSets
+          )
+          resolutions.push(resolution)
+          if (resolutions.length >= count) {
+            break
+          }
+        }
+      } else if (options?.providerAddresses) {
+        for (const providerAddress of options.providerAddresses) {
+          const resolution = await StorageContext.resolveByProviderAddress(
+            providerAddress,
+            warmStorageService,
+            providerResolver,
+            clientAddress,
+            options.metadata ?? {},
+            options.forceCreateDataSets
+          )
+          resolutions.push(resolution)
+          if (resolutions.length >= count) {
+            break
+          }
         }
       }
     }

@@ -914,5 +914,15 @@ describe('Synapse', () => {
       assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
       assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
     })
+
+    it('selects providers specified by data set id', async () => {
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        dataSetIds: [1],
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(contexts[0].provider.id, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
   })
 })
