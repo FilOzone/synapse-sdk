@@ -83,6 +83,10 @@ export default defineConfig({
           autogenerate: { directory: 'intro' },
         },
         {
+          label: 'Getting Started',
+          autogenerate: { directory: 'getting-started' },
+        },
+        {
           label: 'Guides',
           autogenerate: { directory: 'guides' },
         },
