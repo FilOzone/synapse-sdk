@@ -12,7 +12,7 @@ Primary interface for developers building on the FOC services marketplace. Abstr
 
 ## Architecture
 
-```
+```text
 packages/synapse-sdk/src/
 ├── synapse.ts                  # Main entry point
 ├── types.ts                    # TypeScript interfaces
@@ -45,6 +45,7 @@ packages/synapse-sdk/src/
 **Monorepo**: pnpm workspace, packages in `packages/*`, examples in `examples/*`
 
 **Commands**:
+
 - Root: `pnpm run fix` (Biome auto-fix all), `pnpm run build` (all packages), `pnpm test`
 - Package: `pnpm run lint:fix`, `pnpm run build`, `pnpm test` (from `packages/synapse-sdk/`)
 

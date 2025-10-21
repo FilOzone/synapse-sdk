@@ -21,10 +21,11 @@
     "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.2.5",
+    "@biomejs/biome": "~2.2.6",
     "knip": "^5.64.1",
     "markdownlint-cli2": "^0.18.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wireit": "^0.14.12"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
