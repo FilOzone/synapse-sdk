@@ -415,9 +415,9 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'oldServiceProvider', internalType: 'address', type: 'address' },
-      { name: 'newServiceProvider', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'storageProviderChanged',
@@ -519,7 +519,7 @@ export const filecoinWarmStorageServiceAbi = [
         ],
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -539,7 +539,19 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: true,
       },
       {
+        name: 'cdnAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
         name: 'totalCdnLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cacheMissAmountAdded',
         internalType: 'uint256',
         type: 'uint256',
         indexed: false,
@@ -847,43 +859,6 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'originalAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'modifiedAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'faultedEpochs',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'PaymentArbitrated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
         name: 'dataSetId',
         internalType: 'uint256',
         type: 'uint256',
@@ -1051,17 +1026,6 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'ViewContractSet',
-  },
-  {
-    type: 'error',
-    inputs: [
-      {
-        name: 'field',
-        internalType: 'enum Errors.AddressField',
-        type: 'uint8',
-      },
-    ],
-    name: 'AddressAlreadySet',
   },
   {
     type: 'error',
@@ -1235,22 +1199,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'InvalidSignature',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidSignatureLength',
-  },
-  {
-    type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'InvalidTopUpAmount',
   },
@@ -1307,15 +1255,6 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'OldServiceProviderMismatch',
-  },
-  {
-    type: 'error',
-    inputs: [
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
@@ -1356,14 +1295,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProviderAlreadyApproved',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'provider', internalType: 'address', type: 'address' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ProviderNotApproved',
   },
   {
     type: 'error',
@@ -1408,11 +1339,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
-    name: 'UnsupportedSignatureV',
   },
   {
     type: 'error',
@@ -1789,13 +1715,6 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'EXTRA_DATA_MAX_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'MAX_ENQUEUED_REMOVALS',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -1861,7 +1780,7 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'rawSize', internalType: 'uint256', type: 'uint256' }],
+    inputs: [{ name: 'proofSize', internalType: 'uint256', type: 'uint256' }],
     name: 'calculateProofFeeForSize',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -1962,7 +1881,6 @@ export const pdpVerifierAbi = [
         components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
       },
       { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'rawSizes', internalType: 'uint256[]', type: 'uint256[]' },
       { name: 'hasMore', internalType: 'bool', type: 'bool' },
     ],
     stateMutability: 'view',
@@ -3798,13 +3716,6 @@ export const serviceProviderRegistryAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'MAX_CAPABILITIES',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -3891,50 +3802,6 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-    name: 'decodePDPOffering',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
     inputs: [],
     name: 'eip712Domain',
     outputs: [
@@ -3947,50 +3814,6 @@ export const serviceProviderRegistryAbi = [
       { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
     ],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    name: 'encodePDPOffering',
-    outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
-    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -4715,15 +4538,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
@@ -4777,15 +4600,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
