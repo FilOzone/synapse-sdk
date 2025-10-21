@@ -915,6 +915,20 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
     })
 
+    it('fails when provided an invalid provider address', async () => {
+      try {
+        await synapse.storage.createContexts({
+          providerAddresses: [ADDRESSES.client1],
+        })
+        expect.fail('Expected createContexts to fail for invalid specified provider address')
+      } catch (error) {
+        assert.equal(
+          error.message,
+          `StorageContext resolveByProviderAddress failed: Provider ${ADDRESSES.client1} is not currently approved`
+        )
+      }
+    })
+
     it('selects providers specified by data set id', async () => {
       const contexts = await synapse.storage.createContexts({
         count: 1,
@@ -934,7 +948,8 @@ describe('Synapse', () => {
           })
           expect.fail('Expected createContexts to fail for invalid specified data set id')
         } catch (error) {
-          expect(error.message).to.equal(
+          assert.equal(
+            error.message,
             `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
           )
         }
