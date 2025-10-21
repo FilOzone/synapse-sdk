@@ -14,18 +14,18 @@
     "ethers": "^6.15.0"
   },
   "devDependencies": {
-    "@astrojs/starlight": "^0.36.0",
+    "@astrojs/starlight": "^0.36.1",
     "@hugomrdias/docs": "^0.1.5",
     "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "astro": "^5.14.1",
+    "@types/react-dom": "^19.2.2",
+    "astro": "^5.14.7",
     "expressive-code-twoslash": "^0.5.3",
     "sharp": "^0.34.4",
     "starlight-llms-txt": "^0.6.0",
-    "typedoc": "^0.28.13",
-    "typedoc-plugin-mdn-links": "^5.0.9",
-    "typedoc-plugin-missing-exports": "^4.1.0",
+    "typedoc": "^0.28.14",
+    "typedoc-plugin-mdn-links": "^5.0.10",
+    "typedoc-plugin-missing-exports": "^4.1.2",
     "vite-tsconfig-paths": "^5.1.4",
-    "wrangler": "^4.40.3"
+    "wrangler": "^4.44.0"
   }
 }
