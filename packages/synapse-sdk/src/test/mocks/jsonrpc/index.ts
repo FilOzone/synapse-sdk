@@ -62,9 +62,14 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
       jsonrpc: '2.0',
       error: {
         code: -32000,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message:
+          error instanceof Error
+            ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${error.message})])`
+            : 'Unknown error',
         data:
-          error instanceof Error ? `0x08c379a0${AbiCoder.defaultAbiCoder().encode(['string'], [error.message])}` : '0x',
+          error instanceof Error
+            ? `0x08c379a0${AbiCoder.defaultAbiCoder().encode(['string'], [error.message]).slice(2)}`
+            : '0x',
       },
       id: id ?? 1,
     }
