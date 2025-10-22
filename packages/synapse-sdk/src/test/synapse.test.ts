@@ -15,6 +15,8 @@ import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import type { PDPServiceInfoView, ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 import { createDataSetHandler, dataSetCreationStatusHandler, type PDPMockOptions } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
@@ -327,10 +329,7 @@ describe('Synapse', () => {
           },
           payments: {
             ...presets.basic.payments,
-            operatorApprovals: (args) => {
-              const token = args[0]
-              const client = args[1]
-              const operator = args[2]
+            operatorApprovals: ([token, client, operator]) => {
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               assert.equal(client, signerAddress)
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
@@ -343,9 +342,7 @@ describe('Synapse', () => {
                 BigInt(28800), // maxLockupPeriod
               ]
             },
-            accounts: (args) => {
-              const token = args[0]
-              const user = args[1]
+            accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
@@ -765,6 +762,208 @@ describe('Synapse', () => {
       } catch (error: any) {
         // The error should bubble up from the contract call
         assert.include(error.message, 'RPC error')
+      }
+    })
+  })
+
+  describe('createContexts', () => {
+    let synapse: Synapse
+    const mockProviders: ServiceProviderInfoView[] = [
+      {
+        providerId: 1n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider1,
+          payee: ADDRESSES.serviceProvider1,
+          name: 'serviceProvider1',
+          description: 'mockProviders[0]',
+          isActive: true,
+        },
+      },
+      {
+        providerId: 2n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider2,
+          payee: ADDRESSES.serviceProvider2,
+          name: 'serviceProvider2',
+          description: 'mockProviders[1]',
+          isActive: true,
+        },
+      },
+    ]
+    const mockPDPProducts: PDPServiceInfoView[] = [
+      [
+        {
+          serviceURL: 'http://serviceProvider1.com',
+          minPieceSizeInBytes: 0n,
+          maxPieceSizeInBytes: 1n << 32n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: 1000n,
+          minProvingPeriodInEpochs: 3n,
+          location: 'narnia',
+          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+        },
+        [], // capabilityKeys
+        true, // isActive
+      ],
+      [
+        {
+          serviceURL: 'http://serviceProvider2.org',
+          minPieceSizeInBytes: 0n,
+          maxPieceSizeInBytes: 1n << 32n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          storagePricePerTibPerMonth: 1000n,
+          minProvingPeriodInEpochs: 3n,
+          location: 'krypton',
+          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+        },
+        [], // capabilityKeys
+        true, // isActive
+      ],
+    ]
+
+    const DATA_SET_ID = 7
+
+    const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
+
+    const FAKE_TX = {
+      hash: FAKE_TX_HASH,
+      from: ADDRESSES.serviceProvider1,
+      gas: '0x5208',
+      value: '0x0',
+      nonce: '0x444',
+      input: '0x',
+      v: '0x01',
+      r: '0x4e2eef88cc6f2dc311aa3b1c8729b6485bd606960e6ae01522298278932c333a',
+      s: '0x5d0e08d8ecd6ed8034aa956ff593de9dc1d392e73909ef0c0f828918b58327c9',
+    }
+
+    const FAKE_RECEIPT = {
+      ...FAKE_TX,
+      transactionHash: FAKE_TX_HASH,
+      transactionIndex: '0x10',
+      blockHash: '0xb91b7314248aaae06f080ad427dbae78b8c5daf72b2446cf843739aef80c6417',
+      status: '0x1',
+      blockNumber: '0x127001',
+      cumulativeGasUsed: '0x52080',
+      gasUsed: '0x5208',
+      logs: [makeDataSetCreatedLog(DATA_SET_ID, 1)],
+    }
+
+    beforeEach(async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: mockServiceProviderRegistry(mockProviders, mockPDPProducts),
+          eth_getTransactionByHash: (params) => {
+            const hash = params[0]
+            assert.equal(hash, FAKE_TX_HASH)
+            return FAKE_TX
+          },
+          eth_getTransactionReceipt: (params) => {
+            const hash = params[0]
+            assert.equal(hash, FAKE_TX_HASH)
+            return FAKE_RECEIPT
+          },
+        })
+      )
+      synapse = await Synapse.create({ signer })
+      for (const [mockProduct] of mockPDPProducts) {
+        const pdpOptions: PDPMockOptions = {
+          baseUrl: mockProduct.serviceURL,
+        }
+        server.use(createDataSetHandler(FAKE_TX_HASH, pdpOptions))
+        server.use(
+          dataSetCreationStatusHandler(
+            FAKE_TX_HASH,
+            {
+              ok: true,
+              dataSetId: DATA_SET_ID,
+              createMessageHash: '',
+              dataSetCreated: true,
+              service: '',
+              txStatus: '',
+            },
+            pdpOptions
+          )
+        )
+      }
+    })
+
+    it('selects specified providerIds', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId, mockProviders[1].providerId].map(Number),
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[1].providerId)
+      // created new data sets; got the mocked data set id
+      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
+      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
+    })
+
+    it('fails when provided an invalid providerId', async () => {
+      try {
+        await synapse.storage.createContexts({
+          providerIds: [3, 4],
+        })
+        assert.fail('Expected createContexts to fail for invalid specified providerIds')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider does not exist')
+      }
+    })
+
+    it('selects providers specified by address', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[1].info.serviceProvider, mockProviders[0].info.serviceProvider],
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
+      // created new data sets; got the mocked data set id
+      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
+      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
+    })
+
+    it('fails when provided an invalid provider address', async () => {
+      try {
+        await synapse.storage.createContexts({
+          providerAddresses: [ADDRESSES.client1],
+        })
+        assert.fail('Expected createContexts to fail for invalid specified provider address')
+      } catch (error: any) {
+        assert.equal(
+          error?.message,
+          `StorageContext resolveByProviderAddress failed: Provider ${ADDRESSES.client1} is not currently approved`
+        )
+      }
+    })
+
+    it('selects providers specified by data set id', async () => {
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        dataSetIds: [1],
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(contexts[0].provider.id, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('fails when provided an invalid data set id', async () => {
+      for (const dataSetId of [0, 2]) {
+        try {
+          await synapse.storage.createContexts({
+            count: 1,
+            dataSetIds: [dataSetId],
+          })
+          assert.fail('Expected createContexts to fail for invalid specified data set id')
+        } catch (error: any) {
+          assert.equal(
+            error?.message,
+            `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
+          )
+        }
       }
     })
   })
