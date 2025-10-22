@@ -22,9 +22,11 @@
  * ```
  */
 
-import type { ethers } from 'ethers'
+import { ethers } from 'ethers'
+import { CID } from 'multiformats/cid'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import { PDPVerifier } from '../pdp/verifier.ts'
 import { asPieceCID } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
@@ -1353,14 +1355,73 @@ export class StorageContext {
   }
 
   /**
-   * Get the list of piece CIDs for this service service's data set by querying the PDP server.
+   * Get the list of piece CIDs for this service service's data set.
+   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
    * @returns Array of piece CIDs as PieceCID objects
+   * @deprecated Use getPieces() generator for better memory efficiency with large data sets
    */
   async getDataSetPieces(): Promise<PieceCID[]> {
-    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
-    return dataSetData.pieces.map((piece) => piece.pieceCid)
+    const pieces: PieceCID[] = []
+    for await (const [pieceCid] of this.getPieces()) {
+      pieces.push(pieceCid)
+    }
+    return pieces
   }
 
+  /**
+   * Get all active pieces for this data set as an async generator.
+   * This provides lazy evaluation and better memory efficiency for large data sets.
+   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
+   * @param options - Optional configuration object
+   * @param options.batchSize - The batch size for each pagination call (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @yields Tuple of [PieceCID, pieceId] - the piece ID is needed for certain operations like deletion
+   */
+  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<[PieceCID, number]> {
+    const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
+    const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
+
+    const batchSize = options?.batchSize ?? 100
+    const signal = options?.signal
+    let offset = 0
+    let hasMore = true
+
+    while (hasMore) {
+      if (signal?.aborted) {
+        throw createError('StorageContext', 'getPieces', 'Operation aborted')
+      }
+
+      const result = await pdpVerifier.getActivePieces(this._dataSetId, { offset, limit: batchSize, signal })
+
+      // Yield pieces one by one for lazy evaluation
+      for (let i = 0; i < result.pieces.length; i++) {
+        if (signal?.aborted) {
+          throw createError('StorageContext', 'getPieces', 'Operation aborted')
+        }
+
+        // Parse the piece data as a PieceCID
+        // The contract stores the full PieceCID multihash digest (including height and padding)
+        // The data comes as a hex string from ethers, we need to decode it as bytes then as a CID
+        const pieceDataHex = result.pieces[i].data
+        const pieceDataBytes = ethers.getBytes(pieceDataHex)
+
+        const cid = CID.decode(pieceDataBytes)
+        const pieceCid = asPieceCID(cid)
+        if (!pieceCid) {
+          throw createError(
+            'StorageContext',
+            'getPieces',
+            `Invalid PieceCID returned from contract for piece ${result.pieceIds[i]}`
+          )
+        }
+
+        yield [pieceCid, result.pieceIds[i]]
+      }
+
+      hasMore = result.hasMore
+      offset += batchSize
+    }
+  }
   private async _getPieceIdByCID(pieceCID: string | PieceCID): Promise<number> {
     const parsedPieceCID = asPieceCID(pieceCID)
     if (parsedPieceCID == null) {
