@@ -270,7 +270,7 @@ export class StorageContext {
     return await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
   }
 
-  static async createWithSelectedProvider(
+  private static async createWithSelectedProvider(
     resolution: ProviderSelectionResult,
     synapse: Synapse,
     warmStorageService: WarmStorageService,
