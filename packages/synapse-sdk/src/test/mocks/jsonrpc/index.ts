@@ -1,3 +1,4 @@
+import { AbiCoder } from 'ethers'
 import { HttpResponse, http } from 'msw'
 import type { RequiredDeep } from 'type-fest'
 import {
@@ -45,6 +46,31 @@ export const ADDRESSES = {
   },
 }
 
+function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
+  const { id } = item
+  try {
+    return {
+      jsonrpc: '2.0',
+      result: handler(item, options ?? {}),
+      id: id ?? 1,
+    }
+  } catch (error) {
+    if (options?.debug) {
+      console.error(error)
+    }
+    return {
+      jsonrpc: '2.0',
+      error: {
+        code: -32000,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        data:
+          error instanceof Error ? `0x08c379a0${AbiCoder.defaultAbiCoder().encode(['string'], [error.message])}` : '0x',
+      },
+      id: id ?? 1,
+    }
+  }
+}
+
 /**
  * Mock JSONRPC server for testing
  */
@@ -52,40 +78,15 @@ export function JSONRPC(options?: JSONRPCOptions) {
   return http.post<Record<string, any>, RpcRequest | RpcRequest[], RpcResponse | RpcResponse[]>(
     'https://api.calibration.node.glif.io/rpc/v1',
     async ({ request }) => {
-      try {
-        const body = await request.json()
-        if (Array.isArray(body)) {
-          const results: RpcResponse[] = []
-          for (const item of body) {
-            const { id } = item
-            const result = handler(item, options ?? {})
-            results.push({
-              jsonrpc: '2.0',
-              result: result,
-              id: id ?? 1,
-            })
-          }
-          return HttpResponse.json(results)
-        } else {
-          const { id } = body
-          return HttpResponse.json({
-            jsonrpc: '2.0',
-            result: handler(body, options ?? {}),
-            id: id ?? 1,
-          })
+      const body = await request.json()
+      if (Array.isArray(body)) {
+        const results: RpcResponse[] = []
+        for (const item of body) {
+          results.push(jsonrpcHandler(item, options))
         }
-      } catch (error) {
-        if (options?.debug) {
-          console.error(error)
-        }
-        return HttpResponse.json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32000,
-            message: error instanceof Error ? error.message : 'Unknown error',
-          },
-          id: 1,
-        })
+        return HttpResponse.json(results)
+      } else {
+        return HttpResponse.json(jsonrpcHandler(body, options))
       }
     }
   )
