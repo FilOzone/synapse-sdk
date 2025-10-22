@@ -4,7 +4,7 @@
  * Basic tests for Synapse class
  */
 
-import { assert, expect } from 'chai'
+import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -904,9 +904,14 @@ describe('Synapse', () => {
     })
 
     it('fails when provided an invalid providerId', async () => {
-      await synapse.storage.createContexts({
-        providerIds: [3, 4],
-      })
+      try {
+        await synapse.storage.createContexts({
+          providerIds: [3, 4],
+        })
+        assert.fail('Expected createContexts to fail for invalid specified providerIds')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider does not exist')
+      }
     })
 
     it('selects providers specified by address', async () => {
@@ -926,7 +931,7 @@ describe('Synapse', () => {
         await synapse.storage.createContexts({
           providerAddresses: [ADDRESSES.client1],
         })
-        expect.fail('Expected createContexts to fail for invalid specified provider address')
+        assert.fail('Expected createContexts to fail for invalid specified provider address')
       } catch (error: any) {
         assert.equal(
           error?.message,
@@ -952,7 +957,7 @@ describe('Synapse', () => {
             count: 1,
             dataSetIds: [dataSetId],
           })
-          expect.fail('Expected createContexts to fail for invalid specified data set id')
+          assert.fail('Expected createContexts to fail for invalid specified data set id')
         } catch (error: any) {
           assert.equal(
             error?.message,
