@@ -209,7 +209,7 @@ export interface DataSetInfo {
   /** Commission rate in basis points (dynamic based on CDN usage) */
   commissionBps: number
   /** Client's sequential dataset ID within this Warm Storage contract */
-  clientDataSetId: number
+  clientDataSetId: bigint
   /** Epoch when PDP payments end (0 if not terminated) */
   pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */

@@ -94,7 +94,7 @@ describe('WarmStorageService', () => {
             payee: '0x2345678901234567890123456789012345678901',
             serviceProvider: '0x3456789012345678901234567890123456789012',
             commissionBps: 100,
-            clientDataSetId: 5,
+            clientDataSetId: 5n,
             pdpEndEpoch: 0,
             providerId: 1,
             dataSetId: BigInt(dataSetId),
@@ -111,7 +111,7 @@ describe('WarmStorageService', () => {
       assert.equal(result?.cacheMissRailId, 457)
       assert.equal(result?.cdnRailId, 458)
       assert.equal(result?.payer, '0x1234567890123456789012345678901234567890')
-      assert.equal(result?.clientDataSetId, 5)
+      assert.equal(result?.clientDataSetId, 5n)
     })
 
     it('should throw for non-existent data set', async () => {
@@ -130,7 +130,7 @@ describe('WarmStorageService', () => {
             payee: ethers.ZeroAddress,
             serviceProvider: ethers.ZeroAddress,
             commissionBps: 0,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 0,
             dataSetId: BigInt(dataSetId),
@@ -276,7 +276,7 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
       assert.equal(dataSets[0].commissionBps, 100)
-      assert.equal(dataSets[0].clientDataSetId, 0)
+      assert.equal(dataSets[0].clientDataSetId, 0n)
       assert.equal(dataSets[0].cdnRailId, 0) // No CDN
 
       // Check second data set
@@ -284,7 +284,7 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
       assert.equal(dataSets[1].commissionBps, 200)
-      assert.equal(dataSets[1].clientDataSetId, 1)
+      assert.equal(dataSets[1].clientDataSetId, 1n)
       assert.isAbove(dataSets[1].cdnRailId, 0) // Has CDN
     })
 
@@ -346,7 +346,7 @@ describe('WarmStorageService', () => {
             payee: '0xabcdef1234567890123456789012345678901234',
             serviceProvider: '0xabcdef1234567890123456789012345678901234',
             commissionBps: 100,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 1,
             dataSetId: 242n,
@@ -421,7 +421,7 @@ describe('WarmStorageService', () => {
             serviceProvider:
               id === 242 ? '0xabc1234567890123456789012345678901234567' : '0xdef1234567890123456789012345678901234567',
             commissionBps: 100,
-            clientDataSetId: id === 242 ? 0 : 1,
+            clientDataSetId: id === 242 ? 0n : 1n,
             pdpEndEpoch: 0,
             providerId: id === 242 ? 1 : 2,
             dataSetId: BigInt(id),
@@ -510,7 +510,7 @@ describe('WarmStorageService', () => {
             payee: '0xabc1234567890123456789012345678901234567',
             serviceProvider: '0xabc1234567890123456789012345678901234567',
             commissionBps: 100,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 1,
             dataSetId: 242n,
@@ -599,7 +599,7 @@ describe('WarmStorageService', () => {
 
       const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
       assert.equal(addPiecesInfo.nextPieceId, 5)
-      assert.equal(addPiecesInfo.clientDataSetId, 0)
+      assert.equal(addPiecesInfo.clientDataSetId, 0n)
       assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
     })
 
@@ -1329,7 +1329,8 @@ describe('WarmStorageService', () => {
         assert.isTrue(check.depositAmountNeeded > 0n)
 
         // depositAmountNeeded should equal 30 days of costs (default lockup)
-        const expectedDeposit = check.costs.perEpoch * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
+        const expectedDeposit =
+          check.costs.perEpoch * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
       })
 
