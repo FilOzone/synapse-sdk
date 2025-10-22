@@ -2035,4 +2035,30 @@ describe('WarmStorageService', () => {
       mockProvider.call = originalCall
     })
   })
+
+  describe('CDN Operations', () => {
+    it('should top up CDN payment rails (mock transaction)', async () => {
+      const dataSetId = 49
+      const warmStorageService = await createWarmStorageService()
+      const mockSigner = {
+        getAddress: async () => '0x1234567890123456789012345678901234567890',
+      } as any
+
+      // Mock the contract connection
+      const originalGetWarmStorageContract = (warmStorageService as any)._getWarmStorageContract
+      ;(warmStorageService as any)._getWarmStorageContract = () => ({
+        connect: () => ({
+          topUpCDNPaymentRails: async () => ({
+            hash: '0xmocktxhash',
+            wait: async () => ({ status: 1 }),
+          }),
+        }),
+      })
+
+      const tx = await warmStorageService.topUpCDNPaymentRails(mockSigner, dataSetId, 1n, 1n)
+      assert.equal(tx.hash, '0xmocktxhash')
+
+      ;(warmStorageService as any)._getWarmStorageContract = originalGetWarmStorageContract
+    })
+  })
 })
