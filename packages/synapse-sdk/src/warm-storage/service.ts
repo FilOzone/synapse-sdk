@@ -41,7 +41,7 @@ export interface AddPiecesInfo {
   /** The next piece ID to use when adding pieces */
   nextPieceId: number
   /** The client dataset ID for this data set */
-  clientDataSetId: number
+  clientDataSetId: bigint
   /** Current number of pieces in the data set */
   currentPieceCount: number
 }
@@ -304,7 +304,7 @@ export class WarmStorageService {
       payee: ds.payee,
       serviceProvider: ds.serviceProvider,
       commissionBps: Number(ds.commissionBps),
-      clientDataSetId: Number(ds.clientDataSetId),
+      clientDataSetId: ds.clientDataSetId,
       pdpEndEpoch: Number(ds.pdpEndEpoch),
       providerId: Number(ds.providerId),
       dataSetId,
@@ -330,7 +330,7 @@ export class WarmStorageService {
         payee: ds.payee,
         serviceProvider: ds.serviceProvider,
         commissionBps: Number(ds.commissionBps),
-        clientDataSetId: Number(ds.clientDataSetId),
+        clientDataSetId: ds.clientDataSetId,
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
       }))
@@ -435,11 +435,9 @@ export class WarmStorageService {
         )
       }
 
-      const clientDataSetId = Number(dataSetInfo.clientDataSetId)
-
       return {
         nextPieceId: Number(nextPieceId),
-        clientDataSetId,
+        clientDataSetId: dataSetInfo.clientDataSetId,
         currentPieceCount: Number(nextPieceId),
       }
     } catch (error) {

@@ -83,7 +83,7 @@ describe('PDPServer', () => {
       )
 
       const result = await pdpServer.createDataSet(
-        0, // clientDataSetId
+        0n, // clientDataSetId
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         await signer.getAddress(), // payer
         [], // metadata (empty for no CDN)
@@ -193,7 +193,7 @@ describe('PDPServer', () => {
     it('should validate input parameters', async () => {
       // Test empty piece entries
       try {
-        await pdpServer.addPieces(1, 0, 0, [])
+        await pdpServer.addPieces(1, 0n, 0, [])
         assert.fail('Should have thrown error for empty piece entries')
       } catch (error) {
         assert.include((error as Error).message, 'At least one piece must be provided')
@@ -203,7 +203,7 @@ describe('PDPServer', () => {
       const invalidPieceCid = 'invalid-piece-link-string'
 
       try {
-        await pdpServer.addPieces(1, 0, 0, [invalidPieceCid])
+        await pdpServer.addPieces(1, 0n, 0, [invalidPieceCid])
         assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid PieceCID')
@@ -238,7 +238,7 @@ describe('PDPServer', () => {
       )
 
       // Should not throw
-      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -256,7 +256,7 @@ describe('PDPServer', () => {
       )
 
       try {
-        await pdpServer.addPieces(1, 0, 0, validPieceCid)
+        await pdpServer.addPieces(1, 0n, 0, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.include(
@@ -302,7 +302,7 @@ describe('PDPServer', () => {
           }
         )
       )
-      const result = await pdpServer.addPieces(1, 0, 0, multiplePieceCid)
+      const result = await pdpServer.addPieces(1, 0n, 0, multiplePieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -322,7 +322,7 @@ describe('PDPServer', () => {
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
       assert.strictEqual(result.txHash, mockTxHash)
@@ -346,7 +346,7 @@ describe('PDPServer', () => {
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
       assert.isDefined(result)
       assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
     })
@@ -365,7 +365,7 @@ describe('PDPServer', () => {
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
       assert.isUndefined(result.txHash) // No txHash for malformed Location
@@ -389,7 +389,7 @@ describe('PDPServer', () => {
           })
         })
       )
-      const result = await pdpServer.deletePiece(1, 0, 2)
+      const result = await pdpServer.deletePiece(1, 0n, 2)
       assert.strictEqual(result, mockTxHash)
     })
 
@@ -402,7 +402,7 @@ describe('PDPServer', () => {
         })
       )
       try {
-        await pdpServer.deletePiece(1, 0, 2)
+        await pdpServer.deletePiece(1, 0n, 2)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to delete piece')

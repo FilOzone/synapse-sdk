@@ -182,7 +182,7 @@ export class PDPServer {
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createDataSet(
-    clientDataSetId: number | bigint,
+    clientDataSetId: bigint,
     payee: string,
     payer: string,
     metadata: MetadataEntry[],
@@ -264,7 +264,7 @@ export class PDPServer {
    */
   async addPieces(
     dataSetId: number,
-    clientDataSetId: number,
+    clientDataSetId: bigint,
     nextPieceId: number,
     pieceDataArray: PieceCID[] | string[],
     metadata?: MetadataEntry[][]
@@ -305,7 +305,7 @@ export class PDPServer {
     // Generate the EIP-712 signature for adding pieces
     const authData = await this.getAuthHelper().signAddPieces(
       clientDataSetId,
-      nextPieceId,
+      BigInt(nextPieceId),
       pieceDataArray, // Pass PieceData[] directly to auth helper
       finalMetadata
     )
@@ -644,8 +644,8 @@ export class PDPServer {
    * @param pieceID -  The ID of the piece to delete
    * @returns Promise for transaction hash of the delete operation
    */
-  async deletePiece(dataSetId: number, clientDataSetId: number, pieceID: number): Promise<string> {
-    const authData = await this.getAuthHelper().signSchedulePieceRemovals(clientDataSetId, [pieceID])
+  async deletePiece(dataSetId: number, clientDataSetId: bigint, pieceID: number): Promise<string> {
+    const authData = await this.getAuthHelper().signSchedulePieceRemovals(clientDataSetId, [BigInt(pieceID)])
     const payload = {
       extraData: `0x${authData.signature}`,
     }
@@ -672,7 +672,7 @@ export class PDPServer {
    */
   private _encodeDataSetCreateData(data: {
     payer: string
-    clientDataSetId: number | bigint
+    clientDataSetId: bigint
     metadata: MetadataEntry[]
     signature: string
   }): string {

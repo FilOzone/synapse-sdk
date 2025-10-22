@@ -36,7 +36,7 @@ const FIXTURES = {
       signature:
         '0xc77965e2b6efd594629c44eb61127bc3133b65d08c25f8aa33e3021e7f46435845ab67ffbac96afc4b4671ecbd32d4869ca7fe1c0eaa5affa942d0abbfd98d601b',
       digest: '0xd89be6a725302e66575d7a9c730191a84e2a624d0f0f3976194d0bd6f2927640',
-      clientDataSetId: 12345,
+      clientDataSetId: 12345n,
       payee: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       metadata: [{ key: 'title', value: 'TestDataSet' }],
     },
@@ -44,8 +44,8 @@ const FIXTURES = {
       signature:
         '0x215d2d6ea06c7daad46e3e636b305885c7d09aa34420e8dbace032af03cae06224cf678da808c7f1026b08ccf51f3d5d53351b935f5eee9750b80e78caffaaa91c',
       digest: '0xa690b5f3c6400833822aa3fd63ad1f0e4c1f70e5cc132cfd898c2993169d23bf',
-      clientDataSetId: 12345,
-      firstAdded: 1,
+      clientDataSetId: 12345n,
+      firstAdded: 1n,
       pieceCidBytes: [
         '0x01559120220500de6815dcb348843215a94de532954b60be550a4bec6e74555665e9a5ec4e0f3c',
         '0x01559120227e03642a607ef886b004bf2c1978463ae1d4693ac0f410eb2d1b7a47fe205e5e750f',
@@ -56,14 +56,14 @@ const FIXTURES = {
       signature:
         '0xcb8e645f2894fde89de54d4a54eb1e0d9871901c6fa1c2ee8a0390dc3a29e6cb2244d0561e3eca6452fa59efaab3d4b18a0b5b59ab52e233b3469422556ae9c61c',
       digest: '0xef55929f8dd724ef4b43c5759db26878608f7e1277d168e3e621d3cd4ba682dd',
-      clientDataSetId: 12345,
-      pieceIds: [1, 3, 5],
+      clientDataSetId: 12345n,
+      pieceIds: [1n, 3n, 5n],
     },
     deleteDataSet: {
       signature:
         '0x94e366bd2f9bfc933a87575126715bccf128b77d9c6937e194023e13b54272eb7a74b7e6e26acf4341d9c56e141ff7ba154c37ea03e9c35b126fff1efe1a0c831c',
       digest: '0x79df79ba922d913eccb0f9a91564ba3a1a81a0ea81d99a7cecf23cc3f425cafb',
-      clientDataSetId: 12345,
+      clientDataSetId: 12345n,
     },
   },
 }

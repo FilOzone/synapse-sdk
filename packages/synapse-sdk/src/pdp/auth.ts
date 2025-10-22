@@ -204,7 +204,7 @@ export class PDPAuthHelper {
    * ```
    */
   async signCreateDataSet(
-    clientDataSetId: number | bigint,
+    clientDataSetId: bigint,
     payee: string,
     metadata: MetadataEntry[] = []
   ): Promise<AuthSignature> {
@@ -226,7 +226,7 @@ export class PDPAuthHelper {
     } else {
       // Use standard ethers.js signing (for private keys, etc)
       const value = {
-        clientDataSetId: BigInt(clientDataSetId),
+        clientDataSetId,
         metadata,
         payee,
       }
@@ -241,7 +241,7 @@ export class PDPAuthHelper {
 
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(this.domain, types, {
-      clientDataSetId: BigInt(clientDataSetId),
+      clientDataSetId,
       metadata,
       payee,
     })
@@ -282,8 +282,8 @@ export class PDPAuthHelper {
    * ```
    */
   async signAddPieces(
-    clientDataSetId: number | bigint,
-    firstPieceId: number | bigint,
+    clientDataSetId: bigint,
+    firstPieceId: bigint,
     pieceDataArray: PieceCID[] | string[],
     metadata: MetadataEntry[][] = []
   ): Promise<AuthSignature> {
@@ -341,8 +341,8 @@ export class PDPAuthHelper {
     } else {
       // Use standard ethers.js signing with bigint values
       const value = {
-        clientDataSetId: BigInt(clientDataSetId),
-        firstAdded: BigInt(firstPieceId),
+        clientDataSetId,
+        firstAdded: firstPieceId,
         pieceData: formattedPieceData,
         pieceMetadata: pieceMetadata,
       }
@@ -357,8 +357,8 @@ export class PDPAuthHelper {
 
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(this.domain, types, {
-      clientDataSetId: BigInt(clientDataSetId),
-      firstAdded: BigInt(firstPieceId),
+      clientDataSetId,
+      firstAdded: firstPieceId,
       pieceData: formattedPieceData,
       pieceMetadata: pieceMetadata,
     })
@@ -392,13 +392,7 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signSchedulePieceRemovals(
-    clientDataSetId: number | bigint,
-    pieceIds: Array<number | bigint>
-  ): Promise<AuthSignature> {
-    // Convert pieceIds to BigInt array for proper encoding
-    const pieceIdsBigInt = pieceIds.map((id) => BigInt(id))
-
+  async signSchedulePieceRemovals(clientDataSetId: bigint, pieceIds: Array<bigint>): Promise<AuthSignature> {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
@@ -408,16 +402,13 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing for better UX
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        pieceIds: pieceIdsBigInt.map((id) => id.toString()), // Convert to string array for display
+        pieceIds: pieceIds.map((id) => id.toString()), // Convert to string array for display
       }
 
       signature = await this.signWithMetaMask({ SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals }, value)
     } else {
       // Use standard ethers.js signing with BigInt values
-      const value = {
-        clientDataSetId: BigInt(clientDataSetId),
-        pieceIds: pieceIdsBigInt,
-      }
+      const value = { clientDataSetId, pieceIds }
 
       // Use underlying signer for typed data signing (handles NonceManager)
       const actualSigner = this.getUnderlyingSigner()
@@ -434,10 +425,7 @@ export class PDPAuthHelper {
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
       { SchedulePieceRemovals: EIP712_TYPES.SchedulePieceRemovals },
-      {
-        clientDataSetId: BigInt(clientDataSetId),
-        pieceIds: pieceIdsBigInt,
-      }
+      { clientDataSetId, pieceIds }
     )
 
     return {
@@ -467,7 +455,7 @@ export class PDPAuthHelper {
    * )
    * ```
    */
-  async signDeleteDataSet(clientDataSetId: number | bigint): Promise<AuthSignature> {
+  async signDeleteDataSet(clientDataSetId: bigint): Promise<AuthSignature> {
     let signature: string
 
     // Check if we should use MetaMask-friendly signing
@@ -482,9 +470,7 @@ export class PDPAuthHelper {
       signature = await this.signWithMetaMask({ DeleteDataSet: EIP712_TYPES.DeleteDataSet }, value)
     } else {
       // Use standard ethers.js signing
-      const value = {
-        clientDataSetId: BigInt(clientDataSetId),
-      }
+      const value = { clientDataSetId }
 
       // Use underlying signer for typed data signing (handles NonceManager)
       const actualSigner = this.getUnderlyingSigner()
@@ -497,9 +483,7 @@ export class PDPAuthHelper {
     const signedData = ethers.TypedDataEncoder.hash(
       this.domain,
       { DeleteDataSet: EIP712_TYPES.DeleteDataSet },
-      {
-        clientDataSetId: BigInt(clientDataSetId),
-      }
+      { clientDataSetId }
     )
 
     return {
