@@ -16,7 +16,7 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'Synapse',
+      title: 'Filecoin Onchain Cloud',
       logo: { src: './src/assets/foc-logo.svg', alt: 'synapse' },
       favicon: 'favicon.ico',
       customCss: ['./src/custom.css'],
@@ -80,16 +80,28 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Introduction',
-          autogenerate: { directory: 'intro' },
+          autogenerate: { directory: 'introduction' },
         },
         {
-          label: 'Guides',
-          autogenerate: { directory: 'guides' },
+          label: 'Getting Started',
+          autogenerate: { directory: 'getting-started' },
+        },
+        {
+          label: 'Core Concepts',
+          autogenerate: { directory: 'core-concepts' },
+        },
+        {
+          label: 'Developers',
+          autogenerate: { directory: 'developers' },
         },
         {
           label: 'API',
           collapsed: true,
           autogenerate: { directory: 'api' },
+        },
+        {
+          label: 'Resources',
+          autogenerate: { directory: 'resources' },
         },
       ],
       expressiveCode: {
