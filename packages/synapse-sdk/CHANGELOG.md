@@ -4,6 +4,13 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.34.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.34.0...synapse-sdk-v0.34.1) (2025-10-22)
+
+
+### Bug Fixes
+
+* **mocks:** mock BatchJsonrpc errors with their request `id` ([#338](https://github.com/FilOzone/synapse-sdk/issues/338)) ([1167900](https://github.com/FilOzone/synapse-sdk/commit/1167900aa117026d084842708b760eb1f3ffd203))
+
 ## [0.34.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.33.0...synapse-sdk-v0.34.0) (2025-10-21)
 
 
