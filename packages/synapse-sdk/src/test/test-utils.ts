@@ -806,47 +806,6 @@ export function setupProviderRegistryMocks(
       )
     }
 
-    // Mock getProviderProducts(uint256) - returns products for provider
-    if (data?.startsWith('0xb5eb46e1')) {
-      const providerId = parseInt(data.slice(10, 74), 16)
-      const provider = providers.find((p) => p.id === providerId)
-      if (provider?.products?.PDP) {
-        const pdp = provider.products.PDP
-
-        // Encode PDP product data (simplified for testing)
-        const encodedPDP = ethers.AbiCoder.defaultAbiCoder().encode(
-          ['string', 'uint256', 'uint256', 'bool', 'bool', 'uint256', 'uint256', 'string', 'address'],
-          [
-            pdp.data.serviceURL,
-            pdp.data.minPieceSizeInBytes,
-            pdp.data.maxPieceSizeInBytes,
-            pdp.data.ipniPiece,
-            pdp.data.ipniIpfs,
-            pdp.data.storagePricePerTibPerMonth,
-            pdp.data.minProvingPeriodInEpochs,
-            pdp.data.location || '',
-            pdp.data.paymentTokenAddress,
-          ]
-        )
-
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(uint8,bool,bytes32[],bytes)[]'],
-          [
-            [
-              [
-                0, // productType: PDP
-                pdp.isActive,
-                pdp.capabilities ?? [], // capabilityKeys (empty for simplicity)
-                encodedPDP,
-              ],
-            ],
-          ]
-        )
-      }
-      // Return empty products array
-      return ethers.AbiCoder.defaultAbiCoder().encode(['tuple(uint8,bool,bytes32[],bytes)[]'], [[]])
-    }
-
     // Mock decodePDPOffering(bytes) - decode PDP product data
     if (data?.startsWith('0xdeb0e462')) {
       // For simplicity, return a default PDP offering

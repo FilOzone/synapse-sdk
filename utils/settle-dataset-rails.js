@@ -11,7 +11,70 @@
 
 import { ethers } from 'ethers'
 import { SETTLEMENT_FEE, Synapse } from '../packages/synapse-sdk/src/index.ts'
+import { getCurrentEpoch } from '../packages/synapse-sdk/src/utils/index.ts'
 import { WarmStorageService } from '../packages/synapse-sdk/src/warm-storage/index.ts'
+
+// ANSI color codes
+const RESET = '\x1b[0m'
+const BOLD = '\x1b[1m'
+const DIM = '\x1b[2m'
+const GREEN = '\x1b[32m'
+const YELLOW = '\x1b[33m'
+const CYAN = '\x1b[36m'
+const RED = '\x1b[31m'
+
+// Configuration for batch settlement
+// Maximum tested batch size to avoid gas limit in validator's epoch loop
+const DAYS = 6n // Number of days per batch (7 days currently exceeds block gas limit)
+const EPOCHS_PER_DAY = 2880n
+const BATCH_SIZE = EPOCHS_PER_DAY * DAYS
+
+/**
+ * Execute a settlement for a rail, optionally to a specific epoch
+ * @returns {Object|null} Settlement result with preview, tx, receipt, or null if nothing to settle
+ */
+async function executeSettlement(synapse, rail, targetEpoch = null, batchNumber = null) {
+  const indent = batchNumber ? '    ' : '  '
+  const batchLabel = batchNumber ? ` (Batch ${batchNumber})` : ''
+
+  // Get settlement preview
+  const preview = targetEpoch
+    ? await synapse.payments.getSettlementAmounts(rail.id, targetEpoch)
+    : await synapse.payments.getSettlementAmounts(rail.id)
+
+  // Log settlement amounts
+  if (batchNumber) {
+    console.log(`${indent}Amount:  ${ethers.formatUnits(preview.totalSettledAmount, 18)} USDFC`)
+  } else {
+    console.log(`${indent}Total to settle: ${ethers.formatUnits(preview.totalSettledAmount, 18)} USDFC`)
+    console.log(`${indent}Payee receives:  ${ethers.formatUnits(preview.totalNetPayeeAmount, 18)} USDFC`)
+    console.log(`${indent}Commission:      ${ethers.formatUnits(preview.totalOperatorCommission, 18)} USDFC`)
+  }
+
+  // Nothing to settle
+  if (preview.totalSettledAmount === 0n) {
+    console.log(`${indent}${DIM}Nothing to settle${RESET}`)
+    console.log('')
+    return null
+  }
+
+  // Execute settlement
+  console.log(`${indent}Settling...`)
+  const tx = targetEpoch ? await synapse.payments.settle(rail.id, targetEpoch) : await synapse.payments.settle(rail.id)
+  console.log(`${indent}Tx: ${tx.hash}`)
+
+  // Wait for confirmation
+  const receipt = await tx.wait()
+  console.log(`${indent}${GREEN}Confirmed in block ${receipt.blockNumber}${RESET}`)
+  console.log('')
+
+  return {
+    preview,
+    tx,
+    receipt,
+    type: `${rail.type}${batchLabel}`,
+  }
+}
 
 async function main() {
   // Parse arguments
@@ -30,8 +93,8 @@ async function main() {
     process.exit(1)
   }
 
-  console.log('🔗 Connecting to:', rpcUrl)
-  console.log('📊 Data Set ID:', dataSetId)
+  console.log(`${CYAN}Connecting to:${RESET} ${rpcUrl}`)
+  console.log(`${CYAN}Data Set ID:${RESET} ${dataSetId}`)
   console.log('')
 
   // Initialize SDK at the top level so we can access it later
@@ -48,21 +111,21 @@ async function main() {
     const warmStorageAddress = await synapse.getWarmStorageAddress()
     const warmStorage = await WarmStorageService.create(synapse.getProvider(), warmStorageAddress)
 
-    console.log('📋 Fetching data set information...')
+    console.log('Fetching data set information...')
 
     // Get data set info to find rail IDs
     const dataSet = await warmStorage.getDataSet(Number(dataSetId))
 
     if (!dataSet) {
-      console.error(`❌ Data set ${dataSetId} not found`)
+      console.error(`${RED}Error: Data set ${dataSetId} not found${RESET}`)
       process.exit(1)
     }
-    console.log('✅ Data set found:')
-    console.log(`   Client: ${dataSet.payer}`)
-    console.log(`   Provider: ${dataSet.serviceProvider}`)
-    console.log(`   PDP Rail ID: ${dataSet.pdpRailId}`)
-    console.log(`   CDN Rail ID: ${dataSet.cdnRailId}`)
-    console.log(`   Cache Miss Rail ID: ${dataSet.cacheMissRailId}`)
+    console.log(`${GREEN}Data set found${RESET}`)
+    console.log(`  Client:          ${dataSet.payer}`)
+    console.log(`  Provider:        ${dataSet.serviceProvider}`)
+    console.log(`  PDP Rail ID:     ${dataSet.pdpRailId}`)
+    console.log(`  CDN Rail ID:     ${dataSet.cdnRailId}`)
+    console.log(`  Cache Miss Rail: ${dataSet.cacheMissRailId}`)
     console.log('')
 
     // Collect all rail IDs to settle
@@ -79,14 +142,12 @@ async function main() {
     }
 
     if (railsToSettle.length === 0) {
-      console.log('⚠️  No rails found for this data set')
+      console.log(`${YELLOW}No rails found for this data set${RESET}`)
       process.exit(0)
     }
 
-    console.log(`💰 Checking settlement amounts for ${railsToSettle.length} rail(s)...`)
-
-    // Display settlement fee
-    console.log(`📍 Settlement fee per settlement: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
+    console.log(`Checking settlement amounts for ${railsToSettle.length} rail(s)...`)
+    console.log(`${DIM}Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL per transaction${RESET}`)
     console.log('')
 
     let totalSettled = 0n
@@ -94,53 +155,83 @@ async function main() {
     let totalCommission = 0n
     const transactions = []
 
+    // Get current epoch
+    const currentEpoch = await getCurrentEpoch(synapse.getProvider())
+    console.log(`Current epoch: ${currentEpoch}`)
+    console.log('')
+
     // Process each rail
     for (const rail of railsToSettle) {
-      console.log(`📊 ${rail.type} Rail (ID: ${rail.id}):`)
+      console.log(`${BOLD}${rail.type} Rail (ID: ${rail.id})${RESET}`)
 
       try {
-        // Preview settlement amounts
-        const preview = await synapse.payments.getSettlementAmounts(rail.id)
+        // Get rail info to check settled epoch
+        const railInfo = await synapse.payments.getRail(rail.id)
+        const settledUpTo = railInfo.settledUpTo
+        const epochGap = currentEpoch - settledUpTo
 
-        console.log(`   Total to settle: ${ethers.formatUnits(preview.totalSettledAmount, 18)} USDFC`)
-        console.log(`   Payee receives:  ${ethers.formatUnits(preview.totalNetPayeeAmount, 18)} USDFC`)
-        console.log(`   Commission:      ${ethers.formatUnits(preview.totalOperatorCommission, 18)} USDFC`)
+        console.log(`  Settled up to: ${settledUpTo}`)
+        console.log(`  Epoch gap:     ${epochGap} epochs`)
 
-        if (preview.totalSettledAmount === 0n) {
-          console.log(`   ⏭️  Nothing to settle, skipping...`)
+        // Determine if we need to batch
+        const needsBatching = epochGap > BATCH_SIZE
+
+        if (needsBatching) {
+          console.log(`  ${YELLOW}Large gap - settling in batches of ${BATCH_SIZE} epochs (${DAYS} days)${RESET}`)
           console.log('')
-          continue
+
+          // Settle in batches
+          let batchStart = settledUpTo
+          let batchNumber = 1
+
+          while (batchStart < currentEpoch) {
+            const batchEnd = batchStart + BATCH_SIZE
+            const targetEpoch = batchEnd > currentEpoch ? currentEpoch : batchEnd
+
+            console.log(`  ${CYAN}Batch ${batchNumber}:${RESET} Epochs ${batchStart} → ${targetEpoch}`)
+
+            const result = await executeSettlement(synapse, rail, targetEpoch, batchNumber)
+
+            if (result) {
+              // Track totals
+              totalSettled += result.preview.totalSettledAmount
+              totalPayeeAmount += result.preview.totalNetPayeeAmount
+              totalCommission += result.preview.totalOperatorCommission
+              transactions.push({
+                type: result.type,
+                railId: rail.id,
+                txHash: result.tx.hash,
+                amount: result.preview.totalSettledAmount,
+              })
+            }
+
+            batchStart = targetEpoch
+            batchNumber++
+          }
+        } else {
+          // Normal single settlement
+          const result = await executeSettlement(synapse, rail)
+
+          if (result) {
+            // Track totals
+            totalSettled += result.preview.totalSettledAmount
+            totalPayeeAmount += result.preview.totalNetPayeeAmount
+            totalCommission += result.preview.totalOperatorCommission
+            transactions.push({
+              type: result.type,
+              railId: rail.id,
+              txHash: result.tx.hash,
+              amount: result.preview.totalSettledAmount,
+            })
+          }
         }
-
-        // Settle the rail
-        console.log(`   🔄 Settling rail...`)
-        const tx = await synapse.payments.settle(rail.id)
-        console.log(`   📝 Transaction: ${tx.hash}`)
-
-        // Wait for confirmation
-        console.log(`   ⏳ Waiting for confirmation...`)
-        const receipt = await tx.wait()
-        console.log(`   ✅ Confirmed in block ${receipt.blockNumber}`)
-        console.log('')
-
-        // Track totals
-        totalSettled += preview.totalSettledAmount
-        totalPayeeAmount += preview.totalNetPayeeAmount
-        totalCommission += preview.totalOperatorCommission
-        transactions.push({
-          type: rail.type,
-          railId: rail.id,
-          txHash: tx.hash,
-          amount: preview.totalSettledAmount,
-        })
       } catch (error) {
-        console.error(`   ❌ Error settling ${rail.type} rail:`, error.message)
+        console.error(`  ${RED}Error settling ${rail.type} rail: ${error.message}${RESET}`)
 
         // Check if it's the InsufficientNativeTokenForBurn error
         if (error.message.includes('InsufficientNativeTokenForBurn')) {
-          console.log(`   ℹ️  This error means your wallet doesn't have enough FIL for the network fee`)
-          console.log(`   ℹ️  Settlement requires ${ethers.formatEther(networkFee)} FIL as a network fee`)
-          console.log(`   ℹ️  Please ensure your wallet has sufficient FIL balance`)
+          console.log(`  ${YELLOW}Insufficient FIL for network fee${RESET}`)
+          console.log(`  Required: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
         }
 
         console.log('')
@@ -148,25 +239,25 @@ async function main() {
     }
 
     // Summary
-    console.log('═══════════════════════════════════════════')
-    console.log('📊 SETTLEMENT SUMMARY')
-    console.log('═══════════════════════════════════════════')
+    console.log('')
+    console.log(`${BOLD}Settlement Summary${RESET}`)
+    console.log('─'.repeat(60))
     console.log(`Total Settled:     ${ethers.formatUnits(totalSettled, 18)} USDFC`)
     console.log(`Payee Received:    ${ethers.formatUnits(totalPayeeAmount, 18)} USDFC`)
     console.log(`Total Commission:  ${ethers.formatUnits(totalCommission, 18)} USDFC`)
     console.log('')
 
     if (transactions.length > 0) {
-      console.log('📝 Transactions:')
+      console.log('Transactions:')
       for (const tx of transactions) {
-        console.log(`   ${tx.type}: ${tx.txHash}`)
+        console.log(`  ${tx.type}: ${tx.txHash}`)
       }
     }
 
     console.log('')
-    console.log('✅ Settlement complete!')
+    console.log(`${GREEN}Settlement complete${RESET}`)
   } catch (error) {
-    console.error('❌ Error:', error.message)
+    console.error(`${RED}Error: ${error.message}${RESET}`)
     hasError = true
   } finally {
     // Always close the WebSocket connection if it exists
@@ -184,6 +275,6 @@ async function main() {
 
 // Run the script
 main().catch((error) => {
-  console.error('❌ Fatal error:', error.message)
+  console.error(`${RED}Fatal error: ${error.message}${RESET}`)
   process.exit(1)
 })

@@ -1,0 +1,168 @@
+{
+  "name": "@filoz/synapse-core",
+  "version": "0.0.1",
+  "description": "JavaScript Standard Library for Filecoin Onchain Cloud",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilOzone/synapse-sdk.git"
+  },
+  "keywords": [
+    "filecoin",
+    "synapse",
+    "filecoin pay",
+    "filecoin onchain cloud",
+    "web3"
+  ],
+  "author": "Hugo Dias <hugomrdias@gmail.com>",
+  "license": "Apache-2.0 OR MIT",
+  "bugs": {
+    "url": "https://github.com/FilOzone/synapse-sdk/issues"
+  },
+  "homepage": "https://github.com/FilOzone/synapse-sdk/tree/main/packages/synapse-core",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "module": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./chains": {
+      "types": "./dist/src/chains.d.ts",
+      "default": "./dist/src/chains.js"
+    },
+    "./curio": {
+      "types": "./dist/src/curio.d.ts",
+      "default": "./dist/src/curio.js"
+    },
+    "./erc20": {
+      "types": "./dist/src/erc20.d.ts",
+      "default": "./dist/src/erc20.js"
+    },
+    "./usdfc": {
+      "types": "./dist/src/usdfc.d.ts",
+      "default": "./dist/src/usdfc.js"
+    },
+    "./abis": {
+      "types": "./dist/src/abis/index.d.ts",
+      "default": "./dist/src/abis/index.js"
+    },
+    "./pay": {
+      "types": "./dist/src/pay/index.d.ts",
+      "default": "./dist/src/pay/index.js"
+    },
+    "./warm-storage": {
+      "types": "./dist/src/warm-storage/index.d.ts",
+      "default": "./dist/src/warm-storage/index.js"
+    },
+    "./typed-data": {
+      "types": "./dist/src/typed-data/index.d.ts",
+      "default": "./dist/src/typed-data/index.js"
+    },
+    "./session-key": {
+      "types": "./dist/src/session-key/index.d.ts",
+      "default": "./dist/src/session-key/index.js"
+    },
+    "./errors": {
+      "types": "./dist/src/errors/index.d.ts",
+      "default": "./dist/src/errors/index.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "chains": [
+        "./dist/src/chains"
+      ],
+      "curio": [
+        "./dist/src/curio"
+      ],
+      "erc20": [
+        "./dist/src/erc20"
+      ],
+      "usdfc": [
+        "./dist/src/usdfc"
+      ],
+      "abis": [
+        "./dist/src/abis/index"
+      ],
+      "pay": [
+        "./dist/src/pay/index"
+      ],
+      "warm-storage": [
+        "./dist/src/warm-storage/index"
+      ],
+      "typed-data": [
+        "./dist/src/typed-data/index"
+      ],
+      "session-key": [
+        "./dist/src/session-key/index"
+      ],
+      "errors": [
+        "./dist/src/errors/index"
+      ]
+    }
+  },
+  "files": [
+    "src",
+    "dist/src",
+    "dist/src/**/*.d.ts",
+    "dist/src/**/*.d.ts.map"
+  ],
+  "scripts": {
+    "generate-abi": "wagmi generate",
+    "build": "wireit",
+    "lint": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "files": [
+        "src/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    }
+  },
+  "dependencies": {
+    "@web3-storage/data-segment": "^5.3.0",
+    "dnum": "^2.15.0",
+    "filsnap-adapter": "^3.3.8",
+    "iso-web": "^1.4.0",
+    "multiformats": "^13.4.1",
+    "ox": "^0.9.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "~2.2.6",
+    "@types/node": "^24.9.1",
+    "@wagmi/cli": "^2.7.0",
+    "abitype": "^1.1.1",
+    "type-fest": "^5.1.0",
+    "typescript": "5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "msw": {
+    "workerDirectory": [
+      "src/test/mocks"
+    ]
+  },
+  "peerDependencies": {
+    "viem": "2.x"
+  }
+}

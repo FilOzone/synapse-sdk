@@ -67,15 +67,15 @@
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.6",
-    "viem": "^2.37.11"
+    "ox": "^0.9.12",
+    "viem": "^2.38.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "~2.2.5",
-    "@types/chai": "^5.2.2",
+    "@biomejs/biome": "~2.2.6",
+    "@types/chai": "^5.2.3",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24.6.2",
-    "@wagmi/cli": "^2.6.0",
+    "@types/node": "^24.9.1",
+    "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
     "chai": "^6.2.0",
     "iso-web": "^1.4.0",
@@ -83,7 +83,7 @@
     "msw": "~2.10.5",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.0.1",
+    "type-fest": "^5.1.0",
     "typescript": "5.9.3"
   },
   "publishConfig": {

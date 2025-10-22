@@ -1,0 +1,100 @@
+{
+  "name": "synapse-playground",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "format": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "dev": "wireit",
+    "build": "wireit",
+    "lint": "wireit",
+    "preview": "vite preview"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc -b && vite build",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.{tsx,ts,css}",
+        "public/**/*",
+        "index.html",
+        "tsconfig.json",
+        "vite.config.ts"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "files": [
+        "src/**/*.{tsx,ts}",
+        "tsconfig.json",
+        "vite.config.ts",
+        "biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    },
+    "dev": {
+      "command": "vite",
+      "dependencies": [
+        "../../packages/synapse-core:build",
+        "../../packages/synapse-react:build"
+      ],
+      "service": true
+    }
+  },
+  "dependencies": {
+    "@filoz/synapse-core": "workspace:*",
+    "@filoz/synapse-react": "workspace:*",
+    "@hookform/resolvers": "^5.2.2",
+    "@nanostores/persistent": "^1.1.0",
+    "@nanostores/react": "^1.0.0",
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@tailwindcss/vite": "^4.1.14",
+    "@tanstack/query-async-storage-persister": "^5.90.7",
+    "@tanstack/query-sync-storage-persister": "^5.90.7",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query-persist-client": "^5.90.7",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.546.0",
+    "nanostores": "^1.0.1",
+    "next-themes": "^0.4.6",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-dropzone": "^14.3.8",
+    "react-hook-form": "^7.64.0",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.14",
+    "viem": "^2.38.3",
+    "wagmi": "^2.18.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.6",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "globals": "^16.3.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "vite-bundle-analyzer": "^1.2.1",
+    "wrangler": "^4.44.0"
+  }
+}

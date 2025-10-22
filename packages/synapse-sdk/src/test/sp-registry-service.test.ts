@@ -55,26 +55,13 @@ describe('SPRegistryService', () => {
         }
         throw new Error('Provider not found')
       },
-      getProviderProducts: async (id: number) => {
-        if (id === 1) {
-          return [
-            {
-              productType: 0, // PDP
-              isActive: true,
-              capabilityKeys: [],
-              productData: '0x', // Encoded PDP offering
-            },
-          ]
-        }
-        return []
-      },
       providerHasProduct: async (id: number, productType: number) => {
         return id === 1 && productType === 0
       },
       getPDPService: async (id: number) => {
         if (id === 1) {
           return {
-            offering: {
+            pdpOffering: {
               serviceURL: 'https://provider.example.com',
               minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
               maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
@@ -406,7 +393,20 @@ describe('SPRegistryService', () => {
       // Override to return provider without products
       ;(service as any)._getRegistryContract = () => ({
         ...createMockContract(),
-        getProviderProducts: async () => [],
+        getPDPService: async () => ({
+          pdpOffering: {
+            serviceURL: '',
+            minPieceSizeInBytes: 0,
+            maxPieceSizeInBytes: 0,
+            ipniPiece: false,
+            ipniIpfs: false,
+            minProvingPeriodInEpochs: 0,
+            storagePricePerTibPerMonth: 0,
+            location: '',
+          },
+          capabilityKeys: [],
+          isActive: false,
+        }),
       })
 
       const provider = await service.getProvider(1)

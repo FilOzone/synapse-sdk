@@ -170,6 +170,10 @@ const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait()
 
+// Optional: Deposit to a different address (e.g., for a service or another user)
+const recipientAddress = '0x1234...'
+await synapse.payments.deposit(amount, TOKENS.USDFC, { to: recipientAddress })
+
 // Service operator approvals (required before creating data sets)
 const warmStorageAddress = await synapse.getWarmStorageAddress()
 
@@ -377,7 +381,7 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 
 **Token Operations:**
 
-- `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
+- `deposit(amount, token?, options?)` - Deposit funds to payments contract (handles approval automatically). Options include `to` (recipient address), and callbacks for visibility. Returns `TransactionResponse`
 - `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
 - `approve(spender, amount, token?)` - Approve token spending (for manual control), returns `TransactionResponse`
 - `allowance(spender, token?)` - Check current token allowance

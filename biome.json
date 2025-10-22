@@ -32,7 +32,8 @@
       "!**/__snapshots__",
       "!**/components.d.ts",
       "!**/mockServiceWorker.js",
-      "!**/abis/gen.ts"
+      "!**/abis/gen.ts",
+      "!packages/synapse-core/src/generated.ts"
     ]
   },
   "vcs": {

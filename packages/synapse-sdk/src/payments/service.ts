@@ -19,9 +19,11 @@ import {
 } from '../utils/index.ts'
 
 /**
- * Callbacks for deposit operation visibility
+ * Options for deposit operation
  */
-export interface DepositCallbacks {
+export interface DepositOptions {
+  /** Optional recipient address (defaults to signer address if not provided) */
+  to?: string
   /** Called when checking current allowance */
   onAllowanceCheck?: (current: bigint, required: bigint) => void
   /** Called when approval transaction is sent */
@@ -603,7 +605,7 @@ export class PaymentsService {
   async deposit(
     amount: TokenAmount,
     token: TokenIdentifier = TOKENS.USDFC,
-    callbacks?: DepositCallbacks
+    options?: DepositOptions
   ): Promise<ethers.TransactionResponse> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
@@ -616,6 +618,7 @@ export class PaymentsService {
     }
 
     const signerAddress = await this._signer.getAddress()
+    const depositTo = options?.to ?? signerAddress
     const usdfcContract = this._getUsdfcContract()
     const paymentsContract = this._getPaymentsContract()
 
@@ -632,24 +635,24 @@ export class PaymentsService {
 
     // Check and update allowance if needed
     const currentAllowance = await this.allowance(this._paymentsAddress, token)
-    callbacks?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
+    options?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
 
     if (currentAllowance < depositAmountBigint) {
       // Golden path: automatically approve the exact amount needed
       const approveTx = await this.approve(this._paymentsAddress, depositAmountBigint, token)
-      callbacks?.onApprovalTransaction?.(approveTx)
+      options?.onApprovalTransaction?.(approveTx)
 
       // Wait for approval to be mined before proceeding
       const approvalReceipt = await approveTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
       if (approvalReceipt != null) {
-        callbacks?.onApprovalConfirmed?.(approvalReceipt)
+        options?.onApprovalConfirmed?.(approvalReceipt)
       }
     }
 
     // Check if account has sufficient available balance (no frozen account check needed for deposits)
 
     // Notify that deposit is starting
-    callbacks?.onDepositStarting?.()
+    options?.onDepositStarting?.()
 
     // Only set explicit nonce if NonceManager is disabled
     const txOptions: any = {}
@@ -658,7 +661,7 @@ export class PaymentsService {
       txOptions.nonce = currentNonce
     }
 
-    const depositTx = await paymentsContract.deposit(this._usdfcAddress, signerAddress, depositAmountBigint, txOptions)
+    const depositTx = await paymentsContract.deposit(this._usdfcAddress, depositTo, depositAmountBigint, txOptions)
 
     return depositTx
   }
