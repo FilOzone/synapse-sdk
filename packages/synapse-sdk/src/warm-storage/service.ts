@@ -1099,6 +1099,13 @@ export class WarmStorageService {
     cdnAmountToAdd: bigint,
     cacheMissAmountToAdd: bigint
   ): Promise<ethers.TransactionResponse> {
+    if (cdnAmountToAdd < 0n || cacheMissAmountToAdd < 0n) {
+      throw new Error('Top up amounts must be positive')
+    }
+    if (cdnAmountToAdd === 0n && cacheMissAmountToAdd === 0n) {
+      throw new Error('At least one top up amount must be >0')
+    }
+
     const contract = this._getWarmStorageContract()
     const contractWithSigner = contract.connect(signer) as ethers.Contract
     return await contractWithSigner.topUpCDNPaymentRails(dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
