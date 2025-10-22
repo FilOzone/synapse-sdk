@@ -61,7 +61,7 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
     return {
       jsonrpc: '2.0',
       error: {
-        code: -32000,
+        code: 11,
         message:
           error instanceof Error
             ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${error.message})])`
