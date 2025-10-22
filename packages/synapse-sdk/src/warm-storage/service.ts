@@ -6,6 +6,7 @@
  * - Service provider registration and management
  * - Client dataset ID tracking
  * - Data set creation verification
+ * - CDN service management
  *
  * @example
  * ```typescript
@@ -1080,5 +1081,33 @@ export class WarmStorageService {
     const viewContract = this._getWarmStorageViewContract()
     const window = await viewContract.challengeWindow()
     return Number(window)
+  }
+  /**
+   * Increments the fixed locked-up amounts for CDN payment rails.
+   *
+   * This method tops up the prepaid balance for CDN services by adding to the existing
+   * lockup amounts. Both CDN and cache miss rails can be incremented independently.
+   *
+   * @param dataSetId - The ID of the data set
+   * @param cdnAmountToAdd - Amount to add to the CDN rail lockup
+   * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
+   * @returns Transaction response
+   */
+  async topUpCDNPaymentRails(
+    signer: ethers.Signer,
+    dataSetId: number,
+    cdnAmountToAdd: bigint,
+    cacheMissAmountToAdd: bigint
+  ): Promise<ethers.TransactionResponse> {
+    if (cdnAmountToAdd < 0n || cacheMissAmountToAdd < 0n) {
+      throw new Error('Top up amounts must be positive')
+    }
+    if (cdnAmountToAdd === 0n && cacheMissAmountToAdd === 0n) {
+      throw new Error('At least one top up amount must be >0')
+    }
+
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.topUpCDNPaymentRails(dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
   }
 }
