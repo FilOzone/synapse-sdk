@@ -1,4 +1,3 @@
-import { AbiCoder } from 'ethers'
 import { HttpResponse, http } from 'msw'
 import type { RequiredDeep } from 'type-fest'
 import {
@@ -68,7 +67,7 @@ function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse
             : 'Unknown error',
         data:
           error instanceof Error
-            ? `0x08c379a0${AbiCoder.defaultAbiCoder().encode(['string'], [error.message]).slice(2)}`
+            ? `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
             : '0x',
       },
       id: id ?? 1,
