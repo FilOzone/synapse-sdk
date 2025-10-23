@@ -3,6 +3,13 @@ export type Environment = 'development' | 'staging' | 'production'
 export interface TelemetryConfig {
   enabled?: boolean // default: true
   environment?: Environment // optional: deployment environment
+  /**
+   * The name of the application using the SDK.
+   * This is used to identify the application in the telemetry data.
+   * This is optional and can be set by the user via the synapse.telemetry.setContext() method.
+   * If not set, the SDK will use 'synapse-sdk' as the default app name.
+   */
+  appName?: string
   tags?: Record<string, string> // optional: custom tags
 }
 

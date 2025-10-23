@@ -39,10 +39,9 @@
  * - Storage provider identification for filtering
  */
 
-import type { TelemetryService } from './service.ts'
 import type { HTTPEvent } from './types.ts'
+import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
 
-let telemetryInstance: TelemetryService | null = null
 let isWrapped = false
 const originalFetch = globalThis.fetch
 
@@ -51,20 +50,17 @@ const originalFetch = globalThis.fetch
  *
  * This patches globalThis.fetch to add telemetry tracking.
  * Safe to call multiple times - will only wrap once.
- *
- * @param telemetry - TelemetryService instance
  */
-export function initGlobalFetchWrapper(telemetry: TelemetryService): void {
+export function initGlobalFetchWrapper(): void {
   if (isWrapped) {
     return // Already wrapped
   }
 
-  telemetryInstance = telemetry
   isWrapped = true
 
   globalThis.fetch = async function wrappedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
     // If telemetry disabled, use original fetch
-    if (!telemetryInstance?.isEnabled()) {
+    if (!isGlobalTelemetryEnabled()) {
       return originalFetch(input, init)
     }
 
@@ -83,6 +79,7 @@ export function initGlobalFetchWrapper(telemetry: TelemetryService): void {
     headers.set('x-synapse-request-id', requestId)
     headers.set('x-synapse-sdk-version', '0.34.0') // TODO: Get from package.json
 
+    const ts = new Date().toISOString()
     try {
       const response = await originalFetch(input, {
         ...init,
@@ -105,10 +102,10 @@ export function initGlobalFetchWrapper(telemetry: TelemetryService): void {
         spPath: spInfo.path,
         spOperation: spInfo.operation,
         requestId,
-        ts: new Date().toISOString(),
+        ts,
       }
 
-      telemetryInstance.captureHTTP(httpEvent)
+      getGlobalTelemetry()?.captureHTTP(httpEvent)
 
       return response
     } catch (error) {
@@ -121,21 +118,35 @@ export function initGlobalFetchWrapper(telemetry: TelemetryService): void {
         type: 'http',
         method: init?.method || 'GET',
         urlTemplate: `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`,
-        status: undefined,
+        status: 500,
         ok: false,
         durationMs,
         spHostname: spInfo.hostname,
         spPath: spInfo.path,
         spOperation: spInfo.operation,
         requestId,
-        ts: new Date().toISOString(),
+        ts,
       }
 
-      telemetryInstance.captureHTTP(httpEvent)
+      getGlobalTelemetry()?.captureHTTP(httpEvent)
 
       throw error
     }
   }
+}
+
+/**
+ * Remove the global fetch wrapper
+ *
+ * Useful for testing or when telemetry should be disabled.
+ */
+export function removeGlobalFetchWrapper(): void {
+  if (!isWrapped) {
+    return
+  }
+
+  globalThis.fetch = originalFetch
+  isWrapped = false
 }
 
 /**
@@ -163,15 +174,24 @@ function extractSPInfo(
     } else if (method === 'GET') {
       operation = 'get-dataset'
     }
-  } else if (path.includes('/pdp/pieces') || path.includes('/pdp/piece')) {
+  } else if (path.includes('/pdp/pieces')) {
     if (method === 'POST') {
       operation = 'add-piece'
+    } else if (method === 'DELETE') {
+      operation = 'delete-piece'
+    }
+  } else if (path.includes('/pdp/piece')) {
+    if (method === 'POST') {
+      operation = 'create-upload-session'
     } else if (method === 'PUT') {
       operation = 'upload-piece'
     } else if (method === 'GET') {
-      operation = 'get-piece'
-    } else if (method === 'DELETE') {
-      operation = 'delete-piece'
+      // Distinguish between find-pieces and get-piece
+      if (path === '/pdp/piece' || path === '/pdp/piece/') {
+        operation = 'find-pieces'
+      } else {
+        operation = 'get-piece'
+      }
     }
   } else if (path.includes('/graphql') || hostname.includes('subgraph')) {
     operation = 'subgraph-query'
@@ -209,17 +229,4 @@ function generateSpanId(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(8)))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
-}
-
-/**
- * Remove global fetch wrapper (for cleanup/testing)
- *
- * @internal - Primarily for testing
- */
-export function removeGlobalFetchWrapper(): void {
-  if (isWrapped) {
-    globalThis.fetch = originalFetch
-    isWrapped = false
-    telemetryInstance = null
-  }
 }

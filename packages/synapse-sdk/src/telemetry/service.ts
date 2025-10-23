@@ -75,6 +75,7 @@ export class TelemetryService {
   private context: RuntimeContext
   private eventBuffer: Array<ErrorEvent | HTTPEvent | OperationEvent | CustomEvent> = []
   private readonly maxBufferSize = 50
+  private exitHandlersRegistered = false
 
   constructor(adapter: TelemetryAdapter, config: TelemetryConfig, context: RuntimeContext) {
     this.adapter = adapter
@@ -89,8 +90,31 @@ export class TelemetryService {
         ua: context.ua || '',
         appName: context.appName || '',
       })
+
+      this.setupIntervalFlushing()
     }
   }
+
+  /**
+   * We will automatically flush every 5 seconds so we don't miss events if a process calls `process.exit(code)`
+   * without calling `await synapse.telemetry.flush()`.
+   *
+   * Uses setTimeout instead of setInterval to avoid keeping the process alive.
+   */
+  private setupIntervalFlushing(): void {
+    const scheduleNext = () => {
+      setTimeout(() => {
+        this.flush().finally(() => {
+          // Schedule the next flush only after the current one completes
+          scheduleNext()
+        })
+      }, 5000)
+    }
+
+    // Start the first flush cycle
+    scheduleNext()
+  }
+
 
   /**
    * Track an entire operation with timing and error handling
@@ -278,6 +302,35 @@ export class TelemetryService {
    */
   isEnabled(): boolean {
     return this.enabled
+  }
+
+  /**
+   * Flush pending telemetry events
+   *
+   * Call this before process exit to ensure all events are sent.
+   * Returns a promise that resolves when flushing is complete.
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if all events were flushed
+   *
+   * @example
+   * ```typescript
+   * // Before exiting
+   * await synapse.telemetry.flush()
+   * process.exit(0)
+   * ```
+   */
+  async flush(timeout = 2000): Promise<boolean> {
+    if (!this.enabled) {
+      return true
+    }
+
+    // Delegate to adapter's flush method
+    if (this.adapter && 'flush' in this.adapter && typeof (this.adapter as any).flush === 'function') {
+      return (this.adapter as any).flush(timeout)
+    }
+
+    return true
   }
 
   /**

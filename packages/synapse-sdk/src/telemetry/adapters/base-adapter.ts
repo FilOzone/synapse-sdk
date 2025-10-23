@@ -23,6 +23,11 @@ export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
     end(error?: Error): void
   }
 
+  /**
+   * Flush pending events (optional, implemented by adapters that need it)
+   */
+  async flush?(timeout: number): Promise<boolean>
+
   protected sanitizeEvent(event: any): any {
     // Allowlist approach: only include safe fields we explicitly want
     // Create a shallow copy to avoid mutating the original event

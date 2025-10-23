@@ -6,6 +6,9 @@
  */
 
 export { TelemetryService } from './service.ts'
+// telemetry/errors.ts is exported from ../utils/errors.ts
+export { initGlobalTelemetry, getGlobalTelemetry, removeGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
+export { initGlobalFetchWrapper, removeGlobalFetchWrapper } from './fetch-wrapper.ts'
 export type {
   DebugDump,
   Environment,

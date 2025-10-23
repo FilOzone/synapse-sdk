@@ -1,6 +1,6 @@
 import type { CustomEvent, HTTPEvent, OperationEvent, OperationType, TelemetryConfig } from '../types.ts'
 import { BaseTelemetryAdapter } from './base-adapter.ts'
-import { Sentry } from './sentry-dep.ts'
+import { Sentry, integrations } from './sentry-dep.ts'
 
 /**
  * Sentry telemetry adapter
@@ -15,6 +15,11 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       sendDefaultPii: false,
       environment: config.environment || 'production',
       beforeSend: this.sanitizeEvent,
+      // Enable tracing/performance monitoring
+      tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
+      // Integrations configured per-runtime in sentry-dep files
+      integrations,
+      debug: true, // Enable debug logging
     })
 
     Sentry.setContext('environment', {
@@ -43,6 +48,28 @@ export class SentryAdapter extends BaseTelemetryAdapter {
   }
 
   captureHTTP(event: HTTPEvent): void {
+    const startTime = new Date(event.ts).getTime()
+
+    const span = Sentry.startInactiveSpan({
+      name: `${event.method} ${event.urlTemplate}`,
+      op: event.spOperation,
+      startTime: startTime,
+      attributes: {
+        // Use standard searchable properties
+        'action': event.method, // HTTP method (GET, POST, etc.)
+        'domain': event.spHostname, // Hostname for searching
+        'description': `${event.method} ${event.urlTemplate}`, // Full description
+        'status_code': event.status?.toString(), // HTTP status code
+        // Custom attributes for detailed info (not searchable)
+        'http.url': event.urlTemplate,
+        'http.request_id': event.requestId,
+        'sp.path': event.spPath,
+        'sp.operation': event.spOperation,
+      },
+    })
+    span.setStatus(event.ok ? { code: 1 } : { code: 2, message: event.status?.toString() || 'Unknown error' })
+    span.end()
+
     Sentry.addBreadcrumb({
       category: 'http',
       message: `${event.method} ${event.urlTemplate}`,
@@ -50,7 +77,6 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         status: event.status,
         duration: event.durationMs,
         requestId: event.requestId,
-        // Tags go in data for breadcrumbs
         sp_hostname: event.spHostname,
         sp_path: event.spPath,
         sp_operation: event.spOperation,
@@ -70,7 +96,6 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         success: event.success,
         duration: event.durationMs,
         requestId: event.requestId,
-        // Tags go in data for breadcrumbs
         operation_type: event.operation,
         operation_success: event.success.toString(),
         sdk_operation: 'true',
@@ -85,7 +110,6 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       message: event.name,
       data: {
         ...event.data,
-        // Tags go in data for breadcrumbs
         custom_event: 'true',
         event_name: event.name,
       },
@@ -134,5 +158,14 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         }
       },
     }
+  }
+
+  /**
+   * Flush pending Sentry events
+   *
+   * This ensures all queued events are sent before the process exits.
+   */
+  override async flush(timeout = 2000): Promise<boolean> {
+    return await Sentry.close(timeout)
   }
 }

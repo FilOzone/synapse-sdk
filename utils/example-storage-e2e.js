@@ -358,7 +358,8 @@ async function main() {
     if (error.cause) {
       console.error('Caused by:', error.cause.message)
     }
-    process.exit(1)
+    process.exitCode = 1
+    throw error
   }
 }
 
