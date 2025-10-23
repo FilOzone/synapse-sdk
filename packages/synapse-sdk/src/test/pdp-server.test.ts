@@ -95,6 +95,35 @@ describe('PDPServer', () => {
     })
   })
 
+  describe('createAndAddPieces', () => {
+    it('should handle successful data set creation', async () => {
+      // Mock the createDataSet endpoint
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
+
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/create-and-add', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
+          })
+        })
+      )
+
+      const result = await pdpServer.createAndAddPieces(
+        0n,
+        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        await signer.getAddress(),
+        TEST_CONTRACT_ADDRESS,
+        validPieceCid,
+        {}
+      )
+
+      assert.strictEqual(result.txHash, mockTxHash)
+      assert.include(result.statusUrl, mockTxHash)
+    })
+  })
+
   describe('getPieceAdditionStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
