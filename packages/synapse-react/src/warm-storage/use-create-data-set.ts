@@ -37,7 +37,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         chainId,
       })
 
-      const { hash, statusUrl } = await createDataSet(connectorClient, {
+      const { txHash, statusUrl } = await createDataSet(connectorClient, {
         publicClient: config.getClient(),
         provider,
         cdn,
@@ -46,7 +46,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         //   description: 'Test Description',
         // },
       })
-      props?.onHash?.(hash)
+      props?.onHash?.(txHash)
 
       const dataSet = await Curio.pollForDataSetCreationStatus({ statusUrl })
 
