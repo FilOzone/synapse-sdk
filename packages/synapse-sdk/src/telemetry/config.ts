@@ -16,10 +16,7 @@ export function isTelemetryDisabledByEnv(): boolean {
   // Check for global disable flag (universal)
   if (typeof globalThis !== 'undefined') {
     // Check for explicit disable flag
-    if (
-      (globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true ||
-      (globalThis as any).SYNAPSE_TELEMETRY_DISABLED === 1
-    ) {
+    if ((globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true) {
       return true
     }
 
@@ -28,7 +25,7 @@ export function isTelemetryDisabledByEnv(): boolean {
       const process = (globalThis as any).process
       if (process?.env) {
         const disabled = process.env.SYNAPSE_TELEMETRY_DISABLED
-        if (disabled === '1' || disabled === 'true' || disabled === 'yes') {
+        if (typeof disabled === 'string' && disabled.trim().toLowerCase() === 'true') {
           return true
         }
       }

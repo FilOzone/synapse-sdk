@@ -42,6 +42,24 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 Check the documentation [website](https://synapse.filecoin.services/)
 
+## Telemetry
+
+Telemetry is enabled by default to help us validate functionality while moving towards GA launch. Disable it at runtime if you prefer:
+
+```ts
+const synapse = await Synapse.create({
+  /* ...existing options... */
+  telemetry: { enabled: false },
+})
+// You can also disable telemetry with an explicit disable function call:
+synapse.telemetry.disable()
+```
+You can also set the environment variable `SYNAPSE_TELEMETRY_DISABLED=true` to completely disable telemetry.
+
+If you need to disable telemetry separately and don't have access to the SDK instance creation, nor environment variables, you can set `globalThis.SYNAPSE_TELEMETRY_DISABLED=true`.
+
+Any of the above options will fully opt you out without affecting the rest of the SDK.
+
 ## Contributing
 
 Read contributing  [guidelines](../../.github/CONTRIBUTING.md).
