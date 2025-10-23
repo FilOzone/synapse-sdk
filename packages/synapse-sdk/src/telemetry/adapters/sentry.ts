@@ -18,8 +18,7 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
-      integrations,
-      debug: true, // Enable debug logging
+      integrations
     })
 
     Sentry.setContext('environment', {
