@@ -39,8 +39,8 @@
  * - Storage provider identification for filtering
  */
 
-import type { HTTPEvent } from './types.ts'
 import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
+import type { HTTPEvent } from './types.ts'
 
 let isWrapped = false
 const originalFetch = globalThis.fetch

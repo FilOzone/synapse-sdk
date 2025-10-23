@@ -75,7 +75,6 @@ export class TelemetryService {
   private context: RuntimeContext
   private eventBuffer: Array<ErrorEvent | HTTPEvent | OperationEvent | CustomEvent> = []
   private readonly maxBufferSize = 50
-  private exitHandlersRegistered = false
 
   constructor(adapter: TelemetryAdapter, config: TelemetryConfig, context: RuntimeContext) {
     this.adapter = adapter
@@ -114,7 +113,6 @@ export class TelemetryService {
     // Start the first flush cycle
     scheduleNext()
   }
-
 
   /**
    * Track an entire operation with timing and error handling

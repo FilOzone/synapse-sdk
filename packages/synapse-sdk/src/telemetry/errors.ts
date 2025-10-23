@@ -5,9 +5,9 @@
  * when telemetry is enabled. Uses the global telemetry singleton.
  */
 
-import { OPERATIONS, type OperationType } from './types.ts'
 import { createError as originalCreateError } from '../utils/errors.ts'
 import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
+import type { OperationType } from './types.ts'
 
 /**
  * Create an error with automatic telemetry capture
@@ -30,10 +30,9 @@ export function createError(
   // Create the error using the original function
   const error = originalCreateError(prefix, operation, details, originalError)
 
-
   // we need to convert the prefix + operation to a sentry.io operation type
   // TODO: better mapping of prefix across the board.. seems like we should use what already exists in createError() calls instead of what's defined in telemetry/types.ts `OPERATIONS` constant
-  let operationType = `${prefix}.${operation}`
+  const operationType = `${prefix}.${operation}`
 
   // Capture to telemetry if enabled
   if (isGlobalTelemetryEnabled()) {

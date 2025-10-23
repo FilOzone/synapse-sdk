@@ -7,6 +7,4 @@ import * as SentryNode from '@sentry/node'
 export const Sentry = SentryNode
 
 // Export Node-specific integrations as an array
-export const integrations: any[] = [
-  SentryNode.httpIntegration(),
-]
+export const integrations: any[] = [SentryNode.httpIntegration()]

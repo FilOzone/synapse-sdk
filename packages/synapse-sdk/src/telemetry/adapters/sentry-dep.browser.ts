@@ -7,6 +7,4 @@ import * as SentryBrowser from '@sentry/browser'
 export const Sentry = SentryBrowser
 
 // Export browser-specific integrations as an array
-export const integrations: any[] = [
-  SentryBrowser.browserTracingIntegration(),
-]
+export const integrations: any[] = [SentryBrowser.browserTracingIntegration()]

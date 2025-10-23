@@ -1,6 +1,6 @@
 import type { CustomEvent, HTTPEvent, OperationEvent, OperationType, TelemetryConfig } from '../types.ts'
 import { BaseTelemetryAdapter } from './base-adapter.ts'
-import { Sentry, integrations } from './sentry-dep.ts'
+import { integrations, Sentry } from './sentry-dep.ts'
 
 /**
  * Sentry telemetry adapter
@@ -56,10 +56,10 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       startTime: startTime,
       attributes: {
         // Use standard searchable properties
-        'action': event.method, // HTTP method (GET, POST, etc.)
-        'domain': event.spHostname, // Hostname for searching
-        'description': `${event.method} ${event.urlTemplate}`, // Full description
-        'status_code': event.status?.toString(), // HTTP status code
+        action: event.method, // HTTP method (GET, POST, etc.)
+        domain: event.spHostname, // Hostname for searching
+        description: `${event.method} ${event.urlTemplate}`, // Full description
+        status_code: event.status?.toString(), // HTTP status code
         // Custom attributes for detailed info (not searchable)
         'http.url': event.urlTemplate,
         'http.request_id': event.requestId,
