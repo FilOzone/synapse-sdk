@@ -64,6 +64,8 @@
     "prepublishOnly": "pnpm run clean && pnpm run build"
   },
   "dependencies": {
+    "@sentry/browser": "^10.21.0",
+    "@sentry/node": "^10.21.0",
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
@@ -93,5 +95,8 @@
     "workerDirectory": [
       "src/test/mocks"
     ]
+  },
+  "browser": {
+    "./dist/src/telemetry/adapters/sentry-dep.js": "./dist/src/telemetry/adapters/sentry-dep.browser.js"
   }
 }
