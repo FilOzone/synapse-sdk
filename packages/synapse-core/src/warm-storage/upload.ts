@@ -55,7 +55,6 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
 
   const addPieces = await PDP.addPieces({
     dataSetId: options.dataSetId,
-    clientDataSetId: dataSet.clientDataSetId,
     nextPieceId: nextPieceId,
     pieces: uploadResponses.map((response) => response.pieceCid),
     endpoint: provider[0].serviceURL,
