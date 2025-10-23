@@ -185,6 +185,7 @@ export class PDPServer {
    * Create a new data set on the PDP server
    * @param clientDataSetId - Unique ID for the client's dataset
    * @param payee - Address that will receive payments (service provider)
+   * @param payer - Address that will pay for the storage (client)
    * @param metadata - Metadata entries for the data set (key-value pairs)
    * @param recordKeeper - Address of the Warm Storage contract
    * @returns Promise that resolves with transaction hash and status URL
@@ -252,6 +253,18 @@ export class PDPServer {
     }
   }
 
+  /**
+   * Creates a data set and adds pieces to it in a combined operation.
+   * Users can poll the status of the operation using the returned data set status URL.
+   * After which the user can use the returned transaction hash and data set ID to check the status of the piece addition.
+   * @param clientDataSetId  - Unique ID for the client's dataset
+   * @param payee - Address that will receive payments (service provider)
+   * @param payer - Address that will pay for the storage (client)
+   * @param recordKeeper - Address of the Warm Storage contract
+   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
+   * @param metadata - Optional metadata for dataset and each of the pieces.
+   * @returns Promise that resolves with transaction hash and status URL
+   */
   async createAndAddPieces(
     clientDataSetId: bigint,
     payee: string,
