@@ -1015,7 +1015,9 @@ export class StorageContext {
 
       // Poll for piece to be "parked" (ready)
       const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
-      const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
+      const baseDelay = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
+      const maxDelay = 10_000
+      let attempt = 0
       const startTime = Date.now()
       let pieceReady = false
 
@@ -1026,10 +1028,12 @@ export class StorageContext {
           pieceReady = true
           break
         } catch {
-          // Piece not ready yet, wait and retry if we haven't exceeded timeout
-          if (Date.now() - startTime + pollInterval < maxWaitTime) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval))
-          }
+          attempt++
+          const backoff = Math.min(baseDelay * 2 ** attempt, maxDelay)
+          const jitter = Math.random() * backoff * 0.2
+          const delay = backoff + jitter
+          if (Date.now() - startTime + delay >= maxWaitTime) break
+          await new Promise((resolve) => setTimeout(resolve, delay))
         }
       }
       performance.mark('synapse:findPiece-end')
