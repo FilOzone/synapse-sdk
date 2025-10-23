@@ -39,6 +39,7 @@
  * - Storage provider identification for filtering
  */
 
+import { SDK_VERSION } from '../utils/sdk-version.js'
 import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
 import type { HTTPEvent } from './types.ts'
 
@@ -77,7 +78,7 @@ export function initGlobalFetchWrapper(): void {
     const headers = new Headers(init?.headers)
     headers.set('traceparent', `00-${traceId}-${spanId}-01`)
     headers.set('x-synapse-request-id', requestId)
-    headers.set('x-synapse-sdk-version', '0.34.0') // TODO: Get from package.json
+    headers.set('x-synapse-sdk-version', SDK_VERSION)
 
     const ts = new Date().toISOString()
     try {

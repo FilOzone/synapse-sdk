@@ -24,6 +24,7 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
+import { SDK_VERSION } from './utils/sdk-version.js'
 import { ProviderResolver } from './utils/provider-resolver.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
@@ -173,7 +174,7 @@ export class Synapse {
     const telemetryConfig = options.telemetry ?? { enabled: true }
     const telemetryAdapter = new SentryAdapter()
     const telemetryContext = {
-      sdkVersion: '0.34.0', // TODO: Get from package.json
+      sdkVersion: SDK_VERSION,
       runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
       network,
       ua:
