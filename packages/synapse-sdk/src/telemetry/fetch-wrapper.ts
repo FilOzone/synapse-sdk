@@ -39,7 +39,7 @@
  * - Storage provider identification for filtering
  */
 
-import { SDK_VERSION } from '../utils/sdk-version.js'
+import { SDK_VERSION } from '../utils/sdk-version.ts'
 import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
 import type { HTTPEvent } from './types.ts'
 

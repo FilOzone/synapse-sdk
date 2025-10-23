@@ -24,8 +24,8 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
-import { SDK_VERSION } from './utils/sdk-version.js'
 import { ProviderResolver } from './utils/provider-resolver.ts'
+import { SDK_VERSION } from './utils/sdk-version.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 export class Synapse {
