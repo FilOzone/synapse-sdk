@@ -1,7 +1,16 @@
-export type Environment = 'development' | 'staging' | 'production'
+export type Environment = 'test' | 'development' | 'staging' | 'production'
 
 export interface TelemetryConfig {
-  enabled?: boolean // default: true
+  /**
+   * Whether to enable telemetry.
+   *
+   * You can also control this via the environment variable `SYNAPSE_TELEMETRY_DISABLED` or the global variable `SYNAPSE_TELEMETRY_DISABLED`.
+   *
+   * This value will also be false if `NODE_ENV === 'test'`.
+   *
+   * @default true
+   */
+  enabled?: boolean
   environment?: Environment // optional: deployment environment
   /**
    * The name of the application using the SDK.

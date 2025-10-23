@@ -44,6 +44,7 @@
  * ```
  */
 
+import { resolveTelemetryConfig } from './config.ts'
 import type {
   CustomEvent,
   DebugDump,
@@ -78,11 +79,14 @@ export class TelemetryService {
 
   constructor(adapter: TelemetryAdapter, config: TelemetryConfig, context: RuntimeContext) {
     this.adapter = adapter
-    this.enabled = config.enabled !== false // Default: enabled
+
+    // Resolve configuration with environment detection
+    const resolvedConfig = resolveTelemetryConfig(config)
+    this.enabled = resolvedConfig.enabled
     this.context = context
 
     if (this.enabled) {
-      this.adapter.init(config, {
+      this.adapter.init(resolvedConfig, {
         sdkVersion: context.sdkVersion,
         runtime: context.runtime,
         network: context.network,
@@ -300,6 +304,54 @@ export class TelemetryService {
    */
   isEnabled(): boolean {
     return this.enabled
+  }
+
+  /**
+   * Enable telemetry explicitly (even if disabled by environment)
+   * Useful for testing or when you need to force telemetry on
+   */
+  enable(): void {
+    if (!this.enabled) {
+      this.enabled = true
+      this.adapter.init(
+        {
+          enabled: true,
+          environment: this.context.runtime === 'browser' ? 'development' : 'production',
+          appName: this.context.appName || 'synapse-sdk',
+        },
+        {
+          sdkVersion: this.context.sdkVersion,
+          runtime: this.context.runtime,
+          network: this.context.network,
+          ua: this.context.ua || '',
+          appName: this.context.appName || '',
+        }
+      )
+
+      this.setupIntervalFlushing()
+    }
+  }
+
+  /**
+   * Disable telemetry explicitly (even if enabled by environment)
+   * Useful for testing or when you need to force telemetry off
+   */
+  disable(): void {
+    if (this.enabled) {
+      this.enabled = false
+      this.adapter.init(
+        {
+          enabled: false,
+        },
+        {
+          sdkVersion: this.context.sdkVersion,
+          runtime: this.context.runtime,
+          network: this.context.network,
+          ua: this.context.ua || '',
+          appName: this.context.appName || '',
+        }
+      )
+    }
   }
 
   /**
