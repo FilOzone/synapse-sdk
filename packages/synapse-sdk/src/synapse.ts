@@ -11,6 +11,7 @@ import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
 import { SentryAdapter } from './telemetry/adapters/sentry.ts'
+import { initGlobalFetchWrapper } from './telemetry/fetch-wrapper.ts'
 import { TelemetryService } from './telemetry/service.ts'
 import type {
   FilecoinNetworkType,
@@ -182,6 +183,11 @@ export class Synapse {
       appName: undefined, // Can be set by user via telemetry.setContext()
     }
     const telemetry = new TelemetryService(telemetryAdapter, telemetryConfig, telemetryContext)
+
+    // Initialize global fetch wrapper for automatic HTTP telemetry
+    if (telemetry.isEnabled()) {
+      initGlobalFetchWrapper(telemetry)
+    }
 
     return new Synapse(
       signer,
