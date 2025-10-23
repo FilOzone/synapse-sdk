@@ -4,6 +4,24 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.34.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.33.0...synapse-sdk-v0.34.0) (2025-10-21)
+
+
+### Features
+
+* allowing deposits to secondary addresses ([4629f1f](https://github.com/FilOzone/synapse-sdk/commit/4629f1fd1d3e5b2ef66164dbf3321640854d5fce))
+* deposit to any address ([#316](https://github.com/FilOzone/synapse-sdk/issues/316)) ([4629f1f](https://github.com/FilOzone/synapse-sdk/commit/4629f1fd1d3e5b2ef66164dbf3321640854d5fce))
+
+
+### Bug Fixes
+
+* getPDPService always returns a pdpOffering ([#324](https://github.com/FilOzone/synapse-sdk/issues/324)) ([42389da](https://github.com/FilOzone/synapse-sdk/commit/42389da5a67ab503f5a76c055eace9b499c49a14))
+
+
+### Chores
+
+* merge core and react ([#335](https://github.com/FilOzone/synapse-sdk/issues/335)) ([0e0262b](https://github.com/FilOzone/synapse-sdk/commit/0e0262b5a0f5aa7d41b907b5a81dfd7d53c51905))
+
 ## [0.33.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.32.0...synapse-sdk-v0.33.0) (2025-10-14)
 
 
