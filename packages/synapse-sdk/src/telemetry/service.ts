@@ -45,15 +45,15 @@
  */
 
 import type {
-  TelemetryAdapter,
-  TelemetryConfig,
+  CustomEvent,
+  DebugDump,
   ErrorEvent,
   HTTPEvent,
   OperationEvent,
-  CustomEvent,
   OperationType,
-  DebugDump,
-} from './types.js'
+  TelemetryAdapter,
+  TelemetryConfig,
+} from './types.ts'
 
 /**
  * Configuration for runtime detection and context
@@ -112,11 +112,7 @@ export class TelemetryService {
    * @param params - Optional allowlisted parameters (no secrets!)
    * @returns Result from the function
    */
-  async trackOperation<T>(
-    operation: OperationType,
-    fn: () => Promise<T>,
-    params?: Record<string, any>
-  ): Promise<T> {
+  async trackOperation<T>(operation: OperationType, fn: () => Promise<T>, params?: Record<string, any>): Promise<T> {
     if (!this.enabled) {
       return fn()
     }

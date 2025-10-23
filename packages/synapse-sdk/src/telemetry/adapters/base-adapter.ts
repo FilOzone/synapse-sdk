@@ -1,4 +1,11 @@
-import type { TelemetryAdapter, TelemetryConfig, HTTPEvent, OperationEvent, CustomEvent, OperationType } from '../types.js'
+import type {
+  CustomEvent,
+  HTTPEvent,
+  OperationEvent,
+  OperationType,
+  TelemetryAdapter,
+  TelemetryConfig,
+} from '../types.ts'
 
 export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
   abstract init(config: TelemetryConfig, tags: Record<string, string>): void
@@ -7,7 +14,11 @@ export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
   abstract captureOperation(event: OperationEvent): void
   abstract captureCustomEvent(event: CustomEvent): void
   abstract setContext(tags: Record<string, string>): void
-  abstract startSpan(name: string, op: OperationType, context?: Record<string, unknown>): {
+  abstract startSpan(
+    name: string,
+    op: OperationType,
+    context?: Record<string, unknown>
+  ): {
     spanId: string
     end(error?: Error): void
   }
@@ -34,7 +45,7 @@ export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
       const url = new URL(sanitized.request.url)
       sanitized.request = {
         ...sanitized.request,
-        url: `${url.protocol}//${url.host}${url.pathname}`
+        url: `${url.protocol}//${url.host}${url.pathname}`,
       }
     }
 
@@ -80,7 +91,7 @@ export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
 
   protected generateSpanId(): string {
     return Array.from(crypto.getRandomValues(new Uint8Array(8)))
-      .map(b => b.toString(16).padStart(2, '0'))
+      .map((b) => b.toString(16).padStart(2, '0'))
       .join('')
   }
 }

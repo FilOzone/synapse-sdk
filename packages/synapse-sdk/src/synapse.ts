@@ -10,6 +10,8 @@ import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
+import { SentryAdapter } from './telemetry/adapters/sentry.ts'
+import { TelemetryService } from './telemetry/service.ts'
 import type {
   FilecoinNetworkType,
   PieceCID,
@@ -34,6 +36,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private readonly _telemetry: TelemetryService
   private _session: SessionKey | null = null
 
   /**
@@ -165,6 +168,21 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
+    // Initialize telemetry service
+    const telemetryConfig = options.telemetry ?? { enabled: true }
+    const telemetryAdapter = new SentryAdapter()
+    const telemetryContext = {
+      sdkVersion: '0.34.0', // TODO: Get from package.json
+      runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
+      network,
+      ua:
+        typeof globalThis !== 'undefined' && 'navigator' in globalThis
+          ? (globalThis as any).navigator.userAgent
+          : undefined,
+      appName: undefined, // Can be set by user via telemetry.setContext()
+    }
+    const telemetry = new TelemetryService(telemetryAdapter, telemetryConfig, telemetryContext)
+
     return new Synapse(
       signer,
       provider,
@@ -174,6 +192,7 @@ export class Synapse {
       warmStorageAddress,
       warmStorageService,
       pieceRetriever,
+      telemetry,
       options.dev === false,
       options.withIpni
     )
@@ -189,6 +208,7 @@ export class Synapse {
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
+    telemetry: TelemetryService,
     dev: boolean,
     withIpni?: boolean
   ) {
@@ -200,6 +220,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._telemetry = telemetry
     this._session = null
 
     // Initialize StorageManager
@@ -219,6 +240,23 @@ export class Synapse {
    */
   getNetwork(): FilecoinNetworkType {
     return this._network
+  }
+
+  /**
+   * Gets the telemetry service for error tracking and debugging
+   * @returns The telemetry service instance
+   * @example
+   * ```typescript
+   * // Get debug dump for support tickets
+   * const dump = synapse.telemetry.debugDump()
+   * console.log(JSON.stringify(dump, null, 2))
+   *
+   * // Track custom events
+   * synapse.telemetry.captureCustomEvent('user-action', { action: 'upload' })
+   * ```
+   */
+  get telemetry(): TelemetryService {
+    return this._telemetry
   }
 
   /**

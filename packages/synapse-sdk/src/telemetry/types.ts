@@ -109,7 +109,11 @@ export interface TelemetryAdapter {
    * NOTE: For SDK operations, use TelemetryService.trackOperation() instead.
    * This is for advanced cases where you need manual span lifecycle control.
    */
-  startSpan(name: string, op: OperationType, context?: Record<string, unknown>): {
+  startSpan(
+    name: string,
+    op: OperationType,
+    context?: Record<string, unknown>
+  ): {
     spanId: string
     end(error?: Error): void
   }

@@ -1,6 +1,6 @@
-import { Sentry } from './sentry-dep.js'
-import type { TelemetryConfig, HTTPEvent, OperationEvent, CustomEvent, OperationType } from '../types.js'
-import { BaseTelemetryAdapter } from './base-adapter.js'
+import type { CustomEvent, HTTPEvent, OperationEvent, OperationType, TelemetryConfig } from '../types.ts'
+import { BaseTelemetryAdapter } from './base-adapter.ts'
+import { Sentry } from './sentry-dep.ts'
 
 /**
  * Sentry telemetry adapter
@@ -9,12 +9,12 @@ import { BaseTelemetryAdapter } from './base-adapter.js'
 export class SentryAdapter extends BaseTelemetryAdapter {
   init(config: TelemetryConfig, tags: Record<string, string>): void {
     Sentry.init({
-      dsn: "https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320",
+      dsn: 'https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320',
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
       environment: config.environment || 'production',
-      beforeSend: this.sanitizeEvent
+      beforeSend: this.sanitizeEvent,
     })
 
     Sentry.setContext('environment', {
@@ -22,7 +22,7 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       runtime: tags.runtime,
       network: tags.network,
       ua: tags.ua,
-      appName: tags.appName
+      appName: tags.appName,
     })
 
     // Set global tags
@@ -38,7 +38,7 @@ export class SentryAdapter extends BaseTelemetryAdapter {
   captureError(error: Error, context?: Record<string, unknown>): void {
     Sentry.captureException(error, {
       tags: context?.operation ? { operation: String(context.operation) } : undefined,
-      extra: context
+      extra: context,
     })
   }
 
@@ -55,9 +55,9 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         sp_path: event.spPath,
         sp_operation: event.spOperation,
         http_method: event.method,
-        http_status: event.status?.toString()
+        http_status: event.status?.toString(),
       },
-      level: event.ok ? 'info' : 'error'
+      level: event.ok ? 'info' : 'error',
     })
   }
 
@@ -73,9 +73,9 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         // Tags go in data for breadcrumbs
         operation_type: event.operation,
         operation_success: event.success.toString(),
-        sdk_operation: 'true'
+        sdk_operation: 'true',
       },
-      level: event.success ? 'info' : 'error'
+      level: event.success ? 'info' : 'error',
     })
   }
 
@@ -87,9 +87,9 @@ export class SentryAdapter extends BaseTelemetryAdapter {
         ...event.data,
         // Tags go in data for breadcrumbs
         custom_event: 'true',
-        event_name: event.name
+        event_name: event.name,
       },
-      level: event.level
+      level: event.level,
     })
   }
 
@@ -99,13 +99,17 @@ export class SentryAdapter extends BaseTelemetryAdapter {
     })
   }
 
-  startSpan(name: string, op: OperationType, context?: Record<string, unknown>): {
+  startSpan(
+    name: string,
+    op: OperationType,
+    context?: Record<string, unknown>
+  ): {
     spanId: string
     end(error?: Error): void
   } {
     const span = Sentry.startInactiveSpan({
       name,
-      op
+      op,
     })
 
     // Set context attributes if provided
@@ -128,8 +132,7 @@ export class SentryAdapter extends BaseTelemetryAdapter {
           }
           span.end()
         }
-      }
+      },
     }
   }
-
 }
