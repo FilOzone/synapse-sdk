@@ -1,6 +1,7 @@
 import type { CustomEvent, HTTPEvent, OperationEvent, OperationType, TelemetryConfig } from '../types.ts'
 import { BaseTelemetryAdapter } from './base-adapter.ts'
 import { integrations, Sentry } from './sentry-dep.ts'
+import { setupShutdownHooks } from './shutdown-utils.ts'
 
 /**
  * Sentry telemetry adapter
@@ -14,7 +15,7 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
       environment: config.environment || 'production',
-      release: tags.sdkVersion || 'synapse-sdk@0.34.0',
+      release: `@filoz/synapse-sdk@v${tags.sdkVersion}`,
       beforeSend: this.sanitizeEvent,
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
@@ -39,6 +40,8 @@ export class SentryAdapter extends BaseTelemetryAdapter {
     if (tags.appName) {
       Sentry.setTag('app_name', tags.appName)
     }
+
+    setupShutdownHooks(Sentry)
   }
 
   captureError(error: Error, context?: Record<string, unknown>): void {
@@ -163,10 +166,19 @@ export class SentryAdapter extends BaseTelemetryAdapter {
 
   /**
    * Flush pending Sentry events
-   *
-   * This ensures all queued events are sent before the process exits.
    */
   override async flush(timeout = 2000): Promise<boolean> {
+    return await Sentry.flush(timeout)
+  }
+
+  /**
+   * Shut down the Sentry telemetry adapter, flushing any pending events
+   * This ensures all queued events are sent before the process exits.
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if all events were flushed
+   */
+  override async close(timeout = 2000): Promise<boolean> {
     return await Sentry.close(timeout)
   }
 }

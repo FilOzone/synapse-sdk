@@ -25,8 +25,19 @@ export abstract class BaseTelemetryAdapter implements TelemetryAdapter {
 
   /**
    * Flush pending events (optional, implemented by adapters that need it)
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if all events were flushed
    */
   async flush?(timeout: number): Promise<boolean>
+
+  /**
+   * Shut down the telemetry adapter, flushing any pending events
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if all events were flushed
+   */
+  async close?(timeout: number): Promise<boolean>
 
   protected sanitizeEvent(event: any): any {
     // Allowlist approach: only include safe fields we explicitly want

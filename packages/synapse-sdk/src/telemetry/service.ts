@@ -86,36 +86,14 @@ export class TelemetryService {
     this.context = context
 
     if (this.enabled) {
-      this.adapter.init(resolvedConfig, {
+      this.adapter.init(config, {
         sdkVersion: context.sdkVersion,
         runtime: context.runtime,
         network: context.network,
         ua: context.ua || '',
         appName: context.appName || '',
       })
-
-      this.setupIntervalFlushing()
     }
-  }
-
-  /**
-   * We will automatically flush every 5 seconds so we don't miss events if a process calls `process.exit(code)`
-   * without calling `await synapse.telemetry.flush()`.
-   *
-   * Uses setTimeout instead of setInterval to avoid keeping the process alive.
-   */
-  private setupIntervalFlushing(): void {
-    const scheduleNext = () => {
-      setTimeout(() => {
-        this.flush().finally(() => {
-          // Schedule the next flush only after the current one completes
-          scheduleNext()
-        })
-      }, 5000).unref()
-    }
-
-    // Start the first flush cycle
-    scheduleNext()
   }
 
   /**
@@ -327,8 +305,6 @@ export class TelemetryService {
           appName: this.context.appName || '',
         }
       )
-
-      this.setupIntervalFlushing()
     }
   }
 
