@@ -48,11 +48,15 @@ export function getSize(pieceCid: PieceCID): number {
 }
 
 export function parse(pieceCid: string): PieceCID {
-  const cid = CID.parse(pieceCid).toV1()
-  if (!isPieceCID(cid)) {
-    throw new Error('Invalid PieceCID: input must be a valid PieceCIDv2')
+  try {
+    const cid = CID.parse(pieceCid).toV1()
+    if (!isPieceCID(cid)) {
+      throw new Error('Invalid PieceCID: input must be a valid PieceCIDv2')
+    }
+    return cid
+  } catch {
+    throw new Error(`Invalid CID string: ${pieceCid}`)
   }
-  return cid
 }
 
 /**
