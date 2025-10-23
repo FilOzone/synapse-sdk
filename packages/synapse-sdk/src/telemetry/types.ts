@@ -63,50 +63,7 @@ export interface CustomEvent extends BaseTelemetryEvent {
   level: 'info' | 'warning' | 'error'
 }
 
-export const OPERATIONS = {
-  // Storage operations
-  'storage.upload': 'storage.upload',
-  'storage.download': 'storage.download',
-  'storage.create': 'storage.create',
-  'storage.addPieces': 'storage.addPieces',
-  'storage.deletePiece': 'storage.deletePiece',
-  'storage.pieceStatus': 'storage.pieceStatus',
-
-  // Payments operations
-  'payments.deposit': 'payments.deposit',
-  'payments.withdraw': 'payments.withdraw',
-  'payments.approve': 'payments.approve',
-  'payments.approveService': 'payments.approveService',
-  'payments.revokeService': 'payments.revokeService',
-  'payments.settle': 'payments.settle',
-  'payments.terminate': 'payments.terminate',
-
-  // Registry operations
-  'registry.register': 'registry.register',
-  'registry.registerProvider': 'registry.registerProvider',
-
-  // Subgraph operations
-  'subgraph.query': 'subgraph.query',
-  'subgraph.getApprovedProviders': 'subgraph.getApprovedProviders',
-
-  // Network operations
-  'network.getFilecoinNetworkType': 'network.getFilecoinNetworkType',
-
-  // Epoch operations
-  'epoch.getCurrentEpoch': 'epoch.getCurrentEpoch',
-
-  // Synapse operations
-  'synapse.create': 'synapse.create',
-
-  /**
-   * for custom operations that don't fit into the above categories
-   *
-   * e.g. `filecoin-pin-website.announceIpni` or similar.
-   */
-  'custom.operation': `{string}.{string}`,
-} as const
-
-export type OperationType = (typeof OPERATIONS)[keyof typeof OPERATIONS]
+export type OperationType = `${string}.${string}`
 
 /**
  * TelemetryAdapter - abstracts telemetry provider (Sentry, OTel, etc.)

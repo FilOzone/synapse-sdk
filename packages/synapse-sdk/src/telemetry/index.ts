@@ -20,4 +20,3 @@ export type {
   OperationType,
   TelemetryConfig,
 } from './types.ts'
-export { OPERATIONS } from './types.ts'

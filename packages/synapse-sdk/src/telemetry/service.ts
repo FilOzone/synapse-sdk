@@ -111,7 +111,7 @@ export class TelemetryService {
           // Schedule the next flush only after the current one completes
           scheduleNext()
         })
-      }, 5000)
+      }, 5000).unref()
     }
 
     // Start the first flush cycle
@@ -133,7 +133,7 @@ export class TelemetryService {
    * }
    * ```
    *
-   * @param operation - Operation type (use OPERATIONS constants)
+   * @param operation - Operation type `${string}.${string}`
    * @param fn - Async function to execute and track
    * @param params - Optional allowlisted parameters (no secrets!)
    * @returns Result from the function

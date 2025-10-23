@@ -14,11 +14,13 @@ export class SentryAdapter extends BaseTelemetryAdapter {
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
       environment: config.environment || 'production',
+      release: tags.sdkVersion || 'synapse-sdk@0.34.0',
       beforeSend: this.sanitizeEvent,
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
       integrations,
+      debug: true,
     })
 
     Sentry.setContext('environment', {
