@@ -5,8 +5,8 @@
  * when telemetry is enabled. Uses the global telemetry singleton.
  */
 
-import { createError as originalCreateError } from '../utils/errors.js'
-import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.js'
+import { createError as originalCreateError } from '../utils/errors.ts'
+import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
 
 /**
  * Create an error with automatic telemetry capture

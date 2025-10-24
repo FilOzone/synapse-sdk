@@ -1,6 +1,6 @@
 // telemetry/shutdown.ts
 import { removeGlobalFetchWrapper } from './fetch-wrapper.ts'
-import type { Sentry as SentryType } from './get-sentry.js'
+import type { Sentry as SentryType } from './get-sentry.ts'
 
 export function setupShutdownHooks(sentry: SentryType, opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any

@@ -33,7 +33,7 @@ export function initGlobalFetchWrapper(): void {
     return sentry.startSpan(
       {
         name: `${method} ${url.toString()}`, // Children span (including automatic Sentry instrumentation) inherit this name.
-        op: 'http.wrapper'
+        op: 'http.wrapper',
       },
       async () => {
         return originalFetch(input, init)
