@@ -991,30 +991,10 @@ export class StorageContext {
       }
 
       // Poll for piece to be "parked" (ready)
-      const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
-      const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
-      const startTime = Date.now()
-      let pieceReady = false
-
       performance.mark('synapse:findPiece-start')
-      while (Date.now() - startTime < maxWaitTime) {
-        try {
-          await this._pdpServer.findPiece(uploadResult.pieceCid)
-          pieceReady = true
-          break
-        } catch {
-          // Piece not ready yet, wait and retry if we haven't exceeded timeout
-          if (Date.now() - startTime + pollInterval < maxWaitTime) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval))
-          }
-        }
-      }
+      await this._pdpServer.findPiece(uploadResult.pieceCid)
       performance.mark('synapse:findPiece-end')
       performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
-
-      if (!pieceReady) {
-        throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
-      }
 
       // Upload phase complete - remove from active tracking
       this._activeUploads.delete(uploadId)

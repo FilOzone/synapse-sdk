@@ -18,17 +18,22 @@ export class SynapseError extends Error {
 
   override name = 'SynapseError'
   override cause?: Error
-
+  details?: string
   shortMessage: string
 
   constructor(message: string, options?: SynapseErrorOptions) {
     const details =
       options?.cause instanceof Error ? options.cause.message : options?.details ? options.details : undefined
 
-    const msg = [message || 'An error occurred.', '', ...(details ? [`Details: ${details}`] : [])].join('\n')
+    const msg = [
+      message || 'An error occurred.',
+      ...(details ? [''] : []),
+      ...(details ? [`Details: ${details}`] : []),
+    ].join('\n')
     super(msg, options)
 
     this.cause = options?.cause ?? undefined
+    this.details = details ?? undefined
     this.shortMessage = message
   }
 

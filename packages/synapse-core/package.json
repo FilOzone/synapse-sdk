@@ -32,9 +32,9 @@
       "types": "./dist/src/chains.d.ts",
       "default": "./dist/src/chains.js"
     },
-    "./curio": {
-      "types": "./dist/src/curio.d.ts",
-      "default": "./dist/src/curio.js"
+    "./sp": {
+      "types": "./dist/src/sp.d.ts",
+      "default": "./dist/src/sp.js"
     },
     "./erc20": {
       "types": "./dist/src/erc20.d.ts",
@@ -67,6 +67,10 @@
     "./errors": {
       "types": "./dist/src/errors/index.d.ts",
       "default": "./dist/src/errors/index.js"
+    },
+    "./piece": {
+      "types": "./dist/src/piece.d.ts",
+      "default": "./dist/src/piece.js"
     }
   },
   "typesVersions": {
@@ -74,8 +78,8 @@
       "chains": [
         "./dist/src/chains"
       ],
-      "curio": [
-        "./dist/src/curio"
+      "sp": [
+        "./dist/src/sp"
       ],
       "erc20": [
         "./dist/src/erc20"
@@ -100,6 +104,9 @@
       ],
       "errors": [
         "./dist/src/errors/index"
+      ],
+      "piece": [
+        "./dist/src/piece"
       ]
     }
   },
@@ -142,7 +149,7 @@
     "@web3-storage/data-segment": "^5.3.0",
     "dnum": "^2.15.0",
     "filsnap-adapter": "^3.3.8",
-    "iso-web": "^1.4.0",
+    "iso-web": "^1.4.2",
     "multiformats": "^13.4.1",
     "ox": "^0.9.12"
   },
