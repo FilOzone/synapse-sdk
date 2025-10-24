@@ -9,6 +9,7 @@
 import {
   AddPiecesError,
   CreateDataSetError,
+  DeletePieceError,
   FindPieceError,
   GetDataSetError,
   LocationHeaderError,
@@ -539,8 +540,15 @@ Invalid piece CID`
         await pdpServer.deletePiece(1, 0n, 2)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to delete piece')
-        assert.include(error.message, '500')
+        assert.instanceOf(error, DeletePieceError)
+        assert.equal(error.shortMessage, 'Failed to delete piece.')
+        assert.equal(
+          error.message,
+          `Failed to delete piece.
+
+Details: Service Provider PDP
+Database error`
+        )
       }
     })
   })
