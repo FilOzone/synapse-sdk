@@ -73,6 +73,7 @@ export async function login(client: Client<Transport, Chain, Account>, options: 
       options.sessionAddress,
       options.expiresAt ?? expiresAt,
       [...new Set(options.permissions)].map((permission) => SESSION_KEY_PERMISSIONS[permission]),
+      'synapse',
     ],
   })
 
@@ -81,8 +82,11 @@ export async function login(client: Client<Transport, Chain, Account>, options: 
 }
 
 export type RevokeOptions = {
-  sessionAddress: Address
+  identity: Address
+  signer: Address
+  expiresAt: bigint
   permissions: SessionKeyPermissions[]
+  origin: string
 }
 
 /**
@@ -96,13 +100,20 @@ export type RevokeOptions = {
  */
 export async function revoke(client: Client<Transport, Chain, Account>, options: RevokeOptions) {
   const chain = getChain(client.chain.id)
+  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600)
+
   const { request } = await simulateContract(client, {
     address: chain.contracts.sessionKeyRegistry.address,
     abi: chain.contracts.sessionKeyRegistry.abi,
     functionName: 'revoke',
     args: [
-      options.sessionAddress,
+      options.identity,
+      // @ts-ignore
+      options.signer,
+      // @ts-ignore
+      options.expiresAt ?? expiresAt,
       [...new Set(options.permissions)].map((permission) => SESSION_KEY_PERMISSIONS[permission]),
+      options.origin,
     ],
   })
   const hash = await writeContract(client, request)
