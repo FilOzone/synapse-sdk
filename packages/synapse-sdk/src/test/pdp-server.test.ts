@@ -6,7 +6,6 @@
  * Tests the PDPServer class for creating data sets and adding pieces via HTTP API
  */
 
-import * as Curio from '@filoz/synapse-core/curio'
 import {
   AddPiecesError,
   CreateDataSetError,
@@ -15,6 +14,7 @@ import {
   LocationHeaderError,
   PostPieceError,
 } from '@filoz/synapse-core/errors'
+import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -433,7 +433,7 @@ InvalidSignature(address expected, address actual)
           error.message,
           `Failed to add pieces.
 
-Details: Curio PDP
+Details: Service Provider PDP
 Invalid piece CID`
         )
       }
@@ -609,7 +609,7 @@ Invalid piece CID`
     })
 
     it('should handle piece not found', async () => {
-      Curio.setTimeout(100)
+      SP.setTimeout(100)
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       server.use(
@@ -630,7 +630,7 @@ Invalid piece CID`
           error.message,
           `Failed to find piece.
 
-Details: Curio PDP
+Details: Service Provider PDP
 Timeout waiting for piece to be found`
         )
       }
@@ -667,7 +667,7 @@ Timeout waiting for piece to be found`
           error.message,
           `Failed to find piece.
 
-Details: Curio PDP
+Details: Service Provider PDP
 Database error`
         )
       }
@@ -949,7 +949,7 @@ Database error`
           error.message,
           `Failed to create upload session.
 
-Details: Curio PDP
+Details: Service Provider PDP
 Database error`
         )
       }
@@ -1243,7 +1243,7 @@ Database error`
       } catch (error) {
         assert.instanceOf(error, GetDataSetError)
         assert.equal(error.shortMessage, 'Failed to get data set.')
-        assert.equal(error.details, 'Curio PDP\nDatabase error')
+        assert.equal(error.details, 'Service Provider PDP\nDatabase error')
       }
     })
 

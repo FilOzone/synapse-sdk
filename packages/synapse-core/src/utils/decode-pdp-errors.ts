@@ -55,7 +55,7 @@ export function decodePDPError(error: string) {
   } else if (extractedContent?.startsWith('Error(')) {
     return `\n${extractedContent.replace('Error(', '').replace(')', '')}`
   } else {
-    return `Curio PDP\n${error}`
+    return `Service Provider PDP\n${error}`
   }
 }
 

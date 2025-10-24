@@ -32,9 +32,9 @@
       "types": "./dist/src/chains.d.ts",
       "default": "./dist/src/chains.js"
     },
-    "./curio": {
-      "types": "./dist/src/curio.d.ts",
-      "default": "./dist/src/curio.js"
+    "./sp": {
+      "types": "./dist/src/sp.d.ts",
+      "default": "./dist/src/sp.js"
     },
     "./erc20": {
       "types": "./dist/src/erc20.d.ts",
@@ -78,8 +78,8 @@
       "chains": [
         "./dist/src/chains"
       ],
-      "curio": [
-        "./dist/src/curio"
+      "sp": [
+        "./dist/src/sp"
       ],
       "erc20": [
         "./dist/src/erc20"

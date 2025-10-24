@@ -1,7 +1,7 @@
 import type { Account, Chain, Client, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import { getChain } from '../chains.ts'
-import * as PDP from '../curio.ts'
+import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 

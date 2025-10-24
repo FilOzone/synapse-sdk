@@ -26,8 +26,8 @@
  * ```
  */
 
-import * as Curio from '@filoz/synapse-core/curio'
 import * as Piece from '@filoz/synapse-core/piece'
+import * as SP from '@filoz/synapse-core/sp'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
@@ -211,7 +211,7 @@ export class PDPServer {
       signature: authData.signature,
     })
 
-    return Curio.createDataSet({
+    return SP.createDataSet({
       endpoint: this._serviceURL,
       recordKeeper: recordKeeper as Hex,
       extraData: `0x${extraData}`,
@@ -406,7 +406,7 @@ export class PDPServer {
       metadata: finalMetadata,
     })
 
-    const { txHash, statusUrl } = await Curio.addPieces({
+    const { txHash, statusUrl } = await SP.addPieces({
       endpoint: this._serviceURL,
       dataSetId: BigInt(dataSetId),
       pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
@@ -486,7 +486,7 @@ export class PDPServer {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const piece = await Curio.findPiece({
+    const piece = await SP.findPiece({
       endpoint: this._serviceURL,
       pieceCid: parsedPieceCid,
     })
@@ -540,7 +540,7 @@ export class PDPServer {
     // Convert ArrayBuffer to Uint8Array if needed
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
-    return await Curio.uploadPiece({
+    return await SP.uploadPiece({
       endpoint: this._serviceURL,
       data: uint8Data,
     })
@@ -572,7 +572,7 @@ export class PDPServer {
    * @returns Promise that resolves with data set data
    */
   async getDataSet(dataSetId: number): Promise<DataSetData> {
-    const data = await Curio.getDataSet({
+    const data = await SP.getDataSet({
       endpoint: this._serviceURL,
       dataSetId: BigInt(dataSetId),
     })

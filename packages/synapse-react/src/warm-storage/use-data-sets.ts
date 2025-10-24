@@ -1,7 +1,7 @@
 import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core'
 import { getChain } from '@filoz/synapse-core/chains'
-import type { CurioPieceWithUrl } from '@filoz/synapse-core/curio'
-import * as PDP from '@filoz/synapse-core/curio'
+import type { SPPieceWithUrl } from '@filoz/synapse-core/sp'
+import * as SP from '@filoz/synapse-core/sp'
 import { type DataSet, getDataSets, readProviders } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import type { Simplify } from 'type-fest'
@@ -10,7 +10,7 @@ import { readContract } from 'viem/actions'
 import { useChainId, useConfig } from 'wagmi'
 import { useProviders } from './use-providers.ts'
 
-export type PieceWithMetadata = Simplify<CurioPieceWithUrl & { metadata: MetadataObject }>
+export type PieceWithMetadata = Simplify<SPPieceWithUrl & { metadata: MetadataObject }>
 
 export interface DataSetWithPieces extends DataSet {
   pieces: PieceWithMetadata[]
@@ -38,7 +38,7 @@ export function useDataSets(props: UseDataSetsProps) {
           const dataSetsWithPieces = await Promise.all(
             dataSets.map(async (dataSet) => {
               // TODO: Get the active pieces from the PDP contract instead of the Curio API
-              const pieces = await PDP.getPiecesForDataSet({
+              const pieces = await SP.getPiecesForDataSet({
                 endpoint: providers.find((p) => p.providerId === dataSet.providerId)?.pdp.serviceURL || '',
                 dataSetId: dataSet.pdpDatasetId,
                 chainId,

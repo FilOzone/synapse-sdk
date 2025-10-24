@@ -1,16 +1,16 @@
 /**
- * Synapse Core - Curio HTTP Operations
+ * Synapse Core - Service Provider HTTP Operations
  *
  * @example
  * ```ts
- * import * as Curio from '@filoz/synapse-core/curio'
+ * import * as SP from '@filoz/synapse-core/sp'
  * ```
  *
  * @packageDocumentation
  */
 
 import { HttpError, request, TimeoutError } from 'iso-web/http'
-import type { Simplify as Curio } from 'type-fest'
+import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
 import {
   AddPiecesError,
@@ -161,10 +161,10 @@ export type GetDataSetOptions = {
 export type GetDataSetResponse = {
   id: number
   nextChallengeEpoch: number
-  pieces: CurioPiece[]
+  pieces: SPPiece[]
 }
 
-export type CurioPiece = {
+export type SPPiece = {
   pieceCid: string
   pieceId: number
   subPieceCid: string
@@ -203,8 +203,8 @@ export type GetPiecesForDataSetOptions = {
   cdn: boolean
 }
 
-export type CurioPieceWithUrl = Curio<
-  CurioPiece & {
+export type SPPieceWithUrl = Simplify<
+  SPPiece & {
     pieceUrl: string
   }
 >
