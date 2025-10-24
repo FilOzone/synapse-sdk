@@ -40,7 +40,7 @@ export const CONTRACT_ABIS = {
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: abis.paymentsAbi,
+  PAYMENTS: abis.filecoinPayV1Abi,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions

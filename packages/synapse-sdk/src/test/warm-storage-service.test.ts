@@ -530,8 +530,8 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getAddPiecesInfo', () => {
-    it('should return correct add pieces information', async () => {
+  describe('validateDataSet', () => {
+    it('should validate dataset successfully', async () => {
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 48
       cleanup = mockProviderWithView((data) => {
@@ -541,14 +541,9 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x30', 32) // 48 in hex
         }
 
-        // dataSetId
+        // dataSetLive
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
-        }
-
-        // getNextPieceId
-        if (data?.startsWith('0x1c5ae80f') === true) {
-          return ethers.zeroPadValue('0x05', 32) // 5
         }
 
         // getDataSetListener
@@ -597,10 +592,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
-      assert.equal(addPiecesInfo.nextPieceId, 5)
-      assert.equal(addPiecesInfo.clientDataSetId, 0n)
-      assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
+      // Should not throw
+      await warmStorageService.validateDataSet(dataSetId)
     })
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
@@ -646,7 +639,7 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // getDataSet - needed for getAddPiecesInfo
+        // getDataSet
         if (data?.startsWith('0xbdaac056') === true) {
           const info = {
             pdpRailId: 48n,
@@ -669,11 +662,10 @@ describe('WarmStorageService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await warmStorageService.getAddPiecesInfo(dataSetId)
+        await warmStorageService.validateDataSet(dataSetId)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        // Error now happens due to type mismatch in getDataSet call
-        assert.include(error.message, 'Failed to get add pieces info')
+        assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
     })
   })

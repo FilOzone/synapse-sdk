@@ -359,7 +359,7 @@ InvalidSignature(address expected, address actual)
     it('should validate input parameters', async () => {
       // Test empty piece entries
       try {
-        await pdpServer.addPieces(1, 0n, 0, [])
+        await pdpServer.addPieces(1, 0n, [])
         assert.fail('Should have thrown error for empty piece entries')
       } catch (error) {
         assert.include((error as Error).message, 'At least one piece must be provided')
@@ -369,7 +369,7 @@ InvalidSignature(address expected, address actual)
       const invalidPieceCid = 'invalid-piece-link-string'
 
       try {
-        await pdpServer.addPieces(1, 0n, 0, [invalidPieceCid])
+        await pdpServer.addPieces(1, 0n, [invalidPieceCid])
         assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid PieceCID')
@@ -407,7 +407,7 @@ InvalidSignature(address expected, address actual)
       )
 
       // Should not throw
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -425,7 +425,7 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+        await pdpServer.addPieces(1, 0n, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.instanceOf(error, AddPiecesError)
@@ -479,7 +479,7 @@ Invalid piece CID`
           }
         )
       )
-      const result = await pdpServer.addPieces(1, 0n, 0, multiplePieceCid)
+      const result = await pdpServer.addPieces(1, 0n, multiplePieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -499,7 +499,7 @@ Invalid piece CID`
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
       assert.strictEqual(result.txHash, mockTxHash)

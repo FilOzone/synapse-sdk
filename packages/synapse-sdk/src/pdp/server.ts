@@ -27,6 +27,7 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
+import { randU256 } from '@filoz/synapse-core/rand'
 import * as SP from '@filoz/synapse-core/sp'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
@@ -259,14 +260,18 @@ export class PDPServer {
       signature: createAuthData.signature,
     })
 
+    // Generate a random nonce for replay protection
+    const nonce = randU256()
+
     const addAuthData = await this.getAuthHelper().signAddPieces(
       clientDataSetId,
-      BigInt(0),
+      nonce,
       pieceDataArray, // Pass PieceData[] directly to auth helper
       metadata.pieces
     )
 
     const addExtraData = this._encodeAddPiecesExtraData({
+      nonce,
       signature: addAuthData.signature,
       metadata: metadata.pieces,
     })
@@ -368,8 +373,6 @@ export class PDPServer {
    * Add pieces to an existing data set
    * @param dataSetId - The ID of the data set to add pieces to
    * @param clientDataSetId - The client's dataset ID used when creating the data set
-   * @param nextPieceId - The ID to assign to the first piece being added, this should be
-   *   the next available ID on chain or the signature will fail to be validated
    * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
    * @param metadata - Optional metadata for each piece (array of arrays, one per piece)
    * @returns Promise that resolves when the pieces are added (201 Created)
@@ -379,21 +382,24 @@ export class PDPServer {
    * ```typescript
    * const pieceData = ['bafkzcibcd...']
    * const metadata = [[{ key: 'snapshotDate', value: '20250711' }]]
-   * await pdpTool.addPieces(dataSetId, clientDataSetId, nextPieceId, pieceData, metadata)
+   * await pdpTool.addPieces(dataSetId, clientDataSetId, pieceData, metadata)
    * ```
    */
   async addPieces(
     dataSetId: number,
     clientDataSetId: bigint,
-    nextPieceId: number,
     pieceDataArray: PieceCID[] | string[],
     metadata?: MetadataEntry[][]
   ): Promise<AddPiecesResponse> {
     const finalMetadata = PDPServer._processAddPiecesInputs(pieceDataArray, metadata)
+
+    // Generate a random nonce for replay protection
+    const nonce = randU256()
+
     // Generate the EIP-712 signature for adding pieces
     const authData = await this.getAuthHelper().signAddPieces(
       clientDataSetId,
-      BigInt(nextPieceId),
+      nonce,
       pieceDataArray, // Pass PieceData[] directly to auth helper
       finalMetadata
     )
@@ -401,6 +407,7 @@ export class PDPServer {
     // Prepare the extra data for the contract call
     // This needs to match what the Warm Storage contract expects for addPieces
     const extraData = this._encodeAddPiecesExtraData({
+      nonce,
       signature: authData.signature,
       metadata: finalMetadata,
     })
@@ -410,7 +417,6 @@ export class PDPServer {
       dataSetId: BigInt(dataSetId),
       pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
       extraData: `0x${extraData}`,
-      nextPieceId: BigInt(nextPieceId),
     })
     return {
       message: `Pieces added to data set ID ${dataSetId} successfully`,
@@ -644,17 +650,20 @@ export class PDPServer {
 
   /**
    * Encode AddPieces extraData for the addPieces operation
-   * Based on the Curio handler, this should be (bytes signature, string metadata)
+   * Format: (uint256 nonce, string[][] metadataKeys, string[][] metadataValues, bytes signature)
    */
-  private _encodeAddPiecesExtraData(data: { signature: string; metadata: MetadataEntry[][] }): string {
+  private _encodeAddPiecesExtraData(data: { nonce: bigint; signature: string; metadata: MetadataEntry[][] }): string {
     // Ensure signature has 0x prefix
     const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
     const keys = data.metadata.map((item) => item.map((item) => item.key))
     const values = data.metadata.map((item) => item.map((item) => item.value))
 
-    // ABI encode as (bytes signature, metadataKeys, metadataValues])
+    // ABI encode as (uint256 nonce, string[][] metadataKeys, string[][] metadataValues, bytes signature)
     const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['bytes', 'string[][]', 'string[][]'], [signature, keys, values])
+    const encoded = abiCoder.encode(
+      ['uint256', 'string[][]', 'string[][]', 'bytes'],
+      [data.nonce, keys, values, signature]
+    )
 
     // Return hex string without 0x prefix (since we add it in the calling code)
     return encoded.slice(2)

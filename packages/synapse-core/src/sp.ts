@@ -354,7 +354,6 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
 export type AddPiecesOptions = {
   endpoint: string
   dataSetId: bigint
-  nextPieceId: bigint
   pieces: PieceCID[]
   extraData: Hex
 }

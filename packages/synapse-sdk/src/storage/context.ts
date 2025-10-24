@@ -22,6 +22,7 @@
  * ```
  */
 
+import { randIndex, randU256 } from '@filoz/synapse-core/rand'
 import type { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
@@ -55,7 +56,6 @@ import {
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
-import { randIndex, randU256 } from '../utils/rand.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class StorageContext {
@@ -1087,11 +1087,18 @@ export class StorageContext {
     this._pendingPieces = this._pendingPieces.slice(this._uploadBatchSize)
 
     try {
-      // Get add pieces info to ensure we have the correct nextPieceId
-      performance.mark('synapse:getAddPiecesInfo-start')
-      const addPiecesInfo = await this._warmStorageService.getAddPiecesInfo(this._dataSetId)
-      performance.mark('synapse:getAddPiecesInfo-end')
-      performance.measure('synapse:getAddPiecesInfo', 'synapse:getAddPiecesInfo-start', 'synapse:getAddPiecesInfo-end')
+      // Validate dataset and get dataset info in parallel
+      performance.mark('synapse:validateAndGetDataSet-start')
+      const [, dataSetInfo] = await Promise.all([
+        this._warmStorageService.validateDataSet(this._dataSetId),
+        this._warmStorageService.getDataSet(this._dataSetId),
+      ])
+      performance.mark('synapse:validateAndGetDataSet-end')
+      performance.measure(
+        'synapse:validateAndGetDataSet',
+        'synapse:validateAndGetDataSet-start',
+        'synapse:validateAndGetDataSet-end'
+      )
 
       // Create piece data array and metadata from the batch
       const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
@@ -1101,8 +1108,7 @@ export class StorageContext {
       performance.mark('synapse:pdpServer.addPieces-start')
       const addPiecesResult = await this._pdpServer.addPieces(
         this._dataSetId, // PDPVerifier data set ID
-        addPiecesInfo.clientDataSetId, // Client's dataset ID
-        addPiecesInfo.nextPieceId, // Must match chain state
+        dataSetInfo.clientDataSetId, // Client's dataset ID
         pieceDataArray,
         metadataArray
       )
@@ -1208,10 +1214,15 @@ export class StorageContext {
           }
 
           // Success - get the piece IDs
-          if (status.confirmedPieceIds != null && status.confirmedPieceIds.length > 0) {
+          if (status.confirmedPieceIds != null) {
+            if (status.confirmedPieceIds.length !== batch.length) {
+              throw new Error(
+                `Server returned mismatched number of piece IDs: expected ${batch.length}, got ${status.confirmedPieceIds.length}`
+              )
+            }
             confirmedPieceIds = status.confirmedPieceIds
             batch.forEach((item) => {
-              item.callbacks?.onPieceConfirmed?.(status.confirmedPieceIds ?? [])
+              item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
             })
             statusVerified = true
             break
@@ -1257,7 +1268,10 @@ export class StorageContext {
 
       // Resolve all promises in the batch with their respective piece IDs
       batch.forEach((item, index) => {
-        const pieceId = confirmedPieceIds[index] ?? addPiecesInfo.nextPieceId + index
+        const pieceId = confirmedPieceIds[index]
+        if (pieceId == null) {
+          throw createError('StorageContext', 'addPieces', `Server did not return piece ID for piece at index ${index}`)
+        }
         item.resolve(pieceId)
       })
     } catch (error) {

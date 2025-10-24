@@ -159,30 +159,34 @@ function mockAddPieces(
   serviceAny: any,
   options: {
     txHash?: string
-    onCall?: (dataSetId: number, clientDataSetId: number, nextPieceId: number, pieceCids: any[]) => void | Promise<void>
+    onCall?: (dataSetId: number, clientDataSetId: bigint, pieceCids: any[]) => void | Promise<void>
     shouldFail?: boolean
     failureMessage?: string
     addDelay?: number // Add delay in ms to simulate network latency
+    startPieceId?: number // Starting piece ID for generating piece IDs
   } = {}
 ) {
   const txHash = options.txHash || `0x${'0'.repeat(64)}`
+  let nextPieceId = options.startPieceId ?? 0
 
   serviceAny._pdpServer.addPieces = async (
     dataSetId: number,
-    clientDataSetId: number,
-    nextPieceId: number,
+    clientDataSetId: bigint,
     pieceCids: any[]
   ): Promise<any> => {
     if (options.shouldFail) {
       throw new Error(options.failureMessage || 'Network error during addPieces')
     }
 
+    const currentPieceId = nextPieceId
+
     if (options.onCall) {
-      await options.onCall(dataSetId, clientDataSetId, nextPieceId, pieceCids)
+      await options.onCall(dataSetId, clientDataSetId, pieceCids)
     }
 
     // Generate piece IDs for the batch
-    const pieceIds = Array.from({ length: pieceCids.length }, (_, i) => nextPieceId + i)
+    const pieceIds = Array.from({ length: pieceCids.length }, (_, i) => currentPieceId + i)
+    nextPieceId += pieceCids.length
     // Store piece IDs for status mock
     ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
 
@@ -271,7 +275,6 @@ describe('StorageService', () => {
           payee: mockProviders[0].serviceProvider, // Matches first provider
           providerId: 1, // Provider ID for first provider
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -287,7 +290,6 @@ describe('StorageService', () => {
           payee: mockProviders[1].serviceProvider, // Matches second provider
           providerId: 2, // Provider ID for second provider
           pdpVerifierDataSetId: 101,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -328,7 +330,6 @@ describe('StorageService', () => {
           payee: mockProviders[0].serviceProvider, // Matches first provider
           providerId: 1, // Provider ID for first provider
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -344,7 +345,6 @@ describe('StorageService', () => {
           payee: mockProviders[1].serviceProvider, // Matches second provider
           providerId: 2, // Provider ID for second provider
           pdpVerifierDataSetId: 101,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -384,7 +384,6 @@ describe('StorageService', () => {
           payee: mockProviders[0].serviceProvider, // Matches first provider
           providerId: 1, // Provider ID for first provider
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -400,7 +399,6 @@ describe('StorageService', () => {
           payee: mockProviders[1].serviceProvider, // Matches second provider
           providerId: 2, // Provider ID for second provider
           pdpVerifierDataSetId: 101,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -437,7 +435,6 @@ describe('StorageService', () => {
           payee: '0x3333333333333333333333333333333333333333',
           providerId: 3, // Provider ID for provider3
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -481,7 +478,6 @@ describe('StorageService', () => {
           payee: mockProvider.serviceProvider,
           providerId: 3,
           pdpVerifierDataSetId: 100, // Existing data set
-          nextPieceId: 0,
           currentPieceCount: 5, // Has pieces
           isLive: true,
           isManaged: true,
@@ -543,7 +539,6 @@ describe('StorageService', () => {
           payee: mockProvider.serviceProvider,
           providerId: 3,
           pdpVerifierDataSetId: 100, // Existing data set
-          nextPieceId: 0,
           currentPieceCount: 5, // Has pieces
           isLive: true,
           isManaged: true,
@@ -613,7 +608,6 @@ describe('StorageService', () => {
           payee: mockProvider.serviceProvider,
           providerId: 3,
           pdpVerifierDataSetId: 100, // Existing data set
-          nextPieceId: 0,
           currentPieceCount: 5, // Has pieces
           isLive: true,
           isManaged: true,
@@ -708,7 +702,6 @@ describe('StorageService', () => {
           payee: '0x3333333333333333333333333333333333333333', // Matches provider
           providerId: 3, // Provider ID for provider3
           pdpVerifierDataSetId: 100,
-          nextPieceId: 5,
           currentPieceCount: 5,
           isLive: true,
           isManaged: true,
@@ -754,7 +747,6 @@ describe('StorageService', () => {
           payee: '0x3333333333333333333333333333333333333333',
           providerId: 3,
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0, // No pieces
           isLive: true,
           isManaged: true,
@@ -770,7 +762,6 @@ describe('StorageService', () => {
           payee: '0x3333333333333333333333333333333333333333',
           providerId: 3,
           pdpVerifierDataSetId: 101,
-          nextPieceId: 5,
           currentPieceCount: 5, // Has pieces - should be preferred
           isLive: true,
           isManaged: true,
@@ -813,7 +804,6 @@ describe('StorageService', () => {
           payee: mockProvider.serviceProvider,
           providerId: 3,
           pdpVerifierDataSetId: 100,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -911,7 +901,6 @@ describe('StorageService', () => {
           payee: mockProvider.serviceProvider,
           providerId: 4,
           pdpVerifierDataSetId: 789,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -977,7 +966,6 @@ describe('StorageService', () => {
           payee: mockProvider1.serviceProvider, // Owned by provider 5
           providerId: 5, // Provider ID for provider5
           pdpVerifierDataSetId: 111,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -1062,7 +1050,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[0].serviceProvider,
           pdpVerifierDataSetId: 200,
-          nextPieceId: 5,
           currentPieceCount: 5,
           isLive: true,
           isManaged: true,
@@ -1077,7 +1064,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProviders[0].serviceProvider,
           pdpVerifierDataSetId: 201,
-          nextPieceId: 3,
           currentPieceCount: 3,
           isLive: true,
           isManaged: true,
@@ -1132,7 +1118,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x8888888888888888888888888888888888888888',
           pdpVerifierDataSetId: 300,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: false, // Not managed by current WarmStorage
@@ -1170,7 +1155,6 @@ describe('StorageService', () => {
           payee: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
           providerId: 999, // Non-existent/non-approved provider
           pdpVerifierDataSetId: 400,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -1290,7 +1274,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: mockProvider.serviceProvider,
           pdpVerifierDataSetId: 500,
-          nextPieceId: 2,
           currentPieceCount: 2,
           isLive: true,
           isManaged: true,
@@ -1369,7 +1352,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0xffffffffffffffffffffffffffffffffffffffffffff',
           pdpVerifierDataSetId: 600,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: false, // Not live
           isManaged: true,
@@ -1403,7 +1385,6 @@ describe('StorageService', () => {
           payer: '0x1234567890123456789012345678901234567890',
           payee: '0x1111222233334444555566667777888899990000', // Different from requested
           pdpVerifierDataSetId: 700,
-          nextPieceId: 0,
           currentPieceCount: 0,
           isLive: true,
           isManaged: true,
@@ -1493,7 +1474,6 @@ describe('StorageService', () => {
           serviceProvider: '0x682467D59F5679cB0BF13115d4C94550b8218CF2',
           providerId: 2,
           pdpVerifierDataSetId: 100,
-          nextPieceId: 1,
           currentPieceCount: 1,
           isLive: true,
           isManaged: true,
@@ -1588,7 +1568,6 @@ describe('StorageService', () => {
           serviceProvider: '0x1111111111111111111111111111111111111111',
           providerId: 1, // Different provider ID
           pdpVerifierDataSetId: 50,
-          nextPieceId: 1,
           currentPieceCount: 1,
           isLive: true,
           isManaged: true,
@@ -1683,6 +1662,10 @@ describe('StorageService', () => {
             perMonth: BigInt(864000),
           },
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -1721,6 +1704,10 @@ describe('StorageService', () => {
             perMonth: BigInt(1728000),
           },
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -1761,6 +1748,10 @@ describe('StorageService', () => {
             perMonth: BigInt(864000),
           },
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -1965,21 +1956,14 @@ describe('StorageService', () => {
       }
     })
     it('should support parallel uploads', async () => {
-      // Use a counter to simulate the nextPieceId changing on the contract
-      // between addPieces transactions, which might not execute in order.
-      let nextPieceId = 0
+      // Track addPieces calls
       const addPiecesCalls: Array<{ pieceCid: string; pieceId: number }> = []
 
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => {
-          const currentPieceId = nextPieceId
-          nextPieceId++
-          return {
-            nextPieceId: currentPieceId,
-            clientDataSetId: 1,
-            currentPieceCount: currentPieceId,
-          }
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
         },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2005,14 +1989,16 @@ describe('StorageService', () => {
       })
 
       // Use helper to mock addPieces
+      let currentPieceId = 0
       const mockTxHash = mockAddPieces(serviceAny, {
-        onCall: (_dataSetId, _clientDataSetId, nextPieceId, pieceCids) => {
-          pieceCids.forEach((pieceCid, index) => {
+        onCall: (_dataSetId: number, _clientDataSetId: bigint, pieceCids: any[]) => {
+          pieceCids.forEach((pieceCid: any, index: number) => {
             addPiecesCalls.push({
               pieceCid: pieceCid.toString(),
-              pieceId: nextPieceId + index,
+              pieceId: currentPieceId + index,
             })
           })
+          currentPieceId += pieceCids.length
         },
       })
 
@@ -2086,19 +2072,13 @@ describe('StorageService', () => {
     })
 
     it('should respect batch size configuration', async () => {
-      let nextPieceId = 0
       const addPiecesCalls: Array<{ batchSize: number; nextPieceId: number }> = []
 
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => {
-          const currentPieceId = nextPieceId
-          // Don't increment here, let the batch processing do it
-          return {
-            nextPieceId: currentPieceId,
-            clientDataSetId: 1,
-            currentPieceCount: currentPieceId,
-          }
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
         },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -2126,15 +2106,16 @@ describe('StorageService', () => {
       })
 
       // Use helper to mock addPieces with batching behavior
+      let currentBatchStart = 0
       const mockTxHash = mockAddPieces(serviceAny, {
         txHash: `0x${'1'.repeat(64)}`,
         addDelay: 10, // Simulate network latency
-        onCall: async (_dataSetId, _clientDataSetId, pieceIdStart, comms) => {
+        onCall: async (_dataSetId, _clientDataSetId, comms) => {
           addPiecesCalls.push({
             batchSize: comms.length,
-            nextPieceId: pieceIdStart,
+            nextPieceId: currentBatchStart,
           })
-          nextPieceId += comms.length
+          currentBatchStart += comms.length
         },
       })
 
@@ -2184,15 +2165,13 @@ describe('StorageService', () => {
     })
 
     it('should handle batch size of 1', async () => {
-      let nextPieceId = 0
       const addPiecesCalls: number[] = []
 
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: nextPieceId++,
-          clientDataSetId: 1,
-          currentPieceCount: nextPieceId,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -2218,31 +2197,17 @@ describe('StorageService', () => {
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
         uuid: 'test-uuid',
       })
-      const mockTxHash2 = `0x${'2'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number,
-        comms: any[]
-      ): Promise<any> => {
-        addPiecesCalls.push(comms.length)
-        const pieceIds = Array.from({ length: comms.length }, (_, i) => nextPieceId + i)
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash2,
-        }
-      }
 
-      // Mock getPieceAdditionStatus to return success with piece IDs
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
+      // Use helper to mock addPieces
+      const mockTxHash2 = mockAddPieces(serviceAny, {
+        txHash: `0x${'2'.repeat(64)}`,
+        onCall: (_dataSetId, _clientDataSetId, comms) => {
+          addPiecesCalls.push(comms.length)
+        },
+      })
+
+      // Use helper to mock getPieceAdditionStatus
+      mockGetPieceAdditionStatus(serviceAny)
 
       // Mock the provider's getTransaction method
       const mockTransaction = {
@@ -2269,11 +2234,10 @@ describe('StorageService', () => {
       const addPiecesCalls: Array<{ batchSize: number }> = []
 
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -2298,32 +2262,17 @@ describe('StorageService', () => {
       serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
         uuid: 'test-uuid',
       })
-      const mockTxHash3 = `0x${'3'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number,
-        comms: any[]
-      ): Promise<any> => {
-        // Track batch sizes
-        addPiecesCalls.push({ batchSize: comms.length })
-        const pieceIds = Array.from({ length: comms.length }, (_, i) => nextPieceId + i)
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash3,
-        }
-      }
 
-      // Mock getPieceAdditionStatus to return success with piece IDs
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
+      // Use helper to mock addPieces
+      const mockTxHash3 = mockAddPieces(serviceAny, {
+        txHash: `0x${'3'.repeat(64)}`,
+        onCall: (_dataSetId, _clientDataSetId, comms) => {
+          addPiecesCalls.push({ batchSize: comms.length })
+        },
+      })
+
+      // Use helper to mock getPieceAdditionStatus
+      mockGetPieceAdditionStatus(serviceAny)
 
       // Mock the provider's getTransaction method
       const mockTransaction = {
@@ -2347,11 +2296,10 @@ describe('StorageService', () => {
 
     it('should handle errors in batch processing gracefully', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -2438,11 +2386,10 @@ describe('StorageService', () => {
 
     it('should accept data at exactly 127 bytes', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2513,11 +2460,10 @@ describe('StorageService', () => {
 
     it('should accept data up to 200 MiB', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2549,16 +2495,16 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddPiecesInfo already mocked in mockWarmStorageService
+      // getDataSet already mocked in mockWarmStorageService
 
       // Mock addPieces with txHash
       const mockTxHash5 = `0x${'5'.repeat(64)}`
       serviceAny._pdpServer.addPieces = async (
         _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number
+        _clientDataSetId: bigint,
+        _pieces: any[]
       ): Promise<any> => {
-        const pieceIds = [nextPieceId]
+        const pieceIds = [0] // First piece gets ID 0
         ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
         return {
           message: 'success',
@@ -2592,11 +2538,10 @@ describe('StorageService', () => {
 
     it('should handle upload callbacks correctly', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2630,8 +2575,8 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddPiecesInfo
-      // getAddPiecesInfo already mocked in mockWarmStorageService
+      // Mock getDataSet
+      // getDataSet already mocked in mockWarmStorageService
 
       // Mock addPieces with txHash
       const mockTxHash6 = `0x${'6'.repeat(64)}`
@@ -2682,11 +2627,10 @@ describe('StorageService', () => {
 
     it('should handle new server with transaction tracking', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2789,11 +2733,10 @@ describe('StorageService', () => {
     it.skip('should fail if new server transaction is not found on-chain', async () => {
       // Skip: This test requires waiting for timeout which makes tests slow
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2852,11 +2795,10 @@ describe('StorageService', () => {
     it.skip('should fail if new server verification fails', async () => {
       // Skip: This test requires waiting for timeout which makes tests slow
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2926,11 +2868,10 @@ describe('StorageService', () => {
 
     it('should handle transaction failure on-chain', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -2992,11 +2933,10 @@ describe('StorageService', () => {
     it.skip('should work with old servers that do not provide transaction tracking', async () => {
       // Skipped: Old servers without transaction tracking are no longer supported
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -3068,16 +3008,15 @@ describe('StorageService', () => {
 
       assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
       assert.isUndefined(pieceAddedTransaction, 'Transaction should be undefined for old servers')
-      assert.equal(result.pieceId, 0) // Uses nextPieceId from getAddPiecesInfo
+      assert.equal(result.pieceId, 0)
     })
 
     it('should handle ArrayBuffer input', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -3115,8 +3054,8 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // Mock getAddPiecesInfo
-      // getAddPiecesInfo already mocked in mockWarmStorageService
+      // Mock getDataSet
+      // getDataSet already mocked in mockWarmStorageService
 
       // Mock addPieces with txHash
       const mockTxHash8 = `0x${'8'.repeat(64)}`
@@ -3238,11 +3177,10 @@ describe('StorageService', () => {
 
     it('should handle add pieces failure', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => ({
-          nextPieceId: 0,
-          clientDataSetId: 1,
-          currentPieceCount: 0,
-        }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -3270,7 +3208,7 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddPiecesInfo already mocked in mockWarmStorageService
+      // getDataSet already mocked in mockWarmStorageService
 
       // Use helper to mock addPieces failure
       mockAddPieces(serviceAny, {
@@ -3286,11 +3224,12 @@ describe('StorageService', () => {
       }
     })
 
-    it('should handle getAddPiecesInfo failure', async () => {
+    it('should handle validateDataSet failure', async () => {
       const mockWarmStorageService = {
-        getAddPiecesInfo: async (): Promise<any> => {
+        validateDataSet: async (): Promise<void> => {
           throw new Error('Data set not managed by this WarmStorage')
         },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
       const service = new StorageContext(
@@ -3318,11 +3257,11 @@ describe('StorageService', () => {
         return { uuid: 'test-uuid' }
       }
 
-      // getAddPiecesInfo already mocked to fail in mockWarmStorageService
+      // getDataSet already mocked to fail in mockWarmStorageService
 
       try {
         await service.upload(testData)
-        assert.fail('Should have thrown getAddPiecesInfo error')
+        assert.fail('Should have thrown getDataSet error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to add piece to data set')
       }
@@ -3433,7 +3372,6 @@ describe('StorageService', () => {
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProviders[0].serviceProvider, // First provider has existing data set
             pdpVerifierDataSetId: 100,
-            nextPieceId: 0,
             currentPieceCount: 0,
             isLive: true,
             isManaged: true,
@@ -3568,7 +3506,6 @@ describe('StorageService', () => {
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.serviceProvider,
             pdpVerifierDataSetId: 100,
-            nextPieceId: 0,
             currentPieceCount: 5, // Has pieces, so preferred
             isLive: true,
             isManaged: true,
@@ -3639,7 +3576,6 @@ describe('StorageService', () => {
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.serviceProvider,
             pdpVerifierDataSetId: 100,
-            nextPieceId: 0,
             currentPieceCount: 5,
             isLive: true,
             isManaged: true,
@@ -3654,7 +3590,6 @@ describe('StorageService', () => {
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.serviceProvider, // Same provider
             pdpVerifierDataSetId: 101,
-            nextPieceId: 0,
             currentPieceCount: 3,
             isLive: true,
             isManaged: true,
@@ -3669,7 +3604,6 @@ describe('StorageService', () => {
             payer: '0x1234567890123456789012345678901234567890',
             payee: testProvider.serviceProvider, // Same provider
             pdpVerifierDataSetId: 102,
-            nextPieceId: 0,
             currentPieceCount: 1,
             isLive: true,
             isManaged: true,
@@ -3991,6 +3925,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4043,6 +3981,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4096,6 +4038,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4146,6 +4092,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4200,6 +4150,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4274,6 +4228,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 
@@ -4324,6 +4282,10 @@ describe('StorageService', () => {
           maxProvingPeriod: 2880,
           challengeWindow: 60,
         }),
+        validateDataSet: async (): Promise<void> => {
+          /* no-op */
+        },
+        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
       } as any
 

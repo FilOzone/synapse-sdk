@@ -3,10 +3,10 @@ import { type Account, type Address, type Chain, type Client, isAddressEqual, ty
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
+import { randU256 } from '../rand.ts'
 import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
-import { randU256 } from '../utils/rand.ts'
 import type { PDPOffering, PDPProvider } from './providers.ts'
 
 /**
