@@ -42,10 +42,10 @@ const FIXTURES = {
     },
     addPieces: {
       signature:
-        '0x215d2d6ea06c7daad46e3e636b305885c7d09aa34420e8dbace032af03cae06224cf678da808c7f1026b08ccf51f3d5d53351b935f5eee9750b80e78caffaaa91c',
-      digest: '0xa690b5f3c6400833822aa3fd63ad1f0e4c1f70e5cc132cfd898c2993169d23bf',
+        '0x1f09427806dc1e4c073a9fd7345fdd1919973abe3f3021594964134887c964d82e7b242019c79b21a8fa40331d14b59219b431846e4cdc08adb2e9470e7273161c',
+      digest: '0x86e18f0f5ee64c5b4f4838d23db6c6775b2ea863d9e29e1bc04c89d28d50f4ea',
       clientDataSetId: 12345n,
-      firstAdded: 1n,
+      nonce: 1n,
       pieceCidBytes: [
         '0x01559120220500de6815dcb348843215a94de532954b60be550a4bec6e74555665e9a5ec4e0f3c',
         '0x01559120227e03642a607ef886b004bf2c1978463ae1d4693ac0f410eb2d1b7a47fe205e5e750f',
@@ -113,8 +113,9 @@ describe('Auth Signature Compatibility', () => {
   it('should generate AddPieces signature matching Solidity reference', async () => {
     const result = await authHelper.signAddPieces(
       FIXTURES.signatures.addPieces.clientDataSetId,
-      FIXTURES.signatures.addPieces.firstAdded,
-      PIECE_DATA
+      FIXTURES.signatures.addPieces.nonce,
+      PIECE_DATA,
+      FIXTURES.signatures.addPieces.metadata
     )
 
     // Verify signature matches exactly
@@ -198,7 +199,7 @@ describe('Auth Signature Compatibility', () => {
   it('should handle empty piece data array', async () => {
     const result = await authHelper.signAddPieces(
       FIXTURES.signatures.addPieces.clientDataSetId,
-      FIXTURES.signatures.addPieces.firstAdded,
+      FIXTURES.signatures.addPieces.nonce,
       [] // empty array
     )
 

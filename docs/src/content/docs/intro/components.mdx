@@ -261,9 +261,8 @@ console.log(`Status: ${status.txStatus}, Data Set ID: ${status.dataSetId}`)
 // Add pieces to data set (returns transaction tracking info)
 const addResult = await pdpServer.addPieces(
   dataSetId,          // number (PDPVerifier data set ID)
-  clientDataSetId,    // number
-  nextPieceId,        // number (must match chain state)
-  pieceDataArray      // Array of { cid: string | PieceCID, rawSize: number }
+  clientDataSetId,    // bigint
+  pieceDataArray      // Array of PieceCID strings
 )
 // addResult: { message: string, txHash?: string, statusUrl?: string }
 
@@ -306,9 +305,10 @@ const createDataSetSig = await authHelper.signCreateDataSet(
 )
 
 const addPiecesSig = await authHelper.signAddPieces(
-  clientDataSetId,    // number
-  firstPieceId,       // number
-  pieceDataArray      // Array of { cid: string | PieceCID, rawSize: number }
+  clientDataSetId,    // bigint
+  nonce,              // bigint (random value for replay protection)
+  pieceDataArray,     // Array of PieceCID strings
+  metadata            // Optional array of metadata for each piece
 )
 
 // All signatures return { signature, v, r, s, signedData }
