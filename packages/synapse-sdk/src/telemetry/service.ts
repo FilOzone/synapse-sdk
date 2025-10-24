@@ -75,15 +75,6 @@ export class TelemetryService {
     this.sentry = Sentry
     if (this.enabled) {
       this.initSentry()
-      // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
-      this.sentry.setContext('environment', {
-        userAgent: this.context.userAgent, // not useful for searching, but may be useful for debugging
-      })
-
-      // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
-      this.sentry.setTag('appName', this.context.appName ?? 'synapse-sdk') // should only be a few values
-      this.sentry.setTag('runtime', this.context.runtime) // only two values, useful for searching
-      this.sentry.setTag('network', this.context.network as 'mainnet' | 'calibration') // only two values, useful for searching
     }
   }
   private initSentry(): void {
@@ -99,6 +90,17 @@ export class TelemetryService {
       // Integrations configured per-runtime in sentry-dep files
       integrations,
     })
+
+    // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
+    this.sentry.setContext('environment', {
+      userAgent: this.context.userAgent, // not useful for searching, but may be useful for debugging
+    })
+
+    // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
+    this.sentry.setTag('appName', this.context.appName ?? 'synapse-sdk') // should only be a few values
+    this.sentry.setTag('synapseSdkVersion', `@filoz/synapse-sdk@v${this.context.sdkVersion}`) // useful to know which version of the SDK is being used
+    this.sentry.setTag('runtime', this.context.runtime) // only two values, useful for searching
+    this.sentry.setTag('network', this.context.network as 'mainnet' | 'calibration') // only two values, useful for searching
   }
 
   protected sanitizeError(event: any): any {
