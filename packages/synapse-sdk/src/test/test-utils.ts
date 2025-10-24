@@ -141,8 +141,8 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         if (data?.startsWith('0xd39b33ab') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CONTRACT_ADDRESSES.USDFC.calibration])
         }
-        // filCDNBeneficiaryAddress() - function selector: 0xce4f8d8b
-        if (data?.startsWith('0xce4f8d8b') === true) {
+        // filBeamBeneficiaryAddress() - function selector: 0xdd6979bf
+        if (data?.startsWith('0xdd6979bf') === true) {
           return ethers.AbiCoder.defaultAbiCoder().encode(['address'], ['0x0000000000000000000000000000000000000000'])
         }
         // viewContractAddress() - function selector: 0x7a9ebc15
@@ -273,20 +273,20 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           TIME_CONSTANTS.EPOCHS_PER_MONTH, // maxLockupPeriod (30 days)
         ])
       }
-      // Mock getRailsForPayerAndToken response - function selector: 0x9b85e253
-      if (data.includes('9b85e253') === true) {
+      // Mock getRailsForPayerAndToken response - function selector: 0x007b5fd1
+      if (data.includes('007b5fd1') === true) {
         const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
         const rails = [
           { railId: 1n, isTerminated: false, endEpoch: 0n },
           { railId: 2n, isTerminated: true, endEpoch: 999999n },
         ]
-        return paymentsInterface.encodeFunctionResult('getRailsForPayerAndToken', [rails])
+        return paymentsInterface.encodeFunctionResult('getRailsForPayerAndToken', [rails, 2, 2])
       }
-      // Mock getRailsForPayeeAndToken response - function selector: 0x2ecfb2bf
-      if (data.includes('2ecfb2bf') === true) {
+      // Mock getRailsForPayeeAndToken response - function selector: 0x7f7562fa
+      if (data.includes('7f7562fa') === true) {
         const paymentsInterface = new ethers.Interface(CONTRACT_ABIS.PAYMENTS)
         const rails = [{ railId: 3n, isTerminated: false, endEpoch: 0n }]
-        return paymentsInterface.encodeFunctionResult('getRailsForPayeeAndToken', [rails])
+        return paymentsInterface.encodeFunctionResult('getRailsForPayeeAndToken', [rails, 2, 2])
       }
       // Mock settleRail response - function selector: 0xbcd40bf8
       if (data.includes('bcd40bf8') === true) {
@@ -295,6 +295,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           ethers.parseUnits('100', 18), // totalSettledAmount
           ethers.parseUnits('95', 18), // totalNetPayeeAmount
           ethers.parseUnits('5', 18), // totalOperatorCommission
+          ethers.parseUnits('1', 18), // totalNetworkFee
           1000000n, // finalSettledEpoch
           'Settlement successful', // note
         ])
@@ -627,13 +628,6 @@ export function setupProviderRegistryMocks(
               returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CONTRACT_ADDRESSES.USDFC.calibration]),
             }
           }
-          // Mock filCDNAddress
-          if (callData.startsWith('0xf699dd7e')) {
-            return {
-              success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ethers.ZeroAddress]),
-            }
-          }
           // Mock viewContractAddress
           if (callData.startsWith('0x7a9ebc15')) {
             return {
@@ -655,8 +649,8 @@ export function setupProviderRegistryMocks(
 
         // Handle calls to WarmStorageView contract for getApprovedProviders
         if (target === MOCK_ADDRESSES.WARM_STORAGE_VIEW.toLowerCase()) {
-          // Mock getApprovedProviders() - returns array of provider IDs
-          if (callData.startsWith('0x266afe1b')) {
+          // Mock getApprovedProviders(uint256,uint256) - returns array of provider IDs
+          if (callData.startsWith('0x7709a7f7')) {
             return {
               success: true,
               returnData: ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [approvedIds.map(BigInt)]),
@@ -671,15 +665,30 @@ export function setupProviderRegistryMocks(
           const provider = providers.find((p) => p.id === providerId)
           if (provider) {
             const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-              ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-              [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
+              [
+                'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+              ],
+              [
+                [
+                  providerId,
+                  [
+                    provider.serviceProvider,
+                    provider.payee,
+                    provider.name,
+                    provider.description || '',
+                    provider.active,
+                  ],
+                ],
+              ]
             )
             return { success: true, returnData: encoded }
           }
           // Return empty provider
           const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-            [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
+            [
+              'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+            ],
+            [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]]
           )
           return { success: true, returnData: encoded }
         }
@@ -732,7 +741,7 @@ export function setupProviderRegistryMocks(
     }
 
     // Mock getApprovedProviders() - returns array of provider IDs (WarmStorageView)
-    if (data?.startsWith('0x266afe1b')) {
+    if (data?.startsWith('0x7709a7f7')) {
       return ethers.AbiCoder.defaultAbiCoder().encode(['uint256[]'], [approvedIds.map(BigInt)])
     }
 
@@ -745,14 +754,23 @@ export function setupProviderRegistryMocks(
       const provider = providers.find((p) => p.id === providerId)
       if (provider) {
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-          [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
+          [
+            'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+          ],
+          [
+            [
+              providerId,
+              [provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active],
+            ],
+          ]
         )
       }
       // Return null provider (zero address indicates not found)
       return ethers.AbiCoder.defaultAbiCoder().encode(
-        ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-        [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
+        [
+          'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+        ],
+        [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]]
       )
     }
 
@@ -849,14 +867,23 @@ export function setupProviderRegistryMocks(
       const provider = providers.find((p) => p.serviceProvider.toLowerCase() === addressParam.toLowerCase())
       if (provider) {
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-          [[provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active]]
+          [
+            'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+          ],
+          [
+            [
+              provider.id,
+              [provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active],
+            ],
+          ]
         )
       }
       // Return zero address struct for not found
       return ethers.AbiCoder.defaultAbiCoder().encode(
-        ['tuple(address serviceProvider, address payee, string name, string description, bool isActive)'],
-        [[ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]
+        [
+          'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) info)',
+        ],
+        [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false]]]
       )
     }
 

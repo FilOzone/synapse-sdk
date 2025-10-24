@@ -17,7 +17,7 @@ Rails ensure reliable payments through a simple lockup mechanism:
 
 When you create a data set (storage), the system calculates how much balance you need to maintain:
 
-- **Formula**: `lockup = paymentRate × lockupPeriod` (e.g., 10 days worth of payments)
+- **Formula**: `lockup = paymentRate × lockupPeriod` (e.g., 30 days worth of payments)
 - **Example**: Storing 1 GiB costs ~0.0000565 USDFC/epoch, requiring ~1.63 USDFC minimum balance
 - **Purpose**: This protects the service provider by ensuring you always have enough for the next payment period
 

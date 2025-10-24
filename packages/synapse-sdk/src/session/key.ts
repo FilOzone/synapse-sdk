@@ -13,7 +13,7 @@
  * const expiries = await sessionKey.fetchExpiries([ADD_PIECES_TYPEHASH])
  * if (expiries[ADD_PIECES_TYPEHASH] * BigInt(1000) < BigInt(Date.now()) + HOUR_MILLIS) {
  *   const DAY_MILLIS = BigInt(24) * HOUR_MILLIS
- *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS)
+ *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS, "example.com")
  *   const loginReceipt = await loginTx.wait()
  * }
  * synapse.setSession(sessionKey)
@@ -45,6 +45,8 @@ export const PDP_PERMISSION_NAMES: Record<string, string> = {
   [SCHEDULE_PIECE_REMOVALS_TYPEHASH]: 'SchedulePieceRemovals',
   [DELETE_DATA_SET_TYPEHASH]: 'DeleteDataSet',
 }
+
+const DEFAULT_ORIGIN: string = (globalThis as any).location?.hostname || 'unknown'
 
 export class SessionKey {
   private readonly _provider: ethers.Provider
@@ -122,10 +124,15 @@ export class SessionKey {
    *
    * @param expiry unix time (block.timestamp) that the permissions expire
    * @param permissions list of permissions granted to the signer, as a list of bytes32 hex strings
+   * @param origin the name of the application prompting this login
    * @return signed and broadcasted login transaction details
    */
-  async login(expiry: bigint, permissions: string[] = PDP_PERMISSIONS): Promise<ethers.TransactionResponse> {
-    return await this._registry.login(await this._signer.getAddress(), expiry, permissions)
+  async login(
+    expiry: bigint,
+    permissions: string[] = PDP_PERMISSIONS,
+    origin = DEFAULT_ORIGIN
+  ): Promise<ethers.TransactionResponse> {
+    return await this._registry.login(await this._signer.getAddress(), expiry, permissions, origin)
   }
 
   /**

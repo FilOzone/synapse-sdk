@@ -252,7 +252,10 @@ export class StorageManager {
 
     if (canUseDefault) {
       // Check if we have a default context with compatible metadata
-      if (this._defaultContext != null) {
+      if (
+        this._defaultContext != null &&
+        options?.excludeProviderIds?.includes(this._defaultContext.provider.id) !== true
+      ) {
         // Combine the current request metadata with effective withCDN setting
         const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
 

@@ -1,15 +1,15 @@
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
 
-export class InvalidPDPLocationHeaderError extends SynapseError {
-  override name: 'InvalidPDPLocationHeaderError' = 'InvalidPDPLocationHeaderError'
+export class LocationHeaderError extends SynapseError {
+  override name: 'LocationHeaderError' = 'LocationHeaderError'
 
-  constructor(location: string) {
-    super(`Invalid PDP location header format: ${location}`)
+  constructor(location?: string | null) {
+    super(`Location header format is invalid: ${location ?? '<none>'}`)
   }
 
-  static override is(value: unknown): value is InvalidPDPLocationHeaderError {
-    return isSynapseError(value) && value.name === 'InvalidPDPLocationHeaderError'
+  static override is(value: unknown): value is LocationHeaderError {
+    return isSynapseError(value) && value.name === 'LocationHeaderError'
   }
 }
 
@@ -47,9 +47,8 @@ export class GetDataSetError extends SynapseError {
   override name: 'GetDataSetError' = 'GetDataSetError'
 
   constructor(error: string) {
-    const decodedError = decodePDPError(error)
-    super(`Failed to get data set.`, {
-      details: decodedError,
+    super(error ? 'Failed to get data set.' : 'Data set not found.', {
+      details: error ? decodePDPError(error) : undefined,
     })
   }
 
@@ -63,7 +62,7 @@ export class PostPieceError extends SynapseError {
 
   constructor(error: string) {
     const decodedError = decodePDPError(error)
-    super(`Failed to post piece.`, {
+    super(`Failed to create upload session.`, {
       details: decodedError,
     })
   }

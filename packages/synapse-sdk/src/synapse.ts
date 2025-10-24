@@ -267,7 +267,7 @@ export class Synapse {
    * const HOUR_MILLIS = BigInt(1000 * 60 * 60)
    * if (expiries[ADD_PIECES_TYPEHASH] * BigInt(1000) < BigInt(Date.now()) + HOUR_MILLIS) {
    *   const DAY_MILLIS = BigInt(24) * HOUR_MILLIS
-   *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS)
+   *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS, "example.com")
    *   const loginReceipt = await loginTx.wait()
    * }
    *

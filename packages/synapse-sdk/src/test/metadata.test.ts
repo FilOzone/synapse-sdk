@@ -64,7 +64,7 @@ describe('Metadata Support', () => {
       )
 
       const result = await pdpServer.createDataSet(
-        1,
+        1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         dataSetMetadata,
@@ -103,7 +103,7 @@ describe('Metadata Support', () => {
       )
 
       // Test with matching metadata
-      const result = await pdpServer.addPieces(dataSetId, 1, 1, pieces, metadata)
+      const result = await pdpServer.addPieces(dataSetId, 1n, 1, pieces, metadata)
       assert.equal(result.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)
@@ -117,7 +117,7 @@ describe('Metadata Support', () => {
       ]
 
       try {
-        await pdpServer.addPieces(dataSetId, 1, 1, pieces, mismatchedMetadata)
+        await pdpServer.addPieces(dataSetId, 1n, 1, pieces, mismatchedMetadata)
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.match(error.message, /Metadata length \(2\) must match pieces length \(1\)/)
@@ -125,7 +125,7 @@ describe('Metadata Support', () => {
 
       // Test without metadata (should create empty arrays)
       capturedPieceMetadata = null
-      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1, 1, pieces)
+      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, 1, pieces)
       assert.equal(resultNoMetadata.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)
@@ -156,7 +156,7 @@ describe('Metadata Support', () => {
       ]
 
       await pdpServer.createDataSet(
-        1,
+        1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         metadataWithCDN,
@@ -171,7 +171,7 @@ describe('Metadata Support', () => {
       const metadataWithoutCDN: MetadataEntry[] = [{ key: 'project', value: 'test' }]
 
       await pdpServer.createDataSet(
-        1,
+        1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
         metadataWithoutCDN,

@@ -1,7 +1,7 @@
 import type { Account, Chain, Client, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import { getChain } from '../chains.ts'
-import * as PDP from '../curio.ts'
+import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 
@@ -55,7 +55,6 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
 
   const addPieces = await PDP.addPieces({
     dataSetId: options.dataSetId,
-    clientDataSetId: dataSet.clientDataSetId,
     nextPieceId: nextPieceId,
     pieces: uploadResponses.map((response) => response.pieceCid),
     endpoint: provider[0].serviceURL,

@@ -1,5 +1,5 @@
-import type { DataSetCreatedResponse } from '@filoz/synapse-core/curio'
-import * as Curio from '@filoz/synapse-core/curio'
+import type { DataSetCreatedResponse } from '@filoz/synapse-core/sp'
+import * as SP from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/warm-storage'
 import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +37,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         chainId,
       })
 
-      const { hash, statusUrl } = await createDataSet(connectorClient, {
+      const { txHash, statusUrl } = await createDataSet(connectorClient, {
         publicClient: config.getClient(),
         provider,
         cdn,
@@ -46,9 +46,9 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         //   description: 'Test Description',
         // },
       })
-      props?.onHash?.(hash)
+      props?.onHash?.(txHash)
 
-      const dataSet = await Curio.pollForDataSetCreationStatus({ statusUrl })
+      const dataSet = await SP.pollForDataSetCreationStatus({ statusUrl })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],
