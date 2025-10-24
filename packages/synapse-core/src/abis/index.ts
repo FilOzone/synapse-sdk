@@ -12,9 +12,11 @@
 export * from './erc20.ts'
 export * as generated from './generated.ts'
 
+import * as generated from './generated.ts'
+export const storage = [...generated.filecoinWarmStorageServiceAbi, ...generated.errorsAbi] as const
+
 export {
   filecoinPayV1Abi as payments,
-  filecoinWarmStorageServiceAbi as storage,
   filecoinWarmStorageServiceStateViewAbi as storageView,
   pdpVerifierAbi as pdp,
   serviceProviderRegistryAbi as serviceProviderRegistry,

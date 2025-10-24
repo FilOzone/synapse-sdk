@@ -32,7 +32,7 @@ export async function deletePiece(client: Client<Transport, Chain, Account>, opt
     endpoint: options.dataSet.pdp.serviceURL,
     dataSetId: options.dataSet.dataSetId,
     pieceId: options.pieceId,
-    signature: await signSchedulePieceRemovals(client, {
+    extraData: await signSchedulePieceRemovals(client, {
       clientDataSetId: options.dataSet.clientDataSetId,
       pieceIds: [options.pieceId],
     }),

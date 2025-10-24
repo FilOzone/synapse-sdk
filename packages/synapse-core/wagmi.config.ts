@@ -3,7 +3,8 @@ import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
 // const REF = 'refs/tags/v0.3.0'
-const REF = '15eeb6dc87db236507add5553a0c76c009705525'
+// const REF = '15eeb6dc87db236507add5553a0c76c009705525'
+const REF = 'refs/heads/kubuxu/devnode-contracts'
 const URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${REF}/service_contracts/abi`
 
 const config: ReturnType<typeof defineConfig> = defineConfig(() => {
@@ -20,6 +21,13 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
         314159: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258' as Address,
+      },
+    },
+    {
+      name: 'Errors',
+      address: {
+        314: '0x0000000000000000000000000000000000000000' as Address,
+        314159: '0x0000000000000000000000000000000000000000' as Address,
       },
     },
     {

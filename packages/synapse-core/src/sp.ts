@@ -227,6 +227,8 @@ export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): 
     pieceCid: piece.pieceCid,
     pieceId: piece.pieceId,
     pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chainId, options.endpoint),
+    subPieceCid: piece.subPieceCid,
+    subPieceOffset: piece.subPieceOffset,
   }))
 
   return pieces
@@ -480,7 +482,7 @@ export type DeletePieceOptions = {
   endpoint: string
   dataSetId: bigint
   pieceId: bigint
-  signature: Hex
+  extraData: Hex
 }
 
 export type DeletePieceResponse = {
@@ -493,11 +495,11 @@ export type DeletePieceResponse = {
  * DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}
  */
 export async function deletePiece(options: DeletePieceOptions) {
-  const { endpoint, dataSetId, pieceId, signature } = options
+  const { endpoint, dataSetId, pieceId, extraData } = options
   const response = await request.json.delete<DeletePieceResponse>(
     new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
     {
-      body: { extraData: signature },
+      body: { extraData },
     }
   )
 

@@ -1,4 +1,376 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Errors
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsAbi = [
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'field',
+        internalType: 'enum Errors.AddressField',
+        type: 'uint8',
+      },
+    ],
+    name: 'AddressAlreadySet',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CDNPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayer',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'expectedPayee', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayerOrPayee',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayments',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ChallengeWindowTooEarly',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ClientDataSetAlreadyRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'commissionType',
+        internalType: 'enum Errors.CommissionType',
+        type: 'uint8',
+      },
+      { name: 'max', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CommissionExceedsMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetNotFoundForRail',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'DataSetPaymentBeyondEndEpoch',
+  },
+  { type: 'error', inputs: [], name: 'DivisionByZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'key', internalType: 'string', type: 'string' },
+    ],
+    name: 'DuplicateMetadataKey',
+  },
+  { type: 'error', inputs: [], name: 'ExtraDataRequired' },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'FilBeamServiceNotConfigured',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minExpected', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeCount',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxProvingPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeWindowSize', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeWindowSize',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidDataSetId',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidEpochRange',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceDescriptionLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceNameLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'InvalidSignature',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidSignatureLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidTopUpAmount',
+  },
+  { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'metadataArrayCount', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceCount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataArrayCountMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'keysLength', internalType: 'uint256', type: 'uint256' },
+      { name: 'valuesLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataKeyAndValueLengthMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'length', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataKeyExceedsMaxLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'length', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataValueExceedsMaxLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'periodDeadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NextProvingPeriodAlreadyCalled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'NoPDPPaymentRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OldServiceProviderMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyFilBeamControllerAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyPDPVerifierAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlySelf',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'PaymentRailsNotFinalized',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProofAlreadySubmitted',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderAlreadyApproved',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderNotInApprovedList',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
+    name: 'ProviderNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingNotStarted',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingPeriodNotInitialized',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProvingPeriodPassed',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailNotAssociated',
+  },
+  { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'keysLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'TooManyMetadataKeys',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
+    name: 'UnsupportedSignatureV',
+  },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'field',
+        internalType: 'enum Errors.AddressField',
+        type: 'uint8',
+      },
+    ],
+    name: 'ZeroAddress',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsConfig = { address: errorsAddress, abi: errorsAbi } as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FilecoinPayV1
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
