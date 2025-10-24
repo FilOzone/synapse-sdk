@@ -151,7 +151,8 @@
     "filsnap-adapter": "^3.3.8",
     "iso-web": "^1.4.2",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.12"
+    "ox": "^0.9.12",
+    "p-retry": "^7.1.0"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.6",
