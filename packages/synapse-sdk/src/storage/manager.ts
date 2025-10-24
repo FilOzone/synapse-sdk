@@ -367,13 +367,11 @@ export class StorageManager {
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
 
-      // Calculate per-epoch pricing
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
+      // Calculate per-epoch pricing for storage
+      const storagePerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
 
-      // Calculate per-day pricing
-      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      // Calculate per-day pricing for storage
+      const storagePerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
@@ -382,15 +380,16 @@ export class StorageManager {
 
       return {
         pricing: {
-          noCDN: {
+          storage: {
             perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
-            perTiBPerDay: noCDNPerDay,
-            perTiBPerEpoch: noCDNPerEpoch,
+            perTiBPerDay: storagePerDay,
+            perTiBPerEpoch: storagePerEpoch,
           },
-          withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
-            perTiBPerDay: withCDNPerDay,
-            perTiBPerEpoch: withCDNPerEpoch,
+          cdnEgress: {
+            perTiB: BigInt(pricingData.pricePerTiBCdnEgress),
+          },
+          cacheMissEgress: {
+            perTiB: BigInt(pricingData.pricePerTiBCacheMissEgress),
           },
           tokenAddress: pricingData.tokenAddress,
           tokenSymbol: 'USDFC', // Hardcoded as we know it's always USDFC

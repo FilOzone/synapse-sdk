@@ -257,7 +257,8 @@ export const presets = {
       getServicePrice: () => [
         {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
-          pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
+          pricePerTiBCdnEgress: parseUnits('2.5', 18),
+          pricePerTiBCacheMissEgress: parseUnits('0.5', 18),
           tokenAddress: ADDRESSES.calibration.usdfcToken,
           epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },

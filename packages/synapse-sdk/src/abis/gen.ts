@@ -178,7 +178,12 @@ export const filecoinWarmStorageServiceAbi = [
             type: 'uint256',
           },
           {
-            name: 'pricePerTiBPerMonthWithCDN',
+            name: 'pricePerTiBCdnEgress',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'pricePerTiBCacheMissEgress',
             internalType: 'uint256',
             type: 'uint256',
           },

@@ -928,13 +928,14 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     paymentsService: PaymentsService,
     size: number,
-    withCDN: boolean
+    _withCDN: boolean
   ): Promise<PreflightInfo> {
     // Validate size before proceeding
     StorageContext.validateRawSize(size, 'preflightUpload')
 
     // Check allowances and get costs in a single call
-    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(size, withCDN, paymentsService)
+    // Note: withCDN parameter is kept for API compatibility but doesn't affect storage costs
+    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(size, paymentsService)
 
     // Return preflight info
     return {

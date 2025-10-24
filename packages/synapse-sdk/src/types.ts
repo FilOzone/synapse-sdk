@@ -427,8 +427,8 @@ export interface UploadResult {
 export interface StorageInfo {
   /** Pricing information for storage services */
   pricing: {
-    /** Pricing without CDN */
-    noCDN: {
+    /** Storage pricing (same regardless of CDN usage) */
+    storage: {
       /** Cost per TiB per month in token units */
       perTiBPerMonth: bigint
       /** Cost per TiB per day in token units */
@@ -436,14 +436,15 @@ export interface StorageInfo {
       /** Cost per TiB per epoch in token units */
       perTiBPerEpoch: bigint
     }
-    /** Pricing with CDN enabled */
-    withCDN: {
-      /** Cost per TiB per month in token units */
-      perTiBPerMonth: bigint
-      /** Cost per TiB per day in token units */
-      perTiBPerDay: bigint
-      /** Cost per TiB per epoch in token units */
-      perTiBPerEpoch: bigint
+    /** CDN egress pricing (usage-based) */
+    cdnEgress: {
+      /** Cost per TiB of CDN egress */
+      perTiB: bigint
+    }
+    /** Cache miss egress pricing (usage-based) */
+    cacheMissEgress: {
+      /** Cost per TiB of cache miss egress */
+      perTiB: bigint
     }
     /** Token contract address */
     tokenAddress: string

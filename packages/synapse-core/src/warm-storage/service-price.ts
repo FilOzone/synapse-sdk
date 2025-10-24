@@ -4,7 +4,8 @@ import { getChain } from '../chains.ts'
 
 export type ServicePriceResult = {
   pricePerTiBPerMonthNoCDN: bigint
-  pricePerTiBPerMonthWithCDN: bigint
+  pricePerTiBCdnEgress: bigint
+  pricePerTiBCacheMissEgress: bigint
   tokenAddress: `0x${string}`
   epochsPerMonth: bigint
 }

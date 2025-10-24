@@ -1044,13 +1044,15 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             // getServicePrice selector
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             // Encode as a tuple (struct)
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1065,23 +1067,18 @@ describe('WarmStorageService', () => {
         assert.exists(costs.perEpoch)
         assert.exists(costs.perDay)
         assert.exists(costs.perMonth)
-        assert.exists(costs.withCDN)
-        assert.exists(costs.withCDN.perEpoch)
-        assert.exists(costs.withCDN.perDay)
-        assert.exists(costs.withCDN.perMonth)
 
         // Verify costs are reasonable
         assert.isTrue(costs.perEpoch > 0n)
         assert.isTrue(costs.perDay > costs.perEpoch)
         assert.isTrue(costs.perMonth > costs.perDay)
 
-        // CDN costs should be higher
-        assert.isTrue(costs.withCDN.perEpoch > costs.perEpoch)
-        assert.isTrue(costs.withCDN.perDay > costs.perDay)
-        assert.isTrue(costs.withCDN.perMonth > costs.perMonth)
-
-        // Verify CDN is 1.5x base rate (3 USDFC vs 2 USDFC per TiB/month)
-        assert.equal((costs.withCDN.perEpoch * 2n) / costs.perEpoch, 3n)
+        // Get service pricing to verify CDN egress prices are available
+        const pricing = await warmStorageService.getServicePrice()
+        assert.exists(pricing.pricePerTiBCdnEgress)
+        assert.exists(pricing.pricePerTiBCacheMissEgress)
+        assert.isTrue(pricing.pricePerTiBCdnEgress > 0n)
+        assert.isTrue(pricing.pricePerTiBCacheMissEgress > 0n)
       })
 
       it('should scale costs linearly with size', async () => {
@@ -1096,12 +1093,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1141,13 +1140,15 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             getServicePriceCalled = true
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             // Encode as a tuple (struct)
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1188,12 +1189,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1204,7 +1207,6 @@ describe('WarmStorageService', () => {
 
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-          false,
           mockPaymentsService
         )
 
@@ -1259,12 +1261,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1275,7 +1279,6 @@ describe('WarmStorageService', () => {
 
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
-          false,
           mockPaymentsService
         )
 
@@ -1318,12 +1321,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1334,7 +1339,6 @@ describe('WarmStorageService', () => {
 
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
           mockPaymentsService
         )
 
@@ -1375,12 +1379,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1393,7 +1399,6 @@ describe('WarmStorageService', () => {
         const customLockupDays = 20
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
           mockPaymentsService,
           customLockupDays
         )
@@ -1405,7 +1410,6 @@ describe('WarmStorageService', () => {
         // Compare with default (10 days) to ensure they're different
         const defaultCheck = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
           mockPaymentsService
         )
 
@@ -1454,12 +1458,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1534,12 +1540,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }
@@ -1602,12 +1610,14 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
+            const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // Set so 20% egress = 0.5 extra cost
+            const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: pricePerTiBCdnEgress,
+              pricePerTiBCacheMissEgress: pricePerTiBCacheMissEgress,
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
             }

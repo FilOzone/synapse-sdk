@@ -167,13 +167,17 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
           to === '0xbfdc4454c2b573079c6c5ea1ddef6b8defc03dd5')
       ) {
         // might be used in some tests
-        // Return mock pricing data: 2 USDFC per TiB per month, USDFC address, 86400 epochs per month
-        const pricePerTiBPerMonth = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
+        // Return mock pricing data with new struct format
+        const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18) // 2 USDFC with 18 decimals
+        const pricePerTiBCdnEgress = ethers.parseUnits('2.5', 18) // 2.5 USDFC per TiB egress
+        const pricePerTiBCacheMissEgress = ethers.parseUnits('0.5', 18) // 0.5 USDFC per TiB cache miss
         const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration // Mock USDFC address
         const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
+
+        // Encode as a tuple (struct)
         return ethers.AbiCoder.defaultAbiCoder().encode(
-          ['uint256', 'address', 'uint256'],
-          [pricePerTiBPerMonth, tokenAddress, epochsPerMonth]
+          ['tuple(uint256,uint256,uint256,address,uint256)'],
+          [[pricePerTiBPerMonthNoCDN, pricePerTiBCdnEgress, pricePerTiBCacheMissEgress, tokenAddress, epochsPerMonth]]
         )
       }
       // ERC20.balanceOf(address)

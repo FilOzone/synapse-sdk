@@ -51,8 +51,10 @@ export interface AddPiecesInfo {
 export interface ServicePriceInfo {
   /** Price per TiB per month without CDN (in base units) */
   pricePerTiBPerMonthNoCDN: bigint
-  /** Price per TiB per month with CDN (in base units) */
-  pricePerTiBPerMonthWithCDN: bigint
+  /** CDN egress price per TiB (usage-based, in base units) */
+  pricePerTiBCdnEgress: bigint
+  /** Cache miss egress price per TiB (usage-based, in base units) */
+  pricePerTiBCacheMissEgress: bigint
   /** Token address for payments */
   tokenAddress: string
   /** Number of epochs per month */
@@ -750,7 +752,8 @@ export class WarmStorageService {
     const pricing = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
-      pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
+      pricePerTiBCdnEgress: pricing.pricePerTiBCdnEgress,
+      pricePerTiBCacheMissEgress: pricing.pricePerTiBCacheMissEgress,
       tokenAddress: pricing.tokenAddress,
       epochsPerMonth: pricing.epochsPerMonth,
     }
@@ -759,52 +762,37 @@ export class WarmStorageService {
   /**
    * Calculate storage costs for a given size
    * @param sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month for both CDN and non-CDN
+   * @returns Cost estimates per epoch, day, and month for storage only (CDN is usage-based)
    */
   async calculateStorageCost(sizeInBytes: number): Promise<{
     perEpoch: bigint
     perDay: bigint
     perMonth: bigint
-    withCDN: {
-      perEpoch: bigint
-      perDay: bigint
-      perMonth: bigint
-    }
   }> {
     const servicePriceInfo = await this.getServicePrice()
 
-    // Calculate price per byte per epoch
+    // Calculate price per byte per epoch (storage only, CDN is usage-based)
     const sizeInBytesBigint = BigInt(sizeInBytes)
-    const pricePerEpochNoCDN =
+    const pricePerEpoch =
       (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
-      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-    const pricePerEpochWithCDN =
-      (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
     return {
-      perEpoch: pricePerEpochNoCDN,
-      perDay: pricePerEpochNoCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpochNoCDN * servicePriceInfo.epochsPerMonth,
-      withCDN: {
-        perEpoch: pricePerEpochWithCDN,
-        perDay: pricePerEpochWithCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth,
-      },
+      perEpoch: pricePerEpoch,
+      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
     }
   }
 
   /**
    * Check if user has sufficient allowances for a storage operation and calculate costs
    * @param sizeInBytes - Size of data to store
-   * @param withCDN - Whether CDN is enabled
    * @param paymentsService - PaymentsService instance to check allowances
    * @param lockupDays - Number of days for lockup period (defaults to 10)
    * @returns Allowance requirement details and storage costs
    */
   async checkAllowanceForStorage(
     sizeInBytes: number,
-    withCDN: boolean,
     paymentsService: PaymentsService,
     lockupDays?: number
   ): Promise<{
@@ -829,8 +817,8 @@ export class WarmStorageService {
       this.calculateStorageCost(sizeInBytes),
     ])
 
-    const selectedCosts = withCDN ? costs.withCDN : costs
-    const rateNeeded = selectedCosts.perEpoch
+    // Storage costs are the same regardless of CDN (CDN is usage-based egress, not storage)
+    const rateNeeded = costs.perEpoch
 
     // Calculate lockup period based on provided days (default: 10)
     const lockupPeriod =
@@ -873,7 +861,7 @@ export class WarmStorageService {
       currentLockupUsed: approval.lockupUsed,
       sufficient,
       message,
-      costs: selectedCosts,
+      costs,
       depositAmountNeeded: lockupNeeded,
     }
   }
@@ -935,11 +923,8 @@ export class WarmStorageService {
     // Parallelize cost calculation and allowance check
     const [costs, allowanceCheck] = await Promise.all([
       this.calculateStorageCost(options.dataSize),
-      this.checkAllowanceForStorage(options.dataSize, options.withCDN ?? false, paymentsService),
+      this.checkAllowanceForStorage(options.dataSize, paymentsService),
     ])
-
-    // Select the appropriate costs based on CDN option
-    const selectedCosts = (options.withCDN ?? false) ? costs.withCDN : costs
 
     const actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
@@ -949,7 +934,7 @@ export class WarmStorageService {
 
     // Check if deposit is needed
     const accountInfo = await paymentsService.accountInfo(TOKENS.USDFC)
-    const requiredBalance = selectedCosts.perMonth // Require at least 1 month of funds
+    const requiredBalance = costs.perMonth // Require at least 1 month of funds
 
     if (accountInfo.availableFunds < requiredBalance) {
       const depositAmount = requiredBalance - accountInfo.availableFunds
@@ -978,9 +963,9 @@ export class WarmStorageService {
 
     return {
       estimatedCost: {
-        perEpoch: selectedCosts.perEpoch,
-        perDay: selectedCosts.perDay,
-        perMonth: selectedCosts.perMonth,
+        perEpoch: costs.perEpoch,
+        perDay: costs.perDay,
+        perMonth: costs.perMonth,
       },
       allowanceCheck: {
         sufficient: allowanceCheck.sufficient,

@@ -644,12 +644,13 @@ describe('Synapse', () => {
 
       // Check pricing
       assert.exists(storageInfo.pricing)
-      assert.exists(storageInfo.pricing.noCDN)
-      assert.exists(storageInfo.pricing.withCDN)
+      assert.exists(storageInfo.pricing.storage)
+      assert.exists(storageInfo.pricing.cdnEgress)
+      assert.exists(storageInfo.pricing.cacheMissEgress)
 
-      // Verify pricing calculations (2 USDFC per TiB per month)
-      const expectedNoCDNMonthly = parseUnits('2', 18) // 2 USDFC
-      assert.equal(storageInfo.pricing.noCDN.perTiBPerMonth, expectedNoCDNMonthly)
+      // Verify pricing calculations (2 USDFC per TiB per month for storage)
+      const expectedStorageMonthly = parseUnits('2', 18) // 2 USDFC
+      assert.equal(storageInfo.pricing.storage.perTiBPerMonth, expectedStorageMonthly)
 
       // Check providers
       assert.equal(storageInfo.providers.length, 2)
