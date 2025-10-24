@@ -1,11 +1,29 @@
 import type { CustomEvent, HTTPEvent, OperationEvent, OperationType, TelemetryConfig } from '../types.ts'
 import { BaseTelemetryAdapter } from './base-adapter.ts'
-import { integrations, Sentry } from './sentry-dep.ts'
 import { setupShutdownHooks } from './shutdown-utils.ts'
+
+// Dynamically import the correct Sentry package based on environment
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isBrowser =
+  typeof (globalThis as any).window !== 'undefined' && typeof (globalThis as any).document !== 'undefined'
+const { Sentry, integrations } = await (async () => {
+  if (isBrowser) {
+    const SentryBrowser = await import('@sentry/browser')
+    return {
+      Sentry: SentryBrowser,
+      integrations: [SentryBrowser.browserTracingIntegration()],
+    }
+  }
+  const SentryNode = await import('@sentry/node')
+  return {
+    Sentry: SentryNode,
+    integrations: [SentryNode.httpIntegration()],
+  }
+})()
 
 /**
  * Sentry telemetry adapter
- * Works in both Node.js and browser - sentry-dep.js is swapped via package.json "browser" field
+ * Works in both Node.js and browser - uses dynamic imports to load the correct Sentry package
  */
 export class SentryAdapter extends BaseTelemetryAdapter {
   init(config: TelemetryConfig, tags: Record<string, string>): void {

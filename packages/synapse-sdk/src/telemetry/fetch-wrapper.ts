@@ -38,13 +38,11 @@
  * - HTTP timing and status tracking
  * - Storage provider identification for filtering
  */
-
-import { SDK_VERSION } from '../utils/sdk-version.ts'
 import { getGlobalTelemetry, isGlobalTelemetryEnabled } from './singleton.ts'
 import type { HTTPEvent } from './types.ts'
 
 let isWrapped = false
-const originalFetch = globalThis.fetch
+const originalFetch = (globalThis as any).fetch as typeof fetch
 
 /**
  * Initialize global fetch wrapper with telemetry
@@ -59,35 +57,26 @@ export function initGlobalFetchWrapper(): void {
 
   isWrapped = true
 
-  globalThis.fetch = async function wrappedFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  ;(globalThis as any).fetch = async function wrappedFetch(
+    input: string | URL | Request,
+    init?: RequestInit
+  ): Promise<Response> {
     // If telemetry disabled, use original fetch
     if (!isGlobalTelemetryEnabled()) {
       return originalFetch(input, init)
     }
-
-    const startTime = Date.now()
+    const now = new Date()
+    const startTime = now.getTime()
     const requestId = generateRequestId()
-    const traceId = generateTraceId()
-    const spanId = generateSpanId()
 
     // Parse URL for tracking
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     const parsedUrl = new URL(url)
 
-    // Inject correlation headers
-    const headers = new Headers(init?.headers)
-    headers.set('traceparent', `00-${traceId}-${spanId}-01`)
-    headers.set('x-synapse-request-id', requestId)
-    headers.set('x-synapse-sdk-version', SDK_VERSION)
-
-    const ts = new Date().toISOString()
+    const ts = now.toISOString()
     try {
-      const response = await originalFetch(input, {
-        ...init,
-        headers,
-      })
-
-      const durationMs = Date.now() - startTime
+      const response = await originalFetch(input, init)
+      const durationMs = new Date().getTime() - startTime
 
       // Extract SP information from URL
       const spInfo = extractSPInfo(parsedUrl, init?.method || 'GET')
@@ -146,7 +135,7 @@ export function removeGlobalFetchWrapper(): void {
     return
   }
 
-  globalThis.fetch = originalFetch
+  ;(globalThis as any).fetch = originalFetch
   isWrapped = false
 }
 
@@ -211,23 +200,5 @@ function extractSPInfo(
  * Generate unique request ID
  */
 function generateRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-/**
- * Generate W3C trace ID (32 hex chars)
- */
-function generateTraceId(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-/**
- * Generate W3C span ID (16 hex chars)
- */
-function generateSpanId(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(8)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
+  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 }
