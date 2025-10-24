@@ -54,16 +54,71 @@
   },
   "scripts": {
     "generate-abi": "wagmi generate",
-    "build": "tsc --build",
-    "lint": "tsc --build && biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "build": "wireit",
+    "lint": "wireit",
     "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
-    "test": "pnpm run lint && pnpm run test:node",
-    "test:node": "playwright-test 'src/test/**/!(*.browser).test.ts' --mode node",
-    "test:browser": "playwright-test 'src/test/**/!(*.node).test.ts' --assets ./src/test/mocks",
+    "test": "wireit",
+    "test:node": "wireit",
+    "test:browser": "wireit",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm run clean && pnpm run build"
   },
+  "wireit": {
+    "build": {
+      "command": "tsc --build --pretty",
+      "clean": "if-file-deleted",
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/**"
+      ]
+    },
+    "lint": {
+      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "files": [
+        "src/**/*.ts",
+        "../../biome.json"
+      ],
+      "output": [],
+      "dependencies": [
+        "build"
+      ]
+    },
+    "test": {
+      "command": "pnpm run test:node && pnpm run test:browser",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "lint"
+      ]
+    },
+    "test:node": {
+      "command": "playwright-test \"src/test/**/*.test.ts\" --mode node",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "../synapse-core:build"
+      ]
+    },
+    "test:browser": {
+      "command": "playwright-test \"src/test/**/*.test.ts\" --assets ./src/test/mocks",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "../synapse-core:build"
+      ]
+    }
+  },
   "dependencies": {
+    "@filoz/synapse-core": "workspace:^",
     "@web3-storage/data-segment": "^5.3.0",
     "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
@@ -78,7 +133,7 @@
     "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
     "chai": "^6.2.0",
-    "iso-web": "^1.4.0",
+    "iso-web": "^1.4.2",
     "mocha": "^11.7.4",
     "msw": "~2.10.5",
     "p-defer": "^4.0.1",

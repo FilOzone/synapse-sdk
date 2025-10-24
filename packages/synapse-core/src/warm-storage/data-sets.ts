@@ -3,7 +3,7 @@ import { type Account, type Address, type Chain, type Client, isAddressEqual, ty
 import { multicall, readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import * as PDP from '../curio.ts'
+import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 import type { PDPProvider } from './providers.ts'

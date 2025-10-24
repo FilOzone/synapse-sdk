@@ -26,16 +26,17 @@
  * ```
  */
 
+import * as Piece from '@filoz/synapse-core/piece'
+import * as SP from '@filoz/synapse-core/sp'
 import { ethers } from 'ethers'
-import { asPieceCID, calculate as calculatePieceCID, downloadAndValidate } from '../piece/index.ts'
+import type { Hex } from 'viem'
+import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
 import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
-import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
+import { constructPieceUrl } from '../utils/piece.ts'
 import type { PDPAuthHelper } from './auth.ts'
 import {
-  asDataSetData,
   validateDataSetCreationStatusResponse,
-  validateFindPieceResponse,
   validatePieceAdditionStatusResponse,
   validatePieceDeleteResponse,
   validatePieceStatusResponse,
@@ -87,8 +88,6 @@ export interface AddPiecesResponse {
 export interface FindPieceResponse {
   /** The piece CID that was found */
   pieceCid: PieceCID
-  /** @deprecated Use pieceCid instead. This field is for backward compatibility and will be removed in a future version */
-  piece_cid?: string
 }
 
 /**
@@ -212,45 +211,11 @@ export class PDPServer {
       signature: authData.signature,
     })
 
-    // Prepare request body
-    const requestBody = {
-      recordKeeper,
+    return SP.createDataSet({
+      endpoint: this._serviceURL,
+      recordKeeper: recordKeeper as Hex,
       extraData: `0x${extraData}`,
-    }
-
-    // Make the POST request to create the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
     })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to create data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Extract transaction hash from Location header
-    const location = response.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response')
-    }
-
-    // Parse the location to extract the transaction hash
-    // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const txHash = locationMatch[1]
-
-    return {
-      txHash,
-      statusUrl: `${this._serviceURL}${location}`,
-    }
   }
 
   /**
@@ -441,49 +406,15 @@ export class PDPServer {
       metadata: finalMetadata,
     })
 
-    // Prepare request body matching the Curio handler expectation
-    // Each piece has itself as its only subPiece (internal implementation detail)
-    const requestBody: PDPAddPiecesInput = {
-      pieces: PDPServer._formatPieceDataArrayForCurio(pieceDataArray),
+    const { txHash, statusUrl } = await SP.addPieces({
+      endpoint: this._serviceURL,
+      dataSetId: BigInt(dataSetId),
+      pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
       extraData: `0x${extraData}`,
-    }
-
-    // Make the POST request to add pieces to the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+      nextPieceId: BigInt(nextPieceId),
     })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to add pieces to data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Check for Location header (backward compatible with old servers)
-    const location = response.headers.get('Location')
-    let txHash: string | undefined
-    let statusUrl: string | undefined
-
-    if (location != null) {
-      // Expected format: /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
-      const locationMatch = location.match(/\/pieces\/added\/([0-9a-fA-Fx]+)$/)
-      if (locationMatch != null) {
-        txHash = locationMatch[1]
-        // Ensure txHash has 0x prefix
-        if (!txHash.startsWith('0x')) {
-          txHash = `0x${txHash}`
-        }
-        statusUrl = `${this._serviceURL}${location}`
-      }
-    }
-
-    // Success - pieces have been added
-    const responseText = await response.text()
     return {
-      message: responseText !== '' ? responseText : `Pieces added to data set ID ${dataSetId} successfully`,
+      message: `Pieces added to data set ID ${dataSetId} successfully`,
       txHash,
       statusUrl,
     }
@@ -555,27 +486,20 @@ export class PDPServer {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const url = constructFindPieceUrl(this._serviceURL, parsedPieceCid)
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {},
+    const piece = await SP.findPiece({
+      endpoint: this._serviceURL,
+      pieceCid: parsedPieceCid,
     })
-
-    if (response.status === 404) {
-      throw new Error(`Piece not found: ${parsedPieceCid.toString()}`)
+    return {
+      pieceCid: piece,
     }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to find piece: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validateFindPieceResponse(data)
   }
 
   /**
    * Get indexing and IPNI status for a piece
+   *
+   * TODO: not used anywhere, remove?
+   *
    * @param pieceCid - The PieceCID CID (as string or PieceCID object)
    * @returns Piece status information including indexing and IPNI advertisement status
    * @throws Error if piece not found or doesn't belong to service (404)
@@ -616,87 +540,10 @@ export class PDPServer {
     // Convert ArrayBuffer to Uint8Array if needed
     const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
-    // Calculate PieceCID
-    performance.mark('synapse:calculatePieceCID-start')
-    const pieceCid = calculatePieceCID(uint8Data)
-    performance.mark('synapse:calculatePieceCID-end')
-    performance.measure('synapse:calculatePieceCID', 'synapse:calculatePieceCID-start', 'synapse:calculatePieceCID-end')
-    const size = uint8Data.length
-
-    const requestBody = {
-      pieceCid: pieceCid.toString(),
-      // No notify URL needed
-    }
-
-    // Create upload session or check if piece exists
-    performance.mark('synapse:POST.pdp.piece-start')
-    const createResponse = await fetch(`${this._serviceURL}/pdp/piece`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    return await SP.uploadPiece({
+      endpoint: this._serviceURL,
+      data: uint8Data,
     })
-    performance.mark('synapse:POST.pdp.piece-end')
-    performance.measure('synapse:POST.pdp.piece', 'synapse:POST.pdp.piece-start', 'synapse:POST.pdp.piece-end')
-
-    if (createResponse.status === 200) {
-      // Piece already exists on server
-      return {
-        pieceCid,
-        size,
-      }
-    }
-
-    if (createResponse.status !== 201) {
-      const errorText = await createResponse.text()
-      throw new Error(
-        `Failed to create upload session: ${createResponse.status} ${createResponse.statusText} - ${errorText}`
-      )
-    }
-
-    // Extract upload ID from Location header
-    const location = createResponse.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response (may be restricted by CORS policy)')
-    }
-
-    // Validate the location format and extract UUID
-    // Match /pdp/piece/upload/UUID or /piece/upload/UUID anywhere in the path
-    const locationMatch = location.match(/\/(?:pdp\/)?piece\/upload\/([a-fA-F0-9-]+)/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const uploadUuid = locationMatch[1] // Extract just the UUID
-
-    // Upload the data
-    performance.mark('synapse:PUT.pdp.piece.upload-start')
-    const uploadResponse = await fetch(`${this._serviceURL}/pdp/piece/upload/${uploadUuid}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': uint8Data.length.toString(),
-        // No Authorization header needed
-      },
-      body: uint8Data,
-    })
-    performance.mark('synapse:PUT.pdp.piece.upload-end')
-    performance.measure(
-      'synapse:PUT.pdp.piece.upload',
-      'synapse:PUT.pdp.piece.upload-start',
-      'synapse:PUT.pdp.piece.upload-end'
-    )
-
-    if (uploadResponse.status !== 204) {
-      const errorText = await uploadResponse.text()
-      throw new Error(`Failed to upload piece: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`)
-    }
-
-    return {
-      pieceCid,
-      size,
-    }
   }
 
   /**
@@ -725,29 +572,24 @@ export class PDPServer {
    * @returns Promise that resolves with data set data
    */
   async getDataSet(dataSetId: number): Promise<DataSetData> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
+    const data = await SP.getDataSet({
+      endpoint: this._serviceURL,
+      dataSetId: BigInt(dataSetId),
     })
 
-    if (response.status === 404) {
-      throw new Error(`Data set not found: ${dataSetId}`)
+    return {
+      id: data.id,
+      pieces: data.pieces.map((piece) => {
+        const pieceCid = Piece.parse(piece.pieceCid)
+        return {
+          pieceId: piece.pieceId,
+          pieceCid: pieceCid,
+          subPieceCid: pieceCid,
+          subPieceOffset: piece.subPieceOffset,
+        }
+      }),
+      nextChallengeEpoch: data.nextChallengeEpoch,
     }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to fetch data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    const converted = asDataSetData(data)
-    if (converted == null) {
-      console.error('Invalid data set data response:', data)
-      throw new Error('Invalid data set data response format')
-    }
-    return converted
   }
 
   /**

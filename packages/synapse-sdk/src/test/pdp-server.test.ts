@@ -6,6 +6,15 @@
  * Tests the PDPServer class for creating data sets and adding pieces via HTTP API
  */
 
+import {
+  AddPiecesError,
+  CreateDataSetError,
+  FindPieceError,
+  GetDataSetError,
+  LocationHeaderError,
+  PostPieceError,
+} from '@filoz/synapse-core/errors'
+import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -92,6 +101,133 @@ describe('PDPServer', () => {
 
       assert.strictEqual(result.txHash, mockTxHash)
       assert.include(result.statusUrl, mockTxHash)
+    })
+
+    it('should fail for unexpected location header', async () => {
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/created/invalid-hash` },
+          })
+        })
+      )
+      try {
+        await pdpServer.createDataSet(
+          0n, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          await signer.getAddress(), // payer
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS // recordKeeper
+        )
+        assert.fail('Should have thrown error for unexpected location header')
+      } catch (error) {
+        assert.instanceOf(error, LocationHeaderError)
+        assert.equal(error.message, 'Location header format is invalid: /pdp/data-sets/created/invalid-hash')
+      }
+    })
+    it('should fail with no Location header', async () => {
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: {},
+          })
+        })
+      )
+      try {
+        await pdpServer.createDataSet(
+          0n, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          await signer.getAddress(), // payer
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS // recordKeeper
+        )
+        assert.fail('Should have thrown error for no Location header')
+      } catch (error) {
+        assert.instanceOf(error, LocationHeaderError)
+        assert.equal(error.message, 'Location header format is invalid: <none>')
+      }
+    })
+
+    it('should fail with CreateDataSetError string error', async () => {
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return HttpResponse.text(
+            `Failed to send transaction: failed to estimate gas: message execution failed (exit=[33], revert reason=[message failed with backtrace:
+00: f0169791 (method 3844450837) -- contract reverted at 75 (33)
+01: f0169791 (method 6) -- contract reverted at 4535 (33)
+02: f0169800 (method 3844450837) -- contract reverted at 75 (33)
+03: f0169800 (method 6) -- contract reverted at 10988 (33)
+04: f0169792 (method 3844450837) -- contract reverted at 1775 (33)
+ (RetCode=33)], vm error=[Error(invariant failure: insufficient funds to cover lockup after function execution)])
+`,
+            {
+              status: 500,
+            }
+          )
+        })
+      )
+      try {
+        await pdpServer.createDataSet(
+          0n, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          await signer.getAddress(), // payer
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS // recordKeeper
+        )
+        assert.fail('Should have thrown error for no Location header')
+      } catch (error) {
+        assert.instanceOf(error, CreateDataSetError)
+        assert.equal(error.shortMessage, 'Failed to create data set.')
+        assert.equal(
+          error.message,
+          `Failed to create data set.
+
+Details: 
+invariant failure: insufficient funds to cover lockup after function execution`
+        )
+      }
+    })
+
+    it('should fail with CreateDataSetError typed error', async () => {
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return HttpResponse.text(
+            `Failed to send transaction: failed to estimate gas: message execution failed (exit=[33], revert reason=[message failed with backtrace:
+00: f0169791 (method 3844450837) -- contract reverted at 75 (33)
+01: f0169791 (method 6) -- contract reverted at 4535 (33)
+02: f0169800 (method 3844450837) -- contract reverted at 75 (33)
+03: f0169800 (method 6) -- contract reverted at 18957 (33)
+ (RetCode=33)], vm error=[0x42d750dc0000000000000000000000007e4abd63a7c8314cc28d388303472353d884f292000000000000000000000000b0ff6622d99a325151642386f65ab33a08c30213])
+`,
+            {
+              status: 500,
+            }
+          )
+        })
+      )
+      try {
+        await pdpServer.createDataSet(
+          0n, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          await signer.getAddress(), // payer
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS // recordKeeper
+        )
+        assert.fail('Should have thrown error for no Location header')
+      } catch (error) {
+        assert.instanceOf(error, CreateDataSetError)
+        assert.equal(error.shortMessage, 'Failed to create data set.')
+        assert.equal(
+          error.message,
+          `Failed to create data set.
+
+Details: Warm Storage
+InvalidSignature(address expected, address actual)
+                (0x7e4ABd63A7C8314Cc28D388303472353D884f292, 0xb0fF6622D99A325151642386F65AB33a08c30213)`
+        )
+      }
     })
   })
 
@@ -245,7 +381,7 @@ describe('PDPServer', () => {
       server.use(
         http.post<{ id: string }, PDPAddPiecesInput>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
-          async ({ request }) => {
+          async ({ request, params }) => {
             try {
               const body = await request.json()
               assert.isDefined(body.pieces)
@@ -256,6 +392,9 @@ describe('PDPServer', () => {
               assert.strictEqual(body.pieces[0].subPieces[0].subPieceCid, validPieceCid[0]) // Piece is its own subPiece
               return HttpResponse.text('Pieces added successfully', {
                 status: 201,
+                headers: {
+                  Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+                },
               })
             } catch (error) {
               return HttpResponse.text((error as Error).message, {
@@ -288,9 +427,14 @@ describe('PDPServer', () => {
         await pdpServer.addPieces(1, 0n, 0, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include(
-          (error as Error).message,
-          'Failed to add pieces to data set: 400 Bad Request - Invalid piece CID'
+        assert.instanceOf(error, AddPiecesError)
+        assert.equal(error.shortMessage, 'Failed to add pieces.')
+        assert.equal(
+          error.message,
+          `Failed to add pieces.
+
+Details: Service Provider PDP
+Invalid piece CID`
         )
       }
     })
@@ -311,7 +455,7 @@ describe('PDPServer', () => {
       server.use(
         http.post<{ id: string }, PDPAddPiecesInput>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
-          async ({ request }) => {
+          async ({ request, params }) => {
             try {
               const body = await request.json()
               assert.strictEqual(body.pieces.length, 2)
@@ -322,6 +466,9 @@ describe('PDPServer', () => {
 
               return HttpResponse.text('Multiple pieces added successfully', {
                 status: 201,
+                headers: {
+                  Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+                },
               })
             } catch (error) {
               return HttpResponse.text((error as Error).message, {
@@ -357,48 +504,6 @@ describe('PDPServer', () => {
       assert.strictEqual(result.txHash, mockTxHash)
       assert.include(result.statusUrl ?? '', mockTxHash)
       assert.include(result.statusUrl ?? '', '/pdp/data-sets/1/pieces/added/')
-    })
-
-    it('should handle addPieces response with Location header missing 0x prefix', async () => {
-      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
-      const mockTxHashWithout0x = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
-      const mockTxHashWith0x = `0x${mockTxHashWithout0x}`
-
-      server.use(
-        http.post('http://pdp.local/pdp/data-sets/:id/pieces', async () => {
-          return HttpResponse.text('Pieces added successfully', {
-            status: 201,
-            headers: {
-              Location: `/pdp/data-sets/1/pieces/added/${mockTxHashWithout0x}`,
-            },
-          })
-        })
-      )
-
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
-      assert.isDefined(result)
-      assert.strictEqual(result.txHash, mockTxHashWith0x) // Should have 0x prefix added
-    })
-
-    it('should handle malformed Location header gracefully', async () => {
-      const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
-
-      server.use(
-        http.post('http://pdp.local/pdp/data-sets/:id/pieces', async () => {
-          return HttpResponse.text('Pieces added successfully', {
-            status: 201,
-            headers: {
-              Location: '/some/unexpected/path',
-            },
-          })
-        })
-      )
-
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
-      assert.isDefined(result)
-      assert.isDefined(result.message)
-      assert.isUndefined(result.txHash) // No txHash for malformed Location
-      assert.isUndefined(result.statusUrl)
     })
   })
 
@@ -504,6 +609,7 @@ describe('PDPServer', () => {
     })
 
     it('should handle piece not found', async () => {
+      SP.setTimeout(100)
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       server.use(
@@ -518,8 +624,15 @@ describe('PDPServer', () => {
         await pdpServer.findPiece(mockPieceCid)
         assert.fail('Should have thrown error for not found')
       } catch (error: any) {
-        assert.include(error.message, 'Piece not found')
-        assert.include(error.message, mockPieceCid)
+        assert.instanceOf(error, FindPieceError)
+        assert.equal(error.shortMessage, 'Failed to find piece.')
+        assert.equal(
+          error.message,
+          `Failed to find piece.
+
+Details: Service Provider PDP
+Timeout waiting for piece to be found`
+        )
       }
     })
 
@@ -548,9 +661,15 @@ describe('PDPServer', () => {
         await pdpServer.findPiece(mockPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to find piece')
-        assert.include(error.message, '500')
-        assert.include(error.message, 'Database error')
+        assert.instanceOf(error, FindPieceError)
+        assert.equal(error.shortMessage, 'Failed to find piece.')
+        assert.equal(
+          error.message,
+          `Failed to find piece.
+
+Details: Service Provider PDP
+Database error`
+        )
       }
     })
   })
@@ -824,9 +943,15 @@ describe('PDPServer', () => {
         await pdpServer.uploadPiece(testData)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to create upload session')
-        assert.include(error.message, '500')
-        assert.include(error.message, 'Database error')
+        assert.instanceOf(error, PostPieceError)
+        assert.equal(error.shortMessage, 'Failed to create upload session.')
+        assert.equal(
+          error.message,
+          `Failed to create upload session.
+
+Details: Service Provider PDP
+Database error`
+        )
       }
     })
   })
@@ -1083,14 +1208,12 @@ describe('PDPServer', () => {
       assert.equal(result.pieces.length, mockDataSetData.pieces.length)
       assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
       assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
-      assert.equal(result.pieces[0].subPieceCid.toString(), mockDataSetData.pieces[0].subPieceCid)
-      assert.equal(result.pieces[0].subPieceOffset, mockDataSetData.pieces[0].subPieceOffset)
     })
 
     it('should handle data set not found', async () => {
       server.use(
         http.get('http://pdp.local/pdp/data-sets/999', async () => {
-          return HttpResponse.json(undefined, {
+          return new HttpResponse(null, {
             status: 404,
           })
         })
@@ -1100,7 +1223,8 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(999)
         assert.fail('Should have thrown error for not found data set')
       } catch (error) {
-        assert.include((error as Error).message, 'Data set not found: 999')
+        assert.instanceOf(error, GetDataSetError)
+        assert.equal(error.shortMessage, 'Data set not found.')
       }
     })
 
@@ -1117,32 +1241,9 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.include((error as Error).message, 'Failed to fetch data set')
-        assert.include((error as Error).message, '500')
-        assert.include((error as Error).message, 'Database error')
-      }
-    })
-
-    it('should validate response data', async () => {
-      const invalidDataSetData = {
-        id: '292', // Should be number
-        pieces: 'not-array', // Should be array
-        nextChallengeEpoch: 'soon', // Should be number
-      }
-
-      server.use(
-        http.get('http://pdp.local/pdp/data-sets/292', async () => {
-          return HttpResponse.json(invalidDataSetData, {
-            status: 200,
-          })
-        })
-      )
-
-      try {
-        await pdpServer.getDataSet(292)
-        assert.fail('Should have thrown error for invalid response data')
-      } catch (error) {
-        assert.include((error as Error).message, 'Invalid data set data response format')
+        assert.instanceOf(error, GetDataSetError)
+        assert.equal(error.shortMessage, 'Failed to get data set.')
+        assert.equal(error.details, 'Service Provider PDP\nDatabase error')
       }
     })
 
@@ -1193,7 +1294,7 @@ describe('PDPServer', () => {
         await pdpServer.getDataSet(292)
         assert.fail('Should have thrown error for invalid CID in response')
       } catch (error) {
-        assert.include((error as Error).message, 'Invalid data set data response format')
+        assert.include((error as Error).message, 'Invalid CID string: invalid-cid-format')
       }
     })
   })

@@ -1,7 +1,7 @@
 import { getChain } from '@filoz/synapse-core/chains'
-import type { AddPiecesSuccess } from '@filoz/synapse-core/curio'
-import * as Curio from '@filoz/synapse-core/curio'
 import type { SessionKey } from '@filoz/synapse-core/session-key'
+import type { AddPiecesSuccess } from '@filoz/synapse-core/sp'
+import * as SP from '@filoz/synapse-core/sp'
 import { upload } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
@@ -45,7 +45,7 @@ export function useUpload(props: UseUploadProps) {
       })
 
       props?.onHash?.(pieces.txHash)
-      const rsp = await Curio.pollForAddPiecesStatus({
+      const rsp = await SP.pollForAddPiecesStatus({
         statusUrl: pieces.statusUrl,
       })
 
