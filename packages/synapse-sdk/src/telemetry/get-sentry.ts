@@ -12,9 +12,11 @@ export async function getSentry(): Promise<{ Sentry: Sentry; integrations: any[]
     const SentryBrowser = await import('@sentry/browser')
     return {
       Sentry: SentryBrowser,
-      integrations: [SentryBrowser.browserTracingIntegration({
-        ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
-      })],
+      integrations: [
+        SentryBrowser.browserTracingIntegration({
+          ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
+        }),
+      ],
     }
   }
   const SentryNode = await import('@sentry/node')
