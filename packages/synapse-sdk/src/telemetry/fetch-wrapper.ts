@@ -76,7 +76,7 @@ export function initGlobalFetchWrapper(): void {
     const ts = now.toISOString()
     try {
       const response = await originalFetch(input, init)
-      const durationMs = new Date().getTime() - startTime
+      const durationMs = Date.now() - startTime
 
       // Extract SP information from URL
       const spInfo = extractSPInfo(parsedUrl, init?.method || 'GET')
