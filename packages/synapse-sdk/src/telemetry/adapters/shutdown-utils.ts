@@ -1,21 +1,11 @@
 // telemetry/shutdown.ts
-type Flushable = { flush: (timeoutMs?: number) => Promise<boolean> }
+type Flushable = { flush: (timeoutMs?: number) => Promise<boolean>; close: (timeoutMs?: number) => Promise<boolean> }
 
 export function setupShutdownHooks(adapter: Flushable, opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any
   const timeout = opts.timeoutMs ?? 2000
   let shuttingDown = false
 
-  const once = () => () => {
-    if (shuttingDown) return
-    shuttingDown = true
-    // fire and forget; don't call close()
-    void adapter.flush(timeout).finally(() => {
-      // In Node we may want to exit explicitly for fatal cases;
-      // in browser do nothing—let navigation proceed.
-      shuttingDown = false
-    })
-  }
 
   // NOTE: sentry (our only adapter at the moment) handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
 
@@ -41,9 +31,23 @@ export function setupShutdownHooks(adapter: Flushable, opts: { timeoutMs?: numbe
     g.window.addEventListener('unload', flush, { capture: true })
   } else {
     // -------- Node runtime --------
-    process.on('beforeExit', once())
-    process.on('SIGINT', once())
-    process.on('SIGTERM', once())
-    process.on('SIGQUIT', once())
+    // For Node.js, we only handle explicit termination signals.
+
+    const handleSignal = () => {
+      if (shuttingDown) return
+      shuttingDown = true
+
+      // Use flush() to send pending events, then close() to clean up
+      void adapter.flush(timeout).finally(() => {
+        // Close the adapter to release resources
+        void adapter.close(timeout).finally(() => {
+          shuttingDown = false
+        })
+      })
+    }
+
+    process.on('SIGINT', handleSignal)
+    process.on('SIGTERM', handleSignal)
+    process.on('SIGQUIT', handleSignal)
   }
 }
