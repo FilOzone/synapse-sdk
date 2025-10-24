@@ -5,7 +5,7 @@
 import type { ethers } from 'ethers'
 import type { FilecoinNetworkType } from '../types.ts'
 import { GENESIS_TIMESTAMPS, TIME_CONSTANTS } from './constants.ts'
-import { createError } from './errors.ts'
+import { createError } from './index.ts'
 
 /**
  * Convert a Filecoin epoch to a JavaScript Date

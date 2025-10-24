@@ -92,9 +92,8 @@ export class TelemetryService {
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
-      // environment: config.environment || 'production',
       release: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
-      beforeSend: this.sanitizeEvent.bind(this),
+      beforeSend: this.sanitizeError.bind(this),
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
@@ -102,7 +101,7 @@ export class TelemetryService {
     })
   }
 
-  protected sanitizeEvent(event: any): any {
+  protected sanitizeError(event: any): any {
     this.addToBuffer(event)
 
     return event

@@ -20,32 +20,23 @@ export function initGlobalFetchWrapper(): void {
     input: string | URL | Request,
     init?: RequestInit
   ): Promise<Response> {
-    // If telemetry disabled, use original fetch
+    // If telemetry disabled, use the original fetch
+    // OR, we have an active span, and fetch calls will be instrumented by Sentry automatically
     const sentry = getGlobalTelemetry()?.sentry
-    if (!sentry) {
+    if (!sentry || sentry.getActiveSpan() != null) {
       return originalFetch(input, init)
     }
+    const url = input instanceof Request ? new URL(input.url) : new URL(input.toString())
+    const method = input instanceof Request ? input.method : init?.method || 'GET'
 
-    // Create a more specific span name
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-    const method = init?.method || 'GET'
-    const spanName = `${method} ${url}`
-
-    // currently showing up as TWO items in the sentry UI.. but without this global fetch wrapper, there are NO items in the sentry UI for HTTP requests...
+    // currently showing up as TWO items in the sentry UI..you can filter these out in the sentry Trace explorer with `!span.op:http.wrapper`
     return sentry.startSpan(
       {
-        name: spanName,
-        op: 'http.client',
+        name: `${method} ${url.toString()}`, // Children span (including automatic Sentry instrumentation) inherit this name.
+        op: 'http.wrapper'
       },
-      async (span) => {
-        const response = await originalFetch(input, init)
-
-        span.setAttribute('http.method', method)
-        span.setAttribute('http.url', url)
-        span.setAttribute('http.status', response.status)
-        span.setAttribute('http.statusText', response.statusText)
-
-        return response
+      async () => {
+        return originalFetch(input, init)
       }
     )
   }

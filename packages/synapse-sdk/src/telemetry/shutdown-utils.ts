@@ -1,18 +1,20 @@
 // telemetry/shutdown.ts
-type Flushable = { flush: (timeoutMs?: number) => Promise<boolean>; close: (timeoutMs?: number) => Promise<boolean> }
+import { removeGlobalFetchWrapper } from './fetch-wrapper.ts'
+import type { Sentry as SentryType } from './get-sentry.js'
 
-export function setupShutdownHooks(adapter: Flushable, opts: { timeoutMs?: number } = {}) {
+export function setupShutdownHooks(sentry: SentryType, opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any
   const timeout = opts.timeoutMs ?? 2000
   let shuttingDown = false
 
-  // NOTE: sentry (our only adapter at the moment) handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
+  // NOTE: sentry handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
 
   if (typeof g.window !== 'undefined' && typeof g.document !== 'undefined') {
     // -------- Browser runtime --------
     const flush = () => {
       // Don’t block; Sentry will use sendBeacon/fetch keepalive under the hood.
-      void adapter.flush(timeout)
+      void sentry.flush(timeout)
+      removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
     }
 
     // Most reliable on modern browsers & iOS Safari:
@@ -36,15 +38,15 @@ export function setupShutdownHooks(adapter: Flushable, opts: { timeoutMs?: numbe
       if (shuttingDown) return
       shuttingDown = true
 
-      // Use flush() to send pending events, then close() to clean up
-      void adapter.flush(timeout).finally(() => {
-        // Close the adapter to release resources
-        void adapter.close(timeout).finally(() => {
-          shuttingDown = false
-        })
+      // Close the sentry to release resources
+      void sentry.close(timeout).finally(() => {
+        shuttingDown = false
+        removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
       })
     }
 
+    process.on('exit', handleSignal)
+    process.on('beforeExit', handleSignal)
     process.on('SIGINT', handleSignal)
     process.on('SIGTERM', handleSignal)
     process.on('SIGQUIT', handleSignal)
