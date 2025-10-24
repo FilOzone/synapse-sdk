@@ -263,7 +263,7 @@ export class PDPAuthHelper {
    * will be proven using PDP challenges.
    *
    * @param clientDataSetId - Client's dataset ID (same as used in createDataSet)
-   * @param firstPieceId - ID of the first piece being added (sequential numbering)
+   * @param nonce - Random nonce for replay protection
    * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
    * @returns Promise resolving to authentication signature for adding pieces
    *
@@ -274,16 +274,17 @@ export class PDPAuthHelper {
    *   cid: 'bafkzcibc...', // PieceCID of aggregated data
    *   rawSize: Number(SIZE_CONSTANTS.MiB)     // Raw size in bytes before padding
    * }]
+   * const nonce = randU256() // Generate random nonce
    * const signature = await auth.signAddPieces(
    *   0,           // Same dataset ID as data set creation
-   *   1,           // First piece has ID 1 (0 reserved)
+   *   nonce,       // Random nonce for replay protection
    *   pieceData    // Array of pieces to add
    * )
    * ```
    */
   async signAddPieces(
     clientDataSetId: bigint,
-    firstPieceId: bigint,
+    nonce: bigint,
     pieceDataArray: PieceCID[] | string[],
     metadata: MetadataEntry[][] = []
   ): Promise<AuthSignature> {
@@ -330,7 +331,7 @@ export class PDPAuthHelper {
       // Use MetaMask-friendly signing with properly structured data
       const value = {
         clientDataSetId: clientDataSetId.toString(), // Keep as string for MetaMask display
-        firstAdded: firstPieceId.toString(), // Keep as string for MetaMask display
+        nonce: nonce.toString(), // Keep as string for MetaMask display
         pieceData: formattedPieceData.map((item) => ({
           data: ethers.hexlify(item.data), // Convert Uint8Array to hex string for MetaMask
         })),
@@ -342,7 +343,7 @@ export class PDPAuthHelper {
       // Use standard ethers.js signing with bigint values
       const value = {
         clientDataSetId,
-        firstAdded: firstPieceId,
+        nonce,
         pieceData: formattedPieceData,
         pieceMetadata: pieceMetadata,
       }
@@ -358,7 +359,7 @@ export class PDPAuthHelper {
     // For EIP-712, signedData contains the actual message hash that was signed
     const signedData = ethers.TypedDataEncoder.hash(this.domain, types, {
       clientDataSetId,
-      firstAdded: firstPieceId,
+      nonce,
       pieceData: formattedPieceData,
       pieceMetadata: pieceMetadata,
     })

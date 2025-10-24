@@ -7,10 +7,10 @@ describe('EIP712 Type String Generator', () => {
     const result = EIP712_ENCODED_TYPES.AddPieces
     // nested & sorted
     const expected =
-      'AddPieces(uint256 clientDataSetId,uint256 firstAdded,Cid[] pieceData,PieceMetadata[] pieceMetadata)Cid(bytes data)MetadataEntry(string key,string value)PieceMetadata(uint256 pieceIndex,MetadataEntry[] metadata)'
+      'AddPieces(uint256 clientDataSetId,uint256 nonce,Cid[] pieceData,PieceMetadata[] pieceMetadata)Cid(bytes data)MetadataEntry(string key,string value)PieceMetadata(uint256 pieceIndex,MetadataEntry[] metadata)'
     assert.equal(result, expected)
 
-    const expectedHash = '0xb557d81ec3b03a60fa3cc207f13ad04af6c95850e1955114d0a0f40919e49ffd'
+    const expectedHash = '0x954bdc254591a7eab1b73f03842464d9283a08352772737094d710a4428fd183'
     assert.equal(EIP712_TYPE_HASHES.AddPieces, expectedHash)
   })
 

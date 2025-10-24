@@ -103,7 +103,7 @@ describe('Metadata Support', () => {
       )
 
       // Test with matching metadata
-      const result = await pdpServer.addPieces(dataSetId, 1n, 1, pieces, metadata)
+      const result = await pdpServer.addPieces(dataSetId, 1n, pieces, metadata)
       assert.equal(result.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)
@@ -117,7 +117,7 @@ describe('Metadata Support', () => {
       ]
 
       try {
-        await pdpServer.addPieces(dataSetId, 1n, 1, pieces, mismatchedMetadata)
+        await pdpServer.addPieces(dataSetId, 1n, pieces, mismatchedMetadata)
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.match(error.message, /Metadata length \(2\) must match pieces length \(1\)/)
@@ -125,7 +125,7 @@ describe('Metadata Support', () => {
 
       // Test without metadata (should create empty arrays)
       capturedPieceMetadata = null
-      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, 1, pieces)
+      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, pieces)
       assert.equal(resultNoMetadata.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)

@@ -192,10 +192,11 @@ export function decodeMetadataFromCreateDataSetExtraData(extraData: string): Met
 
 /**
  * Helper to decode piece metadata from extraData
+ * Format: (uint256 nonce, string[][] keys, string[][] values, bytes signature)
  */
 export function decodePieceMetadataFromExtraData(extraData: string): PieceMetadataCapture {
   const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  const decoded = abiCoder.decode(['bytes', 'string[][]', 'string[][]'], extraData)
+  const decoded = abiCoder.decode(['uint256', 'string[][]', 'string[][]', 'bytes'], extraData)
   return {
     keys: decoded[1] as string[][],
     values: decoded[2] as string[][],

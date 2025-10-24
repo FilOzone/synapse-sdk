@@ -35,18 +35,6 @@ import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } 
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
- * Helper information for adding pieces to a data set
- */
-export interface AddPiecesInfo {
-  /** The next piece ID to use when adding pieces */
-  nextPieceId: number
-  /** The client dataset ID for this data set */
-  clientDataSetId: bigint
-  /** Current number of pieces in the data set */
-  currentPieceCount: number
-}
-
-/**
  * Service price information
  */
 export interface ServicePriceInfo {
@@ -404,44 +392,36 @@ export class WarmStorageService {
   }
 
   /**
-   * Get information for adding pieces to a data set
+   * Validate that a dataset is live and managed by this WarmStorage contract
+   *
+   * Performs validation checks in parallel:
+   * - Dataset exists and is live
+   * - Dataset is managed by this WarmStorage contract
+   *
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns Helper information for adding pieces
+   * @throws if dataset is not valid for operations
    */
-  async getAddPiecesInfo(dataSetId: number): Promise<AddPiecesInfo> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-      const pdpVerifier = this._getPDPVerifier()
+  async validateDataSet(dataSetId: number): Promise<void> {
+    const pdpVerifier = this._getPDPVerifier()
 
-      // Parallelize all independent calls
-      const [isLive, nextPieceId, listener, dataSetInfo] = await Promise.all([
-        pdpVerifier.dataSetLive(Number(dataSetId)),
-        pdpVerifier.getNextPieceId(Number(dataSetId)),
-        pdpVerifier.getDataSetListener(Number(dataSetId)),
-        viewContract.getDataSet(Number(dataSetId)),
-      ])
+    // Parallelize validation checks
+    const [isLive, listener] = await Promise.all([
+      pdpVerifier.dataSetLive(Number(dataSetId)),
+      pdpVerifier.getDataSetListener(Number(dataSetId)),
+    ])
 
-      // Check if data set exists and is live
-      if (!isLive) {
-        throw new Error(`Data set ${dataSetId} does not exist or is not live`)
-      }
+    // Check if data set exists and is live
+    if (!isLive) {
+      throw new Error(`Data set ${dataSetId} does not exist or is not live`)
+    }
 
-      // Verify this data set is managed by our Warm Storage contract
-      if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-        throw new Error(
-          `Data set ${dataSetId} is not managed by this WarmStorage contract (${
-            this._warmStorageAddress
-          }), managed by ${String(listener)}`
-        )
-      }
-
-      return {
-        nextPieceId: Number(nextPieceId),
-        clientDataSetId: dataSetInfo.clientDataSetId,
-        currentPieceCount: Number(nextPieceId),
-      }
-    } catch (error) {
-      throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
+    // Verify this data set is managed by our Warm Storage contract
+    if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
+      throw new Error(
+        `Data set ${dataSetId} is not managed by this WarmStorage contract (${
+          this._warmStorageAddress
+        }), managed by ${String(listener)}`
+      )
     }
   }
 
