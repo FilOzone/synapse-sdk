@@ -13,9 +13,9 @@ export * from './erc20.ts'
 export * as generated from './generated.ts'
 
 export {
+  filecoinPayV1Abi as payments,
   filecoinWarmStorageServiceAbi as storage,
   filecoinWarmStorageServiceStateViewAbi as storageView,
-  paymentsAbi as payments,
   pdpVerifierAbi as pdp,
   serviceProviderRegistryAbi as serviceProviderRegistry,
   sessionKeyRegistryAbi as sessionKeyRegistry,
