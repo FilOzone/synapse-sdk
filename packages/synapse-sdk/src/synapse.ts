@@ -10,9 +10,8 @@ import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
-import { SentryAdapter } from './telemetry/adapters/sentry.ts'
-import { initGlobalTelemetry } from './telemetry/index.ts'
 import { TelemetryService } from './telemetry/service.ts'
+import { initGlobalTelemetry } from './telemetry/singleton.ts'
 import type {
   FilecoinNetworkType,
   PieceCID,
@@ -172,18 +171,17 @@ export class Synapse {
 
     // Initialize telemetry service
     const telemetryConfig = options.telemetry ?? { enabled: true }
-    const telemetryAdapter = new SentryAdapter()
     const telemetryContext = {
       sdkVersion: SDK_VERSION,
       runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
       network,
-      ua:
+      userAgent:
         typeof globalThis !== 'undefined' && 'navigator' in globalThis
           ? (globalThis as any).navigator.userAgent
           : undefined,
       appName: options.telemetry?.appName ?? 'synapse-sdk',
     }
-    const telemetry = new TelemetryService(telemetryAdapter, telemetryConfig, telemetryContext)
+    const telemetry = new TelemetryService(telemetryConfig, telemetryContext)
 
     // Initialize global telemetry singleton and wrappers
     if (telemetry.isEnabled()) {

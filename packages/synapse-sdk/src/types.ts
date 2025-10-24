@@ -8,7 +8,7 @@
 import type { ethers } from 'ethers'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
-import type { TelemetryConfig } from './telemetry/types.ts'
+import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }

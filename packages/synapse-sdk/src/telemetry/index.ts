@@ -5,18 +5,5 @@
  * The TelemetryService is accessed via synapse.telemetry getter.
  */
 
-export { initGlobalFetchWrapper, removeGlobalFetchWrapper } from './fetch-wrapper.ts'
-export { TelemetryService } from './service.ts'
+export { type DebugDump, type TelemetryConfig, TelemetryService } from './service.ts'
 // telemetry/errors.ts is exported from ../utils/errors.ts
-export {
-  getGlobalTelemetry,
-  initGlobalTelemetry,
-  isGlobalTelemetryEnabled,
-  removeGlobalTelemetry,
-} from './singleton.ts'
-export type {
-  DebugDump,
-  Environment,
-  OperationType,
-  TelemetryConfig,
-} from './types.ts'

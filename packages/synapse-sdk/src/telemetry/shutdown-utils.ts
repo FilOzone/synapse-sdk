@@ -6,7 +6,6 @@ export function setupShutdownHooks(adapter: Flushable, opts: { timeoutMs?: numbe
   const timeout = opts.timeoutMs ?? 2000
   let shuttingDown = false
 
-
   // NOTE: sentry (our only adapter at the moment) handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
 
   if (typeof g.window !== 'undefined' && typeof g.document !== 'undefined') {

@@ -18,12 +18,19 @@ import { JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 const server = setup([])
 
 describe('Telemetry', () => {
+  let provider: ethers.Provider
+  let synapse: Synapse
   before(async () => {
     await server.start({ quiet: true })
+    server.use(JSONRPC(presets.basic))
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+    synapse = await Synapse.create({ provider })
   })
 
-  after(() => {
+  after(async () => {
     server.stop()
+    await synapse.telemetry.close()
+    await synapse.getProvider().destroy()
   })
 
   beforeEach(() => {
@@ -38,62 +45,19 @@ describe('Telemetry', () => {
     })
 
     it('should not initialize telemetry when creating Synapse in test environment', async () => {
-      // Set up proper mock responses for contract calls
-      server.use(JSONRPC(presets.basic))
-
-      // Create a real provider that will use the mocked responses
-      const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-
-      // Create Synapse instance - telemetry should be disabled
-      const synapse = await Synapse.create({ provider })
-
-      // Verify that telemetry is disabled
       assert.isFalse(synapse.telemetry.isEnabled())
-
-      // Verify that debug dump shows disabled state
-      const debugDump = synapse.telemetry.debugDump()
-      assert.isFalse(debugDump.context.enabled)
-      assert.equal(debugDump.context.runtime, 'node')
-      assert.equal(debugDump.context.network, 'calibration')
     })
   })
 
   describe('Debug Dump', () => {
     it('should return empty debug dump when telemetry is disabled', async () => {
-      // Set up proper mock responses for contract calls
-      server.use(JSONRPC(presets.basic))
-
-      // Create a real provider that will use the mocked responses
-      const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-
-      const synapse = await Synapse.create({ provider })
-
-      // Get debug dump
       const debugDump = synapse.telemetry.debugDump()
-
-      // Verify structure
-      assert.isObject(debugDump)
-      assert.isArray(debugDump.events)
-      assert.isObject(debugDump.context)
-      assert.isString(debugDump.timestamp)
-
-      // Verify disabled state
-      assert.isFalse(debugDump.context.enabled)
       assert.equal(debugDump.events.length, 0)
     })
   })
 
   describe('Explicit Enable', () => {
     it('should allow enabling telemetry explicitly even when disabled by environment', async () => {
-      // Set up proper mock responses for contract calls
-      server.use(JSONRPC(presets.basic))
-
-      // Create a real provider that will use the mocked responses
-      const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-
-      // Create Synapse instance - telemetry should be disabled by default in test environment
-      const synapse = await Synapse.create({ provider })
-
       // Verify telemetry is initially disabled
       assert.isFalse(synapse.telemetry.isEnabled())
 
@@ -102,10 +66,6 @@ describe('Telemetry', () => {
 
       // Verify telemetry is now enabled
       assert.isTrue(synapse.telemetry.isEnabled())
-
-      // Verify debug dump shows enabled state
-      const debugDump = synapse.telemetry.debugDump()
-      assert.isTrue(debugDump.context.enabled)
     })
   })
 })

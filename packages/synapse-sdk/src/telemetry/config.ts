@@ -6,7 +6,7 @@
  * Uses globalThis for consistent cross-platform access.
  */
 
-import type { TelemetryConfig } from './types.ts'
+import type { TelemetryConfig } from './service.ts'
 
 /**
  * Check if telemetry is explicitly disabled via global variable or environment
@@ -75,7 +75,7 @@ export function resolveTelemetryConfig(
 
   return {
     enabled: shouldEnableTelemetry(userConfig),
-    environment: userConfig?.environment || (isTest ? 'test' : 'production'),
+    // environment: userConfig?.environment || (isTest ? 'test' : 'production'),
     appName: userConfig?.appName || 'synapse-sdk',
     tags: {
       ...userConfig?.tags,

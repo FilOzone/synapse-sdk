@@ -26,7 +26,15 @@ export function createError(prefix: string, operation: string, details: string, 
 
   // Capture to telemetry if enabled
   if (isGlobalTelemetryEnabled()) {
-    getGlobalTelemetry()?.captureError(error, { operation: `${prefix}.${operation}` })
+    getGlobalTelemetry()?.sentry?.captureException(error, {
+      tags: { operation: `${prefix}.${operation}` },
+      extra: {
+        prefix,
+        operation,
+        details,
+        originalError,
+      },
+    })
   }
 
   return error

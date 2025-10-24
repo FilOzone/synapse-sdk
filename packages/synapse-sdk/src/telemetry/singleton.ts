@@ -18,10 +18,7 @@ let telemetryInstance: TelemetryService | null = null
  */
 export function initGlobalTelemetry(telemetry: TelemetryService): void {
   telemetryInstance = telemetry
-  // Only wrap fetch if telemetry is enabled
-  if (telemetry.isEnabled()) {
-    initGlobalFetchWrapper()
-  }
+  initGlobalFetchWrapper()
 }
 
 /**
@@ -30,7 +27,10 @@ export function initGlobalTelemetry(telemetry: TelemetryService): void {
  * @returns The global telemetry instance or null if not initialized
  */
 export function getGlobalTelemetry(): TelemetryService | null {
-  return telemetryInstance
+  if (isGlobalTelemetryEnabled()) {
+    return telemetryInstance
+  }
+  return null
 }
 
 /**
