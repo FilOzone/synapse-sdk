@@ -70,6 +70,10 @@
     "ox": "^0.9.12",
     "viem": "^2.38.3"
   },
+  "optionalDependencies": {
+    "@sentry/browser": "^10.21.0",
+    "@sentry/node": "^10.21.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "~2.2.6",
     "@types/chai": "^5.2.3",

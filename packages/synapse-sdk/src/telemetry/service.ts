@@ -1,0 +1,218 @@
+/**
+ * TelemetryService - Main telemetry service for Synapse SDK
+ *
+ * You should use `synapse.telemetry.sentry` directly to capture events.
+ *
+ * ## Debug Dumps
+ *
+ * Get recent events for support tickets:
+ *
+ * ```typescript
+ * const dump = synapse.telemetry.debugDump()
+ * console.log(JSON.stringify(dump, null, 2))
+ * ```
+ */
+
+import { resolveTelemetryConfig } from './config.ts'
+import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
+
+export interface TelemetryConfig {
+  /**
+   * Whether to enable telemetry.
+   *
+   * You can also control this via the environment variable `SYNAPSE_TELEMETRY_DISABLED` or the global variable `SYNAPSE_TELEMETRY_DISABLED`.
+   *
+   * This value will also be false if `NODE_ENV === 'test'`.
+   *
+   * @default true
+   */
+  enabled?: boolean
+  /**
+   * The name of the application using the SDK.
+   * This is used to identify the application in the telemetry data.
+   * This is optional and can be set by the user via the synapse.telemetry.sentry.setContext() method.
+   * If not set, the SDK will use 'synapse-sdk' as the default app name.
+   */
+  appName?: string
+  tags?: Record<string, string> // optional: custom tags
+}
+
+/**
+ * Configuration for runtime detection and context
+ */
+interface RuntimeContext {
+  sdkVersion: string
+  runtime: 'browser' | 'node'
+  network: 'mainnet' | 'calibration'
+  userAgent?: string
+  appName?: string
+}
+
+export interface DebugDump {
+  lastEventId: string | undefined
+  events: any[]
+}
+
+const { Sentry, integrations } = await getSentry()
+
+/**
+ * Main telemetry service that manages the adapter and provides high-level APIs
+ */
+export class TelemetryService {
+  // private adapter: TelemetryAdapter
+  private enabled: boolean
+  private context: RuntimeContext
+  private eventBuffer: any[] = []
+  private readonly maxBufferSize = 50
+
+  readonly sentry: SentryType
+
+  constructor(config: TelemetryConfig, context: RuntimeContext) {
+    const resolvedConfig = resolveTelemetryConfig(config)
+    this.enabled = resolvedConfig.enabled
+    this.context = context
+
+    this.sentry = Sentry
+    if (this.enabled) {
+      this.initSentry()
+    }
+  }
+  private initSentry(): void {
+    this.sentry.init({
+      dsn: 'https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320',
+      // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
+      // For example, automatic IP address collection on events
+      sendDefaultPii: false,
+      release: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
+      beforeSend: this.sanitizeError.bind(this),
+      // Enable tracing/performance monitoring
+      tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
+      // Integrations configured per-runtime in sentry-dep files
+      integrations,
+    })
+
+    // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
+    this.sentry.setContext('environment', {
+      userAgent: this.context.userAgent, // not useful for searching, but may be useful for debugging
+    })
+
+    // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
+    this.sentry.setTag('appName', this.context.appName ?? 'synapse-sdk') // should only be a few values
+    this.sentry.setTag('synapseSdkVersion', `@filoz/synapse-sdk@v${this.context.sdkVersion}`) // useful to know which version of the SDK is being used
+    this.sentry.setTag('runtime', this.context.runtime) // only two values, useful for searching
+    this.sentry.setTag('network', this.context.network as 'mainnet' | 'calibration') // only two values, useful for searching
+  }
+
+  protected sanitizeError(event: any): any {
+    this.addToBuffer(event)
+
+    return event
+  }
+
+  /**
+   * Get debug dump for support tickets
+   *
+   * Returns enough information for devs to dive into the data on filoz.sentry.io
+   *
+   * @example
+   * ```typescript
+   * const dump = synapse.telemetry.debugDump()
+   * console.log(JSON.stringify(dump, null, 2))
+   * ```
+   */
+  debugDump(limit = 50): DebugDump {
+    return {
+      lastEventId: this.sentry.lastEventId(),
+      events: this.eventBuffer.slice(-limit),
+    }
+  }
+
+  /**
+   * Check if telemetry is enabled
+   */
+  isEnabled(): boolean {
+    return this.enabled
+  }
+
+  /**
+   * Enable telemetry explicitly (even if disabled by environment)
+   * Useful for testing or when you need to force telemetry on
+   */
+  enable(): void {
+    if (!this.enabled) {
+      this.enabled = true
+      this.initSentry()
+    }
+  }
+
+  /**
+   * Disable telemetry explicitly (even if enabled by environment)
+   * Useful for testing or when you need to force telemetry off
+   */
+  disable(ms?: number): void {
+    if (this.enabled) {
+      this.enabled = false
+      void this.sentry.close(ms)
+    }
+  }
+
+  /**
+   * Flush pending telemetry events
+   *
+   * Call this before process exit to ensure all events are sent.
+   * Returns a promise that resolves when flushing is complete.
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if all events were flushed
+   *
+   * @example
+   * ```typescript
+   * // Before exiting
+   * await synapse.telemetry.flush()
+   * process.exit(0)
+   * ```
+   */
+  async flush(timeout = 2000): Promise<boolean> {
+    if (!this.enabled) {
+      return true
+    }
+
+    // Delegate to adapter's flush method if available
+    return this.sentry.flush(timeout)
+  }
+
+  /**
+   * Close the telemetry service and shut down the adapter
+   *
+   * This flushes pending events and closes the telemetry connection.
+   * Call this when your application is shutting down to ensure proper cleanup.
+   *
+   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+   * @returns Promise that resolves to true if shutdown was successful
+   *
+   * @example
+   * ```typescript
+   * // Before exiting
+   * await synapse.telemetry.close()
+   * process.exit(0)
+   * ```
+   */
+  async close(timeout = 2000): Promise<boolean> {
+    if (!this.enabled) {
+      return true
+    }
+
+    return this.sentry.close(timeout)
+  }
+
+  /**
+   * Add event to circular buffer
+   * @internal
+   */
+  private addToBuffer(event: any): void {
+    this.eventBuffer.push(event)
+    if (this.eventBuffer.length > this.maxBufferSize) {
+      this.eventBuffer.shift()
+    }
+  }
+}
