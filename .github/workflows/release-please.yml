@@ -6,6 +6,7 @@ on:
       - master
 
 permissions:
+  id-token: write  # Required for OIDC
   contents: write
   issues: write
   pull-requests: write
@@ -41,13 +42,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          registry-url: "https://registry.npmjs.org"
+          registry-url: "https://registry.npmjs.org"     
+      # Ensure npm 11.5.1 or later is installed
+      - run: npm install -g npm@latest
       - run: pnpm install
       - run: pnpm run lint
       - run: pnpm run build
       - run: pnpm -r --filter './packages/**' publish --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
   docs:
     needs: release
     if: |
