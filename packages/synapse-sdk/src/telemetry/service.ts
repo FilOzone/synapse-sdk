@@ -25,6 +25,7 @@ type SentrySetTags = Parameters<SentryType['setTags']>[0]
 export interface TelemetryConfig {
   /**
    * Additional options to pass to the Sentry SDK's init method.
+   * See https://docs.sentry.io/platforms/javascript/configuration/options/
    */
   sentryInitOptions?: SentryInitOptions
   /**
