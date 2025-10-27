@@ -73,7 +73,12 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
 }
 
 /**
- * Determine if telemetry should be enabled based on configuration and environment
+ * Determine if telemetry should be enabled based on configuration and environment.
+  * The ways to disable include setting any of the following:
+  * - synapseConfig.telemetry.sentryInitOptions.enabled = false
+  * - global.SYNAPSE_TELEMETRY_DISABLED = true
+  * - process.env.SYNAPSE_TELEMETRY_DISABLED = true
+  * We also disable if process.env.NODE_ENV == 'test'.
  *
  * @param config - User-provided telemetry configuration
  * @returns True if telemetry should be enabled
