@@ -176,7 +176,7 @@ let isFetchWrapped = false
  *
  * Example cases where there will already be an active span:
  * - If [browser auto instrumentation](https://docs.sentry.io/platforms/javascript/tracing/instrumentation/automatic-instrumentation/) is enabled and the `pageload` or `navigation` spans are still active (i.e., haven't been closed)
- * - If a Synapse-using application has accessed the synapse singleton telemetry Sentry instance and started a span.
+ * - If a Synapse-using application has accessed the TelemetryInstance singleton and started a span.
  *
  * Example cases where there won't be an active span:
  * - Directly invoking HTTP-inducing Synpase SDK functions from a node context.
