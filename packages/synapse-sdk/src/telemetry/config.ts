@@ -6,8 +6,6 @@
  * Uses globalThis for consistent cross-platform access.
  */
 
-import type { TelemetryConfig } from './service.ts'
-
 /**
  * Check if telemetry is explicitly disabled via global variable or environment
  * Uses globalThis for consistent cross-platform access
