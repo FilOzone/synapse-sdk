@@ -1,11 +1,11 @@
 /**
- * TelemetryService - Main telemetry service for Synapse SDK
+ * TelemetryService - Main telemetry service for Synapse SDK.
+ * Per [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328) this is primarily a thin wrapper around sentry.io.
+ * It allows a caller to pass through [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/), where Synapse will apply some defaults if they aren't otherwise set.
+ * (See the constructor for more information.)
+ * The underlying Sentry instance can be accessed via `.sentry` for invoking any other [Sentry APIs](https://docs.sentry.io/platforms/javascript/apis/).  
  *
- * You should use `synapse.telemetry.sentry` directly to capture events.
- *
- * ## Debug Dumps
- *
- * Get recent events for support tickets:
+ * In addition, to help with support tickets, the TelemetryService can be queried to get recent events:
  *
  * ```typescript
  * const dump = synapse.telemetry.debugDump()
