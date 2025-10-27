@@ -201,7 +201,7 @@ function wrapFetch(): void {
     // currently showing up as TWO items in the sentry UI..you can filter these out in the sentry Trace explorer with `!span.op:http.wrapper`
     return sentry.startSpan(
       {
-        name: `${method} ${url.toString()}`, // Children span (including automatic Sentry instrumentation) inherit this name.
+        name: `${method} ${url.toString()} Wrapper`, // Children spans (including automatic Sentry instrumentation) inherit this name.
         op: 'http.wrapper',
       },
       async () => {
