@@ -4,10 +4,21 @@ let isWrapped = false
 const originalFetch = (globalThis as any).fetch as typeof fetch
 
 /**
- * Initialize global fetch wrapper with telemetry
- *
- * This patches globalThis.fetch to add telemetry tracking.
- * Safe to call multiple times - will only wrap once.
+ * This patches `globalThis.fetch` to add telemetry tracking.
+ * It is safe to call multiple times as it will only wrap once.
+ * 
+ * Problem to solve: ensure a [Sentry span](https://docs.sentry.io/platforms/javascript/tracing/span-metrics/) is created and published for every `fetch` call.
+ * Sentry automatically creates a span for every `fetch`, but those spans require that there is already an active span.
+ * This is implied in https://docs.sentry.io/platforms/javascript/tracing/instrumentation/requests-module/ and we have observed it empirically in testing.
+ * The logic of this `fetch` wrapper is then to ensure that we have an active span, and if not, to create one so that the auto-instrumented http requests get collected.
+ * 
+ * Example cases where there will already be an active span:
+ * - If [browser auto instrumentation](https://docs.sentry.io/platforms/javascript/tracing/instrumentation/automatic-instrumentation/) is enabled and the `pageload` or `navigation` spans are still active (i.e., haven't been closed)
+ * - If a Synapse-using application has accessed the synapse singleton telemetry Sentry instance and started a span.
+ * 
+ * Example cases where there won't be an active span:
+ * - Directly invoking HTTP-inducing Synpase SDK functions from a node context.  
+ * In these cases, this wrapper creates a span before making the `fetch` call. 
  */
 export function initGlobalFetchWrapper(): void {
   if (isWrapped) {
