@@ -41,7 +41,6 @@ export interface TelemetryRuntimeContext {
 }
 
 export interface DebugDump {
-  lastEventId: string | undefined
   events: any[]
 }
 
@@ -137,7 +136,6 @@ export class TelemetryService {
    */
   debugDump(limit = 50): DebugDump {
     return {
-      lastEventId: this.sentry?.lastEventId(),
       events: this.eventBuffer.slice(-limit),
     }
   }
