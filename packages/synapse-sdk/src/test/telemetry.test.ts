@@ -9,10 +9,10 @@
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import { HttpResponse, http } from 'msw'
 import { Synapse } from '../synapse.ts'
-import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import { http, HttpResponse } from 'msw'
 import { removeGlobalTelemetry } from '../telemetry/singleton.ts'
+import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // Mock server for testing
 const server = setup([])
@@ -25,18 +25,23 @@ interface SentryRequest {
 function mockSentryRequests(): SentryRequest[] {
   const sentryRequests: SentryRequest[] = []
   // prevent API requests to sentry
-  server.use(http.all('https://o4510235322023936.ingest.us.sentry.io/api/4510235328184320/envelope/*', async ({ request }) => {
-    const body = await request.text()
-    let i = 0
-    // map body ndjson to object:
-    const bodyObject = body.split('\n').reduce((acc, line) => {
-      const obj = JSON.parse(line)
-      acc[i++] = obj
-      return acc
-    }, {} as Record<string, any>)
-    sentryRequests.push({ request, bodyObject })
-    return HttpResponse.json({}, { status: 200 })
-  }))
+  server.use(
+    http.all('https://o4510235322023936.ingest.us.sentry.io/api/4510235328184320/envelope/*', async ({ request }) => {
+      const body = await request.text()
+      let i = 0
+      // map body ndjson to object:
+      const bodyObject = body.split('\n').reduce(
+        (acc, line) => {
+          const obj = JSON.parse(line)
+          acc[i++] = obj
+          return acc
+        },
+        {} as Record<string, any>
+      )
+      sentryRequests.push({ request, bodyObject })
+      return HttpResponse.json({}, { status: 200 })
+    })
+  )
   return sentryRequests
 }
 
@@ -44,12 +49,11 @@ describe('Telemetry', () => {
   let provider: ethers.Provider
   let synapse: Synapse | null = null
   let signer: ethers.Signer
-  let sentryRequests: SentryRequest[] = []
 
   beforeEach(async () => {
     await server.start({ quiet: true })
     server.use(JSONRPC(presets.basic))
-    sentryRequests = mockSentryRequests()
+    mockSentryRequests()
 
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
     signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
@@ -67,7 +71,6 @@ describe('Telemetry', () => {
     }
     removeGlobalTelemetry(false)
     synapse = null
-    sentryRequests = []
     server.stop()
     server.resetHandlers()
   })
@@ -84,7 +87,9 @@ describe('Telemetry', () => {
     it('should enable telemetry with explicit enabled=true', async () => {
       synapse = await Synapse.create({ signer, telemetry: { sentryInitOptions: { enabled: true } } })
       // wait for sentry to initialize
-      await new Promise((resolve) => {setTimeout(resolve, 2000)})
+      await new Promise((resolve) => {
+        setTimeout(resolve, 100)
+      })
       assert.isNotNull(synapse.telemetry?.sentry)
       assert.isTrue(synapse.telemetry?.sentry?.isInitialized())
     })
