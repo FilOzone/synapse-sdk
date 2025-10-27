@@ -13,7 +13,6 @@
  * Setting up the shutdown handling is managed here.
  */
 
-import { shouldEnableTelemetry } from './config.ts'
 import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
 
 // Global telemetry instance
@@ -66,7 +65,7 @@ export function isGlobalTelemetryEnabled(): boolean {
   return telemetryInstance?.isEnabled() ?? false
 }
 
-export function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
+function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any
   const timeout = opts.timeoutMs ?? 2000
   let shuttingDown = false
@@ -136,7 +135,7 @@ let isFetchWrapped = false
  * - Directly invoking HTTP-inducing Synpase SDK functions from a node context.
  * In these cases, this wrapper creates a span before making the `fetch` call.
  */
-export function initGlobalFetchWrapper(): void {
+function initGlobalFetchWrapper(): void {
   if (isFetchWrapped) {
     return // Already wrapped
   }
@@ -174,11 +173,64 @@ export function initGlobalFetchWrapper(): void {
  *
  * Useful for testing or when telemetry should be disabled.
  */
-export function removeGlobalFetchWrapper(): void {
+function removeGlobalFetchWrapper(): void {
   if (!isFetchWrapped) {
     return
   }
 
   ;(globalThis as any).fetch = originalFetch
   isFetchWrapped = false
+}
+
+/**
+ * Check if telemetry is explicitly disabled via global variable or environment
+ * Uses globalThis for consistent cross-platform access
+ */
+function isTelemetryDisabledByEnv(): boolean {
+  // Check for global disable flag (universal)
+  if (typeof globalThis !== 'undefined') {
+    // Check for explicit disable flag
+    if ((globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true) {
+      return true
+    }
+
+    // Check environment variable in Node.js
+    if ('process' in globalThis) {
+      const process = (globalThis as any).process
+      if (process?.env) {
+        const disabled = process.env.SYNAPSE_TELEMETRY_DISABLED
+        if (typeof disabled === 'string' && disabled.trim().toLowerCase() === 'true') {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Determine if telemetry should be enabled based on configuration and environment
+ *
+ * @param config - User-provided telemetry configuration
+ * @returns True if telemetry should be enabled
+ */
+function shouldEnableTelemetry(config?: { enabled?: boolean }): boolean {
+  // If explicitly disabled by user config, respect that
+  if (config?.enabled === false) {
+    return false
+  }
+
+  // If disabled by environment variable, respect that
+  if (isTelemetryDisabledByEnv()) {
+    return false
+  }
+
+  // If in test environment, disable telemetry
+  if (globalThis.process?.env?.NODE_ENV === 'test') {
+    return false
+  }
+
+  // Default to enabled (unless explicitly disabled above)
+  return true
 }
