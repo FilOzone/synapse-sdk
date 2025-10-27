@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Synapse, RPC_URLS, PDPServer, WarmStorageService } from '@filoz/synapse-sdk'
+import { PDPServer, RPC_URLS, Synapse, WarmStorageService } from '@filoz/synapse-sdk'
 import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
 
 const startTime = Date.now()
@@ -10,8 +10,6 @@ const log = (msg: string): void => {
 }
 
 let synapse: Synapse | null = null
-
-
 
 async function makeRequest(dataSetId: number): Promise<any> {
   if (!synapse) {
@@ -32,7 +30,6 @@ async function makeRequest(dataSetId: number): Promise<any> {
     throw new Error(`Provider ${contractInfo.providerId} does not have a PDP service URL`)
   }
 
-
   // Step 3: Get piece data from PDP server
   const pdpServer = new PDPServer(null, providerInfo.products.PDP.data.serviceURL)
   const pieceData = await pdpServer.getDataSet(dataSetId)
@@ -48,7 +45,6 @@ async function makeRequest(dataSetId: number): Promise<any> {
 async function testSpanTest(RPC_URL: string): Promise<void> {
   log('Starting telemetry test')
 
-
   // Create Synapse instance with telemetry enabled
   synapse = await Synapse.create({
     rpcURL: RPC_URL,
@@ -61,13 +57,13 @@ async function testSpanTest(RPC_URL: string): Promise<void> {
         appName: 'simple-span-test',
         rpcURL: RPC_URL,
       },
-    }
+    },
   })
   if (!synapse) {
     throw new Error('Synapse instance not created')
   }
 
-  await new Promise(resolve => setTimeout(resolve, 1000)) // wait for sentry to initialize
+  await new Promise((resolve) => setTimeout(resolve, 1000)) // wait for sentry to initialize
 
   await synapse.telemetry?.sentry?.startSpan({ name: 'Test actions in span', op: 'Test span' }, async () => {
     if (!synapse) {
@@ -82,10 +78,12 @@ async function testSpanTest(RPC_URL: string): Promise<void> {
 }
 
 // Run the test
-testSpanTest(process.env.RPC_URL || RPC_URLS.calibration.websocket).then(() => {
-  throw new Error('test error')
-}).finally(() => {
-  synapse?.getProvider().destroy()
-  synapse?.telemetry?.sentry?.close(5000)
-  synapse = null
-})
+testSpanTest(process.env.RPC_URL || RPC_URLS.calibration.websocket)
+  .then(() => {
+    throw new Error('test error')
+  })
+  .finally(() => {
+    synapse?.getProvider().destroy()
+    synapse?.telemetry?.sentry?.close(5000)
+    synapse = null
+  })
