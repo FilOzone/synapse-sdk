@@ -174,7 +174,7 @@ export class Synapse {
     const telemetryContext = {
       sdkVersion: SDK_VERSION,
       runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
-      network,
+      filecoinNetwork : network,
       userAgent:
         typeof globalThis !== 'undefined' && 'navigator' in globalThis
           ? (globalThis as any).navigator.userAgent
