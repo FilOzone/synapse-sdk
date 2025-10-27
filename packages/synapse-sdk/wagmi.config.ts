@@ -9,7 +9,7 @@ const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/$
 const config = defineConfig(() => {
   const contracts = [
     {
-      name: 'Payments',
+      name: 'FilecoinPayV1',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
         314159: '0x0000000000000000000000000000000000000000' as Address,
