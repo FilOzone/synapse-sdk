@@ -38,7 +38,6 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
 
       const { txHash, statusUrl } = await createDataSet(connectorClient, {
-        publicClient: config.getClient(),
         provider,
         cdn,
         // metadata: {
