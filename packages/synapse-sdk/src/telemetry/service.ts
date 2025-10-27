@@ -3,7 +3,7 @@
  * Per [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328) this is primarily a thin wrapper around sentry.io.
  * It allows a caller to pass through [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/), where Synapse will apply some defaults if they aren't otherwise set.
  * (See the constructor for more information.)
- * The underlying Sentry instance can be accessed via `.sentry` for invoking any other [Sentry APIs](https://docs.sentry.io/platforms/javascript/apis/).  
+ * The underlying Sentry instance can be accessed via `.sentry` for invoking any other [Sentry APIs](https://docs.sentry.io/platforms/javascript/apis/).
  *
  * In addition, to help with support tickets, the TelemetryService can be queried to get recent events:
  *
@@ -69,10 +69,12 @@ export class TelemetryService {
     void this.initSentry()
   }
 
-  // This is a separate function rather than being in the constructor because it is async.
-  // This does means that a TelemetryService instance can be accessible without the sentry object being instantiated.
-  // We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
-  // Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled. 
+  /**
+   * This is a separate function rather than being in the constructor because it is async.
+   * This does means that a TelemetryService instance can be accessible without the sentry object being instantiated.
+   * We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
+   * Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled.
+   */
   private async initSentry(): Promise<void> {
     const Sentry = await getSentry()
     this.sentry = Sentry

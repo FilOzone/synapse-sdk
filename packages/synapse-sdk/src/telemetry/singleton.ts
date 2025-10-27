@@ -74,11 +74,11 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
 
 /**
  * Determine if telemetry should be enabled based on configuration and environment.
-  * The ways to disable include setting any of the following:
-  * - synapseConfig.telemetry.sentryInitOptions.enabled = false
-  * - global.SYNAPSE_TELEMETRY_DISABLED = true
-  * - process.env.SYNAPSE_TELEMETRY_DISABLED = true
-  * We also disable if process.env.NODE_ENV == 'test'.
+ * The ways to disable include setting any of the following:
+ * - synapseConfig.telemetry.sentryInitOptions.enabled = false
+ * - global.SYNAPSE_TELEMETRY_DISABLED = true
+ * - process.env.SYNAPSE_TELEMETRY_DISABLED = true
+ * We also disable if process.env.NODE_ENV == 'test'.
  *
  * @param config - User-provided telemetry configuration
  * @returns True if telemetry should be enabled
@@ -203,9 +203,11 @@ function wrapFetch(): void {
     const url = input instanceof Request ? new URL(input.url) : new URL(input.toString())
     const method = input instanceof Request ? input.method : init?.method || 'GET'
 
-    // For this case, since there isn't an active span already, we will create one.
-    // This root wrapper span will effectively have the same duration as the child auto-instrumented-by-Sentry HTTP request span.
-   // These wrapper spans can be filtered out in the [Sentry Trace explorer](https://filoz.sentry.io/explore/traces) with `!span.op:http.wrapper`
+    /**
+     * For this case, since there isn't an active span already, we will create one.
+     * This root wrapper span will effectively have the same duration as the child auto-instrumented-by-Sentry HTTP request span.
+     * These wrapper spans can be filtered out in the [Sentry Trace explorer](https://filoz.sentry.io/explore/traces) with `!span.op:http.wrapper`
+     */
     return sentry.startSpan(
       {
         name: `${method} ${url.toString()} Wrapper`, // Children spans (including automatic Sentry instrumentation) inherit this name.
