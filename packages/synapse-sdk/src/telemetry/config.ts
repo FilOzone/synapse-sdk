@@ -58,7 +58,7 @@ export function shouldEnableTelemetry(config?: { enabled?: boolean }): boolean {
   }
 
   // Default to enabled (unless explicitly disabled above)
-  return config?.enabled ?? true
+  return true
 }
 
 /**
