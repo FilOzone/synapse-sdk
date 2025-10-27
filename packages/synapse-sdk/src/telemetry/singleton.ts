@@ -2,7 +2,7 @@
  * Telemetry singleton manager.
  * Sets up and provides a single global TelemetryService instance.
  * #initGlobalTelemetry is the entry point.
- * #getGlobalTelemetry is the expected access point within Synapse and beyond.
+ * #getGlobalTelemetry is the expected access point within Synapse
  *
  * This class handles:
  * - Instantiating the TelemetryService instance.
