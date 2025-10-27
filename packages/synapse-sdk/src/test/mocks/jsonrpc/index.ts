@@ -45,6 +45,36 @@ export const ADDRESSES = {
   },
 }
 
+function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
+  const { id } = item
+  try {
+    return {
+      jsonrpc: '2.0',
+      result: handler(item, options ?? {}),
+      id: id ?? 1,
+    }
+  } catch (error) {
+    if (options?.debug) {
+      console.error(error)
+    }
+    return {
+      jsonrpc: '2.0',
+      error: {
+        code: 11,
+        message:
+          error instanceof Error
+            ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${error.message})])`
+            : 'Unknown error',
+        data:
+          error instanceof Error
+            ? `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
+            : '0x',
+      },
+      id: id ?? 1,
+    }
+  }
+}
+
 /**
  * Mock JSONRPC server for testing
  */
@@ -52,40 +82,15 @@ export function JSONRPC(options?: JSONRPCOptions) {
   return http.post<Record<string, any>, RpcRequest | RpcRequest[], RpcResponse | RpcResponse[]>(
     'https://api.calibration.node.glif.io/rpc/v1',
     async ({ request }) => {
-      try {
-        const body = await request.json()
-        if (Array.isArray(body)) {
-          const results: RpcResponse[] = []
-          for (const item of body) {
-            const { id } = item
-            const result = handler(item, options ?? {})
-            results.push({
-              jsonrpc: '2.0',
-              result: result,
-              id: id ?? 1,
-            })
-          }
-          return HttpResponse.json(results)
-        } else {
-          const { id } = body
-          return HttpResponse.json({
-            jsonrpc: '2.0',
-            result: handler(body, options ?? {}),
-            id: id ?? 1,
-          })
+      const body = await request.json()
+      if (Array.isArray(body)) {
+        const results: RpcResponse[] = []
+        for (const item of body) {
+          results.push(jsonrpcHandler(item, options))
         }
-      } catch (error) {
-        if (options?.debug) {
-          console.error(error)
-        }
-        return HttpResponse.json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32000,
-            message: error instanceof Error ? error.message : 'Unknown error',
-          },
-          id: 1,
-        })
+        return HttpResponse.json(results)
+      } else {
+        return HttpResponse.json(jsonrpcHandler(body, options))
       }
     }
   )

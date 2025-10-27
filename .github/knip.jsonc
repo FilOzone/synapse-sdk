@@ -3,6 +3,7 @@
   "ignore": [
     ".github/**",
     "./packages/synapse-sdk/src/abis/gen.ts",
+    "./packages/synapse-core/src/abis/generated.ts",
     "./packages/synapse-sdk/wagmi.config.ts",
     "./packages/synapse-sdk/src/test/mocks/**",
     "utils/**"
