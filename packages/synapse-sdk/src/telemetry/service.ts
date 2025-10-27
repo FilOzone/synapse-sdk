@@ -68,6 +68,10 @@ export class TelemetryService {
     void this.initSentry()
   }
 
+  // This is a separate function rather than being in the constructor because it is async.
+  // This does means that a TelemetryService instance can be accessible without the sentry object being instantiated.
+  // We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
+  // Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled. 
   private async initSentry(): Promise<void> {
     const Sentry = await getSentry()
     this.sentry = Sentry
