@@ -411,7 +411,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         ipniPiece: false,
         ipniIpfs: false,
         storagePricePerTibPerDay: 0n,
-        minProvingPeriodInEpochs: 0,
+        minProvingPeriodInEpochs: 0n,
         location: '',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       }

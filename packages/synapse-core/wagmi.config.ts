@@ -2,10 +2,9 @@ import { defineConfig } from '@wagmi/cli'
 import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
-// const REF = 'refs/tags/v0.3.0'
-// const REF = '15eeb6dc87db236507add5553a0c76c009705525'
-const REF = 'refs/heads/kubuxu/devnode-contracts'
-const URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${REF}/service_contracts/abi`
+// GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
+const GIT_REF = '43e122981042a1498fc642d51376e8b70a760161'
+const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
 
 const config: ReturnType<typeof defineConfig> = defineConfig(() => {
   const contracts = [
@@ -70,7 +69,7 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
           cacheDuration: 100,
           request(contract) {
             return {
-              url: `${URL}/${contract.name}.abi.json`,
+              url: `${BASE_URL}/${contract.name}.abi.json`,
             }
           },
         }),

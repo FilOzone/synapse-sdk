@@ -55,8 +55,9 @@ export function CreateDataSetDialog() {
   })
 
   function onSubmit(values: { provider: string; cdn: boolean }) {
-    const provider = providers?.find((p) => p.id.toString() === values.provider)
-    createDataSet({ provider: provider!, cdn: values.cdn })
+    const provider = providers?.find((p) => p.providerId.toString() === values.provider)
+    if (!provider) return
+    createDataSet({ provider, cdn: values.cdn })
   }
 
   return (

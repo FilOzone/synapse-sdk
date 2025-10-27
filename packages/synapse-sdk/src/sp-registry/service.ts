@@ -22,9 +22,8 @@
  * ```
  */
 
+import { decodeCapabilities } from '@filoz/synapse-core/warm-storage'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
 import type {
@@ -108,9 +107,25 @@ export class SPRegistryService {
     const registrationFee = await contract.REGISTRATION_FEE()
 
     // Prepare product data and capabilities
-    let productType = 0 // ProductType.PDP
+    let productType = 0 // No product
+    let productData = '0x'
+    let capabilityKeys: string[] = []
+    let capabilityValues: string[] = []
 
-    const [ capabilityKeys, capabilityValues ] = this._convertPDPOfferingToCapabilities(info.pdpOffering, info.capabilities)
+    if (info.pdpOffering != null) {
+      productType = 0 // ProductType.PDP
+      productData = await this.encodePDPOffering(info.pdpOffering)
+
+      // Convert capabilities object to key/value arrays
+      if (info.capabilities != null) {
+        capabilityKeys = []
+        capabilityValues = []
+        for (const [key, value] of Object.entries(info.capabilities)) {
+          capabilityKeys.push(key)
+          capabilityValues.push(value ?? '') // Normalize falsy/undefined to empty string
+        }
+      }
+    }
 
     // Register provider with all parameters in a single call
     const tx = await contract.registerProvider(
@@ -118,6 +133,7 @@ export class SPRegistryService {
       info.name,
       info.description,
       productType,
+      productData,
       capabilityKeys,
       capabilityValues,
       { value: registrationFee }
@@ -205,7 +221,8 @@ export class SPRegistryService {
 
       // Convert to ProviderInfo
       return this._convertToProviderInfo(Number(providerId), rawProvider.info, products)
-    } catch {
+    } catch (error) {
+      console.warn('Error fetching provider by address:', error)
       return null
     }
   }
@@ -344,11 +361,17 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const [ capabilityKeys, capabilityValues ] = this._convertPDPOfferingToCapabilities(pdpOffering, capabilities)
+    const encodedOffering = await this.encodePDPOffering(pdpOffering)
+
+    // Convert capabilities object to arrays
+    const entries = Object.entries(capabilities)
+    const capabilityKeys = entries.map(([key]) => key)
+    const capabilityValues = entries.map(([, value]) => value || '') // Handle empty values
 
     // Add product
     return await contract.addProduct(
       0, // ProductType.PDP
+      encodedOffering,
       capabilityKeys,
       capabilityValues
     )
@@ -369,11 +392,17 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const [ capabilityKeys, capabilityValues ] = this._convertPDPOfferingToCapabilities(pdpOffering, capabilities)
+    const encodedOffering = await this.encodePDPOffering(pdpOffering)
+
+    // Convert capabilities object to arrays
+    const entries = Object.entries(capabilities)
+    const capabilityKeys = entries.map(([key]) => key)
+    const capabilityValues = entries.map(([, value]) => value || '') // Handle empty values
 
     // Update product
     return await contract.updateProduct(
       0, // ProductType.PDP
+      encodedOffering,
       capabilityKeys,
       capabilityValues
     )
@@ -396,27 +425,36 @@ export class SPRegistryService {
    * @returns PDP service info or null if not found
    */
   async getPDPService(providerId: number): Promise<PDPServiceInfo | null> {
-    //try {
+    try {
       const contract = this._getRegistryContract()
       const result = await contract.getProviderWithProduct(providerId, 0) // 0 = ProductType.PDP
 
-      // This also handles the case where the product does not exist
-      if (!result.product.isActive) {
+      // Check if provider exists
+      if (result.providerInfo.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
-      const capabilities = this._convertCapabilitiesToObject(result.product.capabilityKeys, result.productCapabilityValues)
+      // Decode capability keys and values
+      const keys = Array.from(result.product.capabilityKeys) as string[]
+      const values = Array.from(result.productCapabilityValues) as string[]
+
+      if (keys.length === 0) {
+        return null
+      }
+
+      // Decode capabilities into PDPOffering
+      const offering = decodeCapabilities(keys, values as readonly `0x${string}`[])
+      const capabilities = this._convertCapabilitiesToObject(keys, values)
 
       return {
-        offering: this._convertCapabilitiesToPDPOffering(capabilities),
+        offering,
         capabilities,
         isActive: result.product.isActive,
       }
-      /*
-    } catch {
+    } catch (error) {
+      console.warn('Error fetching PDP service for provider:', error)
       return null
     }
-    */
   }
 
   /**
@@ -444,14 +482,16 @@ export class SPRegistryService {
 
     try {
       // Use Multicall3 for efficiency
-      return await this._getProvidersWithMulticall(providerIds)
-    } catch {
+      const result = await this._getProvidersWithMulticall(providerIds)
+      return result
+    } catch (_error) {
       // TODO: Remove this fallback block and properly mock Multicall3 in tests
       // The fallback is only needed because SPRegistryService tests don't currently
       // mock Multicall3 calls. Once proper test infrastructure is in place, this
       // try/catch and the _getProvidersIndividually method can be removed.
       // Fall back to individual calls if Multicall3 fails
-      return await this._getProvidersIndividually(providerIds)
+      const result = await this._getProvidersIndividually(providerIds)
+      return result
     }
   }
 
@@ -488,6 +528,12 @@ export class SPRegistryService {
       calls.push({
         target: this._registryAddress,
         allowFailure: true,
+        callData: iface.encodeFunctionData('getProvider', [id]),
+      })
+      // Add getProviderWithProduct call (ProductType.PDP = 0)
+      calls.push({
+        target: this._registryAddress,
+        allowFailure: true,
         callData: iface.encodeFunctionData('getProviderWithProduct', [id, 0]),
       })
     }
@@ -502,24 +548,26 @@ export class SPRegistryService {
     const providers: ProviderInfo[] = []
 
     for (let i = 0; i < providerIds.length; i++) {
-      if (!results[i].success) {
+      const providerResultIndex = i * 2
+      const pdpServiceResultIndex = i * 2 + 1
+
+      if (!results[providerResultIndex].success) {
         continue
       }
 
       try {
-        const [providerId, rawProvider, product, productCapabilityValues] = iface.decodeFunctionResult('getProviderWithProduct', results[i].returnData)
+        const decoded = iface.decodeFunctionResult('getProvider', results[providerResultIndex].returnData)
+        const rawProvider = decoded[0]
 
-        const capabilities = this._convertCapabilitiesToObject(product.capabilityKeys, productCapabilityValues)
+        // Process PDP service if available
+        const products = this._extractProductsFromMulticallResult(results[pdpServiceResultIndex], iface)
+
         // Convert to ProviderInfo
-        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, [ {
-          type: 'PDP',
-          isActive: product.isActive,
-          capabilities,
-          data: this._convertCapabilitiesToPDPOffering(capabilities),
-        }])
+        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, products)
         providers.push(providerInfo)
-      } catch {
+      } catch (error) {
         // Skip failed decoding
+        console.warn(`Failed to decode provider data for ID ${providerIds[i]}`, error)
       }
     }
 
@@ -527,9 +575,8 @@ export class SPRegistryService {
   }
 
   /**
-   * Extract products from multicall PDP service result
-   * Note: For multicall batching, capability values are set to empty strings for performance.
-   * Use getProvider() or getPDPService() for full capability values.
+   * Extract products from multicall result using getProviderWithProduct
+   * Decodes capability keys/values from the new k/v system
    */
   private _extractProductsFromMulticallResult(pdpServiceResult: any, iface: ethers.Interface): ServiceProduct[] {
     const products: ServiceProduct[] = []
@@ -539,61 +586,42 @@ export class SPRegistryService {
     }
 
     try {
-      const pdpDecoded = iface.decodeFunctionResult('getPDPService', pdpServiceResult.returnData)
+      const decoded = iface.decodeFunctionResult('getProviderWithProduct', pdpServiceResult.returnData)
 
-      // getPDPService returns a tuple of (pdpOffering, capabilityKeys, isActive)
-      const [pdpOffering, capabilityKeys, isActive] = pdpDecoded
+      // getProviderWithProduct returns a tuple: (providerId, providerInfo, product, productCapabilityValues)
+      // ethers wraps it in an array, so we unpack from decoded[0]
+      const [, providerInfo, product, productCapabilityValues] = decoded[0]
 
-      // Check if product actually exists (serviceURL is the first element)
-      if (!pdpOffering[0]) {
+      // Check if provider exists
+      if (providerInfo.serviceProvider === ethers.ZeroAddress) {
         return products
       }
 
-      // Note: Capability values are not included in multicall for performance
-      // They would require additional contract calls per provider
-      // Use getProvider() or getPDPService() for full capability values
-      const capabilities = this._buildCapabilitiesFromKeys(capabilityKeys)
+      // Decode capability keys and values
+      const keys = Array.from(product.capabilityKeys) as string[]
+      const values = Array.from(productCapabilityValues) as string[]
+
+      if (keys.length === 0) {
+        return products
+      }
+
+      // Decode capabilities into PDPOffering
+      const offering = decodeCapabilities(keys, values as readonly `0x${string}`[])
+      const capabilities = this._convertCapabilitiesToObject(keys, values)
 
       // Build PDP product
       products.push({
         type: 'PDP',
-        isActive,
+        isActive: product.isActive,
         capabilities,
-        data: {
-          serviceURL: pdpOffering[0],
-          minPieceSizeInBytes: pdpOffering[1],
-          maxPieceSizeInBytes: pdpOffering[2],
-          ipniPiece: pdpOffering[3],
-          ipniIpfs: pdpOffering[4],
-          storagePricePerTibPerDay: pdpOffering[5],
-          minProvingPeriodInEpochs: Number(pdpOffering[6]),
-          location: pdpOffering[7],
-          paymentTokenAddress: pdpOffering[8],
-        },
+        data: offering,
       })
-    } catch {
-      // Skip if PDP service decoding fails
+    } catch (error) {
+      // Skip if decoding fails
+      console.warn('Failed to decode PDP service data from multicall result:', error)
     }
 
     return products
-  }
-
-  /**
-   * Build capabilities object from keys array (values set to empty for multicall performance)
-   * For full capability values, use getProvider() or getPDPService()
-   */
-  private _buildCapabilitiesFromKeys(capabilityKeys: any): Record<string, string> {
-    const capabilities: Record<string, string> = {}
-
-    if (capabilityKeys && Array.isArray(capabilityKeys)) {
-      for (const key of capabilityKeys) {
-        // For multicall batching, we only get keys to avoid N additional contract calls
-        // Values would need separate getProductCapabilities() calls per provider
-        capabilities[key] = ''
-      }
-    }
-
-    return capabilities
   }
 
   /**
@@ -662,63 +690,6 @@ export class SPRegistryService {
       products,
     }
   }
-  
-  private _convertPDPOfferingToCapabilities(pdpOffering: PDPOffering, capabilities?: Record<string, string>): [string[], Hex[]] {
-    const capabilityKeys = []
-    const capabilityValues: Hex[] = []
-
-    capabilityKeys.push('serviceURL')
-    capabilityValues.push(stringToHex(pdpOffering.serviceURL))
-    capabilityKeys.push('minPieceSizeInBytes')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minPieceSizeInBytes)))
-    capabilityKeys.push('maxPieceSizeInBytes')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.maxPieceSizeInBytes)))
-    if (pdpOffering.ipniPiece) {
-      capabilityKeys.push('ipniPiece')
-      capabilityValues.push('0x01')
-    }
-    if (pdpOffering.ipniIpfs) {
-      capabilityKeys.push('ipniIpfs')
-      capabilityValues.push('0x01')
-    }
-    capabilityKeys.push('storagePricePerTibPerDay')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.storagePricePerTibPerDay)))
-    capabilityKeys.push('minProvingPeriodInEpochs')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minProvingPeriodInEpochs)))
-    capabilityKeys.push('location')
-    capabilityValues.push(stringToHex(pdpOffering.location))
-    capabilityKeys.push('paymentTokenAddress')
-    capabilityValues.push(pdpOffering.paymentTokenAddress)
-
-    if (capabilities != null) {
-      for (const [key, value] of Object.entries(capabilities)) {
-        capabilityKeys.push(key)
-        if (!value) {
-          capabilityValues.push('0x01')
-        } else if (isHex(value)) {
-          capabilityValues.push(value)
-        } else {
-          capabilityValues.push(bytesToHex(toBytes(value)))
-        }
-      }
-    }
-    
-    return [capabilityKeys, capabilityValues]
-  }
-
-  private _convertCapabilitiesToPDPOffering(capabilities: Record<string, Hex>): PDPOffering {
-    return {
-      serviceURL: hexToString(capabilities.serviceURL),
-      minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
-      maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
-      ipniPiece: 'ipniPiece' in capabilities,
-      ipniIpfs: 'ipniIpfs' in capabilities,
-      storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
-      minProvingPeriodInEpochs: parseInt(capabilities.minProvingPeriodInEpochs),
-      location: hexToString(capabilities.location),
-      paymentTokenAddress: capabilities.paymentTokenAddress,
-    }
-  }
 
   /**
    * Convert capability arrays to object map
@@ -726,11 +697,21 @@ export class SPRegistryService {
    * @param values - Array of capability values
    * @returns Object map of capabilities
    */
-  private _convertCapabilitiesToObject(keys: string[], values: Hex[]): Record<string, Hex> {
-    const capabilities: Record<string, Hex> = {}
+  private _convertCapabilitiesToObject(keys: string[], values: string[]): Record<string, string> {
+    const capabilities: Record<string, string> = {}
     for (let i = 0; i < keys.length; i++) {
-      capabilities[keys[i]] = values[i]
+      capabilities[keys[i]] = values[i] || ''
     }
     return capabilities
+  }
+
+  /**
+   * Encode PDP offering to bytes
+   * @param offering - PDP offering to encode
+   * @returns Encoded bytes as hex string
+   */
+  private async encodePDPOffering(offering: PDPOffering): Promise<string> {
+    const contract = this._getRegistryContract()
+    return await contract.encodePDPOffering(offering)
   }
 }

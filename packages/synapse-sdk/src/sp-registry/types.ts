@@ -37,7 +37,7 @@ export interface ServiceProduct {
 }
 
 /**
- * PDP offering details (decoded from productData)
+ * PDP offering details (decoded from capability k/v pairs)
  */
 export interface PDPOffering {
   serviceURL: string
@@ -46,7 +46,7 @@ export interface PDPOffering {
   ipniPiece: boolean
   ipniIpfs: boolean
   storagePricePerTibPerDay: bigint
-  minProvingPeriodInEpochs: number
+  minProvingPeriodInEpochs: bigint
   location: string
   paymentTokenAddress: Hex
 }

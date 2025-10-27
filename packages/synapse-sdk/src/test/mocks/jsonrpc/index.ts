@@ -406,9 +406,87 @@ export const presets = {
           },
         ]
       },
+      getProvidersByProductType: () => [
+        {
+          providerIds: [1n, 2n],
+          providers: [
+            {
+              providerId: 1n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 1',
+                description: 'Test Provider 1',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+            {
+              providerId: 2n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 2',
+                description: 'Test Provider 2',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+          ],
+          hasMore: false,
+        },
+      ],
       getProviderWithProduct: (data) => {
         const [providerId, productType] = data
-        let providerInfo
+        let providerInfo: {
+          serviceProvider: Hex
+          payee: Hex
+          name: string
+          description: string
+          isActive: boolean
+        }
         if (providerId === 1n) {
           providerInfo = {
             serviceProvider: ADDRESSES.serviceProvider1,
@@ -443,8 +521,8 @@ export const presets = {
                 capabilityKeys: [],
                 isActive: false,
               },
-              productCapabilityValues: [] as Hex[]
-            }
+              productCapabilityValues: [] as Hex[],
+            },
           ]
         }
         return [
@@ -462,7 +540,7 @@ export const presets = {
                 'location',
                 'paymentTokenAddress',
               ],
-              isActive: true
+              isActive: true,
             },
             productCapabilityValues: [
               stringToHex('https://pdp.example.com'),
@@ -472,10 +550,10 @@ export const presets = {
               bytesToHex(numberToBytes(2880n)),
               stringToHex('US'),
               ADDRESSES.calibration.usdfcToken,
-            ]
-          }
+            ],
+          },
         ]
-      }
+      },
     },
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],

@@ -40,12 +40,16 @@ import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../u
 export interface ServicePriceInfo {
   /** Price per TiB per month without CDN (in base units) */
   pricePerTiBPerMonthNoCDN: bigint
-  /** Price per TiB per month with CDN (in base units) */
-  pricePerTiBPerMonthWithCDN: bigint
+  /** CDN egress price per TiB (usage-based, in base units) */
+  pricePerTiBCdnEgress: bigint
+  /** Cache miss egress price per TiB (usage-based, in base units) */
+  pricePerTiBCacheMissEgress: bigint
   /** Token address for payments */
   tokenAddress: string
   /** Number of epochs per month */
   epochsPerMonth: bigint
+  /** Minimum monthly charge for any dataset size (in base units) */
+  minimumPricePerMonth: bigint
 }
 
 /**
@@ -707,16 +711,19 @@ export class WarmStorageService {
     const pricing = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
-      pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
+      pricePerTiBCdnEgress: pricing.pricePerTiBCdnEgress,
+      pricePerTiBCacheMissEgress: pricing.pricePerTiBCacheMissEgress,
       tokenAddress: pricing.tokenAddress,
       epochsPerMonth: pricing.epochsPerMonth,
+      minimumPricePerMonth: pricing.minimumPricePerMonth,
     }
   }
 
   /**
    * Calculate storage costs for a given size
    * @param sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month for both CDN and non-CDN
+   * @returns Cost estimates per epoch, day, and month
+   * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
    */
   async calculateStorageCost(sizeInBytes: number): Promise<{
     perEpoch: bigint
@@ -730,24 +737,23 @@ export class WarmStorageService {
   }> {
     const servicePriceInfo = await this.getServicePrice()
 
-    // Calculate price per byte per epoch
+    // Calculate price per byte per epoch (base storage cost)
     const sizeInBytesBigint = BigInt(sizeInBytes)
-    const pricePerEpochNoCDN =
+    const pricePerEpoch =
       (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-    const pricePerEpochWithCDN =
-      (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) /
-      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
+    const costs = {
+      perEpoch: pricePerEpoch,
+      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
+    }
+
+    // CDN costs are usage-based (egress pricing), so withCDN returns base storage cost
+    // Actual CDN costs will be charged based on egress usage
     return {
-      perEpoch: pricePerEpochNoCDN,
-      perDay: pricePerEpochNoCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpochNoCDN * servicePriceInfo.epochsPerMonth,
-      withCDN: {
-        perEpoch: pricePerEpochWithCDN,
-        perDay: pricePerEpochWithCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth,
-      },
+      ...costs,
+      withCDN: costs,
     }
   }
 

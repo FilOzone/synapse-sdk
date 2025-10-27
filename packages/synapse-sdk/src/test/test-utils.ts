@@ -15,7 +15,7 @@
  */
 
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
+import { bytesToHex, type Hex, numberToBytes, stringToHex } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
@@ -554,7 +554,7 @@ export function setupProviderRegistryMocks(
               ipniPiece: false,
               ipniIpfs: false,
               storagePricePerTibPerDay: BigInt(2000000),
-              minProvingPeriodInEpochs: 2880,
+              minProvingPeriodInEpochs: 2880n,
               location: 'EU-WEST',
               paymentTokenAddress: ethers.ZeroAddress as Hex,
             },
@@ -694,6 +694,79 @@ export function setupProviderRegistryMocks(
           return { success: true, returnData: encoded }
         }
 
+        // Mock getProviderWithProduct(uint256, uint8) calls to SPRegistry
+        if (callData.startsWith('0xadd33358') && target === '0x0000000000000000000000000000000000000001') {
+          const providerId = parseInt(callData.slice(10, 74), 16)
+          const provider = providers.find((p) => p.id === providerId)
+
+          if (provider?.products?.PDP) {
+            const pdp = provider.products.PDP
+            // Build capability keys and values including both offering fields and extra capabilities
+            const capabilityKeys = [
+              'serviceURL',
+              'minPieceSizeInBytes',
+              'maxPieceSizeInBytes',
+              'storagePricePerTibPerDay',
+              'minProvingPeriodInEpochs',
+              'location',
+              'paymentTokenAddress',
+            ]
+            if (pdp.data.ipniPiece) capabilityKeys.push('ipniPiece')
+            if (pdp.data.ipniIpfs) capabilityKeys.push('ipniIpfs')
+
+            // Encode product capability values using viem helpers
+            const capabilityValues = [
+              stringToHex(pdp.data.serviceURL),
+              bytesToHex(numberToBytes(pdp.data.minPieceSizeInBytes)),
+              bytesToHex(numberToBytes(pdp.data.maxPieceSizeInBytes)),
+              bytesToHex(numberToBytes(pdp.data.storagePricePerTibPerDay)),
+              bytesToHex(numberToBytes(BigInt(pdp.data.minProvingPeriodInEpochs))),
+              stringToHex(pdp.data.location || ''),
+              pdp.data.paymentTokenAddress as Hex,
+            ]
+            if (pdp.data.ipniPiece) capabilityValues.push('0x01')
+            if (pdp.data.ipniIpfs) capabilityValues.push('0x01')
+
+            // Add custom capabilities
+            if (pdp.capabilities) {
+              for (const [key, value] of Object.entries(pdp.capabilities)) {
+                capabilityKeys.push(key)
+                capabilityValues.push(stringToHex(value || ''))
+              }
+            }
+
+            const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+              [
+                'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+              ],
+              [
+                [
+                  providerId,
+                  [
+                    provider.serviceProvider,
+                    provider.payee,
+                    provider.name,
+                    provider.description || '',
+                    provider.active,
+                  ],
+                  [0, capabilityKeys, pdp.isActive],
+                  capabilityValues,
+                ],
+              ]
+            )
+            return { success: true, returnData: encoded }
+          }
+
+          // Return empty provider with product
+          const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
+            [
+              'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+            ],
+            [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false], [0, [], false], []]]
+          )
+          return { success: true, returnData: encoded }
+        }
+
         // Default: return failure
         return { success: false, returnData: '0x' }
       })
@@ -824,6 +897,71 @@ export function setupProviderRegistryMocks(
       )
     }
 
+    // Mock getProviderWithProduct(uint256, uint8) - returns provider with product capabilities
+    if (data?.startsWith('0xadd33358')) {
+      const providerId = parseInt(data.slice(10, 74), 16)
+      const provider = providers.find((p) => p.id === providerId)
+
+      if (provider?.products?.PDP) {
+        const pdp = provider.products.PDP
+        // Build capability keys and values including both offering fields and extra capabilities
+        const capabilityKeys = [
+          'serviceURL',
+          'minPieceSizeInBytes',
+          'maxPieceSizeInBytes',
+          'storagePricePerTibPerDay',
+          'minProvingPeriodInEpochs',
+          'location',
+          'paymentTokenAddress',
+        ]
+        if (pdp.data.ipniPiece) capabilityKeys.push('ipniPiece')
+        if (pdp.data.ipniIpfs) capabilityKeys.push('ipniIpfs')
+
+        // Encode product capability values using viem helpers
+        const capabilityValues = [
+          stringToHex(pdp.data.serviceURL),
+          bytesToHex(numberToBytes(pdp.data.minPieceSizeInBytes)),
+          bytesToHex(numberToBytes(pdp.data.maxPieceSizeInBytes)),
+          bytesToHex(numberToBytes(pdp.data.storagePricePerTibPerDay)),
+          bytesToHex(numberToBytes(BigInt(pdp.data.minProvingPeriodInEpochs))),
+          stringToHex(pdp.data.location || ''),
+          pdp.data.paymentTokenAddress as Hex,
+        ]
+        if (pdp.data.ipniPiece) capabilityValues.push('0x01')
+        if (pdp.data.ipniIpfs) capabilityValues.push('0x01')
+
+        // Add custom capabilities
+        if (pdp.capabilities) {
+          for (const [key, value] of Object.entries(pdp.capabilities)) {
+            capabilityKeys.push(key)
+            capabilityValues.push(stringToHex(value || ''))
+          }
+        }
+
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          [
+            'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+          ],
+          [
+            [
+              providerId,
+              [provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active],
+              [0, capabilityKeys, pdp.isActive],
+              capabilityValues,
+            ],
+          ]
+        )
+      }
+
+      // Return empty provider with product
+      return ethers.AbiCoder.defaultAbiCoder().encode(
+        [
+          'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+        ],
+        [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false], [0, [], false], []]]
+      )
+    }
+
     // Fallback to original call
     return originalCall.call(provider, transaction)
   }
@@ -857,7 +995,7 @@ export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): Provi
           ipniPiece: false,
           ipniIpfs: false,
           storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -890,7 +1028,7 @@ export function createSimpleProvider(props: {
           ipniPiece: false,
           ipniIpfs: false,
           storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },

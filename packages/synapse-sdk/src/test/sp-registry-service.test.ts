@@ -1,8 +1,6 @@
 /* globals describe it beforeEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import { boolToBytes, bytesToHex, numberToBytes, stringToHex } from 'viem'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { type PDPOffering, PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -69,42 +67,22 @@ describe('SPRegistryService', () => {
       providerHasProduct: async (id: number, productType: number) => {
         return id === 1 && productType === 0
       },
-      getProviderWithProduct: async (id: number, productType: number) => {
-        if (id === 1 && productType == 0) {
+      getPDPService: async (id: number) => {
+        if (id === 1) {
           return {
-            providerId: 1n,
-            providerInfo: {
-              id: BigInt(1),
-              serviceProvider: mockProviderAddress,
-              payee: mockProviderAddress,
-              name: 'Test Provider',
-              description: 'A test storage provider',
-              isActive: true,
+            pdpOffering: {
+              serviceURL: 'https://provider.example.com',
+              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+              ipniPiece: true,
+              ipniIpfs: false,
+              storagePricePerTibPerDay: BigInt(1000000),
+              minProvingPeriodInEpochs: 2880n,
+              location: 'US-EAST',
+              paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
             },
-            product: {
-              productType: 0n,
-              capabilityKeys: [
-                'serviceURL',
-                'minPieceSizeInBytes',
-                'maxPieceSizeInBytes',
-                'ipniPiece',
-                'storagePricePerTibPerDay',
-                'minProvingPeriodInEpochs',
-                'location',
-                'paymentTokenAddress'
-              ],
-              isActive: true,
-            },
-            productCapabilityValues: [
-              stringToHex('https://provider.example.com'),
-              bytesToHex(numberToBytes(SIZE_CONSTANTS.KiB)),
-              bytesToHex(numberToBytes(SIZE_CONSTANTS.GiB)),
-              bytesToHex(boolToBytes(true)),
-              bytesToHex(numberToBytes(1000000n)),
-              bytesToHex(numberToBytes(2880)),
-              stringToHex('US-EAST'),
-              '0x0000000000000000000000000000000000000000',
-            ]
+            capabilities: [],
+            isActive: true,
           }
         }
         return null
@@ -121,9 +99,9 @@ describe('SPRegistryService', () => {
           ipniPiece: true,
           ipniIpfs: false,
           storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          minProvingPeriodInEpochs: 2880n,
           location: 'US-EAST',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
         }
       },
       getAllActiveProviders: async (offset: number, _limit: number) => {
@@ -144,6 +122,7 @@ describe('SPRegistryService', () => {
         _name: string,
         _description: string,
         _productType: number,
+        _productData: string,
         _capabilityKeys: string[],
         _capabilityValues: string[],
         _options?: any
@@ -175,7 +154,7 @@ describe('SPRegistryService', () => {
           }),
         }
       },
-      addProduct: async (_productType: number, _keys: string[], _values: Hex[]) => {
+      addProduct: async (_productType: number, _data: string) => {
         return {
           hash: `0x${'5'.repeat(64)}`,
           wait: async () => ({
@@ -184,7 +163,7 @@ describe('SPRegistryService', () => {
           }),
         }
       },
-      updateProduct: async (_productTYpe: number, _keys: string[], _values: Hex[]) => {
+      updateProduct: async (_index: number, _data: string) => {
         return {
           hash: `0x${'6'.repeat(64)}`,
           wait: async () => ({
@@ -303,16 +282,16 @@ describe('SPRegistryService', () => {
         name: 'New Provider',
         description: 'Description',
         pdpOffering: {
-          serviceURL: 'https://provider.example.com',
-          minPieceSizeInBytes: 32n,
-          maxPieceSizeInBytes: 4294967296n,
+          serviceURL: 'https://new-provider.example.com',
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: false,
-          storagePricePerTibPerDay: 2000000000000000000n,
-          minProvingPeriodInEpochs: 30,
-          location: 'LowEarthOrbit',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-        }
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
+          location: 'US-EAST',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        },
       })
       assert.exists(tx, 'Transaction should exist')
       assert.exists(tx.hash, 'Transaction should have a hash')
@@ -370,10 +349,10 @@ describe('SPRegistryService', () => {
         ipniPiece: true,
         ipniIpfs: false,
         storagePricePerTibPerDay: BigInt(1000000),
-        minProvingPeriodInEpochs: 2880,
+        minProvingPeriodInEpochs: 2880n,
         location: 'US-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      } as const
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      }
 
       const tx = await service.addPDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -389,10 +368,10 @@ describe('SPRegistryService', () => {
         ipniPiece: true,
         ipniIpfs: true,
         storagePricePerTibPerDay: BigInt(2000000),
-        minProvingPeriodInEpochs: 2880,
+        minProvingPeriodInEpochs: 2880n,
         location: 'EU-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      } as const
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+      }
 
       const tx = await service.updatePDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -434,22 +413,19 @@ describe('SPRegistryService', () => {
       // Override to return provider without products
       ;(service as any)._getRegistryContract = () => ({
         ...createMockContract(),
-        getProviderWithProduct: async () => ({
-          providerId: 1,
-          providerInfo: {
-            id: BigInt(1),
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
+        getPDPService: async () => ({
+          pdpOffering: {
+            serviceURL: '',
+            minPieceSizeInBytes: 0,
+            maxPieceSizeInBytes: 0,
+            ipniPiece: false,
+            ipniIpfs: false,
+            minProvingPeriodInEpochs: 0n,
+            storagePricePerTibPerDay: 0,
+            location: '',
           },
-          product: {
-            productType: 0n,
-            capabilityKeys: [],
-            isActive: false,
-          },
-          productCapabilityValues: []
+          capabilityKeys: [],
+          isActive: false,
         }),
       })
 

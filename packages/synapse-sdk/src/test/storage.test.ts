@@ -62,7 +62,7 @@ const TEST_PROVIDERS = {
           ipniPiece: false,
           ipniIpfs: false,
           storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -86,7 +86,7 @@ const TEST_PROVIDERS = {
           ipniPiece: true,
           ipniIpfs: true,
           storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -250,7 +250,12 @@ describe('StorageService', () => {
       global.fetch = async (input: string | URL | Request) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/ping')) {
-          return { status: 200, statusText: 'OK' } as any
+          return {
+            status: 200,
+            statusText: 'OK',
+            text: async () => '',
+            json: async () => ({}),
+          } as any
         }
         throw new Error(`Unexpected URL: ${url}`)
       }
@@ -1552,7 +1557,7 @@ describe('StorageService', () => {
               ipniPiece: false,
               ipniIpfs: false,
               storagePricePerTibPerDay: BigInt(1000000),
-              minProvingPeriodInEpochs: 2880,
+              minProvingPeriodInEpochs: 2880n,
               location: 'US',
               paymentTokenAddress: '0x0000000000000000000000000000000000000000',
             },

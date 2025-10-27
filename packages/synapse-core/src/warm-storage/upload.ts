@@ -1,4 +1,5 @@
 import type { Account, Chain, Client, Transport } from 'viem'
+import { hexToString } from 'viem'
 import { readContract } from 'viem/actions'
 import { getChain } from '../chains.ts'
 import { randU256 } from '../rand.ts'
@@ -21,23 +22,33 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
     args: [options.dataSetId],
   })
 
-  const provider = await readContract(client, {
+  const providerWithProduct = await readContract(client, {
     address: chain.contracts.serviceProviderRegistry.address,
     abi: chain.contracts.serviceProviderRegistry.abi,
-    functionName: 'getPDPService',
-    args: [dataSet.providerId],
+    functionName: 'getProviderWithProduct',
+    args: [dataSet.providerId, 0], // productType PDP = 0
   })
+
+  // Decode capabilities to get service URL
+  const capabilities = providerWithProduct.product.capabilityKeys.reduce(
+    (acc, key, i) => {
+      acc[key] = providerWithProduct.productCapabilityValues[i]
+      return acc
+    },
+    {} as Record<string, `0x${string}`>
+  )
+  const serviceURL = capabilities.serviceURL ? hexToString(capabilities.serviceURL) : ''
 
   const uploadResponses = await Promise.all(
     options.data.map(async (data) => {
       const upload = await PDP.uploadPiece({
         data: new Uint8Array(await data.arrayBuffer()),
-        endpoint: provider[0].serviceURL,
+        endpoint: serviceURL,
       })
 
       await PDP.findPiece({
         pieceCid: upload.pieceCid,
-        endpoint: provider[0].serviceURL,
+        endpoint: serviceURL,
       })
 
       return {
@@ -52,7 +63,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const addPieces = await PDP.addPieces({
     dataSetId: options.dataSetId,
     pieces: uploadResponses.map((response) => response.pieceCid),
-    endpoint: provider[0].serviceURL,
+    endpoint: serviceURL,
     extraData: await signAddPieces(client, {
       clientDataSetId: dataSet.clientDataSetId,
       nonce,
