@@ -115,7 +115,7 @@ export class TelemetryService {
    * @returns The event to be sent to Sentry, or null if the event should not be sent.
    */
   protected async onBeforeSend(event: ErrorEvent, hint: EventHint): Promise<ErrorEvent | null> {
-    this.addToBuffer(event)
+    this.addToEventBuffer(event)
 
     if (this.config.sentryInitOptions?.beforeSend != null) {
       return await this.config.sentryInitOptions.beforeSend(event, hint)
@@ -146,7 +146,7 @@ export class TelemetryService {
    * Add event to circular buffer
    * @internal
    */
-  private addToBuffer(event: any): void {
+  private addToEventBuffer(event: any): void {
     this.eventBuffer.push(event)
     if (this.eventBuffer.length > this.maxBufferSize) {
       this.eventBuffer.shift()
