@@ -4,17 +4,17 @@
  * #initGlobalTelemetry is the entry point.
  * #getGlobalTelemetry is the expected access point within Synapse.
  * (Consumers outside of Synapse should use `synapse.telemetry`.)
- * 
+ *
  * This class handles:
  * - Instantiating the TelemetryService instance.
  * - Hooking telemetry into `fetch` by wrapping it.
  * - Flushing/closing telemetry at shutdown or loss of browser focus.
  *
- * Notes: 
+ * Notes:
  * - The underlying Sentry instance handles uncaught exceptions and unhandled promise rejections.
  *   No special setup is done here.
  *   See https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
- * - Synapse-special error handling done in `src/utils/index.ts` is made "telemetry aware" by exporting `src/telemetry/utils.ts#createError()`, 
+ * - Synapse-special error handling done in `src/utils/index.ts` is made "telemetry aware" by exporting `src/telemetry/utils.ts#createError()`,
  *   which wraps `src/utils/errors.ts`.
  *   `src/telemetry/utils.ts` accesses the global TelemetryService instance.
  * - A TelemetryService instance is managed as a singleton with static accessors
@@ -38,10 +38,10 @@ export function getGlobalTelemetry(): TelemetryService | null {
 
 /**
  * Initialize the global TelemetryService instance if telemetry isn't disabled.
- * @param telemetryContext 
- * @param telemetryConfig 
+ * @param telemetryContext
+ * @param telemetryConfig
  */
-export function initGlobalTelemetry(telemetryConfig: TelemetryConfig,telemetryContext: TelemetryRuntimeContext): void {
+export function initGlobalTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): void {
   if (!shouldEnableTelemetry(telemetryConfig)) {
     return
   }
@@ -155,7 +155,8 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
     // Fallbacks for older browsers:
     g.window.addEventListener('beforeunload', flush, { capture: true })
     g.window.addEventListener('unload', flush, { capture: true })
-  } else { // Node runtime
+  } else {
+    // Node runtime
     /**
      * For Node.js, we only handle explicit termination signals.
      * We `close` in Node.js instead of `flush` because the process is actually exiting and we don't need to worry about handling the "users coming back" situation like we do in the browser.

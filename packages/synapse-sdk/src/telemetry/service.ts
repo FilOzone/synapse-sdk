@@ -59,8 +59,8 @@ export class TelemetryService {
   sentry: SentryType | null = null
 
   /**
-   * The provided TelemetryConfig will be passed to Sentry basically as is.  
-   * Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.  
+   * The provided TelemetryConfig will be passed to Sentry basically as is.
+   * Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.
    * See the source for the specific defaults.
    */
   constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
