@@ -2,12 +2,15 @@ import { HttpResponse, http } from 'msw'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
+  bytesToHex,
   decodeFunctionData,
   encodeAbiParameters,
   type Hex,
   isAddressEqual,
   multicall3Abi,
+  numberToBytes,
   parseUnits,
+  stringToHex,
 } from 'viem'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
 import { paymentsCallHandler } from './payments.ts'
@@ -395,6 +398,76 @@ export const presets = {
           },
         ]
       },
+      getProviderWithProduct: (data) => {
+        const [providerId, productType] = data
+        let providerInfo
+        if (providerId === 1n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider1,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else if (providerId === 2n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider2,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else {
+          // TODO throw if !providerExists
+          providerInfo = {
+            serviceProvider: ADDRESSES.zero,
+            payee: ADDRESSES.zero,
+            name: '',
+            description: '',
+            isActive: false,
+          }
+          return [
+            {
+              providerId,
+              providerInfo,
+              product: {
+                productType: 0,
+                capabilityKeys: [],
+                isActive: false,
+              },
+              productCapabilityValues: [] as Hex[]
+            }
+          ]
+        }
+        return [
+          {
+            providerId,
+            providerInfo,
+            product: {
+              productType,
+              capabilityKeys: [
+                'serviceURL',
+                'minPieceSizeInBytes',
+                'maxPieceSizeInBytes',
+                'storagePricePerTibPerMonth',
+                'minProvingPeriodInEpochs',
+                'location',
+                'paymentTokenAddress',
+              ],
+              isActive: true
+            },
+            productCapabilityValues: [
+              stringToHex('https://pdp.example.com'),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1000000n)),
+              bytesToHex(numberToBytes(2880n)),
+              stringToHex('US'),
+              ADDRESSES.calibration.usdfcToken,
+            ]
+          }
+        ]
+      }
     },
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],

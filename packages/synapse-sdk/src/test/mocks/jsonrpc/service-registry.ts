@@ -17,12 +17,15 @@ export type getProviderIdByAddress = ExtractAbiFunction<
   'getProviderIdByAddress'
 >
 
+export type getProviderWithProduct = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProviderWithProduct'>
+
 export interface ServiceRegistryOptions {
   getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
   getProviderIdByAddress?: (
     args: AbiToType<getProviderIdByAddress['inputs']>
   ) => AbiToType<getProviderIdByAddress['outputs']>
   getProvider?: (args: AbiToType<getProvider['inputs']>) => AbiToType<getProvider['outputs']>
+  getProviderWithProduct?: (args: AbiToType<getProviderWithProduct['inputs']>) => AbiToType<getProviderWithProduct['outputs']>
 }
 
 /**
@@ -69,6 +72,15 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getProvider')!
           .outputs,
         options.serviceRegistry.getProvider(args)
+      )
+    }
+    case 'getProviderWithProduct': {
+      if (!options.serviceRegistry?.getProviderWithProduct) {
+        throw new Error('Service Provider Registry: getProviderWithProduct is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getProviderWithProduct')!.outputs,
+        options.serviceRegistry.getProviderWithProduct(args)
       )
     }
     default: {

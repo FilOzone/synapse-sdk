@@ -110,9 +110,6 @@ export class SPRegistryService {
     // Prepare product data and capabilities
     let productType = 0 // ProductType.PDP
 
-    if (info.pdpOffering == null) {
-      throw new Error('Provider registration requires pdpOffering')
-    }
     const [ capabilityKeys, capabilityValues ] = this._convertPDPOfferingToCapabilities(info.pdpOffering, info.capabilities)
 
     // Register provider with all parameters in a single call
