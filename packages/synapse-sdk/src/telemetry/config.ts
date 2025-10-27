@@ -60,28 +60,3 @@ export function shouldEnableTelemetry(config?: { enabled?: boolean }): boolean {
   // Default to enabled (unless explicitly disabled above)
   return true
 }
-
-/**
- * Get environment-specific telemetry configuration
- *
- * @param userConfig - User-provided configuration
- * @returns Resolved configuration with environment defaults
- */
-export function resolveTelemetryConfig(
-  userConfig?: TelemetryConfig
-): Omit<TelemetryConfig, 'enabled'> & { enabled: boolean } {
-  const isTest = globalThis.process?.env?.NODE_ENV === 'test'
-  const isDisabledByEnv = isTelemetryDisabledByEnv()
-
-  return {
-    enabled: shouldEnableTelemetry(userConfig),
-    // environment: userConfig?.environment || (isTest ? 'test' : 'production'),
-    appName: userConfig?.appName || 'synapse-sdk',
-    tags: {
-      ...userConfig?.tags,
-      // Add environment-specific tags
-      ...(isTest && { test_mode: 'true' }),
-      ...(isDisabledByEnv && { disabled_by_env: 'true' }),
-    },
-  }
-}

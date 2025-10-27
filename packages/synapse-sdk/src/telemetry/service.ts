@@ -13,7 +13,7 @@
  * ```
  */
 
-import { resolveTelemetryConfig } from './config.ts'
+import { shouldEnableTelemetry } from './config.ts'
 import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
 
 export interface TelemetryConfig {
@@ -68,8 +68,7 @@ export class TelemetryService {
   readonly sentry: SentryType
 
   constructor(config: TelemetryConfig, context: RuntimeContext) {
-    const resolvedConfig = resolveTelemetryConfig(config)
-    this.enabled = resolvedConfig.enabled
+    this.enabled = shouldEnableTelemetry(config)
     this.context = context
 
     this.sentry = Sentry
