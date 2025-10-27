@@ -30,7 +30,16 @@ const DEFAULT_TELEMETRY_CONFIG: TelemetryConfig = {
  * @param telemetry - TelemetryService instance
  */
 export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
-  const telemetryConfig: TelemetryConfig = config ?? DEFAULT_TELEMETRY_CONFIG
+  let telemetryConfig: TelemetryConfig
+  if (config == null) {
+    telemetryConfig = DEFAULT_TELEMETRY_CONFIG
+  } else {
+    telemetryConfig = {
+      sentryInitOptions: { ...DEFAULT_TELEMETRY_CONFIG.sentryInitOptions, ...config.sentryInitOptions },
+      sentrySetTags: { ...DEFAULT_TELEMETRY_CONFIG.sentrySetTags, ...config.sentrySetTags }
+    }
+  }
+
   if (!shouldEnableTelemetry(telemetryConfig)) {
     return
   }
