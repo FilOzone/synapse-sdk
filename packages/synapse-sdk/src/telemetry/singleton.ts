@@ -61,7 +61,7 @@ export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, c
  * Remove the global telemetry instance
  * This should handle all cleanup of telemetry resources.
  */
-function removeGlobalTelemetry(flush: boolean = true): void {
+export function removeGlobalTelemetry(flush: boolean = true): void {
   if (telemetryInstance == null) {
     return
   }
