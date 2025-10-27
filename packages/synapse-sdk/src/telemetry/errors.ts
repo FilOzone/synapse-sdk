@@ -29,9 +29,9 @@ export function createError(prefix: string, operation: string, details: string, 
     getGlobalTelemetry()?.sentry?.captureException(error, {
       tags: { operation: `${prefix}.${operation}` },
       extra: {
-        prefix,
-        operation,
-        details,
+        synapseErrorPrefix: prefix,
+        synapseErrorOperation: operation,
+        synapseErrorDetails: details,
         originalError,
       },
     })
