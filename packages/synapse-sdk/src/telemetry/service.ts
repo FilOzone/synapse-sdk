@@ -19,23 +19,13 @@ import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
 
 export interface TelemetryConfig {
   /**
-   * Whether to enable telemetry.
-   *
-   * You can also control this via the environment variable `SYNAPSE_TELEMETRY_DISABLED` or the global variable `SYNAPSE_TELEMETRY_DISABLED`.
-   *
-   * This value will also be false if `NODE_ENV === 'test'`.
-   *
-   * @default true
+   * Additional options to pass to the Sentry SDK's init method.
    */
-  enabled: boolean
+  sentryInitOptions?: Parameters<SentryType['init']>[0]
   /**
-   * The name of the application using synapse-sdk.
-   * This is used to identify the application in the telemetry data.
-   * This is optional and can be set by the user via the synapse.telemetry.sentry.setContext() method.
-   * If not set, synapse-sdk will use 'synapse-sdk' as the default app name.
+   * Additional tags to set on the Sentry SDK.
    */
-  appName: string
-  tags?: Record<string, string> // optional: custom tags
+  sentrySetTags?: Parameters<SentryType['setTags']>[0]
 }
 
 /**
@@ -65,9 +55,8 @@ export class TelemetryService {
     this.context = context
     this.config = config
 
-    if (this.config.enabled) {
-      void this.initSentry()
-    }
+    // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
+    void this.initSentry()
   }
 
   private async initSentry(): Promise<void> {
@@ -84,10 +73,12 @@ export class TelemetryService {
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
       integrations,
+      ...this.config.sentryInitOptions,
     })
 
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
-    this.sentry.setContext('environment', {
+    this.sentry.setContext('runtime', {
+      type: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
       // userAgent may not be useful for searching, but will be useful for debugging
       userAgent:
         typeof globalThis !== 'undefined' && 'navigator' in globalThis
@@ -100,7 +91,7 @@ export class TelemetryService {
       /**
        * The different app identifiers that can be set via the `appName` config option.
        */
-      appName: this.config.appName,
+      appName: this.config.sentrySetTags?.appName ?? this.config.sentrySetTags?.app_name ?? 'synapse-sdk',
       /**
        * The version of the synapse-sdk that is being used.
        */
@@ -114,6 +105,7 @@ export class TelemetryService {
        * The network (mainnet/calibration) that the synapse-sdk is being used in.
        */
       filecoinNetwork: this.context.filecoinNetwork,
+      ...this.config.sentrySetTags,
     })
   }
 
@@ -148,35 +140,6 @@ export class TelemetryService {
     return {
       lastEventId: this.sentry?.lastEventId(),
       events: this.eventBuffer.slice(-limit),
-    }
-  }
-
-  /**
-   * Check if telemetry is enabled
-   */
-  isEnabled(): boolean {
-    return this.config.enabled
-  }
-
-  /**
-   * Enable telemetry explicitly (even if disabled by environment)
-   * Useful for testing or when you need to force telemetry on
-   */
-  enable(): void {
-    if (!this.config.enabled) {
-      this.config.enabled = true
-      this.initSentry()
-    }
-  }
-
-  /**
-   * Disable telemetry explicitly (even if enabled by environment)
-   * Useful for testing or when you need to force telemetry off
-   */
-  disable(ms?: number): void {
-    if (this.config.enabled) {
-      this.config.enabled = false
-      void this.sentry?.close(ms)
     }
   }
 

@@ -19,14 +19,17 @@ async function testSpanTest(RPC_URL: string): Promise<void> {
     rpcURL: RPC_URL,
     privateKey: process.env.PRIVATE_KEY,
     telemetry: {
-      enabled: true,
+      sentryInitOptions: {
+        enabled: true,
+        appName: 'simple-span-test',
+      },
     }
   })
   if (!synapse) {
     throw new Error('Synapse instance not created')
   }
 
-  synapse.telemetry.sentry.startSpan({ name: 'Test actions in span', op: 'Test span' }, async () => {
+  synapse.telemetry?.sentry?.startSpan({ name: 'Test actions in span', op: 'Test span' }, async () => {
     if (!synapse) {
       throw new Error('Synapse instance not created')
     }
@@ -43,6 +46,6 @@ testSpanTest(process.env.RPC_URL || RPC_URLS.calibration.websocket).then(() => {
   throw new Error('test error')
 }).finally(() => {
   synapse?.getProvider().destroy()
-  synapse?.telemetry.close()
+  synapse?.telemetry?.sentry?.close()
   synapse = null
 })

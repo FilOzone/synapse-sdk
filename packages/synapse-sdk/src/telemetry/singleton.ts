@@ -18,13 +18,18 @@ import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } 
 // Global telemetry instance
 let telemetryInstance: TelemetryService | null = null
 
+const DEFAULT_TELEMETRY_CONFIG: TelemetryConfig = {
+  sentryInitOptions: { enabled: true },
+  sentrySetTags: { appName: 'synapse-sdk' },
+}
+
 /**
  * Initialize the global telemetry instance
  *
  * @param telemetry - TelemetryService instance
  */
 export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
-  const telemetryConfig: TelemetryConfig = config ?? { enabled: true, appName: 'synapse-sdk' }
+  const telemetryConfig: TelemetryConfig = config ?? DEFAULT_TELEMETRY_CONFIG
   if (!shouldEnableTelemetry(telemetryConfig)) {
     return
   }
@@ -62,7 +67,7 @@ export function removeGlobalTelemetry(): void {
  * @returns True if telemetry is initialized and enabled
  */
 export function isGlobalTelemetryEnabled(): boolean {
-  return telemetryInstance?.isEnabled() ?? false
+  return telemetryInstance?.sentry?.isInitialized() ?? false
 }
 
 function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
@@ -215,9 +220,9 @@ function isTelemetryDisabledByEnv(): boolean {
  * @param config - User-provided telemetry configuration
  * @returns True if telemetry should be enabled
  */
-function shouldEnableTelemetry(config?: { enabled?: boolean }): boolean {
+function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
   // If explicitly disabled by user config, respect that
-  if (config?.enabled === false) {
+  if (config?.sentryInitOptions?.enabled === false) {
     return false
   }
 
