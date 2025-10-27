@@ -54,13 +54,10 @@ export const upload: Command = command(
         rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
       })
 
-      const upload = await synapse.storage.upload(fileData, {
+      const context = await synapse.storage.createContext({
         forceCreateDataSet: argv.flags.forceCreateDataSet,
         withCDN: argv.flags.withCDN,
         dataSetId: argv.flags.dataSetId,
-        metadata: {
-          name: path.basename(absolutePath),
-        },
         callbacks: {
           onDataSetCreationStarted(transaction) {
             spinner.message(`Creating data set, tx: ${transaction.hash}`)
@@ -71,19 +68,25 @@ export const upload: Command = command(
           onDataSetResolved(info) {
             spinner.message(`Using existing data set: ${info.dataSetId}`)
           },
-          onUploadComplete(pieceCid) {
-            spinner.message(`Upload complete! PieceCID: ${pieceCid}`)
-          },
-          onPieceAdded(transaction) {
-            spinner.message(`Piece add, tx: ${transaction?.hash}`)
-          },
-          onPieceConfirmed(pieceIds) {
-            spinner.message(`Piece confirmed: ${pieceIds.join(', ')}`)
-          },
         },
       })
 
-      spinner.stop(`File uploaded ${upload.pieceCid}`)
+      const upload = await context.upload(fileData, {
+        metadata: {
+          name: path.basename(absolutePath),
+        },
+        onPieceAdded(transaction) {
+          spinner.message(`Piece added, tx: ${transaction}`)
+        },
+        onPieceConfirmed(pieceIds) {
+          spinner.message(`Piece confirmed: ${pieceIds.join(', ')}`)
+        },
+        onUploadComplete(pieceCid) {
+          spinner.message(`Upload complete! PieceCID: ${pieceCid}`)
+        },
+      })
+
+      spinner.stop(`File uploaded ${upload.pieceId}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)
