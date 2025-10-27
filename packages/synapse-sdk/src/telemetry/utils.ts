@@ -7,25 +7,15 @@ import { getGlobalTelemetry } from './singleton.ts'
 export const isBrowser =
   typeof (globalThis as any).window !== 'undefined' && typeof (globalThis as any).document !== 'undefined'
 
-export type Sentry = typeof SentryNode.default | typeof SentryBrowser.default
+export type SentryBrowserType = typeof SentryBrowser.default
+export type SentryNodeType = typeof SentryNode.default
+export type SentryType = SentryNodeType | SentryBrowserType
 
-export async function getSentry(): Promise<{ Sentry: Sentry; integrations: any[] }> {
+export async function getSentry(): Promise<SentryType> {
   if (isBrowser) {
-    const SentryBrowser = await import('@sentry/browser')
-    return {
-      Sentry: SentryBrowser,
-      integrations: [
-        SentryBrowser.browserTracingIntegration({
-          ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
-        }),
-      ],
-    }
+    return (await import('@sentry/browser')) satisfies typeof SentryBrowser
   }
-  const SentryNode = await import('@sentry/node')
-  return {
-    Sentry: SentryNode,
-    integrations: [],
-  }
+  return (await import('@sentry/node')) satisfies typeof SentryNode
 }
 
 /**

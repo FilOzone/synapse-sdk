@@ -17,7 +17,7 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, isBrowser, type Sentry as SentryType } from './utils.ts'
+import { getSentry, isBrowser, type SentryBrowserType, type SentryType } from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
@@ -64,8 +64,24 @@ export class TelemetryService {
   }
 
   private async initSentry(): Promise<void> {
-    const { Sentry, integrations } = await getSentry()
+    const Sentry = await getSentry()
     this.sentry = Sentry
+
+    const integrations = []
+    let runtime: 'browser' | 'node'
+    if (isBrowser) {
+      runtime = 'browser'
+      integrations.push(
+        (Sentry as SentryBrowserType).browserTracingIntegration({
+          // Disable telemetry on static asset retrieval. It's noisy and potentially more identifiable information.
+          ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
+        })
+      )
+    } else {
+      runtime = 'node'
+      // no integrations are needed for nodejs
+    }
+
     this.sentry.init({
       dsn: 'https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320',
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
@@ -79,8 +95,6 @@ export class TelemetryService {
       beforeSend: this.onBeforeSend.bind(this),
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
-
-    const runtime: 'browser' | 'node' = isBrowser ? 'browser' : 'node'
 
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
     this.sentry.setContext('runtime', {
