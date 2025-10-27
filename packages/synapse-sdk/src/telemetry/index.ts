@@ -7,4 +7,4 @@
 
 export { type DebugDump, type TelemetryConfig, TelemetryService } from './service.ts'
 export { getGlobalTelemetry, initGlobalTelemetry, removeGlobalTelemetry } from './singleton.ts'
-// telemetry/errors.ts is exported from ../utils/errors.ts
+// createError is exported from ../telemetry/utils.ts

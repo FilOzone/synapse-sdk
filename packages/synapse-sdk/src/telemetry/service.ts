@@ -17,7 +17,7 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
+import { getSentry, isBrowser, type Sentry as SentryType } from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
@@ -80,16 +80,13 @@ export class TelemetryService {
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
-    const runtime: 'browser' | 'node' = typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node'
+    const runtime: 'browser' | 'node' = isBrowser ? 'browser' : 'node'
 
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
     this.sentry.setContext('runtime', {
       type: runtime,
       // userAgent may not be useful for searching, but will be useful for debugging
-      userAgent:
-        typeof globalThis !== 'undefined' && 'navigator' in globalThis
-          ? (globalThis as any).navigator.userAgent
-          : undefined,
+      userAgent: isBrowser && 'navigator' in globalThis ? (globalThis as any).navigator.userAgent : undefined,
     })
 
     // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags

@@ -9,11 +9,12 @@
  * #setupGlobalTelemetry is the entry point and #getGlobalTelemetry is the expected access point within Synapse and beyond.
  *
  * Setting up the fetch wrapper is managed here.
- * Wrapping of error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/errors.ts#createError()`, which wraps `src/utilts/errors.ts`
+ * Wrapping of error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utils/errors.ts`
  * Setting up the shutdown handling is managed here.
  */
 
 import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
+import { isBrowser } from './utils.ts'
 
 // Global telemetry instance
 let telemetryInstance: TelemetryService | null = null
@@ -45,10 +46,7 @@ export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, c
  * @returns The global telemetry instance or null if not initialized
  */
 export function getGlobalTelemetry(): TelemetryService | null {
-  if (isGlobalTelemetryEnabled()) {
-    return telemetryInstance
-  }
-  return null
+  return telemetryInstance
 }
 
 /**
@@ -61,15 +59,6 @@ export function removeGlobalTelemetry(): void {
   removeGlobalFetchWrapper()
 }
 
-/**
- * Check if global telemetry is enabled
- *
- * @returns True if telemetry is initialized and enabled
- */
-export function isGlobalTelemetryEnabled(): boolean {
-  return telemetryInstance?.sentry?.isInitialized() ?? false
-}
-
 function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any
   const timeout = opts.timeoutMs ?? 2000
@@ -77,7 +66,7 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
 
   // NOTE: sentry handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
 
-  if (typeof g.window !== 'undefined' && typeof g.document !== 'undefined') {
+  if (isBrowser) {
     // -------- Browser runtime --------
     const flush = () => {
       // Don’t block; Sentry will use sendBeacon/fetch keepalive under the hood.
