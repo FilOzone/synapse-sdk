@@ -96,10 +96,25 @@ export class TelemetryService {
     })
 
     // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
-    this.sentry.setTag('appName', this.context.appName ?? 'synapse-sdk') // should only be a few values
-    this.sentry.setTag('synapseSdkVersion', `@filoz/synapse-sdk@v${this.context.sdkVersion}`) // useful to know which version of the SDK is being used
-    this.sentry.setTag('runtime', this.context.runtime) // only two values, useful for searching
-    this.sentry.setTag('network', this.context.network as 'mainnet' | 'calibration') // only two values, useful for searching
+    this.sentry.setTags({
+      /**
+       * The different app identifiers that can be set via the `appName` config option.
+       */
+      appName: this.context.appName ?? 'synapse-sdk',
+      /**
+       * The version of the synapse-sdk that is being used.
+       */
+      synapseSdkVersion: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
+      /**
+       * The runtime (browser/node) that the synapse-sdk is being used in.
+       */
+      runtime: this.context.runtime,
+
+      /**
+       * The network (mainnet/calibration) that the synapse-sdk is being used in.
+       */
+      filecoinNetwork: this.context.network as 'mainnet' | 'calibration',
+    })
   }
 
   /**
