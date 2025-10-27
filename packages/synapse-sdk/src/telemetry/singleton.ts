@@ -1,6 +1,6 @@
 /**
  * Telemetry singleton manager.
- * Sets up and provides a single global TelemetryService instance. 
+ * Sets up and provides a single global TelemetryService instance.
  * #initGlobalTelemetry is the entry point.
  * #getGlobalTelemetry is the expected access point within Synapse and beyond.
  *
@@ -9,7 +9,7 @@
  * - Managing the "fetch wrapper".
  * - Managing shutdown handling from a telemetry regard.
  *
- * Note: error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utilts/errors.ts`.  
+ * Note: error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utilts/errors.ts`.
  * `src/telemetry/utils.ts` accesses the global TelemetryService instance.
  */
 
