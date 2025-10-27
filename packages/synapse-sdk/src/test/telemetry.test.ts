@@ -40,4 +40,10 @@ describe('Telemetry', () => {
       assert.isNull(synapse.telemetry)
     })
   })
+
+  /**
+   * TODO: tests to add:
+   * 1. does telemetry get enabled with explicit enabled=true?
+   * 2.
+   */
 })

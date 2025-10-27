@@ -16,38 +16,13 @@
 import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
 import { isBrowser } from './utils.ts'
 
-// Global telemetry instance
-let telemetryInstance: TelemetryService | null = null
-
 const DEFAULT_TELEMETRY_CONFIG: TelemetryConfig = {
-  sentryInitOptions: { enabled: true },
+  sentryInitOptions: {},
   sentrySetTags: { appName: 'synapse-sdk' },
 }
 
-/**
- * Initialize the global telemetry instance
- *
- * @param telemetry - TelemetryService instance
- */
-export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
-  let telemetryConfig: TelemetryConfig
-  if (config == null) {
-    telemetryConfig = DEFAULT_TELEMETRY_CONFIG
-  } else {
-    telemetryConfig = {
-      sentryInitOptions: { ...DEFAULT_TELEMETRY_CONFIG.sentryInitOptions, ...config.sentryInitOptions },
-      sentrySetTags: { ...DEFAULT_TELEMETRY_CONFIG.sentrySetTags, ...config.sentrySetTags }
-    }
-  }
-
-  if (!shouldEnableTelemetry(telemetryConfig)) {
-    return
-  }
-
-  telemetryInstance = new TelemetryService(telemetryConfig, telemetryContext)
-  initGlobalFetchWrapper()
-  setupShutdownHooks()
-}
+// Global telemetry instance
+let telemetryInstance: TelemetryService | null = null
 
 /**
  * Get the global telemetry instance
@@ -59,15 +34,68 @@ export function getGlobalTelemetry(): TelemetryService | null {
 }
 
 /**
+ * Initialize the global telemetry instance
+ *
+ * @param telemetry - TelemetryService instance
+ */
+export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
+  let telemetryConfig: TelemetryConfig
+  if (!shouldEnableTelemetry(config)) {
+    return
+  }
+  if (config == null) {
+    telemetryConfig = DEFAULT_TELEMETRY_CONFIG
+  } else {
+    telemetryConfig = {
+      sentryInitOptions: config.sentryInitOptions,
+      sentrySetTags: { ...DEFAULT_TELEMETRY_CONFIG.sentrySetTags, ...config.sentrySetTags },
+    }
+  }
+
+  telemetryInstance = new TelemetryService(telemetryConfig, telemetryContext)
+  wrapFetch()
+  setupShutdownHooks()
+}
+
+/**
  * Remove the global telemetry instance
  * This should handle all cleanup of telemetry resources.
  */
-export function removeGlobalTelemetry(flush: boolean = true): void {
+function removeGlobalTelemetry(flush: boolean = true): void {
+  if (telemetryInstance == null) {
+    return
+  }
   if (flush) {
     void telemetryInstance?.sentry?.flush()
   }
-  removeGlobalFetchWrapper()
+  unwrapFetch()
   telemetryInstance = null
+}
+
+/**
+ * Determine if telemetry should be enabled based on configuration and environment
+ *
+ * @param config - User-provided telemetry configuration
+ * @returns True if telemetry should be enabled
+ */
+function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
+  // If explicitly disabled by user config, respect that
+  if (config?.sentryInitOptions?.enabled === false) {
+    return false
+  }
+
+  // If disabled by `SYNAPSE_TELEMETRY_DISABLED` environment/global variable, respect that
+  if (isTelemetryDisabledByEnv()) {
+    return false
+  }
+
+  // If in test environment, disable telemetry unless explicitly enabled by user config
+  if (config?.sentryInitOptions?.enabled === undefined && globalThis.process?.env?.NODE_ENV === 'test') {
+    return false
+  }
+
+  // Default to isEnabled (unless explicitly disabled above)
+  return true
 }
 
 function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
@@ -146,7 +174,7 @@ let isFetchWrapped = false
  * - Directly invoking HTTP-inducing Synpase SDK functions from a node context.
  * In these cases, this wrapper creates a span before making the `fetch` call.
  */
-function initGlobalFetchWrapper(): void {
+function wrapFetch(): void {
   if (isFetchWrapped) {
     return // Already wrapped
   }
@@ -184,7 +212,7 @@ function initGlobalFetchWrapper(): void {
  *
  * Useful for testing or when telemetry should be disabled.
  */
-function removeGlobalFetchWrapper(): void {
+function unwrapFetch(): void {
   if (!isFetchWrapped) {
     return
   }
@@ -218,30 +246,4 @@ function isTelemetryDisabledByEnv(): boolean {
   }
 
   return false
-}
-
-/**
- * Determine if telemetry should be enabled based on configuration and environment
- *
- * @param config - User-provided telemetry configuration
- * @returns True if telemetry should be enabled
- */
-function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
-  // If explicitly disabled by user config, respect that
-  if (config?.sentryInitOptions?.enabled === false) {
-    return false
-  }
-
-  // If disabled by environment variable, respect that
-  if (isTelemetryDisabledByEnv()) {
-    return false
-  }
-
-  // If in test environment, disable telemetry
-  if (globalThis.process?.env?.NODE_ENV === 'test') {
-    return false
-  }
-
-  // Default to enabled (unless explicitly disabled above)
-  return true
 }
