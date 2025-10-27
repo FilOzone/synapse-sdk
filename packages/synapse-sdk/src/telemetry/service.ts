@@ -76,7 +76,7 @@ export class TelemetryService {
       ...this.config.sentryInitOptions,
     })
 
-    const runtime: 'browser' | 'node' = (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node')
+    const runtime: 'browser' | 'node' = typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node'
 
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
     this.sentry.setContext('runtime', {
