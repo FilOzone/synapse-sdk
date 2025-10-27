@@ -20,7 +20,7 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
       name: 'FilecoinWarmStorageService',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258' as Address,
+        314159: '0x02925630df557F957f70E112bA06e50965417CA0' as Address,
       },
     },
     {
@@ -34,21 +34,21 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
       name: 'FilecoinWarmStorageServiceStateView',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x0295Ac959317391656fB7fFaA046046eF9C7E18F' as Address,
+        314159: '0xA5D87b04086B1d591026cCE10255351B5AA4689B' as Address,
       },
     },
     {
       name: 'PDPVerifier',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d' as Address,
+        314159: '0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C' as Address,
       },
     },
     {
       name: 'ServiceProviderRegistry',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3' as Address,
+        314159: '0x839e5c9988e4e9977d40708d0094103c0839Ac9D' as Address,
       },
     },
     {
