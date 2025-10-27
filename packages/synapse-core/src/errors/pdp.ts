@@ -131,3 +131,18 @@ export class PollForAddPiecesStatusError extends SynapseError {
     return isSynapseError(value) && value.name === 'PollForAddPiecesStatusError'
   }
 }
+
+export class DeletePieceError extends SynapseError {
+  override name: 'DeletePieceError' = 'DeletePieceError'
+
+  constructor(error: string) {
+    const decodedError = decodePDPError(error)
+    super(`Failed to delete piece.`, {
+      details: decodedError,
+    })
+  }
+
+  static override is(value: unknown): value is DeletePieceError {
+    return isSynapseError(value) && value.name === 'DeletePieceError'
+  }
+}

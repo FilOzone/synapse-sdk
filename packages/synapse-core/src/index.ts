@@ -10,6 +10,7 @@
  */
 
 export * as abis from './abis/index.ts'
+export * from './calibration.ts'
 export * as chains from './chains.ts'
 export * from './constants.ts'
 export * as erc20 from './erc20.ts'

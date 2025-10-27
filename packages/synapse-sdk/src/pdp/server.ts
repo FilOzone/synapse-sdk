@@ -38,7 +38,6 @@ import type { PDPAuthHelper } from './auth.ts'
 import {
   validateDataSetCreationStatusResponse,
   validatePieceAdditionStatusResponse,
-  validatePieceDeleteResponse,
   validatePieceStatusResponse,
 } from './validation.ts'
 
@@ -601,24 +600,14 @@ export class PDPServer {
    */
   async deletePiece(dataSetId: number, clientDataSetId: bigint, pieceID: number): Promise<string> {
     const authData = await this.getAuthHelper().signSchedulePieceRemovals(clientDataSetId, [BigInt(pieceID)])
-    const payload = {
-      extraData: `0x${authData.signature}`,
-    }
 
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/${pieceID}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+    const { txHash } = await SP.deletePiece({
+      endpoint: this._serviceURL,
+      dataSetId: BigInt(dataSetId),
+      pieceId: BigInt(pieceID),
+      extraData: ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [authData.signature]) as Hex,
     })
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(`Failed to delete piece: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-    const data = await response.json()
-    return validatePieceDeleteResponse(data).txHash
+    return txHash
   }
 
   /**

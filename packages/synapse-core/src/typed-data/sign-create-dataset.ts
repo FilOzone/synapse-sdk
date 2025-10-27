@@ -34,8 +34,8 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
   const values = options.metadata.map((item) => item.value)
 
   const extraData = encodeAbiParameters(
-    [{ type: 'address' }, { type: 'string[]' }, { type: 'string[]' }, { type: 'bytes' }],
-    [client.account.address, keys, values, signature]
+    [{ type: 'address' }, { type: 'uint256' }, { type: 'string[]' }, { type: 'string[]' }, { type: 'bytes' }],
+    [client.account.address, options.clientDataSetId, keys, values, signature]
   )
 
   return extraData

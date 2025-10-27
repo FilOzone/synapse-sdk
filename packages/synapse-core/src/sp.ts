@@ -15,6 +15,7 @@ import { type Address, type Hex, isHex } from 'viem'
 import {
   AddPiecesError,
   CreateDataSetError,
+  DeletePieceError,
   FindPieceError,
   GetDataSetError,
   LocationHeaderError,
@@ -27,7 +28,7 @@ import type { PieceCID } from './piece.ts'
 import * as Piece from './piece.ts'
 import { createPieceUrl } from './utils/piece-url.ts'
 
-let TIMEOUT = 180000
+let TIMEOUT = 1000 * 60 * 5 // 5 minutes
 export const RETRIES = Infinity
 export const FACTOR = 1
 export const MIN_TIMEOUT = 4000 // interval between retries in milliseconds
@@ -220,12 +221,14 @@ export type SPPieceWithUrl = Simplify<
  * @param options.address - The address of the user.
  * @param options.cdn - Whether the CDN is enabled.
  */
-export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions) {
+export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): Promise<SPPieceWithUrl[]> {
   const dataSet = await getDataSet(options)
   const pieces = dataSet.pieces.map((piece) => ({
     pieceCid: piece.pieceCid,
     pieceId: piece.pieceId,
     pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chainId, options.endpoint),
+    subPieceCid: piece.subPieceCid,
+    subPieceOffset: piece.subPieceOffset,
   }))
 
   return pieces
@@ -473,4 +476,39 @@ export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOpti
     throw response.error
   }
   return response.result as AddPiecesSuccess
+}
+
+export type DeletePieceOptions = {
+  endpoint: string
+  dataSetId: bigint
+  pieceId: bigint
+  extraData: Hex
+}
+
+export type DeletePieceResponse = {
+  txHash: Hex
+}
+
+/**
+ * Delete a piece from a data set on the PDP API.
+ *
+ * DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}
+ */
+export async function deletePiece(options: DeletePieceOptions) {
+  const { endpoint, dataSetId, pieceId, extraData } = options
+  const response = await request.json.delete<DeletePieceResponse>(
+    new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
+    {
+      body: { extraData },
+    }
+  )
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new DeletePieceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  return response.result
 }

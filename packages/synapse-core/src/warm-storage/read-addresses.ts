@@ -53,7 +53,7 @@ export async function readAddresses(client: Client<Transport, Chain>): Promise<R
       {
         address: chain.contracts.storage.address,
         abi: chain.contracts.storage.abi,
-        functionName: 'filCDNBeneficiaryAddress',
+        functionName: 'filBeamBeneficiaryAddress',
       },
     ],
   })

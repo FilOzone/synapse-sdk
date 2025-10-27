@@ -1,5 +1,11 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info } from 'lucide-react'
+import { useDeletePiece } from '@filoz/synapse-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { toastError } from '@/lib/utils.ts'
+import { ButtonLoading } from '../custom-ui/button-loading.tsx'
+import { ExplorerLink } from '../explorer-link.tsx'
 import { PDPDatasetLink, PDPPieceLink, PDPProviderLink } from '../pdp-link.tsx'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar.tsx'
 import { Button } from '../ui/button.tsx'
@@ -15,7 +21,7 @@ export function DataSetsSection({
   dataSets?: DataSetWithPieces[]
   providers?: UseProvidersResult
 }) {
-  const providerWithDataSets = providers?.filter((p) => dataSets?.some((d) => d.providerId === p.providerId))
+  const providerWithDataSets = providers?.filter((p) => dataSets?.some((d) => d.providerId === p.id))
 
   const imagesMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   const videosMimeTypes = ['video/mp4', 'video/quicktime', 'video/webm']
@@ -45,6 +51,29 @@ export function DataSetsSection({
     'application/x-toml',
   ]
 
+  const [deletingPiece, setDeletingPiece] = useState<bigint | null>(null)
+  const { mutate: deletePiece, isPending: isDeletingPiece } = useDeletePiece({
+    onHash: (hash) => {
+      toast.loading('Deleting piece...', {
+        description: <ExplorerLink hash={hash} />,
+        id: 'delete-piece',
+      })
+    },
+    mutation: {
+      onSuccess: () => {
+        toast.success('Piece deleted', {
+          id: 'delete-piece',
+        })
+      },
+      onError: (error) => {
+        toastError(error, 'delete-piece', 'Piece deletion failed')
+      },
+      onSettled: () => {
+        setDeletingPiece(null)
+      },
+    },
+  })
+
   return providers ? (
     <div>
       <div className="flex flex-row gap-2 items-center justify-between">
@@ -57,16 +86,16 @@ export function DataSetsSection({
 
       <div className="flex flex-col gap-2 mt-6">
         {providerWithDataSets?.map((provider) => (
-          <div className="flex flex-col gap-4" key={provider.providerId}>
+          <div className="flex flex-col gap-4" key={provider.id}>
             <h4 className="text-lg font-bold">
               <PDPProviderLink address={provider.serviceProvider} name={provider.name} />
             </h4>
             {dataSets
-              ?.filter((dataSet) => dataSet.providerId === provider.providerId)
+              ?.filter((dataSet) => dataSet.providerId === provider.id)
               .map((dataSet) => (
                 <div className="flex flex-col gap-2" key={dataSet.clientDataSetId}>
                   <p className="flex flex-row gap-2 items-center">
-                    <PDPDatasetLink id={dataSet.pdpDatasetId.toString()} />
+                    <PDPDatasetLink id={dataSet.dataSetId.toString()} />
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="w-4" />
@@ -93,7 +122,7 @@ export function DataSetsSection({
                   </p>
 
                   {dataSet.pieces.map((piece) => (
-                    <Item key={`${piece.pieceId}-${dataSet.pdpDatasetId}`} size="default" variant="muted">
+                    <Item key={`${piece.id}-${dataSet.dataSetId}`} size="default" variant="muted">
                       <ItemMedia
                         variant={
                           imagesMimeTypes.includes(piece.metadata.type)
@@ -105,10 +134,10 @@ export function DataSetsSection({
                       >
                         {imagesMimeTypes.includes(piece.metadata.type) ? (
                           <img
-                            alt={piece.metadata.name || piece.pieceCid}
+                            alt={piece.metadata.name || piece.cid.toString()}
                             className="object-cover"
                             height={48}
-                            src={piece.pieceUrl}
+                            src={piece.url}
                             width={48}
                           />
                         ) : videosMimeTypes.includes(piece.metadata.type) ? (
@@ -121,25 +150,39 @@ export function DataSetsSection({
                           <FileCode className="w-10" />
                         ) : (
                           <Avatar className="size-10">
-                            <AvatarImage src={piece.pieceUrl} />
+                            <AvatarImage src={piece.url} />
                             <AvatarFallback>NA</AvatarFallback>
                           </Avatar>
                         )}
                       </ItemMedia>
                       <ItemContent>
                         <ItemTitle className="break-all">
-                          <PDPPieceLink cid={piece.pieceCid} name={piece.metadata.name} />
+                          <PDPPieceLink cid={piece.cid.toString()} name={piece.metadata.name} />
                         </ItemTitle>
-                        <ItemDescription>{piece.metadata.type}</ItemDescription>
+                        <ItemDescription>
+                          {piece.metadata.type} {piece.id}
+                        </ItemDescription>
                       </ItemContent>
                       <ItemActions>
                         <Button
                           onClick={() => {
-                            window.open(piece.pieceUrl, '_blank')
+                            window.open(piece.url, '_blank')
                           }}
                         >
                           <CloudDownload />
                         </Button>
+                        <ButtonLoading
+                          loading={isDeletingPiece && deletingPiece === piece.id}
+                          onClick={async () => {
+                            setDeletingPiece(piece.id)
+                            deletePiece({
+                              dataSet,
+                              pieceId: piece.id,
+                            })
+                          }}
+                        >
+                          <Trash />
+                        </ButtonLoading>
                       </ItemActions>
                     </Item>
                   ))}

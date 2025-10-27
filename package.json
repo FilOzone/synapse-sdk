@@ -18,7 +18,7 @@
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
     "check:repo": "pnpx sherif@latest -r root-package-manager-field",
     "check:knip": "knip --config .github/knip.jsonc",
-    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
+    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.6",
