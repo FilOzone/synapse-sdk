@@ -76,7 +76,7 @@ describe('SPRegistryService', () => {
               maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
               ipniPiece: true,
               ipniIpfs: false,
-              storagePricePerTibPerMonth: BigInt(1000000),
+              storagePricePerTibPerDay: BigInt(1000000),
               minProvingPeriodInEpochs: 2880,
               location: 'US-EAST',
               paymentTokenAddress: '0x0000000000000000000000000000000000000000',
@@ -98,7 +98,7 @@ describe('SPRegistryService', () => {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: false,
-          storagePricePerTibPerMonth: BigInt(1000000),
+          storagePricePerTibPerDay: BigInt(1000000),
           minProvingPeriodInEpochs: 2880,
           location: 'US-EAST',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
@@ -337,11 +337,11 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
         ipniPiece: true,
         ipniIpfs: false,
-        storagePricePerTibPerMonth: BigInt(1000000),
+        storagePricePerTibPerDay: BigInt(1000000),
         minProvingPeriodInEpochs: 2880,
         location: 'US-WEST',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      }
+      } as const
 
       const tx = await service.addPDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -356,11 +356,11 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB * 2n,
         ipniPiece: true,
         ipniIpfs: true,
-        storagePricePerTibPerMonth: BigInt(2000000),
+        storagePricePerTibPerDay: BigInt(2000000),
         minProvingPeriodInEpochs: 2880,
         location: 'EU-WEST',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      }
+      } as const
 
       const tx = await service.updatePDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -410,7 +410,7 @@ describe('SPRegistryService', () => {
             ipniPiece: false,
             ipniIpfs: false,
             minProvingPeriodInEpochs: 0,
-            storagePricePerTibPerMonth: 0,
+            storagePricePerTibPerDay: 0,
             location: '',
           },
           capabilityKeys: [],

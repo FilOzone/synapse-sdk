@@ -2,6 +2,8 @@
  * Types for ServiceProviderRegistry interaction
  */
 
+import type { Hex } from 'viem'
+
 /**
  * Product types supported by the registry
  */
@@ -43,10 +45,10 @@ export interface PDPOffering {
   maxPieceSizeInBytes: bigint
   ipniPiece: boolean
   ipniIpfs: boolean
-  storagePricePerTibPerMonth: bigint
+  storagePricePerTibPerDay: bigint
   minProvingPeriodInEpochs: number
   location: string
-  paymentTokenAddress: string
+  paymentTokenAddress: Hex
 }
 
 /**

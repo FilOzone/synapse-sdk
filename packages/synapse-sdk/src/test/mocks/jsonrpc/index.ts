@@ -252,7 +252,9 @@ export const presets = {
       getServicePrice: () => [
         {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
-          pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
+          pricePerTiBCdnEgress: parseUnits('7', 18),
+          pricePerTiBCacheMissEgress: parseUnits('7', 18),
+          minimumPricePerMonth: parseUnits('6', 16),
           tokenAddress: ADDRESSES.calibration.usdfcToken,
           epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },
@@ -331,9 +333,6 @@ export const presets = {
           return [true, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi']
         return [false, ''] // key not found
       },
-      clientDataSetIds: () => {
-        return [BigInt(0)]
-      },
     },
     pdpVerifier: {
       dataSetLive: () => [true],
@@ -354,21 +353,6 @@ export const presets = {
         },
       ],
       getProviderIdByAddress: () => [1n],
-      getPDPService: () => [
-        {
-          serviceURL: 'https://pdp.example.com',
-          minPieceSizeInBytes: 1024n,
-          maxPieceSizeInBytes: 1024n,
-          ipniPiece: false,
-          ipniIpfs: false,
-          storagePricePerTibPerMonth: 1000000n,
-          minProvingPeriodInEpochs: 2880n,
-          location: 'US',
-          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
-        },
-        [],
-        true,
-      ],
       getProvider: (data) => {
         if (data[0] === 1n) {
           return [

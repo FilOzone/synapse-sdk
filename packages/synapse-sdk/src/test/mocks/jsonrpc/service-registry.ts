@@ -10,8 +10,6 @@ export type getProviderByAddress = ExtractAbiFunction<
   'getProviderByAddress'
 >
 
-export type getPDPService = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getPDPService'>
-
 export type getProvider = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProvider'>
 
 export type getProviderIdByAddress = ExtractAbiFunction<
@@ -24,7 +22,6 @@ export interface ServiceRegistryOptions {
   getProviderIdByAddress?: (
     args: AbiToType<getProviderIdByAddress['inputs']>
   ) => AbiToType<getProviderIdByAddress['outputs']>
-  getPDPService?: (args: AbiToType<getPDPService['inputs']>) => AbiToType<getPDPService['outputs']>
   getProvider?: (args: AbiToType<getProvider['inputs']>) => AbiToType<getProvider['outputs']>
 }
 
@@ -62,16 +59,6 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
           (abi) => abi.type === 'function' && abi.name === 'getProviderIdByAddress'
         )!.outputs,
         options.serviceRegistry.getProviderIdByAddress(args)
-      )
-    }
-    case 'getPDPService': {
-      if (!options.serviceRegistry?.getPDPService) {
-        throw new Error('Service Provider Registry: getPDPService is not defined')
-      }
-      return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getPDPService')!
-          .outputs,
-        options.serviceRegistry.getPDPService(args)
       )
     }
     case 'getProvider': {
