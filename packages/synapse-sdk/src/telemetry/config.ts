@@ -12,7 +12,7 @@ import type { TelemetryConfig } from './service.ts'
  * Check if telemetry is explicitly disabled via global variable or environment
  * Uses globalThis for consistent cross-platform access
  */
-export function isTelemetryDisabledByEnv(): boolean {
+function isTelemetryDisabledByEnv(): boolean {
   // Check for global disable flag (universal)
   if (typeof globalThis !== 'undefined') {
     // Check for explicit disable flag
