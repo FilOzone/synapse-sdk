@@ -411,17 +411,7 @@ export class SPRegistryService {
       const capabilities = this._convertCapabilitiesToObject(result.product.capabilityKeys, result.productCapabilityValues)
 
       return {
-        offering: {
-          serviceURL: hexToString(capabilities.serviceURL),
-          minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
-          maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
-          ipniPiece: 'ipniPiece' in capabilities,
-          ipniIpfs: 'ipniIpfs' in capabilities,
-          storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
-          minProvingPeriodInEpochs: parseInt(capabilities.minProvingPeriodInEpochs),
-          location: hexToString(capabilities.location),
-          paymentTokenAddress: capabilities.paymentTokenAddress,
-        },
+        offering: this._convertCapabilitiesToPDPOffering(capabilities),
         capabilities,
         isActive: result.product.isActive,
       }
@@ -501,13 +491,7 @@ export class SPRegistryService {
       calls.push({
         target: this._registryAddress,
         allowFailure: true,
-        callData: iface.encodeFunctionData('getProvider', [id]),
-      })
-      // Add getPDPService call
-      calls.push({
-        target: this._registryAddress,
-        allowFailure: true,
-        callData: iface.encodeFunctionData('getPDPService', [id]),
+        callData: iface.encodeFunctionData('getProviderWithProduct', [id, 0]),
       })
     }
 
@@ -521,22 +505,21 @@ export class SPRegistryService {
     const providers: ProviderInfo[] = []
 
     for (let i = 0; i < providerIds.length; i++) {
-      const providerResultIndex = i * 2
-      const pdpServiceResultIndex = i * 2 + 1
-
-      if (!results[providerResultIndex].success) {
+      if (!results[i].success) {
         continue
       }
 
       try {
-        const decoded = iface.decodeFunctionResult('getProvider', results[providerResultIndex].returnData)
-        const rawProvider = decoded[0]
+        const [providerId, rawProvider, product, productCapabilityValues] = iface.decodeFunctionResult('getProviderWithProduct', results[i].returnData)
 
-        // Process PDP service if available
-        const products = this._extractProductsFromMulticallResult(results[pdpServiceResultIndex], iface)
-
+        const capabilities = this._convertCapabilitiesToObject(product.capabilityKeys, productCapabilityValues)
         // Convert to ProviderInfo
-        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, products)
+        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, [ {
+          type: 'PDP',
+          isActive: product.isActive,
+          capabilities,
+          data: this._convertCapabilitiesToPDPOffering(capabilities),
+        }])
         providers.push(providerInfo)
       } catch {
         // Skip failed decoding
@@ -724,6 +707,20 @@ export class SPRegistryService {
     }
     
     return [capabilityKeys, capabilityValues]
+  }
+
+  private _convertCapabilitiesToPDPOffering(capabilities: Record<string, Hex>): PDPOffering {
+    return {
+      serviceURL: hexToString(capabilities.serviceURL),
+      minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
+      maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
+      ipniPiece: 'ipniPiece' in capabilities,
+      ipniIpfs: 'ipniIpfs' in capabilities,
+      storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
+      minProvingPeriodInEpochs: parseInt(capabilities.minProvingPeriodInEpochs),
+      location: hexToString(capabilities.location),
+      paymentTokenAddress: capabilities.paymentTokenAddress,
+    }
   }
 
   /**
