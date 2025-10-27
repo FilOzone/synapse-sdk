@@ -44,21 +44,45 @@ Check the documentation [website](https://synapse.filecoin.services/)
 
 ## Telemetry
 
-Telemetry is enabled by default to help us validate functionality while moving towards GA launch. Disable it at runtime if you prefer:
+To help us validate functionality and iron out problems throughout the whole Filecoin Onchain Cloud stack, starting from the SDK, telemetry is **enabled by default** in Synapse.  We are currently leveraging sentry.io as discussed in [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328).
 
+### How to disable telemetry
+
+There are multiple ways to disable Synapse telemetry:
+
+1) Via Synapse Config:
 ```ts
 const synapse = await Synapse.create({
   /* ...existing options... */
-  telemetry: { enabled: false },
+  telemetry : { sentryInitOptions : { enabled: false } },
 })
-// You can also disable telemetry with an explicit disable function call:
-synapse.telemetry.disable()
-```
-You can also set the environment variable `SYNAPSE_TELEMETRY_DISABLED=true` to completely disable telemetry.
 
-If you need to disable telemetry separately and don't have access to the SDK instance creation, nor environment variables, you can set `globalThis.SYNAPSE_TELEMETRY_DISABLED=true`.
+2) Set the environment variable `SYNAPSE_TELEMETRY_DISABLED=true` before instantiating Synapse.
 
-Any of the above options will fully opt you out without affecting the rest of the SDK.
+3) Set `globalThis.SYNAPSE_TELEMETRY_DISABLED=true` before instantiating Synapse.
+
+### What is being collected and why
+
+The primary information we are attempting to collect is HTTP request paths, response status codes, and request/response latencies to RPC providers and Service Providers (SPs).  Non 200 responses or "slow" responses may indicate issues in Synapse or the backend SP software, or general operational issues with RPC providers or SPs.  These are issues we want to be aware of so we can potentially fix or improve.
+
+We also capture general uncaught errors.  This could be indicative of issues in Synapse, which we'd want to fix.
+
+We are not capturing:
+- Personal identifiable information (PII).  We explicitly [disable sending default PII to Sentry](https://docs.sentry.io/platforms/javascript/configuration/options/#sendDefaultPii).
+- Metrics on static asset (e.g., CSS, JS, image) retrieval.  
+(One can verify these claims in [src/telemetry/service.ts].)
+
+### How to configure telemetry
+Synapse consumers can pass in any [Sentry options](https://docs.sentry.io/platforms/javascript/configuration/options/) via `Synapse.create({telemetry : { sentryInitOptions : {...} },})`.
+
+Synapse default Sentry options are applied in [src/telemetry/service.ts] whenever not explicitly set by the user.  
+
+Any explicit tags to add to all Sentry calls can be added with `Synapse.create({telemetry : { sentrySetTags : {...} },})`.
+
+One also has direct access to the Sentry instance that Synapse is using via `synapse.telemetry.sentry`, at which point any of the [Sentry APIs](https://docs.sentry.io/platforms/javascript/apis/) can be invoked.
+
+### Who has access to the telemetry data
+Access is restricted to the Synapse maintainers and product/support personnel actively involved in the Filecoin Onchain Cloud who work with Synapse.
 
 ## Contributing
 
