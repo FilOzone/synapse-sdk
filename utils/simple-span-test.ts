@@ -21,6 +21,8 @@ async function testSpanTest(RPC_URL: string): Promise<void> {
     telemetry: {
       sentryInitOptions: {
         enabled: true,
+      },
+      sentrySetTags: {
         appName: 'simple-span-test',
       },
     }

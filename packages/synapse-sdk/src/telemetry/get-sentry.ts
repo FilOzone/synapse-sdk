@@ -22,6 +22,6 @@ export async function getSentry(): Promise<{ Sentry: Sentry; integrations: any[]
   const SentryNode = await import('@sentry/node')
   return {
     Sentry: SentryNode,
-    integrations: [SentryNode.httpIntegration()],
+    integrations: [],
   }
 }
