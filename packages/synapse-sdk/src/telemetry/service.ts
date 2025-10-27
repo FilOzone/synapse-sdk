@@ -89,7 +89,6 @@ export class TelemetryService {
       sendDefaultPii: false,
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
-      // Integrations configured per-runtime in sentry-dep files
       integrations,
       ...this.config.sentryInitOptions,
       beforeSend: this.onBeforeSend.bind(this),
