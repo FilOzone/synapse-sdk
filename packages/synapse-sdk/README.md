@@ -56,6 +56,7 @@ const synapse = await Synapse.create({
   /* ...existing options... */
   telemetry : { sentryInitOptions : { enabled: false } },
 })
+```
 
 2) Set the environment variable `SYNAPSE_TELEMETRY_DISABLED=true` before instantiating Synapse.
 
@@ -70,7 +71,8 @@ We also capture general uncaught errors.  This could be indicative of issues in 
 We are not capturing:
 - Personal identifiable information (PII).  We explicitly [disable sending default PII to Sentry](https://docs.sentry.io/platforms/javascript/configuration/options/#sendDefaultPii).
 - Metrics on static asset (e.g., CSS, JS, image) retrieval.  
-(One can verify these claims in [src/telemetry/service.ts].)
+
+(One can verify these claims in [src/telemetry/service.ts](src/telemetry/service.ts).)
 
 ### How to configure telemetry
 Synapse consumers can pass in any [Sentry options](https://docs.sentry.io/platforms/javascript/configuration/options/) via `Synapse.create({telemetry : { sentryInitOptions : {...} },})`.

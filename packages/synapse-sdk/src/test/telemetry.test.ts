@@ -3,7 +3,7 @@
  * Tests for telemetry functionality
  *
  * These tests verify that telemetry is properly disabled during testing
- * and that the telemetry system works correctly when enabled.
+ * and that the telemetry system doesn't "crash" Synapse when enabled.
  */
 
 import { assert } from 'chai'

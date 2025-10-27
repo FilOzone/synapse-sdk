@@ -59,7 +59,9 @@ export class TelemetryService {
   sentry: SentryType | null = null
 
   /**
-   * The provided TelemetryConfig will be passed to Sentry basically as is.  Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.  See the source for the specific defaults.
+   * The provided TelemetryConfig will be passed to Sentry basically as is.  
+   * Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.  
+   * See the source for the specific defaults.
    */
   constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
     // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
@@ -82,7 +84,7 @@ export class TelemetryService {
       runtime = 'browser'
       integrations.push(
         (Sentry as SentryBrowserType).browserTracingIntegration({
-          // Disable telemetry on static asset retrieval. It's noisy and potentially more identifiable information.
+          // Disable telemetry on static asset retrieval. It's noisy (distracting from backend RPC/SP calls) and potentially leaks unnecessary identifiable information.
           ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
         })
       )
@@ -104,16 +106,19 @@ export class TelemetryService {
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
-    // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
+    // Things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context.
+    // See https://docs.sentry.io/platforms/javascript/guides/nextjs/apis/#setContext
+    // In this case, we're using the "common context" of "runtime" as its the closest match.
+    // See https://develop.sentry.dev/sdk/data-model/event-payloads/contexts/#runtime-context
     this.sentry.setContext('runtime', {
       type: runtime,
       // userAgent may not be useful for searching, but will be useful for debugging
       userAgent: isBrowser && 'navigator' in globalThis ? (globalThis as any).navigator.userAgent : undefined,
     })
 
-    // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
+    // Things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
     this.sentry.setTags({
-      // appName is set to 'synapse-sdk' by default in DEFAULT_TELEMETRY_CONFIG, but consumers can set `sentrySetTags.appName` to override it.
+      appName: 'synapse-sdk', // overridable by consumers
       ...config.sentrySetTags, // get any tags consumers want to set
 
       // things that consumers should not need, nor be able, to override
@@ -123,14 +128,12 @@ export class TelemetryService {
   }
 
   /**
-   * Sentry allows us to view events/errors/spans/etc before sending them to their servers.
-   * If an event should not be sent/tracked, this method should return null.
-   *
-   * Currently, we are only using this with [`beforeSend`](https://docs.sentry.io/platforms/javascript/configuration/filtering/#using-before-send) to
-   * add error events to our local buffer for use with `debugDump`.
-   *
-   * @param event - The event to be sent to Sentry.
-   * @returns The event to be sent to Sentry, or null if the event should not be sent.
+   * Create a function that stores any events before Sentry sends to help with local debugging via `debugDump`.
+   * This function is intended to be set to [Sentry's `beforeSend` option](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#beforeSend).
+   * If the TelemetryConfig specified a `beforeSend` function, that function will be called after storing the event locally.
+   * The created `beforeSend` function is not [currently doing any filtering](https://docs.sentry.io/platforms/javascript/configuration/filtering/#using-before-send).
+   * @param config
+   * @returns Function that can be set for `beforeSend` Sentry option.
    */
   protected createBeforeSend(config: TelemetryConfig): SentryBeforeSendFunction {
     return (async (event, hint) => {

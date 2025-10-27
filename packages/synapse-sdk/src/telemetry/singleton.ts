@@ -1,55 +1,49 @@
 /**
- * Telemetry singleton manager.
+ * TelemetryService singleton manager used within Synapse SDK.
  * Sets up and provides a single global TelemetryService instance.
  * #initGlobalTelemetry is the entry point.
- * #getGlobalTelemetry is the expected access point within Synapse
- *
+ * #getGlobalTelemetry is the expected access point within Synapse.
+ * (Consumers outside of Synapse should use `synapse.telemetry`.)
+ * 
  * This class handles:
  * - Instantiating the TelemetryService instance.
- * - Managing the "fetch wrapper".
- * - Managing shutdown handling from a telemetry regard.
+ * - Hooking telemetry into `fetch` by wrapping it.
+ * - Flushing/closing telemetry at shutdown or loss of browser focus.
  *
- * Note: error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utilts/errors.ts`.
- * `src/telemetry/utils.ts` accesses the global TelemetryService instance.
+ * Notes: 
+ * - The underlying Sentry instance handles uncaught exceptions and unhandled promise rejections.
+ *   No special setup is done here.
+ *   See https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
+ * - Synapse-special error handling done in `src/utils/index.ts` is made "telemetry aware" by exporting `src/telemetry/utils.ts#createError()`, 
+ *   which wraps `src/utils/errors.ts`.
+ *   `src/telemetry/utils.ts` accesses the global TelemetryService instance.
+ * - A TelemetryService instance is managed as a singleton with static accessors
+ *   rather than as an instance of the Synapse class,
+ *   because there are cases where telemetry is needed but there is no Synapse instance available.
+ *   `src/utils/errors.ts` is one such case.
  */
 
 import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
 import { isBrowser } from './utils.ts'
 
-const DEFAULT_TELEMETRY_CONFIG: TelemetryConfig = {
-  sentryInitOptions: {},
-  sentrySetTags: { appName: 'synapse-sdk' },
-}
-
 // Global telemetry instance
 let telemetryInstance: TelemetryService | null = null
 
 /**
- * Get the global telemetry instance
- *
- * @returns The global telemetry instance or null if not initialized
+ * @returns The global TelemetryService instance or null if not initialized
  */
 export function getGlobalTelemetry(): TelemetryService | null {
   return telemetryInstance
 }
 
 /**
- * Initialize the global telemetry instance
- *
- * @param telemetry - TelemetryService instance
+ * Initialize the global TelemetryService instance if telemetry isn't disabled.
+ * @param telemetryContext 
+ * @param telemetryConfig 
  */
-export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
-  let telemetryConfig: TelemetryConfig
-  if (!shouldEnableTelemetry(config)) {
+export function initGlobalTelemetry(telemetryConfig: TelemetryConfig,telemetryContext: TelemetryRuntimeContext): void {
+  if (!shouldEnableTelemetry(telemetryConfig)) {
     return
-  }
-  if (config == null) {
-    telemetryConfig = DEFAULT_TELEMETRY_CONFIG
-  } else {
-    telemetryConfig = {
-      sentryInitOptions: config.sentryInitOptions,
-      sentrySetTags: { ...DEFAULT_TELEMETRY_CONFIG.sentrySetTags, ...config.sentrySetTags },
-    }
   }
 
   telemetryInstance = new TelemetryService(telemetryConfig, telemetryContext)
@@ -73,12 +67,12 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
 }
 
 /**
- * Determine if telemetry should be enabled based on configuration and environment.
+ * Determine if telemetry should be enabled based on configuration and environment settings.
  * The ways to disable include setting any of the following:
  * - synapseConfig.telemetry.sentryInitOptions.enabled = false
  * - global.SYNAPSE_TELEMETRY_DISABLED = true
  * - process.env.SYNAPSE_TELEMETRY_DISABLED = true
- * We also disable if process.env.NODE_ENV == 'test'.
+ * We also disable if process.env.NODE_ENV == 'test', unless enablement was explicitly requested in config.
  *
  * @param config - User-provided telemetry configuration
  * @returns True if telemetry should be enabled
@@ -106,15 +100,39 @@ function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
   return true
 }
 
+/**
+ * Check if telemetry is explicitly disabled via global variable or environment
+ * Uses globalThis for consistent cross-platform access
+ */
+function isTelemetryDisabledByEnv(): boolean {
+  // Check for global disable flag (universal)
+  if (typeof globalThis !== 'undefined') {
+    // Check for explicit disable flag
+    if ((globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true) {
+      return true
+    }
+
+    // Check environment variable in Node.js
+    if ('process' in globalThis) {
+      const process = (globalThis as any).process
+      if (process?.env) {
+        const disabled = process.env.SYNAPSE_TELEMETRY_DISABLED
+        if (typeof disabled === 'string' && disabled.trim().toLowerCase() === 'true') {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
+}
+
 function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
   const g = globalThis as any
   const timeout = opts.timeoutMs ?? 2000
   let shuttingDown = false
 
-  // NOTE: sentry handles uncaughtException and unhandledRejection. see https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries
-
   if (isBrowser) {
-    // -------- Browser runtime --------
     /**
      * We `flush` in the browser instead of `close` because users might come back to this page later, and we don't want to add
      * "pageShow" event handlers and re-instantiation logic.
@@ -137,13 +155,11 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
     // Fallbacks for older browsers:
     g.window.addEventListener('beforeunload', flush, { capture: true })
     g.window.addEventListener('unload', flush, { capture: true })
-  } else {
-    // -------- Node runtime --------
+  } else { // Node runtime
     /**
      * For Node.js, we only handle explicit termination signals.
      * We `close` in Node.js instead of `flush` because the process is actually exiting and we don't need to worry about handling the "users coming back" situation like we do in the browser.
      */
-
     const handleSignal = () => {
       if (shuttingDown) return
       shuttingDown = true
@@ -176,10 +192,10 @@ let isFetchWrapped = false
  *
  * Example cases where there will already be an active span:
  * - If [browser auto instrumentation](https://docs.sentry.io/platforms/javascript/tracing/instrumentation/automatic-instrumentation/) is enabled and the `pageload` or `navigation` spans are still active (i.e., haven't been closed)
- * - If a Synapse-using application has accessed the TelemetryInstance singleton and started a span.
+ * - If a Synapse-using application has accessed the TelemetryService singleton and started a span.
  *
  * Example cases where there won't be an active span:
- * - Directly invoking HTTP-inducing Synpase SDK functions from a node context.
+ * - Directly invoking HTTP-inducing Synapse SDK functions from a node context.
  * In these cases, this wrapper creates a span before making the `fetch` call.
  */
 function wrapFetch(): void {
@@ -221,8 +237,7 @@ function wrapFetch(): void {
 }
 
 /**
- * Remove the global fetch wrapper
- *
+ * Unwrap what was done in `wrapFetch()`.
  * Useful for testing or when telemetry should be disabled.
  */
 function unwrapFetch(): void {
@@ -232,31 +247,4 @@ function unwrapFetch(): void {
 
   ;(globalThis as any).fetch = originalFetch
   isFetchWrapped = false
-}
-
-/**
- * Check if telemetry is explicitly disabled via global variable or environment
- * Uses globalThis for consistent cross-platform access
- */
-function isTelemetryDisabledByEnv(): boolean {
-  // Check for global disable flag (universal)
-  if (typeof globalThis !== 'undefined') {
-    // Check for explicit disable flag
-    if ((globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true) {
-      return true
-    }
-
-    // Check environment variable in Node.js
-    if ('process' in globalThis) {
-      const process = (globalThis as any).process
-      if (process?.env) {
-        const disabled = process.env.SYNAPSE_TELEMETRY_DISABLED
-        if (typeof disabled === 'string' && disabled.trim().toLowerCase() === 'true') {
-          return true
-        }
-      }
-    }
-  }
-
-  return false
 }

@@ -167,8 +167,9 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
-    // Initialize global telemetry singleton and wrappers. If not enabled, this will do nothing.
-    initGlobalTelemetry({ filecoinNetwork: network }, options.telemetry)
+    // Create and initialize the global TelemetryService.
+    // If telemetry is disabled, this will do nothing.
+    initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
 
     return new Synapse(
       signer,
@@ -227,8 +228,8 @@ export class Synapse {
   }
 
   /**
-   * Gets the telemetry service for error tracking and debugging
-   * @returns The telemetry service instance
+   * Gets the TelemetryService for error tracking and debugging.
+   * @returns The global TelemetryService instance
    * @example
    * ```typescript
    * // Get debug dump for support tickets
@@ -236,7 +237,7 @@ export class Synapse {
    * console.log(JSON.stringify(dump, null, 2))
    *
    * // Track custom events
-   * synapse.telemetry.captureCustomEvent('user-action', { action: 'upload' })
+   * synapse.telemetry.sentry.captureCustomEvent('user-action', { action: 'upload' })
    * ```
    */
   get telemetry(): TelemetryService | null {

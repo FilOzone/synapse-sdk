@@ -27,13 +27,10 @@ export async function getSentry(): Promise<SentryType> {
 }
 
 /**
- * Create an error with automatic telemetry capture
- *
  * Telemetry-aware wrapper around `../utils/errors.ts`
  * Provides the same error creation functions, but also automatically capture errors to telemetry when telemetry is enabled.
  * Uses the global telemetry singleton.
  * Generic error handling of uncaught errors is [configured automatically by Sentry](https://docs.sentry.io/platforms/javascript/troubleshooting/#third-party-promise-libraries).
- *
  * @param prefix - Error prefix (e.g., 'StorageContext')
  * @param operation - Operation name (e.g., 'upload')
  * @param details - Error details
