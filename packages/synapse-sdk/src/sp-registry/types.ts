@@ -58,7 +58,7 @@ export interface ProviderRegistrationInfo {
   payee: string
   name: string
   description: string
-  pdpOffering?: PDPOffering
+  pdpOffering: PDPOffering
   capabilities?: Record<string, string> // Object map of capability key-value pairs
 }
 

@@ -24,7 +24,7 @@
 
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
-import { hexToString, isHex, stringToHex, toHex } from 'viem'
+import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
 import type {
@@ -673,9 +673,9 @@ export class SPRegistryService {
     capabilityKeys.push('serviceURL')
     capabilityValues.push(stringToHex(pdpOffering.serviceURL))
     capabilityKeys.push('minPieceSizeInBytes')
-    capabilityValues.push(`0x{pdpOffering.minPieceSizeInBytes.toString(16)}`)
+    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minPieceSizeInBytes)))
     capabilityKeys.push('maxPieceSizeInBytes')
-    capabilityValues.push(`0x${pdpOffering.maxPieceSizeInBytes.toString(16)}`)
+    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.maxPieceSizeInBytes)))
     if (pdpOffering.ipniPiece) {
       capabilityKeys.push('ipniPiece')
       capabilityValues.push('0x01')
@@ -685,9 +685,9 @@ export class SPRegistryService {
       capabilityValues.push('0x01')
     }
     capabilityKeys.push('storagePricePerTibPerDay')
-    capabilityValues.push(`0x${pdpOffering.storagePricePerTibPerDay.toString(16)}`)
+    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.storagePricePerTibPerDay)))
     capabilityKeys.push('minProvingPeriodInEpochs')
-    capabilityValues.push(`0x${pdpOffering.minProvingPeriodInEpochs.toString(16)}`)
+    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minProvingPeriodInEpochs)))
     capabilityKeys.push('location')
     capabilityValues.push(stringToHex(pdpOffering.location))
     capabilityKeys.push('paymentTokenAddress')
@@ -701,7 +701,7 @@ export class SPRegistryService {
         } else if (isHex(value)) {
           capabilityValues.push(value)
         } else {
-          capabilityValues.push(toHex(value))
+          capabilityValues.push(bytesToHex(toBytes(value)))
         }
       }
     }
