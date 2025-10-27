@@ -28,10 +28,10 @@ export interface TelemetryConfig {
    */
   enabled?: boolean
   /**
-   * The name of the application using the SDK.
+   * The name of the application using synapse-sdk.
    * This is used to identify the application in the telemetry data.
    * This is optional and can be set by the user via the synapse.telemetry.sentry.setContext() method.
-   * If not set, the SDK will use 'synapse-sdk' as the default app name.
+   * If not set, synapse-sdk will use 'synapse-sdk' as the default app name.
    */
   appName?: string
   tags?: Record<string, string> // optional: custom tags
@@ -83,7 +83,7 @@ export class TelemetryService {
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
       release: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
-      beforeSend: this.sanitizeError.bind(this),
+      beforeSend: this.onBeforeSend.bind(this),
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
@@ -102,7 +102,17 @@ export class TelemetryService {
     this.sentry.setTag('network', this.context.network as 'mainnet' | 'calibration') // only two values, useful for searching
   }
 
-  protected sanitizeError(event: any): any {
+  /**
+   * Sentry allows us to view events/errors/spans/etc before sending them to their servers.
+   * If an event should not be sent/tracked, this method should return null.
+   *
+   * Currently, we are only using this with [`beforeSend`](https://docs.sentry.io/platforms/javascript/configuration/filtering/#using-before-send) to
+   * add error events to our local buffer for use with `debugDump`.
+   *
+   * @param event - The event to be sent to Sentry.
+   * @returns The event to be sent to Sentry, or null if the event should not be sent.
+   */
+  protected onBeforeSend<T>(event: T): T | null {
     this.addToBuffer(event)
 
     return event
