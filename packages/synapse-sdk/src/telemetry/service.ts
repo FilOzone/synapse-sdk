@@ -13,19 +13,24 @@
  * ```
  */
 
+import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
+import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
 import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
+
+type SentryInitOptions = BrowserOptions | NodeOptions
+type SentrySetTags = Parameters<SentryType['setTags']>[0]
 
 export interface TelemetryConfig {
   /**
    * Additional options to pass to the Sentry SDK's init method.
    */
-  sentryInitOptions?: Parameters<SentryType['init']>[0]
+  sentryInitOptions?: SentryInitOptions
   /**
    * Additional tags to set on the Sentry SDK.
    */
-  sentrySetTags?: Parameters<SentryType['setTags']>[0]
+  sentrySetTags?: SentrySetTags
 }
 
 /**
@@ -67,13 +72,13 @@ export class TelemetryService {
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
-      release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
-      beforeSend: this.onBeforeSend.bind(this),
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       // Integrations configured per-runtime in sentry-dep files
       integrations,
       ...this.config.sentryInitOptions,
+      beforeSend: this.onBeforeSend.bind(this),
+      release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
     const runtime: 'browser' | 'node' = typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node'
@@ -90,24 +95,12 @@ export class TelemetryService {
 
     // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
     this.sentry.setTags({
-      /**
-       * The different app identifiers that can be set via the `appName` config option.
-       */
-      appName: this.config.sentrySetTags?.appName ?? this.config.sentrySetTags?.app_name ?? 'synapse-sdk',
-      /**
-       * The version of the synapse-sdk that is being used.
-       */
-      synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`,
-      /**
-       * The runtime (browser/node) that the synapse-sdk is being used in.
-       */
-      runtime,
+      // appName is set to 'synapse-sdk' by default in DEFAULT_TELEMETRY_CONFIG, but consumers can set `sentrySetTags.appName` to override it.
+      ...this.config.sentrySetTags, // get any tags consumers want to set
 
-      /**
-       * The network (mainnet/calibration) that the synapse-sdk is being used in.
-       */
-      filecoinNetwork: this.context.filecoinNetwork,
-      ...this.config.sentrySetTags,
+      // things that consumers should not need, nor be able, to override
+      filecoinNetwork: this.context.filecoinNetwork, // The network (mainnet/calibration) that the synapse-sdk is being used in.
+      synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`, // The version of the synapse-sdk that is being used.
     })
   }
 
@@ -121,8 +114,12 @@ export class TelemetryService {
    * @param event - The event to be sent to Sentry.
    * @returns The event to be sent to Sentry, or null if the event should not be sent.
    */
-  protected onBeforeSend<T>(event: T): T | null {
+  protected async onBeforeSend(event: ErrorEvent, hint: EventHint): Promise<ErrorEvent | null> {
     this.addToBuffer(event)
+
+    if (this.config.sentryInitOptions?.beforeSend != null) {
+      return await this.config.sentryInitOptions.beforeSend(event, hint)
+    }
 
     return event
   }
