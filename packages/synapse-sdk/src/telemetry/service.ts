@@ -30,6 +30,7 @@ export interface TelemetryConfig {
   sentryInitOptions?: SentryInitOptions
   /**
    * Additional tags to set on the Sentry SDK.
+   * See https://docs.sentry.io/platforms/javascript/apis/#setTags
    */
   sentrySetTags?: SentrySetTags
 }
