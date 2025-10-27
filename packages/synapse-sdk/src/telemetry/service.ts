@@ -76,9 +76,11 @@ export class TelemetryService {
       ...this.config.sentryInitOptions,
     })
 
+    const runtime: 'browser' | 'node' = (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node')
+
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
     this.sentry.setContext('runtime', {
-      type: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
+      type: runtime,
       // userAgent may not be useful for searching, but will be useful for debugging
       userAgent:
         typeof globalThis !== 'undefined' && 'navigator' in globalThis
@@ -99,7 +101,7 @@ export class TelemetryService {
       /**
        * The runtime (browser/node) that the synapse-sdk is being used in.
        */
-      runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
+      runtime,
 
       /**
        * The network (mainnet/calibration) that the synapse-sdk is being used in.
