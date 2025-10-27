@@ -1,5 +1,3 @@
-/* globals describe it beforeEach afterEach */
-
 /**
  * Tests for telemetry functionality
  *
@@ -29,7 +27,7 @@ describe('Telemetry', () => {
 
   after(async () => {
     server.stop()
-    await synapse.telemetry.close()
+    await synapse.telemetry?.close()
     await synapse.getProvider().destroy()
   })
 
@@ -45,27 +43,7 @@ describe('Telemetry', () => {
     })
 
     it('should not initialize telemetry when creating Synapse in test environment', async () => {
-      assert.isFalse(synapse.telemetry.isEnabled())
-    })
-  })
-
-  describe('Debug Dump', () => {
-    it('should return empty debug dump when telemetry is disabled', async () => {
-      const debugDump = synapse.telemetry.debugDump()
-      assert.equal(debugDump.events.length, 0)
-    })
-  })
-
-  describe('Explicit Enable', () => {
-    it('should allow enabling telemetry explicitly even when disabled by environment', async () => {
-      // Verify telemetry is initially disabled
-      assert.isFalse(synapse.telemetry.isEnabled())
-
-      // Enable telemetry explicitly
-      synapse.telemetry.enable()
-
-      // Verify telemetry is now enabled
-      assert.isTrue(synapse.telemetry.isEnabled())
+      assert.isNull(synapse.telemetry)
     })
   })
 })

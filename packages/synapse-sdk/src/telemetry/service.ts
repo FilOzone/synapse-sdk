@@ -13,7 +13,8 @@
  * ```
  */
 
-import { shouldEnableTelemetry } from './config.ts'
+import type { FilecoinNetworkType } from '../types.ts'
+import { SDK_VERSION } from '../utils/sdk-version.ts'
 import { getSentry, type Sentry as SentryType } from './get-sentry.ts'
 
 export interface TelemetryConfig {
@@ -26,26 +27,22 @@ export interface TelemetryConfig {
    *
    * @default true
    */
-  enabled?: boolean
+  enabled: boolean
   /**
    * The name of the application using synapse-sdk.
    * This is used to identify the application in the telemetry data.
    * This is optional and can be set by the user via the synapse.telemetry.sentry.setContext() method.
    * If not set, synapse-sdk will use 'synapse-sdk' as the default app name.
    */
-  appName?: string
+  appName: string
   tags?: Record<string, string> // optional: custom tags
 }
 
 /**
  * Configuration for runtime detection and context
  */
-interface RuntimeContext {
-  sdkVersion: string
-  runtime: 'browser' | 'node'
-  network: 'mainnet' | 'calibration'
-  userAgent?: string
-  appName?: string
+export interface TelemetryRuntimeContext {
+  filecoinNetwork: FilecoinNetworkType
 }
 
 export interface DebugDump {
@@ -53,36 +50,35 @@ export interface DebugDump {
   events: any[]
 }
 
-const { Sentry, integrations } = await getSentry()
-
 /**
  * Main telemetry service that manages the adapter and provides high-level APIs
  */
 export class TelemetryService {
-  // private adapter: TelemetryAdapter
-  private enabled: boolean
-  private context: RuntimeContext
+  private config: TelemetryConfig
+  private context: TelemetryRuntimeContext
   private eventBuffer: any[] = []
   private readonly maxBufferSize = 50
 
-  readonly sentry: SentryType
+  sentry: SentryType | null = null
 
-  constructor(config: TelemetryConfig, context: RuntimeContext) {
-    this.enabled = shouldEnableTelemetry(config)
+  constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
     this.context = context
+    this.config = config
 
-    this.sentry = Sentry
-    if (this.enabled) {
-      this.initSentry()
+    if (this.config.enabled) {
+      void this.initSentry()
     }
   }
-  private initSentry(): void {
+
+  private async initSentry(): Promise<void> {
+    const { Sentry, integrations } = await getSentry()
+    this.sentry = Sentry
     this.sentry.init({
       dsn: 'https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320',
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
-      release: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
+      release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
       beforeSend: this.onBeforeSend.bind(this),
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
@@ -92,7 +88,11 @@ export class TelemetryService {
 
     // things that we don't need to search for in sentry UI, but may be useful for debugging should be set as context
     this.sentry.setContext('environment', {
-      userAgent: this.context.userAgent, // not useful for searching, but may be useful for debugging
+      // userAgent may not be useful for searching, but will be useful for debugging
+      userAgent:
+        typeof globalThis !== 'undefined' && 'navigator' in globalThis
+          ? (globalThis as any).navigator.userAgent
+          : undefined,
     })
 
     // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
@@ -100,20 +100,20 @@ export class TelemetryService {
       /**
        * The different app identifiers that can be set via the `appName` config option.
        */
-      appName: this.context.appName ?? 'synapse-sdk',
+      appName: this.config.appName,
       /**
        * The version of the synapse-sdk that is being used.
        */
-      synapseSdkVersion: `@filoz/synapse-sdk@v${this.context.sdkVersion}`,
+      synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`,
       /**
        * The runtime (browser/node) that the synapse-sdk is being used in.
        */
-      runtime: this.context.runtime,
+      runtime: (typeof globalThis !== 'undefined' && 'window' in globalThis ? 'browser' : 'node') as 'browser' | 'node',
 
       /**
        * The network (mainnet/calibration) that the synapse-sdk is being used in.
        */
-      filecoinNetwork: this.context.network as 'mainnet' | 'calibration',
+      filecoinNetwork: this.context.filecoinNetwork,
     })
   }
 
@@ -146,7 +146,7 @@ export class TelemetryService {
    */
   debugDump(limit = 50): DebugDump {
     return {
-      lastEventId: this.sentry.lastEventId(),
+      lastEventId: this.sentry?.lastEventId(),
       events: this.eventBuffer.slice(-limit),
     }
   }
@@ -155,7 +155,7 @@ export class TelemetryService {
    * Check if telemetry is enabled
    */
   isEnabled(): boolean {
-    return this.enabled
+    return this.config.enabled
   }
 
   /**
@@ -163,8 +163,8 @@ export class TelemetryService {
    * Useful for testing or when you need to force telemetry on
    */
   enable(): void {
-    if (!this.enabled) {
-      this.enabled = true
+    if (!this.config.enabled) {
+      this.config.enabled = true
       this.initSentry()
     }
   }
@@ -174,9 +174,9 @@ export class TelemetryService {
    * Useful for testing or when you need to force telemetry off
    */
   disable(ms?: number): void {
-    if (this.enabled) {
-      this.enabled = false
-      void this.sentry.close(ms)
+    if (this.config.enabled) {
+      this.config.enabled = false
+      void this.sentry?.close(ms)
     }
   }
 
@@ -197,12 +197,12 @@ export class TelemetryService {
    * ```
    */
   async flush(timeout = 2000): Promise<boolean> {
-    if (!this.enabled) {
+    if (!this.config.enabled) {
       return true
     }
 
     // Delegate to adapter's flush method if available
-    return this.sentry.flush(timeout)
+    return this.sentry?.flush(timeout) ?? true
   }
 
   /**
@@ -222,11 +222,11 @@ export class TelemetryService {
    * ```
    */
   async close(timeout = 2000): Promise<boolean> {
-    if (!this.enabled) {
+    if (!this.config.enabled) {
       return true
     }
 
-    return this.sentry.close(timeout)
+    return this.sentry?.close(timeout) ?? true
   }
 
   /**

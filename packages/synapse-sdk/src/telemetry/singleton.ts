@@ -5,8 +5,9 @@
  * components (fetch wrapper, error tracking, etc.).
  */
 
+import { shouldEnableTelemetry } from './config.ts'
 import { initGlobalFetchWrapper } from './fetch-wrapper.ts'
-import type { TelemetryService } from './service.ts'
+import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
 
 // Global telemetry instance
 let telemetryInstance: TelemetryService | null = null
@@ -16,8 +17,13 @@ let telemetryInstance: TelemetryService | null = null
  *
  * @param telemetry - TelemetryService instance
  */
-export function initGlobalTelemetry(telemetry: TelemetryService): void {
-  telemetryInstance = telemetry
+export function initGlobalTelemetry(telemetryContext: TelemetryRuntimeContext, config?: TelemetryConfig): void {
+  const telemetryConfig: TelemetryConfig = config ?? { enabled: true, appName: 'synapse-sdk' }
+  if (!shouldEnableTelemetry(telemetryConfig)) {
+    return
+  }
+
+  telemetryInstance = new TelemetryService(telemetryConfig, telemetryContext)
   initGlobalFetchWrapper()
 }
 
