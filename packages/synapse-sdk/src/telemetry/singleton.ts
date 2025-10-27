@@ -1,16 +1,16 @@
 /**
  * Telemetry singleton manager.
- * Sets up and provides a single global telemetry instance that can be used by all telemetry components:
- * - fetch wrapping via fetch-wrapper.ts
- * - error wrapping via errors.ts
- * - shutdown handling via shutdown-utils.ts
- * Synapse SDK consumers (e.g., filecoin-pin) via #getGlobalTelemetry.
+ * Sets up and provides a single global TelemetryService instance. 
+ * #initGlobalTelemetry is the entry point.
+ * #getGlobalTelemetry is the expected access point within Synapse and beyond.
  *
- * #setupGlobalTelemetry is the entry point and #getGlobalTelemetry is the expected access point within Synapse and beyond.
+ * This class handles:
+ * - Instantiating the TelemetryService instance.
+ * - Managing the "fetch wrapper".
+ * - Managing shutdown handling from a telemetry regard.
  *
- * Setting up the fetch wrapper is managed here.
- * Wrapping of error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utils/errors.ts`
- * Setting up the shutdown handling is managed here.
+ * Note: error handling is wired in by `src/utils/index.ts` exporting `src/telemetry/utils.ts#createError()`, which wraps `src/utilts/errors.ts`.  
+ * `src/telemetry/utils.ts` accesses the global TelemetryService instance.
  */
 
 import { type TelemetryConfig, type TelemetryRuntimeContext, TelemetryService } from './service.ts'
