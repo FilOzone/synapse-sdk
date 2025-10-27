@@ -38,7 +38,6 @@ import type { PDPAuthHelper } from './auth.ts'
 import {
   validateDataSetCreationStatusResponse,
   validatePieceAdditionStatusResponse,
-  validatePieceDeleteResponse,
   validatePieceStatusResponse,
 } from './validation.ts'
 
