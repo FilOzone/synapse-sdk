@@ -51,12 +51,14 @@ export function getGlobalTelemetry(): TelemetryService | null {
 
 /**
  * Remove the global telemetry instance
- *
- * Useful for testing or when telemetry should be disabled.
+ * This should handle all cleanup of telemetry resources.
  */
-export function removeGlobalTelemetry(): void {
-  telemetryInstance = null
+export function removeGlobalTelemetry(flush: boolean = true): void {
+  if (flush) {
+    void telemetryInstance?.sentry?.flush()
+  }
   removeGlobalFetchWrapper()
+  telemetryInstance = null
 }
 
 function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
@@ -68,10 +70,13 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
 
   if (isBrowser) {
     // -------- Browser runtime --------
+    /**
+     * We `flush` in the browser instead of `close` because users might come back to this page later, and we don't want to add
+     * "pageShow" event handlers and re-instantiation logic.
+     */
     const flush = () => {
       // Don’t block; Sentry will use sendBeacon/fetch keepalive under the hood.
       void telemetryInstance?.sentry?.flush(timeout)
-      removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
     }
 
     // Most reliable on modern browsers & iOS Safari:
@@ -89,7 +94,10 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
     g.window.addEventListener('unload', flush, { capture: true })
   } else {
     // -------- Node runtime --------
-    // For Node.js, we only handle explicit termination signals.
+    /**
+     * For Node.js, we only handle explicit termination signals.
+     * We `close` in Node.js instead of `flush` because the process is actually exiting and we don't need to worry about handling the "users coming back" situation like we do in the browser.
+     */
 
     const handleSignal = () => {
       if (shuttingDown) return
@@ -98,7 +106,7 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
       // Close the sentry to release resources
       void telemetryInstance?.sentry?.close(timeout).finally(() => {
         shuttingDown = false
-        removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
+        removeGlobalTelemetry(false) // Remove the global telemetry instance to prevent further telemetry
       })
     }
 
