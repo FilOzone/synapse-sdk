@@ -36,7 +36,8 @@ export interface TelemetryConfig {
 }
 
 /**
- * Configuration for runtime detection and context
+ * Configuration about the "runtime environment" for Synapse that needs Synapse-specific knowledge.
+ * This isn't to be confused with [Sentry's Runtime context](https://develop.sentry.dev/sdk/data-model/event-payloads/contexts/#runtime-context).
  */
 export interface TelemetryRuntimeContext {
   filecoinNetwork: FilecoinNetworkType
