@@ -188,8 +188,9 @@ function wrapFetch(): void {
     input: string | URL | Request,
     init?: RequestInit
   ): Promise<Response> {
-    // If telemetry disabled, use the original fetch
-    // OR, we have an active span, and fetch calls will be instrumented by Sentry automatically
+    // Short circuit to the original fetch if
+    // - telemetry is disabled OR
+    // - we have an active span (since fetch calls will be instrumented by Sentry automatically and become a child span)
     const sentry = getGlobalTelemetry()?.sentry
     if (!sentry || sentry.getActiveSpan() != null) {
       return originalFetch(input, init)
