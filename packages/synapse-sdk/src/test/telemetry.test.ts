@@ -9,7 +9,6 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { Synapse } from '../synapse.ts'
-import { getGlobalTelemetry } from '../telemetry/singleton.ts'
 import { JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 // Mock server for testing
@@ -27,7 +26,7 @@ describe('Telemetry', () => {
 
   after(async () => {
     server.stop()
-    await synapse.telemetry?.close()
+    await synapse.telemetry?.sentry?.close()
     await synapse.getProvider().destroy()
   })
 
@@ -38,11 +37,6 @@ describe('Telemetry', () => {
   describe('Test Environment Detection', () => {
     it('should disable telemetry in test environment', () => {
       // Verify that global telemetry instance is null when not initialized
-      const globalTelemetry = getGlobalTelemetry()
-      assert.isNull(globalTelemetry)
-    })
-
-    it('should not initialize telemetry when creating Synapse in test environment', async () => {
       assert.isNull(synapse.telemetry)
     })
   })

@@ -181,55 +181,6 @@ export class TelemetryService {
   }
 
   /**
-   * Flush pending telemetry events
-   *
-   * Call this before process exit to ensure all events are sent.
-   * Returns a promise that resolves when flushing is complete.
-   *
-   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
-   * @returns Promise that resolves to true if all events were flushed
-   *
-   * @example
-   * ```typescript
-   * // Before exiting
-   * await synapse.telemetry.flush()
-   * process.exit(0)
-   * ```
-   */
-  async flush(timeout = 2000): Promise<boolean> {
-    if (!this.config.enabled) {
-      return true
-    }
-
-    // Delegate to adapter's flush method if available
-    return this.sentry?.flush(timeout) ?? true
-  }
-
-  /**
-   * Close the telemetry service and shut down the adapter
-   *
-   * This flushes pending events and closes the telemetry connection.
-   * Call this when your application is shutting down to ensure proper cleanup.
-   *
-   * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
-   * @returns Promise that resolves to true if shutdown was successful
-   *
-   * @example
-   * ```typescript
-   * // Before exiting
-   * await synapse.telemetry.close()
-   * process.exit(0)
-   * ```
-   */
-  async close(timeout = 2000): Promise<boolean> {
-    if (!this.config.enabled) {
-      return true
-    }
-
-    return this.sentry?.close(timeout) ?? true
-  }
-
-  /**
    * Add event to circular buffer
    * @internal
    */

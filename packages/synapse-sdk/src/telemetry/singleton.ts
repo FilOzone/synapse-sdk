@@ -76,7 +76,7 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
     // -------- Browser runtime --------
     const flush = () => {
       // Don’t block; Sentry will use sendBeacon/fetch keepalive under the hood.
-      void telemetryInstance?.flush(timeout)
+      void telemetryInstance?.sentry?.flush(timeout)
       removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
     }
 
@@ -102,7 +102,7 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
       shuttingDown = true
 
       // Close the sentry to release resources
-      void telemetryInstance?.close(timeout).finally(() => {
+      void telemetryInstance?.sentry?.close(timeout).finally(() => {
         shuttingDown = false
         removeGlobalFetchWrapper() // Remove the fetch wrapper to prevent further instrumentation
       })

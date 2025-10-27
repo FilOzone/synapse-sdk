@@ -127,13 +127,13 @@ function parseArgs() {
   if (mode !== 'piece' && mode !== 'dataset') {
     console.error(`ERROR: Invalid mode '${mode}'. Must be 'piece' or 'dataset'`)
     showHelp()
-    process.exitCode = 1
+    process.exit(1)
   }
 
   if (!target) {
     console.error(`ERROR: Missing target for ${mode} mode`)
     showHelp()
-    process.exitCode = 1
+    process.exit(1)
   }
 
   const options = {}
@@ -154,7 +154,7 @@ function parseArgs() {
     } else {
       console.error(`ERROR: Unknown option '${arg}'`)
       showHelp()
-      process.exitCode = 1
+      process.exit(1)
     }
   }
 
@@ -480,7 +480,6 @@ async function runDatasetMode(synapse, dataSetId, options) {
 }
 
 async function main() {
-  let synapse = null
   try {
     // Parse arguments first (handles --help)
     const { mode, target, options } = parseArgs()
@@ -488,7 +487,7 @@ async function main() {
     // Validate environment
     if (!PRIVATE_KEY) {
       console.error('ERROR: PRIVATE_KEY environment variable is required')
-      process.exitCode = 1
+      process.exit(1)
     }
 
     // Initialize Synapse SDK
@@ -501,7 +500,7 @@ async function main() {
       synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
     }
 
-    synapse = await Synapse.create(synapseOptions)
+    const synapse = await Synapse.create(synapseOptions)
 
     // Run the appropriate mode
     if (mode === 'piece') {
@@ -510,7 +509,7 @@ async function main() {
       const datasetId = Number.parseInt(target, 10)
       if (Number.isNaN(datasetId)) {
         console.error(`ERROR: Invalid data set ID '${target}'`)
-        process.exitCode = 1
+        process.exit(1)
       }
       await runDatasetMode(synapse, datasetId, options)
     }
@@ -519,9 +518,7 @@ async function main() {
     if (error.cause) {
       console.error(`Caused by: ${error.cause.message}`)
     }
-    process.exitCode = 1
-  } finally {
-    synapse.telemetry.flush()
+    process.exit(1)
   }
 }
 
