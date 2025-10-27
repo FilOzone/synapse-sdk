@@ -90,8 +90,11 @@ function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
   }
 
   // If in test environment, disable telemetry unless explicitly enabled by user config
-  if (config?.sentryInitOptions?.enabled === undefined && globalThis.process?.env?.NODE_ENV === 'test') {
-    return false
+  if (config?.sentryInitOptions?.enabled === undefined) {
+    // we use playwright-test, which sets globalThis.PW_TEST in browser, and NODE_ENV in node
+    if (globalThis.process?.env?.NODE_ENV === 'test' || (globalThis as any).PW_TEST != null) {
+      return false
+    }
   }
 
   // Default to isEnabled (unless explicitly disabled above)

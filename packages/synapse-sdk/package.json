@@ -97,5 +97,8 @@
     "workerDirectory": [
       "src/test/mocks"
     ]
+  },
+  "browser": {
+    "@sentry/node": "@sentry/browser"
   }
 }
