@@ -1,6 +1,6 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
 import { type Account, type Address, type Chain, type Client, isAddressEqual, type Transport } from 'viem'
-import { multicall, readContract } from 'viem/actions'
+import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 import * as PDP from '../sp.ts'
@@ -96,9 +96,20 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
 }
 
 export type GetDataSetOptions = {
+  /**
+   * The ID of the data set to get.
+   */
   dataSetId: bigint
 }
 
+/**
+ * Get a data set by ID
+ *
+ * @param client - The client to use to get the data set.
+ * @param options - The options for the get data set.
+ * @param options.dataSetId - The ID of the data set to get.
+ * @returns The data set
+ */
 export async function getDataSet(client: Client<Transport, Chain>, options: GetDataSetOptions): Promise<DataSet> {
   const chain = getChain(client.chain.id)
 
@@ -173,10 +184,19 @@ export type CreateDataSetOptions = {
    */
   provider: PDPProvider
   cdn: boolean
-  publicClient?: Client<Transport, Chain>
   metadata?: MetadataObject
 }
 
+/**
+ * Create a data set
+ *
+ * @param client - The client to use to create the data set.
+ * @param options - The options for the create data set.
+ * @param options.provider - The PDP provider to use to create the data set.
+ * @param options.cdn - Whether the data set should use CDN.
+ * @param options.metadata - The metadata for the data set.
+ * @returns The response from the create data set on PDP API.
+ */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
   const chain = getChain(client.chain.id)
   const endpoint = options.provider.product.productData.serviceURL
@@ -195,4 +215,25 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     recordKeeper: chain.contracts.storage.address,
     extraData,
   })
+}
+
+export type TerminateDataSetOptions = {
+  /**
+   * The ID of the data set to terminate.
+   */
+  dataSetId: bigint
+}
+
+export async function terminateDataSet(client: Client<Transport, Chain, Account>, options: TerminateDataSetOptions) {
+  const chain = getChain(client.chain.id)
+
+  const { request } = await simulateContract(client, {
+    address: chain.contracts.storage.address,
+    abi: chain.contracts.storage.abi,
+    functionName: 'terminateService',
+    args: [options.dataSetId],
+  })
+
+  const tx = await writeContract(client, request)
+  return tx
 }
