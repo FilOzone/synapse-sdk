@@ -22,6 +22,8 @@ import { getSentry, isBrowser, type SentryBrowserType, type SentryType } from '.
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
 
+type SentryBeforeSendFunction = (event: ErrorEvent, hint: EventHint) => Promise<ErrorEvent | null>
+
 export interface TelemetryConfig {
   /**
    * Additional options to pass to the Sentry SDK's init method.
@@ -51,10 +53,8 @@ export interface DebugDump {
  * Main telemetry service that manages the adapter and provides high-level APIs
  */
 export class TelemetryService {
-  private config: TelemetryConfig
-  private context: TelemetryRuntimeContext
   private eventBuffer: any[] = []
-  private readonly maxBufferSize = 50
+  private readonly maxBufferSize = 15
 
   sentry: SentryType | null = null
 
@@ -62,11 +62,8 @@ export class TelemetryService {
    * The provided TelemetryConfig will be passed to Sentry basically as is.  Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.  See the source for the specific defaults.
    */
   constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
-    this.context = context
-    this.config = config
-
     // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
-    void this.initSentry()
+    void this.initSentry(config, context)
   }
 
   /**
@@ -75,7 +72,7 @@ export class TelemetryService {
    * We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
    * Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled.
    */
-  private async initSentry(): Promise<void> {
+  private async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
     const Sentry = await getSentry()
     this.sentry = Sentry
 
@@ -102,8 +99,8 @@ export class TelemetryService {
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       integrations,
-      ...this.config.sentryInitOptions,
-      beforeSend: this.onBeforeSend.bind(this),
+      ...config.sentryInitOptions,
+      beforeSend: this.createBeforeSend(config),
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
@@ -117,10 +114,10 @@ export class TelemetryService {
     // things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
     this.sentry.setTags({
       // appName is set to 'synapse-sdk' by default in DEFAULT_TELEMETRY_CONFIG, but consumers can set `sentrySetTags.appName` to override it.
-      ...this.config.sentrySetTags, // get any tags consumers want to set
+      ...config.sentrySetTags, // get any tags consumers want to set
 
       // things that consumers should not need, nor be able, to override
-      filecoinNetwork: this.context.filecoinNetwork, // The network (mainnet/calibration) that the synapse-sdk is being used in.
+      filecoinNetwork: context.filecoinNetwork, // The network (mainnet/calibration) that the synapse-sdk is being used in.
       synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`, // The version of the synapse-sdk that is being used.
     })
   }
@@ -135,14 +132,16 @@ export class TelemetryService {
    * @param event - The event to be sent to Sentry.
    * @returns The event to be sent to Sentry, or null if the event should not be sent.
    */
-  protected async onBeforeSend(event: ErrorEvent, hint: EventHint): Promise<ErrorEvent | null> {
-    this.addToEventBuffer(event)
+  protected createBeforeSend(config: TelemetryConfig): SentryBeforeSendFunction {
+    return (async (event, hint) => {
+      this.addToEventBuffer(event)
 
-    if (this.config.sentryInitOptions?.beforeSend != null) {
-      return await this.config.sentryInitOptions.beforeSend(event, hint)
-    }
+      if (config.sentryInitOptions?.beforeSend != null) {
+        return await config.sentryInitOptions.beforeSend(event, hint)
+      }
 
-    return event
+      return event
+    }) satisfies SentryBeforeSendFunction
   }
 
   /**
