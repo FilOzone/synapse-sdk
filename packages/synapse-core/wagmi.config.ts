@@ -2,41 +2,53 @@ import { defineConfig } from '@wagmi/cli'
 import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
+// const REF = 'refs/tags/v0.3.0'
+// const REF = '15eeb6dc87db236507add5553a0c76c009705525'
+const REF = 'refs/heads/kubuxu/devnode-contracts'
+const URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${REF}/service_contracts/abi`
+
 const config: ReturnType<typeof defineConfig> = defineConfig(() => {
   const contracts = [
     {
-      name: 'Payments',
+      name: 'FilecoinPayV1',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x1096025c9D6B29E12E2f04965F6E64d564Ce0750' as Address,
+        314159: '0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0' as Address,
       },
     },
     {
       name: 'FilecoinWarmStorageService',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348' as Address,
+        314159: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258' as Address,
+      },
+    },
+    {
+      name: 'Errors',
+      address: {
+        314: '0x0000000000000000000000000000000000000000' as Address,
+        314159: '0x0000000000000000000000000000000000000000' as Address,
       },
     },
     {
       name: 'FilecoinWarmStorageServiceStateView',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x87EDE87cEF4BfeFE0374c3470cB3F5be18b739d5' as Address,
+        314159: '0x0295Ac959317391656fB7fFaA046046eF9C7E18F' as Address,
       },
     },
     {
       name: 'PDPVerifier',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137' as Address,
+        314159: '0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d' as Address,
       },
     },
     {
       name: 'ServiceProviderRegistry',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0xA8a7e2130C27e4f39D1aEBb3D538D5937bCf8ddb' as Address,
+        314159: '0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3' as Address,
       },
     },
     {
@@ -54,13 +66,11 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
       plugins: [
         fetch({
           contracts,
+
           cacheDuration: 100,
           request(contract) {
-            const baseUrl =
-              'https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/tags/alpha/calibnet/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348-v2/service_contracts/abi'
-
             return {
-              url: `${baseUrl}/${contract.name}.abi.json`,
+              url: `${URL}/${contract.name}.abi.json`,
             }
           },
         }),

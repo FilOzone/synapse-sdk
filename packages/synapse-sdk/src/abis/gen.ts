@@ -16,9 +16,13 @@ export const filecoinWarmStorageServiceAbi = [
         internalType: 'address',
         type: 'address',
       },
-      { name: '_usdfcTokenAddress', internalType: 'address', type: 'address' },
       {
-        name: '_filCDNBeneficiaryAddress',
+        name: '_usdfc',
+        internalType: 'contract IERC20Metadata',
+        type: 'address',
+      },
+      {
+        name: '_filBeamBeneficiaryAddress',
         internalType: 'address',
         type: 'address',
       },
@@ -53,6 +57,27 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'addApprovedProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+      },
+    ],
+    name: 'announcePlannedUpgrade',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -97,7 +122,7 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+      { name: '', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'dataSetDeleted',
     outputs: [],
@@ -138,7 +163,7 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'filCDNBeneficiaryAddress',
+    name: 'filBeamBeneficiaryAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
@@ -182,7 +207,11 @@ export const filecoinWarmStorageServiceAbi = [
             internalType: 'uint256',
             type: 'uint256',
           },
-          { name: 'tokenAddress', internalType: 'address', type: 'address' },
+          {
+            name: 'tokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
           { name: 'epochsPerMonth', internalType: 'uint256', type: 'uint256' },
         ],
       },
@@ -199,7 +228,7 @@ export const filecoinWarmStorageServiceAbi = [
         type: 'uint256',
       },
       {
-        name: '_filCDNControllerAddress',
+        name: '_filBeamControllerAddress',
         internalType: 'address',
         type: 'address',
       },
@@ -340,13 +369,6 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'serviceCommissionBps',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'serviceProviderRegistry',
     outputs: [
       {
@@ -383,8 +405,19 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'oldServiceProvider', internalType: 'address', type: 'address' },
-      { name: 'newServiceProvider', internalType: 'address', type: 'address' },
+      { name: 'cdnAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'cacheMissAmount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'settleFilBeamPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'storageProviderChanged',
@@ -408,9 +441,24 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'cdnAmountToAdd', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'cacheMissAmountToAdd',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'topUpCDNPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
       { name: 'newController', internalType: 'address', type: 'address' },
     ],
-    name: 'transferFilCDNController',
+    name: 'transferFilBeamController',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -444,7 +492,9 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [],
     name: 'usdfcTokenAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    outputs: [
+      { name: '', internalType: 'contract IERC20Metadata', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -469,7 +519,7 @@ export const filecoinWarmStorageServiceAbi = [
         ],
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -477,6 +527,43 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'viewContractAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'cdnAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCdnLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cacheMissAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCacheMissLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'CDNPaymentRailsToppedUp',
   },
   {
     type: 'event',
@@ -694,7 +781,7 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: false,
       },
     ],
-    name: 'FilCDNControllerChanged',
+    name: 'FilBeamControllerChanged',
   },
   {
     type: 'event',
@@ -766,43 +853,6 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'PDPPaymentTerminated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'originalAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'modifiedAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'faultedEpochs',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'PaymentArbitrated',
   },
   {
     type: 'event',
@@ -935,6 +985,27 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
+        name: 'plannedUpgrade',
+        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'UpgradeAnnounced',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
         name: 'implementation',
         internalType: 'address',
         type: 'address',
@@ -963,6 +1034,25 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CDNPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayer',
+  },
+  {
+    type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'expectedPayer', internalType: 'address', type: 'address' },
@@ -987,6 +1077,13 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ChallengeWindowTooEarly',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ClientDataSetAlreadyRegistered',
   },
   {
     type: 'error',
@@ -1047,12 +1144,7 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'FilCDNPaymentAlreadyTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'FilCDNServiceNotConfigured',
+    name: 'FilBeamServiceNotConfigured',
   },
   {
     type: 'error',
@@ -1097,19 +1189,18 @@ export const filecoinWarmStorageServiceAbi = [
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
   {
     type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'InvalidSignature',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceDescriptionLength',
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidSignatureLength',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceNameLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidTopUpAmount',
   },
   { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
   {
@@ -1164,19 +1255,10 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
-    name: 'OldServiceProviderMismatch',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyFilCDNControllerAllowed',
+    name: 'OnlyFilBeamControllerAllowed',
   },
   {
     type: 'error',
@@ -1185,14 +1267,6 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
     name: 'OnlyPDPVerifierAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlySelf',
   },
   {
     type: 'error',
@@ -1209,7 +1283,6 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'PaymentRailsNotFinalized',
   },
@@ -1222,14 +1295,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProviderAlreadyApproved',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'provider', internalType: 'address', type: 'address' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ProviderNotApproved',
   },
   {
     type: 'error',
@@ -1274,11 +1339,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
-    name: 'UnsupportedSignatureV',
   },
   {
     type: 'error',
@@ -1340,8 +1400,11 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
-    name: 'clientDataSetIDs',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'clientDataSetIds',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -1357,7 +1420,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'filCDNControllerAddress',
+    name: 'filBeamControllerAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
@@ -1386,11 +1449,21 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
-    inputs: [],
+    inputs: [
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
     name: 'getApprovedProviders',
     outputs: [
       { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
     ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getApprovedProvidersLength',
+    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -1407,7 +1480,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     outputs: [
       {
         name: 'infos',
-        internalType: 'struct FilecoinWarmStorageService.DataSetInfo[]',
+        internalType: 'struct FilecoinWarmStorageService.DataSetInfoView[]',
         type: 'tuple[]',
         components: [
           { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
@@ -1420,7 +1493,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-          { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -1433,7 +1506,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     outputs: [
       {
         name: 'info',
-        internalType: 'struct FilecoinWarmStorageService.DataSetInfo',
+        internalType: 'struct FilecoinWarmStorageService.DataSetInfoView',
         type: 'tuple',
         components: [
           { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
@@ -1446,7 +1519,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-          { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -1471,6 +1544,19 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     name: 'getDataSetSizeInBytes',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetStatus',
+    outputs: [
+      {
+        name: 'status',
+        internalType: 'enum FilecoinWarmStorageService.DataSetStatus',
+        type: 'uint8',
+      },
+    ],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1525,6 +1611,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'nextUpgrade',
+    outputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'periodId', internalType: 'uint256', type: 'uint256' },
@@ -1575,6 +1671,13 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     stateMutability: 'view',
   },
   {
+    type: 'function',
+    inputs: [],
+    name: 'serviceCommissionBps',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProvingPeriodNotInitialized',
@@ -1612,34 +1715,6 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'EXTRA_DATA_MAX_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'FIL_USD_PRICE_FEED_ID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'LEAF_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'MAX_ENQUEUED_REMOVALS',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
@@ -1668,27 +1743,6 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'PYTH',
-    outputs: [{ name: '', internalType: 'contract IPyth', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'RANDOMNESS_PRECOMPILE',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'SECONDS_IN_DAY',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'UPGRADE_INTERFACE_VERSION',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
@@ -1704,6 +1758,7 @@ export const pdpVerifierAbi = [
     type: 'function',
     inputs: [
       { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'listenerAddr', internalType: 'address', type: 'address' },
       {
         name: 'pieceData',
         internalType: 'struct Cids.Cid[]',
@@ -1714,15 +1769,19 @@ export const pdpVerifierAbi = [
     ],
     name: 'addPieces',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
   },
   {
     type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'estimatedGasFee', internalType: 'uint256', type: 'uint256' },
-    ],
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
     name: 'calculateProofFee',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'proofSize', internalType: 'uint256', type: 'uint256' }],
+    name: 'calculateProofFeeForSize',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -1762,6 +1821,20 @@ export const pdpVerifierAbi = [
     name: 'deleteDataSet',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'feeEffectiveTime',
+    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'feePerTiB',
+    outputs: [{ name: '', internalType: 'uint96', type: 'uint96' }],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1808,7 +1881,6 @@ export const pdpVerifierAbi = [
         components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
       },
       { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'rawSizes', internalType: 'uint256[]', type: 'uint256[]' },
       { name: 'hasMore', internalType: 'bool', type: 'bool' },
     ],
     stateMutability: 'view',
@@ -1855,16 +1927,6 @@ export const pdpVerifierAbi = [
     outputs: [
       { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'address', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getFILUSDPrice',
-    outputs: [
-      { name: '', internalType: 'uint64', type: 'uint64' },
-      { name: '', internalType: 'int32', type: 'int32' },
     ],
     stateMutability: 'view',
   },
@@ -1996,6 +2058,13 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'proposedFeePerTiB',
+    outputs: [{ name: '', internalType: 'uint96', type: 'uint96' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'setId', internalType: 'uint256', type: 'uint256' },
       {
@@ -2041,6 +2110,15 @@ export const pdpVerifierAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newFeePerTiB', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'updateProofFee',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2123,6 +2201,31 @@ export const pdpVerifierAbi = [
       },
     ],
     name: 'DataSetEmpty',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'currentFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'effectiveTime',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'FeeUpdateProposed',
   },
   {
     type: 'event',
@@ -2260,8 +2363,6 @@ export const pdpVerifierAbi = [
         indexed: true,
       },
       { name: 'fee', internalType: 'uint256', type: 'uint256', indexed: false },
-      { name: 'price', internalType: 'uint64', type: 'uint64', indexed: false },
-      { name: 'expo', internalType: 'int32', type: 'int32', indexed: false },
     ],
     name: 'ProofFeePaid',
   },
@@ -2383,15 +2484,22 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'NETWORK_FEE',
+    name: 'NETWORK_FEE_DENOMINATOR',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NETWORK_FEE_NUMERATOR',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'owner', internalType: 'address', type: 'address' },
     ],
     name: 'accounts',
     outputs: [
@@ -2405,7 +2513,30 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+    ],
+    name: 'auctionInfo',
+    outputs: [
+      { name: 'startPrice', internalType: 'uint88', type: 'uint88' },
+      { name: 'startTime', internalType: 'uint168', type: 'uint168' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'recipient', internalType: 'address', type: 'address' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'burnForFees',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'validator', internalType: 'address', type: 'address' },
@@ -2419,7 +2550,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
@@ -2430,7 +2561,73 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'depositWithAuthorization',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'depositWithAuthorizationAndApproveOperator',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'depositWithAuthorizationAndIncreaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
       { name: 'deadline', internalType: 'uint256', type: 'uint256' },
@@ -2445,7 +2642,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
       { name: 'deadline', internalType: 'uint256', type: 'uint256' },
@@ -2464,7 +2661,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
       { name: 'deadline', internalType: 'uint256', type: 'uint256' },
@@ -2490,7 +2687,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'owner', internalType: 'address', type: 'address' },
     ],
     name: 'getAccountInfoIfSettled',
@@ -2512,7 +2709,7 @@ export const paymentsAbi = [
         internalType: 'struct Payments.RailView',
         type: 'tuple',
         components: [
-          { name: 'token', internalType: 'address', type: 'address' },
+          { name: 'token', internalType: 'contract IERC20', type: 'address' },
           { name: 'from', internalType: 'address', type: 'address' },
           { name: 'to', internalType: 'address', type: 'address' },
           { name: 'operator', internalType: 'address', type: 'address' },
@@ -2541,12 +2738,14 @@ export const paymentsAbi = [
     type: 'function',
     inputs: [
       { name: 'payee', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'getRailsForPayeeAndToken',
     outputs: [
       {
-        name: '',
+        name: 'results',
         internalType: 'struct Payments.RailInfo[]',
         type: 'tuple[]',
         components: [
@@ -2555,6 +2754,8 @@ export const paymentsAbi = [
           { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
         ],
       },
+      { name: 'nextOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -2562,12 +2763,14 @@ export const paymentsAbi = [
     type: 'function',
     inputs: [
       { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'getRailsForPayerAndToken',
     outputs: [
       {
-        name: '',
+        name: 'results',
         internalType: 'struct Payments.RailInfo[]',
         type: 'tuple[]',
         components: [
@@ -2576,6 +2779,8 @@ export const paymentsAbi = [
           { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
         ],
       },
+      { name: 'nextOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -2589,7 +2794,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
       {
         name: 'rateAllowanceIncrease',
@@ -2631,9 +2836,9 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'client', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
     ],
     name: 'operatorApprovals',
     outputs: [
@@ -2649,7 +2854,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'approved', internalType: 'bool', type: 'bool' },
       { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
@@ -2675,10 +2880,11 @@ export const paymentsAbi = [
         internalType: 'uint256',
         type: 'uint256',
       },
+      { name: 'totalNetworkFee', internalType: 'uint256', type: 'uint256' },
       { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
       { name: 'note', internalType: 'string', type: 'string' },
     ],
-    stateMutability: 'payable',
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -2692,6 +2898,7 @@ export const paymentsAbi = [
         internalType: 'uint256',
         type: 'uint256',
       },
+      { name: 'totalNetworkFee', internalType: 'uint256', type: 'uint256' },
       { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
       { name: 'note', internalType: 'string', type: 'string' },
     ],
@@ -2707,7 +2914,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'withdraw',
@@ -2717,7 +2924,7 @@ export const paymentsAbi = [
   {
     type: 'function',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'to', internalType: 'address', type: 'address' },
       { name: 'amount', internalType: 'uint256', type: 'uint256' },
     ],
@@ -2731,7 +2938,7 @@ export const paymentsAbi = [
     inputs: [
       {
         name: 'token',
-        internalType: 'address',
+        internalType: 'contract IERC20',
         type: 'address',
         indexed: true,
       },
@@ -2768,7 +2975,7 @@ export const paymentsAbi = [
     inputs: [
       {
         name: 'token',
-        internalType: 'address',
+        internalType: 'contract IERC20',
         type: 'address',
         indexed: true,
       },
@@ -2780,12 +2987,6 @@ export const paymentsAbi = [
         type: 'uint256',
         indexed: false,
       },
-      {
-        name: 'usedPermit',
-        internalType: 'bool',
-        type: 'bool',
-        indexed: false,
-      },
     ],
     name: 'DepositRecorded',
   },
@@ -2795,7 +2996,7 @@ export const paymentsAbi = [
     inputs: [
       {
         name: 'token',
-        internalType: 'address',
+        internalType: 'contract IERC20',
         type: 'address',
         indexed: true,
       },
@@ -2857,7 +3058,7 @@ export const paymentsAbi = [
       },
       {
         name: 'token',
-        internalType: 'address',
+        internalType: 'contract IERC20',
         type: 'address',
         indexed: false,
       },
@@ -2960,6 +3161,12 @@ export const paymentsAbi = [
         type: 'uint256',
         indexed: false,
       },
+      {
+        name: 'networkFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
     ],
     name: 'RailOneTimePaymentProcessed',
   },
@@ -3017,6 +3224,12 @@ export const paymentsAbi = [
         indexed: false,
       },
       {
+        name: 'networkFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
         name: 'settledUpTo',
         internalType: 'uint256',
         type: 'uint256',
@@ -3051,7 +3264,7 @@ export const paymentsAbi = [
     inputs: [
       {
         name: 'token',
-        internalType: 'address',
+        internalType: 'contract IERC20',
         type: 'address',
         indexed: true,
       },
@@ -3104,7 +3317,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'oldLockup', internalType: 'uint256', type: 'uint256' },
       { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
@@ -3114,8 +3327,8 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
       { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
       { name: 'lockupReduction', internalType: 'uint256', type: 'uint256' },
     ],
@@ -3124,7 +3337,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'required', internalType: 'uint256', type: 'uint256' },
       { name: 'actual', internalType: 'uint256', type: 'uint256' },
@@ -3134,7 +3347,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'available', internalType: 'uint256', type: 'uint256' },
       { name: 'required', internalType: 'uint256', type: 'uint256' },
@@ -3144,7 +3357,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'available', internalType: 'uint256', type: 'uint256' },
       { name: 'required', internalType: 'uint256', type: 'uint256' },
@@ -3196,7 +3409,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'account', internalType: 'address', type: 'address' },
       { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
       { name: 'fundsCurrent', internalType: 'uint256', type: 'uint256' },
@@ -3206,7 +3419,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
       {
@@ -3221,7 +3434,7 @@ export const paymentsAbi = [
     type: 'error',
     inputs: [
       { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'expectedLockup', internalType: 'uint256', type: 'uint256' },
       { name: 'actualLockup', internalType: 'uint256', type: 'uint256' },
@@ -3242,7 +3455,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'from', internalType: 'address', type: 'address' },
       { name: 'actualLockupPeriod', internalType: 'uint256', type: 'uint256' },
       {
@@ -3256,7 +3469,7 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'maxAllowedPeriod', internalType: 'uint256', type: 'uint256' },
       { name: 'requestedPeriod', internalType: 'uint256', type: 'uint256' },
@@ -3353,16 +3566,6 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'expectedFrom', internalType: 'address', type: 'address' },
-      { name: 'expectedOperator', internalType: 'address', type: 'address' },
-      { name: 'expectedTo', internalType: 'address', type: 'address' },
-      { name: 'caller', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyRailParticipantAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
       { name: 'allowed', internalType: 'uint256', type: 'uint256' },
       { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
     ],
@@ -3387,10 +3590,16 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
+      { name: 'x', internalType: 'uint256', type: 'uint256' },
+      { name: 'y', internalType: 'uint256', type: 'uint256' },
+      { name: 'denominator', internalType: 'uint256', type: 'uint256' },
     ],
-    name: 'PermitRecipientMustBeMsgSender',
+    name: 'PRBMath_MulDiv_Overflow',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'x', internalType: 'UD60x18', type: 'uint256' }],
+    name: 'PRBMath_UD60x18_Exp2_InputTooBig',
   },
   {
     type: 'error',
@@ -3428,6 +3637,14 @@ export const paymentsAbi = [
   {
     type: 'error',
     inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'SignerMustBeMsgSender',
+  },
+  {
+    type: 'error',
+    inputs: [
       { name: 'railId', internalType: 'uint256', type: 'uint256' },
       { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
       { name: 'attempted', internalType: 'uint256', type: 'uint256' },
@@ -3451,6 +3668,15 @@ export const paymentsAbi = [
       { name: 'attemptedEnd', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ValidatorSettledBeyondSegmentEnd',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'WithdrawAmountExceedsAccumulatedFees',
   },
   {
     type: 'error',
@@ -3487,13 +3713,6 @@ export const paymentsConfig = {
  */
 export const serviceProviderRegistryAbi = [
   { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
   {
     type: 'function',
     inputs: [],
@@ -3583,50 +3802,6 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-    name: 'decodePDPOffering',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
     inputs: [],
     name: 'eip712Domain',
     outputs: [
@@ -3639,50 +3814,6 @@ export const serviceProviderRegistryAbi = [
       { name: 'extensions', internalType: 'uint256[]', type: 'uint256[]' },
     ],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    name: 'encodePDPOffering',
-    outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
-    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -3729,11 +3860,6 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
-                  {
-                    name: 'providerId',
-                    internalType: 'uint256',
-                    type: 'uint256',
-                  },
                 ],
               },
               {
@@ -3892,16 +4018,27 @@ export const serviceProviderRegistryAbi = [
     outputs: [
       {
         name: 'info',
-        internalType:
-          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        internalType: 'struct ServiceProviderRegistry.ServiceProviderInfoView',
         type: 'tuple',
         components: [
-          { name: 'serviceProvider', internalType: 'address', type: 'address' },
-          { name: 'payee', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
         ],
       },
     ],
@@ -3916,16 +4053,27 @@ export const serviceProviderRegistryAbi = [
     outputs: [
       {
         name: 'info',
-        internalType:
-          'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        internalType: 'struct ServiceProviderRegistry.ServiceProviderInfoView',
         type: 'tuple',
         components: [
-          { name: 'serviceProvider', internalType: 'address', type: 'address' },
-          { name: 'payee', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
         ],
       },
     ],
@@ -3945,6 +4093,50 @@ export const serviceProviderRegistryAbi = [
     ],
     name: 'getProviderIdByAddress',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getProviderPayee',
+    outputs: [{ name: 'payee', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    name: 'getProvidersByIds',
+    outputs: [
+      {
+        name: 'providerInfos',
+        internalType:
+          'struct ServiceProviderRegistry.ServiceProviderInfoView[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
+        ],
+      },
+      { name: 'validIds', internalType: 'bool[]', type: 'bool[]' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -3992,11 +4184,6 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
-                  {
-                    name: 'providerId',
-                    internalType: 'uint256',
-                    type: 'uint256',
-                  },
                 ],
               },
               {
@@ -4137,7 +4324,6 @@ export const serviceProviderRegistryAbi = [
       { name: 'name', internalType: 'string', type: 'string' },
       { name: 'description', internalType: 'string', type: 'string' },
       { name: 'isActive', internalType: 'bool', type: 'bool' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -4352,15 +4538,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
@@ -4414,15 +4600,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
@@ -4582,6 +4768,7 @@ export const sessionKeyRegistryAbi = [
       { name: 'signer', internalType: 'address', type: 'address' },
       { name: 'expiry', internalType: 'uint256', type: 'uint256' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'login',
     outputs: [],
@@ -4593,6 +4780,7 @@ export const sessionKeyRegistryAbi = [
       { name: 'signer', internalType: 'address payable', type: 'address' },
       { name: 'expiry', internalType: 'uint256', type: 'uint256' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'loginAndFund',
     outputs: [],
@@ -4603,10 +4791,48 @@ export const sessionKeyRegistryAbi = [
     inputs: [
       { name: 'signer', internalType: 'address', type: 'address' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'revoke',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'identity',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'signer',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'expiry',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'permissions',
+        internalType: 'bytes32[]',
+        type: 'bytes32[]',
+        indexed: false,
+      },
+      {
+        name: 'origin',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+    ],
+    name: 'AuthorizationsUpdated',
   },
 ] as const
 

@@ -179,14 +179,14 @@ export class SPRegistryService {
       const contract = this._getRegistryContract()
       const rawProvider = await contract.getProvider(providerId)
 
-      if (rawProvider.serviceProvider === ethers.ZeroAddress) {
+      if (rawProvider.info.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
       // Get products for this provider
       const products = await this._getProviderProducts(providerId)
 
-      return this._convertToProviderInfo(providerId, rawProvider, products)
+      return this._convertToProviderInfo(providerId, rawProvider.info, products)
     } catch (error) {
       if (error instanceof Error && error.message.includes('Provider not found')) {
         return null
@@ -211,7 +211,7 @@ export class SPRegistryService {
       ])
 
       // Check if provider exists (beneficiary address will be zero if not found)
-      if (rawProvider.serviceProvider === ethers.ZeroAddress) {
+      if (rawProvider.info.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
@@ -219,7 +219,7 @@ export class SPRegistryService {
       const products = await this._getProviderProducts(Number(providerId))
 
       // Convert to ProviderInfo
-      return this._convertToProviderInfo(Number(providerId), rawProvider, products)
+      return this._convertToProviderInfo(Number(providerId), rawProvider.info, products)
     } catch {
       return null
     }
@@ -569,7 +569,7 @@ export class SPRegistryService {
         const products = this._extractProductsFromMulticallResult(results[pdpServiceResultIndex], iface)
 
         // Convert to ProviderInfo
-        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider, products)
+        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, products)
         providers.push(providerInfo)
       } catch {
         // Skip failed decoding
@@ -695,7 +695,7 @@ export class SPRegistryService {
   /**
    * Convert raw provider data to ProviderInfo
    */
-  private _convertToProviderInfo(providerId: number, rawProvider: any, productsArray: ServiceProduct[]): ProviderInfo {
+  private _convertToProviderInfo(providerId: number, providerInfo: any, productsArray: ServiceProduct[]): ProviderInfo {
     // Convert products array to Record for direct access by type
     const products: Partial<Record<'PDP', ServiceProduct>> = {}
 
@@ -707,11 +707,11 @@ export class SPRegistryService {
 
     return {
       id: providerId,
-      serviceProvider: rawProvider.serviceProvider,
-      payee: rawProvider.payee,
-      name: rawProvider.name,
-      description: rawProvider.description,
-      active: rawProvider.isActive,
+      serviceProvider: providerInfo.serviceProvider,
+      payee: providerInfo.payee,
+      name: providerInfo.name,
+      description: providerInfo.description,
+      active: providerInfo.isActive,
       products,
     }
   }

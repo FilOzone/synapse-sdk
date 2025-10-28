@@ -209,15 +209,15 @@ export interface DataSetInfo {
   /** Commission rate in basis points (dynamic based on CDN usage) */
   commissionBps: number
   /** Client's sequential dataset ID within this Warm Storage contract */
-  clientDataSetId: number
+  clientDataSetId: bigint
   /** Epoch when PDP payments end (0 if not terminated) */
   pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */
   providerId: number
-  /** Epoch when CDN payments end (0 if not terminated) */
-  cdnEndEpoch: number
   // Legacy alias for backward compatibility
   paymentEndEpoch?: number
+  /** PDP Data Set ID */
+  dataSetId: bigint | number
 }
 
 /**
@@ -262,6 +262,8 @@ export interface SettlementResult {
   totalNetPayeeAmount: bigint
   /** Commission amount for operator */
   totalOperatorCommission: bigint
+  /** Payments contract network fee */
+  totalNetworkFee: bigint
   /** Final epoch that was settled */
   finalSettledEpoch: bigint
   /** Note about the settlement */
@@ -331,6 +333,8 @@ export interface StorageCreationCallbacks {
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
   providerId?: number
+  /** Do not select any of these providers */
+  excludeProviderIds?: number[]
   /** Specific provider address to use (optional) */
   providerAddress?: string
   /** Specific data set ID to use (optional) */

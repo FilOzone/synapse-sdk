@@ -55,6 +55,7 @@ import {
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
+import { randIndex, randU256 } from '../utils/rand.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 export class StorageContext {
@@ -258,7 +259,7 @@ export class StorageContext {
     // Create a new data set
 
     // Get next client dataset ID
-    const nextDatasetId = await warmStorageService.getNextClientDataSetId(clientAddress)
+    const nextDatasetId = randU256()
 
     // Create auth helper for signing
     const warmStorageAddress = synapse.getWarmStorageAddress()
@@ -488,7 +489,7 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       providerResolver,
-      client,
+      options.excludeProviderIds,
       options.forceCreateDataSet,
       options.withIpni,
       options.dev
@@ -705,7 +706,7 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     providerResolver: ProviderResolver,
-    signer: ethers.Signer,
+    excludeProviderIds?: number[],
     forceCreateDataSet?: boolean,
     withIpni?: boolean,
     dev?: boolean
@@ -732,7 +733,7 @@ export class StorageContext {
 
       // Create async generator that yields providers lazily
       async function* generateProviders(): AsyncGenerator<ProviderInfo> {
-        const yieldedProviders = new Set<string>()
+        const skipProviderIds = new Set<number>(excludeProviderIds)
 
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
@@ -744,8 +745,8 @@ export class StorageContext {
             )
             continue
           }
-          if (!yieldedProviders.has(provider.serviceProvider.toLowerCase())) {
-            yieldedProviders.add(provider.serviceProvider.toLowerCase())
+          if (!skipProviderIds.has(provider.id)) {
+            skipProviderIds.add(provider.id)
             yield provider
           }
         }
@@ -785,14 +786,16 @@ export class StorageContext {
     }
 
     // No existing data sets - select from all approved providers
-    const allProviders = await providerResolver.getApprovedProviders()
+    const allProviders = (await providerResolver.getApprovedProviders()).filter(
+      (provider: ProviderInfo) => excludeProviderIds?.includes(provider.id) !== true
+    )
 
     if (allProviders.length === 0) {
       throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
     }
 
     // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders, signer, withIpni, dev)
+    const provider = await StorageContext.selectRandomProvider(allProviders, withIpni, dev)
 
     return {
       provider,
@@ -805,12 +808,12 @@ export class StorageContext {
   /**
    * Select a random provider from a list with ping validation
    * @param providers - Array of providers to select from
-   * @param signer - Signer for additional entropy
+   * @param withIpni - Filter for IPNI support
+   * @param dev - Include dev providers
    * @returns Selected provider
    */
   private static async selectRandomProvider(
     providers: ProviderInfo[],
-    signer?: ethers.Signer,
     withIpni?: boolean,
     dev?: boolean
   ): Promise<ProviderInfo> {
@@ -823,34 +826,8 @@ export class StorageContext {
       const remaining = [...providers]
 
       while (remaining.length > 0) {
-        let randomIndex: number
-
-        // Try crypto.getRandomValues if available (HTTPS contexts)
-        if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.getRandomValues != null) {
-          const randomBytes = new Uint8Array(1)
-          globalThis.crypto.getRandomValues(randomBytes)
-          randomIndex = randomBytes[0] % remaining.length
-        } else {
-          // Fallback for HTTP contexts - use multiple entropy sources
-          const timestamp = Date.now()
-          const random = Math.random()
-
-          if (signer != null) {
-            // Use wallet address as additional entropy
-            const addressBytes = await signer.getAddress()
-            const addressSum = addressBytes.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-
-            // Combine sources for better distribution
-            const combined = (timestamp * random * addressSum) % remaining.length
-            randomIndex = Math.floor(Math.abs(combined))
-          } else {
-            // No signer available, use simpler fallback
-            randomIndex = Math.floor(Math.random() * remaining.length)
-          }
-        }
-
         // Remove and yield the selected provider
-        const selected = remaining.splice(randomIndex, 1)[0]
+        const selected = remaining.splice(randIndex(remaining.length), 1)[0]
         yield selected
       }
     }
@@ -1014,30 +991,10 @@ export class StorageContext {
       }
 
       // Poll for piece to be "parked" (ready)
-      const maxWaitTime = TIMING_CONSTANTS.PIECE_PARKING_TIMEOUT_MS
-      const pollInterval = TIMING_CONSTANTS.PIECE_PARKING_POLL_INTERVAL_MS
-      const startTime = Date.now()
-      let pieceReady = false
-
       performance.mark('synapse:findPiece-start')
-      while (Date.now() - startTime < maxWaitTime) {
-        try {
-          await this._pdpServer.findPiece(uploadResult.pieceCid)
-          pieceReady = true
-          break
-        } catch {
-          // Piece not ready yet, wait and retry if we haven't exceeded timeout
-          if (Date.now() - startTime + pollInterval < maxWaitTime) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval))
-          }
-        }
-      }
+      await this._pdpServer.findPiece(uploadResult.pieceCid)
       performance.mark('synapse:findPiece-end')
       performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
-
-      if (!pieceReady) {
-        throw createError('StorageContext', 'findPiece', 'Timeout waiting for piece to be parked on service provider')
-      }
 
       // Upload phase complete - remove from active tracking
       this._activeUploads.delete(uploadId)

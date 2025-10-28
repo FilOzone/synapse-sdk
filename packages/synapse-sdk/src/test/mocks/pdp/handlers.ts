@@ -181,12 +181,12 @@ export function findPieceHandler(pieceCid: string, found: boolean, options: PDPM
 /**
  * Helper to decode metadata from extraData
  */
-export function decodeMetadataFromExtraData(extraData: string): MetadataCapture {
+export function decodeMetadataFromCreateDataSetExtraData(extraData: string): MetadataCapture {
   const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  const decoded = abiCoder.decode(['address', 'string[]', 'string[]', 'bytes'], extraData)
+  const decoded = abiCoder.decode(['address', 'uint256', 'string[]', 'string[]', 'bytes'], extraData)
   return {
-    keys: decoded[1] as string[],
-    values: decoded[2] as string[],
+    keys: decoded[2] as string[],
+    values: decoded[3] as string[],
   }
 }
 
@@ -223,7 +223,7 @@ export function createDataSetWithMetadataCapture(
     }
 
     try {
-      const metadata = decodeMetadataFromExtraData(body.extraData)
+      const metadata = decodeMetadataFromCreateDataSetExtraData(body.extraData)
       captureCallback(metadata)
 
       if (options.debug) {

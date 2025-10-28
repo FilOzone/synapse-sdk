@@ -139,6 +139,9 @@ if (verification.dataSetLive) {
 // Service provider operations
 const isApproved = await warmStorageService.isProviderApproved(providerAddress)
 const providers = await warmStorageService.getAllApprovedProviders()
+
+// Top up CDN payment rails
+await wamStorageService.topUpCDNPaymentRails(signer, dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
 ```
 
 ### Subgraph Service
