@@ -1,4 +1,4 @@
-/* globals describe it beforeEach */
+/* globals describe it beforeEach before after */
 
 /**
  * Tests for PDPVerifier class
@@ -6,17 +6,30 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
 import { PDPVerifier } from '../pdp/index.ts'
-import { createMockProvider } from './test-utils.ts'
+import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
+
+const server = setup([])
 
 describe('PDPVerifier', () => {
-  let mockProvider: ethers.Provider
+  let provider: ethers.Provider
   let pdpVerifier: PDPVerifier
-  const testAddress = '0x5A23b7df87f59A291C26A2A1d684AD03Ce9B68DC'
+  const testAddress = ADDRESSES.calibration.pdpVerifier
+
+  before(async () => {
+    await server.start({ quiet: true })
+  })
+
+  after(() => {
+    server.stop()
+  })
 
   beforeEach(() => {
-    mockProvider = createMockProvider()
-    pdpVerifier = new PDPVerifier(mockProvider, testAddress)
+    server.resetHandlers()
+    server.use(JSONRPC(presets.basic))
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+    pdpVerifier = new PDPVerifier(provider, testAddress)
   })
 
   describe('Instantiation', () => {
@@ -28,7 +41,7 @@ describe('PDPVerifier', () => {
 
     it('should create instance with custom address', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const customVerifier = new PDPVerifier(mockProvider, customAddress)
+      const customVerifier = new PDPVerifier(provider, customAddress)
       assert.exists(customVerifier)
       assert.isFunction(customVerifier.dataSetLive)
       assert.isFunction(customVerifier.getNextPieceId)
@@ -37,15 +50,6 @@ describe('PDPVerifier', () => {
 
   describe('dataSetLive', () => {
     it('should check if data set is live', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0xca759f27') === true) {
-          // dataSetLive selector
-          return ethers.zeroPadValue('0x01', 32) // Return true
-        }
-        return `0x${'0'.repeat(64)}`
-      }
-
       const isLive = await pdpVerifier.dataSetLive(123)
       assert.isTrue(isLive)
     })
@@ -53,14 +57,15 @@ describe('PDPVerifier', () => {
 
   describe('getNextPieceId', () => {
     it('should get next piece ID', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x1c5ae80f') === true) {
-          // getNextPieceId selector
-          return ethers.zeroPadValue('0x05', 32) // Return 5
-        }
-        return `0x${'0'.repeat(64)}`
-      }
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getNextPieceId: () => [5n],
+          },
+        })
+      )
 
       const nextPieceId = await pdpVerifier.getNextPieceId(123)
       assert.equal(nextPieceId, 5)
@@ -69,18 +74,8 @@ describe('PDPVerifier', () => {
 
   describe('getDataSetListener', () => {
     it('should get data set listener', async () => {
-      const listenerAddress = '0x1234567890123456789012345678901234567890'
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x2b3129bb') === true) {
-          // getDataSetListener selector
-          return ethers.zeroPadValue(listenerAddress, 32)
-        }
-        return `0x${'0'.repeat(64)}`
-      }
-
       const listener = await pdpVerifier.getDataSetListener(123)
-      assert.equal(listener.toLowerCase(), listenerAddress.toLowerCase())
+      assert.equal(listener.toLowerCase(), ADDRESSES.calibration.warmStorage.toLowerCase())
     })
   })
 
@@ -89,17 +84,15 @@ describe('PDPVerifier', () => {
       const storageProvider = '0x1234567890123456789012345678901234567890'
       const proposedStorageProvider = '0xabcdef1234567890123456789012345678901234'
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x21b7cd1c') === true) {
-          // getDataSetStorageProvider selector
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['address', 'address'],
-            [storageProvider, proposedStorageProvider]
-          )
-        }
-        return `0x${'0'.repeat(64)}`
-      }
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetStorageProvider: () => [storageProvider, proposedStorageProvider],
+          },
+        })
+      )
 
       const result = await pdpVerifier.getDataSetStorageProvider(123)
       assert.equal(result.storageProvider.toLowerCase(), storageProvider.toLowerCase())
@@ -109,14 +102,15 @@ describe('PDPVerifier', () => {
 
   describe('getDataSetLeafCount', () => {
     it('should get data set leaf count', async () => {
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0xa531998c') === true) {
-          // getDataSetLeafCount selector
-          return ethers.zeroPadValue('0x0a', 32) // Return 10
-        }
-        return `0x${'0'.repeat(64)}`
-      }
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getDataSetLeafCount: () => [10n],
+          },
+        })
+      )
 
       const leafCount = await pdpVerifier.getDataSetLeafCount(123)
       assert.equal(leafCount, 10)
@@ -183,17 +177,19 @@ describe('PDPVerifier', () => {
     it('should be callable with default options', async () => {
       assert.isFunction(pdpVerifier.getActivePieces)
 
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-        if (data?.startsWith('0x39f51544') === true) {
-          // getActivePieces selector
-          return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(bytes data)[]', 'uint256[]', 'bool'],
-            [[{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }], [1], false]
-          )
-        }
-        return `0x${'0'.repeat(64)}`
-      }
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => [
+              [{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }],
+              [1n],
+              false,
+            ],
+          },
+        })
+      )
 
       const result = await pdpVerifier.getActivePieces(123)
       assert.equal(result.pieces.length, 1)
