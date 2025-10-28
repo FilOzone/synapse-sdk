@@ -6,7 +6,7 @@ export interface PingMockOptions {
 }
 
 export function PING(options: PingMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  const baseUrl = options.baseUrl ?? 'https://pdp.example.com'
 
   return http.get<Record<string, any>, HttpResponse<any>>(`${baseUrl}/pdp/ping`, async () => {
     if (options.debug) {

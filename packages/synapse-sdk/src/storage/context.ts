@@ -40,7 +40,6 @@ import type {
   PieceStatus,
   PreflightInfo,
   ProviderSelectionResult,
-  StorageCreationCallbacks,
   StorageServiceOptions,
   UploadCallbacks,
   UploadOptions,
@@ -53,7 +52,6 @@ import {
   getCurrentEpoch,
   METADATA_KEYS,
   SIZE_CONSTANTS,
-  TIMING_CONSTANTS,
   timeUntilEpoch,
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
@@ -69,6 +67,7 @@ export class StorageContext {
   private readonly _withCDN: boolean
   private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
+  private _dataSetId: number | undefined
   private readonly _dataSetMetadata: Record<string, string>
 
   // AddPieces batching state
@@ -89,7 +88,6 @@ export class StorageContext {
   private readonly _uploadBatchWaitTimeout: number = 15000 // 15 seconds, half Filecoin's blocktime
 
   // Public properties from interface
-  public readonly dataSetId: number | undefined
   public readonly serviceProvider: string
 
   // Getter for withCDN
@@ -105,6 +103,11 @@ export class StorageContext {
   // Getter for data set metadata
   get dataSetMetadata(): Record<string, string> {
     return this._dataSetMetadata
+  }
+
+  // Getter for data set ID
+  get dataSetId(): number | undefined {
+    return this._dataSetId
   }
 
   /**
@@ -156,7 +159,7 @@ export class StorageContext {
     this._dataSetMetadata = dataSetMetadata
 
     // Set public properties
-    this.dataSetId = dataSetId
+    this._dataSetId = dataSetId
     this.serviceProvider = provider.serviceProvider
 
     // Get WarmStorage address from Synapse (which already handles override)
@@ -218,198 +221,6 @@ export class StorageContext {
       options,
       resolution.dataSetMetadata
     )
-  }
-
-  /**
-   * Create a new data set with the selected provider
-   */
-  private static async createDataSet(
-    synapse: Synapse,
-    warmStorageService: WarmStorageService,
-    provider: ProviderInfo,
-    withCDN: boolean,
-    callbacks?: StorageCreationCallbacks,
-    metadata?: Record<string, string>
-  ): Promise<number> {
-    performance.mark('synapse:createDataSet-start')
-
-    const signer = synapse.getSigner()
-    const clientAddress = await synapse.getClient().getAddress()
-
-    // Create a new data set
-
-    // Get next client dataset ID
-    const nextDatasetId = randU256()
-
-    // Create auth helper for signing
-    const warmStorageAddress = synapse.getWarmStorageAddress()
-    const authHelper = new PDPAuthHelper(warmStorageAddress, signer, BigInt(synapse.getChainId()))
-
-    // Create PDPServer instance for API calls
-    if (!provider.products.PDP?.data.serviceURL) {
-      throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
-    }
-    const pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
-
-    // Prepare metadata - merge withCDN flag into metadata if needed
-    const baseMetadataObj = metadata ?? {}
-    const metadataObj =
-      withCDN && !(METADATA_KEYS.WITH_CDN in baseMetadataObj)
-        ? { ...baseMetadataObj, [METADATA_KEYS.WITH_CDN]: '' }
-        : baseMetadataObj
-
-    // Convert to MetadataEntry[] for PDP operations (requires ordered array)
-    const finalMetadata = objectToEntries(metadataObj)
-
-    // Create the data set through the provider
-    performance.mark('synapse:pdpServer.createDataSet-start')
-    const createResult = await pdpServer.createDataSet(
-      nextDatasetId,
-      provider.payee,
-      clientAddress,
-      finalMetadata,
-      warmStorageAddress
-    )
-    performance.mark('synapse:pdpServer.createDataSet-end')
-    performance.measure(
-      'synapse:pdpServer.createDataSet',
-      'synapse:pdpServer.createDataSet-start',
-      'synapse:pdpServer.createDataSet-end'
-    )
-
-    // createDataSet returns CreateDataSetResponse with txHash and statusUrl
-    const { txHash, statusUrl } = createResult
-
-    // Fetch the transaction object from the chain with retry logic
-    const ethersProvider = synapse.getProvider()
-    let transaction: ethers.TransactionResponse | null = null
-
-    // Retry if the transaction is not found immediately
-    const txRetryStartTime = Date.now()
-    const txPropagationTimeout = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS
-    const txPropagationPollInterval = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS
-
-    performance.mark('synapse:getTransaction-start')
-    while (Date.now() - txRetryStartTime < txPropagationTimeout) {
-      try {
-        transaction = await ethersProvider.getTransaction(txHash)
-        if (transaction !== null) {
-          break // Transaction found, exit retry loop
-        }
-      } catch (error) {
-        // Log error but continue retrying
-        console.warn(`Failed to fetch transaction ${txHash}, retrying...`, error)
-      }
-
-      // Wait before retrying
-      await new Promise((resolve) => setTimeout(resolve, txPropagationPollInterval))
-    }
-    performance.mark('synapse:getTransaction-end')
-    performance.measure('synapse:getTransaction', 'synapse:getTransaction-start', 'synapse:getTransaction-end')
-
-    // If transaction still not found after retries, throw error
-    if (transaction === null) {
-      throw createError(
-        'StorageContext',
-        'create',
-        `Transaction ${txHash} not found after ${
-          txPropagationTimeout / 1000
-        } seconds. The transaction may not have propagated to the RPC node.`
-      )
-    }
-
-    // Fire callback
-    try {
-      callbacks?.onDataSetCreationStarted?.(transaction, statusUrl)
-    } catch (error) {
-      console.error('Error in onDataSetCreationStarted callback:', error)
-    }
-
-    // Wait for the data set creation to be confirmed on-chain with progress callbacks
-    let finalStatus: Awaited<ReturnType<typeof warmStorageService.getComprehensiveDataSetStatus>>
-
-    performance.mark('synapse:waitForDataSetCreationWithStatus-start')
-    try {
-      finalStatus = await warmStorageService.waitForDataSetCreationWithStatus(
-        transaction,
-        pdpServer,
-        TIMING_CONSTANTS.DATA_SET_CREATION_TIMEOUT_MS,
-        TIMING_CONSTANTS.DATA_SET_CREATION_POLL_INTERVAL_MS,
-        async (status, elapsedMs) => {
-          // Fire progress callback
-          if (callbacks?.onDataSetCreationProgress != null) {
-            try {
-              // Get receipt if transaction is mined
-              let receipt: ethers.TransactionReceipt | undefined
-              if (status.chainStatus.transactionMined && status.chainStatus.blockNumber != null) {
-                try {
-                  // Use transaction.wait() which is more efficient than getTransactionReceipt
-                  const txReceipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
-                  receipt = txReceipt ?? undefined
-                } catch (error) {
-                  console.error('Failed to fetch transaction receipt:', error)
-                }
-              }
-
-              callbacks.onDataSetCreationProgress({
-                transactionMined: status.chainStatus.transactionMined,
-                transactionSuccess: status.chainStatus.transactionSuccess,
-                dataSetLive: status.chainStatus.dataSetLive,
-                serverConfirmed: status.serverStatus?.ok === true,
-                dataSetId: status.summary.dataSetId ?? undefined,
-                elapsedMs,
-                receipt,
-              })
-            } catch (error) {
-              console.error('Error in onDataSetCreationProgress callback:', error)
-            }
-          }
-        }
-      )
-    } catch (error) {
-      performance.mark('synapse:waitForDataSetCreationWithStatus-end')
-      performance.measure(
-        'synapse:waitForDataSetCreationWithStatus',
-        'synapse:waitForDataSetCreationWithStatus-start',
-        'synapse:waitForDataSetCreationWithStatus-end'
-      )
-      throw createError(
-        'StorageContext',
-        'waitForDataSetCreation',
-        error instanceof Error ? error.message : 'Data set creation failed'
-      )
-    }
-    performance.mark('synapse:waitForDataSetCreationWithStatus-end')
-    performance.measure(
-      'synapse:waitForDataSetCreationWithStatus',
-      'synapse:waitForDataSetCreationWithStatus-start',
-      'synapse:waitForDataSetCreationWithStatus-end'
-    )
-
-    if (!finalStatus.summary.isComplete || finalStatus.summary.dataSetId == null) {
-      throw createError(
-        'StorageContext',
-        'waitForDataSetCreation',
-        `Data set creation failed: ${finalStatus.summary.error ?? 'Transaction may have failed'}`
-      )
-    }
-
-    const dataSetId = finalStatus.summary.dataSetId
-
-    // Fire resolved callback
-    try {
-      callbacks?.onDataSetResolved?.({
-        isExisting: false,
-        dataSetId,
-        provider,
-      })
-    } catch (error) {
-      console.error('Error in onDataSetResolved callback:', error)
-    }
-
-    performance.mark('synapse:createDataSet-end')
-    performance.measure('synapse:createDataSet', 'synapse:createDataSet-start', 'synapse:createDataSet-end')
-    return dataSetId
   }
 
   /**
@@ -1119,6 +930,7 @@ export class StorageContext {
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
         const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
+        this._dataSetId = confirmedDataset.dataSetId
 
         const confirmedPieces = await SP.pollForAddPiecesStatus({
           statusUrl: new URL(
