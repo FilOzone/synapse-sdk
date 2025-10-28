@@ -22,6 +22,7 @@
  * ```
  */
 
+import { capabilitiesListToObject } from '@filoz/synapse-core/warm-storage'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
@@ -409,10 +410,7 @@ export class SPRegistryService {
         return null
       }
 
-      const capabilities = this._convertCapabilitiesToObject(
-        result.product.capabilityKeys,
-        result.productCapabilityValues
-      )
+      const capabilities = capabilitiesListToObject(result.product.capabilityKeys, result.productCapabilityValues)
 
       return {
         offering: this._convertCapabilitiesToPDPOffering(capabilities),
@@ -519,7 +517,7 @@ export class SPRegistryService {
           results[i].returnData
         )[0]
 
-        const capabilities = this._convertCapabilitiesToObject(product.capabilityKeys, productCapabilityValues)
+        const capabilities = capabilitiesListToObject(product.capabilityKeys, productCapabilityValues)
         // Convert to ProviderInfo
         const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider, [
           {
@@ -666,19 +664,5 @@ export class SPRegistryService {
       location: hexToString(capabilities.location),
       paymentTokenAddress: capabilities.paymentTokenAddress,
     }
-  }
-
-  /**
-   * Convert capability arrays to object map
-   * @param keys - Array of capability keys
-   * @param values - Array of capability values
-   * @returns Object map of capabilities
-   */
-  private _convertCapabilitiesToObject(keys: string[], values: Hex[]): Record<string, Hex> {
-    const capabilities: Record<string, Hex> = {}
-    for (let i = 0; i < keys.length; i++) {
-      capabilities[keys[i]] = values[i]
-    }
-    return capabilities
   }
 }

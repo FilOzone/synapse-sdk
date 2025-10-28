@@ -37,6 +37,20 @@ export interface PDPProvider extends ServiceProviderInfo {
 }
 
 /**
+ * Convert capability arrays to object map
+ * @param keys - Array of capability keys
+ * @param values - Array of capability values
+ * @returns Object map of capabilities
+ */
+export function capabilitiesListToObject(keys: string[], values: Hex[]): Record<string, Hex> {
+  const capabilities: Record<string, Hex> = {}
+  for (let i = 0; i < keys.length; i++) {
+    capabilities[keys[i]] = values[i]
+  }
+  return capabilities
+}
+
+/**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
