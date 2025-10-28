@@ -4406,11 +4406,28 @@ describe('StorageService', () => {
   describe('getPieces', () => {
     let provider: ethers.Provider
     let signer: ethers.Signer
+    let mockWarmStorage: any
+    let testSynapse: any
 
     beforeEach(() => {
       provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
       signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+
+      mockWarmStorage = {
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
+      }
+
+      testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      }
     })
+
+    const createContext = () => {
+      return new StorageContext(testSynapse, mockWarmStorage, TEST_PROVIDERS.provider1, 123, { withCDN: false }, {})
+    }
 
     it('should be available on StorageContext', () => {
       // Basic test to ensure the method exists
@@ -4418,8 +4435,6 @@ describe('StorageService', () => {
     })
 
     it('should get all active pieces with pagination', async () => {
-      const dataSetId = 123
-
       // Use actual valid PieceCIDs from test data
       const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
       const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
@@ -4452,25 +4467,7 @@ describe('StorageService', () => {
         })
       )
 
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => provider,
-        getSigner: () => signer,
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
+      const context = createContext()
 
       // Test getPieces - should collect all pages
       const allPieces = []
@@ -4490,8 +4487,6 @@ describe('StorageService', () => {
     })
 
     it('should handle empty results', async () => {
-      const dataSetId = 123
-
       // Mock getActivePieces to return no pieces
       server.use(
         JSONRPC({
@@ -4503,25 +4498,7 @@ describe('StorageService', () => {
         })
       )
 
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => provider,
-        getSigner: () => signer,
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
+      const context = createContext()
 
       const allPieces = []
       for await (const piece of context.getPieces()) {
@@ -4531,30 +4508,11 @@ describe('StorageService', () => {
     })
 
     it('should handle AbortSignal in getPieces', async () => {
-      const dataSetId = 123
       const controller = new AbortController()
 
       server.use(JSONRPC(presets.basic))
 
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => provider,
-        getSigner: () => signer,
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
+      const context = createContext()
 
       // Abort before making the call
       controller.abort()
@@ -4570,8 +4528,6 @@ describe('StorageService', () => {
     })
 
     it('should work with getPieces generator', async () => {
-      const dataSetId = 123
-
       // Use actual valid PieceCIDs from test data
       const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
       const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
@@ -4599,25 +4555,7 @@ describe('StorageService', () => {
         })
       )
 
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => provider,
-        getSigner: () => signer,
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
+      const context = createContext()
 
       // Test the async generator
       const pieces = []
@@ -4633,7 +4571,6 @@ describe('StorageService', () => {
     })
 
     it('should handle AbortSignal in getPieces generator during iteration', async () => {
-      const dataSetId = 123
       const controller = new AbortController()
 
       const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
@@ -4658,25 +4595,7 @@ describe('StorageService', () => {
         })
       )
 
-      const mockWarmStorage = {
-        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
-      } as any
-
-      const testSynapse = {
-        getProvider: () => provider,
-        getSigner: () => signer,
-        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
-        getChainId: () => BigInt(314159),
-      } as any
-
-      const context = new StorageContext(
-        testSynapse,
-        mockWarmStorage,
-        TEST_PROVIDERS.provider1,
-        dataSetId,
-        { withCDN: false },
-        {}
-      )
+      const context = createContext()
 
       try {
         const pieces = []
