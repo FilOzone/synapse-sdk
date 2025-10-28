@@ -46,7 +46,7 @@ export const config = createConfig({
   transports: {
     [mainnet.id]: http(),
     [calibration.id]: http(undefined, {
-      batch: true,
+      batch: false,
     }),
   },
   batch: {

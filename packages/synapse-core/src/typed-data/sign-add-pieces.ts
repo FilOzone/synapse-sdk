@@ -6,7 +6,7 @@ import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-defini
 
 export type SignAddPiecesOptions = {
   clientDataSetId: bigint
-  nextPieceId: bigint
+  nonce: bigint
   pieces: { pieceCid: PieceCID; metadata: MetadataEntry[] }[]
 }
 
@@ -25,7 +25,7 @@ export async function signAddPieces(client: Client<Transport, Chain, Account>, o
     primaryType: 'AddPieces',
     message: {
       clientDataSetId: options.clientDataSetId,
-      firstAdded: options.nextPieceId,
+      nonce: options.nonce,
       pieceData: options.pieces.map((piece) => {
         return {
           data: toHex(piece.pieceCid.bytes),
@@ -44,8 +44,8 @@ export async function signAddPieces(client: Client<Transport, Chain, Account>, o
   const values = metadataKV.map((item) => item.map((item) => item.value))
 
   const extraData = encodeAbiParameters(
-    [{ type: 'bytes' }, { type: 'string[][]' }, { type: 'string[][]' }],
-    [signature, keys, values]
+    [{ type: 'uint256' }, { type: 'string[][]' }, { type: 'string[][]' }, { type: 'bytes' }],
+    [options.nonce, keys, values, signature]
   )
   return extraData
 }

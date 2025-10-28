@@ -2,13 +2,14 @@ import { defineConfig } from '@wagmi/cli'
 import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
-const GIT_REF = 'tags/alpha/calibnet/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348-v2'
-const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/refs/${GIT_REF}/service_contracts/abi`
+// GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
+const GIT_REF = 'e664ae8801d3f40131da9ef60a927141084afd0a'
+const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
 
 const config = defineConfig(() => {
   const contracts = [
     {
-      name: 'Payments',
+      name: 'FilecoinPayV1',
       address: {
         314: '0x0000000000000000000000000000000000000000' as Address,
         314159: '0x0000000000000000000000000000000000000000' as Address,

@@ -148,7 +148,7 @@ export class PDPVerifier {
         data: piece.data,
         pieceId: Number(result[1][index]),
       })),
-      hasMore: Boolean(result[3]),
+      hasMore: Boolean(result[2]),
     }
   }
 

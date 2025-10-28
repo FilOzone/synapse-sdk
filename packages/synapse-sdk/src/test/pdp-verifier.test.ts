@@ -188,13 +188,8 @@ describe('PDPVerifier', () => {
         if (data?.startsWith('0x39f51544') === true) {
           // getActivePieces selector
           return ethers.AbiCoder.defaultAbiCoder().encode(
-            ['tuple(bytes data)[]', 'uint256[]', 'uint256[]', 'bool'],
-            [
-              [{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }],
-              [1, 2, 3],
-              [4, 5, 6],
-              false,
-            ]
+            ['tuple(bytes data)[]', 'uint256[]', 'bool'],
+            [[{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }], [1], false]
           )
         }
         return `0x${'0'.repeat(64)}`

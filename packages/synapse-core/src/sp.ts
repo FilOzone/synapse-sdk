@@ -1,23 +1,24 @@
 /**
- * Synapse Core - Curio HTTP Operations
+ * Synapse Core - Service Provider HTTP Operations
  *
  * @example
  * ```ts
- * import * as Curio from '@filoz/synapse-core/curio'
+ * import * as SP from '@filoz/synapse-core/sp'
  * ```
  *
  * @packageDocumentation
  */
 
-import { HttpError, request } from 'iso-web/http'
-import type { Simplify as Curio } from 'type-fest'
-import type { Address, Hex } from 'viem'
+import { HttpError, request, TimeoutError } from 'iso-web/http'
+import type { Simplify } from 'type-fest'
+import { type Address, type Hex, isHex } from 'viem'
 import {
   AddPiecesError,
   CreateDataSetError,
+  DeletePieceError,
   FindPieceError,
   GetDataSetError,
-  InvalidPDPLocationHeaderError,
+  LocationHeaderError,
   PollDataSetCreationStatusError,
   PollForAddPiecesStatusError,
   PostPieceError,
@@ -27,10 +28,15 @@ import type { PieceCID } from './piece.ts'
 import * as Piece from './piece.ts'
 import { createPieceUrl } from './utils/piece-url.ts'
 
-const TIMEOUT = 180000
-const RETRIES = Infinity
-const FACTOR = 1
-const MIN_TIMEOUT = 4000 // interval between retries in milliseconds
+let TIMEOUT = 1000 * 60 * 5 // 5 minutes
+export const RETRIES = Infinity
+export const FACTOR = 1
+export const MIN_TIMEOUT = 4000 // interval between retries in milliseconds
+
+// Just for testing purposes
+export function setTimeout(timeout: number) {
+  TIMEOUT = timeout
+}
 
 /**
  * The options for the create data set on PDP API.
@@ -76,14 +82,14 @@ export async function createDataSet(options: PDPCreateDataSetOptions) {
     throw response.error
   }
 
-  const location = response.result.headers.get('Location') ?? ''
-  const hash = location.split('/').pop()
-  if (!hash) {
-    throw new InvalidPDPLocationHeaderError(location)
+  const location = response.result.headers.get('Location')
+  const hash = location?.split('/').pop()
+  if (!location || !hash || !isHex(hash)) {
+    throw new LocationHeaderError(location)
   }
 
   return {
-    hash: hash as `0x${string}`,
+    txHash: hash,
     statusUrl: new URL(location, options.endpoint).toString(),
   }
 }
@@ -156,12 +162,14 @@ export type GetDataSetOptions = {
 export type GetDataSetResponse = {
   id: number
   nextChallengeEpoch: number
-  pieces: CurioPiece[]
+  pieces: SPPiece[]
 }
 
-export type CurioPiece = {
+export type SPPiece = {
   pieceCid: string
   pieceId: number
+  subPieceCid: string
+  subPieceOffset: number
 }
 
 /**
@@ -184,6 +192,7 @@ export async function getDataSet(options: GetDataSetOptions) {
     }
     throw response.error
   }
+
   return response.result
 }
 
@@ -195,8 +204,8 @@ export type GetPiecesForDataSetOptions = {
   cdn: boolean
 }
 
-export type CurioPieceWithUrl = Curio<
-  CurioPiece & {
+export type SPPieceWithUrl = Simplify<
+  SPPiece & {
     pieceUrl: string
   }
 >
@@ -212,12 +221,14 @@ export type CurioPieceWithUrl = Curio<
  * @param options.address - The address of the user.
  * @param options.cdn - Whether the CDN is enabled.
  */
-export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions) {
+export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): Promise<SPPieceWithUrl[]> {
   const dataSet = await getDataSet(options)
   const pieces = dataSet.pieces.map((piece) => ({
     pieceCid: piece.pieceCid,
     pieceId: piece.pieceId,
     pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chainId, options.endpoint),
+    subPieceCid: piece.subPieceCid,
+    subPieceOffset: piece.subPieceOffset,
   }))
 
   return pieces
@@ -254,7 +265,6 @@ export async function uploadPiece(options: UploadPieceOptions) {
     headers: {
       'Content-Type': 'application/json',
     },
-    timeout: TIMEOUT,
   })
 
   if (response.error) {
@@ -272,10 +282,10 @@ export async function uploadPiece(options: UploadPieceOptions) {
   }
 
   // Extract upload ID from Location header
-  const location = response.result.headers.get('Location') ?? ''
-  const uploadUuid = location.split('/').pop()
-  if (uploadUuid == null) {
-    throw new InvalidPDPLocationHeaderError(location)
+  const location = response.result.headers.get('Location')
+  const uploadUuid = location?.split('/').pop()
+  if (!location || !uploadUuid) {
+    throw new LocationHeaderError(location)
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/upload/${uploadUuid}`, options.endpoint), {
@@ -284,6 +294,7 @@ export async function uploadPiece(options: UploadPieceOptions) {
       'Content-Type': 'application/octet-stream',
       'Content-Length': options.data.length.toString(),
     },
+    timeout: false,
   })
 
   if (uploadResponse.error) {
@@ -319,12 +330,8 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
 
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
-    onResponse(response) {
-      if (!response.ok) {
-        throw new Error(`Piece not found: ${pieceCid.toString()}`)
-      }
-    },
     retry: {
+      statusCodes: [404],
       retries: RETRIES,
       factor: FACTOR,
     },
@@ -332,8 +339,11 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
   })
 
   if (response.error) {
-    if (response.error instanceof HttpError) {
+    if (HttpError.is(response.error)) {
       throw new FindPieceError(await response.error.response.text())
+    }
+    if (TimeoutError.is(response.error)) {
+      throw new FindPieceError('Timeout waiting for piece to be found')
     }
     throw response.error
   }
@@ -344,8 +354,6 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
 export type AddPiecesOptions = {
   endpoint: string
   dataSetId: bigint
-  clientDataSetId: bigint
-  nextPieceId: bigint
   pieces: PieceCID[]
   extraData: Hex
 }
@@ -358,7 +366,6 @@ export type AddPiecesOptions = {
  * @param options - The options for the add pieces.
  * @param options.endpoint - The endpoint of the PDP API.
  * @param options.dataSetId - The ID of the data set.
- * @param options.clientDataSetId - The ID of the client data set.
  * @param options.nextPieceId - The next piece ID.
  * @param options.pieces - The pieces to add.
  * @param options.extraData - The extra data for the add pieces.
@@ -386,10 +393,10 @@ export async function addPieces(options: AddPiecesOptions) {
     }
     throw response.error
   }
-  const location = response.result.headers.get('Location') ?? ''
-  const txHash = location.split('/').pop()
-  if (!txHash) {
-    throw new InvalidPDPLocationHeaderError(location)
+  const location = response.result.headers.get('Location')
+  const txHash = location?.split('/').pop()
+  if (!location || !txHash || !isHex(txHash)) {
+    throw new LocationHeaderError(location)
   }
 
   return {
@@ -468,4 +475,39 @@ export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOpti
     throw response.error
   }
   return response.result as AddPiecesSuccess
+}
+
+export type DeletePieceOptions = {
+  endpoint: string
+  dataSetId: bigint
+  pieceId: bigint
+  extraData: Hex
+}
+
+export type DeletePieceResponse = {
+  txHash: Hex
+}
+
+/**
+ * Delete a piece from a data set on the PDP API.
+ *
+ * DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}
+ */
+export async function deletePiece(options: DeletePieceOptions) {
+  const { endpoint, dataSetId, pieceId, extraData } = options
+  const response = await request.json.delete<DeletePieceResponse>(
+    new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
+    {
+      body: { extraData },
+    }
+  )
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new DeletePieceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  return response.result
 }
