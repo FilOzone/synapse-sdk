@@ -96,12 +96,28 @@ describe('Telemetry', () => {
   })
 
   describe('Mainnet Behavior', () => {
+    beforeEach(() => {
+      // Mock mainnet RPC with basic preset but mainnet chainId
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x13a', // 314 (mainnet)
+        })
+      )
+    })
+
     it('should not enable telemetry by default on mainnet', async () => {
-      // Create provider for mainnet
-      const mainnetProvider = new ethers.JsonRpcProvider('https://api.node.glif.io/rpc/v1')
+      // Use the calibration URL but the mock will return mainnet chainId
+      const mainnetProvider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
       const mainnetSigner = new ethers.Wallet(PRIVATE_KEYS.key1, mainnetProvider)
 
+      const NODE_ENV = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
+
       synapse = await Synapse.create({ signer: mainnetSigner })
+      assert.equal(synapse.getNetwork(), 'mainnet')
+
+      process.env.NODE_ENV = NODE_ENV
 
       // Verify that telemetry is not enabled by default on mainnet
       assert.isNull(synapse.telemetry)
@@ -111,14 +127,19 @@ describe('Telemetry', () => {
     })
 
     it('should allow explicit telemetry enablement on mainnet', async () => {
-      // Create provider for mainnet
-      const mainnetProvider = new ethers.JsonRpcProvider('https://api.node.glif.io/rpc/v1')
+      // Use the calibration URL but the mock will return mainnet chainId
+      const mainnetProvider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
       const mainnetSigner = new ethers.Wallet(PRIVATE_KEYS.key1, mainnetProvider)
+      const NODE_ENV = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
 
       synapse = await Synapse.create({
         signer: mainnetSigner,
         telemetry: { sentryInitOptions: { enabled: true } },
       })
+      assert.equal(synapse.getNetwork(), 'mainnet')
+
+      process.env.NODE_ENV = NODE_ENV
 
       // wait for sentry to initialize
       await new Promise((resolve) => {
