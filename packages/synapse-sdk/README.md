@@ -79,7 +79,7 @@ We are not capturing:
 ### Why is telemetry collecting happening a library like Synapse
 Collecting telemetry through Synapse with [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328) is done as short a term dev-resource efficient decision.  In this season of focusing on stability, the goal is to capture request failures and other client-side errors as broadly and quickly as possible so we have an enumeration of the problems and their impact.  By setting up telemetry at the Synapse layer, we can broadly get telemetry from some of the first consumers by default without requiring extra on them (e.g., filecoin-pin,filecoin-pin-website, synapse demo websites).  This is a short term measure.
 
-### How long will Synapse collect teleemetry
+### How long will Synapse collect telemetry
 This broad telemetry at the library/SDK layer will be removed by GA (by end of November 2025).  At that point, we'll do one or more of the following:
 1. Reduce telemetry collecting to only be for calls originating from Synapse (not all HTTP calls),
 2. Switch the default to opt-in vs. opt-out like it is currently.  (Note that currently we only enable telemetry by default for the calibration network.  We don't enable it by default for mainnet.)

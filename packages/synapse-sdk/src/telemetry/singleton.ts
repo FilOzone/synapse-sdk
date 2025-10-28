@@ -42,7 +42,7 @@ export function getGlobalTelemetry(): TelemetryService | null {
  * @param telemetryConfig
  */
 export function initGlobalTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): void {
-  if (!shouldEnableTelemetry(telemetryConfig)) {
+  if (!shouldEnableTelemetry(telemetryConfig, telemetryContext)) {
     return
   }
 
@@ -68,18 +68,20 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
 
 /**
  * Determine if telemetry should be enabled based on configuration and environment settings.
+ * Disablement takes precedence over enablement.
  * The ways to disable include setting any of the following:
  * - synapseConfig.telemetry.sentryInitOptions.enabled = false
  * - global.SYNAPSE_TELEMETRY_DISABLED = true
  * - process.env.SYNAPSE_TELEMETRY_DISABLED = true
  * We also disable if process.env.NODE_ENV == 'test', unless enablement was explicitly requested in config.
- *
- * @param config - User-provided telemetry configuration
+ * We only enable by default if not otherwise disabled above AND we're on the calibration network.
+ * @param telemetryConfig - User-provided telemetry configuration
+ * @param telemetryContext - Runtime context for telemetry, including network info.
  * @returns True if telemetry should be enabled
  */
-function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
+function shouldEnableTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): boolean {
   // If explicitly disabled by user config, respect that
-  if (config?.sentryInitOptions?.enabled === false) {
+  if (telemetryConfig?.sentryInitOptions?.enabled === false) {
     return false
   }
 
@@ -89,15 +91,21 @@ function shouldEnableTelemetry(config?: TelemetryConfig): boolean {
   }
 
   // If in test environment, disable telemetry unless explicitly enabled by user config
-  if (config?.sentryInitOptions?.enabled === undefined) {
+  if (telemetryConfig?.sentryInitOptions?.enabled === undefined) {
     // we use playwright-test, which sets globalThis.PW_TEST in browser, and NODE_ENV in node
     if (globalThis.process?.env?.NODE_ENV === 'test' || (globalThis as any).PW_TEST != null) {
       return false
     }
   }
 
-  // Default to isEnabled (unless explicitly disabled above)
-  return true
+  // If explicitly enabled by user config, respect that
+  if (telemetryConfig?.sentryInitOptions?.enabled === true) {
+    return true
+  }
+
+  // At this point we haven't been given a clear signal to enable or disable.
+  // In this case, we enable telemetry if we're on the calibration network.
+  return telemetryContext.filecoinNetwork === 'calibration'
 }
 
 /**
