@@ -6,6 +6,7 @@
  */
 
 import type { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
 
@@ -397,7 +398,7 @@ export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece and submitted the transaction to the chain */
-  onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
+  onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition is confirmed on-chain */
   onPieceConfirmed?: (pieceIds: number[]) => void
 }
