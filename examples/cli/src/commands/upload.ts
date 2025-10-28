@@ -41,32 +41,27 @@ export const upload: Command = command(
       return
     }
 
-    const spinner = p.spinner()
-
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
     const fileData = await readFile(absolutePath)
 
-    spinner.start(`Uploading file ${absolutePath}...`)
     try {
       const synapse = await Synapse.create({
         privateKey: privateKey as Hex,
         rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
       })
 
+      p.log.step('Creating context...')
       const context = await synapse.storage.createContext({
         forceCreateDataSet: argv.flags.forceCreateDataSet,
         withCDN: argv.flags.withCDN,
         dataSetId: argv.flags.dataSetId,
         callbacks: {
-          onDataSetCreationStarted(transaction) {
-            spinner.message(`Creating data set, tx: ${transaction.hash}`)
-          },
           onProviderSelected(provider) {
-            spinner.message(`Selected provider: ${provider.serviceProvider}`)
+            p.log.info(`Selected provider: ${provider.serviceProvider}`)
           },
           onDataSetResolved(info) {
-            spinner.message(`Using existing data set: ${info.dataSetId}`)
+            p.log.info(`Using existing data set: ${info.dataSetId}`)
           },
         },
       })
@@ -76,19 +71,18 @@ export const upload: Command = command(
           name: path.basename(absolutePath),
         },
         onPieceAdded(transaction) {
-          spinner.message(`Piece added, tx: ${transaction}`)
+          p.log.info(`Piece added, tx: ${transaction}`)
         },
         onPieceConfirmed(pieceIds) {
-          spinner.message(`Piece confirmed: ${pieceIds.join(', ')}`)
+          p.log.info(`Piece confirmed: ${pieceIds.join(', ')}`)
         },
         onUploadComplete(pieceCid) {
-          spinner.message(`Upload complete! PieceCID: ${pieceCid}`)
+          p.log.info(`Upload complete! PieceCID: ${pieceCid}`)
         },
       })
 
-      spinner.stop(`File uploaded ${upload.pieceId}`)
+      p.log.success(`File uploaded ${upload.pieceId}`)
     } catch (error) {
-      spinner.stop()
       p.log.error((error as Error).message)
       p.outro('Please try again')
       return

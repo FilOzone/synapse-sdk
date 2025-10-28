@@ -61,18 +61,17 @@ export const uploadDataset: Command = command(
       }
       const upload = await SP.uploadPiece({
         data: fileData,
-        endpoint: provider.product.productData.serviceURL,
+        endpoint: provider.pdp.serviceURL,
       })
 
       await SP.findPiece({
         pieceCid: upload.pieceCid,
-        endpoint: provider.product.productData.serviceURL,
+        endpoint: provider.pdp.serviceURL,
       })
 
       const rsp = await createDataSetAndAddPieces(client, {
         provider,
         cdn: argv.flags.withCDN,
-        metadata: { name: path.basename(absolutePath) },
         pieces: [{ pieceCid: upload.pieceCid, metadata: { name: path.basename(absolutePath) } }],
       })
 
