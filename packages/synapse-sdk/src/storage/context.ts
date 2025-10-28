@@ -1362,7 +1362,7 @@ export class StorageContext {
    */
   async getDataSetPieces(): Promise<PieceCID[]> {
     const pieces: PieceCID[] = []
-    for await (const [pieceCid] of this.getPieces()) {
+    for await (const { pieceCid } of this.getPieces()) {
       pieces.push(pieceCid)
     }
     return pieces
@@ -1375,9 +1375,12 @@ export class StorageContext {
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @param options.signal - Optional AbortSignal to cancel the operation
-   * @yields Tuple of [PieceCID, pieceId] - the piece ID is needed for certain operations like deletion
+   * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
-  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<[PieceCID, number]> {
+  async *getPieces(options?: {
+    batchSize?: number
+    signal?: AbortSignal
+  }): AsyncGenerator<{ pieceCid: PieceCID; pieceId: number }> {
     const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
     const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
 
@@ -1404,6 +1407,7 @@ export class StorageContext {
         // The data comes as a hex string from ethers, we need to decode it as bytes then as a CID
         const pieceDataHex = result.pieces[i].data
         const pieceDataBytes = ethers.getBytes(pieceDataHex)
+        const pieceId = result.pieces[i].pieceId
 
         const cid = CID.decode(pieceDataBytes)
         const pieceCid = asPieceCID(cid)
@@ -1411,11 +1415,11 @@ export class StorageContext {
           throw createError(
             'StorageContext',
             'getPieces',
-            `Invalid PieceCID returned from contract for piece ${result.pieceIds[i]}`
+            `Invalid PieceCID returned from contract for piece ${pieceId}`
           )
         }
 
-        yield [pieceCid, result.pieceIds[i]]
+        yield { pieceCid, pieceId }
       }
 
       hasMore = result.hasMore

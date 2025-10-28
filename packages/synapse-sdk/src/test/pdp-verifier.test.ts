@@ -202,7 +202,7 @@ describe('PDPVerifier', () => {
 
       const result = await pdpVerifier.getActivePieces(123)
       assert.equal(result.pieces.length, 1)
-      assert.equal(result.pieceIds.length, 3)
+      assert.equal(result.pieces[0].pieceId, 1)
       assert.equal(result.hasMore, false)
       assert.equal(result.pieces[0].data, '0x1234567890123456789012345678901234567890123456789012345678901234')
     })

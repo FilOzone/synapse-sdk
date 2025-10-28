@@ -130,8 +130,7 @@ export class PDPVerifier {
       signal?: AbortSignal
     }
   ): Promise<{
-    pieces: Array<{ data: string }>
-    pieceIds: number[]
+    pieces: Array<{ data: string; pieceId: number }>
     // NOTE: the contract returns rawSizes here, but we do not return it from here.
     hasMore: boolean
   }> {
@@ -145,9 +144,11 @@ export class PDPVerifier {
 
     const result = await this._contract.getActivePieces(dataSetId, offset, limit)
     return {
-      pieces: result[0].map((piece: any) => ({ data: piece.data })),
-      pieceIds: result[1].map((id: bigint) => Number(id)),
-      hasMore: result[3],
+      pieces: result[0].map((piece: { data: string }, index: number) => ({
+        data: piece.data,
+        pieceId: Number(result[1][index]),
+      })),
+      hasMore: Boolean(result[3]),
     }
   }
 

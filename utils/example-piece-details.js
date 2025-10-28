@@ -94,7 +94,7 @@ async function main() {
 
       // Collect all pieces using the generator
       const pieces = []
-      for await (const [pieceCid, pieceId] of context.getPieces()) {
+      for await (const { pieceCid, pieceId } of context.getPieces()) {
         const rawSize = getSizeFromPieceCID(pieceCid)
         pieces.push({ pieceCid, pieceId, rawSize })
       }

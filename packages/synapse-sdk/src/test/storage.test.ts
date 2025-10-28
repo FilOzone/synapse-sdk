@@ -4490,14 +4490,14 @@ describe('StorageService', () => {
       }
 
       assert.equal(allPieces.length, 3, 'Should return all 3 pieces across pages')
-      assert.equal(allPieces[0][1], 1) // pieceId
-      assert.equal(allPieces[0][0].toString(), piece1Cid.toString()) // pieceCid
+      assert.equal(allPieces[0].pieceId, 1)
+      assert.equal(allPieces[0].pieceCid.toString(), piece1Cid.toString())
 
-      assert.equal(allPieces[1][1], 2)
-      assert.equal(allPieces[1][0].toString(), piece2Cid.toString())
+      assert.equal(allPieces[1].pieceId, 2)
+      assert.equal(allPieces[1].pieceCid.toString(), piece2Cid.toString())
 
-      assert.equal(allPieces[2][1], 3)
-      assert.equal(allPieces[2][0].toString(), piece3Cid.toString())
+      assert.equal(allPieces[2].pieceId, 3)
+      assert.equal(allPieces[2].pieceCid.toString(), piece3Cid.toString())
     })
 
     it('should handle empty results', async () => {
@@ -4663,10 +4663,10 @@ describe('StorageService', () => {
       }
 
       assert.equal(pieces.length, 2, 'Should yield 2 pieces')
-      assert.equal(pieces[0][1], 1) // pieceId
-      assert.equal(pieces[0][0].toString(), piece1Cid.toString()) // pieceCid
-      assert.equal(pieces[1][1], 2)
-      assert.equal(pieces[1][0].toString(), piece2Cid.toString())
+      assert.equal(pieces[0].pieceId, 1)
+      assert.equal(pieces[0].pieceCid.toString(), piece1Cid.toString())
+      assert.equal(pieces[1].pieceId, 2)
+      assert.equal(pieces[1].pieceCid.toString(), piece2Cid.toString())
     })
 
     it('should handle AbortSignal in getPieces generator during iteration', async () => {
