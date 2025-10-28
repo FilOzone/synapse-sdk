@@ -60,7 +60,9 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
     return
   }
   if (flush) {
-    void telemetryInstance?.sentry?.flush()
+    void telemetryInstance?.sentry?.flush().catch(() => {
+      // Silently ignore telemetry flush errors
+    })
   }
   unwrapFetch()
   telemetryInstance = null
@@ -146,8 +148,10 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
      * "pageShow" event handlers and re-instantiation logic.
      */
     const flush = () => {
-      // Don’t block; Sentry will use sendBeacon/fetch keepalive under the hood.
-      void telemetryInstance?.sentry?.flush(timeout)
+      // Don't block; Sentry will use sendBeacon/fetch keepalive under the hood.
+      void telemetryInstance?.sentry?.flush(timeout).catch(() => {
+        // Silently ignore telemetry flush errors
+      })
     }
 
     // Most reliable on modern browsers & iOS Safari:
@@ -177,6 +181,8 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
       void telemetryInstance?.sentry?.close(timeout).finally(() => {
         shuttingDown = false
         removeGlobalTelemetry(false) // Remove the global telemetry instance to prevent further telemetry
+      }).catch(() => {
+        // silently ignore error
       })
     }
 

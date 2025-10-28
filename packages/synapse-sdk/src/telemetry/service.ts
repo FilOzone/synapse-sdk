@@ -65,7 +65,9 @@ export class TelemetryService {
    */
   constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
     // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
-    void this.initSentry(config, context)
+    void this.initSentry(config, context).catch(() => {
+      // Silently ignore telemetry initialization errors
+    })
   }
 
   /**
