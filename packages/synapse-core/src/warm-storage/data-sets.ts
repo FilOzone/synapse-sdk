@@ -15,7 +15,12 @@ import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
-import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+import {
+  datasetMetadataObjectToEntry,
+  type MetadataObject,
+  metadataArrayToObject,
+  pieceMetadataObjectToEntry,
+} from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
 import { decodeCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
@@ -260,7 +265,7 @@ export async function createDataSetAndAddPieces(
   options: CreateDataSetAndAddPiecesOptions
 ) {
   const chain = getChain(client.chain.id)
-  const endpoint = options.provider.product.productData.serviceURL
+  const endpoint = options.provider.pdp.serviceURL
   const clientDataSetId = randU256()
   // Sign and encode the create data set message
   const dataSetExtraData = await signCreateDataSet(client, {

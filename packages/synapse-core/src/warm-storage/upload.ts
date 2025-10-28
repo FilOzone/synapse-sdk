@@ -1,5 +1,5 @@
 import type { Account, Chain, Client, Transport } from 'viem'
-import * as PDP from '../sp.ts'
+import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'

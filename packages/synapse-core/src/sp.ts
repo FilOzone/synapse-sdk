@@ -167,7 +167,7 @@ export type PDPCreateDataSetAndAddPiecesOptions = {
 /**
  * Create a data set and add pieces to it on PDP API
  *
- * POST /pdp/data-sets
+ * POST /pdp/data-sets/create-and-add
  *
  * @param options - The options for the create data set and add pieces to it on PDP API.
  * @param options.endpoint - The endpoint of the PDP API.
