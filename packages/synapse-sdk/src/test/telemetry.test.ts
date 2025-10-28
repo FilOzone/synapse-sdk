@@ -94,4 +94,43 @@ describe('Telemetry', () => {
       assert.isTrue(synapse.telemetry?.sentry?.isInitialized())
     })
   })
+
+  describe('Mainnet Behavior', () => {
+    it('should not enable telemetry by default on mainnet', async () => {
+      // Create provider for mainnet
+      const mainnetProvider = new ethers.JsonRpcProvider('https://api.node.glif.io/rpc/v1')
+      const mainnetSigner = new ethers.Wallet(PRIVATE_KEYS.key1, mainnetProvider)
+
+      synapse = await Synapse.create({ signer: mainnetSigner })
+
+      // Verify that telemetry is not enabled by default on mainnet
+      assert.isNull(synapse.telemetry)
+
+      // Clean up
+      mainnetProvider.destroy()
+    })
+
+    it('should allow explicit telemetry enablement on mainnet', async () => {
+      // Create provider for mainnet
+      const mainnetProvider = new ethers.JsonRpcProvider('https://api.node.glif.io/rpc/v1')
+      const mainnetSigner = new ethers.Wallet(PRIVATE_KEYS.key1, mainnetProvider)
+
+      synapse = await Synapse.create({
+        signer: mainnetSigner,
+        telemetry: { sentryInitOptions: { enabled: true } },
+      })
+
+      // wait for sentry to initialize
+      await new Promise((resolve) => {
+        setTimeout(resolve, 100)
+      })
+
+      // Verify that telemetry can be explicitly enabled on mainnet
+      assert.isNotNull(synapse.telemetry?.sentry)
+      assert.isTrue(synapse.telemetry?.sentry?.isInitialized())
+
+      // Clean up
+      mainnetProvider.destroy()
+    })
+  })
 })
