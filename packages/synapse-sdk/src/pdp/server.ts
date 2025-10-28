@@ -27,8 +27,8 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
-import { randU256 } from '@filoz/synapse-core/rand'
 import * as SP from '@filoz/synapse-core/sp'
+import { randU256 } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
