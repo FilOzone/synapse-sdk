@@ -269,14 +269,16 @@ export class StorageManager {
               console.error('Error in onProviderSelected callback:', error)
             }
 
-            try {
-              options.callbacks.onDataSetResolved?.({
-                isExisting: true, // Always true for cached context
-                dataSetId: this._defaultContext.dataSetId,
-                provider: this._defaultContext.provider,
-              })
-            } catch (error) {
-              console.error('Error in onDataSetResolved callback:', error)
+            if (this._defaultContext.dataSetId != null) {
+              try {
+                options.callbacks.onDataSetResolved?.({
+                  isExisting: true, // Always true for cached context
+                  dataSetId: this._defaultContext.dataSetId,
+                  provider: this._defaultContext.provider,
+                })
+              } catch (error) {
+                console.error('Error in onDataSetResolved callback:', error)
+              }
             }
           }
           return this._defaultContext

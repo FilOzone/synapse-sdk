@@ -22,8 +22,10 @@
  * ```
  */
 
+import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { asPieceCID } from '../piece/index.ts'
@@ -65,7 +67,6 @@ export class StorageContext {
   private readonly _warmStorageService: WarmStorageService
   private readonly _warmStorageAddress: string
   private readonly _withCDN: boolean
-  private readonly _dataSetId: number
   private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
   private readonly _dataSetMetadata: Record<string, string>
@@ -88,7 +89,7 @@ export class StorageContext {
   private readonly _uploadBatchWaitTimeout: number = 15000 // 15 seconds, half Filecoin's blocktime
 
   // Public properties from interface
-  public readonly dataSetId: number
+  public readonly dataSetId: number | undefined
   public readonly serviceProvider: string
 
   // Getter for withCDN
@@ -142,13 +143,12 @@ export class StorageContext {
     synapse: Synapse,
     warmStorageService: WarmStorageService,
     provider: ProviderInfo,
-    dataSetId: number,
+    dataSetId: number | undefined,
     options: StorageServiceOptions,
     dataSetMetadata: Record<string, string>
   ) {
     this._synapse = synapse
     this._provider = provider
-    this._dataSetId = dataSetId
     this._withCDN = options.withCDN ?? false
     this._signer = synapse.getSigner()
     this._warmStorageService = warmStorageService
@@ -202,39 +202,19 @@ export class StorageContext {
       console.error('Error in onProviderSelected callback:', error)
     }
 
-    // If we need to create a new data set
-    let finalDataSetId: number
-    if (resolution.dataSetId === -1) {
-      // Need to create new data set
-      finalDataSetId = await StorageContext.createDataSet(
-        synapse,
-        warmStorageService,
-        resolution.provider,
-        options.withCDN ?? false,
-        options.callbacks,
-        options.metadata
-      )
-    } else {
-      // Use existing data set
-      finalDataSetId = resolution.dataSetId
-
-      // Notify callback about resolved data set
-      try {
-        options.callbacks?.onDataSetResolved?.({
-          isExisting: resolution.isExisting ?? true,
-          dataSetId: finalDataSetId,
-          provider: resolution.provider,
-        })
-      } catch (error) {
-        console.error('Error in onDataSetResolved callback:', error)
-      }
+    if (resolution.dataSetId !== -1) {
+      options.callbacks?.onDataSetResolved?.({
+        isExisting: resolution.dataSetId !== -1,
+        dataSetId: resolution.dataSetId,
+        provider: resolution.provider,
+      })
     }
 
     return new StorageContext(
       synapse,
       warmStorageService,
       resolution.provider,
-      finalDataSetId,
+      resolution.dataSetId === -1 ? undefined : resolution.dataSetId,
       options,
       resolution.dataSetMetadata
     )
@@ -630,7 +610,7 @@ export class StorageContext {
     const providerDataSets = (
       dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
     ).filter((ps) => {
-      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged) {
+      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
         return false
       }
       // Check if metadata matches
@@ -720,7 +700,7 @@ export class StorageContext {
 
     // Filter for managed data sets with matching metadata
     const managedDataSets = dataSets.filter(
-      (ps) => ps.isLive && ps.isManaged && metadataMatches(ps.metadata, requestedMetadata)
+      (ps) => ps.isLive && ps.isManaged && ps.pdpEndEpoch === 0 && metadataMatches(ps.metadata, requestedMetadata)
     )
 
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
@@ -944,11 +924,7 @@ export class StorageContext {
     )
 
     // Return preflight info with provider and dataSet specifics
-    return {
-      ...preflightResult,
-      selectedProvider: this._provider,
-      selectedDataSetId: this._dataSetId,
-    }
+    return preflightResult
   }
 
   /**
@@ -1085,185 +1061,77 @@ export class StorageContext {
     // Extract up to uploadBatchSize pending pieces
     const batch = this._pendingPieces.slice(0, this._uploadBatchSize)
     this._pendingPieces = this._pendingPieces.slice(this._uploadBatchSize)
-
     try {
-      // Validate dataset and get dataset info in parallel
-      performance.mark('synapse:validateAndGetDataSet-start')
-      const [, dataSetInfo] = await Promise.all([
-        this._warmStorageService.validateDataSet(this._dataSetId),
-        this._warmStorageService.getDataSet(this._dataSetId),
-      ])
-      performance.mark('synapse:validateAndGetDataSet-end')
-      performance.measure(
-        'synapse:validateAndGetDataSet',
-        'synapse:validateAndGetDataSet-start',
-        'synapse:validateAndGetDataSet-end'
-      )
-
       // Create piece data array and metadata from the batch
       const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
       const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
+      const confirmedPieceIds: number[] = []
 
-      // Add pieces to the data set
-      performance.mark('synapse:pdpServer.addPieces-start')
-      const addPiecesResult = await this._pdpServer.addPieces(
-        this._dataSetId, // PDPVerifier data set ID
-        dataSetInfo.clientDataSetId, // Client's dataset ID
-        pieceDataArray,
-        metadataArray
-      )
-      performance.mark('synapse:pdpServer.addPieces-end')
-      performance.measure(
-        'synapse:pdpServer.addPieces',
-        'synapse:pdpServer.addPieces-start',
-        'synapse:pdpServer.addPieces-end'
-      )
-
-      // Handle transaction tracking if available
-      let confirmedPieceIds: number[] = []
-
-      if (addPiecesResult.txHash == null) {
-        throw createError('StorageContext', 'addPieces', 'Server did not return a transaction hash for piece addition')
-      }
-
-      let transaction: ethers.TransactionResponse | null = null
-
-      // Step 1: Get the transaction from chain
-      const txRetryStartTime = Date.now()
-      const txPropagationTimeout = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS
-      const txPropagationPollInterval = TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS
-
-      performance.mark('synapse:getTransaction.addPieces-start')
-      while (Date.now() - txRetryStartTime < txPropagationTimeout) {
-        try {
-          transaction = await this._synapse.getProvider().getTransaction(addPiecesResult.txHash)
-          if (transaction !== null) break
-        } catch {
-          // Transaction not found yet
-        }
-        await new Promise((resolve) => setTimeout(resolve, txPropagationPollInterval))
-      }
-      performance.mark('synapse:getTransaction.addPieces-end')
-      performance.measure(
-        'synapse:getTransaction.addPieces',
-        'synapse:getTransaction.addPieces-start',
-        'synapse:getTransaction.addPieces-end'
-      )
-
-      if (transaction == null) {
-        throw createError(
-          'StorageContext',
-          'addPieces',
-          `Server returned transaction hash ${
-            addPiecesResult.txHash
-          } but transaction was not found on-chain after ${txPropagationTimeout / 1000} seconds`
+      if (this.dataSetId) {
+        const [, dataSetInfo] = await Promise.all([
+          this._warmStorageService.validateDataSet(this.dataSetId),
+          this._warmStorageService.getDataSet(this.dataSetId),
+        ])
+        // Add pieces to the data set
+        const addPiecesResult = await this._pdpServer.addPieces(
+          this.dataSetId, // PDPVerifier data set ID
+          dataSetInfo.clientDataSetId, // Client's dataset ID
+          pieceDataArray,
+          metadataArray
         )
-      }
 
-      // Notify callbacks with transaction
-      batch.forEach((item) => {
-        item.callbacks?.onPieceAdded?.(transaction)
-      })
+        // Notify callbacks with transaction
+        batch.forEach((item) => {
+          item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
+        })
+        const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
 
-      // Step 2: Wait for transaction confirmation
-      let receipt: ethers.TransactionReceipt | null
-      try {
-        performance.mark('synapse:transaction.wait-start')
-        receipt = await transaction.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
-        performance.mark('synapse:transaction.wait-end')
-        performance.measure(
-          'synapse:transaction.wait',
-          'synapse:transaction.wait-start',
-          'synapse:transaction.wait-end'
+        // Handle transaction tracking if available
+        confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
+
+        batch.forEach((item) => {
+          item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
+        })
+      } else {
+        const payer = await this._synapse.getClient().getAddress()
+        // Prepare metadata - merge withCDN flag into metadata if needed
+        const baseMetadataObj = this._dataSetMetadata ?? {}
+        const metadataObj =
+          this._withCDN && !(METADATA_KEYS.WITH_CDN in baseMetadataObj)
+            ? { ...baseMetadataObj, [METADATA_KEYS.WITH_CDN]: '' }
+            : baseMetadataObj
+
+        // Convert to MetadataEntry[] for PDP operations (requires ordered array)
+        const finalMetadata = objectToEntries(metadataObj)
+        // Create a new data set and add pieces to it
+        const createAndAddPiecesResult = await this._pdpServer.createAndAddPieces(
+          randU256(),
+          this._provider.payee,
+          payer,
+          this._synapse.getWarmStorageAddress(),
+          pieceDataArray,
+          {
+            dataset: finalMetadata,
+            pieces: metadataArray,
+          }
         )
-      } catch (error) {
-        performance.mark('synapse:transaction.wait-end')
-        performance.measure(
-          'synapse:transaction.wait',
-          'synapse:transaction.wait-start',
-          'synapse:transaction.wait-end'
-        )
-        throw createError('StorageContext', 'addPieces', 'Failed to wait for transaction confirmation', error)
-      }
+        batch.forEach((item) => {
+          item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
+        })
+        const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
 
-      if (receipt?.status !== 1) {
-        throw createError('StorageContext', 'addPieces', 'Piece addition transaction  failed on-chain')
-      }
+        const confirmedPieces = await SP.pollForAddPiecesStatus({
+          statusUrl: new URL(
+            `/pdp/data-sets/${confirmedDataset.dataSetId}/pieces/added/${confirmedDataset.createMessageHash}`,
+            this._pdpServer.getServiceURL()
+          ).toString(),
+        })
 
-      // Step 3: Verify with server - REQUIRED for new servers
-      const maxWaitTime = TIMING_CONSTANTS.PIECE_ADDITION_TIMEOUT_MS
-      const pollInterval = TIMING_CONSTANTS.PIECE_ADDITION_POLL_INTERVAL_MS
-      const startTime = Date.now()
-      let lastError: Error | null = null
-      let statusVerified = false
+        confirmedPieceIds.push(...(confirmedPieces.confirmedPieceIds ?? []))
 
-      performance.mark('synapse:getPieceAdditionStatus-start')
-      while (Date.now() - startTime < maxWaitTime) {
-        try {
-          const status = await this._pdpServer.getPieceAdditionStatus(this._dataSetId, addPiecesResult.txHash)
-
-          // Check if the transaction is still pending
-          if (status.txStatus === 'pending' || status.addMessageOk === null) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval))
-            continue
-          }
-
-          // Check if transaction failed
-          if (!status.addMessageOk) {
-            throw new Error('Piece addition failed: Transaction was unsuccessful')
-          }
-
-          // Success - get the piece IDs
-          if (status.confirmedPieceIds != null) {
-            if (status.confirmedPieceIds.length !== batch.length) {
-              throw new Error(
-                `Server returned mismatched number of piece IDs: expected ${batch.length}, got ${status.confirmedPieceIds.length}`
-              )
-            }
-            confirmedPieceIds = status.confirmedPieceIds
-            batch.forEach((item) => {
-              item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
-            })
-            statusVerified = true
-            break
-          }
-
-          // If we get here, status exists but no piece IDs yet
-          await new Promise((resolve) => setTimeout(resolve, pollInterval))
-        } catch (error) {
-          lastError = error as Error
-          // If it's a 404, the server might not have the record yet
-          if (error instanceof Error && error.message.includes('not found')) {
-            await new Promise((resolve) => setTimeout(resolve, pollInterval))
-            continue
-          }
-          // Other errors are fatal
-          throw createError(
-            'StorageContext',
-            'addPieces',
-            `Failed to verify piece addition with server: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            error
-          )
-        }
-      }
-      performance.mark('synapse:getPieceAdditionStatus-end')
-      performance.measure(
-        'synapse:getPieceAdditionStatus',
-        'synapse:getPieceAdditionStatus-start',
-        'synapse:getPieceAdditionStatus-end'
-      )
-
-      if (!statusVerified) {
-        const errorMessage = `Failed to verify piece addition after ${
-          maxWaitTime / 1000
-        } seconds: ${lastError != null ? lastError.message : 'Server did not provide confirmation'}`
-
-        throw createError(
-          'StorageContext',
-          'addPieces',
-          `${errorMessage}. The transaction was confirmed on-chain but the server failed to acknowledge it.`,
-          lastError
-        )
+        batch.forEach((item) => {
+          item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
+        })
       }
 
       // Resolve all promises in the batch with their respective piece IDs
@@ -1328,17 +1196,23 @@ export class StorageContext {
    * @returns Array of piece CIDs as PieceCID objects
    */
   async getDataSetPieces(): Promise<PieceCID[]> {
-    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
+    if (this.dataSetId == null) {
+      return []
+    }
+    const dataSetData = await this._pdpServer.getDataSet(this.dataSetId)
     return dataSetData.pieces.map((piece) => piece.pieceCid)
   }
 
   private async _getPieceIdByCID(pieceCID: string | PieceCID): Promise<number> {
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'getPieceIdByCID', 'Data set not found')
+    }
     const parsedPieceCID = asPieceCID(pieceCID)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
     }
 
-    const dataSetData = await this._pdpServer.getDataSet(this._dataSetId)
+    const dataSetData = await this._pdpServer.getDataSet(this.dataSetId)
     const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
     if (pieceData == null) {
       throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
@@ -1352,10 +1226,13 @@ export class StorageContext {
    * @returns Transaction hash of the delete operation
    */
   async deletePiece(piece: string | PieceCID | number): Promise<string> {
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'deletePiece', 'Data set not found')
+    }
     const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
-    const dataSetInfo = await this._warmStorageService.getDataSet(this._dataSetId)
+    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
 
-    return this._pdpServer.deletePiece(this._dataSetId, dataSetInfo.clientDataSetId, pieceId)
+    return this._pdpServer.deletePiece(this.dataSetId, dataSetInfo.clientDataSetId, pieceId)
   }
 
   /**
@@ -1390,6 +1267,9 @@ export class StorageContext {
    * @returns Status information including existence, data set timing, and retrieval URL
    */
   async pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus> {
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'pieceStatus', 'Data set not found')
+    }
     const parsedPieceCID = asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'pieceStatus', 'Invalid PieceCID provided')
@@ -1401,7 +1281,7 @@ export class StorageContext {
       this.hasPiece(parsedPieceCID),
       // Get data set data
       this._pdpServer
-        .getDataSet(this._dataSetId)
+        .getDataSet(this.dataSetId)
         .catch((error) => {
           console.debug('Failed to get data set data:', error)
           return null
@@ -1517,6 +1397,9 @@ export class StorageContext {
    * @returns Transaction response
    */
   async terminate(): Promise<ethers.TransactionResponse> {
-    return this._synapse.storage.terminateDataSet(this._dataSetId)
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'terminate', 'Data set not found')
+    }
+    return this._synapse.storage.terminateDataSet(this.dataSetId)
   }
 }
