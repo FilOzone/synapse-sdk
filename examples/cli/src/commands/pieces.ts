@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts'
-import { metadataArrayToObject } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getDataSets, getPieces, type Piece } from '@filoz/synapse-core/warm-storage'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
