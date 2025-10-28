@@ -1,6 +1,7 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
@@ -340,6 +341,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -355,6 +357,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -395,6 +398,7 @@ describe('StorageService', () => {
           withCDN: false,
           commissionBps: 0,
           metadata: {},
+          pdpEndEpoch: 0,
           pieceMetadata: [],
           clientDataSetId: 1,
         },
@@ -409,6 +413,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -618,6 +623,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -712,6 +718,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -757,6 +764,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -772,6 +780,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -814,6 +823,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -911,6 +921,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -2998,16 +3009,10 @@ describe('StorageService', () => {
       }
 
       // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash7,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
 
       const result = await service.upload(testData, {
-        onPieceAdded: (transaction?: ethers.TransactionResponse) => {
+        onPieceAdded: () => {
           pieceAddedCallbackFired = true
-          pieceAddedTransaction = transaction
         },
       })
 
