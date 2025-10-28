@@ -1,4 +1,4 @@
-import { formatBalance } from '@filoz/synapse-core'
+import { formatBalance } from '@filoz/synapse-core/utils'
 import { useAddUsdfc, useERC20Balance, useFundWallet } from '@filoz/synapse-react'
 import { ArrowUpRight, Copy, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
