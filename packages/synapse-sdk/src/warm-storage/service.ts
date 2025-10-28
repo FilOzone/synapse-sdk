@@ -6,6 +6,7 @@
  * - Service provider registration and management
  * - Client dataset ID tracking
  * - Data set creation verification
+ * - CDN service management
  *
  * @example
  * ```typescript
@@ -40,7 +41,7 @@ export interface AddPiecesInfo {
   /** The next piece ID to use when adding pieces */
   nextPieceId: number
   /** The client dataset ID for this data set */
-  clientDataSetId: number
+  clientDataSetId: bigint
   /** Current number of pieces in the data set */
   currentPieceCount: number
 }
@@ -114,7 +115,7 @@ export class WarmStorageService {
     pdpVerifier: string
     payments: string
     usdfcToken: string
-    filCDNBeneficiary: string
+    filBeamBeneficiary: string
     viewContract: string
     serviceProviderRegistry: string
     sessionKeyRegistry: string
@@ -130,7 +131,7 @@ export class WarmStorageService {
       pdpVerifier: string
       payments: string
       usdfcToken: string
-      filCDNBeneficiary: string
+      filBeamBeneficiary: string
       viewContract: string
       serviceProviderRegistry: string
       sessionKeyRegistry: string
@@ -176,7 +177,7 @@ export class WarmStorageService {
       {
         target: warmStorageAddress,
         allowFailure: false,
-        callData: iface.encodeFunctionData('filCDNBeneficiaryAddress'),
+        callData: iface.encodeFunctionData('filBeamBeneficiaryAddress'),
       },
       {
         target: warmStorageAddress,
@@ -201,7 +202,7 @@ export class WarmStorageService {
       pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
-      filCDNBeneficiary: iface.decodeFunctionResult('filCDNBeneficiaryAddress', results[3].returnData)[0],
+      filBeamBeneficiary: iface.decodeFunctionResult('filBeamBeneficiaryAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
@@ -303,10 +304,10 @@ export class WarmStorageService {
       payee: ds.payee,
       serviceProvider: ds.serviceProvider,
       commissionBps: Number(ds.commissionBps),
-      clientDataSetId: Number(ds.clientDataSetId),
+      clientDataSetId: ds.clientDataSetId,
       pdpEndEpoch: Number(ds.pdpEndEpoch),
       providerId: Number(ds.providerId),
-      cdnEndEpoch: Number(ds.cdnEndEpoch),
+      dataSetId,
     }
   }
 
@@ -329,10 +330,9 @@ export class WarmStorageService {
         payee: ds.payee,
         serviceProvider: ds.serviceProvider,
         commissionBps: Number(ds.commissionBps),
-        clientDataSetId: Number(ds.clientDataSetId),
+        clientDataSetId: ds.clientDataSetId,
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
-        cdnEndEpoch: Number(ds.cdnEndEpoch),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -435,36 +435,13 @@ export class WarmStorageService {
         )
       }
 
-      const clientDataSetId = Number(dataSetInfo.clientDataSetId)
-
       return {
         nextPieceId: Number(nextPieceId),
-        clientDataSetId,
+        clientDataSetId: dataSetInfo.clientDataSetId,
         currentPieceCount: Number(nextPieceId),
       }
     } catch (error) {
       throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
-   * Get the next client dataset ID for a given client
-   * This reads the current counter from the WarmStorage contract
-   * @param clientAddress - The client's wallet address
-   * @returns  next client dataset ID that will be assigned by this WarmStorage contract
-   */
-  async getNextClientDataSetId(clientAddress: string): Promise<number> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-
-      // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
-      // This is the value that will be used for the next data set creation
-      const currentCounter = await viewContract.clientDataSetIDs(clientAddress)
-
-      // Return the current counter value (it will be incremented during data set creation)
-      return Number(currentCounter)
-    } catch (error) {
-      throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -1032,7 +1009,7 @@ export class WarmStorageService {
 
     // First, we need to find the index of this provider in the array
     const viewContract = this._getWarmStorageViewContract()
-    const approvedIds = await viewContract.getApprovedProviders()
+    const approvedIds = await viewContract.getApprovedProviders(0n, 0n)
     const index = approvedIds.findIndex((id: bigint) => Number(id) === providerId)
 
     if (index === -1) {
@@ -1048,7 +1025,7 @@ export class WarmStorageService {
    */
   async getApprovedProviderIds(): Promise<number[]> {
     const viewContract = this._getWarmStorageViewContract()
-    const providerIds = await viewContract.getApprovedProviders()
+    const providerIds = await viewContract.getApprovedProviders(0n, 0n)
     return providerIds.map((id: bigint) => Number(id))
   }
 
@@ -1102,5 +1079,33 @@ export class WarmStorageService {
     const viewContract = this._getWarmStorageViewContract()
     const window = await viewContract.challengeWindow()
     return Number(window)
+  }
+  /**
+   * Increments the fixed locked-up amounts for CDN payment rails.
+   *
+   * This method tops up the prepaid balance for CDN services by adding to the existing
+   * lockup amounts. Both CDN and cache miss rails can be incremented independently.
+   *
+   * @param dataSetId - The ID of the data set
+   * @param cdnAmountToAdd - Amount to add to the CDN rail lockup
+   * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
+   * @returns Transaction response
+   */
+  async topUpCDNPaymentRails(
+    signer: ethers.Signer,
+    dataSetId: number,
+    cdnAmountToAdd: bigint,
+    cacheMissAmountToAdd: bigint
+  ): Promise<ethers.TransactionResponse> {
+    if (cdnAmountToAdd < 0n || cacheMissAmountToAdd < 0n) {
+      throw new Error('Top up amounts must be positive')
+    }
+    if (cdnAmountToAdd === 0n && cacheMissAmountToAdd === 0n) {
+      throw new Error('At least one top up amount must be >0')
+    }
+
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.topUpCDNPaymentRails(dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
   }
 }

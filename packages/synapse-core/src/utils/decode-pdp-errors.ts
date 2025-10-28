@@ -55,7 +55,7 @@ export function decodePDPError(error: string) {
   } else if (extractedContent?.startsWith('Error(')) {
     return `\n${extractedContent.replace('Error(', '').replace(')', '')}`
   } else {
-    return `Curio PDP\n${error}`
+    return `Service Provider PDP\n${error}`
   }
 }
 
@@ -80,9 +80,9 @@ function formatPDPError(error: { abiItem: AbiError; args: readonly unknown[] | u
     : undefined
 
   return [
-    errorWithParams ? `Error: ${errorWithParams}` : '',
+    errorWithParams ? `${errorWithParams}` : '',
     formattedArgs && formattedArgs !== '()'
-      ? `       ${[...Array(error.errorName?.length ?? 0).keys()].map(() => ' ').join('')}${formattedArgs}`
+      ? `${[...Array(error.errorName?.length ?? 0).keys()].map(() => ' ').join('')}${formattedArgs}`
       : '',
   ].join('\n')
 }

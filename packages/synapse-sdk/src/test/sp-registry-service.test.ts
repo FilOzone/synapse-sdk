@@ -26,31 +26,40 @@ describe('SPRegistryService', () => {
       getProviderByAddress: async (address: string) => {
         if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
           return {
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
+            providerId: 0n,
+            info: {
+              serviceProvider: mockProviderAddress,
+              payee: mockProviderAddress,
+              name: 'Test Provider',
+              description: 'A test storage provider',
+              isActive: true,
+            },
           }
         }
         // Return zero address for non-existent provider
         return {
-          serviceProvider: ethers.ZeroAddress,
-          payee: ethers.ZeroAddress,
-          name: '',
-          description: '',
-          isActive: false,
+          providerId: 0n,
+          info: {
+            serviceProvider: ethers.ZeroAddress,
+            payee: ethers.ZeroAddress,
+            name: '',
+            description: '',
+            isActive: false,
+          },
         }
       },
       getProvider: async (id: number) => {
         if (id === 1) {
           return {
-            id: BigInt(1),
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
+            providerId: 1,
+            info: {
+              id: BigInt(1),
+              serviceProvider: mockProviderAddress,
+              payee: mockProviderAddress,
+              name: 'Test Provider',
+              description: 'A test storage provider',
+              isActive: true,
+            },
           }
         }
         throw new Error('Provider not found')

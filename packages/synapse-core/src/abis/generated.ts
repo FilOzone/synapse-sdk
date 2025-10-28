@@ -1,10 +1,1621 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Errors
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsAbi = [
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'field',
+        internalType: 'enum Errors.AddressField',
+        type: 'uint8',
+      },
+    ],
+    name: 'AddressAlreadySet',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CDNPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayer',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'expectedPayee', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayerOrPayee',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayments',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'windowStart', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ChallengeWindowTooEarly',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ClientDataSetAlreadyRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'commissionType',
+        internalType: 'enum Errors.CommissionType',
+        type: 'uint8',
+      },
+      { name: 'max', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CommissionExceedsMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetNotFoundForRail',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'DataSetPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'DataSetPaymentBeyondEndEpoch',
+  },
+  { type: 'error', inputs: [], name: 'DivisionByZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'key', internalType: 'string', type: 'string' },
+    ],
+    name: 'DuplicateMetadataKey',
+  },
+  { type: 'error', inputs: [], name: 'ExtraDataRequired' },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'FilBeamServiceNotConfigured',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minExpected', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeCount',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'minAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxProvingPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'challengeWindowSize', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidChallengeWindowSize',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidDataSetId',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'fromEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'toEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidEpochRange',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceDescriptionLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceNameLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'InvalidSignature',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidSignatureLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidTopUpAmount',
+  },
+  { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'metadataArrayCount', internalType: 'uint256', type: 'uint256' },
+      { name: 'pieceCount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataArrayCountMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'keysLength', internalType: 'uint256', type: 'uint256' },
+      { name: 'valuesLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataKeyAndValueLengthMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'length', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataKeyExceedsMaxLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'index', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'length', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MetadataValueExceedsMaxLength',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'periodDeadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NextProvingPeriodAlreadyCalled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'NoPDPPaymentRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OldServiceProviderMismatch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyFilBeamControllerAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyPDPVerifierAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlySelf',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'PaymentRailsNotFinalized',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProofAlreadySubmitted',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderAlreadyApproved',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderNotInApprovedList',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'provider', internalType: 'address', type: 'address' }],
+    name: 'ProviderNotRegistered',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingNotStarted',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProvingPeriodNotInitialized',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ProvingPeriodPassed',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailNotAssociated',
+  },
+  { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'keysLength', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'TooManyMetadataKeys',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
+    name: 'UnsupportedSignatureV',
+  },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'field',
+        internalType: 'enum Errors.AddressField',
+        type: 'uint8',
+      },
+    ],
+    name: 'ZeroAddress',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsAddress = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x0000000000000000000000000000000000000000',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0000000000000000000000000000000000000000)
+ */
+export const errorsConfig = { address: errorsAddress, abi: errorsAbi } as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// FilecoinPayV1
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
+ */
+export const filecoinPayV1Abi = [
+  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'COMMISSION_MAX_BPS',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NETWORK_FEE_DENOMINATOR',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'NETWORK_FEE_NUMERATOR',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'owner', internalType: 'address', type: 'address' },
+    ],
+    name: 'accounts',
+    outputs: [
+      { name: 'funds', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupLastSettledAt', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+    ],
+    name: 'auctionInfo',
+    outputs: [
+      { name: 'startPrice', internalType: 'uint88', type: 'uint88' },
+      { name: 'startTime', internalType: 'uint168', type: 'uint168' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'recipient', internalType: 'address', type: 'address' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'burnForFees',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'validator', internalType: 'address', type: 'address' },
+      { name: 'commissionRateBps', internalType: 'uint256', type: 'uint256' },
+      { name: 'serviceFeeRecipient', internalType: 'address', type: 'address' },
+    ],
+    name: 'createRail',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'deposit',
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'depositWithAuthorization',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'depositWithAuthorizationAndApproveOperator',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC3009', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'validAfter', internalType: 'uint256', type: 'uint256' },
+      { name: 'validBefore', internalType: 'uint256', type: 'uint256' },
+      { name: 'nonce', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'depositWithAuthorizationAndIncreaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+    ],
+    name: 'depositWithPermit',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'depositWithPermitAndApproveOperator',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
+      { name: 'v', internalType: 'uint8', type: 'uint8' },
+      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
+      { name: 's', internalType: 'bytes32', type: 'bytes32' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'depositWithPermitAndIncreaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'owner', internalType: 'address', type: 'address' },
+    ],
+    name: 'getAccountInfoIfSettled',
+    outputs: [
+      { name: 'fundedUntilEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentFunds', internalType: 'uint256', type: 'uint256' },
+      { name: 'availableFunds', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentLockupRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getRail',
+    outputs: [
+      {
+        name: '',
+        internalType: 'struct FilecoinPayV1.RailView',
+        type: 'tuple',
+        components: [
+          { name: 'token', internalType: 'contract IERC20', type: 'address' },
+          { name: 'from', internalType: 'address', type: 'address' },
+          { name: 'to', internalType: 'address', type: 'address' },
+          { name: 'operator', internalType: 'address', type: 'address' },
+          { name: 'validator', internalType: 'address', type: 'address' },
+          { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
+          { name: 'lockupPeriod', internalType: 'uint256', type: 'uint256' },
+          { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
+          { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'commissionRateBps',
+            internalType: 'uint256',
+            type: 'uint256',
+          },
+          {
+            name: 'serviceFeeRecipient',
+            internalType: 'address',
+            type: 'address',
+          },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payee', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getRailsForPayeeAndToken',
+    outputs: [
+      {
+        name: 'results',
+        internalType: 'struct FilecoinPayV1.RailInfo[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'railId', internalType: 'uint256', type: 'uint256' },
+          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+      { name: 'nextOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'getRailsForPayerAndToken',
+    outputs: [
+      {
+        name: 'results',
+        internalType: 'struct FilecoinPayV1.RailInfo[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'railId', internalType: 'uint256', type: 'uint256' },
+          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
+          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+        ],
+      },
+      { name: 'nextOffset', internalType: 'uint256', type: 'uint256' },
+      { name: 'total', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getRateChangeQueueSize',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      {
+        name: 'rateAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      {
+        name: 'lockupAllowanceIncrease',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'increaseOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'period', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'modifyRailLockup',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'newRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'oneTimePayment', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'modifyRailPayment',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'client', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+    ],
+    name: 'operatorApprovals',
+    outputs: [
+      { name: 'isApproved', internalType: 'bool', type: 'bool' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'approved', internalType: 'bool', type: 'bool' },
+      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'setOperatorApproval',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'untilEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'settleRail',
+    outputs: [
+      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'totalOperatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'totalNetworkFee', internalType: 'uint256', type: 'uint256' },
+      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'note', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'settleTerminatedRailWithoutValidation',
+    outputs: [
+      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'totalOperatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'totalNetworkFee', internalType: 'uint256', type: 'uint256' },
+      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'note', internalType: 'string', type: 'string' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'terminateRail',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'withdrawTo',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'contract IERC20',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'owner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'lockupCurrent',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupLastSettledAt',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'AccountLockupSettled',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'contract IERC20',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'from', internalType: 'address', type: 'address', indexed: true },
+      { name: 'to', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'DepositRecorded',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'contract IERC20',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'client',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'operator',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
+      {
+        name: 'rateAllowance',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'lockupAllowance',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'maxLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'OperatorApprovalUpdated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'payer',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'payee',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'token',
+        internalType: 'contract IERC20',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'operator',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'validator',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'serviceFeeRecipient',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'commissionRateBps',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailCreated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'RailFinalized',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'oldLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailLockupModified',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'netPayeeAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'operatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'networkFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailOneTimePaymentProcessed',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newRate',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailRateModified',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'totalSettledAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalNetPayeeAmount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'operatorCommission',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'networkFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'settledUpTo',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailSettled',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'railId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      { name: 'by', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'endEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'RailTerminated',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'token',
+        internalType: 'contract IERC20',
+        type: 'address',
+        indexed: true,
+      },
+      { name: 'from', internalType: 'address', type: 'address', indexed: true },
+      { name: 'to', internalType: 'address', type: 'address', indexed: true },
+      {
+        name: 'amount',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'WithdrawRecorded',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxSettlementEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'blockNumber', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotModifyTerminatedRailBeyondEndEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowedEpoch', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotSettleFutureEpochs',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'requiredBlock', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CannotSettleTerminatedRailBeforeMaxEpoch',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CommissionRateTooHigh',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'oldLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'CurrentLockupLessThanOldLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupReduction', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientCurrentLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'actual', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientFundsForOneTimePayment',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientFundsForSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupForSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'sent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientNativeTokenForBurn',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientUnlockedFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      {
+        name: 'nextRateChangeUntilEpoch',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+      { name: 'processedEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InvalidRateChangeQueueState',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'actualPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedPeriod', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'InvalidTerminatedRailModification',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'account', internalType: 'address', type: 'address' },
+      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
+      { name: 'fundsCurrent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupExceedsFundsInvariant',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupFixed',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'LockupFixedIncreaseNotAllowedDueToInsufficientFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'expectedLockup', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualLockup', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupInconsistencyDuringRailFinalization',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'isSettled', internalType: 'bool', type: 'bool' },
+      { name: 'currentRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupNotSettledRateChangeNotAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'actualLockupPeriod', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'attemptedLockupPeriod',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'LockupPeriodChangeNotAllowedDueToInsufficientFunds',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+      { name: 'maxAllowedPeriod', internalType: 'uint256', type: 'uint256' },
+      { name: 'requestedPeriod', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupPeriodExceedsOperatorMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupRateInconsistent',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
+      { name: 'oldRate', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'LockupRateLessThanOldRate',
+  },
+  { type: 'error', inputs: [], name: 'MissingServiceFeeRecipient' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+      { name: 'sent', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'MustSendExactNativeAmount',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'sent', internalType: 'uint256', type: 'uint256' }],
+    name: 'NativeTokenNotAccepted',
+  },
+  { type: 'error', inputs: [], name: 'NativeTokenNotSupported' },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'to', internalType: 'address', type: 'address' },
+      { name: 'amount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NativeTransferFailed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedSettledUpTo', internalType: 'uint256', type: 'uint256' },
+      { name: 'actualSettledUpTo', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'NoProgressInSettlement',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedClient', internalType: 'address', type: 'address' },
+      { name: 'allowedOperator', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'NotAuthorizedToTerminateRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'required', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OneTimePaymentExceedsLockup',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyRailClientAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'OnlyRailOperatorAllowed',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OperatorLockupAllowanceExceeded',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'operator', internalType: 'address', type: 'address' },
+    ],
+    name: 'OperatorNotApproved',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'OperatorRateAllowanceExceeded',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'x', internalType: 'uint256', type: 'uint256' },
+      { name: 'y', internalType: 'uint256', type: 'uint256' },
+      { name: 'denominator', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'PRBMath_MulDiv_Overflow',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'x', internalType: 'UD60x18', type: 'uint256' }],
+    name: 'PRBMath_UD60x18_Exp2_InputTooBig',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailInactiveOrSettled',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RailNotTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
+    name: 'RateChangeNotAllowedOnTerminatedRail',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'nextUntilEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'RateChangeQueueNotEmpty',
+  },
+  { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
+  {
+    type: 'error',
+    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
+    name: 'SafeERC20FailedOperation',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'expected', internalType: 'address', type: 'address' },
+      { name: 'actual', internalType: 'address', type: 'address' },
+    ],
+    name: 'SignerMustBeMsgSender',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
+      { name: 'attempted', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorModifiedAmountExceedsMaximum',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedStart', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedStart', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorSettledBeforeSegmentStart',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'allowedEnd', internalType: 'uint256', type: 'uint256' },
+      { name: 'attemptedEnd', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ValidatorSettledBeyondSegmentEnd',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'token', internalType: 'contract IERC20', type: 'address' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+      { name: 'requested', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'WithdrawAmountExceedsAccumulatedFees',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'varName', internalType: 'string', type: 'string' }],
+    name: 'ZeroAddressNotAllowed',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
+ */
+export const filecoinPayV1Address = {
+  314: '0x0000000000000000000000000000000000000000',
+  314159: '0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
+ */
+export const filecoinPayV1Config = {
+  address: filecoinPayV1Address,
+  abi: filecoinPayV1Abi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // FilecoinWarmStorageService
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258)
  */
 export const filecoinWarmStorageServiceAbi = [
   {
@@ -16,9 +1627,13 @@ export const filecoinWarmStorageServiceAbi = [
         internalType: 'address',
         type: 'address',
       },
-      { name: '_usdfcTokenAddress', internalType: 'address', type: 'address' },
       {
-        name: '_filCDNBeneficiaryAddress',
+        name: '_usdfc',
+        internalType: 'contract IERC20Metadata',
+        type: 'address',
+      },
+      {
+        name: '_filBeamBeneficiaryAddress',
         internalType: 'address',
         type: 'address',
       },
@@ -53,6 +1668,27 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'addApprovedProvider',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+      },
+    ],
+    name: 'announcePlannedUpgrade',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -97,7 +1733,7 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: '', internalType: 'uint256', type: 'uint256' },
-      { name: 'extraData', internalType: 'bytes', type: 'bytes' },
+      { name: '', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'dataSetDeleted',
     outputs: [],
@@ -138,7 +1774,7 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'filCDNBeneficiaryAddress',
+    name: 'filBeamBeneficiaryAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
@@ -182,7 +1818,11 @@ export const filecoinWarmStorageServiceAbi = [
             internalType: 'uint256',
             type: 'uint256',
           },
-          { name: 'tokenAddress', internalType: 'address', type: 'address' },
+          {
+            name: 'tokenAddress',
+            internalType: 'contract IERC20',
+            type: 'address',
+          },
           { name: 'epochsPerMonth', internalType: 'uint256', type: 'uint256' },
         ],
       },
@@ -199,7 +1839,7 @@ export const filecoinWarmStorageServiceAbi = [
         type: 'uint256',
       },
       {
-        name: '_filCDNControllerAddress',
+        name: '_filBeamControllerAddress',
         internalType: 'address',
         type: 'address',
       },
@@ -222,7 +1862,9 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '_viewContract', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: '_viewContract', internalType: 'address', type: 'address' },
+    ],
     name: 'migrate',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -338,13 +1980,6 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'serviceCommissionBps',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'serviceProviderRegistry',
     outputs: [
       {
@@ -370,7 +2005,9 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '_viewContract', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: '_viewContract', internalType: 'address', type: 'address' },
+    ],
     name: 'setViewContract',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -379,8 +2016,19 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
-      { name: 'oldServiceProvider', internalType: 'address', type: 'address' },
-      { name: 'newServiceProvider', internalType: 'address', type: 'address' },
+      { name: 'cdnAmount', internalType: 'uint256', type: 'uint256' },
+      { name: 'cacheMissAmount', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'settleFilBeamPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: '', internalType: 'uint256', type: 'uint256' },
+      { name: '', internalType: 'address', type: 'address' },
+      { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'bytes', type: 'bytes' },
     ],
     name: 'storageProviderChanged',
@@ -403,8 +2051,25 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'newController', internalType: 'address', type: 'address' }],
-    name: 'transferFilCDNController',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'cdnAmountToAdd', internalType: 'uint256', type: 'uint256' },
+      {
+        name: 'cacheMissAmountToAdd',
+        internalType: 'uint256',
+        type: 'uint256',
+      },
+    ],
+    name: 'topUpCDNPaymentRails',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newController', internalType: 'address', type: 'address' },
+    ],
+    name: 'transferFilBeamController',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -417,7 +2082,9 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'newCommissionBps', internalType: 'uint256', type: 'uint256' }],
+    inputs: [
+      { name: 'newCommissionBps', internalType: 'uint256', type: 'uint256' },
+    ],
     name: 'updateServiceCommission',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -436,7 +2103,9 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'function',
     inputs: [],
     name: 'usdfcTokenAddress',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    outputs: [
+      { name: '', internalType: 'contract IERC20Metadata', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -461,7 +2130,7 @@ export const filecoinWarmStorageServiceAbi = [
         ],
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -469,6 +2138,43 @@ export const filecoinWarmStorageServiceAbi = [
     name: 'viewContractAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'dataSetId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'cdnAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCdnLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'cacheMissAmountAdded',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'totalCacheMissLockup',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'CDNPaymentRailsToppedUp',
   },
   {
     type: 'event',
@@ -686,7 +2392,7 @@ export const filecoinWarmStorageServiceAbi = [
         indexed: false,
       },
     ],
-    name: 'FilCDNControllerChanged',
+    name: 'FilBeamControllerChanged',
   },
   {
     type: 'event',
@@ -758,43 +2464,6 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'PDPPaymentTerminated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'dataSetId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'originalAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'modifiedAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'faultedEpochs',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'PaymentArbitrated',
   },
   {
     type: 'event',
@@ -927,6 +2596,27 @@ export const filecoinWarmStorageServiceAbi = [
     anonymous: false,
     inputs: [
       {
+        name: 'plannedUpgrade',
+        internalType: 'struct FilecoinWarmStorageService.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'UpgradeAnnounced',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
         name: 'implementation',
         internalType: 'address',
         type: 'address',
@@ -955,6 +2645,25 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CDNPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'CacheMissPaymentAlreadyTerminated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
+      { name: 'expectedPayer', internalType: 'address', type: 'address' },
+      { name: 'caller', internalType: 'address', type: 'address' },
+    ],
+    name: 'CallerNotPayer',
+  },
+  {
+    type: 'error',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'expectedPayer', internalType: 'address', type: 'address' },
@@ -979,6 +2688,13 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'nowBlock', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'ChallengeWindowTooEarly',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'ClientDataSetAlreadyRegistered',
   },
   {
     type: 'error',
@@ -1028,7 +2744,9 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -1037,12 +2755,7 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'FilCDNPaymentAlreadyTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
-    name: 'FilCDNServiceNotConfigured',
+    name: 'FilBeamServiceNotConfigured',
   },
   {
     type: 'error',
@@ -1087,19 +2800,18 @@ export const filecoinWarmStorageServiceAbi = [
   { type: 'error', inputs: [], name: 'InvalidInitialization' },
   {
     type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'InvalidSignature',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceDescriptionLength',
   },
   {
     type: 'error',
-    inputs: [
-      { name: 'expectedLength', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualLength', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidSignatureLength',
+    inputs: [{ name: 'length', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidServiceNameLength',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'InvalidTopUpAmount',
   },
   { type: 'error', inputs: [], name: 'MaxProvingPeriodZero' },
   {
@@ -1154,19 +2866,10 @@ export const filecoinWarmStorageServiceAbi = [
   {
     type: 'error',
     inputs: [
-      { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'expected', internalType: 'address', type: 'address' },
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
-    name: 'OldServiceProviderMismatch',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyFilCDNControllerAllowed',
+    name: 'OnlyFilBeamControllerAllowed',
   },
   {
     type: 'error',
@@ -1175,14 +2878,6 @@ export const filecoinWarmStorageServiceAbi = [
       { name: 'actual', internalType: 'address', type: 'address' },
     ],
     name: 'OnlyPDPVerifierAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlySelf',
   },
   {
     type: 'error',
@@ -1199,7 +2894,6 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
     ],
     name: 'PaymentRailsNotFinalized',
   },
@@ -1212,14 +2906,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProviderAlreadyApproved',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'provider', internalType: 'address', type: 'address' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ProviderNotApproved',
   },
   {
     type: 'error',
@@ -1267,11 +2953,6 @@ export const filecoinWarmStorageServiceAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'v', internalType: 'uint8', type: 'uint8' }],
-    name: 'UnsupportedSignatureV',
-  },
-  {
-    type: 'error',
     inputs: [
       {
         name: 'field',
@@ -1285,16 +2966,16 @@ export const filecoinWarmStorageServiceAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258)
  */
 export const filecoinWarmStorageServiceAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348',
+  314159: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x80617b65FD2EEa1D7fDe2B4F85977670690ed348)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258)
  */
 export const filecoinWarmStorageServiceConfig = {
   address: filecoinWarmStorageServiceAddress,
@@ -1307,7 +2988,7 @@ export const filecoinWarmStorageServiceConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x87EDE87cEF4BfeFE0374c3470cB3F5be18b739d5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0295Ac959317391656fB7fFaA046046eF9C7E18F)
  */
 export const filecoinWarmStorageServiceStateViewAbi = [
   {
@@ -1330,8 +3011,11 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
-    name: 'clientDataSetIDs',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'clientDataSetIds',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -1339,13 +3023,15 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     type: 'function',
     inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
     name: 'clientDataSets',
-    outputs: [{ name: 'dataSetIds', internalType: 'uint256[]', type: 'uint256[]' }],
+    outputs: [
+      { name: 'dataSetIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
     stateMutability: 'view',
   },
   {
     type: 'function',
     inputs: [],
-    name: 'filCDNControllerAddress',
+    name: 'filBeamControllerAddress',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
   },
@@ -1374,9 +3060,21 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
-    inputs: [],
+    inputs: [
+      { name: 'offset', internalType: 'uint256', type: 'uint256' },
+      { name: 'limit', internalType: 'uint256', type: 'uint256' },
+    ],
     name: 'getApprovedProviders',
-    outputs: [{ name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' }],
+    outputs: [
+      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getApprovedProvidersLength',
+    outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
   {
@@ -1393,7 +3091,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     outputs: [
       {
         name: 'infos',
-        internalType: 'struct FilecoinWarmStorageService.DataSetInfo[]',
+        internalType: 'struct FilecoinWarmStorageService.DataSetInfoView[]',
         type: 'tuple[]',
         components: [
           { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
@@ -1406,7 +3104,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-          { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -1419,7 +3117,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     outputs: [
       {
         name: 'info',
-        internalType: 'struct FilecoinWarmStorageService.DataSetInfo',
+        internalType: 'struct FilecoinWarmStorageService.DataSetInfoView',
         type: 'tuple',
         components: [
           { name: 'pdpRailId', internalType: 'uint256', type: 'uint256' },
@@ -1432,7 +3130,7 @@ export const filecoinWarmStorageServiceStateViewAbi = [
           { name: 'clientDataSetId', internalType: 'uint256', type: 'uint256' },
           { name: 'pdpEndEpoch', internalType: 'uint256', type: 'uint256' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
-          { name: 'cdnEndEpoch', internalType: 'uint256', type: 'uint256' },
+          { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
         ],
       },
     ],
@@ -1457,6 +3155,19 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     name: 'getDataSetSizeInBytes',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'pure',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getDataSetStatus',
+    outputs: [
+      {
+        name: 'status',
+        internalType: 'enum FilecoinWarmStorageService.DataSetStatus',
+        type: 'uint8',
+      },
+    ],
+    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -1511,6 +3222,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'nextUpgrade',
+    outputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'dataSetId', internalType: 'uint256', type: 'uint256' },
       { name: 'periodId', internalType: 'uint256', type: 'uint256' },
@@ -1561,6 +3282,13 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     stateMutability: 'view',
   },
   {
+    type: 'function',
+    inputs: [],
+    name: 'serviceCommissionBps',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
     type: 'error',
     inputs: [{ name: 'dataSetId', internalType: 'uint256', type: 'uint256' }],
     name: 'ProvingPeriodNotInitialized',
@@ -1569,16 +3297,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x87EDE87cEF4BfeFE0374c3470cB3F5be18b739d5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0295Ac959317391656fB7fFaA046046eF9C7E18F)
  */
 export const filecoinWarmStorageServiceStateViewAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0x87EDE87cEF4BfeFE0374c3470cB3F5be18b739d5',
+  314159: '0x0295Ac959317391656fB7fFaA046046eF9C7E18F',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x87EDE87cEF4BfeFE0374c3470cB3F5be18b739d5)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x0295Ac959317391656fB7fFaA046046eF9C7E18F)
  */
 export const filecoinWarmStorageServiceStateViewConfig = {
   address: filecoinWarmStorageServiceStateViewAddress,
@@ -1591,38 +3319,10 @@ export const filecoinWarmStorageServiceStateViewConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d)
  */
 export const pdpVerifierAbi = [
   { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'EXTRA_DATA_MAX_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'FIL_USD_PRICE_FEED_ID',
-    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'LEAF_SIZE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
   {
     type: 'function',
     inputs: [],
@@ -1654,27 +3354,6 @@ export const pdpVerifierAbi = [
   {
     type: 'function',
     inputs: [],
-    name: 'PYTH',
-    outputs: [{ name: '', internalType: 'contract IPyth', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'RANDOMNESS_PRECOMPILE',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'SECONDS_IN_DAY',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
     name: 'UPGRADE_INTERFACE_VERSION',
     outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
@@ -1690,6 +3369,7 @@ export const pdpVerifierAbi = [
     type: 'function',
     inputs: [
       { name: 'setId', internalType: 'uint256', type: 'uint256' },
+      { name: 'listenerAddr', internalType: 'address', type: 'address' },
       {
         name: 'pieceData',
         internalType: 'struct Cids.Cid[]',
@@ -1700,15 +3380,19 @@ export const pdpVerifierAbi = [
     ],
     name: 'addPieces',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
   },
   {
     type: 'function',
-    inputs: [
-      { name: 'setId', internalType: 'uint256', type: 'uint256' },
-      { name: 'estimatedGasFee', internalType: 'uint256', type: 'uint256' },
-    ],
+    inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
     name: 'calculateProofFee',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'proofSize', internalType: 'uint256', type: 'uint256' }],
+    name: 'calculateProofFeeForSize',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -1751,6 +3435,20 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'feeEffectiveTime',
+    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'feePerTiB',
+    outputs: [{ name: '', internalType: 'uint96', type: 'uint96' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'setId', internalType: 'uint256', type: 'uint256' },
       { name: 'leafIndexs', internalType: 'uint256[]', type: 'uint256[]' },
@@ -1773,7 +3471,9 @@ export const pdpVerifierAbi = [
     type: 'function',
     inputs: [{ name: 'setId', internalType: 'uint256', type: 'uint256' }],
     name: 'getActivePieceCount',
-    outputs: [{ name: 'activeCount', internalType: 'uint256', type: 'uint256' }],
+    outputs: [
+      { name: 'activeCount', internalType: 'uint256', type: 'uint256' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -1792,7 +3492,6 @@ export const pdpVerifierAbi = [
         components: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
       },
       { name: 'pieceIds', internalType: 'uint256[]', type: 'uint256[]' },
-      { name: 'rawSizes', internalType: 'uint256[]', type: 'uint256[]' },
       { name: 'hasMore', internalType: 'bool', type: 'bool' },
     ],
     stateMutability: 'view',
@@ -1839,16 +3538,6 @@ export const pdpVerifierAbi = [
     outputs: [
       { name: '', internalType: 'address', type: 'address' },
       { name: '', internalType: 'address', type: 'address' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getFILUSDPrice',
-    outputs: [
-      { name: '', internalType: 'uint64', type: 'uint64' },
-      { name: '', internalType: 'int32', type: 'int32' },
     ],
     stateMutability: 'view',
   },
@@ -1916,7 +3605,9 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: '_challengeFinality', internalType: 'uint256', type: 'uint256' }],
+    inputs: [
+      { name: '_challengeFinality', internalType: 'uint256', type: 'uint256' },
+    ],
     name: 'initialize',
     outputs: [],
     stateMutability: 'nonpayable',
@@ -1978,6 +3669,13 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'proposedFeePerTiB',
+    outputs: [{ name: '', internalType: 'uint96', type: 'uint96' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: 'setId', internalType: 'uint256', type: 'uint256' },
       {
@@ -2023,6 +3721,15 @@ export const pdpVerifierAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'newFeePerTiB', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'updateProofFee',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -2105,6 +3812,31 @@ export const pdpVerifierAbi = [
       },
     ],
     name: 'DataSetEmpty',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'currentFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'newFee',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'effectiveTime',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'FeeUpdateProposed',
   },
   {
     type: 'event',
@@ -2242,8 +3974,6 @@ export const pdpVerifierAbi = [
         indexed: true,
       },
       { name: 'fee', internalType: 'uint256', type: 'uint256', indexed: false },
-      { name: 'price', internalType: 'uint64', type: 'uint64', indexed: false },
-      { name: 'expo', internalType: 'int32', type: 'int32', indexed: false },
     ],
     name: 'ProofFeePaid',
   },
@@ -2292,7 +4022,9 @@ export const pdpVerifierAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -2327,1132 +4059,20 @@ export const pdpVerifierAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d)
  */
 export const pdpVerifierAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137',
+  314159: '0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x445238Eca6c6aB8Dff1Aa6087d9c05734D22f137)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d)
  */
 export const pdpVerifierConfig = {
   address: pdpVerifierAddress,
   abi: pdpVerifierAbi,
-} as const
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Payments
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x1096025c9D6B29E12E2f04965F6E64d564Ce0750)
- */
-export const paymentsAbi = [
-  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'COMMISSION_MAX_BPS',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'NETWORK_FEE',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-    ],
-    name: 'accounts',
-    outputs: [
-      { name: 'funds', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupLastSettledAt', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'validator', internalType: 'address', type: 'address' },
-      { name: 'commissionRateBps', internalType: 'uint256', type: 'uint256' },
-      { name: 'serviceFeeRecipient', internalType: 'address', type: 'address' },
-    ],
-    name: 'createRail',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'deposit',
-    outputs: [],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'v', internalType: 'uint8', type: 'uint8' },
-      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
-      { name: 's', internalType: 'bytes32', type: 'bytes32' },
-    ],
-    name: 'depositWithPermit',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'v', internalType: 'uint8', type: 'uint8' },
-      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
-      { name: 's', internalType: 'bytes32', type: 'bytes32' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'depositWithPermitAndApproveOperator',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-      { name: 'deadline', internalType: 'uint256', type: 'uint256' },
-      { name: 'v', internalType: 'uint8', type: 'uint8' },
-      { name: 'r', internalType: 'bytes32', type: 'bytes32' },
-      { name: 's', internalType: 'bytes32', type: 'bytes32' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      {
-        name: 'rateAllowanceIncrease',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      {
-        name: 'lockupAllowanceIncrease',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'depositWithPermitAndIncreaseOperatorApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'owner', internalType: 'address', type: 'address' },
-    ],
-    name: 'getAccountInfoIfSettled',
-    outputs: [
-      { name: 'fundedUntilEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'currentFunds', internalType: 'uint256', type: 'uint256' },
-      { name: 'availableFunds', internalType: 'uint256', type: 'uint256' },
-      { name: 'currentLockupRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getRail',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailView',
-        type: 'tuple',
-        components: [
-          { name: 'token', internalType: 'address', type: 'address' },
-          { name: 'from', internalType: 'address', type: 'address' },
-          { name: 'to', internalType: 'address', type: 'address' },
-          { name: 'operator', internalType: 'address', type: 'address' },
-          { name: 'validator', internalType: 'address', type: 'address' },
-          { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
-          { name: 'lockupPeriod', internalType: 'uint256', type: 'uint256' },
-          { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
-          { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-          {
-            name: 'commissionRateBps',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'serviceFeeRecipient',
-            internalType: 'address',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'payee', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
-    ],
-    name: 'getRailsForPayeeAndToken',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailInfo[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'railId', internalType: 'uint256', type: 'uint256' },
-          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
-    ],
-    name: 'getRailsForPayerAndToken',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct Payments.RailInfo[]',
-        type: 'tuple[]',
-        components: [
-          { name: 'railId', internalType: 'uint256', type: 'uint256' },
-          { name: 'isTerminated', internalType: 'bool', type: 'bool' },
-          { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'getRateChangeQueueSize',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      {
-        name: 'rateAllowanceIncrease',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      {
-        name: 'lockupAllowanceIncrease',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'increaseOperatorApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'period', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupFixed', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'modifyRailLockup',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'newRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'oneTimePayment', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'modifyRailPayment',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-      { name: '', internalType: 'address', type: 'address' },
-    ],
-    name: 'operatorApprovals',
-    outputs: [
-      { name: 'isApproved', internalType: 'bool', type: 'bool' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'rateUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'approved', internalType: 'bool', type: 'bool' },
-      { name: 'rateAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxLockupPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'setOperatorApproval',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'untilEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'settleRail',
-    outputs: [
-      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'totalOperatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'note', internalType: 'string', type: 'string' },
-    ],
-    stateMutability: 'payable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'settleTerminatedRailWithoutValidation',
-    outputs: [
-      { name: 'totalSettledAmount', internalType: 'uint256', type: 'uint256' },
-      { name: 'totalNetPayeeAmount', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'totalOperatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      { name: 'finalSettledEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'note', internalType: 'string', type: 'string' },
-    ],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'terminateRail',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'withdraw',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'withdrawTo',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'owner',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'lockupCurrent',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'lockupRate',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'lockupLastSettledAt',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'AccountLockupSettled',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      { name: 'from', internalType: 'address', type: 'address', indexed: true },
-      { name: 'to', internalType: 'address', type: 'address', indexed: true },
-      {
-        name: 'amount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'usedPermit',
-        internalType: 'bool',
-        type: 'bool',
-        indexed: false,
-      },
-    ],
-    name: 'DepositRecorded',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'client',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'operator',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
-      {
-        name: 'rateAllowance',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'lockupAllowance',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'maxLockupPeriod',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'OperatorApprovalUpdated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'payer',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'payee',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'operator',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'validator',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'serviceFeeRecipient',
-        internalType: 'address',
-        type: 'address',
-        indexed: false,
-      },
-      {
-        name: 'commissionRateBps',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailCreated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-    ],
-    name: 'RailFinalized',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'oldLockupPeriod',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'newLockupPeriod',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'oldLockupFixed',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'newLockupFixed',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailLockupModified',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'netPayeeAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'operatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailOneTimePaymentProcessed',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'oldRate',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'newRate',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailRateModified',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      {
-        name: 'totalSettledAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'totalNetPayeeAmount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'operatorCommission',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-      {
-        name: 'settledUpTo',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailSettled',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'railId',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: true,
-      },
-      { name: 'by', internalType: 'address', type: 'address', indexed: true },
-      {
-        name: 'endEpoch',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'RailTerminated',
-  },
-  {
-    type: 'event',
-    anonymous: false,
-    inputs: [
-      {
-        name: 'token',
-        internalType: 'address',
-        type: 'address',
-        indexed: true,
-      },
-      { name: 'from', internalType: 'address', type: 'address', indexed: true },
-      { name: 'to', internalType: 'address', type: 'address', indexed: true },
-      {
-        name: 'amount',
-        internalType: 'uint256',
-        type: 'uint256',
-        indexed: false,
-      },
-    ],
-    name: 'WithdrawRecorded',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxSettlementEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'blockNumber', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'CannotModifyTerminatedRailBeyondEndEpoch',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxAllowedEpoch', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'CannotSettleFutureEpochs',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'requiredBlock', internalType: 'uint256', type: 'uint256' },
-      { name: 'currentBlock', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'CannotSettleTerminatedRailBeforeMaxEpoch',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'CommissionRateTooHigh',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'oldLockup', internalType: 'uint256', type: 'uint256' },
-      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'CurrentLockupLessThanOldLockup',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'currentLockup', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupReduction', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientCurrentLockup',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-      { name: 'actual', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientFundsForOneTimePayment',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientFundsForSettlement',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientLockupForSettlement',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-      { name: 'sent', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientNativeTokenForBurn',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-      { name: 'requested', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientUnlockedFunds',
-  },
-  {
-    type: 'error',
-    inputs: [
-      {
-        name: 'nextRateChangeUntilEpoch',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-      { name: 'processedEpoch', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InvalidRateChangeQueueState',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'actualPeriod', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedPeriod', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'attemptedLockupFixed',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'InvalidTerminatedRailModification',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'account', internalType: 'address', type: 'address' },
-      { name: 'lockupCurrent', internalType: 'uint256', type: 'uint256' },
-      { name: 'fundsCurrent', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupExceedsFundsInvariant',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'actualLockupFixed', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'attemptedLockupFixed',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'LockupFixedIncreaseNotAllowedDueToInsufficientFunds',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'expectedLockup', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualLockup', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupInconsistencyDuringRailFinalization',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'isSettled', internalType: 'bool', type: 'bool' },
-      { name: 'currentRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupNotSettledRateChangeNotAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'actualLockupPeriod', internalType: 'uint256', type: 'uint256' },
-      {
-        name: 'attemptedLockupPeriod',
-        internalType: 'uint256',
-        type: 'uint256',
-      },
-    ],
-    name: 'LockupPeriodChangeNotAllowedDueToInsufficientFunds',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'token', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-      { name: 'maxAllowedPeriod', internalType: 'uint256', type: 'uint256' },
-      { name: 'requestedPeriod', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupPeriodExceedsOperatorMaximum',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'paymentRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupRateInconsistent',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'lockupRate', internalType: 'uint256', type: 'uint256' },
-      { name: 'oldRate', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'LockupRateLessThanOldRate',
-  },
-  { type: 'error', inputs: [], name: 'MissingServiceFeeRecipient' },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-      { name: 'sent', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'MustSendExactNativeAmount',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'sent', internalType: 'uint256', type: 'uint256' }],
-    name: 'NativeTokenNotAccepted',
-  },
-  { type: 'error', inputs: [], name: 'NativeTokenNotSupported' },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'amount', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'NativeTransferFailed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'expectedSettledUpTo', internalType: 'uint256', type: 'uint256' },
-      { name: 'actualSettledUpTo', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'NoProgressInSettlement',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'allowedClient', internalType: 'address', type: 'address' },
-      { name: 'allowedOperator', internalType: 'address', type: 'address' },
-      { name: 'caller', internalType: 'address', type: 'address' },
-    ],
-    name: 'NotAuthorizedToTerminateRail',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-      { name: 'required', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'OneTimePaymentExceedsLockup',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'caller', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyRailClientAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'caller', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyRailOperatorAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expectedFrom', internalType: 'address', type: 'address' },
-      { name: 'expectedOperator', internalType: 'address', type: 'address' },
-      { name: 'expectedTo', internalType: 'address', type: 'address' },
-      { name: 'caller', internalType: 'address', type: 'address' },
-    ],
-    name: 'OnlyRailParticipantAllowed',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'OperatorLockupAllowanceExceeded',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'from', internalType: 'address', type: 'address' },
-      { name: 'operator', internalType: 'address', type: 'address' },
-    ],
-    name: 'OperatorNotApproved',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'allowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedUsage', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'OperatorRateAllowanceExceeded',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'expected', internalType: 'address', type: 'address' },
-      { name: 'actual', internalType: 'address', type: 'address' },
-    ],
-    name: 'PermitRecipientMustBeMsgSender',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RailAlreadyTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RailInactiveOrSettled',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RailNotTerminated',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
-    name: 'RateChangeNotAllowedOnTerminatedRail',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'nextUntilEpoch', internalType: 'uint256', type: 'uint256' }],
-    name: 'RateChangeQueueNotEmpty',
-  },
-  { type: 'error', inputs: [], name: 'ReentrancyGuardReentrantCall' },
-  {
-    type: 'error',
-    inputs: [{ name: 'token', internalType: 'address', type: 'address' }],
-    name: 'SafeERC20FailedOperation',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'maxAllowed', internalType: 'uint256', type: 'uint256' },
-      { name: 'attempted', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ValidatorModifiedAmountExceedsMaximum',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'allowedStart', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedStart', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ValidatorSettledBeforeSegmentStart',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'railId', internalType: 'uint256', type: 'uint256' },
-      { name: 'allowedEnd', internalType: 'uint256', type: 'uint256' },
-      { name: 'attemptedEnd', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'ValidatorSettledBeyondSegmentEnd',
-  },
-  {
-    type: 'error',
-    inputs: [{ name: 'varName', internalType: 'string', type: 'string' }],
-    name: 'ZeroAddressNotAllowed',
-  },
-] as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x1096025c9D6B29E12E2f04965F6E64d564Ce0750)
- */
-export const paymentsAddress = {
-  314: '0x0000000000000000000000000000000000000000',
-  314159: '0x1096025c9D6B29E12E2f04965F6E64d564Ce0750',
-} as const
-
-/**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x1096025c9D6B29E12E2f04965F6E64d564Ce0750)
- */
-export const paymentsConfig = {
-  address: paymentsAddress,
-  abi: paymentsAbi,
 } as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3461,17 +4081,10 @@ export const paymentsConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA8a7e2130C27e4f39D1aEBb3D538D5937bCf8ddb)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3)
  */
 export const serviceProviderRegistryAbi = [
   { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'BURN_ACTOR',
-    outputs: [{ name: '', internalType: 'address', type: 'address' }],
-    stateMutability: 'view',
-  },
   {
     type: 'function',
     inputs: [],
@@ -3552,54 +4165,12 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'providerAddress', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
     name: 'addressToProviderId',
     outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: 'data', internalType: 'bytes', type: 'bytes' }],
-    name: 'decodePDPOffering',
-    outputs: [
-      {
-        name: '',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -3620,50 +4191,6 @@ export const serviceProviderRegistryAbi = [
     type: 'function',
     inputs: [
       {
-        name: 'pdpOffering',
-        internalType: 'struct ServiceProviderRegistryStorage.PDPOffering',
-        type: 'tuple',
-        components: [
-          { name: 'serviceURL', internalType: 'string', type: 'string' },
-          {
-            name: 'minPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'maxPieceSizeInBytes',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'ipniPiece', internalType: 'bool', type: 'bool' },
-          { name: 'ipniIpfs', internalType: 'bool', type: 'bool' },
-          {
-            name: 'storagePricePerTibPerMonth',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          {
-            name: 'minProvingPeriodInEpochs',
-            internalType: 'uint256',
-            type: 'uint256',
-          },
-          { name: 'location', internalType: 'string', type: 'string' },
-          {
-            name: 'paymentTokenAddress',
-            internalType: 'contract IERC20',
-            type: 'address',
-          },
-        ],
-      },
-    ],
-    name: 'encodePDPOffering',
-    outputs: [{ name: '', internalType: 'bytes', type: 'bytes' }],
-    stateMutability: 'pure',
-  },
-  {
-    type: 'function',
-    inputs: [
-      {
         name: 'productType',
         internalType: 'enum ServiceProviderRegistryStorage.ProductType',
         type: 'uint8',
@@ -3675,18 +4202,21 @@ export const serviceProviderRegistryAbi = [
     outputs: [
       {
         name: 'result',
-        internalType: 'struct ServiceProviderRegistryStorage.PaginatedProviders',
+        internalType:
+          'struct ServiceProviderRegistryStorage.PaginatedProviders',
         type: 'tuple',
         components: [
           {
             name: 'providers',
-            internalType: 'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
             type: 'tuple[]',
             components: [
               { name: 'providerId', internalType: 'uint256', type: 'uint256' },
               {
                 name: 'providerInfo',
-                internalType: 'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
                 type: 'tuple',
                 components: [
                   {
@@ -3702,21 +4232,18 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
-                  {
-                    name: 'providerId',
-                    internalType: 'uint256',
-                    type: 'uint256',
-                  },
                 ],
               },
               {
                 name: 'product',
-                internalType: 'struct ServiceProviderRegistryStorage.ServiceProduct',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProduct',
                 type: 'tuple',
                 components: [
                   {
                     name: 'productType',
-                    internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+                    internalType:
+                      'enum ServiceProviderRegistryStorage.ProductType',
                     type: 'uint8',
                   },
                   { name: 'productData', internalType: 'bytes', type: 'bytes' },
@@ -3863,15 +4390,27 @@ export const serviceProviderRegistryAbi = [
     outputs: [
       {
         name: 'info',
-        internalType: 'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        internalType: 'struct ServiceProviderRegistry.ServiceProviderInfoView',
         type: 'tuple',
         components: [
-          { name: 'serviceProvider', internalType: 'address', type: 'address' },
-          { name: 'payee', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
         ],
       },
     ],
@@ -3879,20 +4418,34 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'providerAddress', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
     name: 'getProviderByAddress',
     outputs: [
       {
         name: 'info',
-        internalType: 'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+        internalType: 'struct ServiceProviderRegistry.ServiceProviderInfoView',
         type: 'tuple',
         components: [
-          { name: 'serviceProvider', internalType: 'address', type: 'address' },
-          { name: 'payee', internalType: 'address', type: 'address' },
-          { name: 'name', internalType: 'string', type: 'string' },
-          { name: 'description', internalType: 'string', type: 'string' },
-          { name: 'isActive', internalType: 'bool', type: 'bool' },
           { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
         ],
       },
     ],
@@ -3907,9 +4460,55 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'providerAddress', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'providerAddress', internalType: 'address', type: 'address' },
+    ],
     name: 'getProviderIdByAddress',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'getProviderPayee',
+    outputs: [{ name: 'payee', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'providerIds', internalType: 'uint256[]', type: 'uint256[]' },
+    ],
+    name: 'getProvidersByIds',
+    outputs: [
+      {
+        name: 'providerInfos',
+        internalType:
+          'struct ServiceProviderRegistry.ServiceProviderInfoView[]',
+        type: 'tuple[]',
+        components: [
+          { name: 'providerId', internalType: 'uint256', type: 'uint256' },
+          {
+            name: 'info',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+            type: 'tuple',
+            components: [
+              {
+                name: 'serviceProvider',
+                internalType: 'address',
+                type: 'address',
+              },
+              { name: 'payee', internalType: 'address', type: 'address' },
+              { name: 'name', internalType: 'string', type: 'string' },
+              { name: 'description', internalType: 'string', type: 'string' },
+              { name: 'isActive', internalType: 'bool', type: 'bool' },
+            ],
+          },
+        ],
+      },
+      { name: 'validIds', internalType: 'bool[]', type: 'bool[]' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -3927,18 +4526,21 @@ export const serviceProviderRegistryAbi = [
     outputs: [
       {
         name: 'result',
-        internalType: 'struct ServiceProviderRegistryStorage.PaginatedProviders',
+        internalType:
+          'struct ServiceProviderRegistryStorage.PaginatedProviders',
         type: 'tuple',
         components: [
           {
             name: 'providers',
-            internalType: 'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
+            internalType:
+              'struct ServiceProviderRegistryStorage.ProviderWithProduct[]',
             type: 'tuple[]',
             components: [
               { name: 'providerId', internalType: 'uint256', type: 'uint256' },
               {
                 name: 'providerInfo',
-                internalType: 'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProviderInfo',
                 type: 'tuple',
                 components: [
                   {
@@ -3954,21 +4556,18 @@ export const serviceProviderRegistryAbi = [
                     type: 'string',
                   },
                   { name: 'isActive', internalType: 'bool', type: 'bool' },
-                  {
-                    name: 'providerId',
-                    internalType: 'uint256',
-                    type: 'uint256',
-                  },
                 ],
               },
               {
                 name: 'product',
-                internalType: 'struct ServiceProviderRegistryStorage.ServiceProduct',
+                internalType:
+                  'struct ServiceProviderRegistryStorage.ServiceProduct',
                 type: 'tuple',
                 components: [
                   {
                     name: 'productType',
-                    internalType: 'enum ServiceProviderRegistryStorage.ProductType',
+                    internalType:
+                      'enum ServiceProviderRegistryStorage.ProductType',
                     type: 'uint8',
                   },
                   { name: 'productData', internalType: 'bytes', type: 'bytes' },
@@ -4097,7 +4696,6 @@ export const serviceProviderRegistryAbi = [
       { name: 'name', internalType: 'string', type: 'string' },
       { name: 'description', internalType: 'string', type: 'string' },
       { name: 'isActive', internalType: 'bool', type: 'bool' },
-      { name: 'providerId', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
@@ -4312,15 +4910,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
@@ -4374,15 +4972,15 @@ export const serviceProviderRegistryAbi = [
         indexed: true,
       },
       {
-        name: 'serviceUrl',
-        internalType: 'string',
-        type: 'string',
-        indexed: false,
-      },
-      {
         name: 'serviceProvider',
         internalType: 'address',
         type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'productData',
+        internalType: 'bytes',
+        type: 'bytes',
         indexed: false,
       },
       {
@@ -4471,7 +5069,9 @@ export const serviceProviderRegistryAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -4498,16 +5098,16 @@ export const serviceProviderRegistryAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA8a7e2130C27e4f39D1aEBb3D538D5937bCf8ddb)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3)
  */
 export const serviceProviderRegistryAddress = {
   314: '0x0000000000000000000000000000000000000000',
-  314159: '0xA8a7e2130C27e4f39D1aEBb3D538D5937bCf8ddb',
+  314159: '0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA8a7e2130C27e4f39D1aEBb3D538D5937bCf8ddb)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3)
  */
 export const serviceProviderRegistryConfig = {
   address: serviceProviderRegistryAddress,
@@ -4540,6 +5140,7 @@ export const sessionKeyRegistryAbi = [
       { name: 'signer', internalType: 'address', type: 'address' },
       { name: 'expiry', internalType: 'uint256', type: 'uint256' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'login',
     outputs: [],
@@ -4551,6 +5152,7 @@ export const sessionKeyRegistryAbi = [
       { name: 'signer', internalType: 'address payable', type: 'address' },
       { name: 'expiry', internalType: 'uint256', type: 'uint256' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'loginAndFund',
     outputs: [],
@@ -4561,10 +5163,48 @@ export const sessionKeyRegistryAbi = [
     inputs: [
       { name: 'signer', internalType: 'address', type: 'address' },
       { name: 'permissions', internalType: 'bytes32[]', type: 'bytes32[]' },
+      { name: 'origin', internalType: 'string', type: 'string' },
     ],
     name: 'revoke',
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'identity',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'signer',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+      {
+        name: 'expiry',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+      {
+        name: 'permissions',
+        internalType: 'bytes32[]',
+        type: 'bytes32[]',
+        indexed: false,
+      },
+      {
+        name: 'origin',
+        internalType: 'string',
+        type: 'string',
+        indexed: false,
+      },
+    ],
+    name: 'AuthorizationsUpdated',
   },
 ] as const
 

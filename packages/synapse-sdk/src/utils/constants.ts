@@ -115,7 +115,7 @@ export const TIME_CONSTANTS = {
   /**
    * Default lockup period in days
    */
-  DEFAULT_LOCKUP_DAYS: 10n,
+  DEFAULT_LOCKUP_DAYS: 30n,
 } as const
 
 /**
@@ -319,7 +319,7 @@ export const CONTRACT_ADDRESSES = {
    */
   WARM_STORAGE: {
     mainnet: '0x81DFD9813aDd354f03704F31419b0c6268d46232',
-    calibration: '0x80617b65FD2EEa1D7fDe2B4F85977670690ed348',
+    calibration: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**

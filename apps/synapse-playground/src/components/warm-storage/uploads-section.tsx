@@ -28,12 +28,12 @@ export function UploadsSection({
 
   const providerWithDataSets = providers?.map((provider) => ({
     ...provider,
-    dataSets: dataSets?.filter((d) => d.providerId === provider.providerId),
+    dataSets: dataSets?.filter((d) => d.providerId === provider.id),
   }))
 
   useEffect(() => {
     if (!dataSet && dataSets && dataSets.length > 0) {
-      setDataSet(dataSets[0].pdpDatasetId.toString())
+      setDataSet(dataSets[0].dataSetId.toString())
     }
   }, [dataSets])
 
@@ -86,11 +86,11 @@ export function UploadsSection({
           </SelectTrigger>
           <SelectContent>
             {providerWithDataSets?.map((provider) => (
-              <SelectGroup key={provider.providerId}>
+              <SelectGroup key={provider.id}>
                 <SelectLabel>{provider.name}</SelectLabel>
                 {provider.dataSets?.map((dataSet) => (
-                  <SelectItem key={dataSet.clientDataSetId} value={dataSet.pdpDatasetId.toString()}>
-                    # {dataSet.pdpDatasetId} {dataSet.cdn ? 'CDN' : ''}
+                  <SelectItem key={dataSet.dataSetId} value={dataSet.dataSetId.toString()}>
+                    # {dataSet.dataSetId} {dataSet.cdn ? 'CDN' : ''}
                   </SelectItem>
                 ))}
               </SelectGroup>

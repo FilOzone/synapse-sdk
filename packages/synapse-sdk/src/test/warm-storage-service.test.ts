@@ -94,10 +94,10 @@ describe('WarmStorageService', () => {
             payee: '0x2345678901234567890123456789012345678901',
             serviceProvider: '0x3456789012345678901234567890123456789012',
             commissionBps: 100,
-            clientDataSetId: 5,
+            clientDataSetId: 5n,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(dataSetId),
           }
           // Use the Interface to encode the return data properly
           return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
@@ -111,7 +111,7 @@ describe('WarmStorageService', () => {
       assert.equal(result?.cacheMissRailId, 457)
       assert.equal(result?.cdnRailId, 458)
       assert.equal(result?.payer, '0x1234567890123456789012345678901234567890')
-      assert.equal(result?.clientDataSetId, 5)
+      assert.equal(result?.clientDataSetId, 5n)
     })
 
     it('should throw for non-existent data set', async () => {
@@ -130,10 +130,10 @@ describe('WarmStorageService', () => {
             payee: ethers.ZeroAddress,
             serviceProvider: ethers.ZeroAddress,
             commissionBps: 0,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 0,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(dataSetId),
           }
           // Use the Interface to encode the return data properly
           return viewInterface.encodeFunctionResult('getDataSet', [emptyDataSet])
@@ -206,6 +206,7 @@ describe('WarmStorageService', () => {
         if (data?.startsWith('0x967c6f21') === true) {
           // Return two data sets
           const dataSet1 = {
+            id: 1n,
             pdpRailId: 123n,
             cacheMissRailId: 0n,
             cdnRailId: 0n,
@@ -218,6 +219,7 @@ describe('WarmStorageService', () => {
           }
 
           const dataSet2 = {
+            id: 2n,
             pdpRailId: 456n,
             cacheMissRailId: 457n,
             cdnRailId: 458n, // Has CDN
@@ -242,7 +244,7 @@ describe('WarmStorageService', () => {
               dataSet1.clientDataSetId,
               dataSet1.paymentEndEpoch, // pdpEndEpoch
               dataSet1.providerId,
-              0, // cdnEndEpoch
+              dataSet1.id,
             ],
             [
               dataSet2.pdpRailId,
@@ -255,7 +257,7 @@ describe('WarmStorageService', () => {
               dataSet2.clientDataSetId,
               dataSet2.paymentEndEpoch, // pdpEndEpoch
               dataSet2.providerId,
-              0, // cdnEndEpoch
+              dataSet2.id,
             ],
           ]
 
@@ -274,7 +276,7 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
       assert.equal(dataSets[0].commissionBps, 100)
-      assert.equal(dataSets[0].clientDataSetId, 0)
+      assert.equal(dataSets[0].clientDataSetId, 0n)
       assert.equal(dataSets[0].cdnRailId, 0) // No CDN
 
       // Check second data set
@@ -282,7 +284,7 @@ describe('WarmStorageService', () => {
       assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
       assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
       assert.equal(dataSets[1].commissionBps, 200)
-      assert.equal(dataSets[1].clientDataSetId, 1)
+      assert.equal(dataSets[1].clientDataSetId, 1n)
       assert.isAbove(dataSets[1].cdnRailId, 0) // Has CDN
     })
 
@@ -344,10 +346,10 @@ describe('WarmStorageService', () => {
             payee: '0xabcdef1234567890123456789012345678901234',
             serviceProvider: '0xabcdef1234567890123456789012345678901234',
             commissionBps: 100,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: 242n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
         }
@@ -419,10 +421,10 @@ describe('WarmStorageService', () => {
             serviceProvider:
               id === 242 ? '0xabc1234567890123456789012345678901234567' : '0xdef1234567890123456789012345678901234567',
             commissionBps: 100,
-            clientDataSetId: id === 242 ? 0 : 1,
+            clientDataSetId: id === 242 ? 0n : 1n,
             pdpEndEpoch: 0,
             providerId: id === 242 ? 1 : 2,
-            cdnEndEpoch: 0,
+            dataSetId: BigInt(id),
           })
           const id = dataSetIdHex === ethers.zeroPadValue('0xf2', 32).slice(2) ? 242 : 243
           return viewInterface.encodeFunctionResult('getDataSet', [baseInfo(id)])
@@ -508,10 +510,10 @@ describe('WarmStorageService', () => {
             payee: '0xabc1234567890123456789012345678901234567',
             serviceProvider: '0xabc1234567890123456789012345678901234567',
             commissionBps: 100,
-            clientDataSetId: 0,
+            clientDataSetId: 0n,
             pdpEndEpoch: 0,
             providerId: 1,
-            cdnEndEpoch: 0,
+            dataSetId: 242n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -567,7 +569,7 @@ describe('WarmStorageService', () => {
             3n, // clientDataSetId
             0n, // pdpEndEpoch
             1n, // providerId
-            0n, // cdnEndEpoch
+            BigInt(dataSetId),
           ]
           return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
@@ -585,7 +587,7 @@ describe('WarmStorageService', () => {
             clientDataSetId: 0n, // expecting 0
             pdpEndEpoch: 0n,
             providerId: 1n,
-            cdnEndEpoch: 0n,
+            dataSetId: BigInt(dataSetId),
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -597,7 +599,7 @@ describe('WarmStorageService', () => {
 
       const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
       assert.equal(addPiecesInfo.nextPieceId, 5)
-      assert.equal(addPiecesInfo.clientDataSetId, 0)
+      assert.equal(addPiecesInfo.clientDataSetId, 0n)
       assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
     })
 
@@ -624,7 +626,7 @@ describe('WarmStorageService', () => {
             3n, // clientDataSetId
             0n, // pdpEndEpoch
             1n, // providerId
-            0n, // cdnEndEpoch
+            BigInt(dataSetId),
           ]
           return viewInterface.encodeFunctionResult('getClientDataSets', [[dataSet]])
         }
@@ -657,7 +659,6 @@ describe('WarmStorageService', () => {
             clientDataSetId: 3n,
             pdpEndEpoch: 0n,
             providerId: 1n,
-            cdnEndEpoch: 0n,
           }
           return viewInterface.encodeFunctionResult('getDataSet', [info])
         }
@@ -674,23 +675,6 @@ describe('WarmStorageService', () => {
         // Error now happens due to type mismatch in getDataSet call
         assert.include(error.message, 'Failed to get add pieces info')
       }
-    })
-  })
-
-  describe('getNextClientDataSetId', () => {
-    it('should return the next client dataset ID', async () => {
-      const warmStorageService = await createWarmStorageService()
-      cleanup = mockProviderWithView((data) => {
-        // clientDataSetIDs mapping call
-        if (data?.startsWith('0x196ed89b') === true) {
-          return ethers.zeroPadValue('0x05', 32) // Return 5
-        }
-
-        return null
-      })
-
-      const nextId = await warmStorageService.getNextClientDataSetId(clientAddress)
-      assert.equal(nextId, 5)
     })
   })
 
@@ -789,7 +773,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           // Return array of provider IDs [1, 4, 7]
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
@@ -808,7 +792,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           // Return empty array
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[]])
         }
@@ -979,7 +963,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array with provider 4 at index 1
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
@@ -1014,7 +998,7 @@ describe('WarmStorageService', () => {
 
       cleanup = mockProviderWithView((data) => {
         // getApprovedProviders selector - return array without provider 99
-        if (data?.startsWith('0x266afe1b') === true) {
+        if (data?.startsWith('0x7709a7f7') === true) {
           return viewInterface.encodeFunctionResult('getApprovedProviders', [[1n, 4n, 7n]])
         }
         return null
@@ -1344,8 +1328,9 @@ describe('WarmStorageService', () => {
         assert.exists(check.depositAmountNeeded)
         assert.isTrue(check.depositAmountNeeded > 0n)
 
-        // depositAmountNeeded should equal 10 days of costs (default lockup)
-        const expectedDeposit = check.costs.perEpoch * BigInt(10) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        // depositAmountNeeded should equal 30 days of costs (default lockup)
+        const expectedDeposit =
+          check.costs.perEpoch * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
       })
 
@@ -1389,27 +1374,27 @@ describe('WarmStorageService', () => {
           return `0x${'0'.repeat(64)}`
         }
 
-        // Test with custom lockup period of 20 days
-        const customLockupDays = 20
+        // Test with custom lockup period of 60 days
+        const customLockupDays = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * 2n
         const check = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService,
-          customLockupDays
+          Number(customLockupDays)
         )
 
         // Verify depositAmountNeeded uses custom lockup period
-        const expectedDeposit = check.costs.perEpoch * BigInt(customLockupDays) * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY)
+        const expectedDeposit = check.costs.perEpoch * customLockupDays * TIME_CONSTANTS.EPOCHS_PER_DAY
         assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
 
-        // Compare with default (10 days) to ensure they're different
+        // Compare with default (30 days) to ensure they're different
         const defaultCheck = await warmStorageService.checkAllowanceForStorage(
           Number(SIZE_CONSTANTS.GiB), // 1 GiB
           false,
           mockPaymentsService
         )
 
-        // Custom should be exactly 2x default (20 days vs 10 days)
+        // Custom should be exactly 2x default (60 days vs 30 days)
         assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
       })
     })
@@ -2049,6 +2034,32 @@ describe('WarmStorageService', () => {
       }
 
       mockProvider.call = originalCall
+    })
+  })
+
+  describe('CDN Operations', () => {
+    it('should top up CDN payment rails (mock transaction)', async () => {
+      const dataSetId = 49
+      const warmStorageService = await createWarmStorageService()
+      const mockSigner = {
+        getAddress: async () => '0x1234567890123456789012345678901234567890',
+      } as any
+
+      // Mock the contract connection
+      const originalGetWarmStorageContract = (warmStorageService as any)._getWarmStorageContract
+      ;(warmStorageService as any)._getWarmStorageContract = () => ({
+        connect: () => ({
+          topUpCDNPaymentRails: async () => ({
+            hash: '0xmocktxhash',
+            wait: async () => ({ status: 1 }),
+          }),
+        }),
+      })
+
+      const tx = await warmStorageService.topUpCDNPaymentRails(mockSigner, dataSetId, 1n, 1n)
+      assert.equal(tx.hash, '0xmocktxhash')
+
+      ;(warmStorageService as any)._getWarmStorageContract = originalGetWarmStorageContract
     })
   })
 })
