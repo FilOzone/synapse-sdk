@@ -76,6 +76,10 @@ export class TelemetryService {
    */
   private async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
     const Sentry = await getSentry()
+    if (!Sentry) {
+      // Sentry dependencies not available, telemetry will be disabled
+      return
+    }
     this.sentry = Sentry
 
     const integrations = []

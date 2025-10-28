@@ -18,12 +18,18 @@ export type SentryType = SentryNodeType | SentryBrowserType
 
 /**
  * Dynamically import the correct Sentry package for whether we're running in a browser or Node.
+ * Returns null if the Sentry dependencies are not available (optional peer dependencies).
  */
-export async function getSentry(): Promise<SentryType> {
-  if (isBrowser) {
-    return (await import('@sentry/browser')) satisfies typeof SentryBrowser
+export async function getSentry(): Promise<SentryType | null> {
+  try {
+    if (isBrowser) {
+      return (await import('@sentry/browser')) satisfies typeof SentryBrowser
+    }
+    return (await import('@sentry/node')) satisfies typeof SentryNode
+  } catch {
+    // Sentry dependencies not available (optional peer dependencies)
+    return null
   }
-  return (await import('@sentry/node')) satisfies typeof SentryNode
 }
 
 /**
