@@ -28,7 +28,8 @@ export const ADDRESSES = {
   serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
   payee1: '0x1000000000000000000000000000000000000001' as Address,
   mainnet: {
-    warmStorage: CONTRACT_ADDRESSES.WARM_STORAGE.mainnet as Address,
+    warmStorage: '0x1234567890123456789012345678901234567890' as Address,
+    warmStorageReal: CONTRACT_ADDRESSES.WARM_STORAGE.mainnet as Address,
     multicall3: CONTRACT_ADDRESSES.MULTICALL3.mainnet,
     pdpVerifier: '0x9876543210987654321098765432109876543210',
   },
@@ -136,12 +137,16 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
 
       if (
         isAddressEqual(ADDRESSES.calibration.warmStorage, to as Address) ||
-        isAddressEqual(ADDRESSES.mainnet.warmStorage, to as Address)
+        isAddressEqual(ADDRESSES.mainnet.warmStorage, to as Address) ||
+        isAddressEqual(ADDRESSES.mainnet.warmStorageReal, to as Address)
       ) {
         return warmStorageCallHandler(data as Hex, options)
       }
 
-      if (isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address)) {
+      if (
+        isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address) ||
+        isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.mainnet, to as Address)
+      ) {
         return multicall3CallHandler(data as Hex, options)
       }
 
