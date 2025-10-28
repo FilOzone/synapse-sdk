@@ -100,14 +100,14 @@ export type PollForDataSetCreationStatusOptions = {
 
 export type DataSetCreatedResponse =
   | {
-      createMessageHash: `0x${string}`
+      createMessageHash: Hex
       dataSetCreated: false
       service: string
       txStatus: 'pending' | 'confirmed' | 'rejected'
       ok: boolean
     }
   | {
-      createMessageHash: `0x${string}`
+      createMessageHash: Hex
       dataSetCreated: true
       service: string
       txStatus: 'pending' | 'confirmed' | 'rejected'
@@ -401,7 +401,7 @@ export async function addPieces(options: AddPiecesOptions) {
   }
 
   return {
-    txHash: txHash as `0x${string}`,
+    txHash: txHash as Hex,
     statusUrl: new URL(location, endpoint).toString(),
   }
 }

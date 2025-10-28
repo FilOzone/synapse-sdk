@@ -1,5 +1,5 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import { type Chain, type Client, hexToBigInt, hexToString, type Transport } from 'viem'
+import { type Chain, type Client, type Hex, hexToBigInt, hexToString, type Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
@@ -28,7 +28,7 @@ export type PDPOffering = {
   storagePricePerTibPerDay: bigint
   minProvingPeriodInEpochs: bigint
   location: string
-  paymentTokenAddress: `0x${string}`
+  paymentTokenAddress: Hex
 }
 
 export interface PDPProvider extends ServiceProviderInfo {
@@ -40,7 +40,7 @@ export interface PDPProvider extends ServiceProviderInfo {
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
-export function decodeCapabilities(keys: readonly string[], values: readonly `0x${string}`[]): PDPOffering {
+export function decodeCapabilities(keys: readonly string[], values: readonly Hex[]): PDPOffering {
   const offering: Partial<PDPOffering> = {
     ipniPiece: false,
     ipniIpfs: false,
@@ -78,7 +78,7 @@ export function decodeCapabilities(keys: readonly string[], values: readonly `0x
       case CAP_PAYMENT_TOKEN:
         // Extract last 20 bytes for address
         if (value.length >= 42) {
-          offering.paymentTokenAddress = `0x${value.slice(-40)}` as `0x${string}`
+          offering.paymentTokenAddress = `0x${value.slice(-40)}` as Hex
         }
         break
       // Ignore custom capabilities
