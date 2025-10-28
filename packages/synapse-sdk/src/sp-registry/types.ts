@@ -17,7 +17,7 @@ export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
  */
 export interface ProviderInfo {
   id: number
-  serviceProvider: string
+  serviceProvider: string // TODO Hex
   payee: string
   name: string
   description: string
