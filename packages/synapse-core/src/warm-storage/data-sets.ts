@@ -274,7 +274,7 @@ export async function createDataSetAndAddPieces(
   // Sign and encode the add pieces message
   const addPiecesExtraData = await signAddPieces(client, {
     clientDataSetId,
-    nextPieceId: 0n,
+    nonce: randU256(),
     pieces: options.pieces.map((piece) => ({
       pieceCid: piece.pieceCid,
       metadata: pieceMetadataObjectToEntry(piece.metadata),
