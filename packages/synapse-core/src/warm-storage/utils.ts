@@ -1,4 +1,4 @@
-import { SIZE_CONSTANTS } from '../constants.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import type { ServicePriceResult } from './service-price.ts'
 
 export interface CalculateStorageCostsResult {

@@ -3,10 +3,10 @@ import { type Account, type Address, type Chain, type Client, isAddressEqual, ty
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import { randU256 } from '../rand.ts'
 import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+import { randU256 } from '../utils/rand.ts'
 import { decodeCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
 /**
@@ -212,7 +212,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
     clientDataSetId: nonce,
-    payee: options.provider.info.payee,
+    payee: options.provider.payee,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
       cdn: options.cdn,
     }),

@@ -15,18 +15,9 @@ const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
 const CAP_LOCATION = 'location'
 const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
 
-export type getProvidersByProductTypeType = ExtractAbiFunction<
-  typeof Abis.serviceProviderRegistry,
-  'getProvidersByProductType'
->
-
-export type ProviderWithProduct = AbiParametersToPrimitiveTypes<
-  getProvidersByProductTypeType['outputs']
->[0]['providers'][0]
-
 export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
 
-export type ServiceProviderInfo = AbiParametersToPrimitiveTypes<getProviderType['outputs']>[0]
+export type ServiceProviderInfo = AbiParametersToPrimitiveTypes<getProviderType['outputs']>[0]['info']
 
 export type PDPOffering = {
   serviceURL: string
@@ -41,6 +32,7 @@ export type PDPOffering = {
 }
 
 export interface PDPProvider extends ServiceProviderInfo {
+  id: bigint
   pdp: PDPOffering
 }
 
@@ -123,11 +115,30 @@ export async function readProviders(client: Client<Transport, Chain>): Promise<P
   for (const provider of p.providers) {
     if (providersIds.includes(provider.providerId)) {
       providers.push({
-        providerId: provider.providerId,
-        info: provider.providerInfo,
+        id: provider.providerId,
+        ...provider.providerInfo,
         pdp: decodeCapabilities(provider.product.capabilityKeys, provider.productCapabilityValues),
       })
     }
   }
   return providers
+}
+
+export type GetProviderOptions = {
+  providerId: bigint
+}
+
+export async function getProvider(client: Client<Transport, Chain>, options: GetProviderOptions): Promise<PDPProvider> {
+  const chain = getChain(client.chain.id)
+  const provider = await readContract(client, {
+    address: chain.contracts.serviceProviderRegistry.address,
+    abi: chain.contracts.serviceProviderRegistry.abi,
+    functionName: 'getProviderWithProduct',
+    args: [options.providerId, 0], // productType PDP = 0
+  })
+  return {
+    id: provider.providerId,
+    ...provider.providerInfo,
+    pdp: decodeCapabilities(provider.product.capabilityKeys, provider.productCapabilityValues),
+  }
 }

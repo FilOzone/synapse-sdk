@@ -51,20 +51,6 @@ export function decodePDPError(error: string) {
       }
     }
 
-    // try errors abi (shared error definitions)
-    if (error instanceof AbiErrorSignatureNotFoundError) {
-      try {
-        const value = decodeErrorResult({
-          abi: Abis.generated.errorsAbi,
-          data: extractedContent as `0x${string}`,
-        })
-
-        return `Warm Storage\n${formatPDPError(value)}`
-      } catch (err) {
-        error = err as Error
-      }
-    }
-
     return `Unable to decode error\n${error}`
   } else if (extractedContent?.startsWith('Error(')) {
     return `\n${extractedContent.replace('Error(', '').replace(')', '')}`

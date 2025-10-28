@@ -265,6 +265,7 @@ export async function uploadPiece(options: UploadPieceOptions) {
     headers: {
       'Content-Type': 'application/json',
     },
+    timeout: TIMEOUT,
   })
 
   if (response.error) {
