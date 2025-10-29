@@ -201,7 +201,6 @@ export function validateFindPieceResponse(value: unknown): FindPieceResponse {
   // Return normalized response with PieceCID object
   return {
     pieceCid,
-    piece_cid: obj.piece_cid, // Keep legacy field if it exists
   }
 }
 

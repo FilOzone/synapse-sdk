@@ -49,14 +49,15 @@ export function CreateDataSetDialog() {
     cdn: boolean
   }>({
     values: {
-      provider: providers?.[2]?.providerId.toString() ?? '',
+      provider: providers?.[0]?.id.toString() ?? '',
       cdn: false,
     },
   })
 
   function onSubmit(values: { provider: string; cdn: boolean }) {
-    const provider = providers?.find((p) => p.providerId.toString() === values.provider)
-    createDataSet({ provider: provider!, cdn: values.cdn })
+    const provider = providers?.find((p) => p.id.toString() === values.provider)
+    if (!provider) return
+    createDataSet({ provider, cdn: values.cdn })
   }
 
   return (
@@ -94,8 +95,8 @@ export function CreateDataSetDialog() {
                       </FormControl>
                       <SelectContent>
                         {providers?.map((provider) => (
-                          <SelectItem key={provider.providerId} value={provider.providerId.toString()}>
-                            # {provider.providerId} {provider.name}
+                          <SelectItem key={provider.id} value={provider.id.toString()}>
+                            # {provider.id} {provider.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

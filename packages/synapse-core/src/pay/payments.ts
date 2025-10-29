@@ -12,7 +12,6 @@ import {
 } from 'viem/actions'
 import * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import { LOCKUP_PERIOD } from '../constants.ts'
 import * as erc20 from '../erc20.ts'
 import {
   DepositAmountError,
@@ -22,6 +21,7 @@ import {
   WithdrawAmountError,
 } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
+import { LOCKUP_PERIOD } from '../utils/constants.ts'
 
 export type AccountInfoOptions = {
   /**

@@ -97,7 +97,7 @@ export const mainnet: Chain = {
       abi: Abis.erc20WithPermit,
     },
     payments: {
-      address: Abis.generated.paymentsAddress['314'],
+      address: Abis.generated.filecoinPayV1Address['314'],
       abi: Abis.payments,
     },
     storage: {
@@ -171,7 +171,7 @@ export const calibration: Chain = {
       abi: Abis.erc20WithPermit,
     },
     payments: {
-      address: Abis.generated.paymentsAddress['314159'],
+      address: Abis.generated.filecoinPayV1Address['314159'],
       abi: Abis.payments,
     },
     storage: {

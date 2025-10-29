@@ -33,7 +33,7 @@
       "!**/components.d.ts",
       "!**/mockServiceWorker.js",
       "!**/abis/gen.ts",
-      "!packages/synapse-core/src/generated.ts"
+      "!packages/synapse-core/src/abis/generated.ts"
     ]
   },
   "vcs": {

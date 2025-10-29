@@ -9,7 +9,7 @@ export type ReadAddressesResult = {
   serviceProviderRegistry: Address
   sessionKeyRegistry: Address
   usdfcToken: Address
-  filCDNBeneficiary: Address
+  filBeamBeneficiary: Address
 }
 
 export async function readAddresses(client: Client<Transport, Chain>): Promise<ReadAddressesResult> {
@@ -53,7 +53,7 @@ export async function readAddresses(client: Client<Transport, Chain>): Promise<R
       {
         address: chain.contracts.storage.address,
         abi: chain.contracts.storage.abi,
-        functionName: 'filCDNBeneficiaryAddress',
+        functionName: 'filBeamBeneficiaryAddress',
       },
     ],
   })
@@ -65,6 +65,6 @@ export async function readAddresses(client: Client<Transport, Chain>): Promise<R
     serviceProviderRegistry: addresses[3],
     sessionKeyRegistry: addresses[4],
     usdfcToken: addresses[5],
-    filCDNBeneficiary: addresses[6],
+    filBeamBeneficiary: addresses[6],
   }
 }

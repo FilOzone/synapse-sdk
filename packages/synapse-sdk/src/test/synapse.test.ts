@@ -285,10 +285,10 @@ describe('Synapse', () => {
       logs: [makeDataSetCreatedLog(DATA_SET_ID, 1)],
     }
     beforeEach(() => {
-      server.use(PING())
       const pdpOptions: PDPMockOptions = {
         baseUrl: 'https://pdp.example.com',
       }
+      server.use(PING(pdpOptions))
       server.use(createDataSetHandler(FAKE_TX_HASH, pdpOptions))
       server.use(
         dataSetCreationStatusHandler(
@@ -461,12 +461,14 @@ describe('Synapse', () => {
             ...presets.basic.serviceRegistry,
             getProviderByAddress: () => [
               {
-                serviceProvider: ADDRESSES.zero,
-                payee: ADDRESSES.zero,
-                name: '',
-                description: '',
-                isActive: false,
                 providerId: 0n,
+                info: {
+                  serviceProvider: ADDRESSES.zero,
+                  payee: ADDRESSES.zero,
+                  name: '',
+                  description: '',
+                  isActive: false,
+                },
               },
             ],
           },
@@ -707,23 +709,28 @@ describe('Synapse', () => {
               if (data[0] === 1n) {
                 return [
                   {
-                    serviceProvider: ADDRESSES.serviceProvider1,
-                    payee: ADDRESSES.payee1,
-                    isActive: true,
-                    name: 'Test Provider',
-                    description: 'Test Provider',
                     providerId: 1n,
+                    info: {
+                      serviceProvider: ADDRESSES.serviceProvider1,
+                      payee: ADDRESSES.payee1,
+                      isActive: true,
+                      name: 'Test Provider',
+                      description: 'Test Provider',
+                    },
                   },
                 ]
               }
               return [
                 {
-                  serviceProvider: ADDRESSES.zero,
-                  payee: ADDRESSES.zero,
-                  isActive: false,
-                  name: '',
-                  description: '',
                   providerId: 0n,
+                  info: {
+                    serviceProvider: ADDRESSES.zero,
+                    payee: ADDRESSES.zero,
+                    isActive: false,
+                    name: '',
+                    description: '',
+                    providerId: 0n,
+                  },
                 },
               ]
             },

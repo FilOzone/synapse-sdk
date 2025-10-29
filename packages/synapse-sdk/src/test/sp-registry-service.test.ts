@@ -26,31 +26,40 @@ describe('SPRegistryService', () => {
       getProviderByAddress: async (address: string) => {
         if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
           return {
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
+            providerId: 0n,
+            info: {
+              serviceProvider: mockProviderAddress,
+              payee: mockProviderAddress,
+              name: 'Test Provider',
+              description: 'A test storage provider',
+              isActive: true,
+            },
           }
         }
         // Return zero address for non-existent provider
         return {
-          serviceProvider: ethers.ZeroAddress,
-          payee: ethers.ZeroAddress,
-          name: '',
-          description: '',
-          isActive: false,
+          providerId: 0n,
+          info: {
+            serviceProvider: ethers.ZeroAddress,
+            payee: ethers.ZeroAddress,
+            name: '',
+            description: '',
+            isActive: false,
+          },
         }
       },
       getProvider: async (id: number) => {
         if (id === 1) {
           return {
-            id: BigInt(1),
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
+            providerId: 1,
+            info: {
+              id: BigInt(1),
+              serviceProvider: mockProviderAddress,
+              payee: mockProviderAddress,
+              name: 'Test Provider',
+              description: 'A test storage provider',
+              isActive: true,
+            },
           }
         }
         throw new Error('Provider not found')
@@ -67,10 +76,10 @@ describe('SPRegistryService', () => {
               maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
               ipniPiece: true,
               ipniIpfs: false,
-              storagePricePerTibPerMonth: BigInt(1000000),
-              minProvingPeriodInEpochs: 2880,
+              storagePricePerTibPerDay: BigInt(1000000),
+              minProvingPeriodInEpochs: 2880n,
               location: 'US-EAST',
-              paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+              paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
             },
             capabilities: [],
             isActive: true,
@@ -89,10 +98,10 @@ describe('SPRegistryService', () => {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: false,
-          storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
           location: 'US-EAST',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
         }
       },
       getAllActiveProviders: async (offset: number, _limit: number) => {
@@ -272,6 +281,17 @@ describe('SPRegistryService', () => {
         payee: '0x9999999999999999999999999999999999999999',
         name: 'New Provider',
         description: 'Description',
+        pdpOffering: {
+          serviceURL: 'https://new-provider.example.com',
+          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+          ipniPiece: true,
+          ipniIpfs: false,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
+          location: 'US-EAST',
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+        },
       })
       assert.exists(tx, 'Transaction should exist')
       assert.exists(tx.hash, 'Transaction should have a hash')
@@ -328,10 +348,10 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
         ipniPiece: true,
         ipniIpfs: false,
-        storagePricePerTibPerMonth: BigInt(1000000),
-        minProvingPeriodInEpochs: 2880,
+        storagePricePerTibPerDay: BigInt(1000000),
+        minProvingPeriodInEpochs: 2880n,
         location: 'US-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       }
 
       const tx = await service.addPDPProduct(mockSigner, pdpData)
@@ -347,10 +367,10 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB * 2n,
         ipniPiece: true,
         ipniIpfs: true,
-        storagePricePerTibPerMonth: BigInt(2000000),
-        minProvingPeriodInEpochs: 2880,
+        storagePricePerTibPerDay: BigInt(2000000),
+        minProvingPeriodInEpochs: 2880n,
         location: 'EU-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
       }
 
       const tx = await service.updatePDPProduct(mockSigner, pdpData)
@@ -400,8 +420,8 @@ describe('SPRegistryService', () => {
             maxPieceSizeInBytes: 0,
             ipniPiece: false,
             ipniIpfs: false,
-            minProvingPeriodInEpochs: 0,
-            storagePricePerTibPerMonth: 0,
+            minProvingPeriodInEpochs: 0n,
+            storagePricePerTibPerDay: 0,
             location: '',
           },
           capabilityKeys: [],

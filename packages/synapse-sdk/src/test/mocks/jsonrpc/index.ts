@@ -2,12 +2,15 @@ import { HttpResponse, http } from 'msw'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
+  bytesToHex,
   decodeFunctionData,
   encodeAbiParameters,
   type Hex,
   isAddressEqual,
   multicall3Abi,
+  numberToBytes,
   parseUnits,
+  stringToHex,
 } from 'viem'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
 import { paymentsCallHandler } from './payments.ts'
@@ -255,14 +258,16 @@ export const presets = {
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
       usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
-      filCDNBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
+      filBeamBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
       getServicePrice: () => [
         {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
-          pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
+          pricePerTiBCdnEgress: parseUnits('7', 18),
+          pricePerTiBCacheMissEgress: parseUnits('7', 18),
+          minimumPricePerMonth: parseUnits('6', 16),
           tokenAddress: ADDRESSES.calibration.usdfcToken,
           epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },
@@ -285,6 +290,7 @@ export const presets = {
             pdpEndEpoch: 0n,
             providerId: 1n,
             cdnEndEpoch: 0n,
+            dataSetId: 1n,
           },
         ],
       ],
@@ -303,6 +309,7 @@ export const presets = {
           pdpEndEpoch: 0n,
           providerId: 1n,
           cdnEndEpoch: 0n,
+          dataSetId: 1n,
         },
       ],
       getApprovedProviders: () => [[1n, 2n]],
@@ -339,7 +346,7 @@ export const presets = {
           return [true, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi']
         return [false, ''] // key not found
       },
-      clientDataSetIDs: () => {
+      clientNonces: () => {
         return [BigInt(0)]
       },
     },
@@ -351,63 +358,204 @@ export const presets = {
     serviceRegistry: {
       getProviderByAddress: (data) => [
         {
-          serviceProvider: data[0],
-          payee: ADDRESSES.payee1,
-          isActive: true,
-          name: 'Test Provider',
-          description: 'Test Provider',
           providerId: 1n,
+          info: {
+            serviceProvider: data[0],
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          },
         },
       ],
       getProviderIdByAddress: () => [1n],
-      getPDPService: () => [
-        {
-          serviceURL: 'https://pdp.example.com',
-          minPieceSizeInBytes: 1024n,
-          maxPieceSizeInBytes: 1024n,
-          ipniPiece: false,
-          ipniIpfs: false,
-          storagePricePerTibPerMonth: 1000000n,
-          minProvingPeriodInEpochs: 2880n,
-          location: 'US',
-          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
-        },
-        [],
-        true,
-      ],
       getProvider: (data) => {
         if (data[0] === 1n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider1,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 1n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         if (data[0] === 2n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider2,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 2n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         return [
           {
+            providerId: 0n,
+            info: {
+              serviceProvider: ADDRESSES.zero,
+              payee: ADDRESSES.zero,
+              isActive: false,
+              name: '',
+              description: '',
+            },
+          },
+        ]
+      },
+      getProvidersByProductType: () => [
+        {
+          providerIds: [1n, 2n],
+          providers: [
+            {
+              providerId: 1n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 1',
+                description: 'Test Provider 1',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+            {
+              providerId: 2n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 2',
+                description: 'Test Provider 2',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+          ],
+          hasMore: false,
+        },
+      ],
+      getProviderWithProduct: (data) => {
+        const [providerId, productType] = data
+        let providerInfo: {
+          serviceProvider: Hex
+          payee: Hex
+          name: string
+          description: string
+          isActive: boolean
+        }
+        if (providerId === 1n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider1,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else if (providerId === 2n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider2,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else {
+          // TODO throw if !providerExists
+          providerInfo = {
             serviceProvider: ADDRESSES.zero,
             payee: ADDRESSES.zero,
-            isActive: false,
             name: '',
             description: '',
-            providerId: 0n,
+            isActive: false,
+          }
+          return [
+            {
+              providerId,
+              providerInfo,
+              product: {
+                productType: 0,
+                capabilityKeys: [],
+                isActive: false,
+              },
+              productCapabilityValues: [] as Hex[],
+            },
+          ]
+        }
+        return [
+          {
+            providerId,
+            providerInfo,
+            product: {
+              productType,
+              capabilityKeys: [
+                'serviceURL',
+                'minPieceSizeInBytes',
+                'maxPieceSizeInBytes',
+                'storagePricePerTibPerMonth',
+                'minProvingPeriodInEpochs',
+                'location',
+                'paymentTokenAddress',
+              ],
+              isActive: true,
+            },
+            productCapabilityValues: [
+              stringToHex('https://pdp.example.com'),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1000000n)),
+              bytesToHex(numberToBytes(2880n)),
+              stringToHex('US'),
+              ADDRESSES.calibration.usdfcToken,
+            ],
           },
         ]
       },
