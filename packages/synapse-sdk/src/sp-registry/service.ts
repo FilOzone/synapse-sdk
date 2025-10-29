@@ -22,7 +22,7 @@
  * ```
  */
 
-import { capabilitiesListToObject } from '@filoz/synapse-core/warm-storage'
+import { capabilitiesListToObject, decodePDPCapabilities } from '@filoz/synapse-core/warm-storage'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
@@ -413,7 +413,7 @@ export class SPRegistryService {
       const capabilities = capabilitiesListToObject(result.product.capabilityKeys, result.productCapabilityValues)
 
       return {
-        offering: this._convertCapabilitiesToPDPOffering(capabilities),
+        offering: decodePDPCapabilities(capabilities),
         capabilities,
         isActive: result.product.isActive,
       }
@@ -524,7 +524,7 @@ export class SPRegistryService {
             type: 'PDP',
             isActive: product.isActive,
             capabilities,
-            data: this._convertCapabilitiesToPDPOffering(capabilities),
+            data: decodePDPCapabilities(capabilities),
           },
         ])
         if (providerInfo.serviceProvider === ethers.ZeroAddress) {
@@ -650,19 +650,5 @@ export class SPRegistryService {
     }
 
     return [capabilityKeys, capabilityValues]
-  }
-
-  private _convertCapabilitiesToPDPOffering(capabilities: Record<string, Hex>): PDPOffering {
-    return {
-      serviceURL: hexToString(capabilities.serviceURL),
-      minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
-      maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
-      ipniPiece: 'ipniPiece' in capabilities,
-      ipniIpfs: 'ipniIpfs' in capabilities,
-      storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
-      minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
-      location: hexToString(capabilities.location),
-      paymentTokenAddress: capabilities.paymentTokenAddress,
-    }
   }
 }

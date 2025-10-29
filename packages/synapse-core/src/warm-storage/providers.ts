@@ -1,19 +1,19 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import { type Chain, type Client, type Hex, hexToBigInt, hexToString, type Transport } from 'viem'
+import { type Chain, type Client, type Hex, hexToString, type Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
-const CAP_SERVICE_URL = 'serviceURL'
-const CAP_MIN_PIECE_SIZE = 'minPieceSizeInBytes'
-const CAP_MAX_PIECE_SIZE = 'maxPieceSizeInBytes'
-const CAP_IPNI_PIECE = 'ipniPiece' // Optional
-const CAP_IPNI_IPFS = 'ipniIpfs' // Optional
-const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
-const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
-const CAP_LOCATION = 'location'
-const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
+export const CAP_SERVICE_URL = 'serviceURL'
+export const CAP_MIN_PIECE_SIZE = 'minPieceSizeInBytes'
+export const CAP_MAX_PIECE_SIZE = 'maxPieceSizeInBytes'
+export const CAP_IPNI_PIECE = 'ipniPiece' // Optional
+export const CAP_IPNI_IPFS = 'ipniIpfs' // Optional
+export const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
+export const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
+export const CAP_LOCATION = 'location'
+export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
 
 export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
 
@@ -42,7 +42,7 @@ export interface PDPProvider extends ServiceProviderInfo {
  * @param values - Array of capability values
  * @returns Object map of capabilities
  */
-export function capabilitiesListToObject(keys: string[], values: Hex[]): Record<string, Hex> {
+export function capabilitiesListToObject(keys: readonly string[], values: readonly Hex[]): Record<string, Hex> {
   const capabilities: Record<string, Hex> = {}
   for (let i = 0; i < keys.length; i++) {
     capabilities[keys[i]] = values[i]
@@ -54,52 +54,18 @@ export function capabilitiesListToObject(keys: string[], values: Hex[]): Record<
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
-export function decodeCapabilities(keys: readonly string[], values: readonly Hex[]): PDPOffering {
-  const offering: Partial<PDPOffering> = {
-    ipniPiece: false,
-    ipniIpfs: false,
+export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOffering {
+  return {
+    serviceURL: hexToString(capabilities.serviceURL),
+    minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
+    maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
+    ipniPiece: 'ipniPiece' in capabilities,
+    ipniIpfs: 'ipniIpfs' in capabilities,
+    storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
+    minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
+    location: hexToString(capabilities.location),
+    paymentTokenAddress: capabilities.paymentTokenAddress,
   }
-
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i]
-    const value = values[i]
-
-    switch (key) {
-      case CAP_SERVICE_URL:
-        offering.serviceURL = hexToString(value)
-        break
-      case CAP_MIN_PIECE_SIZE:
-        offering.minPieceSizeInBytes = hexToBigInt(value)
-        break
-      case CAP_MAX_PIECE_SIZE:
-        offering.maxPieceSizeInBytes = hexToBigInt(value)
-        break
-      case CAP_IPNI_PIECE:
-        offering.ipniPiece = value.length > 2 && value.slice(2, 4) === '01'
-        break
-      case CAP_IPNI_IPFS:
-        offering.ipniIpfs = value.length > 2 && value.slice(2, 4) === '01'
-        break
-      case CAP_STORAGE_PRICE:
-        offering.storagePricePerTibPerDay = hexToBigInt(value)
-        break
-      case CAP_MIN_PROVING_PERIOD:
-        offering.minProvingPeriodInEpochs = hexToBigInt(value)
-        break
-      case CAP_LOCATION:
-        offering.location = hexToString(value)
-        break
-      case CAP_PAYMENT_TOKEN:
-        // Extract last 20 bytes for address
-        if (value.length >= 42) {
-          offering.paymentTokenAddress = `0x${value.slice(-40)}` as Hex
-        }
-        break
-      // Ignore custom capabilities
-    }
-  }
-
-  return offering as PDPOffering
 }
 
 /**
@@ -131,7 +97,9 @@ export async function readProviders(client: Client<Transport, Chain>): Promise<P
       providers.push({
         id: provider.providerId,
         ...provider.providerInfo,
-        pdp: decodeCapabilities(provider.product.capabilityKeys, provider.productCapabilityValues),
+        pdp: decodePDPCapabilities(
+          capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
+        ),
       })
     }
   }
@@ -153,6 +121,8 @@ export async function getProvider(client: Client<Transport, Chain>, options: Get
   return {
     id: provider.providerId,
     ...provider.providerInfo,
-    pdp: decodeCapabilities(provider.product.capabilityKeys, provider.productCapabilityValues),
+    pdp: decodePDPCapabilities(
+      capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
+    ),
   }
 }

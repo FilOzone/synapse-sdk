@@ -7,7 +7,7 @@ import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
-import { decodeCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
+import { capabilitiesListToObject, decodePDPCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
 /**
  * ABI function to get the client data sets
@@ -82,7 +82,9 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
     })
 
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-    const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+    const pdpCaps = decodePDPCapabilities(
+      capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+    )
 
     return {
       ...dataSet,
@@ -154,7 +156,9 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   })
 
   // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-  const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+  const pdpCaps = decodePDPCapabilities(
+    capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+  )
 
   return {
     ...dataSet,
