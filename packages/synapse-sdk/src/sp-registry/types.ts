@@ -2,6 +2,8 @@
  * Types for ServiceProviderRegistry interaction
  */
 
+import type { Hex } from 'viem'
+
 /**
  * Product types supported by the registry
  */
@@ -35,7 +37,7 @@ export interface ServiceProduct {
 }
 
 /**
- * PDP offering details (decoded from productData)
+ * PDP offering details (decoded from capability k/v pairs)
  */
 export interface PDPOffering {
   serviceURL: string
@@ -43,10 +45,10 @@ export interface PDPOffering {
   maxPieceSizeInBytes: bigint
   ipniPiece: boolean
   ipniIpfs: boolean
-  storagePricePerTibPerMonth: bigint
-  minProvingPeriodInEpochs: number
+  storagePricePerTibPerDay: bigint
+  minProvingPeriodInEpochs: bigint
   location: string
-  paymentTokenAddress: string
+  paymentTokenAddress: Hex
 }
 
 /**
@@ -56,7 +58,7 @@ export interface ProviderRegistrationInfo {
   payee: string
   name: string
   description: string
-  pdpOffering?: PDPOffering
+  pdpOffering: PDPOffering
   capabilities?: Record<string, string> // Object map of capability key-value pairs
 }
 

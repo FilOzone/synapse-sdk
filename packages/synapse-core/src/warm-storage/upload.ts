@@ -1,10 +1,9 @@
 import type { Account, Chain, Client, Transport } from 'viem'
-import { readContract } from 'viem/actions'
-import { getChain } from '../chains.ts'
-import { randU256 } from '../rand.ts'
 import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
+import { randU256 } from '../utils/rand.ts'
+import { getDataSet } from './data-sets.ts'
 
 export type UploadOptions = {
   dataSetId: bigint
@@ -12,32 +11,20 @@ export type UploadOptions = {
 }
 
 export async function upload(client: Client<Transport, Chain, Account>, options: UploadOptions) {
-  const chain = getChain(client.chain.id)
-
-  const dataSet = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
-    functionName: 'getDataSet',
-    args: [options.dataSetId],
-  })
-
-  const provider = await readContract(client, {
-    address: chain.contracts.serviceProviderRegistry.address,
-    abi: chain.contracts.serviceProviderRegistry.abi,
-    functionName: 'getPDPService',
-    args: [dataSet.providerId],
+  const dataSet = await getDataSet(client, {
+    dataSetId: options.dataSetId,
   })
 
   const uploadResponses = await Promise.all(
     options.data.map(async (data) => {
       const upload = await PDP.uploadPiece({
         data: new Uint8Array(await data.arrayBuffer()),
-        endpoint: provider[0].serviceURL,
+        endpoint: dataSet.pdp.serviceURL,
       })
 
       await PDP.findPiece({
         pieceCid: upload.pieceCid,
-        endpoint: provider[0].serviceURL,
+        endpoint: dataSet.pdp.serviceURL,
       })
 
       return {
@@ -52,7 +39,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const addPieces = await PDP.addPieces({
     dataSetId: options.dataSetId,
     pieces: uploadResponses.map((response) => response.pieceCid),
-    endpoint: provider[0].serviceURL,
+    endpoint: dataSet.pdp.serviceURL,
     extraData: await signAddPieces(client, {
       clientDataSetId: dataSet.clientDataSetId,
       nonce,

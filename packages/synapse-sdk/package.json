@@ -73,6 +73,9 @@
       ],
       "output": [
         "dist/**"
+      ],
+      "dependencies": [
+        "../synapse-core:build"
       ]
     },
     "lint": {

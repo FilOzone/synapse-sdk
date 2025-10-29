@@ -72,9 +72,9 @@
       "types": "./dist/src/piece.d.ts",
       "default": "./dist/src/piece.js"
     },
-    "./rand": {
-      "types": "./dist/src/rand.d.ts",
-      "default": "./dist/src/rand.js"
+    "./utils": {
+      "types": "./dist/src/utils/index.d.ts",
+      "default": "./dist/src/utils/index.js"
     }
   },
   "typesVersions": {

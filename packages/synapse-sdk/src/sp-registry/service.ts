@@ -22,6 +22,7 @@
  * ```
  */
 
+import { decodeCapabilities } from '@filoz/synapse-core/warm-storage'
 import { ethers } from 'ethers'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
@@ -220,7 +221,8 @@ export class SPRegistryService {
 
       // Convert to ProviderInfo
       return this._convertToProviderInfo(Number(providerId), rawProvider.info, products)
-    } catch {
+    } catch (error) {
+      console.warn('Error fetching provider by address:', error)
       return null
     }
   }
@@ -425,42 +427,32 @@ export class SPRegistryService {
   async getPDPService(providerId: number): Promise<PDPServiceInfo | null> {
     try {
       const contract = this._getRegistryContract()
-      const result = await contract.getPDPService(providerId)
+      const result = await contract.getProviderWithProduct(providerId, 0) // 0 = ProductType.PDP
 
-      // Check if product actually exists (Solidity returns empty values if no product)
-      // If serviceURL is empty, the product doesn't exist
-      if (!result.pdpOffering.serviceURL) {
+      // Check if provider exists
+      if (result.providerInfo.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
-      // Fetch capability values using the keys
-      let capabilities: Record<string, string> = {}
-      if (result.capabilityKeys && result.capabilityKeys.length > 0) {
-        // Convert to plain array to avoid ethers.js frozen array issues
-        const keys = Array.from(result.capabilityKeys) as string[]
-        const capResult = await contract.getProductCapabilities(providerId, 0, keys) // 0 = ProductType.PDP
-        // getProductCapabilities returns tuple: (bool[] exists, string[] values)
-        // Access as capResult[1] for values array
-        const values = Array.from(capResult[1] || []) as string[]
-        capabilities = this._convertCapabilitiesToObject(keys, values)
+      // Decode capability keys and values
+      const keys = Array.from(result.product.capabilityKeys) as string[]
+      const values = Array.from(result.productCapabilityValues) as string[]
+
+      if (keys.length === 0) {
+        return null
       }
 
+      // Decode capabilities into PDPOffering
+      const offering = decodeCapabilities(keys, values as readonly `0x${string}`[])
+      const capabilities = this._convertCapabilitiesToObject(keys, values)
+
       return {
-        offering: {
-          serviceURL: result.pdpOffering.serviceURL,
-          minPieceSizeInBytes: result.pdpOffering.minPieceSizeInBytes,
-          maxPieceSizeInBytes: result.pdpOffering.maxPieceSizeInBytes,
-          ipniPiece: result.pdpOffering.ipniPiece,
-          ipniIpfs: result.pdpOffering.ipniIpfs,
-          storagePricePerTibPerMonth: result.pdpOffering.storagePricePerTibPerMonth,
-          minProvingPeriodInEpochs: Number(result.pdpOffering.minProvingPeriodInEpochs),
-          location: result.pdpOffering.location,
-          paymentTokenAddress: result.pdpOffering.paymentTokenAddress,
-        },
+        offering,
         capabilities,
-        isActive: result.isActive,
+        isActive: result.product.isActive,
       }
-    } catch {
+    } catch (error) {
+      console.warn('Error fetching PDP service for provider:', error)
       return null
     }
   }
@@ -490,14 +482,16 @@ export class SPRegistryService {
 
     try {
       // Use Multicall3 for efficiency
-      return await this._getProvidersWithMulticall(providerIds)
-    } catch {
+      const result = await this._getProvidersWithMulticall(providerIds)
+      return result
+    } catch (_error) {
       // TODO: Remove this fallback block and properly mock Multicall3 in tests
       // The fallback is only needed because SPRegistryService tests don't currently
       // mock Multicall3 calls. Once proper test infrastructure is in place, this
       // try/catch and the _getProvidersIndividually method can be removed.
       // Fall back to individual calls if Multicall3 fails
-      return await this._getProvidersIndividually(providerIds)
+      const result = await this._getProvidersIndividually(providerIds)
+      return result
     }
   }
 
@@ -536,11 +530,11 @@ export class SPRegistryService {
         allowFailure: true,
         callData: iface.encodeFunctionData('getProvider', [id]),
       })
-      // Add getPDPService call
+      // Add getProviderWithProduct call (ProductType.PDP = 0)
       calls.push({
         target: this._registryAddress,
         allowFailure: true,
-        callData: iface.encodeFunctionData('getPDPService', [id]),
+        callData: iface.encodeFunctionData('getProviderWithProduct', [id, 0]),
       })
     }
 
@@ -571,8 +565,9 @@ export class SPRegistryService {
         // Convert to ProviderInfo
         const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, products)
         providers.push(providerInfo)
-      } catch {
+      } catch (error) {
         // Skip failed decoding
+        console.warn(`Failed to decode provider data for ID ${providerIds[i]}`, error)
       }
     }
 
@@ -580,9 +575,8 @@ export class SPRegistryService {
   }
 
   /**
-   * Extract products from multicall PDP service result
-   * Note: For multicall batching, capability values are set to empty strings for performance.
-   * Use getProvider() or getPDPService() for full capability values.
+   * Extract products from multicall result using getProviderWithProduct
+   * Decodes capability keys/values from the new k/v system
    */
   private _extractProductsFromMulticallResult(pdpServiceResult: any, iface: ethers.Interface): ServiceProduct[] {
     const products: ServiceProduct[] = []
@@ -592,61 +586,42 @@ export class SPRegistryService {
     }
 
     try {
-      const pdpDecoded = iface.decodeFunctionResult('getPDPService', pdpServiceResult.returnData)
+      const decoded = iface.decodeFunctionResult('getProviderWithProduct', pdpServiceResult.returnData)
 
-      // getPDPService returns a tuple of (pdpOffering, capabilityKeys, isActive)
-      const [pdpOffering, capabilityKeys, isActive] = pdpDecoded
+      // getProviderWithProduct returns a tuple: (providerId, providerInfo, product, productCapabilityValues)
+      // ethers wraps it in an array, so we unpack from decoded[0]
+      const [, providerInfo, product, productCapabilityValues] = decoded[0]
 
-      // Check if product actually exists (serviceURL is the first element)
-      if (!pdpOffering[0]) {
+      // Check if provider exists
+      if (providerInfo.serviceProvider === ethers.ZeroAddress) {
         return products
       }
 
-      // Note: Capability values are not included in multicall for performance
-      // They would require additional contract calls per provider
-      // Use getProvider() or getPDPService() for full capability values
-      const capabilities = this._buildCapabilitiesFromKeys(capabilityKeys)
+      // Decode capability keys and values
+      const keys = Array.from(product.capabilityKeys) as string[]
+      const values = Array.from(productCapabilityValues) as string[]
+
+      if (keys.length === 0) {
+        return products
+      }
+
+      // Decode capabilities into PDPOffering
+      const offering = decodeCapabilities(keys, values as readonly `0x${string}`[])
+      const capabilities = this._convertCapabilitiesToObject(keys, values)
 
       // Build PDP product
       products.push({
         type: 'PDP',
-        isActive,
+        isActive: product.isActive,
         capabilities,
-        data: {
-          serviceURL: pdpOffering[0],
-          minPieceSizeInBytes: pdpOffering[1],
-          maxPieceSizeInBytes: pdpOffering[2],
-          ipniPiece: pdpOffering[3],
-          ipniIpfs: pdpOffering[4],
-          storagePricePerTibPerMonth: pdpOffering[5],
-          minProvingPeriodInEpochs: Number(pdpOffering[6]),
-          location: pdpOffering[7],
-          paymentTokenAddress: pdpOffering[8],
-        },
+        data: offering,
       })
-    } catch {
-      // Skip if PDP service decoding fails
+    } catch (error) {
+      // Skip if decoding fails
+      console.warn('Failed to decode PDP service data from multicall result:', error)
     }
 
     return products
-  }
-
-  /**
-   * Build capabilities object from keys array (values set to empty for multicall performance)
-   * For full capability values, use getProvider() or getPDPService()
-   */
-  private _buildCapabilitiesFromKeys(capabilityKeys: any): Record<string, string> {
-    const capabilities: Record<string, string> = {}
-
-    if (capabilityKeys && Array.isArray(capabilityKeys)) {
-      for (const key of capabilityKeys) {
-        // For multicall batching, we only get keys to avoid N additional contract calls
-        // Values would need separate getProductCapabilities() calls per provider
-        capabilities[key] = ''
-      }
-    }
-
-    return capabilities
   }
 
   /**

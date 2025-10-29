@@ -22,7 +22,7 @@
  * ```
  */
 
-import { randIndex, randU256 } from '@filoz/synapse-core/rand'
+import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import { CID } from 'multiformats/cid'
 import type { PaymentsService } from '../payments/index.ts'

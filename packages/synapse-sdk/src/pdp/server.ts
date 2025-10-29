@@ -27,8 +27,8 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
-import { randU256 } from '@filoz/synapse-core/rand'
 import * as SP from '@filoz/synapse-core/sp'
+import { randU256 } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
@@ -675,7 +675,8 @@ export class PDPServer {
    * @throws Error if provider is not reachable or returns non-200 status
    */
   async ping(): Promise<void> {
-    const response = await fetch(`${this._serviceURL}/pdp/ping`, {
+    const url = `${this._serviceURL}/pdp/ping`
+    const response = await fetch(url, {
       method: 'GET',
       headers: {},
     })

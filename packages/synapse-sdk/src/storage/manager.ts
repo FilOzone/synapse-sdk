@@ -370,13 +370,17 @@ export class StorageManager {
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
 
-      // Calculate per-epoch pricing
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
+      // TODO: StorageInfo needs updating to reflect that CDN costs are usage-based
 
-      // Calculate per-day pricing
+      // Calculate per-epoch pricing (base storage cost)
+      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+      // CDN costs are usage-based (egress charges), so base storage cost is the same
+      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+
+      // Calculate per-day pricing (base storage cost)
       const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      // CDN costs are usage-based (egress charges), so base storage cost is the same
+      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
@@ -390,8 +394,9 @@ export class StorageManager {
             perTiBPerDay: noCDNPerDay,
             perTiBPerEpoch: noCDNPerEpoch,
           },
+          // CDN costs are usage-based (egress charges), base storage cost is the same
           withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
+            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
             perTiBPerDay: withCDNPerDay,
             perTiBPerEpoch: withCDNPerEpoch,
           },

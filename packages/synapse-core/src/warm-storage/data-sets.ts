@@ -3,11 +3,11 @@ import { type Account, type Address, type Chain, type Client, isAddressEqual, ty
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import { randU256 } from '../rand.ts'
 import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
-import type { PDPOffering, PDPProvider } from './providers.ts'
+import { randU256 } from '../utils/rand.ts'
+import { decodeCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
 /**
  * ABI function to get the client data sets
@@ -75,11 +75,14 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
         {
           address: chain.contracts.serviceProviderRegistry.address,
           abi: chain.contracts.serviceProviderRegistry.abi,
-          functionName: 'getPDPService',
-          args: [dataSet.providerId],
+          functionName: 'getProviderWithProduct',
+          args: [dataSet.providerId, 0], // 0 = PDP product type
         },
       ],
     })
+
+    // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
+    const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
 
     return {
       ...dataSet,
@@ -87,7 +90,7 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
       managed: isAddressEqual(listener, chain.contracts.storage.address),
       cdn: dataSet.cdnRailId !== 0n,
       metadata: metadataArrayToObject(metadata),
-      pdp: pdpOffering[0],
+      pdp: pdpCaps,
     }
   })
   const proofs = await Promise.all(promises)
@@ -144,11 +147,14 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
       {
         address: chain.contracts.serviceProviderRegistry.address,
         abi: chain.contracts.serviceProviderRegistry.abi,
-        functionName: 'getPDPService',
-        args: [dataSet.providerId],
+        functionName: 'getProviderWithProduct',
+        args: [dataSet.providerId, 0], // 0 = PDP product type
       },
     ],
   })
+
+  // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
+  const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
 
   return {
     ...dataSet,
@@ -156,7 +162,7 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     managed: isAddressEqual(listener, chain.contracts.storage.address),
     cdn: dataSet.cdnRailId !== 0n,
     metadata: metadataArrayToObject(metadata),
-    pdp: pdpOffering[0],
+    pdp: pdpCaps,
   }
 }
 
@@ -199,11 +205,13 @@ export type CreateDataSetOptions = {
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
   const chain = getChain(client.chain.id)
-  const endpoint = options.provider.product.productData.serviceURL
+  const endpoint = options.provider.pdp.serviceURL
+
+  const nonce = randU256()
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
-    clientDataSetId: randU256(),
+    clientDataSetId: nonce,
     payee: options.provider.payee,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
       cdn: options.cdn,

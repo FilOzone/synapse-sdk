@@ -72,8 +72,8 @@ const TEST_PROVIDERS = {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: false,
           ipniIpfs: false,
-          storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -96,8 +96,8 @@ const TEST_PROVIDERS = {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: true,
-          storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -274,7 +274,12 @@ describe('StorageService', () => {
       global.fetch = async (input: string | URL | Request) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
         if (url.includes('/ping')) {
-          return { status: 200, statusText: 'OK' } as any
+          return {
+            status: 200,
+            statusText: 'OK',
+            text: async () => '',
+            json: async () => ({}),
+          } as any
         }
         throw new Error(`Unexpected URL: ${url}`)
       }
@@ -1575,8 +1580,8 @@ describe('StorageService', () => {
               maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
               ipniPiece: false,
               ipniIpfs: false,
-              storagePricePerTibPerMonth: BigInt(1000000),
-              minProvingPeriodInEpochs: 2880,
+              storagePricePerTibPerDay: BigInt(1000000),
+              minProvingPeriodInEpochs: 2880n,
               location: 'US',
               paymentTokenAddress: '0x0000000000000000000000000000000000000000',
             },

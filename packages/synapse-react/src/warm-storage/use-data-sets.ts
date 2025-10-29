@@ -1,5 +1,5 @@
-import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core'
 import { getChain } from '@filoz/synapse-core/chains'
+import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { type DataSet, getDataSets, getPieces, type Piece } from '@filoz/synapse-core/warm-storage'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import type { Simplify } from 'type-fest'

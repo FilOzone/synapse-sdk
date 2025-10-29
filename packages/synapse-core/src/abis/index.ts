@@ -13,6 +13,8 @@ export * from './erc20.ts'
 export * as generated from './generated.ts'
 
 import * as generated from './generated.ts'
+
+// Merge the storage and errors ABIs
 export const storage = [...generated.filecoinWarmStorageServiceAbi, ...generated.errorsAbi] as const
 
 export {

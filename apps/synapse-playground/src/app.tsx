@@ -9,7 +9,12 @@ import { WalletMenu } from './components/wallet-menu.tsx'
 
 export function App() {
   const { isConnected } = useAccount()
-
+  // const client = useClient()
+  // if (client) {
+  //   readAddresses(client).then((addresses) => {
+  //     console.log(addresses)
+  //   })
+  // }
   return (
     <div>
       <header>

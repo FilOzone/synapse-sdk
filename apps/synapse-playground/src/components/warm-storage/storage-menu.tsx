@@ -1,4 +1,4 @@
-import { formatFraction } from '@filoz/synapse-core'
+import { formatFraction } from '@filoz/synapse-core/utils'
 import { useOperatorApprovals, useRevokeOperator } from '@filoz/synapse-react'
 import { EllipsisVertical } from 'lucide-react'
 import { toast } from 'sonner'
