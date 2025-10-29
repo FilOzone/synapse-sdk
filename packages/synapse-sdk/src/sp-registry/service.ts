@@ -22,10 +22,12 @@
  * ```
  */
 
-import { capabilitiesListToObject, decodePDPCapabilities } from '@filoz/synapse-core/warm-storage'
+import {
+  capabilitiesListToObject,
+  decodePDPCapabilities,
+  encodePDPCapabilities,
+} from '@filoz/synapse-core/warm-storage'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
 import type {
@@ -111,10 +113,7 @@ export class SPRegistryService {
     // Prepare product data and capabilities
     const productType = 0 // ProductType.PDP
 
-    const [capabilityKeys, capabilityValues] = this._convertPDPOfferingToCapabilities(
-      info.pdpOffering,
-      info.capabilities
-    )
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(info.pdpOffering, info.capabilities)
 
     // Register provider with all parameters in a single call
     const tx = await contract.registerProvider(
@@ -349,7 +348,7 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const [capabilityKeys, capabilityValues] = this._convertPDPOfferingToCapabilities(pdpOffering, capabilities)
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering, capabilities)
 
     // Add product
     return await contract.addProduct(
@@ -374,7 +373,7 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const [capabilityKeys, capabilityValues] = this._convertPDPOfferingToCapabilities(pdpOffering, capabilities)
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering, capabilities)
 
     // Update product
     return await contract.updateProduct(
@@ -604,51 +603,5 @@ export class SPRegistryService {
       active: providerInfo.isActive,
       products,
     }
-  }
-
-  private _convertPDPOfferingToCapabilities(
-    pdpOffering: PDPOffering,
-    capabilities?: Record<string, string>
-  ): [string[], Hex[]] {
-    const capabilityKeys = []
-    const capabilityValues: Hex[] = []
-
-    capabilityKeys.push('serviceURL')
-    capabilityValues.push(stringToHex(pdpOffering.serviceURL))
-    capabilityKeys.push('minPieceSizeInBytes')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minPieceSizeInBytes)))
-    capabilityKeys.push('maxPieceSizeInBytes')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.maxPieceSizeInBytes)))
-    if (pdpOffering.ipniPiece) {
-      capabilityKeys.push('ipniPiece')
-      capabilityValues.push('0x01')
-    }
-    if (pdpOffering.ipniIpfs) {
-      capabilityKeys.push('ipniIpfs')
-      capabilityValues.push('0x01')
-    }
-    capabilityKeys.push('storagePricePerTibPerDay')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.storagePricePerTibPerDay)))
-    capabilityKeys.push('minProvingPeriodInEpochs')
-    capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minProvingPeriodInEpochs)))
-    capabilityKeys.push('location')
-    capabilityValues.push(stringToHex(pdpOffering.location))
-    capabilityKeys.push('paymentTokenAddress')
-    capabilityValues.push(pdpOffering.paymentTokenAddress)
-
-    if (capabilities != null) {
-      for (const [key, value] of Object.entries(capabilities)) {
-        capabilityKeys.push(key)
-        if (!value) {
-          capabilityValues.push('0x01')
-        } else if (isHex(value)) {
-          capabilityValues.push(value)
-        } else {
-          capabilityValues.push(bytesToHex(toBytes(value)))
-        }
-      }
-    }
-
-    return [capabilityKeys, capabilityValues]
   }
 }

@@ -1,5 +1,6 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import { type Chain, type Client, type Hex, hexToString, type Transport } from 'viem'
+import type { Chain, Client, Hex, Transport } from 'viem'
+import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
@@ -66,6 +67,52 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     location: hexToString(capabilities.location),
     paymentTokenAddress: capabilities.paymentTokenAddress,
   }
+}
+
+export function encodePDPCapabilities(
+  pdpOffering: PDPOffering,
+  capabilities?: Record<string, string>
+): [string[], Hex[]] {
+  const capabilityKeys = []
+  const capabilityValues: Hex[] = []
+
+  capabilityKeys.push(CAP_SERVICE_URL)
+  capabilityValues.push(stringToHex(pdpOffering.serviceURL))
+  capabilityKeys.push(CAP_MIN_PIECE_SIZE)
+  capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minPieceSizeInBytes)))
+  capabilityKeys.push(CAP_MAX_PIECE_SIZE)
+  capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.maxPieceSizeInBytes)))
+  if (pdpOffering.ipniPiece) {
+    capabilityKeys.push(CAP_IPNI_PIECE)
+    capabilityValues.push('0x01')
+  }
+  if (pdpOffering.ipniIpfs) {
+    capabilityKeys.push(CAP_IPNI_IPFS)
+    capabilityValues.push('0x01')
+  }
+  capabilityKeys.push(CAP_STORAGE_PRICE)
+  capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.storagePricePerTibPerDay)))
+  capabilityKeys.push(CAP_MIN_PROVING_PERIOD)
+  capabilityValues.push(bytesToHex(numberToBytes(pdpOffering.minProvingPeriodInEpochs)))
+  capabilityKeys.push(CAP_LOCATION)
+  capabilityValues.push(stringToHex(pdpOffering.location))
+  capabilityKeys.push(CAP_PAYMENT_TOKEN)
+  capabilityValues.push(pdpOffering.paymentTokenAddress)
+
+  if (capabilities != null) {
+    for (const [key, value] of Object.entries(capabilities)) {
+      capabilityKeys.push(key)
+      if (!value) {
+        capabilityValues.push('0x01')
+      } else if (isHex(value)) {
+        capabilityValues.push(value)
+      } else {
+        capabilityValues.push(bytesToHex(toBytes(value)))
+      }
+    }
+  }
+
+  return [capabilityKeys, capabilityValues]
 }
 
 /**
