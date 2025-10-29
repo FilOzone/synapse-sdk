@@ -1,5 +1,6 @@
 import { TypedData } from 'ox'
-import { type Hex, keccak256, stringToHex } from 'viem'
+import type { Hex } from 'viem'
+import { keccak256, stringToHex } from 'viem'
 import { EIP712Types } from '../typed-data/type-definitions.ts'
 
 export type SessionKeyPermissions = 'CreateDataSet' | 'AddPieces' | 'SchedulePieceRemovals' | 'DeleteDataSet'

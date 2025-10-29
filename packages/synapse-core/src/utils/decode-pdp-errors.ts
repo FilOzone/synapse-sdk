@@ -1,5 +1,6 @@
 import type { AbiError } from 'abitype'
-import { AbiErrorSignatureNotFoundError, decodeErrorResult, type Hex } from 'viem'
+import type { Hex } from 'viem'
+import { AbiErrorSignatureNotFoundError, decodeErrorResult } from 'viem'
 import { formatAbiItem, formatAbiItemWithArgs } from 'viem/utils'
 import * as Abis from '../abis/index.ts'
 
