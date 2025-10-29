@@ -1372,17 +1372,10 @@ export class StorageContext {
           throw createError('StorageContext', 'getPieces', 'Operation aborted')
         }
 
-        const pieceCid = result.pieces[i].pieceCid
-        const pieceId = result.pieces[i].pieceId
-        if (!pieceCid) {
-          throw createError(
-            'StorageContext',
-            'getPieces',
-            `Invalid PieceCID returned from contract for piece ${pieceId}`
-          )
+        yield {
+          pieceCid: result.pieces[i].pieceCid,
+          pieceId: result.pieces[i].pieceId,
         }
-
-        yield { pieceCid, pieceId }
       }
 
       hasMore = result.hasMore

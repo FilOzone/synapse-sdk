@@ -21,7 +21,7 @@
 import { ethers } from 'ethers'
 import { hexToPieceCID } from '../piece/piece.ts'
 import type { PieceCID } from '../types.ts'
-import { CONTRACT_ABIS } from '../utils/index.ts'
+import { CONTRACT_ABIS, createError } from '../utils/index.ts'
 
 export class PDPVerifier {
   private readonly _provider: ethers.Provider
@@ -144,11 +144,23 @@ export class PDPVerifier {
     }
 
     const result = await this._contract.getActivePieces(dataSetId, offset, limit)
+
     return {
-      pieces: result[0].map((piece: { data: string }, index: number) => ({
-        pieceCid: hexToPieceCID(piece.data),
-        pieceId: Number(result[1][index]),
-      })),
+      pieces: result[0].map((piece: { data: string }, index: number) => {
+        try {
+          return {
+            pieceCid: hexToPieceCID(piece.data),
+            pieceId: Number(result[1][index]),
+          }
+        } catch (error) {
+          throw createError(
+            'PDPVerifier',
+            'getActivePieces',
+            `Failed to convert piece data to PieceCID: ${error instanceof Error ? error.message : String(error)}`,
+            error
+          )
+        }
+      }),
       hasMore: Boolean(result[2]),
     }
   }

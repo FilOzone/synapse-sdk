@@ -378,9 +378,12 @@ describe('PieceCID utilities', () => {
       const cidBytes = validCid.bytes
       const hex = ethers.hexlify(cidBytes)
 
-      assert.throws(() => {
-        hexToPieceCID(hex)
-      }, /Hex string is a valid CID but not a valid PieceCID/)
+      assert.throws(
+        () => {
+          hexToPieceCID(hex)
+        },
+        new RegExp(`Hex string '${hex}' is a valid CID but not a valid PieceCID`)
+      )
     })
   })
 })

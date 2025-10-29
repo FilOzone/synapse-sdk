@@ -12,7 +12,6 @@ import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
 import * as Digest from 'multiformats/hashes/digest'
 import * as Link from 'multiformats/link'
-import { createError } from '../utils/index.ts'
 
 const FIL_COMMITMENT_UNSEALED = 0xf101
 const SHA2_256_TRUNC254_PADDED = 0x1012
@@ -256,7 +255,7 @@ export function hexToPieceCID(pieceCidHex: string): PieceCID {
   const possiblePieceCID = CID.decode(pieceDataBytes)
   const isValid = isValidPieceCID(possiblePieceCID)
   if (!isValid) {
-    throw createError('Piece', 'hexToPieceCID', `Hex string is a valid CID but not a valid PieceCID: ${pieceCidHex}`)
+    throw new Error(`Hex string '${pieceCidHex}' is a valid CID but not a valid PieceCID`)
   }
   return possiblePieceCID satisfies PieceCID
 }
