@@ -3,7 +3,7 @@ import { fetch } from '@wagmi/cli/plugins'
 import type { Address } from 'viem'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
-const GIT_REF = '43e122981042a1498fc642d51376e8b70a760161'
+const GIT_REF = '8e162d676f3e83c495f104989b3014b3961e2f05'
 const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
 
 const config: ReturnType<typeof defineConfig> = defineConfig(() => {
