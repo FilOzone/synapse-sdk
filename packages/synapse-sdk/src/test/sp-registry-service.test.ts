@@ -55,7 +55,6 @@ describe('SPRegistryService', () => {
           return {
             providerId: 1,
             info: {
-              id: BigInt(1),
               serviceProvider: mockProviderAddress,
               payee: mockProviderAddress,
               name: 'Test Provider',

@@ -21,6 +21,7 @@ import type { ProviderInfo } from '../sp-registry/types.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
+import { ADDRESSES } from './mocks/jsonrpc/index.ts'
 
 /**
  * Addresses used by testing
@@ -152,7 +153,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         }
         // serviceProviderRegistry() - function selector: 0x05f892ec
         if (data?.startsWith('0x05f892ec') === true) {
-          return ethers.AbiCoder.defaultAbiCoder().encode(['address'], ['0x0000000000000000000000000000000000000001'])
+          return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ADDRESSES.calibration.spRegistry])
         }
         // sessionKeyRegistry() - function selector: 0x9f6aa572
         if (data?.startsWith('0x9f6aa572') === true) {
@@ -460,7 +461,7 @@ export function createCustomMulticall3Mock(
         customAddresses?.usdfcToken ?? CONTRACT_ADDRESSES.USDFC.calibration, // usdfcToken
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
         customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
-        customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
+        customAddresses?.spRegistry ?? ADDRESSES.calibration.spRegistry, // spRegistry
         customAddresses?.sessionKeyRegistry ?? MOCK_ADDRESSES.SESSION_KEY_REGISTRY, // sessionKeyRegistry
       ]
 
@@ -640,10 +641,7 @@ export function setupProviderRegistryMocks(
           if (callData.startsWith('0xab2b3ae5')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x0000000000000000000000000000000000000001']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ADDRESSES.calibration.spRegistry]),
             }
           }
         }
@@ -661,7 +659,7 @@ export function setupProviderRegistryMocks(
 
         // Mock getProvider(uint256) calls to SPRegistry
         // Check if it's to the SPRegistry address
-        if (callData.startsWith('0x5c42d079') && target === '0x0000000000000000000000000000000000000001') {
+        if (callData.startsWith('0x5c42d079') && target === ADDRESSES.calibration.spRegistry) {
           const providerId = parseInt(callData.slice(10, 74), 16)
           const provider = providers.find((p) => p.id === providerId)
           if (provider) {
