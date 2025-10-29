@@ -178,12 +178,15 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
       shuttingDown = true
 
       // Close the sentry to release resources
-      void telemetryInstance?.sentry?.close(timeout).finally(() => {
-        shuttingDown = false
-        removeGlobalTelemetry(false) // Remove the global telemetry instance to prevent further telemetry
-      }).catch(() => {
-        // silently ignore error
-      })
+      void telemetryInstance?.sentry
+        ?.close(timeout)
+        .finally(() => {
+          shuttingDown = false
+          removeGlobalTelemetry(false) // Remove the global telemetry instance to prevent further telemetry
+        })
+        .catch(() => {
+          // silently ignore error
+        })
     }
 
     process.on('exit', handleSignal)
