@@ -1,6 +1,6 @@
 /* globals describe it */
 import { assert } from 'chai'
-import { decodeAddressCapability } from '../warm-storage/providers.ts'
+import { decodeAddressCapability } from '../utils/capabilities.ts'
 
 describe('Capabilities', () => {
   describe('decodeAddressCapability', () => {

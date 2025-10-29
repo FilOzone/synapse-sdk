@@ -2,7 +2,7 @@
  * Types for ServiceProviderRegistry interaction
  */
 
-import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
+import type { PDPOffering } from '@filoz/synapse-core/utils'
 
 export type { PDPOffering }
 

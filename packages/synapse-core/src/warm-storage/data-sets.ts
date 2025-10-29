@@ -5,9 +5,10 @@ import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 import * as PDP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
+import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+import { decodePDPCapabilities, type PDPOffering, type PDPProvider } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
-import { capabilitiesListToObject, decodePDPCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
 /**
  * ABI function to get the client data sets

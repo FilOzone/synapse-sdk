@@ -22,11 +22,7 @@
  * ```
  */
 
-import {
-  capabilitiesListToObject,
-  decodePDPCapabilities,
-  encodePDPCapabilities,
-} from '@filoz/synapse-core/warm-storage'
+import { capabilitiesListToObject, decodePDPCapabilities, encodePDPCapabilities } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
