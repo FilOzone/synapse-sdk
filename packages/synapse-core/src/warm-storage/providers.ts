@@ -1,6 +1,6 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import type { Chain, Client, Hex, Transport } from 'viem'
-import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
+import type { Address, Chain, Client, Hex, Transport } from 'viem'
+import { bytesToHex, hexToString, isHex, numberToBytes, pad, stringToHex, toBytes } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
@@ -55,6 +55,22 @@ export function capabilitiesListToObject(keys: readonly string[], values: readon
 }
 
 /**
+ * Matches the behavior of `address(uint160(BigEndian.decode(values[i])))`
+ */
+export function decodeAddressCapability(capabilityValue: Hex): Address {
+  if (capabilityValue.length > 66) {
+    return '0x0000000000000000000000000000000000000000'
+  }
+  if (capabilityValue.length > 42) {
+    return `0x${capabilityValue.slice(-40)}`
+  }
+  if (capabilityValue.length < 42) {
+    return pad(capabilityValue, { size: 20 })
+  }
+  return capabilityValue
+}
+
+/**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
@@ -68,7 +84,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
-    paymentTokenAddress: capabilities.paymentTokenAddress,
+    paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
   }
 }
 
