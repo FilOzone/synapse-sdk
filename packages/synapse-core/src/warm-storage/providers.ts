@@ -20,7 +20,10 @@ export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegi
 
 export type ServiceProviderInfo = AbiParametersToPrimitiveTypes<getProviderType['outputs']>[0]['info']
 
-export type PDPOffering = {
+/**
+ * PDP offering details (decoded from capability k/v pairs)
+ */
+export interface PDPOffering {
   serviceURL: string
   minPieceSizeInBytes: bigint
   maxPieceSizeInBytes: bigint
