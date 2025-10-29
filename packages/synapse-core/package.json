@@ -123,7 +123,9 @@
   "scripts": {
     "generate-abi": "wagmi generate",
     "build": "wireit",
-    "lint": "wireit"
+    "test": "wireit",
+    "lint": "wireit",
+    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix ."
   },
   "wireit": {
     "build": {
@@ -136,6 +138,13 @@
       "output": [
         "dist/**"
       ]
+    },
+    "test": {
+      "command": "playwright-test \"src/test/**/*.test.ts\" --mode node",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": []
     },
     "lint": {
       "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
@@ -160,9 +169,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.6",
+    "@types/chai": "^5.2.3",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^24.9.1",
     "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
+    "chai": "^6.2.0",
+    "mocha": "^11.7.4",
+    "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",
     "typescript": "5.9.3"
   },
