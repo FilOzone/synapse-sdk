@@ -530,8 +530,8 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getAddPiecesInfo', () => {
-    it('should return correct add pieces information', async () => {
+  describe('validateDataSet', () => {
+    it('should validate dataset successfully', async () => {
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 48
       cleanup = mockProviderWithView((data) => {
@@ -541,14 +541,9 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x30', 32) // 48 in hex
         }
 
-        // dataSetId
+        // dataSetLive
         if (data?.startsWith('0xca759f27') === true) {
           return ethers.zeroPadValue('0x01', 32) // true
-        }
-
-        // getNextPieceId
-        if (data?.startsWith('0x1c5ae80f') === true) {
-          return ethers.zeroPadValue('0x05', 32) // 5
         }
 
         // getDataSetListener
@@ -597,10 +592,8 @@ describe('WarmStorageService', () => {
 
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
-      const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSetId)
-      assert.equal(addPiecesInfo.nextPieceId, 5)
-      assert.equal(addPiecesInfo.clientDataSetId, 0n)
-      assert.equal(addPiecesInfo.currentPieceCount, 5) // Matches nextPieceId like master
+      // Should not throw
+      await warmStorageService.validateDataSet(dataSetId)
     })
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
@@ -646,7 +639,7 @@ describe('WarmStorageService', () => {
           return ethers.zeroPadValue('0x01', 32)
         }
 
-        // getDataSet - needed for getAddPiecesInfo
+        // getDataSet
         if (data?.startsWith('0xbdaac056') === true) {
           const info = {
             pdpRailId: 48n,
@@ -669,11 +662,10 @@ describe('WarmStorageService', () => {
       mockProvider.getNetwork = async () => ({ chainId: 314159n, name: 'calibration' }) as any
 
       try {
-        await warmStorageService.getAddPiecesInfo(dataSetId)
+        await warmStorageService.validateDataSet(dataSetId)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        // Error now happens due to type mismatch in getDataSet call
-        assert.include(error.message, 'Failed to get add pieces info')
+        assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
     })
   })
@@ -1028,15 +1020,16 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             // getServicePrice selector
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            // Encode as a tuple (struct)
+            // Encode as a tuple (struct) matching ServicePricing contract struct
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1059,13 +1052,10 @@ describe('WarmStorageService', () => {
         assert.isTrue(costs.perDay > costs.perEpoch)
         assert.isTrue(costs.perMonth > costs.perDay)
 
-        // CDN costs should be higher
-        assert.isTrue(costs.withCDN.perEpoch > costs.perEpoch)
-        assert.isTrue(costs.withCDN.perDay > costs.perDay)
-        assert.isTrue(costs.withCDN.perMonth > costs.perMonth)
-
-        // Verify CDN is 1.5x base rate (3 USDFC vs 2 USDFC per TiB/month)
-        assert.equal((costs.withCDN.perEpoch * 2n) / costs.perEpoch, 3n)
+        // CDN costs are usage-based (egress pricing), so withCDN equals base storage cost
+        assert.equal(costs.withCDN.perEpoch, costs.perEpoch)
+        assert.equal(costs.withCDN.perDay, costs.perDay)
+        assert.equal(costs.withCDN.perMonth, costs.perMonth)
       })
 
       it('should scale costs linearly with size', async () => {
@@ -1080,14 +1070,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1125,15 +1116,16 @@ describe('WarmStorageService', () => {
           if (data?.startsWith('0x5482bdf9') === true) {
             getServicePriceCalled = true
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            // Encode as a tuple (struct)
+            // Encode as a tuple (struct) matching ServicePricing contract struct
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1172,14 +1164,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1243,14 +1236,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1302,14 +1296,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1360,14 +1355,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1439,14 +1435,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1519,14 +1516,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }
@@ -1587,14 +1585,15 @@ describe('WarmStorageService', () => {
 
           if (data?.startsWith('0x5482bdf9') === true) {
             const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const pricePerTiBPerMonthWithCDN = ethers.parseUnits('3', 18)
             const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
             const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
             const servicePriceInfo = {
               pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBPerMonthWithCDN: pricePerTiBPerMonthWithCDN,
+              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
               tokenAddress: tokenAddress,
               epochsPerMonth: epochsPerMonth,
+              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
             }
             return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
           }

@@ -285,10 +285,10 @@ describe('Synapse', () => {
       logs: [makeDataSetCreatedLog(DATA_SET_ID, 1)],
     }
     beforeEach(() => {
-      server.use(PING())
       const pdpOptions: PDPMockOptions = {
         baseUrl: 'https://pdp.example.com',
       }
+      server.use(PING(pdpOptions))
       server.use(createDataSetHandler(FAKE_TX_HASH, pdpOptions))
       server.use(
         dataSetCreationStatusHandler(

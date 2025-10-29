@@ -35,29 +35,21 @@ import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } 
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
- * Helper information for adding pieces to a data set
- */
-export interface AddPiecesInfo {
-  /** The next piece ID to use when adding pieces */
-  nextPieceId: number
-  /** The client dataset ID for this data set */
-  clientDataSetId: bigint
-  /** Current number of pieces in the data set */
-  currentPieceCount: number
-}
-
-/**
  * Service price information
  */
 export interface ServicePriceInfo {
   /** Price per TiB per month without CDN (in base units) */
   pricePerTiBPerMonthNoCDN: bigint
-  /** Price per TiB per month with CDN (in base units) */
-  pricePerTiBPerMonthWithCDN: bigint
+  /** CDN egress price per TiB (usage-based, in base units) */
+  pricePerTiBCdnEgress: bigint
+  /** Cache miss egress price per TiB (usage-based, in base units) */
+  pricePerTiBCacheMissEgress: bigint
   /** Token address for payments */
   tokenAddress: string
   /** Number of epochs per month */
   epochsPerMonth: bigint
+  /** Minimum monthly charge for any dataset size (in base units) */
+  minimumPricePerMonth: bigint
 }
 
 /**
@@ -404,44 +396,36 @@ export class WarmStorageService {
   }
 
   /**
-   * Get information for adding pieces to a data set
+   * Validate that a dataset is live and managed by this WarmStorage contract
+   *
+   * Performs validation checks in parallel:
+   * - Dataset exists and is live
+   * - Dataset is managed by this WarmStorage contract
+   *
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns Helper information for adding pieces
+   * @throws if dataset is not valid for operations
    */
-  async getAddPiecesInfo(dataSetId: number): Promise<AddPiecesInfo> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-      const pdpVerifier = this._getPDPVerifier()
+  async validateDataSet(dataSetId: number): Promise<void> {
+    const pdpVerifier = this._getPDPVerifier()
 
-      // Parallelize all independent calls
-      const [isLive, nextPieceId, listener, dataSetInfo] = await Promise.all([
-        pdpVerifier.dataSetLive(Number(dataSetId)),
-        pdpVerifier.getNextPieceId(Number(dataSetId)),
-        pdpVerifier.getDataSetListener(Number(dataSetId)),
-        viewContract.getDataSet(Number(dataSetId)),
-      ])
+    // Parallelize validation checks
+    const [isLive, listener] = await Promise.all([
+      pdpVerifier.dataSetLive(Number(dataSetId)),
+      pdpVerifier.getDataSetListener(Number(dataSetId)),
+    ])
 
-      // Check if data set exists and is live
-      if (!isLive) {
-        throw new Error(`Data set ${dataSetId} does not exist or is not live`)
-      }
+    // Check if data set exists and is live
+    if (!isLive) {
+      throw new Error(`Data set ${dataSetId} does not exist or is not live`)
+    }
 
-      // Verify this data set is managed by our Warm Storage contract
-      if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-        throw new Error(
-          `Data set ${dataSetId} is not managed by this WarmStorage contract (${
-            this._warmStorageAddress
-          }), managed by ${String(listener)}`
-        )
-      }
-
-      return {
-        nextPieceId: Number(nextPieceId),
-        clientDataSetId: dataSetInfo.clientDataSetId,
-        currentPieceCount: Number(nextPieceId),
-      }
-    } catch (error) {
-      throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
+    // Verify this data set is managed by our Warm Storage contract
+    if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
+      throw new Error(
+        `Data set ${dataSetId} is not managed by this WarmStorage contract (${
+          this._warmStorageAddress
+        }), managed by ${String(listener)}`
+      )
     }
   }
 
@@ -727,16 +711,19 @@ export class WarmStorageService {
     const pricing = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
-      pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
+      pricePerTiBCdnEgress: pricing.pricePerTiBCdnEgress,
+      pricePerTiBCacheMissEgress: pricing.pricePerTiBCacheMissEgress,
       tokenAddress: pricing.tokenAddress,
       epochsPerMonth: pricing.epochsPerMonth,
+      minimumPricePerMonth: pricing.minimumPricePerMonth,
     }
   }
 
   /**
    * Calculate storage costs for a given size
    * @param sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month for both CDN and non-CDN
+   * @returns Cost estimates per epoch, day, and month
+   * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
    */
   async calculateStorageCost(sizeInBytes: number): Promise<{
     perEpoch: bigint
@@ -750,24 +737,23 @@ export class WarmStorageService {
   }> {
     const servicePriceInfo = await this.getServicePrice()
 
-    // Calculate price per byte per epoch
+    // Calculate price per byte per epoch (base storage cost)
     const sizeInBytesBigint = BigInt(sizeInBytes)
-    const pricePerEpochNoCDN =
+    const pricePerEpoch =
       (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-    const pricePerEpochWithCDN =
-      (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) /
-      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
+    const costs = {
+      perEpoch: pricePerEpoch,
+      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
+    }
+
+    // CDN costs are usage-based (egress pricing), so withCDN returns base storage cost
+    // Actual CDN costs will be charged based on egress usage
     return {
-      perEpoch: pricePerEpochNoCDN,
-      perDay: pricePerEpochNoCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpochNoCDN * servicePriceInfo.epochsPerMonth,
-      withCDN: {
-        perEpoch: pricePerEpochWithCDN,
-        perDay: pricePerEpochWithCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth,
-      },
+      ...costs,
+      withCDN: costs,
     }
   }
 

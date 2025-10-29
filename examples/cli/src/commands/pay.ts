@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { formatBalance } from '@filoz/synapse-core'
+import { formatBalance } from '@filoz/synapse-core/utils'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import type { Hex } from 'viem'

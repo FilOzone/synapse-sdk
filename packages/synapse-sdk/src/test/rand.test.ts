@@ -1,6 +1,7 @@
 /* globals describe it */
+
+import { fallbackRandIndex, fallbackRandU256, randIndex, randU256 } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
-import { fallbackRandIndex, fallbackRandU256, randIndex, randU256 } from '../utils/rand.ts'
 
 const randIndexMethods = [randIndex, fallbackRandIndex]
 randIndexMethods.forEach((randIndexMethod) => {

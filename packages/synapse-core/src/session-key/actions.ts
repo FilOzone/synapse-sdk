@@ -100,18 +100,13 @@ export type RevokeOptions = {
  */
 export async function revoke(client: Client<Transport, Chain, Account>, options: RevokeOptions) {
   const chain = getChain(client.chain.id)
-  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600)
 
   const { request } = await simulateContract(client, {
     address: chain.contracts.sessionKeyRegistry.address,
     abi: chain.contracts.sessionKeyRegistry.abi,
     functionName: 'revoke',
     args: [
-      options.identity,
-      // @ts-ignore
       options.signer,
-      // @ts-ignore
-      options.expiresAt ?? expiresAt,
       [...new Set(options.permissions)].map((permission) => SESSION_KEY_PERMISSIONS[permission]),
       options.origin,
     ],

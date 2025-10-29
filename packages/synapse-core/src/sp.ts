@@ -265,6 +265,7 @@ export async function uploadPiece(options: UploadPieceOptions) {
     headers: {
       'Content-Type': 'application/json',
     },
+    timeout: TIMEOUT,
   })
 
   if (response.error) {
@@ -354,7 +355,6 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
 export type AddPiecesOptions = {
   endpoint: string
   dataSetId: bigint
-  nextPieceId: bigint
   pieces: PieceCID[]
   extraData: Hex
 }

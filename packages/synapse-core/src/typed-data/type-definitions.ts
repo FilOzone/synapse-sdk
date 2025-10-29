@@ -20,7 +20,7 @@ export const EIP712Types = {
   ],
   AddPieces: [
     { name: 'clientDataSetId', type: 'uint256' },
-    { name: 'firstAdded', type: 'uint256' },
+    { name: 'nonce', type: 'uint256' },
     { name: 'pieceData', type: 'Cid[]' },
     { name: 'pieceMetadata', type: 'PieceMetadata[]' },
   ],

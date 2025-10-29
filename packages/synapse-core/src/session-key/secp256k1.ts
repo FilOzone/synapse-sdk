@@ -39,7 +39,7 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
   account: Account
   private isConnecting: boolean = false
   private isConnected: boolean = false
-  private connectPromise: Promise<TransactionReceipt | void> | undefined
+  private connectPromise: Promise<TransactionReceipt | undefined> | undefined
 
   constructor(props: Secp256k1SessionKeyProps) {
     super()
@@ -86,6 +86,7 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
           (error) => {
             this.connectPromise = undefined
             this.emit('error', new Error('Failed to wait for connect', { cause: error }))
+            return undefined
           }
         )
       }

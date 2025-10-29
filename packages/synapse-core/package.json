@@ -71,6 +71,10 @@
     "./piece": {
       "types": "./dist/src/piece.d.ts",
       "default": "./dist/src/piece.js"
+    },
+    "./utils": {
+      "types": "./dist/src/utils/index.d.ts",
+      "default": "./dist/src/utils/index.js"
     }
   },
   "typesVersions": {

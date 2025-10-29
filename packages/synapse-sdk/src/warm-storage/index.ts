@@ -10,7 +10,6 @@
  */
 
 export type {
-  AddPiecesInfo,
   ComprehensiveDataSetStatus,
   DataSetCreationVerification,
 } from './service.ts'

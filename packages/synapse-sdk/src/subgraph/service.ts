@@ -410,10 +410,10 @@ export class SubgraphService implements SubgraphRetrievalService {
         maxPieceSizeInBytes: 0n,
         ipniPiece: false,
         ipniIpfs: false,
-        storagePricePerTibPerMonth: 0n,
-        minProvingPeriodInEpochs: 0,
+        storagePricePerTibPerDay: 0n,
+        minProvingPeriodInEpochs: 0n,
         location: '',
-        paymentTokenAddress: '',
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       }
     }
   }
