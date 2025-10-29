@@ -8,6 +8,7 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { PDPVerifier } from '../pdp/index.ts'
+import { calculate } from '../piece/index.ts'
 import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 const server = setup([])
@@ -177,16 +178,17 @@ describe('PDPVerifier', () => {
     it('should be callable with default options', async () => {
       assert.isFunction(pdpVerifier.getActivePieces)
 
+      // Create a valid PieceCID for testing
+      const testData = new Uint8Array(100).fill(42)
+      const pieceCid = calculate(testData)
+      const pieceCidHex = ethers.hexlify(pieceCid.bytes)
+
       server.use(
         JSONRPC({
           ...presets.basic,
           pdpVerifier: {
             ...presets.basic.pdpVerifier,
-            getActivePieces: () => [
-              [{ data: '0x1234567890123456789012345678901234567890123456789012345678901234' }],
-              [1n],
-              false,
-            ],
+            getActivePieces: () => [[{ data: pieceCidHex as `0x${string}` }], [1n], false],
           },
         })
       )
@@ -195,7 +197,7 @@ describe('PDPVerifier', () => {
       assert.equal(result.pieces.length, 1)
       assert.equal(result.pieces[0].pieceId, 1)
       assert.equal(result.hasMore, false)
-      assert.equal(result.pieces[0].data, '0x1234567890123456789012345678901234567890123456789012345678901234')
+      assert.equal(result.pieces[0].pieceCid.toString(), pieceCid.toString())
     })
   })
 

@@ -19,6 +19,8 @@
  */
 
 import { ethers } from 'ethers'
+import { hexToPieceCID } from '../piece/piece.ts'
+import type { PieceCID } from '../types.ts'
 import { CONTRACT_ABIS } from '../utils/index.ts'
 
 export class PDPVerifier {
@@ -130,7 +132,7 @@ export class PDPVerifier {
       signal?: AbortSignal
     }
   ): Promise<{
-    pieces: Array<{ data: string; pieceId: number }>
+    pieces: Array<{ pieceCid: PieceCID; pieceId: number }>
     hasMore: boolean
   }> {
     const offset = options?.offset ?? 0
@@ -144,7 +146,7 @@ export class PDPVerifier {
     const result = await this._contract.getActivePieces(dataSetId, offset, limit)
     return {
       pieces: result[0].map((piece: { data: string }, index: number) => ({
-        data: piece.data,
+        pieceCid: hexToPieceCID(piece.data),
         pieceId: Number(result[1][index]),
       })),
       hasMore: Boolean(result[2]),

@@ -23,8 +23,7 @@
  */
 
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
-import { ethers } from 'ethers'
-import { CID } from 'multiformats/cid'
+import type { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
@@ -1373,15 +1372,8 @@ export class StorageContext {
           throw createError('StorageContext', 'getPieces', 'Operation aborted')
         }
 
-        // Parse the piece data as a PieceCID
-        // The contract stores the full PieceCID multihash digest (including height and padding)
-        // The data comes as a hex string from ethers, we need to decode it as bytes then as a CID
-        const pieceDataHex = result.pieces[i].data
-        const pieceDataBytes = ethers.getBytes(pieceDataHex)
+        const pieceCid = result.pieces[i].pieceCid
         const pieceId = result.pieces[i].pieceId
-
-        const cid = CID.decode(pieceDataBytes)
-        const pieceCid = asPieceCID(cid)
         if (!pieceCid) {
           throw createError(
             'StorageContext',
