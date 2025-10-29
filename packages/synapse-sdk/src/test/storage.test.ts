@@ -1,10 +1,9 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
-import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
+import type { PieceCID, ProviderInfo } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
 
