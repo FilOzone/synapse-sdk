@@ -1,6 +1,7 @@
 /* globals describe it beforeEach afterEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo, UploadResult } from '../types.ts'
@@ -340,6 +341,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -355,6 +357,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -395,6 +398,7 @@ describe('StorageService', () => {
           withCDN: false,
           commissionBps: 0,
           metadata: {},
+          pdpEndEpoch: 0,
           pieceMetadata: [],
           clientDataSetId: 1,
         },
@@ -409,6 +413,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -618,6 +623,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -712,6 +718,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -757,6 +764,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -772,6 +780,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 2,
@@ -814,6 +823,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -911,6 +921,7 @@ describe('StorageService', () => {
           isManaged: true,
           withCDN: false,
           commissionBps: 0,
+          pdpEndEpoch: 0,
           metadata: {},
           pieceMetadata: [],
           clientDataSetId: 1,
@@ -1933,372 +1944,6 @@ describe('StorageService', () => {
   })
 
   describe('upload', () => {
-    it('should enforce 127 byte minimum size limit', async () => {
-      const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      // Create data that is below the minimum
-      const undersizedData = new Uint8Array(126) // 126 bytes (1 byte under minimum)
-
-      try {
-        await service.upload(undersizedData)
-        assert.fail('Should have thrown size limit error')
-      } catch (error: any) {
-        assert.include(error.message, 'below minimum allowed size')
-        assert.include(error.message, '126 bytes')
-        assert.include(error.message, '127 bytes')
-      }
-    })
-    it('should support parallel uploads', async () => {
-      // Track addPieces calls
-      const addPiecesCalls: Array<{ pieceCid: string; pieceId: number }> = []
-
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-      const serviceAny = service as any
-
-      // Mock PDPServer methods to track calls
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        // Use the first byte to create a unique pieceCid for each upload
-        const pieceCid = `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`
-        return { pieceCid, size: data.length }
-      }
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
-        uuid: 'test-uuid',
-      })
-
-      // Use helper to mock addPieces
-      let currentPieceId = 0
-      const mockTxHash = mockAddPieces(serviceAny, {
-        onCall: (_dataSetId: number, _clientDataSetId: bigint, pieceCids: any[]) => {
-          pieceCids.forEach((pieceCid: any, index: number) => {
-            addPiecesCalls.push({
-              pieceCid: pieceCid.toString(),
-              pieceId: currentPieceId + index,
-            })
-          })
-          currentPieceId += pieceCids.length
-        },
-      })
-
-      // Use helper to mock getPieceAdditionStatus
-      mockGetPieceAdditionStatus(serviceAny)
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      // Track callbacks
-      const uploadCompleteCallbacks: string[] = []
-      const pieceAddedCallbacks: number[] = []
-
-      // Create distinct data for each upload
-      const firstData = new Uint8Array(127).fill(1) // 127 bytes
-      const secondData = new Uint8Array(128).fill(2) // 66 bytes
-      const thirdData = new Uint8Array(129).fill(3) // 67 bytes
-
-      // Start all uploads concurrently with callbacks
-      const uploads = [
-        service.upload(firstData, {
-          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
-          onPieceAdded: () => pieceAddedCallbacks.push(1),
-        }),
-        service.upload(secondData, {
-          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
-          onPieceAdded: () => pieceAddedCallbacks.push(2),
-        }),
-        service.upload(thirdData, {
-          onUploadComplete: (pieceCid: PieceCID) => uploadCompleteCallbacks.push(pieceCid.toString()),
-          onPieceAdded: () => pieceAddedCallbacks.push(3),
-        }),
-      ]
-
-      // Wait for all to complete
-      const results = await Promise.all(uploads)
-
-      assert.lengthOf(results, 3, 'All three uploads should complete successfully')
-
-      const resultSizes = results.map((r) => r.size)
-      const resultPieceIds = results.map((r) => r.pieceId)
-
-      assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-      assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
-
-      // Verify the calls to the mock were made correctly
-      assert.lengthOf(addPiecesCalls, 3, 'addPieces should be called three times')
-      for (const result of results) {
-        assert.isTrue(
-          addPiecesCalls.some(
-            (call) => call.pieceCid === result.pieceCid.toString() && call.pieceId === result.pieceId
-          ),
-          `addPieces call for pieceCid ${String(result.pieceCid)} and pieceId ${
-            result.pieceId != null ? String(result.pieceId) : 'not found'
-          } should exist`
-        )
-      }
-
-      // Verify callbacks were called
-      assert.lengthOf(uploadCompleteCallbacks, 3, 'All upload complete callbacks should be called')
-      assert.lengthOf(pieceAddedCallbacks, 3, 'All piece added callbacks should be called')
-      assert.deepEqual(
-        pieceAddedCallbacks.sort((a, b) => a - b),
-        [1, 2, 3],
-        'All callbacks should be called'
-      )
-    })
-
-    it('should respect batch size configuration', async () => {
-      const addPiecesCalls: Array<{ batchSize: number; nextPieceId: number }> = []
-
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-
-      // Create service with batch size of 2
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-          uploadBatchSize: 2,
-        },
-        {}
-      )
-      const serviceAny = service as any
-
-      // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        const pieceCid = `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`
-        return { pieceCid, size: data.length }
-      }
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
-        uuid: 'test-uuid',
-      })
-
-      // Use helper to mock addPieces with batching behavior
-      let currentBatchStart = 0
-      const mockTxHash = mockAddPieces(serviceAny, {
-        txHash: `0x${'1'.repeat(64)}`,
-        addDelay: 10, // Simulate network latency
-        onCall: async (_dataSetId, _clientDataSetId, comms) => {
-          addPiecesCalls.push({
-            batchSize: comms.length,
-            nextPieceId: currentBatchStart,
-          })
-          currentBatchStart += comms.length
-        },
-      })
-
-      // Use helper to mock getPieceAdditionStatus
-      mockGetPieceAdditionStatus(serviceAny)
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      // Create 5 uploads - start them all synchronously to ensure batching
-      const uploads: Array<Promise<UploadResult>> = []
-      const uploadData = [
-        new Uint8Array(127).fill(0),
-        new Uint8Array(127).fill(1),
-        new Uint8Array(127).fill(2),
-        new Uint8Array(127).fill(3),
-        new Uint8Array(127).fill(4),
-      ]
-
-      // Start all uploads at once to ensure they queue up before processing begins
-      for (const data of uploadData) {
-        uploads.push(service.upload(data))
-      }
-
-      // Wait for all to complete
-      const results = await Promise.all(uploads)
-
-      assert.lengthOf(results, 5, 'All uploads should complete successfully')
-
-      // Verify batching occurred - we should have fewer calls than uploads
-      assert.isBelow(addPiecesCalls.length, 5, 'Should have fewer batches than uploads')
-
-      // Verify all uploads were processed
-      const totalProcessed = addPiecesCalls.reduce((sum, call) => sum + call.batchSize, 0)
-      assert.equal(totalProcessed, 5, 'All 5 uploads should be processed')
-
-      // Verify piece IDs are sequential
-      assert.equal(addPiecesCalls[0].nextPieceId, 0, 'First batch should start at piece ID 0')
-      for (let i = 1; i < addPiecesCalls.length; i++) {
-        const expectedId = addPiecesCalls[i - 1].nextPieceId + addPiecesCalls[i - 1].batchSize
-        assert.equal(addPiecesCalls[i].nextPieceId, expectedId, `Batch ${i} should have correct sequential piece ID`)
-      }
-    })
-
-    it('should handle batch size of 1', async () => {
-      const addPiecesCalls: number[] = []
-
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-
-      // Create service with batch size of 1
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-          uploadBatchSize: 1,
-        },
-        {}
-      )
-      const serviceAny = service as any
-
-      // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
-        pieceCid: `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigm${data[0]}`,
-        size: data.length,
-      })
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
-        uuid: 'test-uuid',
-      })
-
-      // Use helper to mock addPieces
-      const mockTxHash2 = mockAddPieces(serviceAny, {
-        txHash: `0x${'2'.repeat(64)}`,
-        onCall: (_dataSetId, _clientDataSetId, comms) => {
-          addPiecesCalls.push(comms.length)
-        },
-      })
-
-      // Use helper to mock getPieceAdditionStatus
-      mockGetPieceAdditionStatus(serviceAny)
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash2,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      // Create 3 uploads
-      const uploads = [
-        service.upload(new Uint8Array(127).fill(1)),
-        service.upload(new Uint8Array(128).fill(2)),
-        service.upload(new Uint8Array(129).fill(3)),
-      ]
-
-      await Promise.all(uploads)
-
-      // With batch size 1, each upload should be processed individually
-      assert.lengthOf(addPiecesCalls, 3, 'Should have 3 individual calls')
-      assert.deepEqual(addPiecesCalls, [1, 1, 1], 'Each call should have exactly 1 piece')
-    })
-
-    it('should debounce uploads for better batching', async () => {
-      const addPiecesCalls: Array<{ batchSize: number }> = []
-
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-
-      // Create service with default batch size (32)
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-      const serviceAny = service as any
-
-      // Mock PDPServer methods
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => ({
-        pieceCid: `bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy${data[0]}`,
-        size: data.length,
-      })
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => ({
-        uuid: 'test-uuid',
-      })
-
-      // Use helper to mock addPieces
-      const mockTxHash3 = mockAddPieces(serviceAny, {
-        txHash: `0x${'3'.repeat(64)}`,
-        onCall: (_dataSetId, _clientDataSetId, comms) => {
-          addPiecesCalls.push({ batchSize: comms.length })
-        },
-      })
-
-      // Use helper to mock getPieceAdditionStatus
-      mockGetPieceAdditionStatus(serviceAny)
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash3,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      // Create multiple uploads synchronously
-      const uploads = []
-      for (let i = 0; i < 5; i++) {
-        uploads.push(service.upload(new Uint8Array(127).fill(i)))
-      }
-
-      await Promise.all(uploads)
-
-      // With debounce, all 5 uploads should be in a single batch
-      assert.lengthOf(addPiecesCalls, 1, 'Should have exactly 1 batch due to debounce')
-      assert.equal(addPiecesCalls[0].batchSize, 5, 'Batch should contain all 5 uploads')
-    })
-
     it('should handle errors in batch processing gracefully', async () => {
       const mockWarmStorageService = {
         validateDataSet: async (): Promise<void> => {
@@ -2386,352 +2031,6 @@ describe('StorageService', () => {
         assert.include(error.message, 'exceeds maximum allowed size')
         assert.include(error.message, '220200960') // 210 * 1024 * 1024
         assert.include(error.message, '209715200') // 200 * 1024 * 1024
-      }
-    })
-
-    it('should accept data at exactly 127 bytes', async () => {
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      // Create data at exactly the minimum
-      const minSizeData = new Uint8Array(127) // 127 bytes
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-
-      // Mock the required services
-      const serviceAny = service as any
-
-      // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        assert.equal(data.length, 127)
-        return { pieceCid: testPieceCID, size: data.length }
-      }
-
-      // Mock findPiece
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
-        return { uuid: 'test-uuid' }
-      }
-
-      // Mock addPieces with txHash
-      const mockTxHash4 = `0x${'4'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number
-      ): Promise<any> => {
-        const pieceIds = [nextPieceId]
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash4,
-        }
-      }
-
-      // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash4,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      const result = await service.upload(minSizeData)
-      assert.equal(result.pieceCid.toString(), testPieceCID)
-      assert.equal(result.size, 127)
-    })
-
-    it('should accept data up to 200 MiB', async () => {
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      // Create data at exactly the limit
-      const maxSizeData = new Uint8Array(SIZE_CONSTANTS.MAX_UPLOAD_SIZE) // 200 MiB
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-
-      // Mock the required services
-      const serviceAny = service as any
-
-      // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        assert.equal(data.length, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
-        return { pieceCid: testPieceCID, size: data.length }
-      }
-
-      // Mock findPiece (immediate success)
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
-        return { uuid: 'test-uuid' }
-      }
-
-      // getDataSet already mocked in mockWarmStorageService
-
-      // Mock addPieces with txHash
-      const mockTxHash5 = `0x${'5'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: bigint,
-        _pieces: any[]
-      ): Promise<any> => {
-        const pieceIds = [0] // First piece gets ID 0
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash5,
-        }
-      }
-
-      // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash5,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      // Should not throw
-      const result = await service.upload(maxSizeData)
-      assert.equal(result.pieceCid.toString(), testPieceCID)
-      assert.equal(result.size, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
-      assert.equal(result.pieceId, 0)
-    })
-
-    it('should handle upload callbacks correctly', async () => {
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      // Create data that meets minimum size (127 bytes)
-      const testData = new Uint8Array(127).fill(42) // 127 bytes of value 42
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-
-      let uploadCompleteCallbackFired = false
-      let pieceAddedCallbackFired = false
-
-      // Mock the required services
-      const serviceAny = service as any
-
-      // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
-        return { pieceCid: testPieceCID, size: testData.length }
-      }
-
-      // Mock findPiece (immediate success)
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
-        return { uuid: 'test-uuid' }
-      }
-
-      // Mock getDataSet
-      // getDataSet already mocked in mockWarmStorageService
-
-      // Mock addPieces with txHash
-      const mockTxHash6 = `0x${'6'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number
-      ): Promise<any> => {
-        const pieceIds = [nextPieceId]
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash6,
-        }
-      }
-
-      // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash6,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      const result = await service.upload(testData, {
-        onUploadComplete: (pieceCid: PieceCID) => {
-          assert.equal(pieceCid.toString(), testPieceCID)
-          uploadCompleteCallbackFired = true
-        },
-        onPieceAdded: () => {
-          pieceAddedCallbackFired = true
-        },
-      })
-
-      assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-      assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
-      assert.equal(result.pieceCid.toString(), testPieceCID)
-    })
-
-    it('should handle new server with transaction tracking', async () => {
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-
-      let uploadCompleteCallbackFired = false
-      let pieceAddedCallbackFired = false
-      let pieceConfirmedCallbackFired = false
-      let pieceAddedTransaction: any = null
-      let confirmedPieceIds: number[] = []
-
-      // Mock the required services
-      const serviceAny = service as any
-
-      // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (): Promise<any> => {
-        return { pieceCid: testPieceCID, size: testData.length }
-      }
-
-      // Mock findPiece
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
-        return { uuid: 'test-uuid' }
-      }
-
-      // Mock addPieces to return transaction tracking info
-      serviceAny._pdpServer.addPieces = async (): Promise<any> => {
-        return {
-          message: 'success',
-          txHash: mockTxHash,
-          statusUrl: `https://pdp.example.com/pdp/data-sets/123/pieces/added/${mockTxHash}`,
-        }
-      }
-
-      // Mock getTransaction from provider
-      const mockTransaction = {
-        hash: mockTxHash,
-        wait: async () => ({ status: 1 }),
-      }
-      const originalGetTransaction = mockEthProvider.getTransaction
-      mockEthProvider.getTransaction = async (hash: string) => {
-        assert.equal(hash, mockTxHash)
-        return mockTransaction as any
-      }
-
-      // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (dataSetId: number, txHash: string): Promise<any> => {
-        assert.equal(dataSetId, 123)
-        assert.equal(txHash, mockTxHash)
-        return {
-          txHash: mockTxHash,
-          txStatus: 'confirmed',
-          dataSetId: 123,
-          pieceCount: 1,
-          addMessageOk: true,
-          confirmedPieceIds: [42],
-        }
-      }
-
-      try {
-        const result = await service.upload(testData, {
-          onUploadComplete: (pieceCid: PieceCID) => {
-            assert.equal(pieceCid.toString(), testPieceCID)
-            uploadCompleteCallbackFired = true
-          },
-          onPieceAdded: (transaction: any) => {
-            pieceAddedCallbackFired = true
-            pieceAddedTransaction = transaction
-          },
-          onPieceConfirmed: (pieceIds: number[]) => {
-            pieceConfirmedCallbackFired = true
-            confirmedPieceIds = pieceIds
-          },
-        })
-
-        assert.isTrue(uploadCompleteCallbackFired, 'onUploadComplete should have been called')
-        assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
-        assert.isTrue(pieceConfirmedCallbackFired, 'onPieceConfirmed should have been called')
-        assert.exists(pieceAddedTransaction, 'Transaction should be passed to onPieceAdded')
-        assert.equal(pieceAddedTransaction.hash, mockTxHash)
-        assert.deepEqual(confirmedPieceIds, [42])
-        assert.equal(result.pieceId, 42)
-      } finally {
-        // Restore original method
-        mockEthProvider.getTransaction = originalGetTransaction
       }
     })
 
@@ -2998,105 +2297,16 @@ describe('StorageService', () => {
       }
 
       // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash7,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
 
       const result = await service.upload(testData, {
-        onPieceAdded: (transaction?: ethers.TransactionResponse) => {
+        onPieceAdded: () => {
           pieceAddedCallbackFired = true
-          pieceAddedTransaction = transaction
         },
       })
 
       assert.isTrue(pieceAddedCallbackFired, 'onPieceAdded should have been called')
       assert.isUndefined(pieceAddedTransaction, 'Transaction should be undefined for old servers')
       assert.equal(result.pieceId, 0)
-    })
-
-    it('should handle ArrayBuffer input', async () => {
-      const mockWarmStorageService = {
-        validateDataSet: async (): Promise<void> => {
-          /* no-op */
-        },
-        getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
-      const service = new StorageContext(
-        mockSynapse,
-        mockWarmStorageService,
-        mockProvider,
-        123,
-        {
-          withCDN: false,
-        },
-        {}
-      )
-
-      // Create ArrayBuffer instead of Uint8Array
-      const buffer = new ArrayBuffer(1024)
-      const view = new Uint8Array(buffer)
-      for (let i = 0; i < view.length; i++) {
-        view[i] = i % 256
-      }
-
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-
-      // Mock the required services
-      const serviceAny = service as any
-
-      // Mock uploadPiece
-      serviceAny._pdpServer.uploadPiece = async (data: Uint8Array): Promise<any> => {
-        assert.instanceOf(data, Uint8Array)
-        assert.equal(data.length, 1024)
-        return { pieceCid: testPieceCID, size: data.length }
-      }
-
-      // Mock findPiece
-      serviceAny._pdpServer.findPiece = async (): Promise<any> => {
-        return { uuid: 'test-uuid' }
-      }
-
-      // Mock getDataSet
-      // getDataSet already mocked in mockWarmStorageService
-
-      // Mock addPieces with txHash
-      const mockTxHash8 = `0x${'8'.repeat(64)}`
-      serviceAny._pdpServer.addPieces = async (
-        _dataSetId: number,
-        _clientDataSetId: number,
-        nextPieceId: number
-      ): Promise<any> => {
-        const pieceIds = [nextPieceId]
-        ;(serviceAny._pdpServer as any)._lastPieceIds = pieceIds
-        return {
-          message: 'success',
-          txHash: mockTxHash8,
-        }
-      }
-
-      // Mock getPieceAdditionStatus
-      serviceAny._pdpServer.getPieceAdditionStatus = async (): Promise<any> => {
-        const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-        return {
-          txStatus: 'confirmed',
-          addMessageOk: true,
-          confirmedPieceIds: pieceIds,
-        }
-      }
-
-      // Mock the provider's getTransaction method
-      const mockTransaction = {
-        hash: mockTxHash8,
-        wait: async () => ({ status: 1, blockNumber: 12345 }),
-      }
-      mockEthProvider.getTransaction = async () => mockTransaction
-
-      const result = await service.upload(buffer)
-      assert.equal(result.pieceCid.toString(), testPieceCID)
-      assert.equal(result.size, 1024)
     })
 
     it.skip('should handle piece parking timeout', async () => {

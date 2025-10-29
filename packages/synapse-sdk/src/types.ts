@@ -6,6 +6,7 @@
  */
 
 import type { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
 
@@ -283,7 +284,7 @@ export interface SettlementResult {
  * These callbacks provide visibility into the context creation process,
  * including provider selection and data set creation/reuse.
  */
-export interface StorageCreationCallbacks {
+export interface StorageContextCallbacks {
   /**
    * Called when a service provider has been selected
    * @param provider - The selected provider info
@@ -295,29 +296,6 @@ export interface StorageCreationCallbacks {
    * @param info - Information about the resolved data set
    */
   onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ProviderInfo }) => void
-
-  /**
-   * Called when data set creation transaction is submitted
-   * Only fired when creating a new data set
-   * @param transaction - Transaction response object
-   * @param statusUrl - URL to check status (optional)
-   */
-  onDataSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
-
-  /**
-   * Called periodically during data set creation
-   * Only fired when creating a new data set
-   * @param status - Current creation status
-   */
-  onDataSetCreationProgress?: (status: {
-    transactionMined: boolean
-    transactionSuccess: boolean
-    dataSetLive: boolean
-    serverConfirmed: boolean
-    dataSetId?: number
-    elapsedMs: number
-    receipt?: ethers.TransactionReceipt
-  }) => void
 }
 
 /**
@@ -348,7 +326,7 @@ export interface StorageServiceOptions {
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
   uploadBatchSize?: number
   /** Callbacks for creation process */
-  callbacks?: StorageCreationCallbacks
+  callbacks?: StorageContextCallbacks
   /** Custom metadata for the data set (key-value pairs) */
   metadata?: Record<string, string>
 }
@@ -397,7 +375,7 @@ export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece and submitted the transaction to the chain */
-  onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
+  onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition is confirmed on-chain */
   onPieceConfirmed?: (pieceIds: number[]) => void
 }
