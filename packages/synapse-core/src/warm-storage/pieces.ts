@@ -5,13 +5,52 @@ import { getTransaction, readContract, waitForTransactionReceipt } from 'viem/ac
 import { getChain } from '../chains.ts'
 import type { PieceCID } from '../piece.ts'
 import * as PDP from '../sp.ts'
+import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
+import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
+import { randU256 } from '../utils/rand.ts'
 import type { DataSet } from './data-sets.ts'
 
+export type AddPiecesOptions = {
+  dataSetId: bigint
+  clientDataSetId: bigint
+  endpoint: string
+  pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+}
+
+/**
+ * Add pieces to a data set
+ *
+ * @param client - The client to use to add the pieces.
+ * @param options - The options for the add pieces. {@link AddPiecesOptions}
+ * @param options.dataSetId - The ID of the data set.
+ * @param options.clientDataSetId - The ID of the client data set.
+ * @param options.endpoint - The endpoint of the PDP API.
+ * @param options.pieces - The pieces to add.
+ * @returns The response from the add pieces operation.
+ */
+export async function addPieces(client: Client<Transport, Chain, Account>, options: AddPiecesOptions) {
+  const nonce = randU256()
+  return PDP.addPieces({
+    endpoint: options.endpoint,
+    dataSetId: options.dataSetId,
+    pieces: options.pieces.map((piece) => piece.pieceCid),
+    extraData: await signAddPieces(client, {
+      clientDataSetId: options.clientDataSetId,
+      nonce,
+      pieces: options.pieces.map((piece) => ({
+        pieceCid: piece.pieceCid,
+        metadata: pieceMetadataObjectToEntry(piece.metadata),
+      })),
+    }),
+  })
+}
 export type DeletePieceOptions = {
   pieceId: bigint
-  dataSet: DataSet
+  dataSetId: bigint
+  clientDataSetId: bigint
+  endpoint: string
 }
 
 /**
@@ -29,11 +68,11 @@ export type DeletePieceOptions = {
  */
 export async function deletePiece(client: Client<Transport, Chain, Account>, options: DeletePieceOptions) {
   return PDP.deletePiece({
-    endpoint: options.dataSet.pdp.serviceURL,
-    dataSetId: options.dataSet.dataSetId,
+    endpoint: options.endpoint,
+    dataSetId: options.dataSetId,
     pieceId: options.pieceId,
     extraData: await signSchedulePieceRemovals(client, {
-      clientDataSetId: options.dataSet.clientDataSetId,
+      clientDataSetId: options.clientDataSetId,
       pieceIds: [options.pieceId],
     }),
   })
