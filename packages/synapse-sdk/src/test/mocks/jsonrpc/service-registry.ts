@@ -1,6 +1,5 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
-import type { PDPOffering } from '@filoz/synapse-core/utils'
 import { encodePDPCapabilities } from '@filoz/synapse-core/utils'
 import type { ExtractAbiFunction } from 'abitype'
 import { assert } from 'chai'
@@ -27,6 +26,11 @@ export type getProviderWithProduct = ExtractAbiFunction<
   'getProviderWithProduct'
 >
 
+export type getProvidersByProductType = ExtractAbiFunction<
+  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  'getProvidersByProductType'
+>
+
 export interface ServiceRegistryOptions {
   getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
   getProviderIdByAddress?: (
@@ -36,6 +40,9 @@ export interface ServiceRegistryOptions {
   getProviderWithProduct?: (
     args: AbiToType<getProviderWithProduct['inputs']>
   ) => AbiToType<getProviderWithProduct['outputs']>
+  getProvidersByProductType?: (
+    args: AbiToType<getProvidersByProductType['inputs']>
+  ) => AbiToType<getProvidersByProductType['outputs']>
 }
 
 export type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
@@ -98,7 +105,7 @@ export function mockServiceProviderRegistry(
                 providerId,
                 providerInfo,
                 product: {
-                  productType: 0,
+                  productType,
                   capabilityKeys: [],
                   isActive: false,
                 },
@@ -112,7 +119,7 @@ export function mockServiceProviderRegistry(
               providerId,
               providerInfo,
               product: {
-                productType: 0, // PDP
+                productType,
                 capabilityKeys,
                 isActive: true,
               },
@@ -123,7 +130,51 @@ export function mockServiceProviderRegistry(
       }
       return EMPTY_PROVIDER_WITH_PRODUCT
     },
-    // TODO getProvidersByProductType
+    getProvidersByProductType: ([productType, onlyActive, offset, limit]) => {
+      if (!services) {
+        return [
+          {
+            providers: [] as ProviderWithProduct[],
+            hasMore: false,
+          },
+        ]
+      }
+      const filteredProviders: ProviderWithProduct[] = []
+      for (let i = 0; i < services.length; i++) {
+        const providerInfoView = providers[i]
+        const providerId = providerInfoView.providerId
+        const providerInfo = providers[i].info
+        if (onlyActive && !providerInfo.isActive) {
+          continue
+        }
+        const service = services[i]
+        if (service == null || !service.isActive) {
+          continue
+        }
+        if (productType !== 0) {
+          // this mock currently only supports PDP
+          continue
+        }
+        const [capabilityKeys, productCapabilityValues] = encodePDPCapabilities(service.offering)
+        filteredProviders.push({
+          providerId,
+          providerInfo,
+          product: {
+            productType: 0, // PDP
+            capabilityKeys,
+            isActive: service.isActive,
+          },
+          productCapabilityValues,
+        })
+      }
+      const hasMore = offset + limit >= filteredProviders.length
+      return [
+        {
+          providers: filteredProviders.slice(Number(offset), Number(offset + limit)),
+          hasMore,
+        },
+      ]
+    },
     getProviderByAddress: ([address]) => {
       for (const provider of providers) {
         if (address === provider.info.serviceProvider) {
