@@ -1458,16 +1458,16 @@ describe('StorageService', () => {
       }
     })
 
-    it.skip('should retry transaction fetch for up to 30 seconds', async () => {
+    it.skip('should retry transaction fetch for up to 180 seconds', async () => {
       // This test validates that the transaction retry logic is implemented
-      // The implementation retries getTransaction() for up to 30 seconds (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS)
+      // The implementation retries getTransaction() for up to 180 seconds (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS)
       // with a 2-second interval (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS)
       // before throwing an error if the transaction is not found
     })
 
-    it.skip('should fail after 30 seconds if transaction never appears', async () => {
-      // This test validates that the transaction retry logic times out after 30 seconds
-      // If a transaction is not found after TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS (30 seconds),
+    it.skip('should fail after 180 seconds if transaction never appears', async () => {
+      // This test validates that the transaction retry logic times out after 180 seconds
+      // If a transaction is not found after TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS (180 seconds),
       // the implementation throws an error indicating the transaction was not found
     })
 
