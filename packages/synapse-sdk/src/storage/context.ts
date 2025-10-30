@@ -1025,7 +1025,6 @@ export class StorageContext {
   /**
    * Get all active pieces for this data set as an async generator.
    * This provides lazy evaluation and better memory efficiency for large data sets.
-   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
    * @param options.signal - Optional AbortSignal to cancel the operation
