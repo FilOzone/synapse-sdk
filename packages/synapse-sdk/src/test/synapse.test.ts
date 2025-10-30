@@ -953,7 +953,7 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [mockProviders[0].providerId],
+        providerIds: [mockProviders[0].providerId].map(Number),
         metadata,
         count: 1,
       })
@@ -969,7 +969,7 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [mockProviders[0].providerId],
+        providerIds: [mockProviders[0].providerId].map(Number),
         metadata,
         count: 1,
         forceCreateDataSets: true,
