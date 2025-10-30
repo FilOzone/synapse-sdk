@@ -515,7 +515,7 @@ export class StorageContext {
     const providerDataSets = (
       dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
     ).filter((ps) => {
-      if (ps.providerId !== Number(provider.id) || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
+      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
         return false
       }
       // Check if metadata matches
