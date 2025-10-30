@@ -561,14 +561,14 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    const upload = await context.upload(new Uint8Array(expectedSize).fill(1), {
-      onPieceAdded(transaction) {
+    await context.upload(new Uint8Array(expectedSize).fill(1), {
+      onPieceAdded() {
         pieceAddedCallbackFired = true
       },
-      onPieceConfirmed(pieceIds) {
+      onPieceConfirmed() {
         pieceConfirmedCallbackFired = true
       },
-      onUploadComplete(pieceCid) {
+      onUploadComplete() {
         uploadCompleteCallbackFired = true
       },
     })

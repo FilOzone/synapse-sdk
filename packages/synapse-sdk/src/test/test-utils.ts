@@ -19,8 +19,6 @@ import { bytesToHex, type Hex, numberToBytes, stringToHex } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
-import { ProviderResolver } from '../utils/provider-resolver.ts'
-import type { WarmStorageService } from '../warm-storage/index.ts'
 
 /**
  * Addresses used by testing
@@ -505,20 +503,6 @@ export function createMockSPRegistryService(providers: ProviderInfo[] = []): SPR
   }
 
   return mock as SPRegistryService
-}
-
-/**
- * Creates a mock ProviderResolver with WarmStorage integration
- */
-export function createMockProviderResolver(approvedIds: number[], providers: ProviderInfo[] = []): ProviderResolver {
-  const mockWarmStorage: Partial<WarmStorageService> = {
-    getApprovedProviderIds: async () => approvedIds,
-    isProviderIdApproved: async (id: number) => approvedIds.includes(id),
-  }
-
-  const mockSPRegistry = createMockSPRegistryService(providers)
-
-  return new ProviderResolver(mockWarmStorage as WarmStorageService, mockSPRegistry)
 }
 
 /**

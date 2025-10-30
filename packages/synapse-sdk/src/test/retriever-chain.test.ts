@@ -186,7 +186,7 @@ describe('ChainRetriever', () => {
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider 0xNotApproved not found or not approved')
+        assert.include(error.message, 'Provider 0xNotApproved not found in registry')
       }
     })
   })

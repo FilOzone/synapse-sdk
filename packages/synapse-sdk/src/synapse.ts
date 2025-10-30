@@ -21,7 +21,6 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
-import { ProviderResolver } from './utils/provider-resolver.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 export class Synapse {
@@ -412,29 +411,25 @@ export class Synapse {
         }
       }
 
-      // Create SPRegistryService and ProviderResolver
+      // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._provider, registryAddress)
-      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
 
       let providerInfo: ProviderInfo | null
       if (typeof providerAddress === 'string') {
-        providerInfo = await resolver.getApprovedProviderByAddress(providerAddress)
+        providerInfo = await spRegistry.getProviderByAddress(providerAddress)
       } else {
-        providerInfo = await resolver.getApprovedProvider(providerAddress)
+        providerInfo = await spRegistry.getProvider(providerAddress)
       }
 
-      // Check if provider was found
+      // Check if provider was found in registry
       if (providerInfo == null) {
-        throw new Error(`Provider ${providerAddress} not found or not approved`)
+        throw new Error(`Provider ${providerAddress} not found in registry`)
       }
 
       return providerInfo
     } catch (error) {
       if (error instanceof Error && error.message.includes('Invalid provider address')) {
-        throw error
-      }
-      if (error instanceof Error && error.message.includes('is not approved')) {
         throw error
       }
       if (error instanceof Error && error.message.includes('not found')) {

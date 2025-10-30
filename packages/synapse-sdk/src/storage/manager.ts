@@ -46,7 +46,6 @@ import {
   TIME_CONSTANTS,
   TOKENS,
 } from '../utils/index.ts'
-import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
@@ -357,17 +356,19 @@ export class StorageManager {
         }
       }
 
-      // Create SPRegistryService and ProviderResolver to get providers
+      // Create SPRegistryService to get providers
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
-      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
 
       // Fetch all data in parallel for performance
-      const [pricingData, providers, allowances] = await Promise.all([
+      const [pricingData, approvedIds, allowances] = await Promise.all([
         this._warmStorageService.getServicePrice(),
-        resolver.getApprovedProviders(),
+        this._warmStorageService.getApprovedProviderIds(),
         getOptionalAllowances(),
       ])
+
+      // Get provider details for approved IDs
+      const providers = await spRegistry.getProviders(approvedIds)
 
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)

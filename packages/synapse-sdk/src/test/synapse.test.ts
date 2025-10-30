@@ -430,16 +430,24 @@ describe('Synapse', () => {
       }
     })
 
-    it('should throw for non-approved provider', async () => {
+    it('should throw for non-found provider', async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
           serviceRegistry: {
             ...presets.basic.serviceRegistry,
-            getProviderIdByAddress: () => [3n],
-          },
-          warmStorageView: {
-            isProviderApproved: ([providerId]) => [providerId === 1n],
+            getProviderByAddress: () => [
+              {
+                providerId: 0n,
+                info: {
+                  serviceProvider: ethers.ZeroAddress as `0x${string}`,
+                  payee: ethers.ZeroAddress as `0x${string}`,
+                  name: '',
+                  description: '',
+                  isActive: false,
+                },
+              },
+            ],
           },
         })
       )
@@ -449,7 +457,7 @@ describe('Synapse', () => {
         await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'not approved')
+        assert.include(error.message, 'not found in registry')
       }
     })
 
