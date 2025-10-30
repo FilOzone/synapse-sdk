@@ -1078,9 +1078,14 @@ describe('Synapse', () => {
     })
 
     it('does not create multiple contexts for the same data set from duplicate dataSetIds', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
       const contexts = await synapse.storage.createContexts({
         count: 2,
         dataSetIds: [1, 1],
+        metadata,
       })
       assert.equal(contexts.length, 2)
       assert.equal((contexts[0] as any)._dataSetId, 1)
@@ -1112,6 +1117,22 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         count: 2,
         providerAddresses: [mockProviders[0].info.serviceProvider, mockProviders[0].info.serviceProvider],
+        metadata,
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+    })
+
+    it('does not create multiple contexts for a specified data set when providerId also provided', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        dataSetIds: [1, 1],
+        providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
         metadata,
       })
       assert.equal(contexts.length, 2)

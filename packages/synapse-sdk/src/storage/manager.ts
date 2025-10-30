@@ -233,6 +233,7 @@ export class StorageManager {
 
   /**
    * Creates new storage contexts with specified options
+   * Each context correseponds to a different data set
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
