@@ -68,7 +68,7 @@ All HTTP calls are being instrumented (except for static assets like JS, CSS, an
 
 The primary information we are attempting to collect is HTTP request paths, response status codes, and request/response latencies to RPC providers and Service Providers (SPs).  Non 200 responses or "slow" responses may indicate issues in Synapse or the backend SP software, or general operational issues with RPC providers or SPs.  These are issues we want to be aware of so we can potentially fix or improve.
 
-We also capture general uncaught errors.  This could be indicative of issues in Synapse, which we'd want to fix.
+We also capture general uncaught errors, even thouse outside originating outside of Synapse.  This could be indicative of issues in Synapse, which we'd want to fix.
 
 We are not capturing:
 - Personal identifiable information (PII).  We explicitly [disable sending default PII to Sentry](https://docs.sentry.io/platforms/javascript/configuration/options/#sendDefaultPii).
@@ -89,14 +89,24 @@ The tracking issue for this cleanup is [issue #363](https://github.com/FilOzone/
 ### How to configure telemetry
 Synapse consumers can pass in any [Sentry options](https://docs.sentry.io/platforms/javascript/configuration/options/) via `Synapse.create({telemetry : { sentryInitOptions : {...} },})`.
 
-Synapse default Sentry options are applied in [src/telemetry/service.ts] whenever not explicitly set by the user.  
+Synapse default Sentry options are applied in [src/telemetry/service.ts](src/telemetry/service.ts) whenever not explicitly set by the user.  
 
 Any explicit tags to add to all Sentry calls can be added with `Synapse.create({telemetry : { sentrySetTags : {...} },})`.
 
 One also has direct access to the Sentry instance that Synapse is using via `synapse.telemetry.sentry`, at which point any of the [Sentry APIs](https://docs.sentry.io/platforms/javascript/apis/) can be invoked.
 
+#### If an app already uses Sentry
+
+In order to use Sentry in an app with Synapse's telemetry, a developer needs to:
+1. Not call [Sentry.init](https://docs.sentry.io/platforms/javascript/apis/#init) directly, but instead pass [confguration options](https://docs.sentry.io/platforms/javascript/configuration/options/) through `Synapse.create({telemetry : { sentryInitOptions : {...} },})`.
+2. Then access the Sentry singleton with `Sentry` directly or `synapse.telemetry.sentry` for any followup API calls.
+
+Alternatively, if Synapse's Sentry is getting in the way, [disable Synapse telemetry](how-to-disable-telemetry) and proceed using Sentry as before.
+
 ### Who has access to the telemetry data
 Access is restricted to the Synapse maintainers and product/support personnel actively involved in the Filecoin Onchain Cloud who work with Synapse.
+
+
 
 ## Contributing
 
