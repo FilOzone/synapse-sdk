@@ -1077,6 +1077,18 @@ describe('Synapse', () => {
       }
     })
 
+    it('does not create multiple contexts for the same data set', async () => {
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        dataSetIds: [1, 1],
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+      // should also use different providers in this case
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+    })
+
     it('selects existing data set by default when metadata matches', async () => {
       const metadata = {
         environment: 'test',
