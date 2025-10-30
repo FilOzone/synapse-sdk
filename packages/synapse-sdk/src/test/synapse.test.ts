@@ -9,7 +9,7 @@ import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
-import { type Address, isAddressEqual, parseUnits } from 'viem'
+import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
 import { Synapse } from '../synapse.ts'
@@ -705,25 +705,48 @@ describe('Synapse', () => {
           ...presets.basic,
           serviceRegistry: {
             ...presets.basic.serviceRegistry,
-            getProvider: (data) => {
-              if (data[0] === 1n) {
+            getProviderWithProduct: (data) => {
+              const [providerId] = data
+              if (providerId === 1n) {
                 return [
                   {
-                    providerId: 1n,
-                    info: {
+                    providerId,
+                    providerInfo: {
                       serviceProvider: ADDRESSES.serviceProvider1,
                       payee: ADDRESSES.payee1,
                       isActive: true,
                       name: 'Test Provider',
                       description: 'Test Provider',
                     },
+                    product: {
+                      productType: 0,
+                      capabilityKeys: [
+                        'serviceURL',
+                        'minPieceSizeInBytes',
+                        'maxPieceSizeInBytes',
+                        'storagePricePerTibPerDay',
+                        'minProvingPeriodInEpochs',
+                        'location',
+                        'paymentTokenAddress',
+                      ],
+                      isActive: true,
+                    },
+                    productCapabilityValues: [
+                      stringToHex('https://pdp.example.com'),
+                      bytesToHex(numberToBytes(1024n)),
+                      bytesToHex(numberToBytes(1024n)),
+                      bytesToHex(numberToBytes(1000000n)),
+                      bytesToHex(numberToBytes(2880n)),
+                      stringToHex('US'),
+                      ADDRESSES.calibration.usdfcToken,
+                    ],
                   },
                 ]
               }
               return [
                 {
                   providerId: 0n,
-                  info: {
+                  providerInfo: {
                     serviceProvider: ADDRESSES.zero,
                     payee: ADDRESSES.zero,
                     isActive: false,
@@ -731,6 +754,12 @@ describe('Synapse', () => {
                     description: '',
                     providerId: 0n,
                   },
+                  product: {
+                    productType: 0,
+                    capabilityKeys: [],
+                    isActive: false,
+                  },
+                  productCapabilityValues: [] as Hex[],
                 },
               ]
             },

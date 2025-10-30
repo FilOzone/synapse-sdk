@@ -1,8 +1,10 @@
 /* globals describe it beforeEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import type { Hex } from 'viem'
+import { boolToBytes, bytesToHex, numberToBytes, stringToHex } from 'viem'
 import { SPRegistryService } from '../sp-registry/service.ts'
-import { type PDPOffering, PRODUCTS } from '../sp-registry/types.ts'
+import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 describe('SPRegistryService', () => {
@@ -67,42 +69,45 @@ describe('SPRegistryService', () => {
       providerHasProduct: async (id: number, productType: number) => {
         return id === 1 && productType === 0
       },
-      getPDPService: async (id: number) => {
-        if (id === 1) {
+      getProviderWithProduct: async (id: number, productType: number) => {
+        if (id === 1 && productType === 0) {
           return {
-            pdpOffering: {
-              serviceURL: 'https://provider.example.com',
-              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-              ipniPiece: true,
-              ipniIpfs: false,
-              storagePricePerTibPerDay: BigInt(1000000),
-              minProvingPeriodInEpochs: 2880n,
-              location: 'US-EAST',
-              paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+            providerId: 1n,
+            providerInfo: {
+              id: BigInt(1),
+              serviceProvider: mockProviderAddress,
+              payee: mockProviderAddress,
+              name: 'Test Provider',
+              description: 'A test storage provider',
+              isActive: true,
             },
-            capabilities: [],
-            isActive: true,
+            product: {
+              productType: 0n,
+              capabilityKeys: [
+                'serviceURL',
+                'minPieceSizeInBytes',
+                'maxPieceSizeInBytes',
+                'ipniPiece',
+                'storagePricePerTibPerDay',
+                'minProvingPeriodInEpochs',
+                'location',
+                'paymentTokenAddress',
+              ],
+              isActive: true,
+            },
+            productCapabilityValues: [
+              stringToHex('https://provider.example.com'),
+              bytesToHex(numberToBytes(SIZE_CONSTANTS.KiB)),
+              bytesToHex(numberToBytes(SIZE_CONSTANTS.GiB)),
+              bytesToHex(boolToBytes(true)),
+              bytesToHex(numberToBytes(1000000n)),
+              bytesToHex(numberToBytes(2880)),
+              stringToHex('US-EAST'),
+              '0x0000000000000000000000000000000000000000',
+            ],
           }
         }
         return null
-      },
-      encodePDPOffering: async (_offering: any) => {
-        // Return mock encoded data
-        return `0x${'a'.repeat(64)}`
-      },
-      decodePDPOffering: async (_data: string): Promise<PDPOffering> => {
-        return {
-          serviceURL: 'https://provider.example.com',
-          minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
-          maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
-          ipniPiece: true,
-          ipniIpfs: false,
-          storagePricePerTibPerDay: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880n,
-          location: 'US-EAST',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-        }
       },
       getAllActiveProviders: async (offset: number, _limit: number) => {
         if (offset === 0) {
@@ -154,7 +159,7 @@ describe('SPRegistryService', () => {
           }),
         }
       },
-      addProduct: async (_productType: number, _data: string) => {
+      addProduct: async (_productType: number, _keys: string[], _values: Hex[]) => {
         return {
           hash: `0x${'5'.repeat(64)}`,
           wait: async () => ({
@@ -163,7 +168,7 @@ describe('SPRegistryService', () => {
           }),
         }
       },
-      updateProduct: async (_index: number, _data: string) => {
+      updateProduct: async (_index: number, _keys: string[], _values: Hex[]) => {
         return {
           hash: `0x${'6'.repeat(64)}`,
           wait: async () => ({
@@ -290,7 +295,7 @@ describe('SPRegistryService', () => {
           storagePricePerTibPerDay: BigInt(1000000),
           minProvingPeriodInEpochs: 2880n,
           location: 'US-EAST',
-          paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+          paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
       })
       assert.exists(tx, 'Transaction should exist')
@@ -351,8 +356,8 @@ describe('SPRegistryService', () => {
         storagePricePerTibPerDay: BigInt(1000000),
         minProvingPeriodInEpochs: 2880n,
         location: 'US-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-      }
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+      } as const
 
       const tx = await service.addPDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -370,8 +375,8 @@ describe('SPRegistryService', () => {
         storagePricePerTibPerDay: BigInt(2000000),
         minProvingPeriodInEpochs: 2880n,
         location: 'EU-WEST',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-      }
+        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+      } as const
 
       const tx = await service.updatePDPProduct(mockSigner, pdpData)
       assert.exists(tx)
@@ -413,19 +418,22 @@ describe('SPRegistryService', () => {
       // Override to return provider without products
       ;(service as any)._getRegistryContract = () => ({
         ...createMockContract(),
-        getPDPService: async () => ({
-          pdpOffering: {
-            serviceURL: '',
-            minPieceSizeInBytes: 0,
-            maxPieceSizeInBytes: 0,
-            ipniPiece: false,
-            ipniIpfs: false,
-            minProvingPeriodInEpochs: 0n,
-            storagePricePerTibPerDay: 0,
-            location: '',
+        getProviderWithProduct: async () => ({
+          providerId: 1,
+          providerInfo: {
+            id: BigInt(1),
+            serviceProvider: mockProviderAddress,
+            payee: mockProviderAddress,
+            name: 'Test Provider',
+            description: 'A test storage provider',
+            isActive: true,
           },
-          capabilityKeys: [],
-          isActive: false,
+          product: {
+            productType: 0n,
+            capabilityKeys: [],
+            isActive: false,
+          },
+          productCapabilityValues: [],
         }),
       })
 

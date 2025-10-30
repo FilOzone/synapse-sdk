@@ -100,20 +100,22 @@ export type PollForDataSetCreationStatusOptions = {
 
 export type DataSetCreatedResponse =
   | {
-      createMessageHash: `0x${string}`
+      createMessageHash: Hex
       dataSetCreated: false
       service: string
       txStatus: 'pending' | 'confirmed' | 'rejected'
       ok: boolean
     }
-  | {
-      createMessageHash: `0x${string}`
-      dataSetCreated: true
-      service: string
-      txStatus: 'pending' | 'confirmed' | 'rejected'
-      ok: boolean
-      dataSetId: number
-    }
+  | DataSetCreateSuccess
+
+export type DataSetCreateSuccess = {
+  createMessageHash: Hex
+  dataSetCreated: true
+  service: string
+  txStatus: 'confirmed'
+  ok: true
+  dataSetId: number
+}
 
 /**
  * Poll for the data set creation status.
@@ -129,6 +131,7 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
     async onResponse(response) {
       if (response.ok) {
         const data = (await response.clone().json()) as DataSetCreatedResponse
+
         if (data.dataSetCreated) {
           return response
         }
@@ -151,7 +154,61 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
     throw response.error
   }
 
-  return response.result
+  return response.result as DataSetCreateSuccess
+}
+
+export type PDPCreateDataSetAndAddPiecesOptions = {
+  endpoint: string
+  recordKeeper: Address
+  extraData: Hex
+  pieces: PieceCID[]
+}
+
+/**
+ * Create a data set and add pieces to it on PDP API
+ *
+ * POST /pdp/data-sets/create-and-add
+ *
+ * @param options - The options for the create data set and add pieces to it on PDP API.
+ * @param options.endpoint - The endpoint of the PDP API.
+ * @param options.recordKeeper - The address of the record keeper.
+ * @param options.extraData - The extra data for the create data set.
+ * @returns The response from the create data set and add pieces to it on PDP API.
+ */
+export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddPiecesOptions) {
+  // Send the create data set message to the PDP
+  const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.endpoint), {
+    body: JSON.stringify({
+      recordKeeper: options.recordKeeper,
+      extraData: options.extraData,
+      pieces: options.pieces.map((piece) => ({
+        pieceCid: piece.toString(),
+        subPieces: [{ subPieceCid: piece.toString() }],
+      })),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: TIMEOUT,
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new CreateDataSetError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  const location = response.result.headers.get('Location')
+  const hash = location?.split('/').pop()
+  if (!location || !hash || !isHex(hash)) {
+    throw new LocationHeaderError(location)
+  }
+
+  return {
+    txHash: hash,
+    statusUrl: new URL(location, options.endpoint).toString(),
+  }
 }
 
 export type GetDataSetOptions = {
@@ -401,7 +458,7 @@ export async function addPieces(options: AddPiecesOptions) {
   }
 
   return {
-    txHash: txHash as `0x${string}`,
+    txHash: txHash as Hex,
     statusUrl: new URL(location, endpoint).toString(),
   }
 }

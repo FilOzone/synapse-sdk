@@ -2,7 +2,9 @@
  * Types for ServiceProviderRegistry interaction
  */
 
-import type { Hex } from 'viem'
+import type { PDPOffering } from '@filoz/synapse-core/utils'
+
+export type { PDPOffering }
 
 /**
  * Product types supported by the registry
@@ -17,7 +19,7 @@ export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
  */
 export interface ProviderInfo {
   id: number
-  serviceProvider: string
+  serviceProvider: string // TODO Hex
   payee: string
   name: string
   description: string
@@ -34,21 +36,6 @@ export interface ServiceProduct {
   isActive: boolean
   capabilities: Record<string, string> // Object map of capability key-value pairs
   data: PDPOffering
-}
-
-/**
- * PDP offering details (decoded from capability k/v pairs)
- */
-export interface PDPOffering {
-  serviceURL: string
-  minPieceSizeInBytes: bigint
-  maxPieceSizeInBytes: bigint
-  ipniPiece: boolean
-  ipniIpfs: boolean
-  storagePricePerTibPerDay: bigint
-  minProvingPeriodInEpochs: bigint
-  location: string
-  paymentTokenAddress: Hex
 }
 
 /**
