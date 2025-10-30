@@ -115,9 +115,6 @@ async function main() {
       console.log(`   Total Pieces: ${pieces.length}`)
       console.log(`   Total Raw Size: ${totalRawSize} bytes (${(totalRawSize / 1024).toFixed(2)} KB)`)
       console.log(`   Average Piece Size: ${(totalRawSize / pieces.length).toFixed(2)} bytes`)
-
-      console.log(`\n✅ All data retrieved directly from PDPVerifier contract (blockchain)`)
-      console.log(`   This is the authoritative source of truth, not Curio`)
     } catch (error) {
       console.error('❌ Error getting pieces from blockchain:', error.message)
     }
