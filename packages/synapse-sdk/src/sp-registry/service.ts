@@ -188,23 +188,16 @@ export class SPRegistryService {
   async getProviderByAddress(address: string): Promise<ProviderInfo | null> {
     try {
       const contract = this._getRegistryContract()
-
-      // Get provider info and ID in parallel
-      const [rawProvider, providerId] = await Promise.all([
-        contract.getProviderByAddress(address),
-        contract.getProviderIdByAddress(address),
-      ])
+      const provider = await contract.getProviderByAddress(address)
 
       // Check if provider exists (beneficiary address will be zero if not found)
-      if (rawProvider.info.serviceProvider === ethers.ZeroAddress) {
+      if (provider.info.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
-      // Get products for this provider
-      const products = await this._getProviderProducts(Number(providerId))
-
-      // Convert to ProviderInfo
-      return this._convertToProviderInfo(Number(providerId), rawProvider.info, products)
+      // Get products for this provider and convert to ProviderInfo
+      const products = await this._getProviderProducts(Number(provider.providerId))
+      return this._convertToProviderInfo(Number(provider.providerId), provider.info, products)
     } catch (error) {
       console.warn('Error fetching provider by address:', error)
       return null
