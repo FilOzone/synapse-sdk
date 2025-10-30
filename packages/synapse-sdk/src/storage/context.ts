@@ -652,6 +652,9 @@ export class StorageContext {
       async function* generateProviders(): AsyncGenerator<ProviderInfo> {
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
+          if (skipProviderIds.has(dataSet.providerId)) {
+            continue
+          }
           const provider = await spRegistry.getProvider(dataSet.providerId)
 
           if (provider == null) {
@@ -660,10 +663,8 @@ export class StorageContext {
             )
             continue
           }
-          if (!skipProviderIds.has(provider.id)) {
-            skipProviderIds.add(provider.id)
-            yield provider
-          }
+          skipProviderIds.add(provider.id)
+          yield provider
         }
       }
 
