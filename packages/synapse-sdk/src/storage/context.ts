@@ -1006,7 +1006,6 @@ export class StorageContext {
 
   /**
    * Get the list of piece CIDs for this service service's data set.
-   * Gets data directly from PDPVerifier contract (source of truth) rather than Curio.
    * @returns Array of piece CIDs as PieceCID objects
    * @deprecated Use getPieces() generator for better memory efficiency with large data sets
    */
