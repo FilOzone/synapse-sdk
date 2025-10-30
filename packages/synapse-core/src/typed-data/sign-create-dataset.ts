@@ -7,6 +7,10 @@ import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-defini
 export type signDataSetOptions = {
   clientDataSetId: bigint
   payee: Address
+  /**
+   * If client is from a session key this should be set to the actual payer address
+   */
+  payer?: Address
   metadata: MetadataEntry[]
 }
 
@@ -32,10 +36,11 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
 
   const keys = options.metadata.map((item) => item.key)
   const values = options.metadata.map((item) => item.value)
+  const payer = options.payer ?? client.account.address
 
   const extraData = encodeAbiParameters(
     [{ type: 'address' }, { type: 'uint256' }, { type: 'string[]' }, { type: 'string[]' }, { type: 'bytes' }],
-    [client.account.address, options.clientDataSetId, keys, values, signature]
+    [payer, options.clientDataSetId, keys, values, signature]
   )
 
   return extraData

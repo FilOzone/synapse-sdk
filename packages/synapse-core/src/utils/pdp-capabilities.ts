@@ -1,13 +1,7 @@
-import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
-
-import type * as Abis from '../abis/index.ts'
+import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
-
-export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
-
-export type ServiceProviderInfo = AbiParametersToPrimitiveTypes<getProviderType['outputs']>[0]['info']
 
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
@@ -19,26 +13,6 @@ export const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
 export const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
 export const CAP_LOCATION = 'location'
 export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
-
-/**
- * PDP offering details (decoded from capability k/v pairs)
- */
-export interface PDPOffering {
-  serviceURL: string
-  minPieceSizeInBytes: bigint
-  maxPieceSizeInBytes: bigint
-  ipniPiece: boolean
-  ipniIpfs: boolean
-  storagePricePerTibPerDay: bigint
-  minProvingPeriodInEpochs: bigint
-  location: string
-  paymentTokenAddress: Hex
-}
-
-export interface PDPProvider extends ServiceProviderInfo {
-  id: bigint
-  pdp: PDPOffering
-}
 
 /**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
