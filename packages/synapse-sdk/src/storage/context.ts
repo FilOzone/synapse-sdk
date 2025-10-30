@@ -192,7 +192,7 @@ export class StorageContext {
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
     const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
     if (options?.dataSetIds) {
-      for (const dataSetId of options.dataSetIds) {
+      for (const dataSetId of new Set(options.dataSetIds)) {
         const resolution = await StorageContext.resolveByDataSetId(
           dataSetId,
           warmStorageService,
