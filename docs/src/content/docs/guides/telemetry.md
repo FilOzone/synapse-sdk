@@ -3,7 +3,7 @@ title: Telemetry
 description: Notes about the telemetry functionality that is within Synapse.
 ---
 
-To help us validate functionality and iron out problems throughout the whole Filecoin Onchain Cloud stack, starting from the SDK, telemetry is **temporarily enabled by default for the calibration network** in Synapse.  We are currently leveraging sentry.io as discussed in [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328).
+To help maintainers validate functionality and iron out problems throughout the whole Filecoin Onchain Cloud stack, starting from the SDK, telemetry is **temporarily enabled by default for the calibration network** in Synapse.  We are currently leveraging sentry.io as discussed in [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328).
 
 ### How to disable telemetry
 
@@ -33,7 +33,7 @@ We are not capturing:
 - Personal identifiable information (PII).  We explicitly [disable sending default PII to Sentry](https://docs.sentry.io/platforms/javascript/configuration/options/#sendDefaultPii).
 - Metrics on static asset (e.g., CSS, JS, image) retrieval.  
 
-(One can verify these claims in [src/telemetry/service.ts](src/telemetry/service.ts).)
+(One can verify these claims in [telemetry/service.ts](https://github.com/FilOzone/synapse-sdk/blob/master/packages/synapse-sdk/src/telemetry/service.ts).)
 
 ### Why is telemetry collecting happening a library like Synapse
 Collecting telemetry through Synapse with [issue #328](https://github.com/FilOzone/synapse-sdk/issues/328) is done as short a term dev-resource efficient decision.  In this season of focusing on stability, the goal is to capture request failures and other client-side errors as broadly and quickly as possible so we have an enumeration of the problems and their impact.  By setting up telemetry at the Synapse layer, we can broadly get telemetry from some of the first consumers by default without requiring extra on them (e.g., filecoin-pin,filecoin-pin-website, synapse demo websites).  This is a short term measure.
