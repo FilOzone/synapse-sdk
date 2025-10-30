@@ -629,9 +629,15 @@ export class StorageContext {
     // Get client's data sets
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
+    const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
     const managedDataSets = dataSets.filter(
-      (ps) => ps.isLive && ps.isManaged && ps.pdpEndEpoch === 0 && metadataMatches(ps.metadata, requestedMetadata)
+      (ps) =>
+        ps.isLive &&
+        ps.isManaged &&
+        ps.pdpEndEpoch === 0 &&
+        metadataMatches(ps.metadata, requestedMetadata) &&
+        !skipProviderIds.has(ps.providerId)
     )
 
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
@@ -644,8 +650,6 @@ export class StorageContext {
 
       // Create async generator that yields providers lazily
       async function* generateProviders(): AsyncGenerator<ProviderInfo> {
-        const skipProviderIds = new Set<number>(excludeProviderIds)
-
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
           const provider = await spRegistry.getProvider(dataSet.providerId)
