@@ -1129,6 +1129,14 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
 
+    it('can select new data sets from different providers using default params', async () => {
+      const contexts = await synapse.storage.createContexts()
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+    })
+
     it('can attempt to create numerous contexts, returning fewer', async () => {
       const contexts = await synapse.storage.createContexts({
         count: 100,
