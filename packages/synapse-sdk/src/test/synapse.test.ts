@@ -436,7 +436,18 @@ describe('Synapse', () => {
           ...presets.basic,
           serviceRegistry: {
             ...presets.basic.serviceRegistry,
-            getProviderIdByAddress: () => [3n],
+            getProviderByAddress: (data) => [
+              {
+                providerId: 3n,
+                info: {
+                  serviceProvider: data[0],
+                  payee: ADDRESSES.payee1,
+                  isActive: true,
+                  name: 'Test Provider',
+                  description: 'Test Provider',
+                },
+              },
+            ],
           },
           warmStorageView: {
             isProviderApproved: ([providerId]) => [providerId === 1n],
