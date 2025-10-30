@@ -317,6 +317,8 @@ export interface CreateContextsOptions {
    * Must be no longer than count
    */
   dataSetIds?: number[]
+  /** Do not select any of these providers */
+  excludeProviderIds?: number[]
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean

@@ -916,6 +916,7 @@ describe('Synapse', () => {
         const pdpOptions: PDPMockOptions = {
           baseUrl: offering.serviceURL,
         }
+        server.use(PING(pdpOptions))
         server.use(createDataSetHandler(FAKE_TX_HASH, pdpOptions))
         server.use(
           dataSetCreationStatusHandler(
@@ -984,13 +985,13 @@ describe('Synapse', () => {
     })
 
     it('selects providers specified by data set id', async () => {
-      const contexts = await synapse.storage.createContexts({
+      const contexts1 = await synapse.storage.createContexts({
         count: 1,
         dataSetIds: [1],
       })
-      assert.equal(contexts.length, 1)
-      assert.equal(contexts[0].provider.id, 1)
-      assert.equal((contexts[0] as any)._dataSetId, 1n)
+      assert.equal(contexts1.length, 1)
+      assert.equal(contexts1[0].provider.id, 1)
+      assert.equal((contexts1[0] as any)._dataSetId, 1n)
     })
 
     it('fails when provided an invalid data set id', async () => {
@@ -1008,6 +1009,48 @@ describe('Synapse', () => {
           )
         }
       }
+    })
+
+    it('selects existing data set by default when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(contexts[0].provider.id, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('avoids existing data set when provider is excluded even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+        excludeProviderIds: [1],
+      })
+      assert.equal(contexts.length, 1)
+      assert.notEqual(contexts[0].provider.id, 1)
+    })
+
+    it('creates new data set context when forced even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
   })
 })

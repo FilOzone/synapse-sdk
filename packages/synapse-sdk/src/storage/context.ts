@@ -239,6 +239,26 @@ export class StorageContext {
         }
       }
     }
+    if (resolutions.length <= count) {
+      const excludeProviderIds = [
+        ...(options.excludeProviderIds ?? []),
+        ...resolutions.map((resolution) => resolution.provider.id),
+      ]
+      for (let i = resolutions.length; i < count; i++) {
+        const resolution = await StorageContext.smartSelectProvider(
+          clientAddress,
+          options.metadata ?? {},
+          warmStorageService,
+          spRegistry,
+          excludeProviderIds,
+          options.forceCreateDataSets,
+          options.withIpni,
+          options.dev
+        )
+        excludeProviderIds.push(resolution.provider.id)
+        resolutions.push(resolution)
+      }
+    }
     return await Promise.all(
       resolutions.map(
         async (resolution) =>
