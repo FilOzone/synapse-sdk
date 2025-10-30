@@ -1118,5 +1118,13 @@ describe('Synapse', () => {
       assert.equal(contexts.length, 1)
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
+
+    it('can attempt to create numerous contexts, returning fewer', async () => {
+      const contexts = await synapse.storage.createContexts({
+        count: 100,
+      })
+      assert.equal(contexts.length, 2)
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+    })
   })
 })

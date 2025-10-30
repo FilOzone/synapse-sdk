@@ -59,6 +59,8 @@ import {
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
+const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
+
 export class StorageContext {
   private readonly _synapse: Synapse
   private readonly _provider: ProviderInfo
@@ -245,18 +247,25 @@ export class StorageContext {
         ...resolutions.map((resolution) => resolution.provider.id),
       ]
       for (let i = resolutions.length; i < count; i++) {
-        const resolution = await StorageContext.smartSelectProvider(
-          clientAddress,
-          options.metadata ?? {},
-          warmStorageService,
-          spRegistry,
-          excludeProviderIds,
-          options.forceCreateDataSets,
-          options.withIpni,
-          options.dev
-        )
-        excludeProviderIds.push(resolution.provider.id)
-        resolutions.push(resolution)
+        try {
+          const resolution = await StorageContext.smartSelectProvider(
+            clientAddress,
+            options.metadata ?? {},
+            warmStorageService,
+            spRegistry,
+            excludeProviderIds,
+            options.forceCreateDataSets,
+            options.withIpni,
+            options.dev
+          )
+          excludeProviderIds.push(resolution.provider.id)
+          resolutions.push(resolution)
+        } catch (error) {
+          if (error?.message.includes(NO_REMAINING_PROVIDERS_ERROR_MESSAGE)) {
+            break
+          }
+          throw error
+        }
       }
     }
     return await Promise.all(
@@ -679,7 +688,7 @@ export class StorageContext {
     )
 
     if (allProviders.length === 0) {
-      throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
+      throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
     }
 
     // Random selection from all providers
