@@ -31,7 +31,7 @@ import type {
   PieceRetriever,
   PreflightInfo,
   ProviderInfo,
-  StorageCreationCallbacks,
+  StorageContextCallbacks,
   StorageInfo,
   StorageServiceOptions,
   UploadCallbacks,
@@ -51,7 +51,7 @@ import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
 // Combined callbacks type that can include both creation and upload callbacks
-type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks
+type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
 
 /**
  * Upload options for StorageManager.upload() - the all-in-one upload method
@@ -269,14 +269,16 @@ export class StorageManager {
               console.error('Error in onProviderSelected callback:', error)
             }
 
-            try {
-              options.callbacks.onDataSetResolved?.({
-                isExisting: true, // Always true for cached context
-                dataSetId: this._defaultContext.dataSetId,
-                provider: this._defaultContext.provider,
-              })
-            } catch (error) {
-              console.error('Error in onDataSetResolved callback:', error)
+            if (this._defaultContext.dataSetId != null) {
+              try {
+                options.callbacks.onDataSetResolved?.({
+                  isExisting: true, // Always true for cached context
+                  dataSetId: this._defaultContext.dataSetId,
+                  provider: this._defaultContext.provider,
+                })
+              } catch (error) {
+                console.error('Error in onDataSetResolved callback:', error)
+              }
             }
           }
           return this._defaultContext

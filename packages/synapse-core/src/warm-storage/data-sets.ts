@@ -1,13 +1,29 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import { type Account, type Address, type Chain, type Client, isAddressEqual, type Transport } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  encodeAbiParameters,
+  isAddressEqual,
+  type Transport,
+} from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import * as PDP from '../sp.ts'
+import type { PieceCID } from '../piece.ts'
+import * as SP from '../sp.ts'
+import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
-import { datasetMetadataObjectToEntry, type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+import { capabilitiesListToObject } from '../utils/capabilities.ts'
+import {
+  datasetMetadataObjectToEntry,
+  type MetadataObject,
+  metadataArrayToObject,
+  pieceMetadataObjectToEntry,
+} from '../utils/metadata.ts'
+import { decodePDPCapabilities, type PDPOffering, type PDPProvider } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
-import { decodeCapabilities, type PDPOffering, type PDPProvider } from './providers.ts'
 
 /**
  * ABI function to get the client data sets
@@ -82,7 +98,9 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
     })
 
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-    const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+    const pdpCaps = decodePDPCapabilities(
+      capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+    )
 
     return {
       ...dataSet,
@@ -154,7 +172,9 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   })
 
   // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-  const pdpCaps = decodeCapabilities(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+  const pdpCaps = decodePDPCapabilities(
+    capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
+  )
 
   return {
     ...dataSet,
@@ -218,10 +238,66 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
     }),
   })
 
-  return PDP.createDataSet({
+  return SP.createDataSet({
     endpoint,
     recordKeeper: chain.contracts.storage.address,
     extraData,
+  })
+}
+
+export type CreateDataSetAndAddPiecesOptions = {
+  /**
+   * PDP Provider
+   */
+  provider: PDPProvider
+  cdn: boolean
+  metadata?: MetadataObject
+  pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+}
+
+/**
+ * Create a data set and add pieces to it
+ *
+ * @param client - The client to use to create the data set.
+ * @param options - The options for the create data set.
+ * @param options.provider - The PDP provider to use to create the data set.
+ * @param options.cdn - Whether the data set should use CDN.
+ * @param options.metadata - The metadata for the data set.
+ * @returns The response from the create data set on PDP API.
+ */
+export async function createDataSetAndAddPieces(
+  client: Client<Transport, Chain, Account>,
+  options: CreateDataSetAndAddPiecesOptions
+) {
+  const chain = getChain(client.chain.id)
+  const endpoint = options.provider.pdp.serviceURL
+  const clientDataSetId = randU256()
+  // Sign and encode the create data set message
+  const dataSetExtraData = await signCreateDataSet(client, {
+    clientDataSetId,
+    payee: options.provider.payee,
+    metadata: datasetMetadataObjectToEntry(options.metadata, {
+      cdn: options.cdn,
+    }),
+  })
+
+  // Sign and encode the add pieces message
+  const addPiecesExtraData = await signAddPieces(client, {
+    clientDataSetId,
+    nonce: randU256(),
+    pieces: options.pieces.map((piece) => ({
+      pieceCid: piece.pieceCid,
+      metadata: pieceMetadataObjectToEntry(piece.metadata),
+    })),
+  })
+
+  const extraData = encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [dataSetExtraData, addPiecesExtraData])
+
+  return SP.createDataSetAndAddPieces({
+    endpoint,
+    recordKeeper: chain.contracts.storage.address,
+    extraData,
+    pieces: options.pieces.map((piece) => piece.pieceCid),
   })
 }
 

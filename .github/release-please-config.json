@@ -4,10 +4,9 @@
   "release-type": "node",
   "packages": {
     "packages/synapse-sdk": {
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
       "include-v-in-tag": true,
-      "always-bump-patch": true,
       "pull-request-header": "📦 Release Preparation",
       "pull-request-footer": "\n\n## 🚀 How to Release\n\n1. **Review** the changelog and version bump in this PR\n2. **Merge this PR** to trigger the release\n3. After merging, the workflow will:\n   - Create a GitHub release with tag ${version}\n   - Publish to npm automatically\n4. Wait until the workflow is complete before merging another release PR\n\n⚠️ **Note**: The release has NOT been created yet. It will only be created after you merge this PR.",
       "changelog-sections": [
@@ -34,10 +33,9 @@
       ]
     },
     "packages/synapse-core": {
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
       "include-v-in-tag": true,
-      "always-bump-patch": true,
       "pull-request-header": "📦 Release Preparation",
       "pull-request-footer": "\n\n## 🚀 How to Release\n\n1. **Review** the changelog and version bump in this PR\n2. **Merge this PR** to trigger the release\n3. After merging, the workflow will:\n   - Create a GitHub release with tag ${version}\n   - Publish to npm automatically\n4. Wait until the workflow is complete before merging another release PR\n\n⚠️ **Note**: The release has NOT been created yet. It will only be created after you merge this PR.",
       "changelog-sections": [
@@ -64,10 +62,9 @@
       ]
     },
     "packages/synapse-react": {
-      "bump-minor-pre-major": false,
-      "bump-patch-for-minor-pre-major": false,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
       "include-v-in-tag": true,
-      "always-bump-patch": true,
       "pull-request-header": "📦 Release Preparation",
       "pull-request-footer": "\n\n## 🚀 How to Release\n\n1. **Review** the changelog and version bump in this PR\n2. **Merge this PR** to trigger the release\n3. After merging, the workflow will:\n   - Create a GitHub release with tag ${version}\n   - Publish to npm automatically\n4. Wait until the workflow is complete before merging another release PR\n\n⚠️ **Note**: The release has NOT been created yet. It will only be created after you merge this PR.",
       "changelog-sections": [

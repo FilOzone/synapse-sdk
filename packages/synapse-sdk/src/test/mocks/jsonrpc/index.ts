@@ -411,7 +411,6 @@ export const presets = {
       },
       getProvidersByProductType: () => [
         {
-          providerIds: [1n, 2n],
           providers: [
             {
               providerId: 1n,
@@ -538,7 +537,7 @@ export const presets = {
                 'serviceURL',
                 'minPieceSizeInBytes',
                 'maxPieceSizeInBytes',
-                'storagePricePerTibPerMonth',
+                'storagePricePerTibPerDay',
                 'minProvingPeriodInEpochs',
                 'location',
                 'paymentTokenAddress',

@@ -1,6 +1,6 @@
 import type { DataSetCreatedResponse } from '@filoz/synapse-core/sp'
 import * as SP from '@filoz/synapse-core/sp'
-import type { PDPProvider } from '@filoz/synapse-core/warm-storage'
+import type { PDPProvider } from '@filoz/synapse-core/utils'
 import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'

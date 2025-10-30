@@ -4,6 +4,45 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.35.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.34.0...synapse-sdk-v0.35.0) (2025-10-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* create dataset and add pieces ([#357](https://github.com/FilOzone/synapse-sdk/issues/357))
+
+### Features
+
+* add `WarmStorageService#topUpCDNPaymentRails` ([#332](https://github.com/FilOzone/synapse-sdk/issues/332)) ([3a07ed8](https://github.com/FilOzone/synapse-sdk/commit/3a07ed848935c258b20aff9a90edf3c999798b1b))
+* better curio error and polling ([#344](https://github.com/FilOzone/synapse-sdk/issues/344)) ([d4d44c6](https://github.com/FilOzone/synapse-sdk/commit/d4d44c6de5001e4f58eb36753b95904971492ce1)), closes [#331](https://github.com/FilOzone/synapse-sdk/issues/331)
+* create dataset and add pieces ([#357](https://github.com/FilOzone/synapse-sdk/issues/357)) ([662904d](https://github.com/FilOzone/synapse-sdk/commit/662904d83ca1e2eac706b9e1ec6d6d0299dbbbba)), closes [#264](https://github.com/FilOzone/synapse-sdk/issues/264)
+* create low-level create-and-add API ([#347](https://github.com/FilOzone/synapse-sdk/issues/347)) ([755398b](https://github.com/FilOzone/synapse-sdk/commit/755398b84a82a1a4e44d1056a621954245388137))
+* delete piece errors ([#354](https://github.com/FilOzone/synapse-sdk/issues/354)) ([f57cc6a](https://github.com/FilOzone/synapse-sdk/commit/f57cc6af41086694b21289cba78ed1c11ae7360a))
+* excludeProviderIds ([#317](https://github.com/FilOzone/synapse-sdk/issues/317)) ([229710a](https://github.com/FilOzone/synapse-sdk/commit/229710ad87990a50ddb0cd9df8670b8cf30cdd61))
+* Random clientDataSetId ([#298](https://github.com/FilOzone/synapse-sdk/issues/298)) ([7630179](https://github.com/FilOzone/synapse-sdk/commit/763017978d2f10d4a27f042a0163d0cd91cd8b81))
+* **ServiceProviderRegistry:** support latest ABI ([#364](https://github.com/FilOzone/synapse-sdk/issues/364)) ([a34dacc](https://github.com/FilOzone/synapse-sdk/commit/a34dacc0ecd470a06bc98148ea9f72cf85caf5ab))
+* SessionKeyRegistry.login: origin ([#318](https://github.com/FilOzone/synapse-sdk/issues/318)) ([3d8a328](https://github.com/FilOzone/synapse-sdk/commit/3d8a328d52566a2a3355aa2b38974ad0df24939b))
+* Update ABI ([#303](https://github.com/FilOzone/synapse-sdk/issues/303)) ([328ae43](https://github.com/FilOzone/synapse-sdk/commit/328ae43d7cb204c6010e111c6b23dfb779a45917))
+* update to latest abi, including SP registry changes ([#361](https://github.com/FilOzone/synapse-sdk/issues/361)) ([a2c2dea](https://github.com/FilOzone/synapse-sdk/commit/a2c2dea1adc12281d68668e57b4deee22a9827e1))
+* use random nonce for AddPieces operations ([80eebea](https://github.com/FilOzone/synapse-sdk/commit/80eebea0c148bbdec9d6e485cf07c40d88009e82))
+
+
+### Bug Fixes
+
+* **mocks:** mock BatchJsonrpc errors with their request `id` ([#338](https://github.com/FilOzone/synapse-sdk/issues/338)) ([1167900](https://github.com/FilOzone/synapse-sdk/commit/1167900aa117026d084842708b760eb1f3ffd203))
+* resolves bug of using client address instead of signer for datsetId lookup ([328ae43](https://github.com/FilOzone/synapse-sdk/commit/328ae43d7cb204c6010e111c6b23dfb779a45917))
+* update lockup period from 10 to 30 days ([34362fa](https://github.com/FilOzone/synapse-sdk/commit/34362fa215dd3500823d814475cd93ee17a11474))
+* use bigint in PDP auth, clientDataSetId now needs to be large ([620b32e](https://github.com/FilOzone/synapse-sdk/commit/620b32efb7d3710abc3dadbdc8dd4122fa2b1148))
+
+
+### Chores
+
+* update ABIs for next contracts ([6f1ebda](https://github.com/FilOzone/synapse-sdk/commit/6f1ebdae6abbc06c8e9701a33e5e94b5cf7dbef0))
+* update for M3 contracts ([52f841c](https://github.com/FilOzone/synapse-sdk/commit/52f841cbe3da4ee143ef710426d3cff61a80d08f))
+* update for M3 contracts ([52f841c](https://github.com/FilOzone/synapse-sdk/commit/52f841cbe3da4ee143ef710426d3cff61a80d08f))
+* update to M3 calibnet contracts in next-branch ([#319](https://github.com/FilOzone/synapse-sdk/issues/319)) ([52f841c](https://github.com/FilOzone/synapse-sdk/commit/52f841cbe3da4ee143ef710426d3cff61a80d08f))
+* v0.35.0-dev.1 (next) ([1e43029](https://github.com/FilOzone/synapse-sdk/commit/1e430299dcbd8909d3af632d73f443ca8d587427))
+
 ## [0.34.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.33.0...synapse-sdk-v0.34.0) (2025-10-21)
 
 
