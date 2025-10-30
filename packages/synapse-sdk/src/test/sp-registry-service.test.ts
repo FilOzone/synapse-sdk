@@ -28,7 +28,7 @@ describe('SPRegistryService', () => {
       getProviderByAddress: async (address: string) => {
         if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
           return {
-            providerId: 0n,
+            providerId: 1n,
             info: {
               serviceProvider: mockProviderAddress,
               payee: mockProviderAddress,
