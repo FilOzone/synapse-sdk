@@ -220,6 +220,7 @@ export class StorageContext {
             options.metadata ?? {},
             warmStorageService,
             spRegistry,
+            resolutions.map((resolution) => resolution.dataSetId),
             options.forceCreateDataSets
           )
           resolutions.push(resolution)
@@ -235,6 +236,7 @@ export class StorageContext {
             spRegistry,
             clientAddress,
             options.metadata ?? {},
+            resolutions.map((resolution) => resolution.dataSetId),
             options.forceCreateDataSets
           )
           resolutions.push(resolution)
@@ -364,6 +366,7 @@ export class StorageContext {
         requestedMetadata,
         warmStorageService,
         spRegistry,
+        [],
         options.forceCreateDataSet
       )
     }
@@ -376,6 +379,7 @@ export class StorageContext {
         spRegistry,
         clientAddress,
         requestedMetadata,
+        [],
         options.forceCreateDataSet
       )
     }
@@ -499,6 +503,7 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
+    excludeDataSetIds: number[],
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
@@ -527,7 +532,13 @@ export class StorageContext {
     const providerDataSets = (
       dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
     ).filter((ps) => {
-      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
+      if (
+        ps.providerId !== provider.id ||
+        !ps.isLive ||
+        !ps.isManaged ||
+        ps.pdpEndEpoch !== 0 ||
+        excludeDataSetIds.includes(Number(ps.dataSetId))
+      ) {
         return false
       }
       // Check if metadata matches
@@ -571,6 +582,7 @@ export class StorageContext {
     spRegistry: SPRegistryService,
     signerAddress: string,
     requestedMetadata: Record<string, string>,
+    excludeDataSetIds: number[],
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Get provider by address
@@ -590,6 +602,7 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       spRegistry,
+      excludeDataSetIds,
       forceCreateDataSet
     )
   }
