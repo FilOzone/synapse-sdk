@@ -1011,7 +1011,7 @@ export class StorageContext {
    * @deprecated Use getPieces() generator for better memory efficiency with large data sets
    */
   async getDataSetPieces(): Promise<PieceCID[]> {
-    if (this._dataSetId == null) {
+    if (this.dataSetId == null) {
       return []
     }
 
