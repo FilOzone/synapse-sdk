@@ -178,6 +178,9 @@ export class StorageContext {
     this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
   }
 
+  /**
+   * Creates new storage contexts with specified options
+   */
   static async createContexts(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
@@ -261,7 +264,7 @@ export class StorageContext {
           excludeProviderIds.push(resolution.provider.id)
           resolutions.push(resolution)
         } catch (error) {
-          if (error?.message.includes(NO_REMAINING_PROVIDERS_ERROR_MESSAGE)) {
+          if (error instanceof Error && error.message.includes(NO_REMAINING_PROVIDERS_ERROR_MESSAGE)) {
             break
           }
           throw error

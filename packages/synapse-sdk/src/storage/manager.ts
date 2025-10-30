@@ -231,6 +231,9 @@ export class StorageManager {
     return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
   }
 
+  /**
+   * Creates new storage contexts with specified options
+   */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
       ...options,
