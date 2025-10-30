@@ -232,8 +232,11 @@ export class StorageManager {
   }
 
   /**
-   * Creates new storage contexts with specified options
-   * Each context correseponds to a different data set
+   * Creates up to `options.count` (default=2) storage contexts corresponding to different data sets
+   * First, selects data sets specified by `options.dataSetIds`
+   * The remaining selection prefers existing data sets matching `options.metadata` unless `options.forceCreateDataSets`,
+   * first using storage providers specified by `options.providerIds` else `options.providerAddresses`,
+   * and then smart-selecting from the remaining service providers
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
