@@ -933,9 +933,9 @@ describe('Synapse', () => {
       assert.equal(contexts.length, 2)
       assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
       assert.equal(BigInt(contexts[1].provider.id), mockProviders[1].providerId)
-      // created new data sets; got the mocked data set id
-      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
-      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
+      // should create new data sets
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
     })
 
     it('fails when provided an invalid providerId', async () => {
@@ -956,9 +956,9 @@ describe('Synapse', () => {
       assert.equal(contexts.length, 2)
       assert.equal(BigInt(contexts[1].provider.id), mockProviders[0].providerId)
       assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
-      // created new data sets; got the mocked data set id
-      assert.equal((contexts[1] as any)._dataSetId, DATA_SET_ID)
-      assert.equal((contexts[0] as any)._dataSetId, DATA_SET_ID)
+      // should create new data sets
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
 
     it('fails when provided an invalid provider address', async () => {
