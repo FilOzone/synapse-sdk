@@ -1,22 +1,32 @@
-/* globals describe it beforeEach afterEach */
+/* globals describe it beforeEach afterEach before after */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
+import { CID } from 'multiformats/cid'
+import { calculate as calculatePieceCID } from '../piece/index.ts'
 import { StorageContext } from '../storage/context.ts'
 import type { Synapse } from '../synapse.ts'
 import type { PieceCID, ProviderInfo } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { ADDRESSES } from './mocks/jsonrpc/index.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 import { createMockProviderInfo, createSimpleProvider, setupProviderRegistryMocks } from './test-utils.ts'
+
+// MSW server for JSONRPC mocking
+const server = setup([])
 
 // Create a mock Ethereum provider that doesn't try to connect
 const mockEthProvider = {
   getTransaction: async (_hash: string) => null,
   getNetwork: async () => ({ chainId: BigInt(314159), name: 'calibration' }),
   call: async (_tx: any) => {
-    // Mock contract calls - return empty data for registry calls
+    // Mock contract calls - return empty data for other calls
     return '0x'
   },
 } as any
+
+function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
+  return ethers.hexlify(bytes) as `0x${string}`
+}
 
 // Mock Synapse instance
 const mockSynapse = {
@@ -133,24 +143,12 @@ const mockProvider: ProviderInfo = createSimpleProvider({
 })
 
 // Helper to create a standard mock WarmStorageService
-function createMockWarmStorageService(providers: ProviderInfo[], dataSets: any[] = [], overrides: any = {}) {
+function createMockWarmStorageService(dataSets?: any[], overrides: any = {}) {
   return {
-    getAllApprovedProviders: async () => providers,
-    getClientDataSetsWithDetails: async () => dataSets,
-    getNextClientDataSetId: async () =>
-      dataSets.length > 0 ? Math.max(...dataSets.map((d) => d.clientDataSetId)) + 1 : 1,
-    getProviderIdByAddress: async (address: string) => {
-      const provider = providers.find((p) => p.serviceProvider.toLowerCase() === address.toLowerCase())
-      return provider?.id ?? 0
-    },
-    getApprovedProvider: async (id: number) => providers.find((p) => p.id === id) ?? null,
+    getClientDataSetsWithDetails: async () => dataSets ?? [],
     getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
-    getApprovedProviderIds: async () => providers.map((p) => p.id),
-    isProviderIdApproved: async (id: number) => providers.some((p) => p.id === id),
-    getDataSetMetadata: async (dataSetId: number) => {
-      const dataSet = dataSets.find((d) => d.pdpVerifierDataSetId === dataSetId)
-      return dataSet?.metadata ?? {}
-    },
+    getDataSetMetadata: async () => ({}),
+    getApprovedProviderIds: async () => [],
     ...overrides,
   } as any
 }
@@ -208,39 +206,20 @@ function mockAddPieces(
   return txHash
 }
 
-// Helper to mock PDPServer.getPieceAdditionStatus with standard behavior
-function mockGetPieceAdditionStatus(
-  serviceAny: any,
-  options: {
-    onCall?: (dataSetId: number, txHash: string) => void
-    shouldFail?: boolean
-    failureMessage?: string
-    customResponse?: any
-  } = {}
-) {
-  serviceAny._pdpServer.getPieceAdditionStatus = async (dataSetId: number, txHash: string): Promise<any> => {
-    if (options.shouldFail) {
-      throw new Error(options.failureMessage || 'Piece addition status not found')
-    }
-
-    if (options.onCall) {
-      options.onCall(dataSetId, txHash)
-    }
-
-    if (options.customResponse) {
-      return options.customResponse
-    }
-
-    const pieceIds = (serviceAny._pdpServer as any)._lastPieceIds || []
-    return {
-      txStatus: 'confirmed',
-      addMessageOk: true,
-      confirmedPieceIds: pieceIds,
-    }
-  }
-}
-
 describe('StorageService', () => {
+  // MSW lifecycle hooks
+  before(async () => {
+    await server.start({ quiet: true })
+  })
+
+  after(() => {
+    server.stop()
+  })
+
+  beforeEach(() => {
+    server.resetHandlers()
+  })
+
   describe('create() factory method', () => {
     let cleanupMocks: (() => void) | null = null
     let originalFetch: typeof global.fetch
@@ -313,7 +292,9 @@ describe('StorageService', () => {
         approvedIds: [1, 2],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+      const mockWarmStorageService = createMockWarmStorageService(dataSets, {
+        getApprovedProviderIds: async () => [1, 2],
+      })
 
       // Create storage service without specifying providerId
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
@@ -370,7 +351,9 @@ describe('StorageService', () => {
         approvedIds: [1, 2],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+      const mockWarmStorageService = createMockWarmStorageService(dataSets, {
+        getApprovedProviderIds: async () => [1, 2],
+      })
 
       // Create storage service without specifying providerId
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -426,7 +409,9 @@ describe('StorageService', () => {
         approvedIds: [1, 2],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService(mockProviders, dataSets)
+      const mockWarmStorageService = createMockWarmStorageService(dataSets, {
+        getApprovedProviderIds: async () => [1, 2],
+      })
 
       // Create storage service without specifying providerId
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
@@ -456,18 +441,13 @@ describe('StorageService', () => {
         },
       ]
 
-      // Set up registry mocks with our specific provider
+      // Set up registry mocks
       cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
         providers: [mockProvider],
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 3)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(dataSets)
 
       // Create storage service with specific providerId
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -505,12 +485,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 3)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(dataSets)
 
       // Track if getClientDataSetsWithDetails was called (should be skipped with forceCreateDataSet)
       let fetchedDataSets = false
@@ -525,9 +500,9 @@ describe('StorageService', () => {
         mockSynapse,
         mockWarmStorageService,
         {
-          getApprovedProvider: async () => mockProvider,
-          getApprovedProviders: async () => [mockProvider],
-          getApprovedProviderByAddress: async () => mockProvider,
+          getProvider: async () => mockProvider,
+          getProviders: async () => [mockProvider],
+          getProviderByAddress: async () => mockProvider,
         },
         { providerId: 3, forceCreateDataSet: true }
       )
@@ -566,16 +541,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
-        getApprovedProviderByAddress: async (address: string) => {
-          assert.equal(address.toLowerCase(), mockProvider.serviceProvider.toLowerCase())
-          return mockProvider
-        },
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 3)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(dataSets)
 
       // Track if getClientDataSetsWithDetails was called (should be skipped with forceCreateDataSet)
       let fetchedDataSets = false
@@ -590,9 +556,9 @@ describe('StorageService', () => {
         mockSynapse,
         mockWarmStorageService,
         {
-          getApprovedProvider: async () => mockProvider,
-          getApprovedProviders: async () => [mockProvider],
-          getApprovedProviderByAddress: async () => mockProvider,
+          getProvider: async () => mockProvider,
+          getProviders: async () => [mockProvider],
+          getProviderByAddress: async () => mockProvider,
         },
         { providerAddress: mockProvider.serviceProvider, forceCreateDataSet: true }
       )
@@ -636,12 +602,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 3)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(dataSets)
 
       // Track if a new data set was created
       let createdDataSet = false
@@ -668,7 +629,7 @@ describe('StorageService', () => {
         approvedIds: [],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([], [])
+      const mockWarmStorageService = createMockWarmStorageService()
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {})
@@ -686,12 +647,7 @@ describe('StorageService', () => {
         approvedIds: [1, 2],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService(mockProviders, [], {
-        getApprovedProvider: async () => ({
-          serviceProvider: '0x0000000000000000000000000000000000000000', // Zero address
-          serviceURL: '',
-        }),
-      })
+      const mockWarmStorageService = createMockWarmStorageService()
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -699,7 +655,7 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Provider ID 999 is not currently approved')
+        assert.include(error.message, 'Provider ID 999 not found in registry')
       }
     })
 
@@ -731,9 +687,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
-        getApprovedProvider: async () => mockProvider,
-      })
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
         providerId: 3,
@@ -793,9 +747,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
-        getApprovedProvider: async () => mockProvider,
-      })
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
         providerId: 3,
@@ -836,9 +788,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], dataSets, {
-        getApprovedProvider: async () => mockProvider,
-      })
+      const mockWarmStorageService = createMockWarmStorageService(dataSets)
 
       await StorageContext.create(mockSynapse, mockWarmStorageService, {
         providerId: 3,
@@ -887,16 +837,7 @@ describe('StorageService', () => {
         approvedIds: [3],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
-        getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr, mockProvider.serviceProvider)
-          return 3
-        },
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 3)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
         dataSetId: 456,
@@ -934,16 +875,7 @@ describe('StorageService', () => {
         approvedIds: [4],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets, {
-        getProviderIdByAddress: async (addr: string) => {
-          assert.equal(addr.toLowerCase(), mockProvider.serviceProvider.toLowerCase())
-          return 4
-        },
-        getApprovedProvider: async (id: number) => {
-          assert.equal(id, 4)
-          return mockProvider
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
         providerAddress: mockProvider.serviceProvider,
@@ -960,7 +892,7 @@ describe('StorageService', () => {
         approvedIds: [],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([], [])
+      const mockWarmStorageService = createMockWarmStorageService()
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -999,15 +931,7 @@ describe('StorageService', () => {
         approvedIds: [5],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider1], mockDataSets, {
-        getProviderIdByAddress: async () => 5, // Different provider ID
-        getApprovedProvider: async (providerId: number) => {
-          if (providerId === 5) {
-            return mockProvider1 // Return the provider for ID 5
-          }
-          throw new Error(`Provider ID ${providerId} is not currently approved`)
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1028,16 +952,7 @@ describe('StorageService', () => {
         approvedIds: [],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([], [], {
-        getProviderIdByAddress: async () => 0, // Not approved
-        getApprovedProvider: async (_providerId: number) => {
-          // Return a non-approved provider (null address indicates not approved)
-          return {
-            serviceProvider: '0x0000000000000000000000000000000000000000',
-            serviceURL: '',
-          }
-        },
-      })
+      const mockWarmStorageService = createMockWarmStorageService()
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1045,7 +960,7 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'is not currently approved')
+        assert.include(error.message, 'not found in registry')
       }
     })
 
@@ -1096,7 +1011,7 @@ describe('StorageService', () => {
         getProviderIdByAddress: async () => 7,
         getApprovedProvider: async () => mockProviders[0],
         getAllApprovedProviders: async () => mockProviders,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       // Mock fetch for ping validation
@@ -1153,7 +1068,7 @@ describe('StorageService', () => {
         approvedIds: [9],
       })
 
-      const mockWarmStorageService = createMockWarmStorageService([mockProvider], mockDataSets)
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       // Should create new data set since existing one is not managed
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {})
@@ -1182,18 +1097,13 @@ describe('StorageService', () => {
         },
       ]
 
-      const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockDataSets,
-        getProviderIdByAddress: async () => 0, // Provider not approved
-        getApprovedProvider: async (_providerId: number) => {
-          // Return null for non-approved provider
-          return null
-        },
-        isProviderIdApproved: async (_providerId: number) => {
-          return false // Provider is not approved
-        },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
+      // Set up registry mocks with no approved providers (so provider 999 is not approved)
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: [],
+        approvedIds: [],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1201,7 +1111,8 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'is not currently approved')
+        // Provider 999 is not in the registry, so we'll get a "not found in registry" error
+        assert.include(error.message, 'not found in registry')
       }
     })
 
@@ -1216,7 +1127,7 @@ describe('StorageService', () => {
         getClientDataSetsWithDetails: async () => [], // No data sets
         getProviderIdByAddress: async () => 11,
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1255,7 +1166,7 @@ describe('StorageService', () => {
           return []
         },
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1312,7 +1223,7 @@ describe('StorageService', () => {
           getAllApprovedProvidersCalled = true
           throw new Error('Should not fetch all providers when data sets exist')
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       // Mock fetch for ping validation - existing provider should succeed
@@ -1353,7 +1264,7 @@ describe('StorageService', () => {
           return mockProviders
         },
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       await StorageContext.create(mockSynapse, mockWarmStorageService, {})
@@ -1379,10 +1290,7 @@ describe('StorageService', () => {
         },
       ]
 
-      const mockWarmStorageService = {
-        getClientDataSetsWithDetails: async () => mockDataSets,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
-      } as any
+      const mockWarmStorageService = createMockWarmStorageService(mockDataSets)
 
       try {
         await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1439,11 +1347,11 @@ describe('StorageService', () => {
             })
           }
           return {
-            serviceProvider: '0x0000000000000000000000000000000000000000',
+            serviceProvider: ADDRESSES.calibration.spRegistry,
             serviceURL: '',
           }
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       try {
@@ -1459,16 +1367,16 @@ describe('StorageService', () => {
       }
     })
 
-    it.skip('should retry transaction fetch for up to 30 seconds', async () => {
+    it.skip('should retry transaction fetch for up to 180 seconds', async () => {
       // This test validates that the transaction retry logic is implemented
-      // The implementation retries getTransaction() for up to 30 seconds (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS)
+      // The implementation retries getTransaction() for up to 180 seconds (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS)
       // with a 2-second interval (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS)
       // before throwing an error if the transaction is not found
     })
 
-    it.skip('should fail after 30 seconds if transaction never appears', async () => {
-      // This test validates that the transaction retry logic times out after 30 seconds
-      // If a transaction is not found after TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS (30 seconds),
+    it.skip('should fail after 180 seconds if transaction never appears', async () => {
+      // This test validates that the transaction retry logic times out after 180 seconds
+      // If a transaction is not found after TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS (180 seconds),
       // the implementation throws an error indicating the transaction was not found
     })
 
@@ -1517,7 +1425,7 @@ describe('StorageService', () => {
           return null
         },
         getAllApprovedProviders: async () => [provider2WithDifferentPayee],
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         isProviderIdApproved: async (id: number) => id === 2,
         getApprovedProviderIds: async () => [2],
         getDataSetMetadata: async (dataSetId: number) => {
@@ -1620,7 +1528,7 @@ describe('StorageService', () => {
           return null
         },
         getAllApprovedProviders: async () => [TEST_PROVIDERS.provider1, provider3],
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getNextClientDataSetId: async () => 2,
         isProviderIdApproved: async (id: number) => id === 1 || id === 3,
         getApprovedProviderIds: async () => [1, 3],
@@ -1682,7 +1590,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1724,7 +1632,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1768,7 +1676,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1789,7 +1697,7 @@ describe('StorageService', () => {
     })
 
     it('should enforce minimum size limit in preflightUpload', async () => {
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapse,
         mockWarmStorageService,
@@ -1813,7 +1721,7 @@ describe('StorageService', () => {
 
     it('should enforce maximum size limit in preflightUpload', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1854,7 +1762,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithDownload,
@@ -1883,7 +1791,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithError,
@@ -1921,7 +1829,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithOptions,
@@ -1950,7 +1858,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -2009,7 +1917,7 @@ describe('StorageService', () => {
     })
 
     it('should enforce 200 MiB size limit', async () => {
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapse,
         mockWarmStorageService,
@@ -2041,7 +1949,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2103,7 +2011,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2176,7 +2084,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2241,7 +2149,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2311,7 +2219,7 @@ describe('StorageService', () => {
 
     it.skip('should handle piece parking timeout', async () => {
       // Skip this test as it's timing-sensitive and causes issues in CI
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapse,
         mockWarmStorageService,
@@ -2362,7 +2270,7 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2396,7 +2304,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2445,7 +2353,7 @@ describe('StorageService', () => {
           throw new Error('Data set not managed by this WarmStorage')
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2606,7 +2514,7 @@ describe('StorageService', () => {
             return idx >= 0 ? idx + 1 : 0
           },
           getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null,
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCallCount = 0
@@ -2662,7 +2570,7 @@ describe('StorageService', () => {
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async () => 0,
           getApprovedProvider: async () => null,
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCallCount = 0
@@ -2737,7 +2645,7 @@ describe('StorageService', () => {
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [], // Return empty list to prevent fallback
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         const originalFetch = global.fetch
@@ -2835,7 +2743,7 @@ describe('StorageService', () => {
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [], // Return empty list to prevent fallback
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCount = 0
@@ -2889,7 +2797,7 @@ describe('StorageService', () => {
           return expectedProviderInfo
         },
       } as any
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapseWithProvider,
         mockWarmStorageService,
@@ -2911,9 +2819,9 @@ describe('StorageService', () => {
         getProviderInfo: async () => {
           throw new Error('Provider not found')
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapseWithError,
         mockWarmStorageService,
@@ -2935,12 +2843,29 @@ describe('StorageService', () => {
   })
 
   describe('getDataSetPieces', () => {
+    let provider: ethers.Provider
+    let signer: ethers.Signer
+
+    beforeEach(() => {
+      provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+      signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    })
+
     it('should successfully fetch data set pieces', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
+
+      const testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      } as any
+
       const service = new StorageContext(
-        mockSynapse,
+        testSynapse,
         mockWarmStorageService,
         mockProvider,
         123,
@@ -2969,12 +2894,20 @@ describe('StorageService', () => {
         nextChallengeEpoch: 1500,
       }
 
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (dataSetId: number): Promise<any> => {
-        assert.equal(dataSetId, 123)
-        return mockDataSetData
-      }
+      // Mock getActivePieces to return the expected pieces
+      const piecesData = mockDataSetData.pieces.map((piece) => {
+        const cid = CID.parse(piece.pieceCid)
+        return { data: cidBytesToContractHex(cid.bytes) }
+      })
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => [piecesData, [101n, 102n], false],
+          },
+        })
+      )
 
       const result = await service.getDataSetPieces()
 
@@ -2986,10 +2919,19 @@ describe('StorageService', () => {
 
     it('should handle empty data set pieces', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
+
+      const testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      } as any
+
       const service = new StorageContext(
-        mockSynapse,
+        testSynapse,
         mockWarmStorageService,
         mockProvider,
         123,
@@ -2999,17 +2941,16 @@ describe('StorageService', () => {
         {}
       )
 
-      const mockDataSetData = {
-        id: 292,
-        pieces: [],
-        nextChallengeEpoch: 1500,
-      }
-
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockDataSetData
-      }
+      // Mock getActivePieces to return no pieces
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => [[], [], false],
+          },
+        })
+      )
 
       const result = await service.getDataSetPieces()
 
@@ -3019,10 +2960,19 @@ describe('StorageService', () => {
 
     it('should handle invalid CID in response', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
+
+      const testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      } as any
+
       const service = new StorageContext(
-        mockSynapse,
+        testSynapse,
         mockWarmStorageService,
         mockProvider,
         123,
@@ -3032,37 +2982,43 @@ describe('StorageService', () => {
         {}
       )
 
-      const mockDataSetData = {
-        id: 292,
-        pieces: [
-          {
-            pieceId: 101,
-            pieceCid: 'invalid-cid-format',
-            subPieceCid: 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace',
-            subPieceOffset: 0,
+      // Mock getActivePieces to return invalid CID data
+      const invalidCidBytes = cidBytesToContractHex(ethers.toUtf8Bytes('invalid-cid-format'))
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => [[{ data: invalidCidBytes }], [101n], false],
           },
-        ],
-        nextChallengeEpoch: 1500,
-      }
+        })
+      )
 
-      // Mock the PDP server getDataSet method
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        return mockDataSetData
+      // The new implementation should throw an error when trying to decode invalid CID data
+      try {
+        await service.getDataSetPieces()
+        assert.fail('Expected an error to be thrown for invalid CID data')
+      } catch (error: any) {
+        // The error occurs during CID.decode(), not during PieceCID validation
+        assert.include(error.message, 'Invalid CID version')
       }
-
-      const result = await service.getDataSetPieces()
-      assert.isArray(result)
-      assert.equal(result.length, 1)
-      assert.equal(result[0].toString(), 'invalid-cid-format')
     })
 
     it('should handle PDP server errors', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
+
+      const testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      } as any
+
       const service = new StorageContext(
-        mockSynapse,
+        testSynapse,
         mockWarmStorageService,
         mockProvider,
         123,
@@ -3072,15 +3028,22 @@ describe('StorageService', () => {
         {}
       )
 
-      // Mock the PDP server getDataSet method to throw error
-      const serviceAny = service as any
-      serviceAny._pdpServer.getDataSet = async (): Promise<any> => {
-        throw new Error('Data set not found: 999')
-      }
+      // Mock getActivePieces to throw an error
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => {
+              throw new Error('Data set not found: 999')
+            },
+          },
+        })
+      )
 
       try {
         await service.getDataSetPieces()
-        assert.fail('Should have thrown error for server error')
+        assert.fail('Should have thrown error for contract call error')
       } catch (error: any) {
         assert.include(error.message, 'Data set not found: 999')
       }
@@ -3094,7 +3057,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3144,7 +3107,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3200,7 +3163,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3257,7 +3220,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3311,7 +3274,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3369,7 +3332,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3415,7 +3378,7 @@ describe('StorageService', () => {
     })
 
     it('should handle invalid PieceCID', async () => {
-      const mockWarmStorageService = {} as any
+      const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
         mockSynapse,
         mockWarmStorageService,
@@ -3447,7 +3410,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3501,7 +3464,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3536,6 +3499,217 @@ describe('StorageService', () => {
       assert.isNull(status.dataSetLastProven)
       assert.isNull(status.dataSetNextProofDue)
       assert.isUndefined(status.pieceId)
+    })
+  })
+
+  describe('getPieces', () => {
+    let provider: ethers.Provider
+    let signer: ethers.Signer
+    let mockWarmStorage: any
+    let testSynapse: any
+
+    beforeEach(() => {
+      provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+      signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+
+      mockWarmStorage = {
+        getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
+      }
+
+      testSynapse = {
+        getProvider: () => provider,
+        getSigner: () => signer,
+        getWarmStorageAddress: () => '0x1234567890123456789012345678901234567890',
+        getChainId: () => BigInt(314159),
+      }
+    })
+
+    const createContext = () => {
+      return new StorageContext(testSynapse, mockWarmStorage, TEST_PROVIDERS.provider1, 123, { withCDN: false }, {})
+    }
+
+    it('should be available on StorageContext', () => {
+      // Basic test to ensure the method exists
+      assert.isFunction(StorageContext.prototype.getPieces)
+    })
+
+    it('should get all active pieces with pagination', async () => {
+      // Use actual valid PieceCIDs from test data
+      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
+      const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
+      const piece3Cid = calculatePieceCID(new Uint8Array(512).fill(3))
+
+      // Mock getActivePieces to return paginated results
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: (args) => {
+              const offset = Number(args[1])
+
+              // First page: return 2 pieces with hasMore=true
+              if (offset === 0) {
+                return [
+                  [{ data: cidBytesToContractHex(piece1Cid.bytes) }, { data: cidBytesToContractHex(piece2Cid.bytes) }],
+                  [1n, 2n],
+                  true,
+                ]
+              }
+              // Second page: return 1 piece with hasMore=false
+              if (offset === 2) {
+                return [[{ data: cidBytesToContractHex(piece3Cid.bytes) }], [3n], false]
+              }
+              return [[], [], false]
+            },
+          },
+        })
+      )
+
+      const context = createContext()
+
+      // Test getPieces - should collect all pages
+      const allPieces = []
+      for await (const piece of context.getPieces({ batchSize: 2 })) {
+        allPieces.push(piece)
+      }
+
+      assert.equal(allPieces.length, 3, 'Should return all 3 pieces across pages')
+      assert.equal(allPieces[0].pieceId, 1)
+      assert.equal(allPieces[0].pieceCid.toString(), piece1Cid.toString())
+
+      assert.equal(allPieces[1].pieceId, 2)
+      assert.equal(allPieces[1].pieceCid.toString(), piece2Cid.toString())
+
+      assert.equal(allPieces[2].pieceId, 3)
+      assert.equal(allPieces[2].pieceCid.toString(), piece3Cid.toString())
+    })
+
+    it('should handle empty results', async () => {
+      // Mock getActivePieces to return no pieces
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => [[], [], false],
+          },
+        })
+      )
+
+      const context = createContext()
+
+      const allPieces = []
+      for await (const piece of context.getPieces()) {
+        allPieces.push(piece)
+      }
+      assert.equal(allPieces.length, 0, 'Should return empty array for data set with no pieces')
+    })
+
+    it('should handle AbortSignal in getPieces', async () => {
+      const controller = new AbortController()
+
+      server.use(JSONRPC(presets.basic))
+
+      const context = createContext()
+
+      // Abort before making the call
+      controller.abort()
+
+      try {
+        for await (const _piece of context.getPieces({ signal: controller.signal })) {
+          // Should not reach here
+        }
+        assert.fail('Should have thrown an error')
+      } catch (error: any) {
+        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
+      }
+    })
+
+    it('should work with getPieces generator', async () => {
+      // Use actual valid PieceCIDs from test data
+      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
+      const piece2Cid = calculatePieceCID(new Uint8Array(256).fill(2))
+
+      // Mock getActivePieces to return paginated results
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: (args) => {
+              const offset = Number(args[1])
+
+              // First page
+              if (offset === 0) {
+                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+              }
+              // Second page
+              if (offset === 1) {
+                return [[{ data: cidBytesToContractHex(piece2Cid.bytes) }], [2n], false]
+              }
+              return [[], [], false]
+            },
+          },
+        })
+      )
+
+      const context = createContext()
+
+      // Test the async generator
+      const pieces = []
+      for await (const piece of context.getPieces({ batchSize: 1 })) {
+        pieces.push(piece)
+      }
+
+      assert.equal(pieces.length, 2, 'Should yield 2 pieces')
+      assert.equal(pieces[0].pieceId, 1)
+      assert.equal(pieces[0].pieceCid.toString(), piece1Cid.toString())
+      assert.equal(pieces[1].pieceId, 2)
+      assert.equal(pieces[1].pieceCid.toString(), piece2Cid.toString())
+    })
+
+    it('should handle AbortSignal in getPieces generator during iteration', async () => {
+      const controller = new AbortController()
+
+      const piece1Cid = calculatePieceCID(new Uint8Array(128).fill(1))
+
+      // Mock getActivePieces to return a result that triggers pagination
+      let callCount = 0
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getActivePieces: () => {
+              callCount++
+              // Only return data on first call, then abort
+              if (callCount === 1) {
+                setTimeout(() => controller.abort(), 0)
+                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+              }
+              return [[], [], false]
+            },
+          },
+        })
+      )
+
+      const context = createContext()
+
+      try {
+        const pieces = []
+        for await (const piece of context.getPieces({
+          batchSize: 1,
+          signal: controller.signal,
+        })) {
+          pieces.push(piece)
+          // Give the abort a chance to trigger
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+        assert.fail('Should have thrown an error')
+      } catch (error: any) {
+        assert.equal(error.message, 'StorageContext getPieces failed: Operation aborted')
+      }
     })
   })
 })

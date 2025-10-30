@@ -349,6 +349,9 @@ export const presets = {
       dataSetLive: () => [true],
       getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
       getNextPieceId: () => [2n],
+      getActivePieces: () => [[], [], false],
+      getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
+      getDataSetLeafCount: () => [0n],
     },
     serviceRegistry: {
       getProviderByAddress: (data) => [

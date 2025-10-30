@@ -228,9 +228,10 @@ export const TIMING_CONSTANTS = {
   /**
    * How long to wait for a transaction to appear on the network
    * This is used when we have a transaction hash but need to fetch the transaction object
-   * Filecoin has 30-second epochs, so this gives one full epoch for propagation
+   * Filecoin has 30-second epochs, so this gives six full epochs for propagation
+   * Matches viem's standard timeout for transaction receipt (180s)
    */
-  TRANSACTION_PROPAGATION_TIMEOUT_MS: 30000, // 30 seconds (1 epoch)
+  TRANSACTION_PROPAGATION_TIMEOUT_MS: 180000, // 180 seconds (3 minutes, 6 epochs)
 
   /**
    * How often to poll when waiting for a transaction to appear
