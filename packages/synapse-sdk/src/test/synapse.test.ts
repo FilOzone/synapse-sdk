@@ -155,68 +155,7 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({ provider })
       assert.exists(synapse)
     })
-
-    it('should accept mainnet with custom warmStorage address', async () => {
-      server.use(
-        JSONRPC({
-          ...presets.basic,
-          eth_chainId: '314',
-        })
-      )
-      const synapse = await Synapse.create({
-        provider,
-        warmStorageAddress: '0x1234567890123456789012345678901234567890', // Custom address for mainnet
-        pdpVerifierAddress: '0x9876543210987654321098765432109876543210', // Custom PDPVerifier address for mainnet
-      })
-      assert.exists(synapse)
-    })
-
-    // custom addresses are not used anymore in the SDK
-    it.skip('should accept custom pdpVerifierAddress', async () => {
-      const customPDPVerifierAddress = '0xabcdef1234567890123456789012345678901234'
-      server.use(
-        JSONRPC({
-          ...presets.basic,
-          warmStorage: {
-            pdpVerifierAddress: () => [customPDPVerifierAddress],
-          },
-        })
-      )
-
-      const synapse = await Synapse.create({
-        provider,
-        pdpVerifierAddress: customPDPVerifierAddress,
-      })
-      assert.exists(synapse)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
-    })
-
-    // theres no default pdpVerifierAddress in the SDK anymore
-    it.skip('should use default pdpVerifierAddress when not provided', async () => {
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({
-        provider,
-      })
-      assert.exists(synapse)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, ADDRESSES.calibration.pdpVerifier))
-    })
-
-    // custom addresses are not used anymore in the SDK
-    it.skip('should accept both custom warmStorageAddress and pdpVerifierAddress', async () => {
-      const customPDPVerifierAddress = '0x2222222222222222222222222222222222222222'
-
-      server.use(JSONRPC(presets.basic))
-      const synapse = await Synapse.create({
-        provider,
-        warmStorageAddress: ADDRESSES.mainnet.warmStorage,
-        pdpVerifierAddress: customPDPVerifierAddress,
-      })
-      assert.exists(synapse)
-      assert.equal(synapse.getWarmStorageAddress(), ADDRESSES.mainnet.warmStorage)
-      assert.ok(isAddressEqual(synapse.getPDPVerifierAddress() as Address, customPDPVerifierAddress))
-    })
   })
-
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
       server.use(JSONRPC(presets.basic))
