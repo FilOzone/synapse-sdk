@@ -947,6 +947,39 @@ describe('Synapse', () => {
       assert.equal((contexts[1] as any)._dataSetId, undefined)
     })
 
+    it('uses existing data set specified by providerId when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId],
+        metadata,
+        count: 1,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should use existing data set
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('force creates new data set specified by providerId even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId],
+        metadata,
+        count: 1,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should create new data set
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
     it('fails when provided an invalid providerId', async () => {
       try {
         await synapse.storage.createContexts({
@@ -967,6 +1000,39 @@ describe('Synapse', () => {
       assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
       // should create new data sets
       assert.equal((contexts[1] as any)._dataSetId, undefined)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
+    it('uses existing data set specified by provider address when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[0].info.serviceProvider],
+        metadata,
+        count: 1,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should use existing data set
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('force creates new data set with provider specified address even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[0].info.serviceProvider],
+        metadata,
+        count: 1,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should create new data sets
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
 

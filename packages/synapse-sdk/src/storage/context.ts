@@ -239,7 +239,7 @@ export class StorageContext {
         }
       }
     }
-    if (resolutions.length <= count) {
+    if (resolutions.length < count) {
       const excludeProviderIds = [
         ...(options.excludeProviderIds ?? []),
         ...resolutions.map((resolution) => resolution.provider.id),
