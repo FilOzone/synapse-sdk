@@ -722,52 +722,34 @@ export class WarmStorageService {
   /**
    * Calculate storage costs for a given size
    * @param sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month
-   * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
+   * @returns Cost per epoch and per month (base storage only, excludes usage-based CDN egress charges)
    */
   async calculateStorageCost(sizeInBytes: number): Promise<{
     perEpoch: bigint
-    perDay: bigint
     perMonth: bigint
-    withCDN: {
-      perEpoch: bigint
-      perDay: bigint
-      perMonth: bigint
-    }
   }> {
     const servicePriceInfo = await this.getServicePrice()
 
-    // Calculate price per byte per epoch (base storage cost)
     const sizeInBytesBigint = BigInt(sizeInBytes)
     const pricePerEpoch =
       (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
-    const costs = {
-      perEpoch: pricePerEpoch,
-      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
-    }
-
-    // CDN costs are usage-based (egress pricing), so withCDN returns base storage cost
-    // Actual CDN costs will be charged based on egress usage
     return {
-      ...costs,
-      withCDN: costs,
+      perEpoch: pricePerEpoch,
+      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
     }
   }
 
   /**
    * Check if user has sufficient allowances for a storage operation and calculate costs
    * @param sizeInBytes - Size of data to store
-   * @param withCDN - Whether CDN is enabled
    * @param paymentsService - PaymentsService instance to check allowances
    * @param lockupDays - Number of days for lockup period (defaults to 10)
    * @returns Allowance requirement details and storage costs
    */
   async checkAllowanceForStorage(
     sizeInBytes: number,
-    withCDN: boolean,
     paymentsService: PaymentsService,
     lockupDays?: number
   ): Promise<{
@@ -792,8 +774,7 @@ export class WarmStorageService {
       this.calculateStorageCost(sizeInBytes),
     ])
 
-    const selectedCosts = withCDN ? costs.withCDN : costs
-    const rateNeeded = selectedCosts.perEpoch
+    const rateNeeded = costs.perEpoch
 
     // Calculate lockup period based on provided days (default: 10)
     const lockupPeriod =
@@ -836,7 +817,11 @@ export class WarmStorageService {
       currentLockupUsed: approval.lockupUsed,
       sufficient,
       message,
-      costs: selectedCosts,
+      costs: {
+        perEpoch: costs.perEpoch,
+        perDay: costs.perEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+        perMonth: costs.perMonth,
+      },
       depositAmountNeeded: lockupNeeded,
     }
   }
@@ -898,11 +883,8 @@ export class WarmStorageService {
     // Parallelize cost calculation and allowance check
     const [costs, allowanceCheck] = await Promise.all([
       this.calculateStorageCost(options.dataSize),
-      this.checkAllowanceForStorage(options.dataSize, options.withCDN ?? false, paymentsService),
+      this.checkAllowanceForStorage(options.dataSize, paymentsService),
     ])
-
-    // Select the appropriate costs based on CDN option
-    const selectedCosts = (options.withCDN ?? false) ? costs.withCDN : costs
 
     const actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
@@ -912,7 +894,7 @@ export class WarmStorageService {
 
     // Check if deposit is needed
     const accountInfo = await paymentsService.accountInfo(TOKENS.USDFC)
-    const requiredBalance = selectedCosts.perMonth // Require at least 1 month of funds
+    const requiredBalance = costs.perMonth // Require at least 1 month of funds
 
     if (accountInfo.availableFunds < requiredBalance) {
       const depositAmount = requiredBalance - accountInfo.availableFunds
@@ -940,11 +922,7 @@ export class WarmStorageService {
     }
 
     return {
-      estimatedCost: {
-        perEpoch: selectedCosts.perEpoch,
-        perDay: selectedCosts.perDay,
-        perMonth: selectedCosts.perMonth,
-      },
+      estimatedCost: allowanceCheck.costs,
       allowanceCheck: {
         sufficient: allowanceCheck.sufficient,
         message: allowanceCheck.sufficient

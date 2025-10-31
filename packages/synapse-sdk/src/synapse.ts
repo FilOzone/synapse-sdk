@@ -17,7 +17,6 @@ import type {
   PieceCID,
   PieceRetriever,
   ProviderInfo,
-  StorageInfo,
   StorageServiceOptions,
   SubgraphConfig,
   SynapseOptions,
@@ -460,16 +459,5 @@ export class Synapse {
       }
       throw new Error(`Failed to get provider info: ${error instanceof Error ? error.message : String(error)}`)
     }
-  }
-
-  /**
-   * Get comprehensive information about the storage service including
-   * approved providers, pricing, contract addresses, and current allowances
-   * @deprecated Use synapse.storage.getStorageInfo() instead. This method will be removed in a future version.
-   * @returns Complete storage service information
-   */
-  async getStorageInfo(): Promise<StorageInfo> {
-    console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
-    return await this._storageManager.getStorageInfo()
   }
 }

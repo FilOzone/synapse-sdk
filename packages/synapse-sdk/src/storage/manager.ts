@@ -32,8 +32,8 @@ import type {
   PieceRetriever,
   PreflightInfo,
   ProviderInfo,
+  ServiceInfo,
   StorageContextCallbacks,
-  StorageInfo,
   StorageServiceOptions,
   UploadCallbacks,
   UploadResult,
@@ -367,14 +367,12 @@ export class StorageManager {
   }
 
   /**
-   * Get comprehensive information about the storage service including
-   * approved providers, pricing, contract addresses, and current allowances
-   * @returns Complete storage service information
+   * Get service information including pricing, providers, and configuration
+   * @returns Service information with pricing, approved providers, and contract addresses
    */
-  async getStorageInfo(): Promise<StorageInfo> {
+  async getServiceInfo(): Promise<ServiceInfo> {
     try {
-      // Helper function to get allowances with error handling
-      const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
+      const getOptionalAllowances = async (): Promise<ServiceInfo['allowances']> => {
         try {
           const warmStorageAddress = this._synapse.getWarmStorageAddress()
           const approval = await this._synapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
@@ -388,65 +386,35 @@ export class StorageManager {
             lockupUsed: approval.lockupUsed,
           }
         } catch {
-          // Return null if wallet not connected or any error occurs
           return null
         }
       }
 
-      // Create SPRegistryService to get providers
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
 
-      // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
         this._warmStorageService.getServicePrice(),
         this._warmStorageService.getApprovedProviderIds(),
         getOptionalAllowances(),
       ])
 
-      // Get provider details for approved IDs
       const providers = await spRegistry.getProviders(approvedIds)
-
-      // Calculate pricing per different time units
-      const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
-
-      // TODO: StorageInfo needs updating to reflect that CDN costs are usage-based
-
-      // Calculate per-epoch pricing (base storage cost)
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-      // CDN costs are usage-based (egress charges), so base storage cost is the same
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-
-      // Calculate per-day pricing (base storage cost)
-      const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-      // CDN costs are usage-based (egress charges), so base storage cost is the same
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-
-      // Filter out providers with zero addresses
       const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
-
-      const network = this._synapse.getNetwork()
 
       return {
         pricing: {
-          noCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
-            perTiBPerDay: noCDNPerDay,
-            perTiBPerEpoch: noCDNPerEpoch,
-          },
-          // CDN costs are usage-based (egress charges), base storage cost is the same
-          withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
-            perTiBPerDay: withCDNPerDay,
-            perTiBPerEpoch: withCDNPerEpoch,
-          },
+          storagePricePerTiBPerMonth: pricingData.pricePerTiBPerMonthNoCDN,
+          minimumPricePerMonth: pricingData.minimumPricePerMonth,
+          cdnEgressPricePerTiB: pricingData.pricePerTiBCdnEgress,
+          cacheMissEgressPricePerTiB: pricingData.pricePerTiBCacheMissEgress,
           tokenAddress: pricingData.tokenAddress,
-          tokenSymbol: 'USDFC', // Hardcoded as we know it's always USDFC
+          tokenSymbol: 'USDFC',
         },
         providers: validProviders,
         serviceParameters: {
-          network,
-          epochsPerMonth,
+          network: this._synapse.getNetwork(),
+          epochsPerMonth: pricingData.epochsPerMonth,
           epochsPerDay: TIME_CONSTANTS.EPOCHS_PER_DAY,
           epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
           minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
@@ -454,13 +422,22 @@ export class StorageManager {
           warmStorageAddress: this._synapse.getWarmStorageAddress(),
           paymentsAddress: this._warmStorageService.getPaymentsAddress(),
           pdpVerifierAddress: this._warmStorageService.getPDPVerifierAddress(),
+          serviceProviderRegistryAddress: this._warmStorageService.getServiceProviderRegistryAddress(),
+          sessionKeyRegistryAddress: this._warmStorageService.getSessionKeyRegistryAddress(),
         },
         allowances,
       }
     } catch (error) {
-      throw new Error(
-        `Failed to get storage service information: ${error instanceof Error ? error.message : String(error)}`
-      )
+      throw new Error(`Failed to get service information: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Get service information including pricing, providers, and configuration
+   * @deprecated Use getServiceInfo() instead
+   * @returns Service information with pricing, approved providers, and contract addresses
+   */
+  async getStorageInfo(): Promise<ServiceInfo> {
+    return await this.getServiceInfo()
   }
 }

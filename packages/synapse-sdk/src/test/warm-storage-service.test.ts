@@ -673,22 +673,11 @@ describe('WarmStorageService', () => {
         const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
 
         assert.exists(costs.perEpoch)
-        assert.exists(costs.perDay)
         assert.exists(costs.perMonth)
-        assert.exists(costs.withCDN)
-        assert.exists(costs.withCDN.perEpoch)
-        assert.exists(costs.withCDN.perDay)
-        assert.exists(costs.withCDN.perMonth)
 
         // Verify costs are reasonable
         assert.isTrue(costs.perEpoch > 0n)
-        assert.isTrue(costs.perDay > costs.perEpoch)
-        assert.isTrue(costs.perMonth > costs.perDay)
-
-        // CDN costs are usage-based (egress pricing), so withCDN equals base storage cost
-        assert.equal(costs.withCDN.perEpoch, costs.perEpoch)
-        assert.equal(costs.withCDN.perDay, costs.perDay)
-        assert.equal(costs.withCDN.perMonth, costs.perMonth)
+        assert.isTrue(costs.perMonth > costs.perEpoch)
       })
 
       it('should scale costs linearly with size', async () => {
@@ -707,9 +696,7 @@ describe('WarmStorageService', () => {
         const ratio = Number(costs10GiB.perEpoch) / Number(costs1GiB.perEpoch)
         assert.closeTo(ratio, 10, 0.01)
 
-        // Verify the relationship holds for day and month calculations
-        assert.equal(costs10GiB.perDay.toString(), (costs10GiB.perEpoch * 2880n).toString())
-        // For month calculation, allow for rounding errors due to integer division
+        // Verify the relationship holds for month calculation
         const expectedMonth = costs10GiB.perEpoch * TIME_CONSTANTS.EPOCHS_PER_MONTH
         const monthRatio = Number(costs10GiB.perMonth) / Number(expectedMonth)
         assert.closeTo(monthRatio, 1, 0.0001) // Allow 0.01% difference due to rounding
