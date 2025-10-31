@@ -70,31 +70,29 @@ async function main() {
     const address = await signer.getAddress()
     console.log(`Wallet address: ${address}`)
 
-    // Get storage info
+    // Get service info
     console.log('\nFetching storage service information...')
-    const storageInfo = await synapse.storage.getStorageInfo()
+    const serviceInfo = await synapse.storage.getServiceInfo()
 
     // Display pricing information
     console.log('\n--- Pricing Information ---')
-    console.log(`Token: USDFC (${storageInfo.pricing.tokenAddress})`)
-    console.log('\nWithout CDN:')
-    console.log(`  Per TiB per month: ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerMonth)}`)
-    console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerDay)}`)
-    console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerEpoch)}`)
+    console.log(`Token: ${serviceInfo.pricing.tokenSymbol} (${serviceInfo.pricing.tokenAddress})`)
+    console.log('\nBase Storage:')
+    console.log(`  Per TiB per month:        ${formatUSDFC(serviceInfo.pricing.storagePricePerTiBPerMonth)}`)
+    console.log(`  Minimum price per month:  ${formatUSDFC(serviceInfo.pricing.minimumPricePerMonth)}`)
 
-    console.log('\nWith CDN:')
-    console.log(`  Per TiB per month: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerMonth)}`)
-    console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerDay)}`)
-    console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerEpoch)}`)
+    console.log('\nCDN Usage-Based Pricing (only for data sets with CDN enabled):')
+    console.log(`  CDN egress per TiB:       ${formatUSDFC(serviceInfo.pricing.cdnEgressPricePerTiB)}`)
+    console.log(`  Cache miss egress per TiB: ${formatUSDFC(serviceInfo.pricing.cacheMissEgressPricePerTiB)}`)
 
     // Display service providers
     console.log('\n--- Service Providers ---')
-    if (storageInfo.providers.length === 0) {
+    if (serviceInfo.providers.length === 0) {
       console.log('No approved providers found')
     } else {
-      console.log(`Total providers: ${storageInfo.providers.length}`)
+      console.log(`Total providers: ${serviceInfo.providers.length}`)
 
-      for (const [_index, provider] of storageInfo.providers.entries()) {
+      for (const [_index, provider] of serviceInfo.providers.entries()) {
         console.log(`\nProvider #${provider.id}:`)
         console.log(`  Name:        ${provider.name}`)
         console.log(`  Description: ${provider.description}`)
@@ -118,32 +116,34 @@ async function main() {
 
     // Display service parameters
     console.log('\n--- Service Parameters ---')
-    console.log(`Network:          ${storageInfo.serviceParameters.network}`)
-    console.log(`Epochs per month: ${storageInfo.serviceParameters.epochsPerMonth.toLocaleString()}`)
-    console.log(`Epochs per day:   ${storageInfo.serviceParameters.epochsPerDay.toLocaleString()}`)
-    console.log(`Epoch duration:   ${storageInfo.serviceParameters.epochDuration} seconds`)
-    console.log(`Min upload size:  ${formatBytes(storageInfo.serviceParameters.minUploadSize)}`)
-    console.log(`Max upload size:  ${formatBytes(storageInfo.serviceParameters.maxUploadSize)}`)
+    console.log(`Network:          ${serviceInfo.serviceParameters.network}`)
+    console.log(`Epochs per month: ${serviceInfo.serviceParameters.epochsPerMonth.toLocaleString()}`)
+    console.log(`Epochs per day:   ${serviceInfo.serviceParameters.epochsPerDay.toLocaleString()}`)
+    console.log(`Epoch duration:   ${serviceInfo.serviceParameters.epochDuration} seconds`)
+    console.log(`Min upload size:  ${formatBytes(serviceInfo.serviceParameters.minUploadSize)}`)
+    console.log(`Max upload size:  ${formatBytes(serviceInfo.serviceParameters.maxUploadSize)}`)
     console.log('\nContract Addresses:')
-    console.log(`  Warm Storage: ${storageInfo.serviceParameters.warmStorageAddress}`)
-    console.log(`  Payments:     ${storageInfo.serviceParameters.paymentsAddress}`)
-    console.log(`  PDP Verifier: ${storageInfo.serviceParameters.pdpVerifierAddress}`)
+    console.log(`  Warm Storage:                  ${serviceInfo.serviceParameters.warmStorageAddress}`)
+    console.log(`  Payments:                      ${serviceInfo.serviceParameters.paymentsAddress}`)
+    console.log(`  PDP Verifier:                  ${serviceInfo.serviceParameters.pdpVerifierAddress}`)
+    console.log(`  Service Provider Registry:     ${serviceInfo.serviceParameters.serviceProviderRegistryAddress}`)
+    console.log(`  Session Key Registry:          ${serviceInfo.serviceParameters.sessionKeyRegistryAddress}`)
 
     // Display current allowances
     console.log('\n--- Current Allowances ---')
-    if (storageInfo.allowances) {
-      console.log(`Service: ${storageInfo.allowances.service}`)
+    if (serviceInfo.allowances) {
+      console.log(`Service: ${serviceInfo.allowances.service}`)
       console.log('\nRate:')
-      console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.rateAllowance)}`)
-      console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.rateUsed)}`)
+      console.log(`  Allowance:  ${formatUSDFC(serviceInfo.allowances.rateAllowance)}`)
+      console.log(`  Used:       ${formatUSDFC(serviceInfo.allowances.rateUsed)}`)
       console.log(
-        `  Available:  ${formatUSDFC(storageInfo.allowances.rateAllowance - storageInfo.allowances.rateUsed)}`
+        `  Available:  ${formatUSDFC(serviceInfo.allowances.rateAllowance - serviceInfo.allowances.rateUsed)}`
       )
       console.log('\nLockup:')
-      console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.lockupAllowance)}`)
-      console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.lockupUsed)}`)
+      console.log(`  Allowance:  ${formatUSDFC(serviceInfo.allowances.lockupAllowance)}`)
+      console.log(`  Used:       ${formatUSDFC(serviceInfo.allowances.lockupUsed)}`)
       console.log(
-        `  Available:  ${formatUSDFC(storageInfo.allowances.lockupAllowance - storageInfo.allowances.lockupUsed)}`
+        `  Available:  ${formatUSDFC(serviceInfo.allowances.lockupAllowance - serviceInfo.allowances.lockupUsed)}`
       )
     } else {
       console.log('No allowances found (wallet may not be connected or no approvals set)')
