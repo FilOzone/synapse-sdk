@@ -124,7 +124,6 @@ export class TelemetryService {
 
     // Things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
     this.sentry.setTags({
-      appName: 'synapse-sdk', // overridable by consumers
       ...config.sentrySetTags, // get any tags consumers want to set
 
       // things that consumers should not need, nor be able, to override
