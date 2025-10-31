@@ -277,17 +277,17 @@ describe('Synapse', () => {
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
               return [
                 true, // isApproved
-                BigInt(127001 * 635000000), // rateAllowance
-                BigInt(127001 * 635000000), // lockupAllowance
+                ethers.parseUnits('10', 18), // rateAllowance (10 USDFC)
+                ethers.parseUnits('100', 18), // lockupAllowance (100 USDFC)
                 BigInt(0), // rateUsage
                 BigInt(0), // lockupUsage
-                BigInt(28800), // maxLockupPeriod
+                BigInt(86400), // maxLockupPeriod (30 days)
               ]
             },
             accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
-              return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
+              return [ethers.parseUnits('1000', 18), BigInt(0), BigInt(0), BigInt(0)]
             },
           },
           eth_getTransactionByHash: (params) => {
@@ -319,7 +319,7 @@ describe('Synapse', () => {
 
       // Payments uses the original signer
       const accountInfo = await synapse.payments.accountInfo()
-      assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
+      assert.equal(accountInfo.funds, ethers.parseUnits('1000', 18))
     })
   })
 

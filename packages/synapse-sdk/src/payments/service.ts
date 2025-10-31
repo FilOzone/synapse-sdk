@@ -4,7 +4,7 @@
  */
 
 import { ethers } from 'ethers'
-import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
+import type { RailInfo, ServiceReadinessCheck, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
 import {
   CHAIN_IDS,
   CONTRACT_ABIS,
@@ -599,6 +599,69 @@ export class PaymentsService {
         `Failed to check service approval status for ${service}`,
         error
       )
+    }
+  }
+
+  /**
+   * Check if the user is ready to use a service with given requirements
+   * Performs comprehensive checks including approval status, allowances, and funds
+   * @param service - Service contract address
+   * @param requirements - Required rate, lockup, and lockup period
+   * @param token - The token to check (defaults to USDFC)
+   * @returns Readiness status with detailed checks, current state, and gaps
+   */
+  async checkServiceReadiness(
+    service: string,
+    requirements: {
+      rateNeeded: bigint
+      lockupNeeded: bigint
+      lockupPeriodNeeded: bigint
+    },
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<ServiceReadinessCheck> {
+    // Fetch approval and account info in parallel
+    const [approval, accountInfo] = await Promise.all([this.serviceApproval(service, token), this.accountInfo(token)])
+
+    // Perform all checks
+    const checks = {
+      isOperatorApproved: approval.rateAllowance > 0n || approval.lockupAllowance > 0n,
+      hasSufficientFunds: accountInfo.availableFunds >= requirements.lockupNeeded,
+      hasRateAllowance: approval.rateAllowance >= approval.rateUsed + requirements.rateNeeded,
+      hasLockupAllowance: approval.lockupAllowance >= approval.lockupUsed + requirements.lockupNeeded,
+      hasValidLockupPeriod: approval.maxLockupPeriod >= requirements.lockupPeriodNeeded,
+    }
+
+    const sufficient = Object.values(checks).every((check) => check)
+
+    // Calculate gaps if not sufficient
+    const gaps: {
+      fundsNeeded?: bigint
+      rateAllowanceNeeded?: bigint
+      lockupAllowanceNeeded?: bigint
+      lockupPeriodNeeded?: bigint
+    } = {}
+
+    if (!checks.hasSufficientFunds) {
+      gaps.fundsNeeded = requirements.lockupNeeded - accountInfo.availableFunds
+    }
+    if (!checks.hasRateAllowance) {
+      gaps.rateAllowanceNeeded = approval.rateUsed + requirements.rateNeeded - approval.rateAllowance
+    }
+    if (!checks.hasLockupAllowance) {
+      gaps.lockupAllowanceNeeded = approval.lockupUsed + requirements.lockupNeeded - approval.lockupAllowance
+    }
+    if (!checks.hasValidLockupPeriod) {
+      gaps.lockupPeriodNeeded = requirements.lockupPeriodNeeded - approval.maxLockupPeriod
+    }
+
+    return {
+      sufficient,
+      checks,
+      currentState: {
+        approval,
+        accountInfo,
+      },
+      gaps: sufficient ? undefined : gaps,
     }
   }
 

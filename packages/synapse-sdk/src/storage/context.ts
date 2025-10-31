@@ -54,6 +54,8 @@ import {
   getCurrentEpoch,
   METADATA_KEYS,
   SIZE_CONSTANTS,
+  TIME_CONSTANTS,
+  TOKENS,
   timeUntilEpoch,
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
@@ -785,34 +787,70 @@ export class StorageContext {
 
   /**
    * Static method to perform preflight checks for an upload
-   * @param size - The size of data to upload in bytes
-   * @param withCDN - Whether CDN is enabled
+   * Composes cost calculation from WarmStorageService and readiness checks from PaymentsService
    * @param warmStorageService - WarmStorageService instance
    * @param paymentsService - PaymentsService instance
+   * @param size - The size of data to upload in bytes
    * @returns Preflight check results without provider/dataSet specifics
    */
   static async performPreflightCheck(
     warmStorageService: WarmStorageService,
     paymentsService: PaymentsService,
-    size: number,
-    withCDN: boolean
+    size: number
   ): Promise<PreflightInfo> {
     // Validate size before proceeding
     StorageContext.validateRawSize(size, 'preflightUpload')
 
-    // Check allowances and get costs in a single call
-    const allowanceCheck = await warmStorageService.checkAllowanceForStorage(size, withCDN, paymentsService)
+    // Calculate upload cost
+    const cost = await warmStorageService.calculateUploadCost(size)
 
-    // Return preflight info
-    return {
-      estimatedCost: {
-        perEpoch: allowanceCheck.costs.perEpoch,
-        perDay: allowanceCheck.costs.perDay,
-        perMonth: allowanceCheck.costs.perMonth,
+    // Calculate rate per epoch from floor-adjusted monthly price
+    const pricing = await warmStorageService.getServicePrice()
+    const ratePerEpoch = cost.withFloorPerMonth / pricing.epochsPerMonth
+
+    // Calculate lockup requirements
+    const lockupEpochs = BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY)
+    const lockupNeeded = ratePerEpoch * lockupEpochs
+
+    // Check payment readiness
+    const readiness = await paymentsService.checkServiceReadiness(
+      warmStorageService.getContractAddress(),
+      {
+        rateNeeded: ratePerEpoch,
+        lockupNeeded,
+        lockupPeriodNeeded: lockupEpochs,
       },
+      TOKENS.USDFC
+    )
+
+    // Build error message if not sufficient
+    let message: string | undefined
+    if (!readiness.sufficient) {
+      const issues: string[] = []
+      if (!readiness.checks.hasSufficientFunds && readiness.gaps?.fundsNeeded) {
+        issues.push(`Insufficient funds: need ${readiness.gaps.fundsNeeded} more`)
+      }
+      if (!readiness.checks.isOperatorApproved) {
+        issues.push('Operator not approved for service')
+      }
+      if (!readiness.checks.hasRateAllowance && readiness.gaps?.rateAllowanceNeeded) {
+        issues.push(`Insufficient rate allowance: need ${readiness.gaps.rateAllowanceNeeded} more`)
+      }
+      if (!readiness.checks.hasLockupAllowance && readiness.gaps?.lockupAllowanceNeeded) {
+        issues.push(`Insufficient lockup allowance: need ${readiness.gaps.lockupAllowanceNeeded} more`)
+      }
+      if (!readiness.checks.hasValidLockupPeriod && readiness.gaps?.lockupPeriodNeeded) {
+        issues.push(`Lockup period too short: need ${readiness.gaps.lockupPeriodNeeded} more epochs`)
+      }
+      message = issues.join('; ')
+    }
+
+    return {
+      estimatedCostPerMonth: cost.withFloorPerMonth,
       allowanceCheck: {
-        sufficient: allowanceCheck.sufficient,
-        message: allowanceCheck.message,
+        sufficient: readiness.sufficient,
+        message,
+        checks: readiness.checks,
       },
       selectedProvider: null,
       selectedDataSetId: null,
@@ -829,8 +867,7 @@ export class StorageContext {
     const preflightResult = await StorageContext.performPreflightCheck(
       this._warmStorageService,
       this._synapse.payments,
-      size,
-      this._withCDN
+      size
     )
 
     // Return preflight info with provider and dataSet specifics

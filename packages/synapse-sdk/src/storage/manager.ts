@@ -213,10 +213,8 @@ export class StorageManager {
     size: number,
     options?: { withCDN?: boolean; metadata?: Record<string, string> }
   ): Promise<PreflightInfo> {
-    // Determine withCDN from metadata if provided, otherwise use option > manager default
-    let withCDN = options?.withCDN ?? this._withCDN
-
-    // Check metadata for withCDN key - this takes precedence
+    // Note: withCDN from metadata is checked here for validation but doesn't affect base storage costs
+    // CDN pricing is usage-based (egress charges), so base storage cost is the same regardless
     if (options?.metadata != null && METADATA_KEYS.WITH_CDN in options.metadata) {
       // The withCDN metadata entry should always have an empty string value by convention,
       // but the contract only checks for key presence, not value
@@ -224,11 +222,10 @@ export class StorageManager {
       if (value !== '') {
         console.warn(`Warning: withCDN metadata entry has unexpected value "${value}". Expected empty string.`)
       }
-      withCDN = true // Enable CDN when key exists (matches contract behavior)
     }
 
     // Use the static method from StorageContext for core logic
-    return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size, withCDN)
+    return await StorageContext.performPreflightCheck(this._warmStorageService, this._synapse.payments, size)
   }
 
   /**

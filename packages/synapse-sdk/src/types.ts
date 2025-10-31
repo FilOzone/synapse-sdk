@@ -365,19 +365,79 @@ export interface StorageServiceOptions {
 }
 
 /**
+ * Service readiness check result from PaymentsService
+ * Contains detailed information about whether a service can be used
+ */
+export interface ServiceReadinessCheck {
+  /** Overall readiness: all checks passed */
+  sufficient: boolean
+  /** Individual check results */
+  checks: {
+    /** Service operator is approved by payer */
+    isOperatorApproved: boolean
+    /** Payer has sufficient available funds for lockup */
+    hasSufficientFunds: boolean
+    /** Rate allowance is sufficient for required rate */
+    hasRateAllowance: boolean
+    /** Lockup allowance is sufficient for required lockup */
+    hasLockupAllowance: boolean
+    /** Maximum lockup period is sufficient */
+    hasValidLockupPeriod: boolean
+  }
+  /** Current state of approval and account */
+  currentState: {
+    /** Service approval details */
+    approval: {
+      isApproved: boolean
+      rateAllowance: bigint
+      rateUsed: bigint
+      lockupAllowance: bigint
+      lockupUsed: bigint
+      maxLockupPeriod: bigint
+    }
+    /** Account information */
+    accountInfo: {
+      funds: bigint
+      lockupCurrent: bigint
+      lockupRate: bigint
+      lockupLastSettledAt: bigint
+      availableFunds: bigint
+    }
+  }
+  /** Gaps to fill (only present when not sufficient) */
+  gaps?: {
+    fundsNeeded?: bigint
+    rateAllowanceNeeded?: bigint
+    lockupAllowanceNeeded?: bigint
+    lockupPeriodNeeded?: bigint
+  }
+}
+
+/**
  * Preflight information for storage uploads
  */
 export interface PreflightInfo {
-  /** Estimated storage costs */
-  estimatedCost: {
-    perEpoch: bigint
-    perDay: bigint
-    perMonth: bigint
-  }
+  /** Estimated storage cost per month */
+  estimatedCostPerMonth: bigint
   /** Allowance check results */
   allowanceCheck: {
+    /** Overall check: all requirements met */
     sufficient: boolean
+    /** Detailed human-readable message when insufficient */
     message?: string
+    /** Individual check results for programmatic handling */
+    checks: {
+      /** Payer has sufficient available funds for lockup */
+      hasSufficientFunds: boolean
+      /** Service operator is approved by payer */
+      isOperatorApproved: boolean
+      /** Rate allowance is sufficient for required rate */
+      hasRateAllowance: boolean
+      /** Lockup allowance is sufficient for required lockup */
+      hasLockupAllowance: boolean
+      /** Maximum lockup period is sufficient */
+      hasValidLockupPeriod: boolean
+    }
   }
   /** Selected service provider (null when no specific provider selected) */
   selectedProvider: ProviderInfo | null
