@@ -465,6 +465,8 @@ export interface StorageInfo {
 
   /** Current user allowances (null if wallet not connected) */
   allowances: {
+    /** Whether the service operator is approved to act on behalf of the wallet */
+    isApproved: boolean
     /** Service contract address */
     service: string
     /** Maximum payment rate per epoch allowed */
