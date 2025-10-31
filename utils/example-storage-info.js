@@ -149,6 +149,90 @@ async function main() {
       console.log('No allowances found (wallet may not be connected or no approvals set)')
     }
 
+    // Check account balance
+    console.log('\n--- Account Balance ---')
+    try {
+      const accountInfo = await synapse.payments.accountInfo()
+      console.log(`Total funds:      ${formatUSDFC(accountInfo.funds)}`)
+      console.log(`Available funds:  ${formatUSDFC(accountInfo.availableFunds)}`)
+      console.log(`Locked up:        ${formatUSDFC(accountInfo.funds - accountInfo.availableFunds)}`)
+    } catch (error) {
+      console.log('Could not fetch account balance:', error.message)
+    }
+
+    // Show upload cost examples
+    console.log('\n--- Upload Cost Examples ---')
+    try {
+      const provider = synapse.getProvider()
+      const warmStorageAddress = synapse.getWarmStorageAddress()
+      const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+      const sizes = [
+        { name: '1 MiB', bytes: 1024 * 1024 },
+        { name: '100 MiB', bytes: 100 * 1024 * 1024 },
+        { name: '1 GiB', bytes: 1024 * 1024 * 1024 },
+        { name: '10 GiB', bytes: 10 * 1024 * 1024 * 1024 },
+      ]
+
+      for (const size of sizes) {
+        const cost = await warmStorageService.calculateUploadCost(size.bytes)
+        console.log(`\n${size.name}:`)
+        console.log(`  Base monthly cost:  ${formatUSDFC(cost.perMonth)}`)
+        console.log(`  With floor pricing: ${formatUSDFC(cost.withFloorPerMonth)}`)
+      }
+    } catch (error) {
+      console.log('Could not calculate upload costs:', error.message)
+    }
+
+    // Check wallet readiness for uploads
+    console.log('\n--- Wallet Readiness Check ---')
+    try {
+      const provider = synapse.getProvider()
+      const warmStorageAddress = synapse.getWarmStorageAddress()
+      const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+      // Check readiness for 1 GiB upload
+      const testSize = 1024 * 1024 * 1024 // 1 GiB
+      const cost = await warmStorageService.calculateUploadCost(testSize)
+      const pricing = await warmStorageService.getServicePrice()
+      const ratePerEpoch = cost.withFloorPerMonth / pricing.epochsPerMonth
+      const lockupEpochs = 30n * 2880n // 30 days in epochs
+      const lockupNeeded = ratePerEpoch * lockupEpochs
+
+      const readiness = await synapse.payments.checkServiceReadiness(warmStorageAddress, {
+        rateNeeded: ratePerEpoch,
+        lockupNeeded,
+        lockupPeriodNeeded: lockupEpochs,
+      })
+
+      console.log(`Checking readiness for 1 GiB upload (${formatUSDFC(cost.withFloorPerMonth)}/month)...`)
+      console.log(`\nReadiness: ${readiness.sufficient ? '✅ READY' : '❌ NOT READY'}`)
+      console.log('\nChecks:')
+      console.log(`  ✓ Operator approved:     ${readiness.checks.isOperatorApproved ? '✅' : '❌'}`)
+      console.log(`  ✓ Sufficient funds:      ${readiness.checks.hasSufficientFunds ? '✅' : '❌'}`)
+      console.log(`  ✓ Rate allowance:        ${readiness.checks.hasRateAllowance ? '✅' : '❌'}`)
+      console.log(`  ✓ Lockup allowance:      ${readiness.checks.hasLockupAllowance ? '✅' : '❌'}`)
+      console.log(`  ✓ Valid lockup period:   ${readiness.checks.hasValidLockupPeriod ? '✅' : '❌'}`)
+
+      if (!readiness.sufficient && readiness.gaps) {
+        console.log('\nRequired actions:')
+        if (readiness.gaps.fundsNeeded) {
+          console.log(`  - Deposit ${formatUSDFC(readiness.gaps.fundsNeeded)}`)
+        }
+        if (readiness.gaps.rateAllowanceNeeded) {
+          console.log(`  - Increase rate allowance by ${formatUSDFC(readiness.gaps.rateAllowanceNeeded)}`)
+        }
+        if (readiness.gaps.lockupAllowanceNeeded) {
+          console.log(`  - Increase lockup allowance by ${formatUSDFC(readiness.gaps.lockupAllowanceNeeded)}`)
+        }
+        if (readiness.gaps.lockupPeriodNeeded) {
+          console.log(`  - Extend lockup period by ${readiness.gaps.lockupPeriodNeeded} epochs`)
+        }
+      }
+    } catch (error) {
+      console.log('Could not check wallet readiness:', error.message)
+    }
+
     // Get client's data sets
     console.log('\n--- Your Data Sets ---')
     try {
