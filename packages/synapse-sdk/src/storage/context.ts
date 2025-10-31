@@ -638,7 +638,7 @@ export class StorageContext {
     options?: { withIpni?: boolean; dev?: boolean }
   ): Promise<ProviderInfo> {
     let providerCount = 0
-    const { withIpni, dev } = options ?? {}
+    const { withIpni, dev = false } = options ?? {}
 
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
@@ -646,8 +646,33 @@ export class StorageContext {
         continue
       }
 
-      if (!dev && provider?.products.PDP?.capabilities?.serviceStatus === 'dev') {
-        continue
+      // Filter out dev providers when dev option is false or undefined
+      // Check if provider has serviceStatus=dev in capabilities
+      // Capability values are hex-encoded, so we need to decode them for string comparison
+      if (!dev) {
+        const pdpProduct = provider?.products?.PDP
+        const capabilities = pdpProduct?.capabilities
+        const serviceStatusHex = capabilities?.serviceStatus
+        if (serviceStatusHex != null) {
+          // Decode hex string to actual string value for comparison
+          // Capabilities are stored as hex (e.g., "0x646576" for "dev")
+          let serviceStatus: string
+          if (typeof serviceStatusHex === 'string' && serviceStatusHex.startsWith('0x')) {
+            // Decode hex to string using web standard APIs
+            const hexBytes = new Uint8Array(
+              serviceStatusHex
+                .slice(2)
+                .match(/.{1,2}/g)
+                ?.map((byte) => parseInt(byte, 16)) ?? []
+            )
+            serviceStatus = new TextDecoder().decode(hexBytes).replace(/\0/g, '')
+          } else {
+            serviceStatus = serviceStatusHex
+          }
+          if (serviceStatus === 'dev') {
+            continue
+          }
+        }
       }
 
       providerCount++
