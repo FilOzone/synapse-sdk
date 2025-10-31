@@ -1,7 +1,6 @@
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
 import { getDataSets, terminateDataSet } from '@filoz/synapse-core/warm-storage'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -22,7 +21,7 @@ export const datasetTerminate: Command = command(
       description: 'Terminate a data set',
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')

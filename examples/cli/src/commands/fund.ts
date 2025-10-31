@@ -19,7 +19,7 @@ export const fund: Command = command(
     description: 'Fund the wallet',
     alias: 'f',
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')
