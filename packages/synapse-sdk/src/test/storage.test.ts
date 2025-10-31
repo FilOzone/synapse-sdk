@@ -414,10 +414,14 @@ describe('StorageService', () => {
       })
 
       // Create storage service without specifying providerId
-      const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
+      // dev defaults to false, so dev providers should be filtered out
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        dev: false,
+      })
 
-      // Should have selected one of the providers
-      assert.isTrue(service.serviceProvider === mockProviders[1].serviceProvider)
+      // Should have selected provider2 (non-dev), never provider1 (dev)
+      assert.equal(service.serviceProvider, mockProviders[1].serviceProvider)
+      assert.notEqual(service.serviceProvider, mockProviders[0].serviceProvider, 'Should not select dev provider')
     })
 
     it('should include dev providers when dev option is true', async () => {
@@ -549,7 +553,16 @@ describe('StorageService', () => {
       })
 
       // Should only select the production provider, not the dev one
-      assert.equal(service.serviceProvider, productionProvider.serviceProvider)
+      assert.equal(
+        service.serviceProvider.toLowerCase(),
+        productionProvider.serviceProvider.toLowerCase(),
+        'Should select production provider, not dev provider'
+      )
+      assert.notEqual(
+        service.serviceProvider.toLowerCase(),
+        devProvider.serviceProvider.toLowerCase(),
+        'Should NOT select dev provider'
+      )
     })
 
     it('should use specific provider when providerId specified', async () => {
