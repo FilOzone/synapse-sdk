@@ -124,6 +124,8 @@
     "generate-abi": "wagmi generate",
     "build": "wireit",
     "test": "wireit",
+    "test:node": "wireit",
+    "test:browser": "wireit",
     "lint": "wireit",
     "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix ."
   },
@@ -133,6 +135,7 @@
       "clean": "if-file-deleted",
       "files": [
         "src/**/*.ts",
+        "test/**/*.ts",
         "tsconfig.json"
       ],
       "output": [
@@ -140,9 +143,29 @@
       ]
     },
     "test": {
-      "command": "playwright-test \"src/test/**/*.test.ts\" --mode node",
+      "command": "pnpm run test:node && pnpm run test:browser",
       "files": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "lint"
+      ]
+    },
+    "test:node": {
+      "command": "playwright-test \"test/**/*.test.ts\" --mode node",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
+      ],
+      "output": []
+    },
+    "test:browser": {
+      "command": "playwright-test \"test/**/*.test.ts\" --assets ./test/mocks",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts"
       ],
       "output": []
     },
@@ -150,6 +173,7 @@
       "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
       "files": [
         "src/**/*.ts",
+        "test/**/*.ts",
         "../../biome.json"
       ],
       "output": [],
@@ -169,12 +193,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "~2.2.6",
-    "@types/chai": "^5.2.3",
+    "@types/assert": "^1.5.11",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24.9.1",
+    "@types/node": "^24.7.2",
+    "assert": "^2.1.0",
     "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
-    "chai": "^6.2.0",
     "mocha": "^11.7.4",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",

@@ -1,9 +1,34 @@
-import type { Chain, Client, Transport } from 'viem'
+import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
+import type { Chain, Client, Hex, Transport } from 'viem'
 import { readContract } from 'viem/actions'
+import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
-import type { PDPProvider } from '../utils/pdp-capabilities.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
+
+export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
+
+export type ServiceProviderInfo = AbiParametersToPrimitiveTypes<getProviderType['outputs']>[0]['info']
+
+/**
+ * PDP offering details (decoded from capability k/v pairs)
+ */
+export interface PDPOffering {
+  serviceURL: string
+  minPieceSizeInBytes: bigint
+  maxPieceSizeInBytes: bigint
+  ipniPiece: boolean
+  ipniIpfs: boolean
+  storagePricePerTibPerDay: bigint
+  minProvingPeriodInEpochs: bigint
+  location: string
+  paymentTokenAddress: Hex
+}
+
+export interface PDPProvider extends ServiceProviderInfo {
+  id: bigint
+  pdp: PDPOffering
+}
 
 /**
  * Get the providers for the warm storage.

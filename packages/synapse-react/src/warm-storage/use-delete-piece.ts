@@ -40,7 +40,9 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       }
 
       const deletePieceRsp = await deletePiece(connectorClient, {
-        dataSet,
+        endpoint: dataSet.pdp.serviceURL,
+        dataSetId: dataSet.dataSetId,
+        clientDataSetId: dataSet.clientDataSetId,
         pieceId,
       })
 
