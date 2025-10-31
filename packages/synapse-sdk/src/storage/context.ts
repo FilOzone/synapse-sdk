@@ -34,6 +34,7 @@ import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
   MetadataEntry,
@@ -57,6 +58,8 @@ import {
 } from '../utils/index.ts'
 import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
+
+const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
 
 export class StorageContext {
   private readonly _synapse: Synapse
@@ -176,6 +179,110 @@ export class StorageContext {
   }
 
   /**
+   * Creates new storage contexts with specified options
+   * Each context correseponds to a different data set
+   */
+  static async createContexts(
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: CreateContextsOptions = {}
+  ): Promise<StorageContext[]> {
+    const count = options?.count ?? 2
+    const resolutions: ProviderSelectionResult[] = []
+    const clientAddress = await synapse.getClient().getAddress()
+    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
+    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    if (options?.dataSetIds) {
+      for (const dataSetId of new Set(options.dataSetIds)) {
+        const resolution = await StorageContext.resolveByDataSetId(
+          dataSetId,
+          warmStorageService,
+          spRegistry,
+          clientAddress,
+          {
+            withCDN: options.withCDN,
+            withIpni: options.withIpni,
+            dev: options.dev,
+            metadata: options.metadata,
+          }
+        )
+        resolutions.push(resolution)
+        if (resolutions.length >= count) {
+          break
+        }
+      }
+    }
+    if (resolutions.length < count) {
+      if (options?.providerIds) {
+        for (const providerId of options.providerIds) {
+          const resolution = await StorageContext.resolveByProviderId(
+            clientAddress,
+            providerId,
+            options.metadata ?? {},
+            warmStorageService,
+            spRegistry,
+            resolutions.map((resolution) => resolution.dataSetId),
+            options.forceCreateDataSets
+          )
+          resolutions.push(resolution)
+          if (resolutions.length >= count) {
+            break
+          }
+        }
+      } else if (options?.providerAddresses) {
+        for (const providerAddress of options.providerAddresses) {
+          const resolution = await StorageContext.resolveByProviderAddress(
+            providerAddress,
+            warmStorageService,
+            spRegistry,
+            clientAddress,
+            options.metadata ?? {},
+            resolutions.map((resolution) => resolution.dataSetId),
+            options.forceCreateDataSets
+          )
+          resolutions.push(resolution)
+          if (resolutions.length >= count) {
+            break
+          }
+        }
+      }
+    }
+    if (resolutions.length < count) {
+      const excludeProviderIds = [
+        ...(options.excludeProviderIds ?? []),
+        ...resolutions.map((resolution) => resolution.provider.id),
+      ]
+      for (let i = resolutions.length; i < count; i++) {
+        try {
+          const resolution = await StorageContext.smartSelectProvider(
+            clientAddress,
+            options.metadata ?? {},
+            warmStorageService,
+            spRegistry,
+            excludeProviderIds,
+            options.forceCreateDataSets,
+            options.withIpni,
+            options.dev
+          )
+          excludeProviderIds.push(resolution.provider.id)
+          resolutions.push(resolution)
+        } catch (error) {
+          if (error instanceof Error && error.message.includes(NO_REMAINING_PROVIDERS_ERROR_MESSAGE)) {
+            break
+          }
+          throw error
+        }
+      }
+    }
+    return await Promise.all(
+      resolutions.map(
+        async (resolution) =>
+          await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+      )
+    )
+  }
+
+  /**
    * Static factory method to create a StorageContext
    * Handles provider selection and data set selection/creation
    */
@@ -191,6 +298,15 @@ export class StorageContext {
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
 
+    return await StorageContext.createWithSelectedProvider(resolution, synapse, warmStorageService, options)
+  }
+
+  private static async createWithSelectedProvider(
+    resolution: ProviderSelectionResult,
+    synapse: Synapse,
+    warmStorageService: WarmStorageService,
+    options: StorageServiceOptions = {}
+  ): Promise<StorageContext> {
     // Notify callback about provider selection
     try {
       options.callbacks?.onProviderSelected?.(resolution.provider)
@@ -227,8 +343,7 @@ export class StorageContext {
     spRegistry: SPRegistryService,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    const client = synapse.getClient()
-    const clientAddress = await client.getAddress()
+    const clientAddress = await synapse.getClient().getAddress()
 
     // Handle explicit data set ID selection (highest priority)
     if (options.dataSetId != null && options.forceCreateDataSet !== true) {
@@ -252,6 +367,7 @@ export class StorageContext {
         requestedMetadata,
         warmStorageService,
         spRegistry,
+        [],
         options.forceCreateDataSet
       )
     }
@@ -264,6 +380,7 @@ export class StorageContext {
         spRegistry,
         clientAddress,
         requestedMetadata,
+        [],
         options.forceCreateDataSet
       )
     }
@@ -387,6 +504,7 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
+    excludeDataSetIds: number[],
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
@@ -415,7 +533,13 @@ export class StorageContext {
     const providerDataSets = (
       dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
     ).filter((ps) => {
-      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
+      if (
+        ps.providerId !== provider.id ||
+        !ps.isLive ||
+        !ps.isManaged ||
+        ps.pdpEndEpoch !== 0 ||
+        excludeDataSetIds.includes(Number(ps.dataSetId))
+      ) {
         return false
       }
       // Check if metadata matches
@@ -459,6 +583,7 @@ export class StorageContext {
     spRegistry: SPRegistryService,
     signerAddress: string,
     requestedMetadata: Record<string, string>,
+    excludeDataSetIds: number[],
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Get provider by address
@@ -478,6 +603,7 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       spRegistry,
+      excludeDataSetIds,
       forceCreateDataSet
     )
   }
@@ -503,9 +629,15 @@ export class StorageContext {
     // Get client's data sets
     const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
 
+    const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
     const managedDataSets = dataSets.filter(
-      (ps) => ps.isLive && ps.isManaged && ps.pdpEndEpoch === 0 && metadataMatches(ps.metadata, requestedMetadata)
+      (ps) =>
+        ps.isLive &&
+        ps.isManaged &&
+        ps.pdpEndEpoch === 0 &&
+        metadataMatches(ps.metadata, requestedMetadata) &&
+        !skipProviderIds.has(ps.providerId)
     )
 
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
@@ -518,10 +650,11 @@ export class StorageContext {
 
       // Create async generator that yields providers lazily
       async function* generateProviders(): AsyncGenerator<ProviderInfo> {
-        const skipProviderIds = new Set<number>(excludeProviderIds)
-
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
+          if (skipProviderIds.has(dataSet.providerId)) {
+            continue
+          }
           const provider = await spRegistry.getProvider(dataSet.providerId)
 
           if (provider == null) {
@@ -530,10 +663,8 @@ export class StorageContext {
             )
             continue
           }
-          if (!skipProviderIds.has(provider.id)) {
-            skipProviderIds.add(provider.id)
-            yield provider
-          }
+          skipProviderIds.add(provider.id)
+          yield provider
         }
       }
 
@@ -579,7 +710,7 @@ export class StorageContext {
     )
 
     if (allProviders.length === 0) {
-      throw createError('StorageContext', 'smartSelectProvider', 'No approved service providers available')
+      throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
     }
 
     // Random selection from all providers

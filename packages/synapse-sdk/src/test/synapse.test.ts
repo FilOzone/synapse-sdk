@@ -4,6 +4,8 @@
  * Basic tests for Synapse class
  */
 
+import type { PDPOffering } from '@filoz/synapse-core/utils'
+import { capabilitiesListToObject, encodePDPCapabilities } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -12,9 +14,12 @@ import pDefer from 'p-defer'
 import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
+import type { PDPServiceInfo } from '../sp-registry/types.ts'
 import { Synapse } from '../synapse.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import type { ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 import { createDataSetHandler, dataSetCreationStatusHandler, type PDPMockOptions } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
@@ -327,10 +332,7 @@ describe('Synapse', () => {
           },
           payments: {
             ...presets.basic.payments,
-            operatorApprovals: (args) => {
-              const token = args[0]
-              const client = args[1]
-              const operator = args[2]
+            operatorApprovals: ([token, client, operator]) => {
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               assert.equal(client, signerAddress)
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
@@ -343,9 +345,7 @@ describe('Synapse', () => {
                 BigInt(28800), // maxLockupPeriod
               ]
             },
-            accounts: (args) => {
-              const token = args[0]
-              const user = args[1]
+            accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
               return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
@@ -803,6 +803,346 @@ describe('Synapse', () => {
         // The error should bubble up from the contract call
         assert.include(error.message, 'RPC error')
       }
+    })
+  })
+
+  describe('createContexts', () => {
+    let synapse: Synapse
+    const mockProviders: ServiceProviderInfoView[] = [
+      {
+        providerId: 1n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider1,
+          payee: ADDRESSES.serviceProvider1,
+          name: 'serviceProvider1',
+          description: 'mockProviders[0]',
+          isActive: true,
+        },
+      },
+      {
+        providerId: 2n,
+        info: {
+          serviceProvider: ADDRESSES.serviceProvider2,
+          payee: ADDRESSES.serviceProvider2,
+          name: 'serviceProvider2',
+          description: 'mockProviders[1]',
+          isActive: true,
+        },
+      },
+    ]
+    const offering1: PDPOffering = {
+      serviceURL: 'http://serviceProvider1.com',
+      minPieceSizeInBytes: 0n,
+      maxPieceSizeInBytes: 1n << 32n,
+      ipniPiece: false,
+      ipniIpfs: false,
+      storagePricePerTibPerDay: 1000n,
+      minProvingPeriodInEpochs: 3n,
+      location: 'narnia',
+      paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+    }
+    const offering2: PDPOffering = {
+      serviceURL: 'http://serviceProvider2.org',
+      minPieceSizeInBytes: 0n,
+      maxPieceSizeInBytes: 1n << 32n,
+      ipniPiece: false,
+      ipniIpfs: false,
+      storagePricePerTibPerDay: 1000n,
+      minProvingPeriodInEpochs: 3n,
+      location: 'krypton',
+      paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+    }
+
+    const mockPDPProducts: PDPServiceInfo[] = [
+      {
+        offering: offering1,
+        capabilities: capabilitiesListToObject(...encodePDPCapabilities(offering1)),
+        isActive: true,
+      },
+      {
+        offering: offering2,
+        capabilities: capabilitiesListToObject(...encodePDPCapabilities(offering2)),
+        isActive: true,
+      },
+    ]
+
+    beforeEach(async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: mockServiceProviderRegistry(mockProviders, mockPDPProducts),
+        })
+      )
+      synapse = await Synapse.create({ signer })
+      for (const { offering } of mockPDPProducts) {
+        const pdpOptions: PDPMockOptions = {
+          baseUrl: offering.serviceURL,
+        }
+        server.use(PING(pdpOptions))
+      }
+    })
+
+    it('selects specified providerIds', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId, mockProviders[1].providerId].map(Number),
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[1].providerId)
+      // should create new data sets
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
+    })
+
+    it('uses existing data set specified by providerId when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId].map(Number),
+        metadata,
+        count: 1,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should use existing data set
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('force creates new data set specified by providerId even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [mockProviders[0].providerId].map(Number),
+        metadata,
+        count: 1,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should create new data set
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
+    it('fails when provided an invalid providerId', async () => {
+      try {
+        await synapse.storage.createContexts({
+          providerIds: [3, 4],
+        })
+        assert.fail('Expected createContexts to fail for invalid specified providerIds')
+      } catch (error: any) {
+        assert.include(error.message, 'Provider does not exist')
+      }
+    })
+
+    it('selects providers specified by address', async () => {
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[1].info.serviceProvider, mockProviders[0].info.serviceProvider],
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal(BigInt(contexts[1].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
+      // should create new data sets
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
+    it('uses existing data set specified by provider address when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[0].info.serviceProvider],
+        metadata,
+        count: 1,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should use existing data set
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('force creates new data set with provider specified address even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        providerAddresses: [mockProviders[0].info.serviceProvider],
+        metadata,
+        count: 1,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      // should create new data sets
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
+    it('fails when provided an invalid provider address', async () => {
+      try {
+        await synapse.storage.createContexts({
+          providerAddresses: [ADDRESSES.client1],
+        })
+        assert.fail('Expected createContexts to fail for invalid specified provider address')
+      } catch (error: any) {
+        assert.equal(
+          error?.message,
+          `StorageContext resolveByProviderAddress failed: Provider ${ADDRESSES.client1} not found in registry`
+        )
+      }
+    })
+
+    it('selects providers specified by data set id', async () => {
+      const contexts1 = await synapse.storage.createContexts({
+        count: 1,
+        dataSetIds: [1],
+      })
+      assert.equal(contexts1.length, 1)
+      assert.equal(contexts1[0].provider.id, 1)
+      assert.equal((contexts1[0] as any)._dataSetId, 1n)
+    })
+
+    it('fails when provided an invalid data set id', async () => {
+      for (const dataSetId of [0, 2]) {
+        try {
+          await synapse.storage.createContexts({
+            count: 1,
+            dataSetIds: [dataSetId],
+          })
+          assert.fail('Expected createContexts to fail for invalid specified data set id')
+        } catch (error: any) {
+          assert.equal(
+            error?.message,
+            `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
+          )
+        }
+      }
+    })
+
+    it('does not create multiple contexts for the same data set from duplicate dataSetIds', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        dataSetIds: [1, 1],
+        metadata,
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+      // should also use different providers in this case
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+    })
+
+    it('does not create multiple contexts for the same data set from duplicate providerIds', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
+        metadata,
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+    })
+
+    it('does not create multiple contexts for the same data set from duplicate providerAddresses', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        providerAddresses: [mockProviders[0].info.serviceProvider, mockProviders[0].info.serviceProvider],
+        metadata,
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+    })
+
+    it('does not create multiple contexts for a specified data set when providerId also provided', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 2,
+        dataSetIds: [1, 1],
+        providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
+        metadata,
+      })
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, 1)
+      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+    })
+
+    it('selects existing data set by default when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal(contexts[0].provider.id, 1)
+      assert.equal((contexts[0] as any)._dataSetId, 1n)
+    })
+
+    it('avoids existing data set when provider is excluded even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+        excludeProviderIds: [1],
+      })
+      assert.equal(contexts.length, 1)
+      assert.notEqual(contexts[0].provider.id, 1)
+    })
+
+    it('creates new data set context when forced even when metadata matches', async () => {
+      const metadata = {
+        environment: 'test',
+        withCDN: '',
+      }
+      const contexts = await synapse.storage.createContexts({
+        count: 1,
+        metadata,
+        forceCreateDataSets: true,
+      })
+      assert.equal(contexts.length, 1)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+    })
+
+    it('can select new data sets from different providers using default params', async () => {
+      const contexts = await synapse.storage.createContexts()
+      assert.equal(contexts.length, 2)
+      assert.equal((contexts[0] as any)._dataSetId, undefined)
+      assert.equal((contexts[1] as any)._dataSetId, undefined)
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+    })
+
+    it('can attempt to create numerous contexts, returning fewer', async () => {
+      const contexts = await synapse.storage.createContexts({
+        count: 100,
+      })
+      assert.equal(contexts.length, 2)
+      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
     })
   })
 })

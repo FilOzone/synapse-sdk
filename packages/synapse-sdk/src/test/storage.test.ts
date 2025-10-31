@@ -146,7 +146,7 @@ const mockProvider: ProviderInfo = createSimpleProvider({
 function createMockWarmStorageService(dataSets?: any[], overrides: any = {}) {
   return {
     getClientDataSetsWithDetails: async () => dataSets ?? [],
-    getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+    getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
     getDataSetMetadata: async () => ({}),
     getApprovedProviderIds: async () => [],
     ...overrides,
@@ -1011,7 +1011,7 @@ describe('StorageService', () => {
         getProviderIdByAddress: async () => 7,
         getApprovedProvider: async () => mockProviders[0],
         getAllApprovedProviders: async () => mockProviders,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       // Mock fetch for ping validation
@@ -1127,7 +1127,7 @@ describe('StorageService', () => {
         getClientDataSetsWithDetails: async () => [], // No data sets
         getProviderIdByAddress: async () => 11,
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1166,7 +1166,7 @@ describe('StorageService', () => {
           return []
         },
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       await StorageContext.create(mockSynapse, mockWarmStorageService, {
@@ -1223,7 +1223,7 @@ describe('StorageService', () => {
           getAllApprovedProvidersCalled = true
           throw new Error('Should not fetch all providers when data sets exist')
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       // Mock fetch for ping validation - existing provider should succeed
@@ -1264,7 +1264,7 @@ describe('StorageService', () => {
           return mockProviders
         },
         getNextClientDataSetId: async () => 1,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       await StorageContext.create(mockSynapse, mockWarmStorageService, {})
@@ -1347,11 +1347,11 @@ describe('StorageService', () => {
             })
           }
           return {
-            serviceProvider: '0x0000000000000000000000000000000000000000',
+            serviceProvider: ADDRESSES.calibration.spRegistry,
             serviceURL: '',
           }
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       try {
@@ -1425,7 +1425,7 @@ describe('StorageService', () => {
           return null
         },
         getAllApprovedProviders: async () => [provider2WithDifferentPayee],
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         isProviderIdApproved: async (id: number) => id === 2,
         getApprovedProviderIds: async () => [2],
         getDataSetMetadata: async (dataSetId: number) => {
@@ -1528,7 +1528,7 @@ describe('StorageService', () => {
           return null
         },
         getAllApprovedProviders: async () => [TEST_PROVIDERS.provider1, provider3],
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getNextClientDataSetId: async () => 2,
         isProviderIdApproved: async (id: number) => id === 1 || id === 3,
         getApprovedProviderIds: async () => [1, 3],
@@ -1590,7 +1590,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1632,7 +1632,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1676,7 +1676,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1721,7 +1721,7 @@ describe('StorageService', () => {
 
     it('should enforce maximum size limit in preflightUpload', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -1762,7 +1762,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithDownload,
@@ -1791,7 +1791,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithError,
@@ -1829,7 +1829,7 @@ describe('StorageService', () => {
       } as unknown as Synapse
 
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapseWithOptions,
@@ -1858,7 +1858,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -1949,7 +1949,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2011,7 +2011,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2084,7 +2084,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2149,7 +2149,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2270,7 +2270,7 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2304,7 +2304,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2353,7 +2353,7 @@ describe('StorageService', () => {
           throw new Error('Data set not managed by this WarmStorage')
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const service = new StorageContext(
         mockSynapse,
@@ -2514,7 +2514,7 @@ describe('StorageService', () => {
             return idx >= 0 ? idx + 1 : 0
           },
           getApprovedProvider: async (id: number) => testProviders[id - 1] ?? null,
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCallCount = 0
@@ -2570,7 +2570,7 @@ describe('StorageService', () => {
           getAllApprovedProviders: async () => testProviders,
           getProviderIdByAddress: async () => 0,
           getApprovedProvider: async () => null,
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCallCount = 0
@@ -2645,7 +2645,7 @@ describe('StorageService', () => {
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [], // Return empty list to prevent fallback
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         const originalFetch = global.fetch
@@ -2743,7 +2743,7 @@ describe('StorageService', () => {
           getProviderIdByAddress: async () => 1,
           getApprovedProvider: async () => testProvider,
           getAllApprovedProviders: async () => [], // Return empty list to prevent fallback
-          getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+          getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         } as any
 
         let pingCount = 0
@@ -2819,7 +2819,7 @@ describe('StorageService', () => {
         getProviderInfo: async () => {
           throw new Error('Provider not found')
         },
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
       const mockWarmStorageService = createMockWarmStorageService()
       const service = new StorageContext(
@@ -2853,7 +2853,7 @@ describe('StorageService', () => {
 
     it('should successfully fetch data set pieces', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
 
@@ -2919,7 +2919,7 @@ describe('StorageService', () => {
 
     it('should handle empty data set pieces', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
 
@@ -2960,7 +2960,7 @@ describe('StorageService', () => {
 
     it('should handle invalid CID in response', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
 
@@ -3006,7 +3006,7 @@ describe('StorageService', () => {
 
     it('should handle PDP server errors', async () => {
       const mockWarmStorageService = {
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
         getPDPVerifierAddress: () => ADDRESSES.calibration.pdpVerifier,
       } as any
 
@@ -3057,7 +3057,7 @@ describe('StorageService', () => {
       const mockWarmStorageService = {
         getMaxProvingPeriod: async () => 2880,
         getChallengeWindow: async () => 60,
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3107,7 +3107,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3163,7 +3163,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3220,7 +3220,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3274,7 +3274,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3332,7 +3332,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3410,7 +3410,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
@@ -3464,7 +3464,7 @@ describe('StorageService', () => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
-        getServiceProviderRegistryAddress: () => '0x0000000000000000000000000000000000000001',
+        getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
 
       const service = new StorageContext(
