@@ -674,8 +674,9 @@ describe('Synapse', () => {
       assert.equal(storageInfo.serviceParameters.minUploadSize, 127)
       assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
 
-      // Check allowances
+      // Check allowances (including operator approval flag)
       assert.exists(storageInfo.allowances)
+      assert.equal(storageInfo.allowances?.isApproved, true)
       assert.equal(storageInfo.allowances?.service, ADDRESSES.calibration.warmStorage)
       assert.equal(storageInfo.allowances?.rateAllowance, 1000000n)
       assert.equal(storageInfo.allowances?.lockupAllowance, 10000000n)
@@ -699,6 +700,7 @@ describe('Synapse', () => {
       assert.exists(storageInfo.providers)
       assert.exists(storageInfo.serviceParameters)
       assert.deepEqual(storageInfo.allowances, {
+        isApproved: false,
         service: ADDRESSES.calibration.warmStorage,
         rateAllowance: 0n,
         lockupAllowance: 0n,

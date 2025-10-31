@@ -345,6 +345,8 @@ export class StorageManager {
           const approval = await this._synapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
           return {
             service: warmStorageAddress,
+            // Forward whether operator is approved so callers can react accordingly
+            isApproved: approval.isApproved,
             rateAllowance: approval.rateAllowance,
             lockupAllowance: approval.lockupAllowance,
             rateUsed: approval.rateUsed,
