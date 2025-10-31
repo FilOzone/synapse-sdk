@@ -646,7 +646,7 @@ export class StorageContext {
         continue
       }
 
-      if (!dev && provider?.products.PDP?.capabilities?.dev != null) {
+      if (!dev && provider?.products.PDP?.capabilities?.serviceStatus === 'dev') {
         continue
       }
 
