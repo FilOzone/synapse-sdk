@@ -286,9 +286,11 @@ Deletion of individual pieces is not supported at this time but is on the roadma
 Get comprehensive information about the storage service:
 
 ```typescript
-// Get storage service info including pricing and providers
-const info = await synapse.getStorageInfo()
-console.log('Price per TiB/month:', info.pricing.noCDN.perTiBPerMonth)
+// Get service information including pricing and providers
+const info = await synapse.storage.getServiceInfo()
+console.log('Storage price per TiB/month:', info.pricing.storagePricePerTiBPerMonth)
+console.log('CDN egress price per TiB:', info.pricing.cdnEgressPricePerTiB)
+console.log('Minimum price per month:', info.pricing.minimumPricePerMonth)
 console.log('Available providers:', info.providers.length)
 console.log('Network:', info.serviceParameters.network)
 

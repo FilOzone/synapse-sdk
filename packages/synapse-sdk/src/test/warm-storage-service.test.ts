@@ -1006,395 +1006,6 @@ describe('WarmStorageService', () => {
   })
 
   describe('Storage Cost Operations', () => {
-    describe('calculateStorageCost', () => {
-      it('should calculate storage costs correctly for 1 GiB', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Mock the getServicePrice call on WarmStorage contract
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            // getServicePrice selector
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            // Encode as a tuple (struct) matching ServicePricing contract struct
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        const sizeInBytes = Number(SIZE_CONSTANTS.GiB) // 1 GiB
-        const costs = await warmStorageService.calculateStorageCost(sizeInBytes)
-
-        assert.exists(costs.perEpoch)
-        assert.exists(costs.perDay)
-        assert.exists(costs.perMonth)
-        assert.exists(costs.withCDN)
-        assert.exists(costs.withCDN.perEpoch)
-        assert.exists(costs.withCDN.perDay)
-        assert.exists(costs.withCDN.perMonth)
-
-        // Verify costs are reasonable
-        assert.isTrue(costs.perEpoch > 0n)
-        assert.isTrue(costs.perDay > costs.perEpoch)
-        assert.isTrue(costs.perMonth > costs.perDay)
-
-        // CDN costs are usage-based (egress pricing), so withCDN equals base storage cost
-        assert.equal(costs.withCDN.perEpoch, costs.perEpoch)
-        assert.equal(costs.withCDN.perDay, costs.perDay)
-        assert.equal(costs.withCDN.perMonth, costs.perMonth)
-      })
-
-      it('should scale costs linearly with size', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Mock the getServicePrice call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        const costs1GiB = await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
-        const costs10GiB = await warmStorageService.calculateStorageCost(Number(10n * SIZE_CONSTANTS.GiB))
-
-        // 10 GiB should cost approximately 10x more than 1 GiB
-        // Allow for small rounding differences in bigint division
-        const ratio = Number(costs10GiB.perEpoch) / Number(costs1GiB.perEpoch)
-        assert.closeTo(ratio, 10, 0.01)
-
-        // Verify the relationship holds for day and month calculations
-        assert.equal(costs10GiB.perDay.toString(), (costs10GiB.perEpoch * 2880n).toString())
-        // For month calculation, allow for rounding errors due to integer division
-        const expectedMonth = costs10GiB.perEpoch * TIME_CONSTANTS.EPOCHS_PER_MONTH
-        const monthRatio = Number(costs10GiB.perMonth) / Number(expectedMonth)
-        assert.closeTo(monthRatio, 1, 0.0001) // Allow 0.01% difference due to rounding
-      })
-
-      it('should fetch pricing from WarmStorage contract', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // This test verifies that the getServicePrice function is called
-        let getServicePriceCalled = false
-        const originalCall = mockProvider.call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            getServicePriceCalled = true
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            // Encode as a tuple (struct) matching ServicePricing contract struct
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return await originalCall.call(mockProvider, transaction)
-        }
-
-        await warmStorageService.calculateStorageCost(Number(SIZE_CONSTANTS.GiB))
-        assert.isTrue(getServicePriceCalled, 'Should have called getServicePrice on WarmStorage contract')
-      })
-    })
-
-    describe('checkAllowanceForStorage', () => {
-      it('should check allowances for storage operations', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Create a mock PaymentsService
-        const mockPaymentsService: any = {
-          serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
-            return {
-              isApproved: false,
-              rateAllowance: 0n,
-              lockupAllowance: 0n,
-              rateUsed: 0n,
-              lockupUsed: 0n,
-            }
-          },
-        }
-
-        // Mock getServicePrice call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-          false,
-          mockPaymentsService
-        )
-
-        assert.exists(check.rateAllowanceNeeded)
-        assert.exists(check.lockupAllowanceNeeded)
-        assert.exists(check.currentRateAllowance)
-        assert.exists(check.currentLockupAllowance)
-        assert.exists(check.currentRateUsed)
-        assert.exists(check.currentLockupUsed)
-        assert.exists(check.sufficient)
-
-        // Check for new costs field
-        assert.exists(check.costs)
-        assert.exists(check.costs.perEpoch)
-        assert.exists(check.costs.perDay)
-        assert.exists(check.costs.perMonth)
-        assert.isAbove(Number(check.costs.perEpoch), 0)
-        assert.isAbove(Number(check.costs.perDay), 0)
-        assert.isAbove(Number(check.costs.perMonth), 0)
-
-        // Check for depositAmountNeeded field
-        assert.exists(check.lockupAllowanceNeeded)
-        assert.isTrue(check.lockupAllowanceNeeded > 0n)
-
-        // With no current allowances, should not be sufficient
-        assert.isFalse(check.sufficient)
-      })
-
-      it('should return sufficient when allowances are adequate', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Create a mock PaymentsService with adequate allowances
-        const mockPaymentsService: any = {
-          serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
-            return {
-              isApproved: true,
-              rateAllowance: ethers.parseUnits('100', 18),
-              lockupAllowance: ethers.parseUnits('10000', 18),
-              rateUsed: 0n,
-              lockupUsed: 0n,
-            }
-          },
-        }
-
-        // Mock getServicePrice call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
-          false,
-          mockPaymentsService
-        )
-
-        assert.isTrue(check.sufficient)
-
-        // Verify costs are included
-        assert.exists(check.costs)
-        assert.exists(check.costs.perEpoch)
-        assert.exists(check.costs.perDay)
-        assert.exists(check.costs.perMonth)
-
-        // When sufficient, no additional allowance is needed
-        assert.exists(check.lockupAllowanceNeeded)
-        assert.equal(check.lockupAllowanceNeeded, 0n)
-      })
-
-      it('should include depositAmountNeeded in response', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Create a mock PaymentsService
-        const mockPaymentsService: any = {
-          serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
-            return {
-              isApproved: false,
-              rateAllowance: 0n,
-              lockupAllowance: 0n,
-              rateUsed: 0n,
-              lockupUsed: 0n,
-            }
-          },
-        }
-
-        // Mock getServicePrice call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          mockPaymentsService
-        )
-
-        // Verify lockupAllowanceNeeded and depositAmountNeeded are present and reasonable
-        assert.exists(check.lockupAllowanceNeeded)
-        assert.isTrue(check.lockupAllowanceNeeded > 0n)
-        assert.exists(check.depositAmountNeeded)
-        assert.isTrue(check.depositAmountNeeded > 0n)
-
-        // depositAmountNeeded should equal 30 days of costs (default lockup)
-        const expectedDeposit =
-          check.costs.perEpoch * TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
-        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
-      })
-
-      it('should use custom lockup days when provided', async () => {
-        const warmStorageService = await createWarmStorageService()
-        // Create a mock PaymentsService
-        const mockPaymentsService: any = {
-          serviceApproval: async (serviceAddress: string) => {
-            assert.strictEqual(serviceAddress, mockWarmStorageAddress)
-            return {
-              isApproved: false,
-              rateAllowance: 0n,
-              lockupAllowance: 0n,
-              rateUsed: 0n,
-              lockupUsed: 0n,
-            }
-          },
-        }
-
-        // Mock getServicePrice call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-
-          // Handle viewContractAddress
-          const viewResult = handleViewContractAddress(data)
-          if (viewResult != null) return viewResult
-
-          if (data?.startsWith('0x5482bdf9') === true) {
-            const pricePerTiBPerMonthNoCDN = ethers.parseUnits('2', 18)
-            const tokenAddress = CONTRACT_ADDRESSES.USDFC.calibration
-            const epochsPerMonth = TIME_CONSTANTS.EPOCHS_PER_MONTH
-            const servicePriceInfo = {
-              pricePerTiBPerMonthNoCDN: pricePerTiBPerMonthNoCDN,
-              pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
-              pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
-              tokenAddress: tokenAddress,
-              epochsPerMonth: epochsPerMonth,
-              minimumPricePerMonth: ethers.parseUnits('0.01', 18),
-            }
-            return warmInterface.encodeFunctionResult('getServicePrice', [servicePriceInfo])
-          }
-          return `0x${'0'.repeat(64)}`
-        }
-
-        // Test with custom lockup period of 60 days
-        const customLockupDays = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * 2n
-        const check = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          mockPaymentsService,
-          Number(customLockupDays)
-        )
-
-        // Verify depositAmountNeeded uses custom lockup period
-        const expectedDeposit = check.costs.perEpoch * customLockupDays * TIME_CONSTANTS.EPOCHS_PER_DAY
-        assert.equal(check.depositAmountNeeded.toString(), expectedDeposit.toString())
-
-        // Compare with default (30 days) to ensure they're different
-        const defaultCheck = await warmStorageService.checkAllowanceForStorage(
-          Number(SIZE_CONSTANTS.GiB), // 1 GiB
-          false,
-          mockPaymentsService
-        )
-
-        // Custom should be exactly 2x default (60 days vs 30 days)
-        assert.equal(check.depositAmountNeeded.toString(), (defaultCheck.depositAmountNeeded * 2n).toString())
-      })
-    })
-
     describe('prepareStorageUpload', () => {
       it('should prepare storage upload with required actions', async () => {
         const warmStorageService = await createWarmStorageService()
@@ -1408,6 +1019,7 @@ describe('WarmStorageService', () => {
             lockupAllowance: 0n,
             rateUsed: 0n,
             lockupUsed: 0n,
+            maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('10000', 18),
@@ -1415,6 +1027,37 @@ describe('WarmStorageService', () => {
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
             availableFunds: ethers.parseUnits('10000', 18),
+          }),
+          checkServiceReadiness: async (_service: string, requirements: any) => ({
+            sufficient: false,
+            checks: {
+              isOperatorApproved: false,
+              hasSufficientFunds: true,
+              hasRateAllowance: false,
+              hasLockupAllowance: false,
+              hasValidLockupPeriod: true,
+            },
+            currentState: {
+              approval: {
+                isApproved: false,
+                rateAllowance: 0n,
+                rateUsed: 0n,
+                lockupAllowance: 0n,
+                lockupUsed: 0n,
+                maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
+              },
+              accountInfo: {
+                funds: ethers.parseUnits('10000', 18),
+                lockupCurrent: 0n,
+                lockupRate: 0n,
+                lockupLastSettledAt: 1000000,
+                availableFunds: ethers.parseUnits('10000', 18),
+              },
+            },
+            gaps: {
+              rateAllowanceNeeded: requirements.rateNeeded,
+              lockupAllowanceNeeded: requirements.lockupNeeded,
+            },
           }),
           approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
             assert.strictEqual(serviceAddress, mockWarmStorageAddress)
@@ -1451,17 +1094,12 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-            withCDN: false,
-          },
+          Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
           mockPaymentsService
         )
 
-        assert.exists(prep.estimatedCost)
-        assert.exists(prep.estimatedCost.perEpoch)
-        assert.exists(prep.estimatedCost.perDay)
-        assert.exists(prep.estimatedCost.perMonth)
+        assert.exists(prep.estimatedCostPerMonth)
+        assert.isTrue(prep.estimatedCostPerMonth > 0n)
         assert.exists(prep.allowanceCheck)
         assert.isArray(prep.actions)
 
@@ -1490,6 +1128,7 @@ describe('WarmStorageService', () => {
             lockupAllowance: 0n,
             rateUsed: 0n,
             lockupUsed: 0n,
+            maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('0.001', 18), // Very low balance
@@ -1497,6 +1136,38 @@ describe('WarmStorageService', () => {
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
             availableFunds: ethers.parseUnits('0.001', 18),
+          }),
+          checkServiceReadiness: async (_service: string, requirements: any) => ({
+            sufficient: false,
+            checks: {
+              isOperatorApproved: false,
+              hasSufficientFunds: false,
+              hasRateAllowance: false,
+              hasLockupAllowance: false,
+              hasValidLockupPeriod: true,
+            },
+            currentState: {
+              approval: {
+                isApproved: false,
+                rateAllowance: 0n,
+                rateUsed: 0n,
+                lockupAllowance: 0n,
+                lockupUsed: 0n,
+                maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
+              },
+              accountInfo: {
+                funds: ethers.parseUnits('0.001', 18),
+                lockupCurrent: 0n,
+                lockupRate: 0n,
+                lockupLastSettledAt: 1000000,
+                availableFunds: ethers.parseUnits('0.001', 18),
+              },
+            },
+            gaps: {
+              fundsNeeded: requirements.lockupNeeded - ethers.parseUnits('0.001', 18),
+              rateAllowanceNeeded: requirements.rateNeeded,
+              lockupAllowanceNeeded: requirements.lockupNeeded,
+            },
           }),
           deposit: async (amount: bigint) => {
             assert.isTrue(amount > 0n)
@@ -1532,10 +1203,7 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
-            withCDN: false,
-          },
+          Number(10n * SIZE_CONSTANTS.GiB), // 10 GiB
           mockPaymentsService
         )
 
@@ -1565,6 +1233,7 @@ describe('WarmStorageService', () => {
             lockupAllowance: ethers.parseUnits('100000', 18),
             rateUsed: 0n,
             lockupUsed: 0n,
+            maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
           }),
           accountInfo: async () => ({
             funds: ethers.parseUnits('10000', 18),
@@ -1572,6 +1241,34 @@ describe('WarmStorageService', () => {
             lockupRate: 0n,
             lockupLastSettledAt: 1000000,
             availableFunds: ethers.parseUnits('10000', 18),
+          }),
+          checkServiceReadiness: async (_service: string, _requirements: any) => ({
+            sufficient: true,
+            checks: {
+              isOperatorApproved: true,
+              hasSufficientFunds: true,
+              hasRateAllowance: true,
+              hasLockupAllowance: true,
+              hasValidLockupPeriod: true,
+            },
+            currentState: {
+              approval: {
+                isApproved: true,
+                rateAllowance: ethers.parseUnits('1000', 18),
+                rateUsed: 0n,
+                lockupAllowance: ethers.parseUnits('100000', 18),
+                lockupUsed: 0n,
+                maxLockupPeriod: BigInt(TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY),
+              },
+              accountInfo: {
+                funds: ethers.parseUnits('10000', 18),
+                lockupCurrent: 0n,
+                lockupRate: 0n,
+                lockupLastSettledAt: 1000000,
+                availableFunds: ethers.parseUnits('10000', 18),
+              },
+            },
+            gaps: undefined,
           }),
         }
 
@@ -1601,10 +1298,7 @@ describe('WarmStorageService', () => {
         }
 
         const prep = await warmStorageService.prepareStorageUpload(
-          {
-            dataSize: Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
-            withCDN: false,
-          },
+          Number(SIZE_CONSTANTS.MiB), // 1 MiB - small amount
           mockPaymentsService
         )
 
