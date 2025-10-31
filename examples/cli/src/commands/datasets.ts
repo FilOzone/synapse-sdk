@@ -21,7 +21,7 @@ export const datasets: Command = command(
       examples: ['synapse datasets', 'synapse datasets --help'],
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')

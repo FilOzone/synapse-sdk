@@ -24,7 +24,7 @@ export const pieces: Command = command(
       examples: ['synapse pieces', 'synapse pieces --help'],
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')

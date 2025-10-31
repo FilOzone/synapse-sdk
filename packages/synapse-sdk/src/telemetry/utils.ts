@@ -1,6 +1,5 @@
 import type * as SentryBrowser from '@sentry/browser'
 import type * as SentryNode from '@sentry/node'
-import { createError as originalCreateError } from '../utils/errors.ts'
 
 /**
  * The telemetry module here and elsewhere needs to know whether we're running in a browser context or not.
