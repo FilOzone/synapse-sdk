@@ -29,7 +29,6 @@ jobs:
       - name: Generate ABIs
         run: |
           pnpm -r --filter @filoz/synapse-core run generate-abi
-          pnpm -r --filter @filoz/synapse-sdk run generate-abi
       - name: Check for ABI changes
         run: |
           if [ -n "$(git status --porcelain)" ]; then

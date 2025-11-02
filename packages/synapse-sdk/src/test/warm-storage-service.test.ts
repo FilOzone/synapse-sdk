@@ -4,9 +4,9 @@
  * Tests for WarmStorageService class
  */
 
+import * as Abis from '@filoz/synapse-core/abis'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { filecoinWarmStorageServiceAbi, filecoinWarmStorageServiceStateViewAbi } from '../abis/gen.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { createMockProvider, extendMockProviderCall, MOCK_ADDRESSES } from './test-utils.ts'
@@ -19,8 +19,8 @@ describe('WarmStorageService', () => {
   const clientAddress = '0x1234567890123456789012345678901234567890'
 
   // Create Interface instances for encoding/decoding contract responses
-  const viewInterface = new ethers.Interface(filecoinWarmStorageServiceStateViewAbi)
-  const warmInterface = new ethers.Interface(filecoinWarmStorageServiceAbi)
+  const viewInterface = new ethers.Interface(Abis.storageView)
+  const warmInterface = new ethers.Interface(Abis.storage)
 
   // Helper to handle viewContractAddress calls
   const handleViewContractAddress = (data: string | undefined): string | null => {

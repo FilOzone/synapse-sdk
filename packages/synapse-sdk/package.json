@@ -53,7 +53,6 @@
     }
   },
   "scripts": {
-    "generate-abi": "wagmi generate",
     "build": "wireit",
     "lint": "wireit",
     "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
