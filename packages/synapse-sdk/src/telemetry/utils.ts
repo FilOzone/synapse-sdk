@@ -71,7 +71,9 @@ const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
  * // Returns: 'POST https://pdp.com/pdp/data-sets/<ID>/pieces/added/<txHash>'
  */
 export function sanitizeUrlForSpan(sentrySpanUrlString: string): string {
-  const [httpMethod, urlString] = sentrySpanUrlString.includes(' ') ? sentrySpanUrlString.split(' ') : [null, sentrySpanUrlString]
+  const [httpMethod, urlString] = sentrySpanUrlString.includes(' ')
+    ? sentrySpanUrlString.split(' ')
+    : [null, sentrySpanUrlString]
   try {
     const url = new URL(urlString)
     // sanitize pathname
