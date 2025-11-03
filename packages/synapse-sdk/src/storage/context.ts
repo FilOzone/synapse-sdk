@@ -638,15 +638,21 @@ export class StorageContext {
             )
             continue
           }
+
+          if (withIpni && provider.products.PDP?.data.ipniIpfs === false) {
+            continue
+          }
+
+          if (!dev && provider.products.PDP?.capabilities?.dev != null) {
+            continue
+          }
+
           yield provider
         }
       }
 
       try {
-        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders(), {
-          dev,
-          withIpni,
-        })
+        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
         // Find the first matching data set ID for this provider
         // Match by provider ID (stable identifier in the registry)
@@ -680,7 +686,10 @@ export class StorageContext {
     const approvedIds = await warmStorageService.getApprovedProviderIds()
     const approvedProviders = await spRegistry.getProviders(approvedIds)
     const allProviders = approvedProviders.filter(
-      (provider: ProviderInfo) => excludeProviderIds?.includes(provider.id) !== true
+      (provider: ProviderInfo) =>
+        (!withIpni || provider.products.PDP?.data.ipniIpfs === true) &&
+        (dev || provider.products.PDP?.capabilities?.dev == null) &&
+        !excludeProviderIds.includes(provider.id)
     )
 
     if (allProviders.length === 0) {
@@ -688,7 +697,7 @@ export class StorageContext {
     }
 
     // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders, withIpni, dev)
+    const provider = await StorageContext.selectRandomProvider(allProviders)
 
     return {
       provider,
@@ -705,11 +714,7 @@ export class StorageContext {
    * @param dev - Include dev providers
    * @returns Selected provider
    */
-  private static async selectRandomProvider(
-    providers: ProviderInfo[],
-    withIpni: boolean,
-    dev: boolean
-  ): Promise<ProviderInfo> {
+  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo> {
     if (providers.length === 0) {
       throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
     }
@@ -725,10 +730,7 @@ export class StorageContext {
       }
     }
 
-    return await StorageContext.selectProviderWithPing(generateRandomProviders(), {
-      withIpni,
-      dev,
-    })
+    return await StorageContext.selectProviderWithPing(generateRandomProviders())
   }
 
   /**
@@ -738,23 +740,11 @@ export class StorageContext {
    * @returns The first provider that responds
    * @throws If all providers fail
    */
-  private static async selectProviderWithPing(
-    providers: AsyncIterable<ProviderInfo>,
-    options: { withIpni: boolean; dev: boolean }
-  ): Promise<ProviderInfo> {
+  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo> {
     let providerCount = 0
-    const { withIpni, dev } = options
 
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
-      if (withIpni && provider?.products.PDP?.data.ipniIpfs === false) {
-        continue
-      }
-
-      if (!dev && provider?.products.PDP?.capabilities?.dev != null) {
-        continue
-      }
-
       providerCount++
       try {
         // Create a temporary PDPServer for this specific provider's endpoint
