@@ -4,8 +4,8 @@
  * Basic tests for Synapse class
  */
 
-import type { PDPOffering } from '@filoz/synapse-core/utils'
 import { capabilitiesListToObject, encodePDPCapabilities } from '@filoz/synapse-core/utils'
+import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
