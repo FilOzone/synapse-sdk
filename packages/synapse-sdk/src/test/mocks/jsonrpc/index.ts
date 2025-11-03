@@ -291,22 +291,42 @@ export const presets = {
       ],
       railToDataSet: () => [1n],
       clientDataSets: () => [[1n]],
-      getDataSet: () => [
-        {
-          pdpRailId: 1n,
-          cacheMissRailId: 0n,
-          cdnRailId: 0n,
-          payer: ADDRESSES.client1,
-          payee: ADDRESSES.serviceProvider1,
-          serviceProvider: ADDRESSES.serviceProvider1,
-          commissionBps: 100n,
-          clientDataSetId: 0n,
-          pdpEndEpoch: 0n,
-          providerId: 1n,
-          cdnEndEpoch: 0n,
-          dataSetId: 1n,
-        },
-      ],
+      getDataSet: (args) => {
+        const [dataSetId] = args
+        if (dataSetId === 1n) {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 100n,
+              dataSetId: 1n,
+              payee: ADDRESSES.serviceProvider1,
+              payer: ADDRESSES.client1,
+              pdpEndEpoch: 0n,
+              pdpRailId: 1n,
+              providerId: 1n,
+              serviceProvider: ADDRESSES.serviceProvider1,
+            },
+          ]
+        } else {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 0n,
+              dataSetId: dataSetId,
+              payee: ADDRESSES.zero,
+              payer: ADDRESSES.zero,
+              pdpEndEpoch: 0n,
+              pdpRailId: 0n,
+              providerId: 0n,
+              serviceProvider: ADDRESSES.zero,
+            },
+          ]
+        }
+      },
       getApprovedProviders: () => [[1n, 2n]],
       getAllDataSetMetadata: (args) => {
         const [dataSetId] = args

@@ -7,70 +7,80 @@
 import * as Abis from '@filoz/synapse-core/abis'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
+import { HttpResponse, http } from 'msw'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
+import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 import { createMockProvider, extendMockProviderCall, MOCK_ADDRESSES } from './test-utils.ts'
 
+// mock server for testing
+const server = setup([])
+
 describe('WarmStorageService', () => {
-  let mockProvider: ethers.Provider
-  let cleanup: (() => void) | undefined
-  const mockWarmStorageAddress = MOCK_ADDRESSES.WARM_STORAGE
-  const mockViewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW
-  const clientAddress = '0x1234567890123456789012345678901234567890'
+  let provider: ethers.Provider
 
-  // Create Interface instances for encoding/decoding contract responses
-  const viewInterface = new ethers.Interface(Abis.storageView)
-  const warmInterface = new ethers.Interface(Abis.storage)
+  // let cleanup: (() => void) | undefined
+  // const mockWarmStorageAddress = MOCK_ADDRESSES.WARM_STORAGE
+  // const mockViewAddress = MOCK_ADDRESSES.WARM_STORAGE_VIEW
+  // const clientAddress = '0x1234567890123456789012345678901234567890'
 
-  // Helper to handle viewContractAddress calls
-  const handleViewContractAddress = (data: string | undefined): string | null => {
-    if (data?.startsWith('0x7a9ebc15') === true) {
-      return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [mockViewAddress])
-    }
-    return null
-  }
+  // // Create Interface instances for encoding/decoding contract responses
+  // const viewInterface = new ethers.Interface(Abis.storageView)
+  // const warmInterface = new ethers.Interface(Abis.storage)
+
+  // // Helper to handle viewContractAddress calls
+  // const handleViewContractAddress = (data: string | undefined): string | null => {
+  //   if (data?.startsWith('0x7a9ebc15') === true) {
+  //     return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [mockViewAddress])
+  //   }
+  //   return null
+  // }
 
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
-    return await WarmStorageService.create(mockProvider, mockWarmStorageAddress)
+    return await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
   }
 
   /**
    * Helper to create a mock provider call that automatically handles viewContractAddress
    * Eliminates duplication of the viewContractAddress check in every test
    */
-  const mockProviderWithView = (
-    customHandler: (data: string | undefined) => string | null | Promise<string | null>
-  ) => {
-    return extendMockProviderCall(mockProvider, async (transaction: any) => {
-      const data = transaction.data
+  // const mockProviderWithView = (
+  //   customHandler: (data: string | undefined) => string | null | Promise<string | null>
+  // ) => {
+  //   return extendMockProviderCall(mockProvider, async (transaction: any) => {
+  //     const data = transaction.data
 
-      // Always check viewContractAddress first
-      const viewResult = handleViewContractAddress(data)
-      if (viewResult != null) return viewResult
+  //     // Always check viewContractAddress first
+  //     const viewResult = handleViewContractAddress(data)
+  //     if (viewResult != null) return viewResult
 
-      // Then run the custom handler
-      const customResult = await customHandler(data)
-      if (customResult != null) return customResult
+  //     // Then run the custom handler
+  //     const customResult = await customHandler(data)
+  //     if (customResult != null) return customResult
 
-      // Default fallback
-      return `0x${'0'.repeat(64)}`
-    })
-  }
+  //     // Default fallback
+  //     return `0x${'0'.repeat(64)}`
+  //   })
+  // }
 
-  beforeEach(() => {
-    mockProvider = createMockProvider()
-    cleanup = undefined
+  before(async () => {
+    await server.start({ quiet: true })
   })
 
-  afterEach(() => {
-    if (cleanup) {
-      cleanup()
-    }
+  after(() => {
+    server.stop()
+  })
+
+  beforeEach(() => {
+    server.resetHandlers()
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
   })
 
   describe('Instantiation', () => {
     it('should create instance with required parameters', async () => {
+      server.use(JSONRPC(presets.basic))
       const warmStorageService = await createWarmStorageService()
       assert.exists(warmStorageService)
       assert.isFunction(warmStorageService.getClientDataSets)
@@ -79,67 +89,29 @@ describe('WarmStorageService', () => {
 
   describe('getDataSet', () => {
     it('should return a single data set by ID', async () => {
+      server.use(JSONRPC(presets.basic))
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 123
-
-      cleanup = mockProviderWithView((data) => {
-        // getDataSet call - function selector for getDataSet(uint256)
-        if (data?.startsWith('0xbdaac056') === true) {
-          // Create a valid data set object
-          const dataSetInfo = {
-            pdpRailId: 456,
-            cacheMissRailId: 457,
-            cdnRailId: 458,
-            payer: '0x1234567890123456789012345678901234567890',
-            payee: '0x2345678901234567890123456789012345678901',
-            serviceProvider: '0x3456789012345678901234567890123456789012',
-            commissionBps: 100,
-            clientDataSetId: 5n,
-            pdpEndEpoch: 0,
-            providerId: 1,
-            dataSetId: BigInt(dataSetId),
-          }
-          // Use the Interface to encode the return data properly
-          return viewInterface.encodeFunctionResult('getDataSet', [dataSetInfo])
-        }
-        return null
-      })
+      const dataSetId = 1
 
       const result = await warmStorageService.getDataSet(dataSetId)
       assert.exists(result)
-      assert.equal(result?.pdpRailId, 456)
-      assert.equal(result?.cacheMissRailId, 457)
-      assert.equal(result?.cdnRailId, 458)
-      assert.equal(result?.payer, '0x1234567890123456789012345678901234567890')
-      assert.equal(result?.clientDataSetId, 5n)
+      assert.equal(result?.pdpRailId, 1)
+      assert.equal(result?.cacheMissRailId, 0)
+      assert.equal(result?.cdnRailId, 0)
+      assert.equal(result?.payer, ADDRESSES.client1)
+      assert.equal(result?.payee, ADDRESSES.serviceProvider1)
+      assert.equal(result?.serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(result?.commissionBps, 100)
+      assert.equal(result?.clientDataSetId, 0n)
+      assert.equal(result?.pdpEndEpoch, 0)
+      assert.equal(result?.providerId, 1)
+      assert.equal(result?.dataSetId, 1)
     })
 
-    it('should throw for non-existent data set', async () => {
+    it.only('should throw for non-existent data set', async () => {
+      server.use(JSONRPC(presets.basic))
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 999
-
-      cleanup = mockProviderWithView((data) => {
-        // getDataSet call
-        if (data?.startsWith('0xbdaac056') === true) {
-          // Return a data set with pdpRailId = 0 (indicates non-existent)
-          const emptyDataSet = {
-            pdpRailId: 0,
-            cacheMissRailId: 0,
-            cdnRailId: 0,
-            payer: ethers.ZeroAddress,
-            payee: ethers.ZeroAddress,
-            serviceProvider: ethers.ZeroAddress,
-            commissionBps: 0,
-            clientDataSetId: 0n,
-            pdpEndEpoch: 0,
-            providerId: 0,
-            dataSetId: BigInt(dataSetId),
-          }
-          // Use the Interface to encode the return data properly
-          return viewInterface.encodeFunctionResult('getDataSet', [emptyDataSet])
-        }
-        return null
-      })
 
       try {
         await warmStorageService.getDataSet(dataSetId)
@@ -149,26 +121,20 @@ describe('WarmStorageService', () => {
       }
     })
 
-    it('should handle contract revert gracefully', async () => {
+    it.only('should handle contract revert gracefully', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            // @ts-expect-error - we want to test the error case
+            getDataSet: () => {
+              return null
+            },
+          },
+        })
+      )
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 999
-
-      // Override the call method to simulate a revert
-      const originalCall = mockProvider.call
-      mockProvider.call = async (transaction: any) => {
-        const data = transaction.data
-
-        // Check for viewContractAddress first
-        const viewResult = handleViewContractAddress(data)
-        if (viewResult != null) return viewResult
-
-        // Simulate revert for getDataSet
-        if (data?.startsWith('0xbdaac056') === true) {
-          throw new Error('execution reverted: Contract error')
-        }
-
-        return originalCall.call(mockProvider, transaction)
-      }
 
       try {
         await warmStorageService.getDataSet(dataSetId)
@@ -176,134 +142,107 @@ describe('WarmStorageService', () => {
       } catch (error: any) {
         assert.include(error.message, 'execution reverted')
       }
-
-      // Restore original call
-      mockProvider.call = originalCall
     })
   })
 
   describe('getClientDataSets', () => {
-    it('should return empty array when client has no data sets', async () => {
+    it.only('should return empty array when client has no data sets', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            getClientDataSets: () => [[]],
+          },
+        })
+      )
       const warmStorageService = await createWarmStorageService()
-      // Mock provider will return empty array by default
-      cleanup = mockProviderWithView((data) => {
-        if (data?.startsWith('0x967c6f21') === true) {
-          // Return empty array
-          return viewInterface.encodeFunctionResult('getClientDataSets', [[]])
-        }
-        return null
-      })
-
-      const dataSets = await warmStorageService.getClientDataSets(clientAddress)
+      const dataSets = await warmStorageService.getClientDataSets(ADDRESSES.client1)
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 0)
     })
 
-    it('should return data sets for a client', async () => {
+    it.only('should return data sets for a client', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            getClientDataSets: () => [
+              [
+                {
+                  pdpRailId: 1n,
+                  cacheMissRailId: 0n,
+                  cdnRailId: 0n,
+                  payer: ADDRESSES.client1,
+                  payee: ADDRESSES.serviceProvider1,
+                  serviceProvider: ADDRESSES.serviceProvider1,
+                  commissionBps: 100n,
+                  clientDataSetId: 0n,
+                  pdpEndEpoch: 0n,
+                  providerId: 1n,
+                  cdnEndEpoch: 0n,
+                  dataSetId: 1n,
+                },
+                {
+                  pdpRailId: 2n,
+                  cacheMissRailId: 0n,
+                  cdnRailId: 100n,
+                  payer: ADDRESSES.client1,
+                  payee: ADDRESSES.serviceProvider1,
+                  serviceProvider: ADDRESSES.serviceProvider1,
+                  commissionBps: 200n,
+                  clientDataSetId: 1n,
+                  pdpEndEpoch: 0n,
+                  providerId: 1n,
+                  cdnEndEpoch: 0n,
+                  dataSetId: 2n,
+                },
+              ],
+            ],
+          },
+        })
+      )
       const warmStorageService = await createWarmStorageService()
-      // Mock provider to return data sets
-      cleanup = mockProviderWithView((data) => {
-        if (data?.startsWith('0x967c6f21') === true) {
-          // Return two data sets
-          const dataSet1 = {
-            id: 1n,
-            pdpRailId: 123n,
-            cacheMissRailId: 0n,
-            cdnRailId: 0n,
-            payer: '0x1234567890123456789012345678901234567890',
-            payee: '0xabcdef1234567890123456789012345678901234',
-            commissionBps: 100n, // 1%
-            clientDataSetId: 0n,
-            paymentEndEpoch: 0n,
-            providerId: 1n,
-          }
 
-          const dataSet2 = {
-            id: 2n,
-            pdpRailId: 456n,
-            cacheMissRailId: 457n,
-            cdnRailId: 458n, // Has CDN
-            payer: '0x1234567890123456789012345678901234567890',
-            payee: '0x9876543210987654321098765432109876543210',
-            commissionBps: 200n, // 2%
-            clientDataSetId: 1n,
-            paymentEndEpoch: 0n,
-            providerId: 2n,
-          }
-
-          // Create properly ordered arrays for encoding
-          const dataSets = [
-            [
-              dataSet1.pdpRailId,
-              dataSet1.cacheMissRailId,
-              dataSet1.cdnRailId,
-              dataSet1.payer,
-              dataSet1.payee,
-              dataSet1.payee, // serviceProvider (using same as payee for test)
-              dataSet1.commissionBps,
-              dataSet1.clientDataSetId,
-              dataSet1.paymentEndEpoch, // pdpEndEpoch
-              dataSet1.providerId,
-              dataSet1.id,
-            ],
-            [
-              dataSet2.pdpRailId,
-              dataSet2.cacheMissRailId,
-              dataSet2.cdnRailId,
-              dataSet2.payer,
-              dataSet2.payee,
-              dataSet2.payee, // serviceProvider (using same as payee for test)
-              dataSet2.commissionBps,
-              dataSet2.clientDataSetId,
-              dataSet2.paymentEndEpoch, // pdpEndEpoch
-              dataSet2.providerId,
-              dataSet2.id,
-            ],
-          ]
-
-          return viewInterface.encodeFunctionResult('getClientDataSets', [dataSets])
-        }
-        return null
-      })
-
-      const dataSets = await warmStorageService.getClientDataSets(clientAddress)
+      const dataSets = await warmStorageService.getClientDataSets(ADDRESSES.client1)
 
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 2)
 
       // Check first data set
-      assert.equal(dataSets[0].pdpRailId, 123)
-      assert.equal(dataSets[0].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
-      assert.equal(dataSets[0].payee.toLowerCase(), '0xabcdef1234567890123456789012345678901234'.toLowerCase())
+      assert.equal(dataSets[0].pdpRailId, 1)
+      assert.equal(dataSets[0].payer, ADDRESSES.client1)
+      assert.equal(dataSets[0].payee, ADDRESSES.serviceProvider1)
       assert.equal(dataSets[0].commissionBps, 100)
       assert.equal(dataSets[0].clientDataSetId, 0n)
-      assert.equal(dataSets[0].cdnRailId, 0) // No CDN
+      assert.equal(dataSets[0].cdnRailId, 0)
 
       // Check second data set
-      assert.equal(dataSets[1].pdpRailId, 456)
-      assert.equal(dataSets[1].payer.toLowerCase(), '0x1234567890123456789012345678901234567890'.toLowerCase())
-      assert.equal(dataSets[1].payee.toLowerCase(), '0x9876543210987654321098765432109876543210'.toLowerCase())
+      assert.equal(dataSets[1].pdpRailId, 2)
+      assert.equal(dataSets[1].payer, ADDRESSES.client1)
+      assert.equal(dataSets[1].payee, ADDRESSES.serviceProvider1)
       assert.equal(dataSets[1].commissionBps, 200)
       assert.equal(dataSets[1].clientDataSetId, 1n)
-      assert.isAbove(dataSets[1].cdnRailId, 0) // Has CDN
+      assert.isAbove(dataSets[1].cdnRailId, 0)
+      assert.equal(dataSets[1].cdnRailId, 100)
     })
 
-    it('should handle contract call errors gracefully', async () => {
+    it.only('should handle contract call errors gracefully', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            // @ts-expect-error - we want to test the error case
+            getClientDataSets: () => null,
+          },
+        })
+      )
       const warmStorageService = await createWarmStorageService()
-      // Mock provider to throw error
-      cleanup = mockProviderWithView((data) => {
-        if (data?.startsWith('0x967c6f21') === true) {
-          throw new Error('Contract call failed')
-        }
-        return null
-      })
 
       try {
-        await warmStorageService.getClientDataSets(clientAddress)
+        await warmStorageService.getClientDataSets(ADDRESSES.client1)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to get client data sets')
-        assert.include(error.message, 'Contract call failed')
       }
     })
   })

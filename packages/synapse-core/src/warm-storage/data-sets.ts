@@ -11,6 +11,7 @@ import {
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
+import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -129,6 +130,7 @@ export type GetDataSetOptions = {
  * @param client - The client to use to get the data set.
  * @param options - The options for the get data set.
  * @param options.dataSetId - The ID of the data set to get.
+ * @throws - {@link DataSetNotFoundError} if the data set is not found.
  * @returns The data set
  */
 export async function getDataSet(client: Client<Transport, Chain>, options: GetDataSetOptions): Promise<DataSet> {
@@ -140,6 +142,10 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     functionName: 'getDataSet',
     args: [options.dataSetId],
   })
+
+  if (dataSet.pdpRailId === 0n) {
+    throw new DataSetNotFoundError(options.dataSetId)
+  }
 
   const [live, listener, metadata, pdpOffering] = await multicall(client, {
     allowFailure: false,
