@@ -49,7 +49,7 @@ const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
 ]
 
 /**
- * Sanitizes a URL for use in span names by replacing variable parts with placeholders.
+ * Sanitizes a string representing a URL, METHOD + URL, or path for use in span names by replacing variable parts with placeholders.
  * This improves span grouping and reduces cardinality in telemetry data.
  *
  * Replacements:

@@ -179,7 +179,7 @@ export class TelemetryService {
             ...modifiedSpan.data,
             // We call sanitizeUrlForSpan again here because modifiedSpan.description has a HTTP verb and a domain name before the path.
             // The alternative is to remove the HTTP verb and domain name entirely.
-            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.data?.url?.toString() ?? ''),
+            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.data?.['url.path']?.toString() ?? ''),
           }
         }
       }
