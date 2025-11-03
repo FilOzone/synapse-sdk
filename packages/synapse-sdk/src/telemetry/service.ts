@@ -185,7 +185,10 @@ export class TelemetryService {
       // Call user-provided beforeSendSpan first, if it exists
       let modifiedSpan = span
       if (config.sentryInitOptions?.beforeSendSpan != null) {
-        modifiedSpan = config.sentryInitOptions.beforeSendSpan(span)
+        const userModifiedSpan = config.sentryInitOptions.beforeSendSpan(span)
+        if (userModifiedSpan != null) {
+          modifiedSpan = userModifiedSpan
+        }
       }
 
       // Sanitize the span description to reduce cardinality (only for HTTP verb spans)
