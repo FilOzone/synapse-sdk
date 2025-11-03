@@ -41,12 +41,16 @@ export function getGlobalTelemetry(): TelemetryService | null {
  * @param telemetryContext
  * @param telemetryConfig
  */
-export function initGlobalTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): void {
+export async function initGlobalTelemetry(
+  telemetryConfig: TelemetryConfig,
+  telemetryContext: TelemetryRuntimeContext
+): Promise<void> {
   if (!shouldEnableTelemetry(telemetryConfig, telemetryContext)) {
     return
   }
 
-  telemetryInstance = new TelemetryService(telemetryConfig, telemetryContext)
+  telemetryInstance = new TelemetryService()
+  await telemetryInstance.initSentry(telemetryConfig, telemetryContext)
   wrapFetch()
   setupShutdownHooks()
 }

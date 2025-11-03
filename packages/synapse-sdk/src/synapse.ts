@@ -168,7 +168,7 @@ export class Synapse {
 
     // Create and initialize the global TelemetryService.
     // If telemetry is disabled, this will do nothing.
-    initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
+    await initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
 
     return new Synapse(
       signer,

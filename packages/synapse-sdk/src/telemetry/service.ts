@@ -30,16 +30,6 @@ type SentryBeforeSendFunction = (event: ErrorEvent, hint: EventHint) => Promise<
  */
 type SentryBeforeSendSpanFunction = NonNullable<SentryInitOptions['beforeSendSpan']>
 
-/**
- * Extract the span parameter type from beforeSendSpan.
- * This is the JSON representation of a span that Sentry sends to the hook.
- * We extend it with additional properties that are present at runtime but not in the base type.
- */
-type SpanJSON = Parameters<SentryBeforeSendSpanFunction>[0] & {
-  op?: string
-  tags?: Record<string, string>
-}
-
 export interface TelemetryConfig {
   /**
    * Additional options to pass to the Sentry SDK's init method.
@@ -75,24 +65,11 @@ export class TelemetryService {
   sentry: SentryType | null = null
 
   /**
-   * The provided TelemetryConfig will be passed to Sentry basically as is.
+   * This is a separate function rather than being in the constructor because it is async. This is called by initGlobalTelemetry in singleton.ts, which is called by Synapse.create in synapse.ts.
    * Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.
    * See the source for the specific defaults.
    */
-  constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
-    // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
-    void this.initSentry(config, context).catch(() => {
-      // Silently ignore telemetry initialization errors
-    })
-  }
-
-  /**
-   * This is a separate function rather than being in the constructor because it is async.
-   * This does means that a TelemetryService instance can be accessible without the sentry object being instantiated.
-   * We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
-   * Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled.
-   */
-  private async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
+  public async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
     const Sentry = await getSentry()
     if (!Sentry) {
       // Sentry dependencies not available, telemetry will be disabled
@@ -181,7 +158,7 @@ export class TelemetryService {
   protected createBeforeSendSpan(config: TelemetryConfig): SentryBeforeSendSpanFunction {
     const httpVerbPattern = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s/i
 
-    return ((span: SpanJSON) => {
+    return ((span) => {
       // Call user-provided beforeSendSpan first, if it exists
       let modifiedSpan = span
       if (config.sentryInitOptions?.beforeSendSpan != null) {
@@ -197,12 +174,12 @@ export class TelemetryService {
         modifiedSpan.description = sanitizeUrlForSpan(modifiedSpan.description)
 
         // Ensure the url.* tags have a sanitized path as well
-        if (modifiedSpan.op === 'http.client') {
-          modifiedSpan.tags = {
-            ...modifiedSpan.tags,
+        if (modifiedSpan.op === 'http.client' || modifiedSpan.data['sentry.op'] === 'http.client') {
+          modifiedSpan.data = {
+            ...modifiedSpan.data,
             // We call sanitizeUrlForSpan again here because modifiedSpan.description has a HTTP verb and a domain name before the path.
             // The alternative is to remove the HTTP verb and domain name entirely.
-            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.tags?.['url.path'] ?? ''),
+            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.data?.url?.toString() ?? ''),
           }
         }
       }
