@@ -751,7 +751,7 @@ export class PaymentsService {
     operator: string,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
-    maxLockupPeriod: TokenAmount,
+    maxLockupPeriod: bigint,
     token: TokenIdentifier = TOKENS.USDFC,
     deadline?: number | bigint
   ): Promise<ethers.TransactionResponse> {
