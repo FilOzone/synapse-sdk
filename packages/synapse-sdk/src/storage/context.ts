@@ -629,6 +629,7 @@ export class StorageContext {
           if (skipProviderIds.has(dataSet.providerId)) {
             continue
           }
+          skipProviderIds.add(dataSet.providerId)
           const provider = await spRegistry.getProvider(dataSet.providerId)
 
           if (provider == null) {
@@ -637,7 +638,6 @@ export class StorageContext {
             )
             continue
           }
-          skipProviderIds.add(provider.id)
           yield provider
         }
       }
