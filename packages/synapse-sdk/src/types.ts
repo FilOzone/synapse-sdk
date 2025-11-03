@@ -9,6 +9,7 @@ import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
+import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
@@ -66,14 +67,15 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
-  /** Override PDPVerifier contract address (defaults to network's default) */
-  pdpVerifierAddress?: string
-
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
   subgraphConfig?: SubgraphConfig
+
+  // Telemetry Configuration
+  /** Telemetry configuration for error tracking and debugging (enabled by default) */
+  telemetry?: TelemetryConfig
 }
 
 /**
@@ -490,6 +492,8 @@ export interface StorageInfo {
 
   /** Current user allowances (null if wallet not connected) */
   allowances: {
+    /** Whether the service operator is approved to act on behalf of the wallet */
+    isApproved: boolean
     /** Service contract address */
     service: string
     /** Maximum payment rate per epoch allowed */

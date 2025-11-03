@@ -54,6 +54,8 @@ If using an AI tool, you are welcome to load AGENTS.md into your context to teac
 ```text
 - packages/
   - synapse-sdk/ SDK
+  - synapse-core/ Core 
+  - synapse-react/ React hooks
 - examples/ Usage examples and starter kits
 - apps/ Apps using Synapse
 - docs/ This documentation site
@@ -63,7 +65,7 @@ If using an AI tool, you are welcome to load AGENTS.md into your context to teac
 ### Generating ABIs
 
 ```bash
-pnpm run generate-abi # in the synapse-sdk package
+pnpm run generate-abi # in the synapse-core package
 ```
 
 ### Codespaces

@@ -2,9 +2,8 @@
  * Constants for the Synapse SDK
  */
 
+import * as Abis from '@filoz/synapse-core/abis'
 import { erc20Abi, multicall3Abi } from 'viem'
-import { erc20PermitAbi } from '../abis/erc20-permit.ts'
-import * as abis from '../abis/gen.ts'
 import type { FilecoinNetworkType } from '../types.ts'
 
 /**
@@ -35,29 +34,29 @@ export const CONTRACT_ABIS = {
   /**
    * Minimal ERC20Permit ABI - for reading nonces() and version()
    */
-  ERC20_PERMIT: erc20PermitAbi,
+  ERC20_PERMIT: Abis.erc20WithPermit,
 
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: abis.filecoinPayV1Abi,
+  PAYMENTS: Abis.payments,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
-  PDP_VERIFIER: abis.pdpVerifierAbi,
+  PDP_VERIFIER: Abis.pdp,
 
   /**
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: abis.filecoinWarmStorageServiceAbi,
+  WARM_STORAGE: Abis.storage,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: abis.filecoinWarmStorageServiceStateViewAbi,
+  WARM_STORAGE_VIEW: Abis.storageView,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
@@ -67,12 +66,12 @@ export const CONTRACT_ABIS = {
   /**
    * ServiceProviderRegistry ABI - for provider management
    */
-  SERVICE_PROVIDER_REGISTRY: abis.serviceProviderRegistryAbi,
+  SERVICE_PROVIDER_REGISTRY: Abis.serviceProviderRegistry,
 
   /**
    * SessionKeyRegistry ABI - for session key management
    */
-  SESSION_KEY_REGISTRY: abis.sessionKeyRegistryAbi,
+  SESSION_KEY_REGISTRY: Abis.sessionKeyRegistry,
 } as const
 
 /**

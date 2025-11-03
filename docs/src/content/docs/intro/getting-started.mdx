@@ -52,6 +52,10 @@ Before diving into the code, understand these fundamental concepts:
 - **PDP (Proof of Data Possession)**: The cryptographic protocol that verifies storage providers are actually storing the data they claim to store. Providers must periodically prove they possess the data.
 - **Validators**: Service contracts (like Warm Storage) act as validators for payment settlements, ensuring services are delivered before payments are released.
 
+## Telemetry
+
+To help maintainers validate functionality and iron out problems throughout the whole Filecoin Onchain Cloud stack, starting from the SDK, telemetry is **temporarily enabled by default for the calibration network** in Synapse.  [Learn more (including how to disable)](/guides/telemetry).
+
 ## Usage
 
 The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.

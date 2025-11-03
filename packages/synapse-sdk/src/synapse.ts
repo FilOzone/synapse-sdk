@@ -10,6 +10,8 @@ import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
+import type { TelemetryService } from './telemetry/service.ts'
+import { getGlobalTelemetry, initGlobalTelemetry } from './telemetry/singleton.ts'
 import type {
   FilecoinNetworkType,
   PieceCID,
@@ -164,6 +166,10 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
+    // Create and initialize the global TelemetryService.
+    // If telemetry is disabled, this will do nothing.
+    await initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
+
     return new Synapse(
       signer,
       provider,
@@ -218,6 +224,23 @@ export class Synapse {
    */
   getNetwork(): FilecoinNetworkType {
     return this._network
+  }
+
+  /**
+   * Gets the TelemetryService for error tracking and debugging.
+   * @returns The global TelemetryService instance
+   * @example
+   * ```typescript
+   * // Get debug dump for support tickets
+   * const dump = synapse.telemetry.debugDump()
+   * console.log(JSON.stringify(dump, null, 2))
+   *
+   * // Track custom events
+   * synapse.telemetry.sentry.captureCustomEvent('user-action', { action: 'upload' })
+   * ```
+   */
+  get telemetry(): TelemetryService | null {
+    return getGlobalTelemetry()
   }
 
   /**

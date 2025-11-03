@@ -18,6 +18,7 @@ import {
   DeletePieceError,
   FindPieceError,
   GetDataSetError,
+  InvalidUploadSizeError,
   LocationHeaderError,
   PollDataSetCreationStatusError,
   PollForAddPiecesStatusError,
@@ -26,6 +27,7 @@ import {
 } from './errors/pdp.ts'
 import type { PieceCID } from './piece.ts'
 import * as Piece from './piece.ts'
+import { SIZE_CONSTANTS } from './utils/constants.ts'
 import { createPieceUrl } from './utils/piece-url.ts'
 
 let TIMEOUT = 1000 * 60 * 5 // 5 minutes
@@ -312,8 +314,12 @@ export type UploadPieceResponse = {
  * @returns The response from the upload piece.
  */
 export async function uploadPiece(options: UploadPieceOptions) {
-  const pieceCid = Piece.calculate(options.data)
   const size = options.data.length
+  if (size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+    throw new InvalidUploadSizeError(size)
+  }
+
+  const pieceCid = Piece.calculate(options.data)
 
   const response = await request.post(new URL(`pdp/piece`, options.endpoint), {
     body: JSON.stringify({
@@ -567,5 +573,13 @@ export async function deletePiece(options: DeletePieceOptions) {
     throw response.error
   }
 
+  return response.result
+}
+
+export async function ping(endpoint: string) {
+  const response = await request.get(new URL(`pdp/ping`, endpoint))
+  if (response.error) {
+    throw new Error('Ping failed')
+  }
   return response.result
 }

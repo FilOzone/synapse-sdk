@@ -271,7 +271,7 @@ Provider #${provider.id}:
 `
 
   if (product?.isActive && pdpOffering) {
-    const price = ethers.formatUnits(pdpOffering.storagePricePerTibPerMonth, 18)
+    const price = ethers.formatUnits(pdpOffering.storagePricePerTibPerDay, 18)
     const minSize = pdpOffering.minPieceSizeInBytes.toString()
     const maxSize = pdpOffering.maxPieceSizeInBytes.toString()
 
@@ -279,7 +279,7 @@ Provider #${provider.id}:
   PDP Service: Active
     Service URL: ${pdpOffering.serviceURL}
     Location: ${pdpOffering.location || '(not set)'}
-    Price: ${price} USDFC/TiB/month
+    Price: ${price} USDFC/TiB/day
     Piece Size Range: ${minSize} - ${maxSize} bytes
     IPNI Piece Discovery: ${pdpOffering.ipniPiece}
     IPNI IPFS Indexing: ${pdpOffering.ipniIpfs}

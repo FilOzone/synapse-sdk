@@ -4,6 +4,36 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.35.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.1...synapse-sdk-v0.35.2) (2025-11-03)
+
+
+### Bug Fixes
+
+* core abis in sdk ([#372](https://github.com/FilOzone/synapse-sdk/issues/372)) ([2b70909](https://github.com/FilOzone/synapse-sdk/commit/2b709094ae4a6b96c2fd7e5d6400ff79ecd5bb7f))
+* **sp-registry:** no double-lookup to get provider by address ([#367](https://github.com/FilOzone/synapse-sdk/issues/367)) ([efd3dc2](https://github.com/FilOzone/synapse-sdk/commit/efd3dc2b711722c0b688770ccfccfb2a70ef4a99))
+* **storage:** forward the isApproved and use that in storage info  ([#377](https://github.com/FilOzone/synapse-sdk/issues/377)) ([fa9d4cf](https://github.com/FilOzone/synapse-sdk/commit/fa9d4cf6c42abeedda8eea6f1b694cb369b5d98d))
+
+
+### Chores
+
+* convert fwss tests to jsonrpc mocks ([#384](https://github.com/FilOzone/synapse-sdk/issues/384)) ([947c25e](https://github.com/FilOzone/synapse-sdk/commit/947c25e83d4f66709e4b2c7e6a4500c029257a8c))
+* **deps-dev:** bump @biomejs/biome from 2.2.7 to 2.3.1 ([#352](https://github.com/FilOzone/synapse-sdk/issues/352)) ([ed8cee6](https://github.com/FilOzone/synapse-sdk/commit/ed8cee6ec505fa188d10d6ae668da24b8d087c08))
+* telemetry fixups based off learnings from filecoin-pin integration ([#378](https://github.com/FilOzone/synapse-sdk/issues/378)) ([e607834](https://github.com/FilOzone/synapse-sdk/commit/e6078342d7fb851949906909491a3746295e31f1))
+
+## [0.35.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.0...synapse-sdk-v0.35.1) (2025-10-30)
+
+
+### Features
+
+* add telemetry ([#349](https://github.com/FilOzone/synapse-sdk/issues/349)) ([ace444b](https://github.com/FilOzone/synapse-sdk/commit/ace444b5028c2ce5efb49559b93c26f4334b83a5))
+* remove approvedProvider gating for use ([#369](https://github.com/FilOzone/synapse-sdk/issues/369)) ([18b12b4](https://github.com/FilOzone/synapse-sdk/commit/18b12b4496f55ff08fe75561df6cfe2b02d4c1fe))
+
+
+### Bug Fixes
+
+* get pieces from contract instead of pdpServer ([#249](https://github.com/FilOzone/synapse-sdk/issues/249)) ([dc4aac2](https://github.com/FilOzone/synapse-sdk/commit/dc4aac29111ef75a1d00b151c57f13482f878dc2))
+* **timing:** increase transaction propagation timeout to 180s ([#370](https://github.com/FilOzone/synapse-sdk/issues/370)) ([63e749f](https://github.com/FilOzone/synapse-sdk/commit/63e749f8052e40b4042a202ced3672fa0336ebe4)), closes [#359](https://github.com/FilOzone/synapse-sdk/issues/359)
+
 ## [0.35.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.34.0...synapse-sdk-v0.35.0) (2025-10-29)
 
 

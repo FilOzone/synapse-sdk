@@ -21,7 +21,7 @@
     "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.6",
+    "@biomejs/biome": "2.3.2",
     "knip": "^5.64.1",
     "markdownlint-cli2": "^0.18.1",
     "typescript": "5.9.3",

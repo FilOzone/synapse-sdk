@@ -11,6 +11,7 @@ import {
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
+import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -22,8 +23,9 @@ import {
   metadataArrayToObject,
   pieceMetadataObjectToEntry,
 } from '../utils/metadata.ts'
-import { decodePDPCapabilities, type PDPOffering, type PDPProvider } from '../utils/pdp-capabilities.ts'
+import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
+import type { PDPOffering } from './providers.ts'
 
 /**
  * ABI function to get the client data sets
@@ -96,7 +98,6 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
         },
       ],
     })
-
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
     const pdpCaps = decodePDPCapabilities(
       capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
@@ -129,6 +130,7 @@ export type GetDataSetOptions = {
  * @param client - The client to use to get the data set.
  * @param options - The options for the get data set.
  * @param options.dataSetId - The ID of the data set to get.
+ * @throws - {@link DataSetNotFoundError} if the data set is not found.
  * @returns The data set
  */
 export async function getDataSet(client: Client<Transport, Chain>, options: GetDataSetOptions): Promise<DataSet> {
@@ -140,6 +142,10 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     functionName: 'getDataSet',
     args: [options.dataSetId],
   })
+
+  if (dataSet.pdpRailId === 0n) {
+    throw new DataSetNotFoundError(options.dataSetId)
+  }
 
   const [live, listener, metadata, pdpOffering] = await multicall(client, {
     allowFailure: false,
@@ -205,11 +211,13 @@ export async function getDataSetMetadata(client: Client<Transport, Chain>, dataS
 }
 
 export type CreateDataSetOptions = {
-  /**
-   * PDP Provider
-   */
-  provider: PDPProvider
   cdn: boolean
+  payee: Address
+  /**
+   * If client is from a session key this should be set to the actual payer address
+   */
+  payer?: Address
+  endpoint: string
   metadata?: MetadataObject
 }
 
@@ -218,28 +226,29 @@ export type CreateDataSetOptions = {
  *
  * @param client - The client to use to create the data set.
  * @param options - The options for the create data set.
- * @param options.provider - The PDP provider to use to create the data set.
+ * @param options.payee - The address that will receive payments (service provider).
+ * @param options.payer - The address that will pay for the storage (client).
+ * @param options.endpoint - The endpoint of the PDP API.
  * @param options.cdn - Whether the data set should use CDN.
  * @param options.metadata - The metadata for the data set.
  * @returns The response from the create data set on PDP API.
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
   const chain = getChain(client.chain.id)
-  const endpoint = options.provider.pdp.serviceURL
-
   const nonce = randU256()
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
     clientDataSetId: nonce,
-    payee: options.provider.payee,
+    payee: options.payee,
+    payer: options.payer,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
       cdn: options.cdn,
     }),
   })
 
   return SP.createDataSet({
-    endpoint,
+    endpoint: options.endpoint,
     recordKeeper: chain.contracts.storage.address,
     extraData,
   })
@@ -247,9 +256,11 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
 export type CreateDataSetAndAddPiecesOptions = {
   /**
-   * PDP Provider
+   * If client is from a session key this should be set to the actual payer address
    */
-  provider: PDPProvider
+  payer?: Address
+  endpoint: string
+  payee: Address
   cdn: boolean
   metadata?: MetadataObject
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
@@ -260,7 +271,9 @@ export type CreateDataSetAndAddPiecesOptions = {
  *
  * @param client - The client to use to create the data set.
  * @param options - The options for the create data set.
- * @param options.provider - The PDP provider to use to create the data set.
+ * @param options.payer - The address that will pay for the storage (client).
+ * @param options.endpoint - The endpoint of the PDP API.
+ * @param options.payee - The address that will receive payments (service provider).
  * @param options.cdn - Whether the data set should use CDN.
  * @param options.metadata - The metadata for the data set.
  * @returns The response from the create data set on PDP API.
@@ -270,12 +283,12 @@ export async function createDataSetAndAddPieces(
   options: CreateDataSetAndAddPiecesOptions
 ) {
   const chain = getChain(client.chain.id)
-  const endpoint = options.provider.pdp.serviceURL
   const clientDataSetId = randU256()
   // Sign and encode the create data set message
   const dataSetExtraData = await signCreateDataSet(client, {
     clientDataSetId,
-    payee: options.provider.payee,
+    payee: options.payee,
+    payer: options.payer,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
       cdn: options.cdn,
     }),
@@ -294,7 +307,7 @@ export async function createDataSetAndAddPieces(
   const extraData = encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [dataSetExtraData, addPiecesExtraData])
 
   return SP.createDataSetAndAddPieces({
-    endpoint,
+    endpoint: options.endpoint,
     recordKeeper: chain.contracts.storage.address,
     extraData,
     pieces: options.pieces.map((piece) => piece.pieceCid),

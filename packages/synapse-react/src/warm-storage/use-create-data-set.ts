@@ -1,7 +1,6 @@
 import type { DataSetCreatedResponse } from '@filoz/synapse-core/sp'
 import * as SP from '@filoz/synapse-core/sp'
-import type { PDPProvider } from '@filoz/synapse-core/utils'
-import { createDataSet } from '@filoz/synapse-core/warm-storage'
+import { createDataSet, type PDPProvider } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
@@ -38,7 +37,9 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
 
       const { txHash, statusUrl } = await createDataSet(connectorClient, {
-        provider,
+        payee: provider.payee,
+        payer: account.address,
+        endpoint: provider.pdp.serviceURL,
         cdn,
         // metadata: {
         //   title: 'Test Data Set',
