@@ -154,6 +154,11 @@ export class TelemetryService {
    * If the TelemetryConfig specified a `beforeSendSpan` function, that function will be called first, then sanitization will be applied.
    * The sanitization replaces variable parts (UUIDs, CIDs, transaction hashes, numeric IDs) with placeholders to improve span grouping and reduce cardinality.
    * Only applies to spans with descriptions that start with HTTP verbs (GET, POST, PUT, etc.).
+   * 
+   * In addition, we ensure `op=http.client` spans get the tags that were set  with `sentry.setTags`.
+   * Without this, `op=http.client` spans will miss tags like `synapseSdkVersion`.  
+   * We don't know why  `op=http.client` doesn't otherwise get "global tags", but this is our workaround.
+   * We want this so we can group by `<server.address,url.sanitizedPath,http.response.status_code>` and still filter by `synapseSdkVersion`.
    * @param config
    * @returns Function that can be set for `beforeSendSpan` Sentry option.
    */
