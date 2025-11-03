@@ -183,6 +183,7 @@ export class TelemetryService {
         // Ensure the url.* tags have a sanitized path as well
         if (modifiedSpan.op === 'http.client' || modifiedSpan.data['sentry.op'] === 'http.client') {
           modifiedSpan.data = {
+            // Apply the "global tags" since `op=http.client` spans don't otherwise have them.
             ...globalTags,
             ...modifiedSpan.data,
             // We call sanitizeUrlForSpan again here because modifiedSpan.description has a HTTP verb and a domain name before the path.
