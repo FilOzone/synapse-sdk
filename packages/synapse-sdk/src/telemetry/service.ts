@@ -17,12 +17,18 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, isBrowser, type SentryBrowserType, type SentryType } from './utils.ts'
+import { getSentry, isBrowser, type SentryBrowserType, type SentryType, sanitizeUrlForSpan } from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
 
 type SentryBeforeSendFunction = (event: ErrorEvent, hint: EventHint) => Promise<ErrorEvent | null>
+
+/**
+ * Extract the beforeSendSpan function type from both BrowserOptions and NodeOptions.
+ * This ensures we match Sentry's expected signature exactly.
+ */
+type SentryBeforeSendSpanFunction = NonNullable<SentryInitOptions['beforeSendSpan']>
 
 export interface TelemetryConfig {
   /**
@@ -59,24 +65,11 @@ export class TelemetryService {
   sentry: SentryType | null = null
 
   /**
-   * The provided TelemetryConfig will be passed to Sentry basically as is.
+   * This is a separate function rather than being in the constructor because it is async. This is called by initGlobalTelemetry in singleton.ts, which is called by Synapse.create in synapse.ts.
    * Default values that make sense for synapse-sdk will be set for some [Sentry configuration options](https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/) if they aren't otherwise specified.
    * See the source for the specific defaults.
    */
-  constructor(config: TelemetryConfig, context: TelemetryRuntimeContext) {
-    // Initialize sentry always.. singleton.ts will not construct this service if telemetry is disabled.
-    void this.initSentry(config, context).catch(() => {
-      // Silently ignore telemetry initialization errors
-    })
-  }
-
-  /**
-   * This is a separate function rather than being in the constructor because it is async.
-   * This does means that a TelemetryService instance can be accessible without the sentry object being instantiated.
-   * We are fine with this in practice because in the worst case it means some initial telemetry events get missed.
-   * Consuming code of the Synapse telemetry module should be fine because it already protects against a null sentry instance in case telemetry is disabled.
-   */
-  private async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
+  public async initSentry(config: TelemetryConfig, context: TelemetryRuntimeContext): Promise<void> {
     const Sentry = await getSentry()
     if (!Sentry) {
       // Sentry dependencies not available, telemetry will be disabled
@@ -99,8 +92,16 @@ export class TelemetryService {
       // no integrations are needed for nodejs
     }
 
+    const globalTags = {
+      ...config.sentrySetTags, // get any tags consumers want to set
+
+      // things that consumers should not need, nor be able, to override
+      filecoinNetwork: context.filecoinNetwork, // The network (mainnet/calibration) that the synapse-sdk is being used in.
+      synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`, // The version of the synapse-sdk that is being used.
+    }
+
     this.sentry.init({
-      dsn: 'https://3ed2ca5ff7067e58362dca65bcabd69c@o4510235322023936.ingest.us.sentry.io/4510235328184320',
+      dsn: 'https://0010de27f563e184fc5d5afae4423bc2@o4510235322023936.ingest.us.sentry.io/4510302078828544',
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
@@ -109,6 +110,7 @@ export class TelemetryService {
       integrations,
       ...config.sentryInitOptions,
       beforeSend: this.createBeforeSend(config),
+      beforeSendSpan: this.createBeforeSendSpan(config, globalTags),
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
@@ -123,14 +125,7 @@ export class TelemetryService {
     })
 
     // Things that we can search in the sentry UI (i.e. not millions of unique potential values, like userAgent would have) should be set as tags
-    this.sentry.setTags({
-      appName: 'synapse-sdk', // overridable by consumers
-      ...config.sentrySetTags, // get any tags consumers want to set
-
-      // things that consumers should not need, nor be able, to override
-      filecoinNetwork: context.filecoinNetwork, // The network (mainnet/calibration) that the synapse-sdk is being used in.
-      synapseSdkVersion: `@filoz/synapse-sdk@v${SDK_VERSION}`, // The version of the synapse-sdk that is being used.
-    })
+    this.sentry.setTags(globalTags)
   }
 
   /**
@@ -151,6 +146,58 @@ export class TelemetryService {
 
       return event
     }) satisfies SentryBeforeSendFunction
+  }
+
+  /**
+   * Create a function that sanitizes span descriptions before sending to Sentry.
+   * This function is intended to be set to [Sentry's `beforeSendSpan` option](https://docs.sentry.io/platforms/javascript/configuration/options/#beforeSendSpan).
+   * If the TelemetryConfig specified a `beforeSendSpan` function, that function will be called first, then sanitization will be applied.
+   * The sanitization replaces variable parts (UUIDs, CIDs, transaction hashes, numeric IDs) with placeholders to improve span grouping and reduce cardinality.
+   * Only applies to spans with descriptions that start with HTTP verbs (GET, POST, PUT, etc.).
+   *
+   * In addition, we ensure `op=http.client` spans get the tags that were set  with `sentry.setTags`.
+   * Without this, `op=http.client` spans will miss tags like `synapseSdkVersion`.
+   * We don't know why  `op=http.client` doesn't otherwise get "global tags", but this is our workaround.
+   * We want this so we can group by `<server.address,url.sanitizedPath,http.response.status_code>` and still filter by `synapseSdkVersion`.
+   * @param config
+   * @returns Function that can be set for `beforeSendSpan` Sentry option.
+   */
+  protected createBeforeSendSpan(
+    config: TelemetryConfig,
+    globalTags: Record<string, string>
+  ): SentryBeforeSendSpanFunction {
+    const httpVerbPattern = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s/i
+
+    return ((span) => {
+      // Call user-provided beforeSendSpan first, if it exists
+      let modifiedSpan = span
+      if (config.sentryInitOptions?.beforeSendSpan != null) {
+        const userModifiedSpan = config.sentryInitOptions.beforeSendSpan(span)
+        if (userModifiedSpan != null) {
+          modifiedSpan = userModifiedSpan
+        }
+      }
+
+      // Sanitize the span description to reduce cardinality (only for HTTP verb spans)
+      // beforeSendSpan receives a plain JSON object with a description property
+      if (modifiedSpan.description && httpVerbPattern.test(modifiedSpan.description)) {
+        modifiedSpan.description = sanitizeUrlForSpan(modifiedSpan.description)
+
+        // Ensure the url.* tags have a sanitized path as well
+        if (modifiedSpan.op === 'http.client' || modifiedSpan.data['sentry.op'] === 'http.client') {
+          modifiedSpan.data = {
+            // Apply the "global tags" since `op=http.client` spans don't otherwise have them.
+            ...globalTags,
+            ...modifiedSpan.data,
+            // We call sanitizeUrlForSpan again here because modifiedSpan.description has a HTTP verb and a domain name before the path.
+            // The alternative is to remove the HTTP verb and domain name entirely.
+            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.data?.['url.path']?.toString() ?? ''),
+          }
+        }
+      }
+
+      return modifiedSpan
+    }) satisfies SentryBeforeSendSpanFunction
   }
 
   /**

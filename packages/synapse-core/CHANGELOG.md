@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.0...synapse-core-v0.1.1) (2025-11-03)
+
+
+### Bug Fixes
+
+* core abis in sdk ([#372](https://github.com/FilOzone/synapse-sdk/issues/372)) ([2b70909](https://github.com/FilOzone/synapse-sdk/commit/2b709094ae4a6b96c2fd7e5d6400ff79ecd5bb7f))
+
+
+### Chores
+
+* convert fwss tests to jsonrpc mocks ([#384](https://github.com/FilOzone/synapse-sdk/issues/384)) ([947c25e](https://github.com/FilOzone/synapse-sdk/commit/947c25e83d4f66709e4b2c7e6a4500c029257a8c))
+* **deps-dev:** bump @biomejs/biome from 2.2.7 to 2.3.1 ([#352](https://github.com/FilOzone/synapse-sdk/issues/352)) ([ed8cee6](https://github.com/FilOzone/synapse-sdk/commit/ed8cee6ec505fa188d10d6ae668da24b8d087c08))
+
 ## [0.1.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.0.1...synapse-core-v0.1.0) (2025-10-29)
 
 

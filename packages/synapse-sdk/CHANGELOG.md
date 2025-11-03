@@ -4,6 +4,22 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.35.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.1...synapse-sdk-v0.35.2) (2025-11-03)
+
+
+### Bug Fixes
+
+* core abis in sdk ([#372](https://github.com/FilOzone/synapse-sdk/issues/372)) ([2b70909](https://github.com/FilOzone/synapse-sdk/commit/2b709094ae4a6b96c2fd7e5d6400ff79ecd5bb7f))
+* **sp-registry:** no double-lookup to get provider by address ([#367](https://github.com/FilOzone/synapse-sdk/issues/367)) ([efd3dc2](https://github.com/FilOzone/synapse-sdk/commit/efd3dc2b711722c0b688770ccfccfb2a70ef4a99))
+* **storage:** forward the isApproved and use that in storage info  ([#377](https://github.com/FilOzone/synapse-sdk/issues/377)) ([fa9d4cf](https://github.com/FilOzone/synapse-sdk/commit/fa9d4cf6c42abeedda8eea6f1b694cb369b5d98d))
+
+
+### Chores
+
+* convert fwss tests to jsonrpc mocks ([#384](https://github.com/FilOzone/synapse-sdk/issues/384)) ([947c25e](https://github.com/FilOzone/synapse-sdk/commit/947c25e83d4f66709e4b2c7e6a4500c029257a8c))
+* **deps-dev:** bump @biomejs/biome from 2.2.7 to 2.3.1 ([#352](https://github.com/FilOzone/synapse-sdk/issues/352)) ([ed8cee6](https://github.com/FilOzone/synapse-sdk/commit/ed8cee6ec505fa188d10d6ae668da24b8d087c08))
+* telemetry fixups based off learnings from filecoin-pin integration ([#378](https://github.com/FilOzone/synapse-sdk/issues/378)) ([e607834](https://github.com/FilOzone/synapse-sdk/commit/e6078342d7fb851949906909491a3746295e31f1))
+
 ## [0.35.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.0...synapse-sdk-v0.35.1) (2025-10-30)
 
 

@@ -1,4 +1,15 @@
 import type { AbiParameter, AbiParameterKind, AbiParametersToPrimitiveTypes } from 'abitype'
+import type {
+  Address,
+  Block,
+  BlockIdentifier,
+  BlockNumber,
+  BlockTag,
+  Hex,
+  RpcStateOverride,
+  RpcTransaction,
+  TransactionRequest,
+} from 'viem'
 import type { PaymentsOptions } from './payments.ts'
 import type { PDPVerifierOptions } from './pdp.ts'
 import type { ServiceRegistryOptions } from './service-registry.ts'
@@ -23,6 +34,24 @@ export interface JSONRPCOptions {
   eth_getTransactionByHash?: (params: any) => any
   eth_getTransactionReceipt?: (params: any) => any
   eth_signTypedData_v4?: (params: any) => string
+  eth_getTransactionCount?: (params: [address: Address, block: BlockNumber | BlockTag | BlockIdentifier]) => Hex
+  eth_estimateGas?: (
+    params:
+      | [transaction: TransactionRequest]
+      | [transaction: TransactionRequest, block: BlockNumber | BlockTag]
+      | [transaction: TransactionRequest, block: BlockNumber | BlockTag, stateOverride: RpcStateOverride]
+  ) => Hex
+  eth_getBlockByNumber?: (
+    params: [
+      /** block number, or one of "latest", "safe", "finalized", "earliest" or "pending" */
+      block: BlockNumber | BlockTag,
+      /** true will pull full transaction objects, false will pull transaction hashes */
+      includeTransactionObjects: boolean,
+    ]
+  ) => Block<Hex, boolean, BlockTag, RpcTransaction<false>> | null
+  eth_gasPrice?: () => Hex
+  eth_maxPriorityFeePerGas?: () => Hex
+  eth_sendRawTransaction?: (params: [transaction: Hex]) => Hex
   eth_accounts?: string[]
   warmStorage?: WarmStorageOptions
   pdpVerifier?: PDPVerifierOptions

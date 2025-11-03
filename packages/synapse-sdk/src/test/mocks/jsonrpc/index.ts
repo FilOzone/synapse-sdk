@@ -1,4 +1,5 @@
 import { HttpResponse, http } from 'msw'
+import { TransactionEnvelopeEip1559 } from 'ox'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
@@ -9,6 +10,7 @@ import {
   isAddressEqual,
   multicall3Abi,
   numberToBytes,
+  numberToHex,
   parseUnits,
   stringToHex,
 } from 'viem'
@@ -134,6 +136,42 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
       return options.eth_getTransactionReceipt(params)
     }
+    case 'eth_getTransactionCount': {
+      if (!options.eth_getTransactionCount) {
+        throw new Error('eth_getTransactionCount is not defined')
+      }
+      return options.eth_getTransactionCount(params)
+    }
+    case 'eth_estimateGas': {
+      if (!options.eth_estimateGas) {
+        throw new Error('eth_estimateGas is not defined')
+      }
+      return options.eth_estimateGas(params)
+    }
+    case 'eth_getBlockByNumber': {
+      if (!options.eth_getBlockByNumber) {
+        throw new Error('eth_getBlockByNumber is not defined')
+      }
+      return options.eth_getBlockByNumber(params)
+    }
+    case 'eth_gasPrice': {
+      if (!options.eth_gasPrice) {
+        throw new Error('eth_gasPrice is not defined')
+      }
+      return options.eth_gasPrice()
+    }
+    case 'eth_maxPriorityFeePerGas': {
+      if (!options.eth_maxPriorityFeePerGas) {
+        throw new Error('eth_maxPriorityFeePerGas is not defined')
+      }
+      return options.eth_maxPriorityFeePerGas()
+    }
+    case 'eth_sendRawTransaction': {
+      if (!options.eth_sendRawTransaction) {
+        throw new Error('eth_sendRawTransaction is not defined')
+      }
+      return options.eth_sendRawTransaction(params)
+    }
     case 'eth_call': {
       const { to, data } = params[0]
 
@@ -249,6 +287,54 @@ export const presets = {
     eth_signTypedData_v4: () => {
       throw new Error('eth_signTypedData_v4 undefined')
     },
+    eth_getBlockByNumber: () => {
+      return {
+        number: numberToHex(1000000n),
+        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        parentHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        nonce: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        difficulty: numberToHex(1000000n),
+        baseFeePerGas: numberToHex(1000000n),
+        blobGasUsed: numberToHex(1000000n),
+        excessBlobGas: numberToHex(1000000n),
+        extraData: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        gasLimit: numberToHex(1000000n),
+        gasUsed: numberToHex(1000000n),
+        miner: ADDRESSES.client1,
+        mixHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        parentBeaconBlockRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        receiptsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        sealFields: ['0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'],
+        sha3Uncles: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        size: numberToHex(1000000n),
+        stateRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        timestamp: numberToHex(1000000n),
+        totalDifficulty: numberToHex(1000000n),
+        transactionsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        uncles: ['0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'],
+        withdrawals: [],
+        withdrawalsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        logsBloom: `0x${'1'.repeat(512)}`,
+        transactions: [],
+      }
+    },
+    eth_estimateGas: () => '0x1',
+    eth_getTransactionCount: () => '0x1',
+    eth_gasPrice: () => '0x09184e72a000',
+    eth_maxPriorityFeePerGas: () => '0x5f5e100',
+    eth_sendRawTransaction: (args) => {
+      const deserialized = TransactionEnvelopeEip1559.deserialize(args[0] as `0x02${string}`)
+      const envelope = TransactionEnvelopeEip1559.from(deserialized, {
+        signature: {
+          r: deserialized.r ?? 0n,
+          s: deserialized.s ?? 0n,
+          yParity: deserialized.yParity ?? 0,
+        },
+      })
+      const hash = TransactionEnvelopeEip1559.hash(envelope)
+
+      return hash
+    },
     warmStorage: {
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
@@ -267,6 +353,7 @@ export const presets = {
           epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },
       ],
+      owner: () => [ADDRESSES.client1],
     },
     warmStorageView: {
       isProviderApproved: () => [true],
@@ -291,22 +378,42 @@ export const presets = {
       ],
       railToDataSet: () => [1n],
       clientDataSets: () => [[1n]],
-      getDataSet: () => [
-        {
-          pdpRailId: 1n,
-          cacheMissRailId: 0n,
-          cdnRailId: 0n,
-          payer: ADDRESSES.client1,
-          payee: ADDRESSES.serviceProvider1,
-          serviceProvider: ADDRESSES.serviceProvider1,
-          commissionBps: 100n,
-          clientDataSetId: 0n,
-          pdpEndEpoch: 0n,
-          providerId: 1n,
-          cdnEndEpoch: 0n,
-          dataSetId: 1n,
-        },
-      ],
+      getDataSet: (args) => {
+        const [dataSetId] = args
+        if (dataSetId === 1n) {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 100n,
+              dataSetId: 1n,
+              payee: ADDRESSES.serviceProvider1,
+              payer: ADDRESSES.client1,
+              pdpEndEpoch: 0n,
+              pdpRailId: 1n,
+              providerId: 1n,
+              serviceProvider: ADDRESSES.serviceProvider1,
+            },
+          ]
+        } else {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 0n,
+              dataSetId: dataSetId,
+              payee: ADDRESSES.zero,
+              payer: ADDRESSES.zero,
+              pdpEndEpoch: 0n,
+              pdpRailId: 0n,
+              providerId: 0n,
+              serviceProvider: ADDRESSES.zero,
+            },
+          ]
+        }
+      },
       getApprovedProviders: () => [[1n, 2n]],
       getAllDataSetMetadata: (args) => {
         const [dataSetId] = args
@@ -343,6 +450,12 @@ export const presets = {
       },
       clientNonces: () => {
         return [BigInt(0)]
+      },
+      getMaxProvingPeriod: () => {
+        return [BigInt(2880)]
+      },
+      challengeWindow: () => {
+        return [BigInt(60)]
       },
     },
     pdpVerifier: {
