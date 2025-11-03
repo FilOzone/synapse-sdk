@@ -1,6 +1,5 @@
 import type * as SentryBrowser from '@sentry/browser'
 import type * as SentryNode from '@sentry/node'
-import { createError as originalCreateError } from '../utils/errors.ts'
 
 /**
  * The telemetry module here and elsewhere needs to know whether we're running in a browser context or not.
@@ -29,4 +28,57 @@ export async function getSentry(): Promise<SentryType | null> {
     // Sentry dependencies not available (optional peer dependencies)
     return null
   }
+}
+
+/**
+ * Map of regex patterns to their replacement strings for URL sanitization.
+ * Order matters: more specific patterns should come before more general ones.
+ */
+const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
+  // Remove query parameters to reduce cardinality
+  [/\?.+/, ''],
+
+  // Replace UUIDs (format: 8-4-4-4-12 hex digits)
+  [/\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '/<UUID>'],
+
+  // Replace CIDs (Content Identifiers - bafk, bafy, etc.)
+  [/\/baf[a-z0-9]{50,}/g, '/<CID>'],
+
+  // Replace transaction hashes (0x followed by 16+ hex chars)
+  [/\/0x[a-f0-9]{16,}/gi, '/<txHash>'],
+
+  // Replace numeric IDs in paths (e.g., dataset IDs)
+  [/\/[0-9]+\b/gi, '/<ID>'],
+]
+
+/**
+ * Sanitizes a URL for use in span names by replacing variable parts with placeholders.
+ * This improves span grouping and reduces cardinality in telemetry data.
+ *
+ * Replacements:
+ * - Query parameters → removed entirely
+ * - UUIDs (8-4-4-4-12 format) → /<UUID>
+ * - CIDs (bafk..., bafy...) → /<CID>
+ * - Transaction hashes (0x + 16+ hex chars) → /<txHash>
+ * - Numeric IDs → /<ID>
+ *
+ * @param url - The URL to sanitize
+ * @returns Sanitized URL string suitable for span naming
+ *
+ * @example
+ * sanitizeUrlForSpan('GET https://pdp.com/pdp/piece/bafkzcibf7pc.../status?foo=bar')
+ * // Returns: 'GET https://pdp.com/pdp/piece/<CID>/status'
+ *
+ * @example
+ * sanitizeUrlForSpan('POST https://pdp.com/pdp/data-sets/27/pieces/added/0xabc123...')
+ * // Returns: 'POST https://pdp.com/pdp/data-sets/<ID>/pieces/added/<txHash>'
+ */
+export function sanitizeUrlForSpan(url: string): string {
+  let sanitized = url
+
+  for (const [pattern, replacement] of URL_SANITIZATION_PATTERNS) {
+    sanitized = sanitized.replace(pattern, replacement)
+  }
+
+  return sanitized
 }

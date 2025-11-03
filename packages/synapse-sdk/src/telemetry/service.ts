@@ -17,12 +17,24 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, isBrowser, type SentryBrowserType, type SentryType } from './utils.ts'
+import { getSentry, isBrowser, type SentryBrowserType, type SentryType, sanitizeUrlForSpan } from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
 
 type SentryBeforeSendFunction = (event: ErrorEvent, hint: EventHint) => Promise<ErrorEvent | null>
+
+/**
+ * Extract the beforeSendSpan function type from BrowserOptions.
+ * This ensures we match Sentry's expected signature exactly.
+ */
+type SentryBeforeSendSpanFunction = NonNullable<BrowserOptions['beforeSendSpan']>
+
+/**
+ * Extract the span parameter type from beforeSendSpan.
+ * This is the JSON representation of a span that Sentry sends to the hook.
+ */
+type SpanJSON = Parameters<SentryBeforeSendSpanFunction>[0]
 
 export interface TelemetryConfig {
   /**
@@ -109,6 +121,7 @@ export class TelemetryService {
       integrations,
       ...config.sentryInitOptions,
       beforeSend: this.createBeforeSend(config),
+      beforeSendSpan: this.createBeforeSendSpan(config),
       release: `@filoz/synapse-sdk@v${SDK_VERSION}`,
     })
 
@@ -150,6 +163,35 @@ export class TelemetryService {
 
       return event
     }) satisfies SentryBeforeSendFunction
+  }
+
+  /**
+   * Create a function that sanitizes span descriptions before sending to Sentry.
+   * This function is intended to be set to [Sentry's `beforeSendSpan` option](https://docs.sentry.io/platforms/javascript/configuration/options/#beforeSendSpan).
+   * If the TelemetryConfig specified a `beforeSendSpan` function, that function will be called first, then sanitization will be applied.
+   * The sanitization replaces variable parts (UUIDs, CIDs, transaction hashes, numeric IDs) with placeholders to improve span grouping and reduce cardinality.
+   * Only applies to spans with descriptions that start with HTTP verbs (GET, POST, PUT, etc.).
+   * @param config
+   * @returns Function that can be set for `beforeSendSpan` Sentry option.
+   */
+  protected createBeforeSendSpan(config: TelemetryConfig): SentryBeforeSendSpanFunction {
+    const httpVerbPattern = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s/i
+
+    return ((span: SpanJSON) => {
+      // Call user-provided beforeSendSpan first, if it exists
+      let modifiedSpan = span
+      if (config.sentryInitOptions?.beforeSendSpan != null) {
+        modifiedSpan = config.sentryInitOptions.beforeSendSpan(span)
+      }
+
+      // Sanitize the span description to reduce cardinality (only for HTTP verb spans)
+      // beforeSendSpan receives a plain JSON object with a description property
+      if (modifiedSpan.description && httpVerbPattern.test(modifiedSpan.description)) {
+        modifiedSpan.description = sanitizeUrlForSpan(modifiedSpan.description)
+      }
+
+      return modifiedSpan
+    }) satisfies SentryBeforeSendSpanFunction
   }
 
   /**

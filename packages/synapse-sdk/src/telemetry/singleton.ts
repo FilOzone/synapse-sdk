@@ -241,6 +241,7 @@ function wrapFetch(): void {
      * For this case, since there isn't an active span already, we will create one.
      * This root wrapper span will effectively have the same duration as the child auto-instrumented-by-Sentry HTTP request span.
      * These wrapper spans can be filtered out in the [Sentry Trace explorer](https://filoz.sentry.io/explore/traces) with `!span.op:http.wrapper`
+     * Note: URL sanitization is handled by the beforeSendSpan hook in service.ts
      */
     return sentry.startSpan(
       {
