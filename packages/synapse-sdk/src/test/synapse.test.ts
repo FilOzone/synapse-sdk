@@ -938,65 +938,6 @@ describe('Synapse', () => {
       }
     })
 
-    it('selects providers specified by address', async () => {
-      const contexts = await synapse.storage.createContexts({
-        providerAddresses: [mockProviders[1].info.serviceProvider, mockProviders[0].info.serviceProvider],
-      })
-      assert.equal(contexts.length, 2)
-      assert.equal(BigInt(contexts[1].provider.id), mockProviders[0].providerId)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[1].providerId)
-      // should create new data sets
-      assert.equal((contexts[1] as any)._dataSetId, undefined)
-      assert.equal((contexts[0] as any)._dataSetId, undefined)
-    })
-
-    it('uses existing data set specified by provider address when metadata matches', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        providerAddresses: [mockProviders[0].info.serviceProvider],
-        metadata,
-        count: 1,
-      })
-      assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
-      // should use existing data set
-      assert.equal((contexts[0] as any)._dataSetId, 1n)
-    })
-
-    it('force creates new data set with provider specified address even when metadata matches', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        providerAddresses: [mockProviders[0].info.serviceProvider],
-        metadata,
-        count: 1,
-        forceCreateDataSets: true,
-      })
-      assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
-      // should create new data sets
-      assert.equal((contexts[0] as any)._dataSetId, undefined)
-    })
-
-    it('fails when provided an invalid provider address', async () => {
-      try {
-        await synapse.storage.createContexts({
-          providerAddresses: [ADDRESSES.client1],
-        })
-        assert.fail('Expected createContexts to fail for invalid specified provider address')
-      } catch (error: any) {
-        assert.equal(
-          error?.message,
-          `StorageContext resolveByProviderAddress failed: Provider ${ADDRESSES.client1} not found in registry`
-        )
-      }
-    })
-
     it('selects providers specified by data set id', async () => {
       const contexts1 = await synapse.storage.createContexts({
         count: 1,
@@ -1049,21 +990,6 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         count: 2,
         providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
-        metadata,
-      })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
-    })
-
-    it('does not create multiple contexts for the same data set from duplicate providerAddresses', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        count: 2,
-        providerAddresses: [mockProviders[0].info.serviceProvider, mockProviders[0].info.serviceProvider],
         metadata,
       })
       assert.equal(contexts.length, 2)

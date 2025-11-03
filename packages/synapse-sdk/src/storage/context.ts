@@ -185,14 +185,14 @@ export class StorageContext {
   static async createContexts(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
-    options: CreateContextsOptions = {}
+    options: CreateContextsOptions
   ): Promise<StorageContext[]> {
     const count = options?.count ?? 2
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = await synapse.getClient().getAddress()
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
     const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
-    if (options?.dataSetIds) {
+    if (options.dataSetIds) {
       for (const dataSetId of new Set(options.dataSetIds)) {
         const resolution = await StorageContext.resolveByDataSetId(
           dataSetId,
@@ -213,7 +213,7 @@ export class StorageContext {
       }
     }
     if (resolutions.length < count) {
-      if (options?.providerIds) {
+      if (options.providerIds) {
         for (const providerId of options.providerIds) {
           const resolution = await StorageContext.resolveByProviderId(
             clientAddress,
@@ -221,22 +221,6 @@ export class StorageContext {
             options.metadata ?? {},
             warmStorageService,
             spRegistry,
-            resolutions.map((resolution) => resolution.dataSetId),
-            options.forceCreateDataSets
-          )
-          resolutions.push(resolution)
-          if (resolutions.length >= count) {
-            break
-          }
-        }
-      } else if (options?.providerAddresses) {
-        for (const providerAddress of options.providerAddresses) {
-          const resolution = await StorageContext.resolveByProviderAddress(
-            providerAddress,
-            warmStorageService,
-            spRegistry,
-            clientAddress,
-            options.metadata ?? {},
             resolutions.map((resolution) => resolution.dataSetId),
             options.forceCreateDataSets
           )

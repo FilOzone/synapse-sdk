@@ -306,13 +306,9 @@ export interface CreateContextsOptions {
    */
   dataSetIds?: number[]
   /**
-   * Specific provider IDs to use (if not using providerAddresses)
+   * Specific provider IDs to use
    */
   providerIds?: number[]
-  /**
-   * Specific provider addresses to use (if not using providerIds)
-   */
-  providerAddresses?: string[]
   /** Do not select any of these providers */
   excludeProviderIds?: number[]
   /** Whether to enable CDN services */
