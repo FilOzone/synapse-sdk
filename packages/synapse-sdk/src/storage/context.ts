@@ -245,9 +245,9 @@ export class StorageContext {
             warmStorageService,
             spRegistry,
             excludeProviderIds,
-            options.forceCreateDataSets,
-            options.withIpni,
-            options.dev
+            options.forceCreateDataSets ?? false,
+            options.withIpni ?? false,
+            options.dev ?? false
           )
           excludeProviderIds.push(resolution.provider.id)
           resolutions.push(resolution)
@@ -374,10 +374,10 @@ export class StorageContext {
       requestedMetadata,
       warmStorageService,
       spRegistry,
-      options.excludeProviderIds,
-      options.forceCreateDataSet,
-      options.withIpni,
-      options.dev
+      options.excludeProviderIds ?? [],
+      options.forceCreateDataSet ?? false,
+      options.withIpni ?? false,
+      options.dev ?? false
     )
   }
 
@@ -591,10 +591,10 @@ export class StorageContext {
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
-    excludeProviderIds?: number[],
-    forceCreateDataSet?: boolean,
-    withIpni?: boolean,
-    dev?: boolean
+    excludeProviderIds: number[],
+    forceCreateDataSet: boolean,
+    withIpni: boolean,
+    dev: boolean
   ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
@@ -707,8 +707,8 @@ export class StorageContext {
    */
   private static async selectRandomProvider(
     providers: ProviderInfo[],
-    withIpni?: boolean,
-    dev?: boolean
+    withIpni: boolean,
+    dev: boolean
   ): Promise<ProviderInfo> {
     if (providers.length === 0) {
       throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
@@ -740,10 +740,10 @@ export class StorageContext {
    */
   private static async selectProviderWithPing(
     providers: AsyncIterable<ProviderInfo>,
-    options?: { withIpni?: boolean; dev?: boolean }
+    options: { withIpni: boolean; dev: boolean }
   ): Promise<ProviderInfo> {
     let providerCount = 0
-    const { withIpni, dev } = options ?? {}
+    const { withIpni, dev } = options
 
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
