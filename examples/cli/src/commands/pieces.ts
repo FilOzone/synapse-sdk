@@ -58,6 +58,7 @@ export const pieces: Command = command(
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
             const rsp = await getPieces(publicClient, {
+              // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
               dataSet: dataSets.find((dataSet) => dataSet.dataSetId === dataSetId)!,
               address: account.address,
             })
@@ -98,6 +99,7 @@ export const pieces: Command = command(
       )
 
       if (group.action === 'info') {
+        // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const metadata = await readContract(publicClient, {
           address: calibration.contracts.storageView.address,
@@ -117,6 +119,7 @@ export const pieces: Command = command(
         )
       } else if (group.action === 'delete') {
         spinner.start('Deleting piece...')
+        // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const synapse = await Synapse.create({
           privateKey: privateKey as Hex,

@@ -35,7 +35,7 @@ export function UploadsSection({
     if (!dataSet && dataSets && dataSets.length > 0) {
       setDataSet(dataSets[0].dataSetId.toString())
     }
-  }, [dataSets])
+  }, [dataSets, dataSet])
 
   const {
     mutate: upload,

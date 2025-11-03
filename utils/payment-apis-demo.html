@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,17 +13,20 @@
             padding: 20px;
             background: #f5f5f5;
         }
+
         h1 {
             color: #333;
             margin-bottom: 30px;
         }
+
         .section {
             background: white;
             padding: 20px;
             margin-bottom: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         button {
             background: #4CAF50;
             color: white;
@@ -33,13 +37,16 @@
             cursor: pointer;
             font-size: 14px;
         }
+
         button:hover {
             background: #45a049;
         }
+
         button:disabled {
             background: #ddd;
             cursor: not-allowed;
         }
+
         .error {
             color: #f44336;
             padding: 10px;
@@ -47,6 +54,7 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+
         .success {
             color: #4CAF50;
             padding: 10px;
@@ -54,6 +62,7 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+
         .result {
             background: #f0f0f0;
             padding: 15px;
@@ -66,26 +75,32 @@
             overflow-y: auto;
             margin: 10px 0;
         }
+
         .status {
             padding: 10px;
             background: #e3f2fd;
             border-radius: 4px;
             margin-bottom: 20px;
         }
+
         .input-group {
             margin: 10px 0;
         }
+
         .input-group label {
             display: inline-block;
             width: 150px;
             font-weight: bold;
         }
-        .input-group input, .input-group select {
+
+        .input-group input,
+        .input-group select {
             padding: 5px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             width: 300px;
         }
+
         .warning {
             color: #ff9800;
             padding: 10px;
@@ -95,22 +110,20 @@
         }
     </style>
 </head>
+
 <body>
     <h1>Synapse SDK - Enhanced Payment APIs Demo</h1>
-    
     <div class="status">
         <strong>Status:</strong> <span id="status">Not connected</span><br>
         <strong>Wallet:</strong> <span id="wallet">None</span><br>
         <strong>Network:</strong> <span id="network">None</span><br>
         <strong>Warm Storage Contract:</strong> <span id="warmStorage">Not configured</span>
     </div>
-
     <div class="section">
         <h2>Connection</h2>
         <button id="connectBtn">Connect MetaMask</button>
         <div id="connectionResult"></div>
     </div>
-
     <div class="section">
         <h2>Warm Storage Contract Configuration</h2>
         <div class="input-group">
@@ -118,9 +131,9 @@
             <input type="text" id="warmStorageAddressInput" placeholder="0x..." value="">
             <button id="updateWarm StorageBtn" disabled>Update Warm Storage Address</button>
         </div>
-        <div id="warmStorageStatus" class="warning">Storage cost functions require Warm Storage contract to be configured</div>
+        <div id="warmStorageStatus" class="warning">Storage cost functions require Warm Storage contract to be
+            configured</div>
     </div>
-
     <div class="section">
         <h2>Account Information</h2>
         <button id="accountInfoBtn" disabled>Get Account Info</button>
@@ -128,7 +141,6 @@
         <button id="getCurrentEpochBtn" disabled>Get Current Epoch</button>
         <div id="accountResult" class="result"></div>
     </div>
-
     <div class="section">
         <h2>Storage Cost Calculator</h2>
         <div class="input-group">
@@ -148,14 +160,11 @@
         </div>
         <button id="calculateCostBtn" disabled>Calculate Storage Costs</button>
         <div id="costResult" class="result"></div>
-        
         <div id="fundingAnalysis" style="margin-top: 20px; display: none;">
             <h3>Funding Analysis</h3>
             <div id="fundingAnalysisResult"></div>
         </div>
     </div>
-
-
     <div class="section">
         <h2>Storage Allowance Checker</h2>
         <p style="font-size: 14px; color: #666;">Checks allowances for the Warm Storage contract shown above</p>
@@ -178,18 +187,14 @@
         <button id="prepareUploadBtn" disabled>Prepare Storage Upload</button>
         <div id="allowanceResult" class="result"></div>
     </div>
-
-
     <!-- Load ethers.js first -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
     <!-- Load Synapse SDK browser bundle -->
     <script src="../dist/browser/synapse-sdk.min.js"></script>
-    
     <script>
         let synapse = null;
         let payments = null;
         let warmStorageService = null;
-        let warmStorageAddress = null;
 
         // Format bigint for display
         function formatBigInt(value, decimals = 18) {
@@ -208,7 +213,7 @@
             if (isError) {
                 element.innerHTML = `<div class="error">${data}</div>`;
             } else {
-                element.innerHTML = `<pre class="result">${JSON.stringify(data, (key, value) => {
+                element.innerHTML = `<pre class="result">${JSON.stringify(data, (_key, value) => {
                     // Handle BigInt serialization
                     if (typeof value === 'bigint') {
                         return `${value.toString()} (${formatBigInt(value)} tokens)`;
@@ -246,12 +251,12 @@
                 const provider = new ethers.BrowserProvider(window.ethereum);
                 const signer = await provider.getSigner();
                 const address = await signer.getAddress();
-                
+
                 // Get network
                 const network = await provider.getNetwork();
-                const networkName = network.chainId === 314159n ? 'calibration' : 
-                                   network.chainId === 314n ? 'mainnet' : 
-                                   `unknown (${network.chainId})`;
+                const networkName = network.chainId === 314159n ? 'calibration' :
+                    network.chainId === 314n ? 'mainnet' :
+                        `unknown (${network.chainId})`;
 
                 // Check if we're on a supported network
                 if (network.chainId !== 314159n && network.chainId !== 314n) {
@@ -265,27 +270,27 @@
                 });
 
                 payments = synapse.payments;
-                
+
                 // Initialize Warm StorageService with appropriate address based on network
-                const warmStorageAddress = network.chainId === 314159n 
+                const warmStorageAddress = network.chainId === 314159n
                     ? '0xf49ba5eaCdFD5EE3744efEdf413791935FE4D4c5'  // calibration
                     : ''; // TODO: mainnet address
-                    
+
                 if (warmStorageAddress) {
                     warmStorageService = new SynapseSDK.WarmStorageService(provider, warmStorageAddress);
                     window.warmStorageAddress = warmStorageAddress; // Store for later use
                     window.provider = provider; // Store provider for later use
-                    
+
                     // Set the address in the input field
                     document.getElementById('warmStorageAddressInput').value = warmStorageAddress;
-                    
+
                     // Update status
-                    document.getElementById('warmStorageStatus').innerHTML = 
-                        '<span style="color: #4CAF50;">✓ Warm Storage configured at ' + warmStorageAddress + '</span>';
+                    document.getElementById('warmStorageStatus').innerHTML =
+                        `<span style="color: #4CAF50;">✓ Warm Storage configured at ${warmStorageAddress}</span>`;
                     document.getElementById('warmStorageStatus').className = 'success';
                 } else {
-                    document.getElementById('warmStorageStatus').innerHTML = 
-                        '<span style="color: #f44336;">✗ No Warm Storage address for ' + networkName + ' network</span>';
+                    document.getElementById('warmStorageStatus').innerHTML =
+                        `<span style="color: #f44336;">✗ No Warm Storage address for ${networkName} network</span>`;
                     document.getElementById('warmStorageStatus').className = 'error';
                 }
 
@@ -293,14 +298,14 @@
                 if (warmStorageAddress) {
                     document.getElementById('warmStorage').textContent = warmStorageAddress;
                 } else {
-                    document.getElementById('warmStorage').textContent = 'Not available for ' + networkName;
+                    document.getElementById('warmStorage').textContent = `Not available for ${networkName}`;
                 }
-                showResult('connectionResult', { 
-                    connected: true, 
-                    address, 
-                    network: networkName 
+                showResult('connectionResult', {
+                    connected: true,
+                    address,
+                    network: networkName
                 });
-                
+
                 enableButtons();
             } catch (error) {
                 showResult('connectionResult', error.message, true);
@@ -312,38 +317,38 @@
         document.getElementById('updateWarm StorageBtn').addEventListener('click', async () => {
             try {
                 const newAddress = document.getElementById('warmStorageAddressInput').value.trim();
-                
+
                 // Basic validation
                 if (!newAddress) {
                     throw new Error('Please enter a Warm Storage contract address');
                 }
-                
+
                 if (!newAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
                     throw new Error('Invalid Ethereum address format');
                 }
-                
+
                 if (!window.provider) {
                     throw new Error('Not connected to network');
                 }
-                
+
                 // Create new Warm StorageService instance
                 warmStorageService = new SynapseSDK.WarmStorageService(window.provider, newAddress);
                 window.warmStorageAddress = newAddress;
-                
+
                 // Update status displays
                 document.getElementById('warmStorage').textContent = newAddress;
-                document.getElementById('warmStorageStatus').innerHTML = 
-                    '<span style="color: #4CAF50;">✓ Warm Storage configured at ' + newAddress + '</span>';
+                document.getElementById('warmStorageStatus').innerHTML =
+                    `<span style="color: #4CAF50;">✓ Warm Storage configured at ${newAddress}</span>`;
                 document.getElementById('warmStorageStatus').className = 'success';
-                
-                showResult('connectionResult', { 
+
+                showResult('connectionResult', {
                     warmStorageUpdated: true,
                     address: newAddress,
                     message: 'Warm Storage service updated successfully'
                 });
             } catch (error) {
-                document.getElementById('warmStorageStatus').innerHTML = 
-                    '<span style="color: #f44336;">✗ Error: ' + error.message + '</span>';
+                document.getElementById('warmStorageStatus').innerHTML =
+                    `<span style="color: #f44336;">✗ Error: ${error.message}</span>`;
                 document.getElementById('warmStorageStatus').className = 'error';
                 showResult('connectionResult', error.message, true);
             }
@@ -355,14 +360,14 @@
                 const info = await payments.accountInfo();
                 showResult('accountResult', {
                     funds: info.funds.toString(),
-                    fundsFormatted: formatBigInt(info.funds) + ' USDFC',
+                    fundsFormatted: `${formatBigInt(info.funds)} USDFC`,
                     lockupCurrent: info.lockupCurrent.toString(),
-                    lockupCurrentFormatted: formatBigInt(info.lockupCurrent) + ' USDFC',
+                    lockupCurrentFormatted: `${formatBigInt(info.lockupCurrent)} USDFC`,
                     lockupRate: info.lockupRate.toString(),
-                    lockupRateFormatted: formatBigInt(info.lockupRate) + ' USDFC/epoch',
+                    lockupRateFormatted: `${formatBigInt(info.lockupRate)} USDFC/epoch`,
                     lockupLastSettledAt: info.lockupLastSettledAt.toString(),
                     availableFunds: info.availableFunds.toString(),
-                    availableFundsFormatted: formatBigInt(info.availableFunds) + ' USDFC'
+                    availableFundsFormatted: `${formatBigInt(info.availableFunds)} USDFC`
                 });
             } catch (error) {
                 showResult('accountResult', error.message, true);
@@ -375,14 +380,14 @@
                 const filBalance = await payments.walletBalance();
                 const usdfcBalance = await payments.walletBalance(SynapseSDK.TOKENS.USDFC);
                 const paymentsBalance = await payments.balance();
-                
+
                 showResult('accountResult', {
                     walletFIL: filBalance.toString(),
-                    walletFILFormatted: formatBigInt(filBalance) + ' FIL',
+                    walletFILFormatted: `${formatBigInt(filBalance)} FIL`,
                     walletUSDFC: usdfcBalance.toString(),
-                    walletUSDFCFormatted: formatBigInt(usdfcBalance) + ' USDFC',
+                    walletUSDFCFormatted: `${formatBigInt(usdfcBalance)} USDFC`,
                     paymentsContractUSDFC: paymentsBalance.toString(),
-                    paymentsContractUSDFCFormatted: formatBigInt(paymentsBalance) + ' USDFC'
+                    paymentsContractUSDFCFormatted: `${formatBigInt(paymentsBalance)} USDFC`
                 });
             } catch (error) {
                 showResult('accountResult', error.message, true);
@@ -405,10 +410,10 @@
         document.getElementById('calculateCostBtn').addEventListener('click', async () => {
             try {
                 const sizeValue = parseFloat(document.getElementById('dataSizeInput').value);
-                const unitMultiplier = parseInt(document.getElementById('dataSizeUnit').value);
+                const unitMultiplier = parseInt(document.getElementById('dataSizeUnit').value, 10);
                 const sizeBytes = Math.floor(sizeValue * unitMultiplier);
                 const withCDN = document.getElementById('costWithCDNCheckbox').checked;
-                
+
                 // Format the size for display
                 let sizeDisplay;
                 if (unitMultiplier === 1) {
@@ -420,79 +425,79 @@
                 } else if (unitMultiplier === 1099511627776) {
                     sizeDisplay = `${sizeValue} TiB`;
                 }
-                
+
                 if (!warmStorageService) {
                     throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
                 const costs = await warmStorageService.calculateStorageCost(sizeBytes);
                 const selectedCost = withCDN ? costs.withCDN : costs;
-                
+
                 showResult('costResult', {
                     size: sizeDisplay,
                     sizeBytes,
                     pricingNote: 'Pricing is fetched from the Warm Storage contract on-chain',
                     withoutCDN: {
                         perEpoch: costs.perEpoch.toString(),
-                        perEpochFormatted: formatBigInt(costs.perEpoch) + ' USDFC',
+                        perEpochFormatted: `${formatBigInt(costs.perEpoch)} USDFC`,
                         perDay: costs.perDay.toString(),
-                        perDayFormatted: formatBigInt(costs.perDay) + ' USDFC',
+                        perDayFormatted: `${formatBigInt(costs.perDay)} USDFC`,
                         perMonth: costs.perMonth.toString(),
-                        perMonthFormatted: formatBigInt(costs.perMonth) + ' USDFC'
+                        perMonthFormatted: `${formatBigInt(costs.perMonth)} USDFC`
                     },
                     withCDN: {
                         perEpoch: costs.withCDN.perEpoch.toString(),
-                        perEpochFormatted: formatBigInt(costs.withCDN.perEpoch) + ' USDFC',
+                        perEpochFormatted: `${formatBigInt(costs.withCDN.perEpoch)} USDFC`,
                         perDay: costs.withCDN.perDay.toString(),
-                        perDayFormatted: formatBigInt(costs.withCDN.perDay) + ' USDFC',
+                        perDayFormatted: `${formatBigInt(costs.withCDN.perDay)} USDFC`,
                         perMonth: costs.withCDN.perMonth.toString(),
-                        perMonthFormatted: formatBigInt(costs.withCDN.perMonth) + ' USDFC'
+                        perMonthFormatted: `${formatBigInt(costs.withCDN.perMonth)} USDFC`
                     }
                 });
-                
+
                 // Perform funding analysis
                 document.getElementById('fundingAnalysis').style.display = 'block';
                 try {
                     // Get account info
                     const accountInfo = await payments.accountInfo();
-                    
+
                     // Check allowances
                     const allowanceCheck = await warmStorageService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
-                    
+
                     // Calculate the required funds
                     const requiredBalance = selectedCost.perMonth; // At least 1 month of storage
                     const hasEnoughFunds = accountInfo.availableFunds >= requiredBalance;
-                    
+
                     // Prepare the analysis HTML
-                    let analysisHTML = '<div class="' + (hasEnoughFunds && allowanceCheck.sufficient ? 'success' : 'warning') + '">';
-                    
-                    analysisHTML += '<h4>Payment Requirements for ' + sizeDisplay + ' of Storage' + (withCDN ? ' with CDN' : '') + ':</h4>';
-                    
+                    let analysisHTML = `<div class="${hasEnoughFunds && allowanceCheck.sufficient ? 'success' : 'warning'}">`;
+
+                    analysisHTML += `<h4>Payment Requirements for ${sizeDisplay} of Storage${withCDN ? ' with CDN' : ''}:</h4>`;
+
                     // Storage cost breakdown
                     analysisHTML += '<p><strong>Storage Costs:</strong></p>';
                     analysisHTML += '<ul>';
-                    analysisHTML += '<li>Per Epoch: ' + formatBigInt(selectedCost.perEpoch) + ' USDFC</li>';
-                    analysisHTML += '<li>Per Day: ' + formatBigInt(selectedCost.perDay) + ' USDFC</li>';
-                    analysisHTML += '<li>Per Month: ' + formatBigInt(selectedCost.perMonth) + ' USDFC</li>';
+                    analysisHTML += `<li>Per Epoch: ${formatBigInt(selectedCost.perEpoch)} USDFC</li>`;
+                    analysisHTML += `<li>Per Day: ${formatBigInt(selectedCost.perDay)} USDFC</li>`;
+                    analysisHTML += `<li>Per Month: ${formatBigInt(selectedCost.perMonth)} USDFC</li>`;
                     analysisHTML += '</ul>';
-                    
+
                     // Account balance check
                     analysisHTML += '<p><strong>Balance Check:</strong></p>';
                     analysisHTML += '<ul>';
-                    analysisHTML += '<li>Available Balance: ' + formatBigInt(accountInfo.availableFunds) + ' USDFC</li>';
-                    analysisHTML += '<li>Required for 1 Month: ' + formatBigInt(requiredBalance) + ' USDFC</li>';
-                    analysisHTML += '<li>Status: ' + (hasEnoughFunds ? '✅ Sufficient funds' : '❌ Insufficient funds (need to deposit ' + formatBigInt(requiredBalance - accountInfo.availableFunds) + ' USDFC)') + '</li>';
+                    analysisHTML += `<li>Available Balance: ${formatBigInt(accountInfo.availableFunds)} USDFC</li>`;
+                    analysisHTML += `<li>Required for 1 Month: ${formatBigInt(requiredBalance)} USDFC</li>`;
+                    analysisHTML += `<li>Status: ${hasEnoughFunds ? '✅ Sufficient funds' : `❌ Insufficient funds (need to deposit ${formatBigInt(requiredBalance - accountInfo.availableFunds)} USDFC)`}</li>`;
                     analysisHTML += '</ul>';
-                    
+
                     // Allowance check
                     analysisHTML += '<p><strong>Service Allowance Check:</strong></p>';
                     analysisHTML += '<ul>';
-                    analysisHTML += '<li>Rate Allowance Needed: ' + formatBigInt(allowanceCheck.rateAllowanceNeeded) + ' USDFC/epoch</li>';
-                    analysisHTML += '<li>Current Rate Allowance: ' + formatBigInt(allowanceCheck.currentRateAllowance) + ' USDFC/epoch</li>';
-                    analysisHTML += '<li>Lockup Allowance Needed: ' + formatBigInt(allowanceCheck.lockupAllowanceNeeded) + ' USDFC</li>';
-                    analysisHTML += '<li>Current Lockup Allowance: ' + formatBigInt(allowanceCheck.currentLockupAllowance) + ' USDFC</li>';
-                    analysisHTML += '<li>Status: ' + (allowanceCheck.sufficient ? '✅ Sufficient allowances' : '❌ ' + allowanceCheck.message) + '</li>';
+                    analysisHTML += `<li>Rate Allowance Needed: ${formatBigInt(allowanceCheck.rateAllowanceNeeded)} USDFC/epoch</li>`;
+                    analysisHTML += `<li>Current Rate Allowance: ${formatBigInt(allowanceCheck.currentRateAllowance)} USDFC/epoch</li>`;
+                    analysisHTML += `<li>Lockup Allowance Needed: ${formatBigInt(allowanceCheck.lockupAllowanceNeeded)} USDFC</li>`;
+                    analysisHTML += `<li>Current Lockup Allowance: ${formatBigInt(allowanceCheck.currentLockupAllowance)} USDFC</li>`;
+                    analysisHTML += `<li>Status: ${allowanceCheck.sufficient ? '✅ Sufficient allowances' : `❌ ${allowanceCheck.message}`}</li>`;
                     analysisHTML += '</ul>';
-                    
+
                     // Understanding the requirements
                     analysisHTML += '<hr>';
                     analysisHTML += '<p><strong>Understanding the Requirements:</strong></p>';
@@ -501,7 +506,7 @@
                     analysisHTML += '<li><strong>Rate Allowance:</strong> This allows the Warm Storage service to charge you per epoch for ongoing storage. It\'s the maximum rate the service can set for payment rails.</li>';
                     analysisHTML += '<li><strong>Lockup Allowance:</strong> This is a security deposit (10 days worth of storage costs) that gets locked when creating a payment rail. It ensures you have funds to cover storage even if you stop depositing.</li>';
                     analysisHTML += '</ul>';
-                    
+
                     // Actions required
                     if (!hasEnoughFunds || !allowanceCheck.sufficient) {
                         analysisHTML += '<hr>';
@@ -509,27 +514,27 @@
                         analysisHTML += '<ol>';
                         if (!hasEnoughFunds) {
                             const depositNeeded = requiredBalance - accountInfo.availableFunds;
-                            analysisHTML += '<li>Deposit at least ' + formatBigInt(depositNeeded) + ' USDFC to the Payments contract</li>';
+                            analysisHTML += `<li>Deposit at least ${formatBigInt(depositNeeded)} USDFC to the Payments contract</li>`;
                         }
                         if (!allowanceCheck.sufficient) {
                             analysisHTML += '<li>Approve the Warm Storage service with:';
                             analysisHTML += '<ul>';
-                            analysisHTML += '<li>Rate Allowance: ' + formatBigInt(allowanceCheck.rateAllowanceNeeded) + ' USDFC/epoch</li>';
-                            analysisHTML += '<li>Lockup Allowance: ' + formatBigInt(allowanceCheck.lockupAllowanceNeeded) + ' USDFC</li>';
+                            analysisHTML += `<li>Rate Allowance: ${formatBigInt(allowanceCheck.rateAllowanceNeeded)} USDFC/epoch</li>`;
+                            analysisHTML += `<li>Lockup Allowance: ${formatBigInt(allowanceCheck.lockupAllowanceNeeded)} USDFC</li>`;
                             analysisHTML += '</ul></li>';
                         }
                         analysisHTML += '</ol>';
                     } else {
                         analysisHTML += '<hr>';
-                        analysisHTML += '<p><strong>✅ Ready to Add Pieces!</strong> You have sufficient funds and allowances to onboard ' + sizeDisplay + ' of data.</p>';
+                        analysisHTML += `<p><strong>✅ Ready to Add Pieces!</strong> You have sufficient funds and allowances to onboard ${sizeDisplay} of data.</p>`;
                     }
-                    
+
                     analysisHTML += '</div>';
-                    
+
                     document.getElementById('fundingAnalysisResult').innerHTML = analysisHTML;
-                    
+
                 } catch (error) {
-                    document.getElementById('fundingAnalysisResult').innerHTML = '<div class="error">Error performing funding analysis: ' + error.message + '</div>';
+                    document.getElementById('fundingAnalysisResult').innerHTML = `<div class="error">Error performing funding analysis: ${error.message}</div>`;
                 }
             } catch (error) {
                 showResult('costResult', error.message, true);
@@ -544,10 +549,10 @@
                     throw new Error('Warm StorageService not initialized. Please configure Warm Storage address first.');
                 }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
-                const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
+                const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value, 10);
                 const sizeBytes = Math.floor(sizeValue * unitMultiplier);
                 const withCDN = document.getElementById('withCDNCheckbox').checked;
-                
+
                 // Format the size for display
                 let sizeDisplay;
                 if (unitMultiplier === 1) {
@@ -559,12 +564,12 @@
                 } else if (unitMultiplier === 1099511627776) {
                     sizeDisplay = `${sizeValue} TiB`;
                 }
-                
+
                 if (!warmStorageService) {
                     throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
                 const check = await warmStorageService.checkAllowanceForStorage(sizeBytes, withCDN, payments);
-                
+
                 showResult('allowanceResult', {
                     service: window.warmStorageAddress || 'Unknown',
                     size: sizeDisplay,
@@ -572,17 +577,17 @@
                     sufficient: check.sufficient,
                     message: check.message || 'Allowances are sufficient',
                     rateAllowanceNeeded: check.rateAllowanceNeeded.toString(),
-                    rateAllowanceNeededFormatted: formatBigInt(check.rateAllowanceNeeded) + ' USDFC/epoch',
+                    rateAllowanceNeededFormatted: `${formatBigInt(check.rateAllowanceNeeded)} USDFC/epoch`,
                     lockupAllowanceNeeded: check.lockupAllowanceNeeded.toString(),
-                    lockupAllowanceNeededFormatted: formatBigInt(check.lockupAllowanceNeeded) + ' USDFC',
+                    lockupAllowanceNeededFormatted: `${formatBigInt(check.lockupAllowanceNeeded)} USDFC`,
                     currentRateAllowance: check.currentRateAllowance.toString(),
-                    currentRateAllowanceFormatted: formatBigInt(check.currentRateAllowance) + ' USDFC/epoch',
+                    currentRateAllowanceFormatted: `${formatBigInt(check.currentRateAllowance)} USDFC/epoch`,
                     currentLockupAllowance: check.currentLockupAllowance.toString(),
-                    currentLockupAllowanceFormatted: formatBigInt(check.currentLockupAllowance) + ' USDFC',
+                    currentLockupAllowanceFormatted: `${formatBigInt(check.currentLockupAllowance)} USDFC`,
                     currentRateUsed: check.currentRateUsed.toString(),
-                    currentRateUsedFormatted: formatBigInt(check.currentRateUsed) + ' USDFC/epoch',
+                    currentRateUsedFormatted: `${formatBigInt(check.currentRateUsed)} USDFC/epoch`,
                     currentLockupUsed: check.currentLockupUsed.toString(),
-                    currentLockupUsedFormatted: formatBigInt(check.currentLockupUsed) + ' USDFC'
+                    currentLockupUsedFormatted: `${formatBigInt(check.currentLockupUsed)} USDFC`
                 });
             } catch (error) {
                 showResult('allowanceResult', error.message, true);
@@ -596,10 +601,10 @@
                     throw new Error('Warm StorageService not initialized. Please configure Warm Storage address first.');
                 }
                 const sizeValue = parseFloat(document.getElementById('allowanceDataSizeInput').value);
-                const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value);
+                const unitMultiplier = parseInt(document.getElementById('allowanceDataSizeUnit').value, 10);
                 const sizeBytes = Math.floor(sizeValue * unitMultiplier);
                 const withCDN = document.getElementById('withCDNCheckbox').checked;
-                
+
                 // Format the size for display
                 let sizeDisplay;
                 if (unitMultiplier === 1) {
@@ -611,7 +616,7 @@
                 } else if (unitMultiplier === 1099511627776) {
                     sizeDisplay = `${sizeValue} TiB`;
                 }
-                
+
                 if (!warmStorageService) {
                     throw new Error('Warm StorageService not initialized. Only supported on calibration network.');
                 }
@@ -619,26 +624,26 @@
                     dataSize: sizeBytes,
                     withCDN
                 }, payments);
-                
+
                 showResult('allowanceResult', {
                     size: sizeDisplay,
                     sizeBytes,
                     withCDN,
                     estimatedCost: {
                         perEpoch: prep.estimatedCost.perEpoch.toString(),
-                        perEpochFormatted: formatBigInt(prep.estimatedCost.perEpoch) + ' USDFC',
+                        perEpochFormatted: `${formatBigInt(prep.estimatedCost.perEpoch)} USDFC`,
                         perDay: prep.estimatedCost.perDay.toString(),
-                        perDayFormatted: formatBigInt(prep.estimatedCost.perDay) + ' USDFC',
+                        perDayFormatted: `${formatBigInt(prep.estimatedCost.perDay)} USDFC`,
                         perMonth: prep.estimatedCost.perMonth.toString(),
-                        perMonthFormatted: formatBigInt(prep.estimatedCost.perMonth) + ' USDFC'
+                        perMonthFormatted: `${formatBigInt(prep.estimatedCost.perMonth)} USDFC`
                     },
                     allowanceCheck: prep.allowanceCheck,
                     requiredActions: prep.actions.map(action => ({
                         type: action.type,
                         description: action.description
                     })),
-                    note: prep.actions.length > 0 ? 
-                        'Actions required before upload. Each action has an execute() method.' : 
+                    note: prep.actions.length > 0 ?
+                        'Actions required before upload. Each action has an execute() method.' :
                         'Ready to upload - no actions required!'
                 });
             } catch (error) {
@@ -648,4 +653,5 @@
 
     </script>
 </body>
+
 </html>
