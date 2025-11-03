@@ -35,9 +35,6 @@ export async function getSentry(): Promise<SentryType | null> {
  * Order matters: more specific patterns should come before more general ones.
  */
 const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
-  // Remove query parameters to reduce cardinality
-  [/\?.+/, ''],
-
   // Replace UUIDs (format: 8-4-4-4-12 hex digits)
   [/\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '/<UUID>'],
 
@@ -73,12 +70,23 @@ const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
  * sanitizeUrlForSpan('POST https://pdp.com/pdp/data-sets/27/pieces/added/0xabc123...')
  * // Returns: 'POST https://pdp.com/pdp/data-sets/<ID>/pieces/added/<txHash>'
  */
-export function sanitizeUrlForSpan(url: string): string {
-  let sanitized = url
+export function sanitizeUrlForSpan(sentrySpanUrlString: string): string {
+  const [httpMethod, urlString] = sentrySpanUrlString.includes(' ') ? sentrySpanUrlString.split(' ') : [null, sentrySpanUrlString]
+  try {
+    const url = new URL(urlString)
+    // sanitize pathname
+    let pathname = url.pathname
+    for (const [pattern, replacement] of URL_SANITIZATION_PATTERNS) {
+      pathname = pathname.replace(pattern, replacement)
+    }
 
-  for (const [pattern, replacement] of URL_SANITIZATION_PATTERNS) {
-    sanitized = sanitized.replace(pattern, replacement)
+    if (httpMethod != null) {
+      return `${httpMethod} ${url.origin}${pathname}`
+    }
+    return `${url.origin}${pathname}`
+  } catch (error) {
+    console.error('error sanitizing url %s', urlString, error)
+    // If the URL is invalid, return the original string
+    return urlString
   }
-
-  return sanitized
 }
