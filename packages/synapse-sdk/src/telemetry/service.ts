@@ -33,8 +33,12 @@ type SentryBeforeSendSpanFunction = NonNullable<BrowserOptions['beforeSendSpan']
 /**
  * Extract the span parameter type from beforeSendSpan.
  * This is the JSON representation of a span that Sentry sends to the hook.
+ * We extend it with additional properties that are present at runtime but not in the base type.
  */
-type SpanJSON = Parameters<SentryBeforeSendSpanFunction>[0]
+type SpanJSON = Parameters<SentryBeforeSendSpanFunction>[0] & {
+  op?: string
+  tags?: Record<string, string>
+}
 
 export interface TelemetryConfig {
   /**
@@ -188,6 +192,16 @@ export class TelemetryService {
       // beforeSendSpan receives a plain JSON object with a description property
       if (modifiedSpan.description && httpVerbPattern.test(modifiedSpan.description)) {
         modifiedSpan.description = sanitizeUrlForSpan(modifiedSpan.description)
+
+        // Ensure the url.* tags have a sanitized path as well
+        if (modifiedSpan.op === 'http.client') {
+          modifiedSpan.tags = {
+            ...modifiedSpan.tags,
+            // We call sanitizeUrlForSpan again here because modifiedSpan.description has a HTTP verb and a domain name before the path.
+            // The alternative is to remove the HTTP verb and domain name entirely.
+            'url.sanitizedPath': sanitizeUrlForSpan(modifiedSpan.tags?.['url.path'] ?? ''),
+          }
+        }
       }
 
       return modifiedSpan
