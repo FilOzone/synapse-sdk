@@ -45,7 +45,7 @@ const URL_SANITIZATION_PATTERNS: Array<[RegExp, string]> = [
   [/\/0x[a-f0-9]{16,}/gi, '/<txHash>'],
 
   // Replace numeric IDs in paths (e.g., dataset IDs)
-  [/\/[0-9]+\b/gi, '/<ID>'],
+  [/\/[0-9]+\b/g, '/<ID>'],
 ]
 
 /**
