@@ -162,7 +162,10 @@ export class TelemetryService {
    * @param config
    * @returns Function that can be set for `beforeSendSpan` Sentry option.
    */
-  protected createBeforeSendSpan(config: TelemetryConfig, globalTags: Record<string, string>): SentryBeforeSendSpanFunction {
+  protected createBeforeSendSpan(
+    config: TelemetryConfig,
+    globalTags: Record<string, string>
+  ): SentryBeforeSendSpanFunction {
     const httpVerbPattern = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE|CONNECT)\s/i
 
     return ((span) => {
