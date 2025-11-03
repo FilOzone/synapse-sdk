@@ -25,10 +25,10 @@ type SentrySetTags = Parameters<SentryType['setTags']>[0]
 type SentryBeforeSendFunction = (event: ErrorEvent, hint: EventHint) => Promise<ErrorEvent | null>
 
 /**
- * Extract the beforeSendSpan function type from BrowserOptions.
+ * Extract the beforeSendSpan function type from both BrowserOptions and NodeOptions.
  * This ensures we match Sentry's expected signature exactly.
  */
-type SentryBeforeSendSpanFunction = NonNullable<BrowserOptions['beforeSendSpan']>
+type SentryBeforeSendSpanFunction = NonNullable<SentryInitOptions['beforeSendSpan']>
 
 /**
  * Extract the span parameter type from beforeSendSpan.
