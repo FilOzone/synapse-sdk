@@ -78,7 +78,7 @@ This repo has a dev container configuration to enable one click setup of a devel
 
 Pull requests are how we make changes.
 
-Even tiny pull requests to fix typos or improve comments are welcome. Before submitting a significant PR, it is usually best to start by [opening an issue][issue] or [starting a discusssion][discussions]. Taking one of these steps increases the likelihood that your PR will be merged.
+Even tiny pull requests to fix typos or improve comments are welcome. Before submitting a significant PR, it is usually best to start by [opening an issue][issue] or [starting a discussion][discussions]. Taking one of these steps increases the likelihood that your PR will be merged.
 
 All commits must be signed before a pull request will be accepted. See the GitHub [signing commits][signing] and [telling git about your signing key][telling-git] documentation. We recommend generating a new SSH key for signing if you are setting up signing for the first time.
 
@@ -126,9 +126,30 @@ Rather than continuously releasing what's landed to our default branch, release-
 
 These Release PRs are kept up-to-date as additional work is merged. When we're ready to tag a release, we simply merge the release PR.
 
-When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs. Only merge ONE release PR at a time and wait for CI to finish before merging another.
+When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs. 
 
-Release PRs are created individually for each package in the mono repo.
+### How to merge the Release PRs?
+Overview:
+* Release PRs are created individually for each package in the mono repo.  
+* The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
+* Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
+* Dependent packages like `synapse-core` and `synapse-sdk` will have to resolve conflicts before merging because the `main` branch will have an updated `synapse-core` version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
+
+Below are the specific steps to take.  They use the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`.
+
+| # | Package | Step | Example |
+|---|---------|------|---------|
+| 1 | synapse-core | Find the `synapse-core` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/382) |
+| 2 | synapse-core | Merge the PR | |
+| 3 | synapse-core | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044395310) |
+| 4 | synapse-sdk | Find the `synapse-sdk` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/380) |
+| 5 | synapse-sdk | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/380/commits/ca1b61b8c87e306609cd4b3c6216bfc8f8a40348) |
+| 6 | synapse-sdk | Merge the PR | |
+| 7 | synapse-sdk | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044573289) |
+| 8 | synapse-react | Find the `synapse-react` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/381) |
+| 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
+| 10 | synapse-react | Merge the PR | |
+| 11 | synapse-react | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044833170) |
 
 ### How should I write my commits?
 

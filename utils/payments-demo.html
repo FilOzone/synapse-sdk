@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,7 +23,7 @@
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
 
@@ -34,14 +35,19 @@
             margin-right: 5px;
         }
 
-        .connected { background: #4CAF50; }
-        .disconnected { background: #f44336; }
+        .connected {
+            background: #4CAF50;
+        }
+
+        .disconnected {
+            background: #f44336;
+        }
 
         .section {
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
 
@@ -69,7 +75,8 @@
             color: #555;
         }
 
-        input, select {
+        input,
+        select {
             width: 100%;
             padding: 8px 12px;
             border: 1px solid #ddd;
@@ -171,8 +178,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .tab-container {
@@ -210,20 +222,19 @@
         }
     </style>
 </head>
+
 <body>
     <div class="header">
         <h1>Synapse Payments Demo</h1>
         <p>Interact with the Synapse SDK payment functionality using MetaMask</p>
     </div>
-
     <div class="connection-status">
         <h3>Connection Status</h3>
         <div id="connectionInfo">
             <p><span class="status-indicator disconnected"></span> Not connected to MetaMask</p>
-            <button onclick="connectWallet()">Connect MetaMask</button>
+            <button onclick="_connectWallet()">Connect MetaMask</button>
         </div>
     </div>
-
     <div class="section" id="balancesSection" style="display: none;">
         <h2>Account Balances</h2>
         <div class="balance-display">
@@ -244,25 +255,21 @@
         </div>
         <button onclick="refreshBalances()">Refresh Balances</button>
     </div>
-
     <div class="section" id="operationsSection" style="display: none;">
         <h2>Payment Operations</h2>
-
         <div class="tab-container">
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('deposit')">Deposit/Withdraw</button>
                 <button class="tab" onclick="switchTab('token')">Token Approvals</button>
                 <button class="tab" onclick="switchTab('service')">Service Approvals</button>
             </div>
-
             <!-- Deposit/Withdraw Tab -->
             <div class="tab-content active" id="depositTab">
                 <div class="grid">
                     <div>
                         <h3>Deposit USDFC</h3>
-                        <div class="info-box">
-                            Deposits USDFC from your wallet to the payments contract. This automatically handles token approval if needed.
-                        </div>
+                        <div class="info-box"> Deposits USDFC from your wallet to the payments contract. This
+                            automatically handles token approval if needed. </div>
                         <div class="form-group">
                             <label>Amount (USDFC):</label>
                             <input type="number" id="depositAmount" placeholder="10.0" step="0.1" min="0">
@@ -270,12 +277,9 @@
                         <button onclick="deposit()">Deposit</button>
                         <div id="depositResult"></div>
                     </div>
-
                     <div>
                         <h3>Withdraw USDFC</h3>
-                        <div class="info-box">
-                            Withdraws USDFC from the payments contract back to your wallet.
-                        </div>
+                        <div class="info-box"> Withdraws USDFC from the payments contract back to your wallet. </div>
                         <div class="form-group">
                             <label>Amount (USDFC):</label>
                             <input type="number" id="withdrawAmount" placeholder="10.0" step="0.1" min="0">
@@ -285,15 +289,12 @@
                     </div>
                 </div>
             </div>
-
             <!-- Token Approvals Tab -->
             <div class="tab-content" id="tokenTab">
                 <div class="grid">
                     <div>
                         <h3>Check Allowance</h3>
-                        <div class="info-box">
-                            Check how much USDFC a spender is allowed to use on your behalf.
-                        </div>
+                        <div class="info-box"> Check how much USDFC a spender is allowed to use on your behalf. </div>
                         <div class="form-group">
                             <label>Spender Address:</label>
                             <input type="text" id="allowanceSpender" placeholder="0x...">
@@ -302,12 +303,10 @@
                         <button onclick="checkAllowance()">Check Allowance</button>
                         <div id="allowanceResult"></div>
                     </div>
-
                     <div>
                         <h3>Approve Token Spending</h3>
-                        <div class="info-box">
-                            Approve a contract to spend USDFC on your behalf. Use this for manual control over approvals.
-                        </div>
+                        <div class="info-box"> Approve a contract to spend USDFC on your behalf. Use this for manual
+                            control over approvals. </div>
                         <div class="form-group">
                             <label>Spender Address:</label>
                             <input type="text" id="approveSpender" placeholder="0x...">
@@ -322,19 +321,16 @@
                     </div>
                 </div>
             </div>
-
             <!-- Service Approvals Tab -->
             <div class="tab-content" id="serviceTab">
                 <div>
                     <h3>Service Contract Approvals</h3>
-                    <div class="info-box">
-                        Service contracts need operator approval to create payment rails on your behalf. This is required before creating data sets.
-                        <br><br>
-                        <strong>Known Addresses on Calibration:</strong><br>
-                        • Payments Contract: <code>0x0E690D3e60B0576D01352AB03b258115eb84A047</code><br>
-                        • Rod's Warm Storage: <code>0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5</code>
+                    <div class="info-box"> Service contracts need operator approval to create payment rails on your
+                        behalf. This is required before creating data sets. <br><br>
+                        <strong>Known Addresses on Calibration:</strong><br> • Payments Contract:
+                        <code>0x0E690D3e60B0576D01352AB03b258115eb84A047</code><br> • Rod's Warm Storage:
+                        <code>0xBfDC4454c2B573079C6c5eA1DDeF6B8defC03dd5</code>
                     </div>
-
                     <div class="grid">
                         <div>
                             <h4>Check Service Approval</h4>
@@ -346,13 +342,13 @@
                             <button onclick="checkServiceApproval()">Check Approval</button>
                             <div id="checkServiceResult"></div>
                         </div>
-
                         <div>
                             <h4>Approve Service</h4>
                             <div class="form-group">
                                 <label>Service Contract Address:</label>
                                 <input type="text" id="approveServiceAddress" placeholder="0x...">
-                                <small style="color: #666;">On Calibration: 0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4</small>
+                                <small style="color: #666;">On Calibration:
+                                    0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4</small>
                             </div>
                             <div class="form-group">
                                 <label>Rate Allowance (USDFC per epoch):</label>
@@ -370,7 +366,6 @@
                             <button onclick="approveService()">Approve Service</button>
                             <div id="approveServiceResult"></div>
                         </div>
-
                         <div>
                             <h4>Revoke Service</h4>
                             <div class="form-group">
@@ -385,18 +380,16 @@
             </div>
         </div>
     </div>
-
     <!-- Load ethers and synapse-sdk -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
     <script src="../dist/browser/synapse-sdk.min.js"></script>
-
     <script>
         let synapse = null;
         let network = null;
         const { Synapse, CONTRACT_ADDRESSES, TOKENS } = window.SynapseSDK;
 
         // Tab switching
-        function switchTab(tabName) {
+        function _switchTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
@@ -407,11 +400,11 @@
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.getElementById(`${tabName}Tab`).classList.add('active');
         }
 
         // Connect wallet
-        async function connectWallet() {
+        async function _connectWallet() {
             try {
                 if (!window.ethereum) {
                     alert('Please install MetaMask to use this demo');
@@ -480,7 +473,7 @@
             }
         }
 
-        function disconnectWallet() {
+        function _disconnectWallet() {
             synapse = null;
             network = null;
             document.getElementById('connectionInfo').innerHTML = `
@@ -504,9 +497,9 @@
                     synapse.payments.balance(TOKENS.USDFC)
                 ]);
 
-                document.getElementById('filBalance').textContent = ethers.formatEther(filBalance) + ' FIL';
-                document.getElementById('usdfcWalletBalance').textContent = ethers.formatUnits(usdfcWalletBalance, 18) + ' USDFC';
-                document.getElementById('usdfcPaymentsBalance').textContent = ethers.formatUnits(usdfcPaymentsBalance, 18) + ' USDFC';
+                document.getElementById('filBalance').textContent = `${ethers.formatEther(filBalance)} FIL`;
+                document.getElementById('usdfcWalletBalance').textContent = `${ethers.formatUnits(usdfcWalletBalance, 18)} USDFC`;
+                document.getElementById('usdfcPaymentsBalance').textContent = `${ethers.formatUnits(usdfcPaymentsBalance, 18)} USDFC`;
 
             } catch (error) {
                 console.error('Error refreshing balances:', error);
@@ -514,7 +507,7 @@
         }
 
         // Deposit
-        async function deposit() {
+        async function _deposit() {
             try {
                 const amount = document.getElementById('depositAmount').value;
                 if (!amount) {
@@ -552,7 +545,7 @@
         }
 
         // Withdraw
-        async function withdraw() {
+        async function _withdraw() {
             try {
                 const amount = document.getElementById('withdrawAmount').value;
                 if (!amount) {
@@ -580,7 +573,7 @@
         }
 
         // Check allowance
-        async function checkAllowance() {
+        async function _checkAllowance() {
             try {
                 const spender = document.getElementById('allowanceSpender').value || synapse.getPaymentsAddress();
                 if (!spender) {
@@ -600,7 +593,7 @@
         }
 
         // Approve token
-        async function approveToken() {
+        async function _approveToken() {
             try {
                 const spender = document.getElementById('approveSpender').value || synapse.getPaymentsAddress();
                 const amount = document.getElementById('approveAmount').value;
@@ -627,7 +620,7 @@
         }
 
         // Check service approval
-        async function checkServiceApproval() {
+        async function _checkServiceApproval() {
             try {
                 const service = document.getElementById('checkServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 if (!service) {
@@ -656,7 +649,7 @@ Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLock
         }
 
         // Approve service
-        async function approveService() {
+        async function _approveService() {
             try {
                 const service = document.getElementById('approveServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 const rateAllowance = document.getElementById('rateAllowance').value;
@@ -723,7 +716,7 @@ Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLock
         }
 
         // Revoke service
-        async function revokeService() {
+        async function _revokeService() {
             try {
                 const service = document.getElementById('revokeServiceAddress').value || CONTRACT_ADDRESSES.WARM_STORAGE[network];
                 if (!service) {
@@ -777,4 +770,5 @@ Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLock
         });
     </script>
 </body>
+
 </html>
