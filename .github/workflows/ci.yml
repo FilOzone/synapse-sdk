@@ -41,8 +41,8 @@ jobs:
         run: pnpm run lint
       - name: Build
         run: pnpm run build
-      - name: Precommit Hook
-        run: .git/hooks/pre-commit
+      - name: Biome Check
+        run: pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true
 
   test-synapse-sdk:
     needs: lint
