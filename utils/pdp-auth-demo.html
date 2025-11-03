@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,41 +13,50 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
+
         .container {
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
+
         h1 {
             color: #333;
             text-align: center;
         }
+
         h2 {
             color: #555;
             border-bottom: 2px solid #eee;
             padding-bottom: 10px;
         }
+
         .form-group {
             margin-bottom: 15px;
         }
+
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
             color: #666;
         }
-        input[type="text"], input[type="number"] {
+
+        input[type="text"],
+        input[type="number"] {
             width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
         }
+
         input[type="checkbox"] {
             margin-right: 5px;
         }
+
         button {
             background-color: #4CAF50;
             color: white;
@@ -57,19 +67,24 @@
             font-size: 16px;
             margin-right: 10px;
         }
+
         button:hover {
             background-color: #45a049;
         }
+
         button:disabled {
             background-color: #ccc;
             cursor: not-allowed;
         }
+
         .connect-button {
             background-color: #ff6600;
         }
+
         .connect-button:hover {
             background-color: #e55500;
         }
+
         .result {
             margin-top: 20px;
             padding: 15px;
@@ -80,21 +95,25 @@
             font-family: monospace;
             font-size: 14px;
         }
+
         .error {
             color: #d32f2f;
             background-color: #ffebee;
             border-color: #f44336;
         }
+
         .success {
             color: #2e7d32;
             background-color: #e8f5e9;
             border-color: #4caf50;
         }
+
         .info {
             color: #1976d2;
             background-color: #e3f2fd;
             border-color: #2196f3;
         }
+
         .piece-entry {
             border: 1px solid #ddd;
             padding: 10px;
@@ -102,33 +121,33 @@
             border-radius: 4px;
             background-color: #fafafa;
         }
+
         .status {
             margin-bottom: 20px;
             padding: 10px;
             border-radius: 4px;
             text-align: center;
         }
+
         .connected {
             background-color: #e8f5e9;
             color: #2e7d32;
         }
+
         .disconnected {
             background-color: #ffebee;
             color: #d32f2f;
         }
     </style>
 </head>
+
 <body>
     <h1>PDP Auth Signature Demo</h1>
-    
     <div class="container">
-        <div id="status" class="status disconnected">
-            Not connected to MetaMask
-        </div>
+        <div id="status" class="status disconnected"> Not connected to MetaMask </div>
         <button id="connectWallet" class="connect-button">Connect MetaMask</button>
         <div id="accountInfo"></div>
     </div>
-
     <div class="container">
         <h2>Configuration</h2>
         <div class="form-group">
@@ -143,10 +162,10 @@
             </select>
         </div>
     </div>
-
     <div class="container">
         <h2>1. Create Data Set</h2>
-        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, payee address, and withCDN flag</p>
+        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, payee address,
+            and withCDN flag</p>
         <div class="form-group">
             <label for="createClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="createClientDataSetId" placeholder="12345" value="12345">
@@ -157,17 +176,15 @@
         </div>
         <div class="form-group">
             <label>
-                <input type="checkbox" id="createWithCDN">
-                With CDN
-            </label>
+                <input type="checkbox" id="createWithCDN"> With CDN </label>
         </div>
         <button id="signCreateDataSet">Sign Create Data Set</button>
         <div id="createDataSetResult"></div>
     </div>
-
     <div class="container">
         <h2>2. Add Pieces</h2>
-        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, firstAdded, and pieceData array with PieceCID CIDs and sizes</p>
+        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId, firstAdded, and
+            pieceData array with PieceCID CIDs and sizes</p>
         <div class="form-group">
             <label for="addClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="addClientDataSetId" placeholder="12345" value="12345">
@@ -184,10 +201,10 @@
         <button id="signAddPieces">Sign Add Pieces</button>
         <div id="addPiecesResult"></div>
     </div>
-
     <div class="container">
         <h2>3. Schedule Removals</h2>
-        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId and pieceIdsHash</p>
+        <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId and pieceIdsHash
+        </p>
         <div class="form-group">
             <label for="removeClientDataSetId">Client Data Set ID:</label>
             <input type="text" id="removeClientDataSetId" placeholder="12345" value="12345">
@@ -199,7 +216,6 @@
         <button id="signScheduleRemovals">Sign Schedule Removals</button>
         <div id="scheduleRemovalsResult"></div>
     </div>
-
     <div class="container">
         <h2>4. Delete Data Set</h2>
         <p style="color: #666; font-size: 14px;">MetaMask will display structured data: clientDataSetId</p>
@@ -210,24 +226,22 @@
         <button id="signDeleteDataSet">Sign Delete Data Set</button>
         <div id="deleteDataSetResult"></div>
     </div>
-
     <!-- Load ethers and SDK -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6/dist/ethers.umd.min.js"></script>
     <script src="../dist/browser/synapse-sdk.min.js"></script>
-    
     <script>
         let provider = null;
         let signer = null;
         let authHelper = null;
-        let pieceDataEntries = [];
+        const pieceDataEntries = [];
 
         // Initialize the page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', () => {
             // Set default contract addresses
             const networkSelect = document.getElementById('network');
             updateContractAddress();
             networkSelect.addEventListener('change', updateContractAddress);
-            
+
             // Add initial piece entry
             addPieceDataEntry();
         });
@@ -235,7 +249,7 @@
         function updateContractAddress() {
             const network = document.getElementById('network').value;
             const contractInput = document.getElementById('contractAddress');
-            
+
             if (network === '314159') {
                 // Calibration testnet - use ethers to get checksummed address
                 contractInput.value = ethers.getAddress('0x20458cba48256e64e0da8f4a69e97be6af721bd6');
@@ -256,10 +270,10 @@
                 provider = new ethers.BrowserProvider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
-                
+
                 const address = await signer.getAddress();
                 const network = await provider.getNetwork();
-                
+
                 document.getElementById('status').className = 'status connected';
                 document.getElementById('status').textContent = 'Connected to MetaMask';
                 document.getElementById('accountInfo').innerHTML = `
@@ -269,7 +283,7 @@
                         <strong>Note:</strong> EIP-712 signatures will show structured data in MetaMask!
                     </div>
                 `;
-                
+
                 // Initialize AuthHelper with the correct chain ID
                 const contractAddress = document.getElementById('contractAddress').value;
                 const selectedNetwork = document.getElementById('network').value;
@@ -277,7 +291,7 @@
                     authHelper = new SynapseSDK.PDPAuthHelper(contractAddress, signer, BigInt(selectedNetwork));
                 }
             } catch (error) {
-                showError('status', 'Failed to connect: ' + error.message);
+                showError('status', `Failed to connect: ${error.message}`);
             }
         });
 
@@ -296,7 +310,7 @@
         function addPieceDataEntry() {
             const container = document.getElementById('pieceEntries');
             const index = pieceDataEntries.length;
-            
+
             const entry = document.createElement('div');
             entry.className = 'piece-entry';
             entry.innerHTML = `
@@ -307,7 +321,7 @@
                     <input type="number" id="pieceSize${index}" placeholder="1024" value="${index === 0 ? '1024' : ''}">
                 </div>
             `;
-            
+
             container.appendChild(entry);
             pieceDataEntries.push(index);
         }
@@ -335,12 +349,12 @@
                 const clientDataSetId = /^\d+$/.test(clientDataSetIdStr) ? BigInt(clientDataSetIdStr) : clientDataSetIdStr;
 
                 showInfo('createDataSetResult', 'Signing... Check MetaMask for structured data!');
-                
+
                 const result = await authHelper.signCreateDataSet(clientDataSetId, payee, withCDN);
-                
+
                 showSuccess('createDataSetResult', formatSignature(result));
             } catch (error) {
-                showError('createDataSetResult', 'Error: ' + error.message);
+                showError('createDataSetResult', `Error: ${error.message}`);
             }
         });
 
@@ -368,11 +382,11 @@
                 for (let i = 0; i < pieceDataEntries.length; i++) {
                     const cid = document.getElementById(`pieceCid${i}`).value;
                     const rawSize = document.getElementById(`pieceSize${i}`).value;
-                    
+
                     if (cid && rawSize) {
                         pieceDataArray.push({
                             cid: cid,
-                            rawSize: parseInt(rawSize)
+                            rawSize: parseInt(rawSize, 10)
                         });
                     }
                 }
@@ -383,16 +397,16 @@
                 }
 
                 showInfo('addPiecesResult', 'Signing... Check MetaMask for structured data!');
-                
+
                 const result = await authHelper.signAddPieces(
                     clientDataSetId,
                     BigInt(firstPieceId),
                     pieceDataArray
                 );
-                
+
                 showSuccess('addPiecesResult', formatSignature(result));
             } catch (error) {
-                showError('addPiecesResult', 'Error: ' + error.message);
+                showError('addPiecesResult', `Error: ${error.message}`);
             }
         });
 
@@ -417,12 +431,12 @@
                 const pieceIds = pieceIdsStr.split(',').map(id => BigInt(id.trim()));
 
                 showInfo('scheduleRemovalsResult', 'Signing... Check MetaMask for structured data!');
-                
+
                 const result = await authHelper.signScheduleRemovals(clientDataSetId, pieceIds);
-                
+
                 showSuccess('scheduleRemovalsResult', formatSignature(result));
             } catch (error) {
-                showError('scheduleRemovalsResult', 'Error: ' + error.message);
+                showError('scheduleRemovalsResult', `Error: ${error.message}`);
             }
         });
 
@@ -445,12 +459,12 @@
                 const clientDataSetId = /^\d+$/.test(clientDataSetIdStr) ? BigInt(clientDataSetIdStr) : clientDataSetIdStr;
 
                 showInfo('deleteDataSetResult', 'Signing... Check MetaMask for structured data!');
-                
+
                 const result = await authHelper.signDeleteDataSet(clientDataSetId);
-                
+
                 showSuccess('deleteDataSetResult', formatSignature(result));
             } catch (error) {
-                showError('deleteDataSetResult', 'Error: ' + error.message);
+                showError('deleteDataSetResult', `Error: ${error.message}`);
             }
         });
 
@@ -481,4 +495,5 @@
         }
     </script>
 </body>
+
 </html>

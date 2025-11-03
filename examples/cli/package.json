@@ -5,6 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "lint": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -12,7 +12,7 @@
   "scripts": {
     "preinstall": "pnpx only-allow pnpm",
     "build": "pnpm -r --filter='./packages/*' --if-present run build",
-    "lint": "pnpm -r --filter='./packages/*' --if-present run lint",
+    "lint": "pnpm -r --if-present run lint",
     "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test": "pnpm -r --filter='./packages/*' --if-present run test",
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
