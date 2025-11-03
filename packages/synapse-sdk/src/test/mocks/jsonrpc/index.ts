@@ -11,7 +11,6 @@ import {
   multicall3Abi,
   numberToBytes,
   numberToHex,
-  parseTransaction,
   parseUnits,
   stringToHex,
 } from 'viem'
