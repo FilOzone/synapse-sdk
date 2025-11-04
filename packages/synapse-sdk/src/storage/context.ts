@@ -634,8 +634,8 @@ export class StorageContext {
         ).filter<ProviderInfo>(
           (provider: ProviderInfo | null): provider is ProviderInfo =>
             provider !== null &&
-            (!withIpni || provider.products.PDP?.data.ipniIpfs === true) &&
-            (dev || provider.products.PDP?.capabilities?.dev === null)
+            (!withIpni || provider.products.PDP?.data.ipniIpfs !== false) &&
+            (dev || provider.products.PDP?.capabilities?.dev == null)
         )
 
         try {
