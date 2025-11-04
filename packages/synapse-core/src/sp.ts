@@ -430,7 +430,6 @@ export type AddPiecesOptions = {
  * @param options - The options for the add pieces.
  * @param options.endpoint - The endpoint of the PDP API.
  * @param options.dataSetId - The ID of the data set.
- * @param options.nextPieceId - The next piece ID.
  * @param options.pieces - The pieces to add.
  * @param options.extraData - The extra data for the add pieces.
  * @returns The response from the add pieces.
