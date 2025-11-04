@@ -89,6 +89,10 @@ export class TelemetryService {
 
     } else {
       runtime = 'node'
+      integrations.push(
+        (Sentry as SentryNodeType).onUncaughtExceptionIntegration(),
+        (Sentry as SentryNodeType).onUnhandledRejectionIntegration()
+      )
       // no integrations are needed for nodejs
     }
 
