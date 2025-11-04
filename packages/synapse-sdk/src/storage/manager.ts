@@ -232,11 +232,29 @@ export class StorageManager {
   }
 
   /**
-   * Creates up to `options.count` (default=2) storage contexts corresponding to different data sets
-   * First, selects data sets specified by `options.dataSetIds`
-   * The remaining selection prefers existing data sets matching `options.metadata` unless `options.forceCreateDataSets`,
-   * first using storage providers specified by `options.providerIds` else `options.providerAddresses`,
-   * and then smart-selecting from the remaining service providers
+   * Creates storage contexts for multi-provider storage deals and other operations.
+   *
+   * By storing data with multiple independent providers, you reduce dependency on any
+   * single provider and improve overall data availability. Use contexts together as a group.
+   *
+   * Contexts are selected by priority:
+   * 1. Specified datasets (`dataSetIds`) - uses their existing providers
+   * 2. Specified providers (`providerIds` or `providerAddresses`) - finds or creates matching datasets
+   * 3. Automatically selected from remaining approved providers
+   *
+   * For automatic selection, existing datasets matching the `metadata` are reused unless
+   * `forceCreateDataSets` is true. Providers are randomly chosen to distribute across the network.
+   *
+   * @param synapse - Synapse instance
+   * @param warmStorageService - Warm storage service instance
+   * @param options - Configuration options
+   * @param options.count - Maximum number of contexts to create (default: 2)
+   * @param options.dataSetIds - Specific dataset IDs to include
+   * @param options.providerIds - Specific provider IDs to use
+   * @param options.metadata - Metadata to match when finding/creating datasets
+   * @param options.forceCreateDataSets - Always create new datasets instead of reusing existing ones
+   * @param options.excludeProviderIds - Provider IDs to skip during selection
+   * @returns Promise resolving to array of storage contexts
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
     return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
