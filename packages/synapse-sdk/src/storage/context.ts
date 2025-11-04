@@ -23,7 +23,7 @@
  */
 
 import * as SP from '@filoz/synapse-core/sp'
-import { randIndex, randU256 } from '@filoz/synapse-core/utils'
+import { randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
@@ -31,7 +31,7 @@ import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import { asPieceCID } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
-import type { ProviderInfo } from '../sp-registry/types.ts'
+import type { ProviderInfo, ServiceProduct } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
   CreateContextsOptions,
@@ -605,7 +605,7 @@ export class StorageContext {
 
     const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
-    const managedDataSets = dataSets.filter(
+    const managedDataSets: EnhancedDataSetInfo[] = dataSets.filter(
       (ps) =>
         ps.isLive &&
         ps.isManaged &&
@@ -615,48 +615,38 @@ export class StorageContext {
     )
 
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
-      // Prefer data sets with pieces, sort by ID (older first)
-      const sorted = managedDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
-        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
-      })
+      // Prefer data sets with pieces
+      const [hasNoPieces, hasPieces] = managedDataSets
+        .reduce<[Set<EnhancedDataSetInfo>, Set<EnhancedDataSetInfo>]>(
+          (results: [Set<EnhancedDataSetInfo>, Set<EnhancedDataSetInfo>], managedDataSet: EnhancedDataSetInfo) => {
+            results[managedDataSet.currentPieceCount > 0 ? 1 : 0].add(managedDataSet)
+            return results
+          },
+          [new Set(), new Set()]
+        )
+        .map((deduped) => [...deduped])
 
-      // Create async generator that yields providers lazily
-      async function* generateProviders(): AsyncGenerator<ProviderInfo> {
-        // First, yield providers from existing data sets (in sorted order)
-        for (const dataSet of sorted) {
-          if (skipProviderIds.has(dataSet.providerId)) {
-            continue
-          }
-          skipProviderIds.add(dataSet.providerId)
-          const provider = await spRegistry.getProvider(dataSet.providerId)
+      for (const managedDataSets of [hasPieces, hasNoPieces]) {
+        const providers: ProviderInfo[] = (
+          await Promise.all(
+            managedDataSets.map((dataSet: EnhancedDataSetInfo) => spRegistry.getProvider(dataSet.providerId))
+          )
+        ).filter<ProviderInfo>(
+          (provider: ProviderInfo | null): provider is ProviderInfo =>
+            provider !== null &&
+            (!withIpni || provider.products.PDP?.data.ipniIpfs !== false) &&
+            (dev || provider.products.PDP?.capabilities?.dev == null)
+        )
 
-          if (provider == null) {
-            console.warn(
-              `Provider ID ${dataSet.providerId} for data set ${dataSet.pdpVerifierDataSetId} is not currently approved`
-            )
-            continue
-          }
+        const selectedProvider = await StorageContext.selectProviderWithPing(providers)
 
-          if (withIpni && provider.products.PDP?.data.ipniIpfs === false) {
-            continue
-          }
-
-          if (!dev && provider.products.PDP?.capabilities?.dev != null) {
-            continue
-          }
-
-          yield provider
+        if (selectedProvider == null) {
+          continue
         }
-      }
-
-      try {
-        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
         // Find the first matching data set ID for this provider
         // Match by provider ID (stable identifier in the registry)
-        const matchingDataSet = sorted.find((ps) => ps.providerId === selectedProvider.id)
+        const matchingDataSet = managedDataSets.find((ps: EnhancedDataSetInfo) => ps.providerId === selectedProvider.id)
 
         if (matchingDataSet == null) {
           console.warn(
@@ -675,10 +665,8 @@ export class StorageContext {
             dataSetMetadata,
           }
         }
-      } catch (_error) {
-        console.warn('All providers from existing data sets failed health check. Falling back to all providers.')
-        // Fall through to select from all approved providers below
       }
+      console.warn('All providers from existing data sets failed health check. Falling back to all providers.')
     }
 
     // No existing data sets - select from all approved providers. First we get approved IDs from
@@ -696,8 +684,16 @@ export class StorageContext {
       throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
     }
 
-    // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders)
+    // Select from all providers
+    const provider = await StorageContext.selectProviderWithPing(allProviders)
+
+    if (provider == null) {
+      throw createError(
+        'StorageContext',
+        'selectProviderWithPing',
+        `All ${allProviders.length} providers failed health check. Storage may be temporarily unavailable.`
+      )
+    }
 
     return {
       provider,
@@ -708,72 +704,41 @@ export class StorageContext {
   }
 
   /**
-   * Select a random provider from a list with ping validation
-   * @param providers - Array of providers to select from
-   * @param withIpni - Filter for IPNI support
-   * @param dev - Include dev providers
-   * @returns Selected provider
+   * Select a provider with ping validation.
+   * @param providers - providers to try
+   * @returns The first provider that responds, or null if none do
    */
-  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo> {
-    if (providers.length === 0) {
-      throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
-    }
-
-    // Create async generator that yields providers in random order
-    async function* generateRandomProviders(): AsyncGenerator<ProviderInfo> {
-      const remaining = [...providers]
-
-      while (remaining.length > 0) {
-        // Remove and yield the selected provider
-        const selected = remaining.splice(randIndex(remaining.length), 1)[0]
-        yield selected
+  private static async selectProviderWithPing(providers: ProviderInfo[]): Promise<ProviderInfo | null> {
+    type ProviderWithPDP = ProviderInfo & {
+      products: {
+        PDP: ServiceProduct
       }
     }
 
-    return await StorageContext.selectProviderWithPing(generateRandomProviders())
-  }
-
-  /**
-   * Select a provider from an async iterator with ping validation.
-   * This is shared logic used by both smart selection and random selection.
-   * @param providers - Async iterable of providers to try
-   * @returns The first provider that responds
-   * @throws If all providers fail
-   */
-  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo> {
-    let providerCount = 0
-
-    // Try providers in order until we find one that responds to ping
-    for await (const provider of providers) {
-      providerCount++
+    function hasPDP(provider: ProviderInfo): provider is ProviderWithPDP {
+      return provider.products.PDP != null
+    }
+    // Ping all providers
+    const pings = providers.filter(hasPDP).map((provider, index) =>
+      new PDPServer(null, provider.products.PDP.data.serviceURL).ping().then(
+        () => Promise.resolve(provider),
+        (error) => Promise.reject({ error, index, provider })
+      )
+    )
+    let remaining = pings.length
+    while (remaining-- > 0) {
       try {
-        // Create a temporary PDPServer for this specific provider's endpoint
-        if (!provider.products.PDP?.data.serviceURL) {
-          // Skip providers without PDP products
-          continue
-        }
-        const providerPdpServer = new PDPServer(null, provider.products.PDP.data.serviceURL)
-        await providerPdpServer.ping()
-        return provider
-      } catch (error) {
+        return await Promise.race(pings)
+      } catch (err: any) {
+        const { error, index, provider } = err
         console.warn(
           `Provider ${provider.serviceProvider} failed ping test:`,
           error instanceof Error ? error.message : String(error)
         )
-        // Continue to next provider
+        pings[index] = new Promise(() => undefined)
       }
     }
-
-    // All providers failed ping test
-    if (providerCount === 0) {
-      throw createError('StorageContext', 'selectProviderWithPing', 'No providers available to select from')
-    }
-
-    throw createError(
-      'StorageContext',
-      'selectProviderWithPing',
-      `All ${providerCount} providers failed health check. Storage may be temporarily unavailable.`
-    )
+    return null
   }
 
   /**
