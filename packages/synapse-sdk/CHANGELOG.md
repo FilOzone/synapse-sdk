@@ -4,6 +4,30 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.35.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.2...synapse-sdk-v0.35.3) (2025-11-04)
+
+
+### Features
+
+* createContexts ([#368](https://github.com/FilOzone/synapse-sdk/issues/368)) ([6fe64da](https://github.com/FilOzone/synapse-sdk/commit/6fe64dae8e0a6bf9cd7ebdb138905595000c6c28))
+* update FWSS Mainnet addresses ([2b9a17c](https://github.com/FilOzone/synapse-sdk/commit/2b9a17c1e035fa5d7896d42e3d84e34fc33b319d))
+* update FWSS Mainnet addresses ([#391](https://github.com/FilOzone/synapse-sdk/issues/391)) ([2b9a17c](https://github.com/FilOzone/synapse-sdk/commit/2b9a17c1e035fa5d7896d42e3d84e34fc33b319d))
+
+
+### Bug Fixes
+
+* default dev to false in selectProviderWithPing ([a5c428c](https://github.com/FilOzone/synapse-sdk/commit/a5c428c300833b20cbe4c474e3a68ecde70bb956))
+* maxLockupPeriod should be a bigint ([#383](https://github.com/FilOzone/synapse-sdk/issues/383)) ([2fdf629](https://github.com/FilOzone/synapse-sdk/commit/2fdf629f52d9424cdaa0443f8c5586f9bd76ec65))
+* normalize telemetry http call wrapping ([#398](https://github.com/FilOzone/synapse-sdk/issues/398)) ([c9a2f95](https://github.com/FilOzone/synapse-sdk/commit/c9a2f950f7d3445a42efac319f0af01a6244b974))
+* remove debug logs from provider filtering ([#395](https://github.com/FilOzone/synapse-sdk/issues/395)) ([f86e085](https://github.com/FilOzone/synapse-sdk/commit/f86e08503ace66f802c0d51007ef30bbb8f8f5d2))
+* use `serviceStatus=dev` for dev provider filtering ([#376](https://github.com/FilOzone/synapse-sdk/issues/376)) ([a5c428c](https://github.com/FilOzone/synapse-sdk/commit/a5c428c300833b20cbe4c474e3a68ecde70bb956))
+
+
+### Chores
+
+* simplify linting and make sure git hook works ([#394](https://github.com/FilOzone/synapse-sdk/issues/394)) ([ee8a83d](https://github.com/FilOzone/synapse-sdk/commit/ee8a83d5b737eabb6dec5d9c0f821ea6370f2496))
+* update Sentry DSN in telemetry service ([#399](https://github.com/FilOzone/synapse-sdk/issues/399)) ([44af935](https://github.com/FilOzone/synapse-sdk/commit/44af935e5273122ac90d515f32b91f8aa03f29bd))
+
 ## [0.35.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.1...synapse-sdk-v0.35.2) (2025-11-03)
 
 
