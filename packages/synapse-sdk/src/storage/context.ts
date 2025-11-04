@@ -180,7 +180,7 @@ export class StorageContext {
 
   /**
    * Creates new storage contexts with specified options
-   * Each context correseponds to a different data set
+   * Each context corresponds to a different data set
    */
   static async createContexts(
     synapse: Synapse,
