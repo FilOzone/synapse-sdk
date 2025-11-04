@@ -98,6 +98,8 @@
     "formatter": {
       "jsxQuoteStyle": "double",
       "trailingCommas": "es5",
+      "arrowParentheses": "always",
+      "bracketSpacing": true,
       "semicolons": "asNeeded",
       "quoteStyle": "single"
     },
