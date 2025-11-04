@@ -84,20 +84,22 @@ export class TelemetryService {
     }
     this.sentry = Sentry
 
+    // sentry attempts to dedupe some duplicate errors, see https://docs.sentry.io/platforms/javascript/configuration/integrations/dedupe/
     const integrations = [Sentry.dedupeIntegration()]
     let runtime: 'browser' | 'node'
     if (isBrowser) {
       runtime = 'browser'
       integrations.push(
+        // only error-handling integrations
         (Sentry as SentryBrowserType).globalHandlersIntegration({ onerror: true, onunhandledrejection: true })
       )
     } else {
       runtime = 'node'
       integrations.push(
+        // only error-handling integrations
         (Sentry as SentryNodeType).onUncaughtExceptionIntegration(),
         (Sentry as SentryNodeType).onUnhandledRejectionIntegration()
       )
-      // no integrations are needed for nodejs
     }
 
     const globalTags = {
