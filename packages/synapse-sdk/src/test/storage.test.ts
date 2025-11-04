@@ -65,7 +65,7 @@ const TEST_PROVIDERS = {
       PDP: {
         type: 'PDP',
         isActive: true,
-        capabilities: { dev: '' },
+        capabilities: { serviceStatus: 'dev' }, // Will be hex-encoded by the mock
         data: {
           serviceURL: 'https://provider.example.com',
           minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
@@ -414,10 +414,155 @@ describe('StorageService', () => {
       })
 
       // Create storage service without specifying providerId
-      const service = await StorageContext.create(mockSynapse, mockWarmStorageService)
+      // dev defaults to false, so dev providers should be filtered out
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        dev: false,
+      })
 
-      // Should have selected one of the providers
-      assert.isTrue(service.serviceProvider === mockProviders[1].serviceProvider)
+      // Should have selected provider2 (non-dev), never provider1 (dev)
+      assert.equal(service.serviceProvider, mockProviders[1].serviceProvider)
+      assert.notEqual(service.serviceProvider, mockProviders[0].serviceProvider, 'Should not select dev provider')
+    })
+
+    it('should include dev providers when dev option is true', async () => {
+      // Create mock providers - provider1 has serviceStatus=dev
+      const mockProviders: ProviderInfo[] = [TEST_PROVIDERS.provider1, TEST_PROVIDERS.provider2]
+
+      const dataSets = [
+        {
+          railId: 1,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[0].serviceProvider,
+          providerId: 1,
+          pdpVerifierDataSetId: 100,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          metadata: {},
+          pdpEndEpoch: 0,
+          pieceMetadata: [],
+          clientDataSetId: 1,
+        },
+        {
+          railId: 2,
+          payer: '0x1234567890123456789012345678901234567890',
+          payee: mockProviders[1].serviceProvider,
+          providerId: 2,
+          pdpVerifierDataSetId: 101,
+          currentPieceCount: 0,
+          isLive: true,
+          isManaged: true,
+          withCDN: false,
+          commissionBps: 0,
+          pdpEndEpoch: 0,
+          metadata: {},
+          pieceMetadata: [],
+          clientDataSetId: 2,
+        },
+      ]
+
+      // Set up registry mocks with our providers
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: mockProviders,
+        approvedIds: [1, 2],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService(dataSets, {
+        getApprovedProviderIds: async () => [1, 2],
+      })
+
+      // Create storage service with dev: true
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        dev: true,
+      })
+
+      // Should be able to select from either provider, including the dev one
+      assert.isTrue(
+        service.serviceProvider === mockProviders[0].serviceProvider ||
+          service.serviceProvider === mockProviders[1].serviceProvider
+      )
+    })
+
+    it('should filter providers with serviceStatus=dev when dev option is false', async () => {
+      // Create a provider with serviceStatus=dev explicitly
+      const devProvider: ProviderInfo = createMockProviderInfo({
+        id: 10,
+        serviceProvider: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        name: 'Dev Provider',
+        products: {
+          PDP: {
+            type: 'PDP',
+            isActive: true,
+            capabilities: { serviceStatus: 'dev' }, // Will be hex-encoded by the mock
+            data: {
+              serviceURL: 'https://dev-provider.example.com',
+              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+              ipniPiece: false,
+              ipniIpfs: false,
+              storagePricePerTibPerDay: BigInt(1000000),
+              minProvingPeriodInEpochs: 2880n,
+              location: 'US',
+              paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+            },
+          },
+        },
+      })
+
+      // Create a non-dev provider
+      const productionProvider: ProviderInfo = createMockProviderInfo({
+        id: 11,
+        serviceProvider: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        name: 'Production Provider',
+        products: {
+          PDP: {
+            type: 'PDP',
+            isActive: true,
+            capabilities: {}, // No serviceStatus capability
+            data: {
+              serviceURL: 'https://prod-provider.example.com',
+              minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
+              maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
+              ipniPiece: false,
+              ipniIpfs: false,
+              storagePricePerTibPerDay: BigInt(1000000),
+              minProvingPeriodInEpochs: 2880n,
+              location: 'US',
+              paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+            },
+          },
+        },
+      })
+
+      const mockProviders: ProviderInfo[] = [devProvider, productionProvider]
+
+      cleanupMocks = setupProviderRegistryMocks(mockEthProvider, {
+        providers: mockProviders,
+        approvedIds: [10, 11],
+      })
+
+      const mockWarmStorageService = createMockWarmStorageService([], {
+        getApprovedProviderIds: async () => [10, 11],
+      })
+
+      // Create storage service with dev: false (default)
+      const service = await StorageContext.create(mockSynapse, mockWarmStorageService, {
+        dev: false,
+      })
+
+      // Should only select the production provider, not the dev one
+      assert.equal(
+        service.serviceProvider.toLowerCase(),
+        productionProvider.serviceProvider.toLowerCase(),
+        'Should select production provider, not dev provider'
+      )
+      assert.notEqual(
+        service.serviceProvider.toLowerCase(),
+        devProvider.serviceProvider.toLowerCase(),
+        'Should NOT select dev provider'
+      )
     })
 
     it('should use specific provider when providerId specified', async () => {

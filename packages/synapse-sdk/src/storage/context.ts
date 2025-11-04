@@ -643,10 +643,17 @@ export class StorageContext {
             continue
           }
 
-          if (!dev && provider.products.PDP?.capabilities?.dev != null) {
+          const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
+          console.log(
+            `[DEBUG] Provider ${provider.id}: dev=${dev}, serviceStatus=${serviceStatus}, typeof=${typeof serviceStatus}`
+          )
+          if (!dev && serviceStatus === '0x646576') {
+            // "dev" in hex
+            console.log(`[DEBUG] Filtering out dev provider ${provider.id}`)
             continue
           }
 
+          console.log(`[DEBUG] Yielding provider ${provider.id}`)
           yield provider
         }
       }
@@ -688,7 +695,7 @@ export class StorageContext {
     const allProviders = approvedProviders.filter(
       (provider: ProviderInfo) =>
         (!withIpni || provider.products.PDP?.data.ipniIpfs === true) &&
-        (dev || provider.products.PDP?.capabilities?.dev == null) &&
+        (dev || provider.products.PDP?.capabilities?.serviceStatus !== '0x646576') &&
         !excludeProviderIds.includes(provider.id)
     )
 
