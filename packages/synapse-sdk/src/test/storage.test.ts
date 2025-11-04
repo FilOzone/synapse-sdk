@@ -2461,11 +2461,8 @@ describe('StorageService', () => {
         }
 
         try {
-          await (StorageContext as any).selectProviderWithPing(testProviders)
-          assert.fail('Should have thrown error')
-        } catch (error: any) {
-          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
-          assert.include(error.message, 'All 2 providers failed health check')
+          const provider = await (StorageContext as any).selectProviderWithPing(testProviders)
+          assert.isNull(provider)
         } finally {
           global.fetch = originalFetch
         }
