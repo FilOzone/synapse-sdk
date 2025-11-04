@@ -985,7 +985,27 @@ export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): Provi
     },
   }
 
-  return { ...defaults, ...overrides }
+  // Deep merge products to preserve nested capabilities
+  const result = { ...defaults, ...overrides }
+  if (overrides?.products?.PDP && defaults.products.PDP) {
+    result.products = {
+      ...defaults.products,
+      PDP: {
+        ...defaults.products.PDP,
+        ...overrides.products.PDP,
+        capabilities: {
+          ...defaults.products.PDP.capabilities,
+          ...overrides.products.PDP.capabilities,
+        },
+        data: {
+          ...defaults.products.PDP.data,
+          ...overrides.products.PDP.data,
+        },
+      },
+    }
+  }
+
+  return result
 }
 
 /**

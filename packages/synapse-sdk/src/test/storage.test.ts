@@ -65,7 +65,7 @@ const TEST_PROVIDERS = {
       PDP: {
         type: 'PDP',
         isActive: true,
-        capabilities: { serviceStatus: '0x646576' }, // "dev" in hex
+        capabilities: { serviceStatus: 'dev' }, // Will be hex-encoded by the mock
         data: {
           serviceURL: 'https://provider.example.com',
           minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
@@ -495,7 +495,7 @@ describe('StorageService', () => {
           PDP: {
             type: 'PDP',
             isActive: true,
-            capabilities: { serviceStatus: '0x646576' }, // "dev" in hex
+            capabilities: { serviceStatus: 'dev' }, // Will be hex-encoded by the mock
             data: {
               serviceURL: 'https://dev-provider.example.com',
               minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
