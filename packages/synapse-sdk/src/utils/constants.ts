@@ -318,7 +318,7 @@ export const CONTRACT_ADDRESSES = {
    * All other contract addresses are discovered from this contract
    */
   WARM_STORAGE: {
-    mainnet: '0x81DFD9813aDd354f03704F31419b0c6268d46232',
+    mainnet: '0x8408502033C418E1bbC97cE9ac48E5528F371A9f',
     calibration: '0x02925630df557F957f70E112bA06e50965417CA0',
   } as const satisfies Record<FilecoinNetworkType, string>,
 
