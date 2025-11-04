@@ -2392,7 +2392,7 @@ describe('StorageService', () => {
   })
 
   describe('Provider Ping Validation', () => {
-    describe('selectRandomProvider with ping validation', () => {
+    describe('selectProviderWithPing', () => {
       it('should select first provider that responds to ping', async () => {
         const testProviders: ProviderInfo[] = [
           createSimpleProvider({
@@ -2428,7 +2428,7 @@ describe('StorageService', () => {
         }
 
         try {
-          const result = await (StorageContext as any).selectRandomProvider(testProviders)
+          const result = await (StorageContext as any).selectProviderWithPing(testProviders)
 
           // Should have selected the second provider (first one failed ping)
           assert.equal(result.serviceProvider, testProviders[1].serviceProvider)
@@ -2437,8 +2437,6 @@ describe('StorageService', () => {
           global.fetch = originalFetch
         }
       })
-
-      // Test removed: selectRandomProvider no longer supports exclusion functionality
 
       it('should throw error when all providers fail ping', async () => {
         const testProviders: ProviderInfo[] = [
@@ -2463,7 +2461,7 @@ describe('StorageService', () => {
         }
 
         try {
-          await (StorageContext as any).selectRandomProvider(testProviders)
+          await (StorageContext as any).selectProviderWithPing(testProviders)
           assert.fail('Should have thrown error')
         } catch (error: any) {
           assert.include(error.message, 'StorageContext selectProviderWithPing failed')

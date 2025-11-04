@@ -605,7 +605,7 @@ export class StorageContext {
 
     const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
-    const managedDataSets = dataSets.filter(
+    const managedDataSets: EnhancedDataSetInfo[] = dataSets.filter(
       (ps) =>
         ps.isLive &&
         ps.isManaged &&
@@ -617,8 +617,8 @@ export class StorageContext {
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
       // Prefer data sets with pieces
       const [hasNoPieces, hasPieces] = managedDataSets
-        .reduce(
-          (results, managedDataSet) => {
+        .reduce<[Set<EnhancedDataSetInfo>, Set<EnhancedDataSetInfo>]>(
+          (results: [Set<EnhancedDataSetInfo>, Set<EnhancedDataSetInfo>], managedDataSet: EnhancedDataSetInfo) => {
             results[managedDataSet.currentPieceCount > 0 ? 1 : 0].add(managedDataSet)
             return results
           },
@@ -627,20 +627,25 @@ export class StorageContext {
         .map((deduped) => [...deduped])
 
       for (const managedDataSets of [hasPieces, hasNoPieces]) {
-        const providers = (
-          await Promise.all(managedDataSets.map((dataSet) => spRegistry.getProvider(dataSet.providerId)))
-        ).filter((provider) => {
-          provider != null &&
-            (!withIpni || provider.products.PDP?.data.ipniIpfs) &&
-            (dev || provider.products.PDP?.capabilities?.dev == null)
-        })
+        const providers: ProviderInfo[] = (
+          await Promise.all(
+            managedDataSets.map((dataSet: EnhancedDataSetInfo) => spRegistry.getProvider(dataSet.providerId))
+          )
+        ).filter<ProviderInfo>(
+          (provider: ProviderInfo | null): provider is ProviderInfo =>
+            provider !== null &&
+            (!withIpni || provider.products.PDP?.data.ipniIpfs === true) &&
+            (dev || provider.products.PDP?.capabilities?.dev === null)
+        )
 
         try {
           const selectedProvider = await StorageContext.selectProviderWithPing(providers)
 
           // Find the first matching data set ID for this provider
           // Match by provider ID (stable identifier in the registry)
-          const matchingDataSet = managedDataSets.find((ps) => ps.providerId === selectedProvider.id)
+          const matchingDataSet = managedDataSets.find(
+            (ps: EnhancedDataSetInfo) => ps.providerId === selectedProvider.id
+          )
 
           if (matchingDataSet == null) {
             console.warn(
