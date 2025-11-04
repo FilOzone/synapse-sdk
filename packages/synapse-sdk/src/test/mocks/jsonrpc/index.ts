@@ -522,6 +522,20 @@ export const presets = {
           },
         ]
       },
+      getAllActiveProviders: () => [[1n, 2n], false],
+      getProviderCount: () => [2n],
+      isProviderActive: (data) => {
+        const providerId = data[0]
+        return [providerId === 1n || providerId === 2n]
+      },
+      isRegisteredProvider: (data) => {
+        const address = data[0]
+        return [
+          address.toLowerCase() === ADDRESSES.serviceProvider1.toLowerCase() ||
+            address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase(),
+        ]
+      },
+      REGISTRATION_FEE: () => 0n,
       getProvidersByProductType: () => [
         {
           providers: [
@@ -550,7 +564,7 @@ export const presets = {
               productCapabilityValues: [
                 stringToHex('https://pdp.example.com'),
                 bytesToHex(numberToBytes(1024n)),
-                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1073741824n)),
                 bytesToHex(numberToBytes(1000000n)),
                 bytesToHex(numberToBytes(2880n)),
                 stringToHex('US'),
@@ -582,7 +596,7 @@ export const presets = {
               productCapabilityValues: [
                 stringToHex('https://pdp.example.com'),
                 bytesToHex(numberToBytes(1024n)),
-                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1073741824n)),
                 bytesToHex(numberToBytes(1000000n)),
                 bytesToHex(numberToBytes(2880n)),
                 stringToHex('US'),
@@ -660,7 +674,7 @@ export const presets = {
             productCapabilityValues: [
               stringToHex('https://pdp.example.com'),
               bytesToHex(numberToBytes(1024n)),
-              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1073741824n)),
               bytesToHex(numberToBytes(1000000n)),
               bytesToHex(numberToBytes(2880n)),
               stringToHex('US'),

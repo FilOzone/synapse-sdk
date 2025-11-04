@@ -31,6 +31,20 @@ export type getProvidersByProductType = ExtractAbiFunction<
   'getProvidersByProductType'
 >
 
+export type getAllActiveProviders = ExtractAbiFunction<
+  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  'getAllActiveProviders'
+>
+
+export type getProviderCount = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProviderCount'>
+
+export type isProviderActive = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'isProviderActive'>
+
+export type isRegisteredProvider = ExtractAbiFunction<
+  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  'isRegisteredProvider'
+>
+
 export interface ServiceRegistryOptions {
   getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
   getProviderIdByAddress?: (
@@ -43,6 +57,13 @@ export interface ServiceRegistryOptions {
   getProvidersByProductType?: (
     args: AbiToType<getProvidersByProductType['inputs']>
   ) => AbiToType<getProvidersByProductType['outputs']>
+  getAllActiveProviders?: (
+    args: AbiToType<getAllActiveProviders['inputs']>
+  ) => AbiToType<getAllActiveProviders['outputs']>
+  getProviderCount?: (args: AbiToType<getProviderCount['inputs']>) => AbiToType<getProviderCount['outputs']>
+  isProviderActive?: (args: AbiToType<isProviderActive['inputs']>) => AbiToType<isProviderActive['outputs']>
+  isRegisteredProvider?: (args: AbiToType<isRegisteredProvider['inputs']>) => AbiToType<isRegisteredProvider['outputs']>
+  REGISTRATION_FEE?: () => bigint
 }
 
 export type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
@@ -79,6 +100,7 @@ export function mockServiceProviderRegistry(
   services?: (PDPServiceInfo | null)[]
 ): ServiceRegistryOptions {
   assert.isAtMost(services?.length ?? 0, providers.length)
+  const activeProviders = providers.filter((p) => p.info.isActive)
   return {
     getProvider: ([providerId]) => {
       if (providerId < 0n || providerId > providers.length) {
@@ -90,6 +112,25 @@ export function mockServiceProviderRegistry(
         }
       }
       throw new Error('Provider not found')
+    },
+    getAllActiveProviders: ([offset, limit]) => {
+      const providerIds = activeProviders.map((p) => p.providerId).slice(Number(offset), Number(offset + limit))
+      const hasMore = offset + limit < activeProviders.length
+      return [providerIds, hasMore]
+    },
+    getProviderCount: () => {
+      return [BigInt(providers.length)]
+    },
+    isProviderActive: ([providerId]) => {
+      const provider = providers.find((p) => p.providerId === providerId)
+      return [provider?.info.isActive ?? false]
+    },
+    isRegisteredProvider: ([address]) => {
+      const provider = providers.find((p) => p.info.serviceProvider.toLowerCase() === address.toLowerCase())
+      return [provider != null]
+    },
+    REGISTRATION_FEE: () => {
+      return 0n
     },
     getProviderWithProduct: ([providerId, productType]) => {
       if (!services) {
@@ -249,6 +290,61 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
           (abi) => abi.type === 'function' && abi.name === 'getProviderWithProduct'
         )!.outputs,
         options.serviceRegistry.getProviderWithProduct(args)
+      )
+    }
+    case 'getAllActiveProviders': {
+      if (!options.serviceRegistry?.getAllActiveProviders) {
+        throw new Error('Service Provider Registry: getAllActiveProviders is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
+          (abi) => abi.type === 'function' && abi.name === 'getAllActiveProviders'
+        )!.outputs,
+        options.serviceRegistry.getAllActiveProviders(args)
+      )
+    }
+    case 'getProviderCount': {
+      if (!options.serviceRegistry?.getProviderCount) {
+        throw new Error('Service Provider Registry: getProviderCount is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
+          (abi) => abi.type === 'function' && abi.name === 'getProviderCount'
+        )!.outputs,
+        options.serviceRegistry.getProviderCount(args)
+      )
+    }
+    case 'isProviderActive': {
+      if (!options.serviceRegistry?.isProviderActive) {
+        throw new Error('Service Provider Registry: isProviderActive is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
+          (abi) => abi.type === 'function' && abi.name === 'isProviderActive'
+        )!.outputs,
+        options.serviceRegistry.isProviderActive(args)
+      )
+    }
+    case 'isRegisteredProvider': {
+      if (!options.serviceRegistry?.isRegisteredProvider) {
+        throw new Error('Service Provider Registry: isRegisteredProvider is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
+          (abi) => abi.type === 'function' && abi.name === 'isRegisteredProvider'
+        )!.outputs,
+        options.serviceRegistry.isRegisteredProvider(args)
+      )
+    }
+    case 'REGISTRATION_FEE': {
+      if (!options.serviceRegistry?.REGISTRATION_FEE) {
+        throw new Error('Service Provider Registry: REGISTRATION_FEE is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
+          (abi) => abi.type === 'function' && abi.name === 'REGISTRATION_FEE'
+        )!.outputs,
+        [options.serviceRegistry.REGISTRATION_FEE()]
       )
     }
     default: {
