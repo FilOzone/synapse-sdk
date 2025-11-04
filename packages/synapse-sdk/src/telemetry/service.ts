@@ -111,7 +111,8 @@ export class TelemetryService {
     }
 
     this.sentry.init({
-      dsn: 'https://0010de27f563e184fc5d5afae4423bc2@o4510235322023936.ingest.us.sentry.io/4510302078828544',
+      // Maps to Sentry project "synapse-sdk-2" on the backend.
+      dsn: 'https://7a07cc9e3b5bf5a8fada2f25dc76cd49@o4510235322023936.ingest.us.sentry.io/4510308233445376',
       // Setting this option to false will prevent the SDK from sending default PII data to Sentry.
       // For example, automatic IP address collection on events
       sendDefaultPii: false,
