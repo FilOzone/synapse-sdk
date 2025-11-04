@@ -17,7 +17,7 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, isBrowser, type SentryBrowserType, type SentryType, sanitizeUrlForSpan } from './utils.ts'
+import { getSentry, isBrowser, type SentryBrowserType, type SentryType, sanitizeUrlForSpan, type SentryNodeType } from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
@@ -77,16 +77,16 @@ export class TelemetryService {
     }
     this.sentry = Sentry
 
-    const integrations = []
+    const integrations = [
+      Sentry.dedupeIntegration(),
+    ]
     let runtime: 'browser' | 'node'
     if (isBrowser) {
       runtime = 'browser'
       integrations.push(
-        (Sentry as SentryBrowserType).browserTracingIntegration({
-          // Disable telemetry on static asset retrieval. It's noisy (distracting from backend RPC/SP calls) and potentially leaks unnecessary identifiable information.
-          ignoreResourceSpans: ['resource.script', 'resource.img', 'resource.css', 'resource.link'],
-        })
-      )
+        (Sentry as SentryBrowserType).globalHandlersIntegration({ onerror: true, onunhandledrejection: true }),
+      );
+
     } else {
       runtime = 'node'
       // no integrations are needed for nodejs
@@ -108,6 +108,7 @@ export class TelemetryService {
       // Enable tracing/performance monitoring
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       integrations,
+      defaultIntegrations: false,
       ...config.sentryInitOptions,
       beforeSend: this.createBeforeSend(config),
       beforeSendSpan: this.createBeforeSendSpan(config, globalTags),
