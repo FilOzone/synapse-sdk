@@ -59,7 +59,7 @@ export interface SynapseOptions {
   withCDN?: boolean
   /** Whether to filter providers by IPNI availability */
   withIpni?: boolean
-  /** Whether to filter providers by dev availability */
+  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
   dev?: boolean
   /** Optional override for piece retrieval */
   pieceRetriever?: PieceRetriever
@@ -352,6 +352,7 @@ export interface StorageServiceOptions {
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
+  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
   dev?: boolean
   /** Force creation of a new data set, even if a candidate exists */
   forceCreateDataSet?: boolean
