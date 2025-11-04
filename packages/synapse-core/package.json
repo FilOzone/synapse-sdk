@@ -192,13 +192,13 @@
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.2",
+    "@biomejs/biome": "2.3.3",
     "@types/assert": "^1.5.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.7.2",
-    "assert": "^2.1.0",
     "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
+    "assert": "^2.1.0",
     "mocha": "^11.7.4",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",

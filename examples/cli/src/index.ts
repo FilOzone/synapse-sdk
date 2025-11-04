@@ -15,7 +15,17 @@ const argv = cli({
   name: 'synapse-cli',
   version: '0.0.1',
 
-  commands: [init, pay, fund, deposit, upload, datasets, datasetTerminate, pieces, uploadDataset],
+  commands: [
+    init,
+    pay,
+    fund,
+    deposit,
+    upload,
+    datasets,
+    datasetTerminate,
+    pieces,
+    uploadDataset,
+  ],
 })
 
 if (!argv.command) {

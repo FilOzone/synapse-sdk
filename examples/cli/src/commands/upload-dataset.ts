@@ -1,7 +1,10 @@
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp'
-import { createDataSetAndAddPieces, readProviders } from '@filoz/synapse-core/warm-storage'
+import {
+  createDataSetAndAddPieces,
+  readProviders,
+} from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { readFile } from 'fs/promises'
 import path from 'path'
@@ -53,7 +56,9 @@ export const uploadDataset: Command = command(
     spinner.start(`Uploading file ${absolutePath}...`)
     try {
       const providers = await readProviders(publicClient)
-      const provider = providers.find((provider) => provider.id === BigInt(argv._.requiredProviderId))
+      const provider = providers.find(
+        (provider) => provider.id === BigInt(argv._.requiredProviderId)
+      )
       if (!provider) {
         p.log.error('Provider not found')
         p.outro('Please try again')
@@ -72,7 +77,12 @@ export const uploadDataset: Command = command(
       const rsp = await createDataSetAndAddPieces(client, {
         provider,
         cdn: argv.flags.withCDN,
-        pieces: [{ pieceCid: upload.pieceCid, metadata: { name: path.basename(absolutePath) } }],
+        pieces: [
+          {
+            pieceCid: upload.pieceCid,
+            metadata: { name: path.basename(absolutePath) },
+          },
+        ],
       })
 
       await SP.pollForDataSetCreationStatus(rsp)
