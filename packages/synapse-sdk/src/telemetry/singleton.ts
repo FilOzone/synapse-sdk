@@ -243,24 +243,22 @@ function wrapFetch(): void {
     }
     const url = input instanceof Request ? new URL(input.url) : new URL(input.toString())
     const method = input instanceof Request ? input.method : init?.method || 'GET'
-    return await sentry.startSpan({ op: "http.client", name: `${method} ${url}` },
-      async (span) => {
-        span.setAttributes({
-          'url.path': url.pathname,
-          'url.full': url.toString(),
-          'server.address': url.hostname,
-          'http.request.method': method,
-          'server.port': url.port || undefined,
-          'location.origin': isBrowser ? (globalThis as any).location?.origin : undefined,
-        })
-        const response = await originalFetch(input, init);
-        span.setAttributes({
-          'http.response.status_code': response.status,
-          'http.response_content_length': Number(response.headers.get('content-length')),
-        })
-        return response;
-      },
-    );
+    return await sentry.startSpan({ op: 'http.client', name: `${method} ${url}` }, async (span) => {
+      span.setAttributes({
+        'url.path': url.pathname,
+        'url.full': url.toString(),
+        'server.address': url.hostname,
+        'http.request.method': method,
+        'server.port': url.port || undefined,
+        'location.origin': isBrowser ? (globalThis as any).location?.origin : undefined,
+      })
+      const response = await originalFetch(input, init)
+      span.setAttributes({
+        'http.response.status_code': response.status,
+        'http.response_content_length': Number(response.headers.get('content-length')),
+      })
+      return response
+    })
   }
 }
 

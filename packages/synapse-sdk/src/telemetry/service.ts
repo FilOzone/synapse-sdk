@@ -17,7 +17,14 @@ import type { BrowserOptions, ErrorEvent, EventHint } from '@sentry/browser'
 import type { NodeOptions } from '@sentry/node'
 import type { FilecoinNetworkType } from '../types.ts'
 import { SDK_VERSION } from '../utils/sdk-version.ts'
-import { getSentry, isBrowser, type SentryBrowserType, type SentryType, sanitizeUrlForSpan, type SentryNodeType } from './utils.ts'
+import {
+  getSentry,
+  isBrowser,
+  type SentryBrowserType,
+  type SentryNodeType,
+  type SentryType,
+  sanitizeUrlForSpan,
+} from './utils.ts'
 
 type SentryInitOptions = BrowserOptions | NodeOptions
 type SentrySetTags = Parameters<SentryType['setTags']>[0]
@@ -77,16 +84,13 @@ export class TelemetryService {
     }
     this.sentry = Sentry
 
-    const integrations = [
-      Sentry.dedupeIntegration(),
-    ]
+    const integrations = [Sentry.dedupeIntegration()]
     let runtime: 'browser' | 'node'
     if (isBrowser) {
       runtime = 'browser'
       integrations.push(
-        (Sentry as SentryBrowserType).globalHandlersIntegration({ onerror: true, onunhandledrejection: true }),
-      );
-
+        (Sentry as SentryBrowserType).globalHandlersIntegration({ onerror: true, onunhandledrejection: true })
+      )
     } else {
       runtime = 'node'
       integrations.push(
