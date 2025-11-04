@@ -643,18 +643,13 @@ export class StorageContext {
             continue
           }
 
-          const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
-          console.log(
-            `[DEBUG] Provider ${provider.id}: dev=${dev}, serviceStatus=${serviceStatus}, typeof=${typeof serviceStatus}`
-          )
-          if (!dev && serviceStatus === '0x646576') {
-            // "dev" in hex
-            console.log(`[DEBUG] Filtering out dev provider ${provider.id}`)
-            continue
-          }
+        const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
+        if (!dev && serviceStatus === '0x646576') {
+          // "dev" in hex
+          continue
+        }
 
-          console.log(`[DEBUG] Yielding provider ${provider.id}`)
-          yield provider
+        yield provider
         }
       }
 
