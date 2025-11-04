@@ -1,13 +1,18 @@
 import { HttpResponse, http } from 'msw'
+import { TransactionEnvelopeEip1559 } from 'ox'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
+  bytesToHex,
   decodeFunctionData,
   encodeAbiParameters,
   type Hex,
   isAddressEqual,
   multicall3Abi,
+  numberToBytes,
+  numberToHex,
   parseUnits,
+  stringToHex,
 } from 'viem'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
 import { paymentsCallHandler } from './payments.ts'
@@ -45,6 +50,36 @@ export const ADDRESSES = {
   },
 }
 
+function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
+  const { id } = item
+  try {
+    return {
+      jsonrpc: '2.0',
+      result: handler(item, options ?? {}),
+      id: id ?? 1,
+    }
+  } catch (error) {
+    if (options?.debug) {
+      console.error(error)
+    }
+    return {
+      jsonrpc: '2.0',
+      error: {
+        code: 11,
+        message:
+          error instanceof Error
+            ? `message execution failed (exit=[33], revert reason=[message failed with backtrace:\n00: f0176092 (method 3844450837) -- contract reverted at 75 (33)\n01: f0176092 (method 6) -- contract reverted at 15151 (33)\n (RetCode=33)], vm error=[Error(${error.message})])`
+            : 'Unknown error',
+        data:
+          error instanceof Error
+            ? `0x08c379a0${encodeAbiParameters([{ type: 'string' }], [error.message]).slice(2)}`
+            : '0x',
+      },
+      id: id ?? 1,
+    }
+  }
+}
+
 /**
  * Mock JSONRPC server for testing
  */
@@ -52,40 +87,15 @@ export function JSONRPC(options?: JSONRPCOptions) {
   return http.post<Record<string, any>, RpcRequest | RpcRequest[], RpcResponse | RpcResponse[]>(
     'https://api.calibration.node.glif.io/rpc/v1',
     async ({ request }) => {
-      try {
-        const body = await request.json()
-        if (Array.isArray(body)) {
-          const results: RpcResponse[] = []
-          for (const item of body) {
-            const { id } = item
-            const result = handler(item, options ?? {})
-            results.push({
-              jsonrpc: '2.0',
-              result: result,
-              id: id ?? 1,
-            })
-          }
-          return HttpResponse.json(results)
-        } else {
-          const { id } = body
-          return HttpResponse.json({
-            jsonrpc: '2.0',
-            result: handler(body, options ?? {}),
-            id: id ?? 1,
-          })
+      const body = await request.json()
+      if (Array.isArray(body)) {
+        const results: RpcResponse[] = []
+        for (const item of body) {
+          results.push(jsonrpcHandler(item, options))
         }
-      } catch (error) {
-        if (options?.debug) {
-          console.error(error)
-        }
-        return HttpResponse.json({
-          jsonrpc: '2.0',
-          error: {
-            code: -32000,
-            message: error instanceof Error ? error.message : 'Unknown error',
-          },
-          id: 1,
-        })
+        return HttpResponse.json(results)
+      } else {
+        return HttpResponse.json(jsonrpcHandler(body, options))
       }
     }
   )
@@ -125,6 +135,42 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         throw new Error('eth_getTransactionReceipt is not defined')
       }
       return options.eth_getTransactionReceipt(params)
+    }
+    case 'eth_getTransactionCount': {
+      if (!options.eth_getTransactionCount) {
+        throw new Error('eth_getTransactionCount is not defined')
+      }
+      return options.eth_getTransactionCount(params)
+    }
+    case 'eth_estimateGas': {
+      if (!options.eth_estimateGas) {
+        throw new Error('eth_estimateGas is not defined')
+      }
+      return options.eth_estimateGas(params)
+    }
+    case 'eth_getBlockByNumber': {
+      if (!options.eth_getBlockByNumber) {
+        throw new Error('eth_getBlockByNumber is not defined')
+      }
+      return options.eth_getBlockByNumber(params)
+    }
+    case 'eth_gasPrice': {
+      if (!options.eth_gasPrice) {
+        throw new Error('eth_gasPrice is not defined')
+      }
+      return options.eth_gasPrice()
+    }
+    case 'eth_maxPriorityFeePerGas': {
+      if (!options.eth_maxPriorityFeePerGas) {
+        throw new Error('eth_maxPriorityFeePerGas is not defined')
+      }
+      return options.eth_maxPriorityFeePerGas()
+    }
+    case 'eth_sendRawTransaction': {
+      if (!options.eth_sendRawTransaction) {
+        throw new Error('eth_sendRawTransaction is not defined')
+      }
+      return options.eth_sendRawTransaction(params)
     }
     case 'eth_call': {
       const { to, data } = params[0]
@@ -241,22 +287,73 @@ export const presets = {
     eth_signTypedData_v4: () => {
       throw new Error('eth_signTypedData_v4 undefined')
     },
+    eth_getBlockByNumber: () => {
+      return {
+        number: numberToHex(1000000n),
+        hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        parentHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        nonce: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        difficulty: numberToHex(1000000n),
+        baseFeePerGas: numberToHex(1000000n),
+        blobGasUsed: numberToHex(1000000n),
+        excessBlobGas: numberToHex(1000000n),
+        extraData: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        gasLimit: numberToHex(1000000n),
+        gasUsed: numberToHex(1000000n),
+        miner: ADDRESSES.client1,
+        mixHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        parentBeaconBlockRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        receiptsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        sealFields: ['0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'],
+        sha3Uncles: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        size: numberToHex(1000000n),
+        stateRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        timestamp: numberToHex(1000000n),
+        totalDifficulty: numberToHex(1000000n),
+        transactionsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        uncles: ['0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'],
+        withdrawals: [],
+        withdrawalsRoot: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        logsBloom: `0x${'1'.repeat(512)}`,
+        transactions: [],
+      }
+    },
+    eth_estimateGas: () => '0x1',
+    eth_getTransactionCount: () => '0x1',
+    eth_gasPrice: () => '0x09184e72a000',
+    eth_maxPriorityFeePerGas: () => '0x5f5e100',
+    eth_sendRawTransaction: (args) => {
+      const deserialized = TransactionEnvelopeEip1559.deserialize(args[0] as `0x02${string}`)
+      const envelope = TransactionEnvelopeEip1559.from(deserialized, {
+        signature: {
+          r: deserialized.r ?? 0n,
+          s: deserialized.s ?? 0n,
+          yParity: deserialized.yParity ?? 0,
+        },
+      })
+      const hash = TransactionEnvelopeEip1559.hash(envelope)
+
+      return hash
+    },
     warmStorage: {
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
       usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
-      filCDNBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
+      filBeamBeneficiaryAddress: () => [ADDRESSES.calibration.filCDN],
       viewContractAddress: () => [ADDRESSES.calibration.viewContract],
       serviceProviderRegistry: () => [ADDRESSES.calibration.spRegistry],
       sessionKeyRegistry: () => [ADDRESSES.calibration.sessionKeyRegistry],
       getServicePrice: () => [
         {
           pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
-          pricePerTiBPerMonthWithCDN: parseUnits('3', 18),
+          pricePerTiBCdnEgress: parseUnits('7', 18),
+          pricePerTiBCacheMissEgress: parseUnits('7', 18),
+          minimumPricePerMonth: parseUnits('6', 16),
           tokenAddress: ADDRESSES.calibration.usdfcToken,
           epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
         },
       ],
+      owner: () => [ADDRESSES.client1],
     },
     warmStorageView: {
       isProviderApproved: () => [true],
@@ -275,26 +372,48 @@ export const presets = {
             pdpEndEpoch: 0n,
             providerId: 1n,
             cdnEndEpoch: 0n,
+            dataSetId: 1n,
           },
         ],
       ],
       railToDataSet: () => [1n],
       clientDataSets: () => [[1n]],
-      getDataSet: () => [
-        {
-          pdpRailId: 1n,
-          cacheMissRailId: 0n,
-          cdnRailId: 0n,
-          payer: ADDRESSES.client1,
-          payee: ADDRESSES.serviceProvider1,
-          serviceProvider: ADDRESSES.serviceProvider1,
-          commissionBps: 100n,
-          clientDataSetId: 0n,
-          pdpEndEpoch: 0n,
-          providerId: 1n,
-          cdnEndEpoch: 0n,
-        },
-      ],
+      getDataSet: (args) => {
+        const [dataSetId] = args
+        if (dataSetId === 1n) {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 100n,
+              dataSetId: 1n,
+              payee: ADDRESSES.serviceProvider1,
+              payer: ADDRESSES.client1,
+              pdpEndEpoch: 0n,
+              pdpRailId: 1n,
+              providerId: 1n,
+              serviceProvider: ADDRESSES.serviceProvider1,
+            },
+          ]
+        } else {
+          return [
+            {
+              cacheMissRailId: 0n,
+              cdnRailId: 0n,
+              clientDataSetId: 0n,
+              commissionBps: 0n,
+              dataSetId: dataSetId,
+              payee: ADDRESSES.zero,
+              payer: ADDRESSES.zero,
+              pdpEndEpoch: 0n,
+              pdpRailId: 0n,
+              providerId: 0n,
+              serviceProvider: ADDRESSES.zero,
+            },
+          ]
+        }
+      },
       getApprovedProviders: () => [[1n, 2n]],
       getAllDataSetMetadata: (args) => {
         const [dataSetId] = args
@@ -329,75 +448,224 @@ export const presets = {
           return [true, 'bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi']
         return [false, ''] // key not found
       },
-      clientDataSetIDs: () => {
+      clientNonces: () => {
         return [BigInt(0)]
+      },
+      getMaxProvingPeriod: () => {
+        return [BigInt(2880)]
+      },
+      challengeWindow: () => {
+        return [BigInt(60)]
       },
     },
     pdpVerifier: {
       dataSetLive: () => [true],
       getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
       getNextPieceId: () => [2n],
+      getActivePieces: () => [[], [], false],
+      getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
+      getDataSetLeafCount: () => [0n],
     },
     serviceRegistry: {
       getProviderByAddress: (data) => [
         {
-          serviceProvider: data[0],
-          payee: ADDRESSES.payee1,
-          isActive: true,
-          name: 'Test Provider',
-          description: 'Test Provider',
           providerId: 1n,
+          info: {
+            serviceProvider: data[0],
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          },
         },
       ],
       getProviderIdByAddress: () => [1n],
-      getPDPService: () => [
-        {
-          serviceURL: 'https://pdp.example.com',
-          minPieceSizeInBytes: 1024n,
-          maxPieceSizeInBytes: 1024n,
-          ipniPiece: false,
-          ipniIpfs: false,
-          storagePricePerTibPerMonth: 1000000n,
-          minProvingPeriodInEpochs: 2880n,
-          location: 'US',
-          paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
-        },
-        [],
-        true,
-      ],
       getProvider: (data) => {
         if (data[0] === 1n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider1,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 1n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         if (data[0] === 2n) {
           return [
             {
-              serviceProvider: ADDRESSES.serviceProvider2,
-              payee: ADDRESSES.payee1,
-              isActive: true,
-              name: 'Test Provider',
-              description: 'Test Provider',
               providerId: 2n,
+              info: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                isActive: true,
+                name: 'Test Provider',
+                description: 'Test Provider',
+              },
             },
           ]
         }
         return [
           {
+            providerId: 0n,
+            info: {
+              serviceProvider: ADDRESSES.zero,
+              payee: ADDRESSES.zero,
+              isActive: false,
+              name: '',
+              description: '',
+            },
+          },
+        ]
+      },
+      getProvidersByProductType: () => [
+        {
+          providers: [
+            {
+              providerId: 1n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider1,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 1',
+                description: 'Test Provider 1',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+            {
+              providerId: 2n,
+              providerInfo: {
+                serviceProvider: ADDRESSES.serviceProvider2,
+                payee: ADDRESSES.payee1,
+                name: 'Test Provider 2',
+                description: 'Test Provider 2',
+                isActive: true,
+              },
+              product: {
+                productType: 0,
+                capabilityKeys: [
+                  'serviceURL',
+                  'minPieceSizeInBytes',
+                  'maxPieceSizeInBytes',
+                  'storagePricePerTibPerDay',
+                  'minProvingPeriodInEpochs',
+                  'location',
+                  'paymentTokenAddress',
+                ],
+                isActive: true,
+              },
+              productCapabilityValues: [
+                stringToHex('https://pdp.example.com'),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1000000n)),
+                bytesToHex(numberToBytes(2880n)),
+                stringToHex('US'),
+                ADDRESSES.calibration.usdfcToken,
+              ],
+            },
+          ],
+          hasMore: false,
+        },
+      ],
+      getProviderWithProduct: (data) => {
+        const [providerId, productType] = data
+        let providerInfo: {
+          serviceProvider: Hex
+          payee: Hex
+          name: string
+          description: string
+          isActive: boolean
+        }
+        if (providerId === 1n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider1,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else if (providerId === 2n) {
+          providerInfo = {
+            serviceProvider: ADDRESSES.serviceProvider2,
+            payee: ADDRESSES.payee1,
+            isActive: true,
+            name: 'Test Provider',
+            description: 'Test Provider',
+          }
+        } else {
+          // TODO throw if !providerExists
+          providerInfo = {
             serviceProvider: ADDRESSES.zero,
             payee: ADDRESSES.zero,
-            isActive: false,
             name: '',
             description: '',
-            providerId: 0n,
+            isActive: false,
+          }
+          return [
+            {
+              providerId,
+              providerInfo,
+              product: {
+                productType: 0,
+                capabilityKeys: [],
+                isActive: false,
+              },
+              productCapabilityValues: [] as Hex[],
+            },
+          ]
+        }
+        return [
+          {
+            providerId,
+            providerInfo,
+            product: {
+              productType,
+              capabilityKeys: [
+                'serviceURL',
+                'minPieceSizeInBytes',
+                'maxPieceSizeInBytes',
+                'storagePricePerTibPerDay',
+                'minProvingPeriodInEpochs',
+                'location',
+                'paymentTokenAddress',
+              ],
+              isActive: true,
+            },
+            productCapabilityValues: [
+              stringToHex('https://pdp.example.com'),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1000000n)),
+              bytesToHex(numberToBytes(2880n)),
+              stringToHex('US'),
+              ADDRESSES.calibration.usdfcToken,
+            ],
           },
         ]
       },

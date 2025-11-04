@@ -7,6 +7,7 @@
 import type { API } from '@web3-storage/data-segment'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
 import { CID } from 'multiformats/cid'
 import {
   asLegacyPieceCID,
@@ -16,6 +17,7 @@ import {
   getSizeFromPieceCID,
   type PieceCID,
 } from '../piece/index.ts'
+import { hexToPieceCID } from '../piece/piece.ts'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -333,6 +335,55 @@ describe('PieceCID utilities', () => {
         const extractedSize = getSizeFromPieceCID(pieceCid)
         assert.strictEqual(extractedSize, size, `Failed for size ${size}`)
       })
+    })
+  })
+
+  describe('hexToPieceCID', () => {
+    it('should convert hex to PieceCID', () => {
+      zeroPieceCidFixture.forEach(([rawSize]) => {
+        // Create the actual PieceCID from raw data
+        const zeroBytes = new Uint8Array(rawSize)
+        const pieceCid = calculate(zeroBytes)
+
+        // Convert PieceCID to hex (simulating what comes from contract)
+        const cidBytes = pieceCid.bytes
+        const hex = ethers.hexlify(cidBytes)
+
+        // Use hexToPieceCID to convert back
+        const result = hexToPieceCID(hex)
+
+        assert.isNotNull(result)
+        assert.strictEqual(result.toString(), pieceCid.toString())
+      })
+    })
+
+    it('should throw for invalid hex', () => {
+      assert.throws(() => {
+        hexToPieceCID('not-a-cid')
+      }, /invalid BytesLike value/)
+    })
+
+    it('should throw for valid hex but invalid CID bytes', () => {
+      // Valid hex that ethers.getBytes can parse, but not valid CID structure
+      const validHexInvalidCid = '0x0000000000000000000000000000000000000000000000000000000000000000'
+      assert.throws(() => {
+        hexToPieceCID(validHexInvalidCid)
+      }, /Incorrect length/)
+    })
+
+    it('should throw for valid cid but invalid PieceCID bytes', () => {
+      // Use a CIDv0 which is valid CID but not a valid PieceCID
+      // This will pass CID.decode() but fail isValidPieceCID()
+      const validCid = CID.parse(invalidCidString)
+      const cidBytes = validCid.bytes
+      const hex = ethers.hexlify(cidBytes)
+
+      assert.throws(
+        () => {
+          hexToPieceCID(hex)
+        },
+        new RegExp(`Hex string '${hex}' is a valid CID but not a valid PieceCID`)
+      )
     })
   })
 })

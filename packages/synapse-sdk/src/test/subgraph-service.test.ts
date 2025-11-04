@@ -10,7 +10,7 @@ const TEST_CONSTANTS = {
   MOCK_PIECE_CID: asPieceCID('bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq') as PieceCID,
   MOCK_ADDRESS: '0x123',
   MOCK_PRODUCT_DATA:
-    '{"serviceURL": "https://calib.ezpdpz.net", "minPieceSizeInBytes": "1024", "maxPieceSizeInBytes": "34359738368", "ipniPiece": "false", "ipniIpfs": "false", "storagePricePerTibPerMonth": "1000000", "minProvingPeriodInEpochs": "30", "location": "unknown", "paymentTokenAddress": ""}',
+    '{"serviceURL": "https://calib.ezpdpz.net", "minPieceSizeInBytes": "1024", "maxPieceSizeInBytes": "34359738368", "ipniPiece": "false", "ipniIpfs": "false", "storagePricePerTibPerDay": "1000000", "minProvingPeriodInEpochs": "30", "location": "unknown", "paymentTokenAddress": ""}',
 } as const
 
 /**

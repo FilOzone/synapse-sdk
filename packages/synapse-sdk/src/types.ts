@@ -6,8 +6,10 @@
  */
 
 import type { ethers } from 'ethers'
+import type { Hex } from 'viem'
 import type { PieceCID } from './piece/index.ts'
 import type { ProviderInfo } from './sp-registry/types.ts'
+import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
@@ -65,14 +67,15 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
-  /** Override PDPVerifier contract address (defaults to network's default) */
-  pdpVerifierAddress?: string
-
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
   subgraphConfig?: SubgraphConfig
+
+  // Telemetry Configuration
+  /** Telemetry configuration for error tracking and debugging (enabled by default) */
+  telemetry?: TelemetryConfig
 }
 
 /**
@@ -209,15 +212,15 @@ export interface DataSetInfo {
   /** Commission rate in basis points (dynamic based on CDN usage) */
   commissionBps: number
   /** Client's sequential dataset ID within this Warm Storage contract */
-  clientDataSetId: number
+  clientDataSetId: bigint
   /** Epoch when PDP payments end (0 if not terminated) */
   pdpEndEpoch: number
   /** Provider ID from the ServiceProviderRegistry */
   providerId: number
-  /** Epoch when CDN payments end (0 if not terminated) */
-  cdnEndEpoch: number
   // Legacy alias for backward compatibility
   paymentEndEpoch?: number
+  /** PDP Data Set ID */
+  dataSetId: bigint | number
 }
 
 /**
@@ -262,6 +265,8 @@ export interface SettlementResult {
   totalNetPayeeAmount: bigint
   /** Commission amount for operator */
   totalOperatorCommission: bigint
+  /** Payments contract network fee */
+  totalNetworkFee: bigint
   /** Final epoch that was settled */
   finalSettledEpoch: bigint
   /** Note about the settlement */
@@ -281,7 +286,7 @@ export interface SettlementResult {
  * These callbacks provide visibility into the context creation process,
  * including provider selection and data set creation/reuse.
  */
-export interface StorageCreationCallbacks {
+export interface StorageContextCallbacks {
   /**
    * Called when a service provider has been selected
    * @param provider - The selected provider info
@@ -293,29 +298,36 @@ export interface StorageCreationCallbacks {
    * @param info - Information about the resolved data set
    */
   onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ProviderInfo }) => void
+}
 
+export interface CreateContextsOptions {
+  /** Number of contexts to create (optional, defaults to 2) */
+  count?: number
   /**
-   * Called when data set creation transaction is submitted
-   * Only fired when creating a new data set
-   * @param transaction - Transaction response object
-   * @param statusUrl - URL to check status (optional)
+   * Specific data set IDs to use
    */
-  onDataSetCreationStarted?: (transaction: ethers.TransactionResponse, statusUrl?: string) => void
-
+  dataSetIds?: number[]
   /**
-   * Called periodically during data set creation
-   * Only fired when creating a new data set
-   * @param status - Current creation status
+   * Specific provider IDs to use
    */
-  onDataSetCreationProgress?: (status: {
-    transactionMined: boolean
-    transactionSuccess: boolean
-    dataSetLive: boolean
-    serverConfirmed: boolean
-    dataSetId?: number
-    elapsedMs: number
-    receipt?: ethers.TransactionReceipt
-  }) => void
+  providerIds?: number[]
+  /** Do not select any of these providers */
+  excludeProviderIds?: number[]
+  /** Whether to enable CDN services */
+  withCDN?: boolean
+  withIpni?: boolean
+  dev?: boolean
+  /**
+   * Custom metadata for the data sets (key-value pairs)
+   * When smart-selecting data sets, this metadata will be used to match.
+   */
+  metadata?: Record<string, string>
+  /** Create new data sets, even if candidates exist */
+  forceCreateDataSets?: boolean
+  /** Callbacks for creation process (will need to change to handle multiples) */
+  callbacks?: StorageContextCallbacks
+  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
+  uploadBatchSize?: number
 }
 
 /**
@@ -331,6 +343,8 @@ export interface StorageCreationCallbacks {
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
   providerId?: number
+  /** Do not select any of these providers */
+  excludeProviderIds?: number[]
   /** Specific provider address to use (optional) */
   providerAddress?: string
   /** Specific data set ID to use (optional) */
@@ -344,7 +358,7 @@ export interface StorageServiceOptions {
   /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
   uploadBatchSize?: number
   /** Callbacks for creation process */
-  callbacks?: StorageCreationCallbacks
+  callbacks?: StorageContextCallbacks
   /** Custom metadata for the data set (key-value pairs) */
   metadata?: Record<string, string>
 }
@@ -393,7 +407,7 @@ export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece and submitted the transaction to the chain */
-  onPieceAdded?: (transaction?: ethers.TransactionResponse) => void
+  onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition is confirmed on-chain */
   onPieceConfirmed?: (pieceIds: number[]) => void
 }
@@ -478,6 +492,8 @@ export interface StorageInfo {
 
   /** Current user allowances (null if wallet not connected) */
   allowances: {
+    /** Whether the service operator is approved to act on behalf of the wallet */
+    isApproved: boolean
     /** Service contract address */
     service: string
     /** Maximum payment rate per epoch allowed */
@@ -549,8 +565,6 @@ export interface ProviderSelectionResult {
   provider: ProviderInfo
   /** Selected data set ID */
   dataSetId: number
-  /** Whether this is a new data set that was created */
-  isNewDataSet?: boolean
   /** Whether this is an existing data set */
   isExisting?: boolean
   /** Data set metadata */

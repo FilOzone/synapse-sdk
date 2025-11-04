@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,17 +13,20 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
+
         .container {
             background: white;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
+
         h1 {
             color: #333;
             text-align: center;
             margin-bottom: 30px;
         }
+
         h2 {
             color: #444;
             border-bottom: 2px solid #007cba;
@@ -30,16 +34,21 @@
             margin-top: 40px;
             margin-bottom: 20px;
         }
+
         .form-group {
             margin-bottom: 20px;
         }
+
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
             color: #555;
         }
-        input, select, textarea {
+
+        input,
+        select,
+        textarea {
             width: 100%;
             padding: 8px;
             border: 1px solid #ddd;
@@ -47,10 +56,12 @@
             font-size: 14px;
             box-sizing: border-box;
         }
+
         textarea {
             height: 80px;
             resize: vertical;
         }
+
         button {
             background-color: #007cba;
             color: white;
@@ -61,13 +72,16 @@
             font-size: 16px;
             margin-right: 10px;
         }
+
         button:hover {
             background-color: #005a8b;
         }
+
         button:disabled {
             background-color: #ccc;
             cursor: not-allowed;
         }
+
         .status {
             margin-top: 20px;
             padding: 10px;
@@ -78,26 +92,31 @@
             max-height: 300px;
             overflow-y: auto;
         }
+
         .status.success {
             background-color: #d4edda;
             border: 1px solid #c3e6cb;
             color: #155724;
         }
+
         .status.error {
             background-color: #f8d7da;
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
+
         .status.info {
             background-color: #d1ecf1;
             border: 1px solid #bee5eb;
             color: #0c5460;
         }
+
         .network-selector {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
         }
+
         .network-option {
             flex: 1;
             padding: 10px;
@@ -107,21 +126,25 @@
             text-align: center;
             transition: all 0.3s;
         }
+
         .network-option.selected {
             border-color: #007cba;
             background-color: #e7f3ff;
         }
+
         .help-text {
             font-size: 12px;
             color: #666;
             margin-top: 5px;
         }
+
         .section {
             margin-bottom: 40px;
             padding: 20px;
             border: 1px solid #eee;
             border-radius: 8px;
         }
+
         .piece-entry {
             border: 1px solid #ddd;
             padding: 15px;
@@ -129,30 +152,36 @@
             border-radius: 4px;
             background-color: #fafafa;
         }
+
         .piece-entry h4 {
             margin: 0 0 10px 0;
             color: #333;
         }
-        .add-piece-btn, .remove-piece-btn {
+
+        .add-piece-btn,
+        .remove-piece-btn {
             background-color: #28a745;
             font-size: 14px;
             padding: 5px 10px;
         }
+
         .remove-piece-btn {
             background-color: #dc3545;
         }
+
         .add-piece-btn:hover {
             background-color: #218838;
         }
+
         .remove-piece-btn:hover {
             background-color: #c82333;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Synapse PDP Testing Tool</h1>
-
         <div class="form-group">
             <label>Network:</label>
             <div class="network-selector">
@@ -166,25 +195,21 @@
                 </div>
             </div>
         </div>
-
         <div class="form-group">
             <label>Wallet Connection:</label>
             <button id="connectWalletBtn">Connect MetaMask</button>
             <div id="walletStatus" class="help-text">Click to connect your MetaMask wallet for signing</div>
         </div>
-
         <div class="form-group">
             <label for="pdpEndpoint">PDP Server Endpoint:</label>
             <input type="text" id="pdpEndpoint" value="" placeholder="e.g., https://pdp.example.com" />
             <div class="help-text">The URL of the PDP server (Curio) to interact with</div>
         </div>
-
         <div class="form-group">
             <label for="warmStorageAddress">Warm Storage Contract:</label>
             <input type="text" id="warmStorageAddress" value="" placeholder="Will be auto-filled based on network" />
             <div class="help-text">Address of the Warm Storage service contract</div>
         </div>
-
         <!-- SERVICE PROVIDERS SECTION -->
         <div class="section">
             <h2>Service Providers</h2>
@@ -194,26 +219,24 @@
             </div>
             <div id="providersStatus" class="status info" style="display: none; margin-top: 10px;"></div>
         </div>
-
         <!-- CREATE DATA SET SECTION -->
         <div class="section">
             <h2>Create Data Set</h2>
-
             <div class="form-group">
                 <label for="payee">Service Provider Address:</label>
                 <input type="text" id="payee" value="" placeholder="0x..." />
-                <div class="help-text">Address of the service provider that will receive payments (must be whitelisted in Warm Storage)</div>
+                <div class="help-text">Address of the service provider that will receive payments (must be whitelisted
+                    in Warm Storage)</div>
             </div>
-
             <div class="form-group">
                 <label for="clientDataSetId">Client Dataset ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <input type="number" id="clientDataSetId" value="0" style="flex: 1;" />
                     <button type="button" id="autoFillClientDataSetId" class="add-piece-btn" disabled>Auto-fill</button>
                 </div>
-                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get next available ID)</div>
+                <div class="help-text">Unique identifier for your dataset (click Auto-fill to get next available ID)
+                </div>
             </div>
-
             <div class="form-group">
                 <label for="withCDN">Enable CDN:</label>
                 <select id="withCDN">
@@ -222,18 +245,15 @@
                 </select>
                 <div class="help-text">Whether to enable CDN services for faster retrieval</div>
             </div>
-
             <div class="form-group">
                 <button id="createDataSetBtn" disabled>Create Data Set</button>
                 <button id="checkStatusBtn" disabled>Check Status</button>
                 <button id="autoMonitorBtn" disabled style="background-color: #28a745;">Auto-Monitor</button>
             </div>
         </div>
-
         <!-- ADD PIECES SECTION -->
         <div class="section">
             <h2>Add Pieces to Data Set</h2>
-
             <div class="form-group">
                 <label for="pdpVerifierDataSetId">Data Set ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
@@ -242,8 +262,6 @@
                 </div>
                 <div class="help-text">Data set ID to add pieces to (click Discover to see your data sets)</div>
             </div>
-
-
             <div class="form-group">
                 <label for="addPiecesClientDataSetId">Client Dataset ID:</label>
                 <div style="display: flex; gap: 10px; align-items: center;">
@@ -252,13 +270,12 @@
                 </div>
                 <div class="help-text">Unique identifier for your dataset (click Auto-fill to get from data set)</div>
             </div>
-
             <div class="form-group">
                 <label for="nextPieceId">Next Piece ID:</label>
                 <input type="number" id="nextPieceId" value="0" />
-                <div class="help-text">The next piece ID for this data set (auto-filled when you select a data set)</div>
+                <div class="help-text">The next piece ID for this data set (auto-filled when you select a data set)
+                </div>
             </div>
-
             <div class="form-group">
                 <label>Piece Data Entries:</label>
                 <div class="help-text">Add the piece CIDs and their raw data sizes to include in the data set</div>
@@ -267,7 +284,8 @@
                         <h4>Piece Entry 1</h4>
                         <div style="margin-bottom: 10px;">
                             <label>Piece CID:</label>
-                            <input type="text" class="piece-cid" placeholder="e.g., bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace" />
+                            <input type="text" class="piece-cid"
+                                placeholder="e.g., bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace" />
                         </div>
                         <div style="margin-bottom: 10px;">
                             <label>Raw Size (bytes):</label>
@@ -278,12 +296,10 @@
                 </div>
                 <button type="button" class="add-piece-btn" onclick="addPieceEntry()">Add Another Piece</button>
             </div>
-
             <div class="form-group">
                 <button id="addPiecesBtn" disabled>Add Pieces</button>
             </div>
         </div>
-
         <!-- MONITOR DATA SET SECTION -->
         <div class="section">
             <h2>Monitor Data Set</h2>
@@ -296,19 +312,15 @@
                 <button id="monitorTxBtn">Check Transaction Status</button>
             </div>
         </div>
-
         <div id="status" class="status info" style="display: none;"></div>
     </div>
-
     <!-- Load ethers from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
-
     <!-- Load Synapse SDK browser bundle -->
     <script src="../dist/browser/synapse-sdk.min.js"></script>
-
     <script>
         // The SDK is now available as window.SynapseSDK
-        const { PDPAuthHelper, PDPServer, Warm StorageService } = window.SynapseSDK;
+        const { PDPAuthHelper, PDPServer, WarmStorageService } = window.SynapseSDK;
 
         // Use CONTRACT_ADDRESSES from the SDK
         const { CONTRACT_ADDRESSES } = window.SynapseSDK;
@@ -324,7 +336,7 @@
         // Network selection
         document.querySelectorAll('.network-option').forEach(option => {
             option.addEventListener('click', () => {
-                document.querySelectorAll('.network-option').forEach(o => o.classList.remove('selected'))
+                document.querySelectorAll('.network-option').forEach(o => { o.classList.remove('selected') })
                 option.classList.add('selected')
                 currentNetwork = option.dataset.network
                 updateContractAddress()
@@ -337,7 +349,7 @@
         }
 
         // Piece entry management
-        function addPieceEntry() {
+        function _addPieceEntry() {
             pieceEntryCounter++
             const pieceEntries = document.getElementById('pieceEntries')
             const newEntry = document.createElement('div')
@@ -357,7 +369,7 @@
             pieceEntries.appendChild(newEntry)
         }
 
-        function removePieceEntry(button) {
+        function _removePieceEntry(button) {
             const pieceEntries = document.getElementById('pieceEntries')
             if (pieceEntries.children.length > 1) {
                 button.parentElement.remove()
@@ -409,7 +421,7 @@
 
                 // Create Warm StorageService instance
                 const warmStorageAddress = document.getElementById('warmStorageAddress').value
-                warmStorageService = new Warm StorageService(provider, warmStorageAddress)
+                warmStorageService = new WarmStorageService(provider, warmStorageAddress)
 
                 showStatus(`Successfully connected to MetaMask!
 Address: ${connectedAddress}
@@ -498,19 +510,19 @@ Warm Storage: ${warmStorageAddress}`, 'success')
         function validateAddPiecesInputs() {
             const { pdpEndpoint, warmStorageAddress } = validateInputs()
 
-            const pdpVerifierDataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value)
-            const clientDataSetId = parseInt(document.getElementById('addPiecesClientDataSetId').value)
-            const nextPieceId = parseInt(document.getElementById('nextPieceId').value)
+            const pdpVerifierDataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value, 10)
+            const clientDataSetId = parseInt(document.getElementById('addPiecesClientDataSetId').value, 10)
+            const nextPieceId = parseInt(document.getElementById('nextPieceId').value, 10)
 
-            if (isNaN(pdpVerifierDataSetId) || pdpVerifierDataSetId < 0) {
+            if (Number.isNaN(pdpVerifierDataSetId) || pdpVerifierDataSetId < 0) {
                 throw new Error('Please enter a valid data set ID (use Discover to auto-fill)')
             }
 
-            if (isNaN(clientDataSetId) || clientDataSetId < 0) {
+            if (Number.isNaN(clientDataSetId) || clientDataSetId < 0) {
                 throw new Error('Please enter a valid client dataset ID')
             }
 
-            if (isNaN(nextPieceId) || nextPieceId < 0) {
+            if (Number.isNaN(nextPieceId) || nextPieceId < 0) {
                 throw new Error('Please enter a valid next piece ID')
             }
 
@@ -524,13 +536,13 @@ Warm Storage: ${warmStorageAddress}`, 'success')
                 const sizeInput = entry.querySelector('.piece-size')
 
                 const cid = cidInput.value.trim()
-                const rawSize = parseInt(sizeInput.value)
+                const rawSize = parseInt(sizeInput.value, 10)
 
                 if (!cid) {
                     throw new Error(`Piece entry ${i + 1}: Please enter a piece CID`)
                 }
 
-                if (isNaN(rawSize) || rawSize <= 0) {
+                if (Number.isNaN(rawSize) || rawSize <= 0) {
                     throw new Error(`Piece entry ${i + 1}: Please enter a valid raw size (positive number)`)
                 }
 
@@ -553,7 +565,7 @@ Warm Storage: ${warmStorageAddress}`, 'success')
                 showStatus('Validating inputs...', 'info')
 
                 const { pdpEndpoint, warmStorageAddress, payee } = validateCreateDataSetInputs()
-                const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value)
+                const clientDataSetId = parseInt(document.getElementById('clientDataSetId').value, 10)
                 const withCDN = document.getElementById('withCDN').value === 'true'
 
 
@@ -699,7 +711,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 // Auto-populate data set ID for add pieces if creation succeeded
                 if (chain.dataSetLive && chain.dataSetId != null) {
                     document.getElementById('pdpVerifierDataSetId').value = chain.dataSetId
-                    
+
                     // Also try to get the additional info for this new data set
                     try {
                         const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
@@ -708,11 +720,11 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                             document.getElementById('addPiecesClientDataSetId').value = newDataSet.clientDataSetId
                             document.getElementById('nextPieceId').value = newDataSet.nextPieceId
                         }
-                    } catch (e) {
+                    } catch {
                         // Ignore errors here, the data set ID is the important part
                     }
-                    
-                    showStatus(statusMessage + `\n✨ Auto-populated data set ID ${chain.dataSetId} for adding pieces!`, statusType)
+
+                    showStatus(`${statusMessage}\n✨ Auto-populated data set ID ${chain.dataSetId} for adding pieces!`, statusType)
                 }
 
             } catch (error) {
@@ -825,7 +837,7 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                 }
 
                 showStatus('Discovering your data sets with detailed information...', 'info')
-                
+
                 const dataSetsWithDetails = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
                 const managedDataSets = dataSetsWithDetails.filter(ps => ps.isManaged)
 
@@ -897,34 +909,34 @@ Next piece ID will be: ${nextPieceId + pieceDataArray.length}`, 'success')
                     return
                 }
 
-                const dataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value)
-                if (isNaN(dataSetId) || dataSetId < 0) {
+                const dataSetId = parseInt(document.getElementById('pdpVerifierDataSetId').value, 10)
+                if (Number.isNaN(dataSetId) || dataSetId < 0) {
                     showStatus('Please enter a valid data set ID first', 'error')
                     return
                 }
 
                 showStatus('Getting add pieces information...', 'info')
-                
+
                 try {
                     const dataSets = await warmStorageService.getClientDataSetsWithDetails(connectedAddress)
                     const dataSet = dataSets.find(ps => ps.pdpVerifierDataSetId === dataSetId)
-                    
+
                     if (!dataSet) {
                         showStatus('Data set not found or not owned by connected wallet', 'error')
                         return
                     }
-                    
+
                     if (!dataSet.isManaged) {
                         showStatus('This data set is not managed by the current Warm Storage contract', 'error')
                         return
                     }
-                    
+
                     const addPiecesInfo = await warmStorageService.getAddPiecesInfo(dataSet.pdpVerifierDataSetId)
-                    
+
                     // Keep the data set ID as entered
                     document.getElementById('addPiecesClientDataSetId').value = addPiecesInfo.clientDataSetId
                     document.getElementById('nextPieceId').value = addPiecesInfo.nextPieceId
-                    
+
                     showStatus(`Auto-filled:
 Data Set ID: ${dataSetId}
 Client Dataset ID: ${addPiecesInfo.clientDataSetId}
@@ -944,25 +956,25 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
         // Warm Storage address change handler
         document.getElementById('warmStorageAddress').addEventListener('change', async () => {
             const newAddress = document.getElementById('warmStorageAddress').value.trim()
-            
+
             if (!newAddress) {
                 showStatus('Warm Storage address cannot be empty', 'error')
                 return
             }
-            
+
             if (!ethers.isAddress(newAddress)) {
                 showStatus('Invalid Warm Storage contract address format', 'error')
                 return
             }
-            
+
             if (!provider) {
                 showStatus('Please connect MetaMask first before changing Warm Storage address', 'error')
                 return
             }
-            
+
             try {
                 // Reinitialize Warm StorageService with new address
-                warmStorageService = new Warm StorageService(provider, newAddress)
+                warmStorageService = new WarmStorageService(provider, newAddress)
                 showStatus(`Warm StorageService reinitialized with address: ${newAddress}`, 'success')
             } catch (error) {
                 showStatus(`Failed to reinitialize Warm StorageService: ${error.message}`, 'error')
@@ -983,7 +995,7 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
                 providersDiv.style.display = 'block'
 
                 const providers = await warmStorageService.getAllApprovedProviders()
-                
+
                 if (providers.length === 0) {
                     providersDiv.textContent = 'No approved service providers found'
                     return
@@ -1077,4 +1089,5 @@ Current pieces in data set: ${addPiecesInfo.currentPieceCount}`, 'success')
         showStatus('Welcome to the PDP Testing Tool! Connect your MetaMask wallet to begin.', 'info')
     </script>
 </body>
+
 </html>

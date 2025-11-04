@@ -1,5 +1,5 @@
 /**
- * Exports the PaymentsService and DepositCallbacks types
+ * Exports the PaymentsService and DepositOptions types
  *
  * @module Payments
  * @example
@@ -8,5 +8,5 @@
  * ```
  */
 
-export type { DepositCallbacks } from './service.ts'
+export type { DepositOptions } from './service.ts'
 export { PaymentsService } from './service.ts'

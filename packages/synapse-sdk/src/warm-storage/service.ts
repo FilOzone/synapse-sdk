@@ -6,6 +6,7 @@
  * - Service provider registration and management
  * - Client dataset ID tracking
  * - Data set creation verification
+ * - CDN service management
  *
  * @example
  * ```typescript
@@ -34,29 +35,21 @@ import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } 
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
- * Helper information for adding pieces to a data set
- */
-export interface AddPiecesInfo {
-  /** The next piece ID to use when adding pieces */
-  nextPieceId: number
-  /** The client dataset ID for this data set */
-  clientDataSetId: number
-  /** Current number of pieces in the data set */
-  currentPieceCount: number
-}
-
-/**
  * Service price information
  */
 export interface ServicePriceInfo {
   /** Price per TiB per month without CDN (in base units) */
   pricePerTiBPerMonthNoCDN: bigint
-  /** Price per TiB per month with CDN (in base units) */
-  pricePerTiBPerMonthWithCDN: bigint
+  /** CDN egress price per TiB (usage-based, in base units) */
+  pricePerTiBCdnEgress: bigint
+  /** Cache miss egress price per TiB (usage-based, in base units) */
+  pricePerTiBCacheMissEgress: bigint
   /** Token address for payments */
   tokenAddress: string
   /** Number of epochs per month */
   epochsPerMonth: bigint
+  /** Minimum monthly charge for any dataset size (in base units) */
+  minimumPricePerMonth: bigint
 }
 
 /**
@@ -114,7 +107,7 @@ export class WarmStorageService {
     pdpVerifier: string
     payments: string
     usdfcToken: string
-    filCDNBeneficiary: string
+    filBeamBeneficiary: string
     viewContract: string
     serviceProviderRegistry: string
     sessionKeyRegistry: string
@@ -130,7 +123,7 @@ export class WarmStorageService {
       pdpVerifier: string
       payments: string
       usdfcToken: string
-      filCDNBeneficiary: string
+      filBeamBeneficiary: string
       viewContract: string
       serviceProviderRegistry: string
       sessionKeyRegistry: string
@@ -176,7 +169,7 @@ export class WarmStorageService {
       {
         target: warmStorageAddress,
         allowFailure: false,
-        callData: iface.encodeFunctionData('filCDNBeneficiaryAddress'),
+        callData: iface.encodeFunctionData('filBeamBeneficiaryAddress'),
       },
       {
         target: warmStorageAddress,
@@ -201,7 +194,7 @@ export class WarmStorageService {
       pdpVerifier: iface.decodeFunctionResult('pdpVerifierAddress', results[0].returnData)[0],
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
-      filCDNBeneficiary: iface.decodeFunctionResult('filCDNBeneficiaryAddress', results[3].returnData)[0],
+      filBeamBeneficiary: iface.decodeFunctionResult('filBeamBeneficiaryAddress', results[3].returnData)[0],
       viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
@@ -303,10 +296,10 @@ export class WarmStorageService {
       payee: ds.payee,
       serviceProvider: ds.serviceProvider,
       commissionBps: Number(ds.commissionBps),
-      clientDataSetId: Number(ds.clientDataSetId),
+      clientDataSetId: ds.clientDataSetId,
       pdpEndEpoch: Number(ds.pdpEndEpoch),
       providerId: Number(ds.providerId),
-      cdnEndEpoch: Number(ds.cdnEndEpoch),
+      dataSetId,
     }
   }
 
@@ -329,10 +322,9 @@ export class WarmStorageService {
         payee: ds.payee,
         serviceProvider: ds.serviceProvider,
         commissionBps: Number(ds.commissionBps),
-        clientDataSetId: Number(ds.clientDataSetId),
+        clientDataSetId: ds.clientDataSetId,
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
-        cdnEndEpoch: Number(ds.cdnEndEpoch),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -404,67 +396,36 @@ export class WarmStorageService {
   }
 
   /**
-   * Get information for adding pieces to a data set
+   * Validate that a dataset is live and managed by this WarmStorage contract
+   *
+   * Performs validation checks in parallel:
+   * - Dataset exists and is live
+   * - Dataset is managed by this WarmStorage contract
+   *
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns Helper information for adding pieces
+   * @throws if dataset is not valid for operations
    */
-  async getAddPiecesInfo(dataSetId: number): Promise<AddPiecesInfo> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-      const pdpVerifier = this._getPDPVerifier()
+  async validateDataSet(dataSetId: number): Promise<void> {
+    const pdpVerifier = this._getPDPVerifier()
 
-      // Parallelize all independent calls
-      const [isLive, nextPieceId, listener, dataSetInfo] = await Promise.all([
-        pdpVerifier.dataSetLive(Number(dataSetId)),
-        pdpVerifier.getNextPieceId(Number(dataSetId)),
-        pdpVerifier.getDataSetListener(Number(dataSetId)),
-        viewContract.getDataSet(Number(dataSetId)),
-      ])
+    // Parallelize validation checks
+    const [isLive, listener] = await Promise.all([
+      pdpVerifier.dataSetLive(Number(dataSetId)),
+      pdpVerifier.getDataSetListener(Number(dataSetId)),
+    ])
 
-      // Check if data set exists and is live
-      if (!isLive) {
-        throw new Error(`Data set ${dataSetId} does not exist or is not live`)
-      }
-
-      // Verify this data set is managed by our Warm Storage contract
-      if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
-        throw new Error(
-          `Data set ${dataSetId} is not managed by this WarmStorage contract (${
-            this._warmStorageAddress
-          }), managed by ${String(listener)}`
-        )
-      }
-
-      const clientDataSetId = Number(dataSetInfo.clientDataSetId)
-
-      return {
-        nextPieceId: Number(nextPieceId),
-        clientDataSetId,
-        currentPieceCount: Number(nextPieceId),
-      }
-    } catch (error) {
-      throw new Error(`Failed to get add pieces info: ${error instanceof Error ? error.message : String(error)}`)
+    // Check if data set exists and is live
+    if (!isLive) {
+      throw new Error(`Data set ${dataSetId} does not exist or is not live`)
     }
-  }
 
-  /**
-   * Get the next client dataset ID for a given client
-   * This reads the current counter from the WarmStorage contract
-   * @param clientAddress - The client's wallet address
-   * @returns  next client dataset ID that will be assigned by this WarmStorage contract
-   */
-  async getNextClientDataSetId(clientAddress: string): Promise<number> {
-    try {
-      const viewContract = this._getWarmStorageViewContract()
-
-      // Get the current clientDataSetIDs counter for this client in this WarmStorage contract
-      // This is the value that will be used for the next data set creation
-      const currentCounter = await viewContract.clientDataSetIDs(clientAddress)
-
-      // Return the current counter value (it will be incremented during data set creation)
-      return Number(currentCounter)
-    } catch (error) {
-      throw new Error(`Failed to get next client dataset ID: ${error instanceof Error ? error.message : String(error)}`)
+    // Verify this data set is managed by our Warm Storage contract
+    if (listener.toLowerCase() !== this._warmStorageAddress.toLowerCase()) {
+      throw new Error(
+        `Data set ${dataSetId} is not managed by this WarmStorage contract (${
+          this._warmStorageAddress
+        }), managed by ${String(listener)}`
+      )
     }
   }
 
@@ -750,16 +711,19 @@ export class WarmStorageService {
     const pricing = await contract.getServicePrice()
     return {
       pricePerTiBPerMonthNoCDN: pricing.pricePerTiBPerMonthNoCDN,
-      pricePerTiBPerMonthWithCDN: pricing.pricePerTiBPerMonthWithCDN,
+      pricePerTiBCdnEgress: pricing.pricePerTiBCdnEgress,
+      pricePerTiBCacheMissEgress: pricing.pricePerTiBCacheMissEgress,
       tokenAddress: pricing.tokenAddress,
       epochsPerMonth: pricing.epochsPerMonth,
+      minimumPricePerMonth: pricing.minimumPricePerMonth,
     }
   }
 
   /**
    * Calculate storage costs for a given size
    * @param sizeInBytes - Size of data to store in bytes
-   * @returns Cost estimates per epoch, day, and month for both CDN and non-CDN
+   * @returns Cost estimates per epoch, day, and month
+   * @remarks CDN costs are usage-based (egress pricing), so withCDN field reflects base storage cost only
    */
   async calculateStorageCost(sizeInBytes: number): Promise<{
     perEpoch: bigint
@@ -773,24 +737,23 @@ export class WarmStorageService {
   }> {
     const servicePriceInfo = await this.getServicePrice()
 
-    // Calculate price per byte per epoch
+    // Calculate price per byte per epoch (base storage cost)
     const sizeInBytesBigint = BigInt(sizeInBytes)
-    const pricePerEpochNoCDN =
+    const pricePerEpoch =
       (servicePriceInfo.pricePerTiBPerMonthNoCDN * sizeInBytesBigint) /
       (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
-    const pricePerEpochWithCDN =
-      (servicePriceInfo.pricePerTiBPerMonthWithCDN * sizeInBytesBigint) /
-      (SIZE_CONSTANTS.TiB * servicePriceInfo.epochsPerMonth)
 
+    const costs = {
+      perEpoch: pricePerEpoch,
+      perDay: pricePerEpoch * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
+      perMonth: pricePerEpoch * servicePriceInfo.epochsPerMonth,
+    }
+
+    // CDN costs are usage-based (egress pricing), so withCDN returns base storage cost
+    // Actual CDN costs will be charged based on egress usage
     return {
-      perEpoch: pricePerEpochNoCDN,
-      perDay: pricePerEpochNoCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-      perMonth: pricePerEpochNoCDN * servicePriceInfo.epochsPerMonth,
-      withCDN: {
-        perEpoch: pricePerEpochWithCDN,
-        perDay: pricePerEpochWithCDN * BigInt(TIME_CONSTANTS.EPOCHS_PER_DAY),
-        perMonth: pricePerEpochWithCDN * servicePriceInfo.epochsPerMonth,
-      },
+      ...costs,
+      withCDN: costs,
     }
   }
 
@@ -1032,7 +995,7 @@ export class WarmStorageService {
 
     // First, we need to find the index of this provider in the array
     const viewContract = this._getWarmStorageViewContract()
-    const approvedIds = await viewContract.getApprovedProviders()
+    const approvedIds = await viewContract.getApprovedProviders(0n, 0n)
     const index = approvedIds.findIndex((id: bigint) => Number(id) === providerId)
 
     if (index === -1) {
@@ -1048,7 +1011,7 @@ export class WarmStorageService {
    */
   async getApprovedProviderIds(): Promise<number[]> {
     const viewContract = this._getWarmStorageViewContract()
-    const providerIds = await viewContract.getApprovedProviders()
+    const providerIds = await viewContract.getApprovedProviders(0n, 0n)
     return providerIds.map((id: bigint) => Number(id))
   }
 
@@ -1102,5 +1065,33 @@ export class WarmStorageService {
     const viewContract = this._getWarmStorageViewContract()
     const window = await viewContract.challengeWindow()
     return Number(window)
+  }
+  /**
+   * Increments the fixed locked-up amounts for CDN payment rails.
+   *
+   * This method tops up the prepaid balance for CDN services by adding to the existing
+   * lockup amounts. Both CDN and cache miss rails can be incremented independently.
+   *
+   * @param dataSetId - The ID of the data set
+   * @param cdnAmountToAdd - Amount to add to the CDN rail lockup
+   * @param cacheMissAmountToAdd - Amount to add to the cache miss rail lockup
+   * @returns Transaction response
+   */
+  async topUpCDNPaymentRails(
+    signer: ethers.Signer,
+    dataSetId: number,
+    cdnAmountToAdd: bigint,
+    cacheMissAmountToAdd: bigint
+  ): Promise<ethers.TransactionResponse> {
+    if (cdnAmountToAdd < 0n || cacheMissAmountToAdd < 0n) {
+      throw new Error('Top up amounts must be positive')
+    }
+    if (cdnAmountToAdd === 0n && cacheMissAmountToAdd === 0n) {
+      throw new Error('At least one top up amount must be >0')
+    }
+
+    const contract = this._getWarmStorageContract()
+    const contractWithSigner = contract.connect(signer) as ethers.Contract
+    return await contractWithSigner.topUpCDNPaymentRails(dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
   }
 }

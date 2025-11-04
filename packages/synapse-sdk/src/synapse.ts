@@ -10,6 +10,8 @@ import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageService } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
+import type { TelemetryService } from './telemetry/service.ts'
+import { getGlobalTelemetry, initGlobalTelemetry } from './telemetry/singleton.ts'
 import type {
   FilecoinNetworkType,
   PieceCID,
@@ -21,7 +23,6 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
-import { ProviderResolver } from './utils/provider-resolver.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 export class Synapse {
@@ -165,6 +166,10 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
+    // Create and initialize the global TelemetryService.
+    // If telemetry is disabled, this will do nothing.
+    await initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
+
     return new Synapse(
       signer,
       provider,
@@ -222,6 +227,23 @@ export class Synapse {
   }
 
   /**
+   * Gets the TelemetryService for error tracking and debugging.
+   * @returns The global TelemetryService instance
+   * @example
+   * ```typescript
+   * // Get debug dump for support tickets
+   * const dump = synapse.telemetry.debugDump()
+   * console.log(JSON.stringify(dump, null, 2))
+   *
+   * // Track custom events
+   * synapse.telemetry.sentry.captureCustomEvent('user-action', { action: 'upload' })
+   * ```
+   */
+  get telemetry(): TelemetryService | null {
+    return getGlobalTelemetry()
+  }
+
+  /**
    * Gets the signer instance, possibly a session key
    * @returns The ethers signer
    */
@@ -267,7 +289,7 @@ export class Synapse {
    * const HOUR_MILLIS = BigInt(1000 * 60 * 60)
    * if (expiries[ADD_PIECES_TYPEHASH] * BigInt(1000) < BigInt(Date.now()) + HOUR_MILLIS) {
    *   const DAY_MILLIS = BigInt(24) * HOUR_MILLIS
-   *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS)
+   *   const loginTx = await sessionKey.login(BigInt(Date.now()) / BigInt(1000 + 30 * DAY_MILLIS), PDP_PERMISSIONS, "example.com")
    *   const loginReceipt = await loginTx.wait()
    * }
    *
@@ -412,29 +434,25 @@ export class Synapse {
         }
       }
 
-      // Create SPRegistryService and ProviderResolver
+      // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._provider, registryAddress)
-      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
 
       let providerInfo: ProviderInfo | null
       if (typeof providerAddress === 'string') {
-        providerInfo = await resolver.getApprovedProviderByAddress(providerAddress)
+        providerInfo = await spRegistry.getProviderByAddress(providerAddress)
       } else {
-        providerInfo = await resolver.getApprovedProvider(providerAddress)
+        providerInfo = await spRegistry.getProvider(providerAddress)
       }
 
-      // Check if provider was found
+      // Check if provider was found in registry
       if (providerInfo == null) {
-        throw new Error(`Provider ${providerAddress} not found or not approved`)
+        throw new Error(`Provider ${providerAddress} not found in registry`)
       }
 
       return providerInfo
     } catch (error) {
       if (error instanceof Error && error.message.includes('Invalid provider address')) {
-        throw error
-      }
-      if (error instanceof Error && error.message.includes('is not approved')) {
         throw error
       }
       if (error instanceof Error && error.message.includes('not found')) {

@@ -26,7 +26,9 @@ jobs:
   npm:
     needs: release
     if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') || 
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,7 +38,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: latest
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: lts/*
           registry-url: "https://registry.npmjs.org"
@@ -49,6 +51,8 @@ jobs:
   docs:
     needs: release
     if: |
-      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk')
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-sdk') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-core') ||
+      contains(fromJson(needs.release.outputs.paths_released), 'packages/synapse-react')
     uses: ./.github/workflows/docs.yml
     secrets: inherit

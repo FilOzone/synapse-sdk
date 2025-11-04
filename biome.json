@@ -32,7 +32,8 @@
       "!**/__snapshots__",
       "!**/components.d.ts",
       "!**/mockServiceWorker.js",
-      "!**/abis/gen.ts"
+      "!**/abis/gen.ts",
+      "!packages/synapse-core/src/abis/generated.ts"
     ]
   },
   "vcs": {
@@ -63,9 +64,6 @@
   },
   "linter": {
     "enabled": true,
-    "domains": {
-      "test": "recommended"
-    },
     "rules": {
       "recommended": true,
       "complexity": {
@@ -79,6 +77,7 @@
       "style": {
         "noNamespace": "error",
         "noNegationElse": "error",
+        "noNonNullAssertion": "error",
         "noParameterAssign": "off",
         "useCollapsedElseIf": "error",
         "useFilenamingConvention": {

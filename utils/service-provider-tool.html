@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,44 +15,54 @@
             padding: 20px;
             background-color: #f5f5f5;
         }
+
         .container {
             background-color: white;
             padding: 30px;
             border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
         }
+
         h1 {
             color: #333;
             border-bottom: 2px solid #4CAF50;
             padding-bottom: 10px;
         }
+
         h2 {
             color: #666;
             margin-top: 30px;
         }
+
         .auth-section {
             background-color: #f8f9fa;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
+
         .input-group {
             margin-bottom: 15px;
         }
+
         label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
             color: #555;
         }
-        input[type="text"], input[type="password"], select {
+
+        input[type="text"],
+        input[type="password"],
+        select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
         }
+
         button {
             background-color: #4CAF50;
             color: white;
@@ -62,59 +73,71 @@
             margin: 5px;
             font-size: 14px;
         }
+
         button:hover {
             background-color: #45a049;
         }
+
         button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
+
         .status {
             padding: 15px;
             margin: 10px 0;
             border-radius: 5px;
             font-family: monospace;
         }
+
         .success {
             background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
+
         .error {
             background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+
         .info {
             background-color: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
+
         .warning {
             background-color: #fff3cd;
             color: #856404;
             border: 1px solid #ffeaa7;
         }
+
         #output {
             margin-top: 20px;
             max-height: 400px;
             overflow-y: auto;
         }
+
         .provider-info {
             background-color: #f8f9fa;
             padding: 15px;
             border-radius: 5px;
             margin: 10px 0;
         }
+
         .provider-info h4 {
             margin-top: 0;
             color: #333;
         }
+
         .tabs {
             display: flex;
             border-bottom: 2px solid #ddd;
             margin-bottom: 20px;
         }
+
         .tab {
             padding: 10px 20px;
             cursor: pointer;
@@ -124,18 +147,22 @@
             margin-right: 5px;
             border-radius: 5px 5px 0 0;
         }
+
         .tab.active {
             background-color: white;
             border-bottom: 2px solid white;
             position: relative;
             top: 2px;
         }
+
         .tab-content {
             display: none;
         }
+
         .tab-content.active {
             display: block;
         }
+
         .action-buttons {
             display: flex;
             gap: 10px;
@@ -144,10 +171,10 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Service Provider Tool</h1>
-        
         <div class="status info">
             <div class="input-group">
                 <label for="contractAddressInput">WarmStorage Contract Address:</label>
@@ -157,7 +184,6 @@
             </div>
             <strong>Network:</strong> <span id="networkDisplay">Connect wallet to detect network</span>
         </div>
-
         <div class="auth-section">
             <h2>Authentication</h2>
             <div class="input-group">
@@ -167,11 +193,9 @@
                     <option value="privateKey">Private Key</option>
                 </select>
             </div>
-            
             <div id="metamaskAuth">
                 <button onclick="connectMetaMask()">Connect MetaMask</button>
             </div>
-            
             <div id="privateKeyAuth" style="display: none;">
                 <div class="input-group">
                     <label for="privateKey">Private Key (with or without 0x prefix):</label>
@@ -179,114 +203,93 @@
                 </div>
                 <button onclick="connectPrivateKey()">Connect with Private Key</button>
             </div>
-            
             <div id="connectionStatus" class="status info" style="display: none;"></div>
         </div>
-
         <div class="tabs">
             <div class="tab active" onclick="showTab('register')">Register Provider</div>
             <div class="tab" onclick="showTab('query')">Query Providers</div>
         </div>
-
         <div id="registerTab" class="tab-content active">
             <h2>Register as Service Provider</h2>
-            <p>Service providers use this to register with the new registry system. Registration requires a 5 FIL fee.</p>
-            
+            <p>Service providers use this to register with the new registry system. Registration requires a 5 FIL fee.
+            </p>
             <div class="input-group">
                 <label for="providerName">Provider Name:</label>
                 <input type="text" id="providerName" placeholder="My Storage Provider" value="">
             </div>
-            
             <div class="input-group">
                 <label for="providerDescription">Description:</label>
                 <input type="text" id="providerDescription" placeholder="High-performance storage service" value="">
             </div>
-            
             <div class="input-group">
                 <label for="payeeAddress">Payee Address (optional - defaults to your address):</label>
                 <input type="text" id="payeeAddress" placeholder="0x... (leave blank to use your address)" value="">
             </div>
-            
             <div class="input-group">
                 <label for="serviceUrl">Service URL:</label>
-                <input type="text" id="serviceUrl" placeholder="https://provider.example.com" value="http://192.168.1.5:4702">
+                <input type="text" id="serviceUrl" placeholder="https://provider.example.com"
+                    value="http://192.168.1.5:4702">
             </div>
-            
             <div class="input-group">
                 <label for="location">Location (optional):</label>
                 <input type="text" id="location" placeholder="us-east" value="">
             </div>
-            
             <div class="input-group">
                 <label for="storagePrice">Storage Price (USDFC per TiB per month):</label>
                 <input type="number" id="storagePrice" placeholder="1" value="1" min="0" step="0.01">
             </div>
-            
             <div class="input-group">
                 <label for="minPieceSize">Min Piece Size (bytes):</label>
                 <input type="number" id="minPieceSize" placeholder="1024" value="1024" min="1">
             </div>
-            
             <div class="input-group">
                 <label for="maxPieceSize">Max Piece Size (bytes):</label>
                 <input type="number" id="maxPieceSize" placeholder="34359738368" value="34359738368" min="1024">
             </div>
-            
             <div class="input-group">
                 <label for="minProvingPeriod">Min Proving Period (epochs):</label>
                 <input type="number" id="minProvingPeriod" placeholder="30" value="30" min="1">
             </div>
-            
             <div class="status warning">
                 <strong>Note:</strong> Registration requires a 5 FIL fee. Make sure your wallet has sufficient balance.
             </div>
-            
             <button onclick="registerProvider()">Register Provider (5 FIL fee)</button>
         </div>
-
-
         <div id="queryTab" class="tab-content">
             <h2>Query Provider Information</h2>
-            
             <div class="action-buttons">
                 <button onclick="getProviderCount()">Get Provider Count</button>
                 <button onclick="getActiveProviderCount()">Get Active Provider Count</button>
                 <button onclick="getAllProviders()">List All Active Providers</button>
             </div>
-            
             <div class="input-group" style="margin-top: 20px;">
                 <label for="queryAddress">Provider Address to Query:</label>
                 <input type="text" id="queryAddress" placeholder="0x...">
             </div>
-            
             <div class="action-buttons">
                 <button onclick="checkRegistration()">Check if Registered</button>
                 <button onclick="getProviderId()">Get Provider ID</button>
                 <button onclick="getProviderInfo()">Get Provider Info</button>
             </div>
-            
             <div class="input-group" style="margin-top: 20px;">
                 <label for="queryId">Provider ID to Query:</label>
                 <input type="text" id="queryId" placeholder="1">
             </div>
-            
             <button onclick="getProviderById()">Get Provider by ID</button>
         </div>
-
         <div id="output"></div>
     </div>
-
     <script>
         const { SPRegistryService, WarmStorageService, CONTRACT_ADDRESSES, getFilecoinNetworkType } = window.SynapseSDK;
-        
+
         let spRegistry = null;
         let warmStorage = null;
         let provider = null;
         let signer = null;
-        
+
         let CONTRACT_ADDRESS = null; // Will be set when connecting
         const RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1';
-        
+
         function log(message, type = 'info') {
             const output = document.getElementById('output');
             const div = document.createElement('div');
@@ -295,17 +298,17 @@
             output.appendChild(div);
             output.scrollTop = output.scrollHeight;
         }
-        
+
         function clearOutput() {
             document.getElementById('output').innerHTML = '';
         }
-        
-        function toggleAuthMethod() {
+
+        function _toggleAuthMethod() {
             const method = document.getElementById('authMethod').value;
             document.getElementById('metamaskAuth').style.display = method === 'metamask' ? 'block' : 'none';
             document.getElementById('privateKeyAuth').style.display = method === 'privateKey' ? 'block' : 'none';
         }
-        
+
         async function getDefaultWarmStorageAddress(provider) {
             try {
                 const networkName = await getFilecoinNetworkType(provider);
@@ -314,16 +317,16 @@
                     throw new Error(`No default address available for network: ${networkName}`);
                 }
                 return { address: defaultAddress, network: networkName };
-            } catch (error) {
+            } catch {
                 // Fallback to network detection via chainId
                 const network = await provider.getNetwork();
                 const chainId = Number(network.chainId);
                 const networkName = chainId === 314159 ? 'calibration' : chainId === 314 ? 'mainnet' : null;
-                
+
                 if (!networkName) {
                     throw new Error(`Unsupported network. Please switch to Filecoin Mainnet (314) or Calibration (314159)`);
                 }
-                
+
                 const defaultAddress = CONTRACT_ADDRESSES.WARM_STORAGE[networkName];
                 if (!defaultAddress) {
                     throw new Error(`No default address available for network: ${networkName}`);
@@ -331,27 +334,27 @@
                 return { address: defaultAddress, network: networkName };
             }
         }
-        
-        function updateContractAddress() {
+
+        function _updateContractAddress() {
             const newAddress = document.getElementById('contractAddressInput').value.trim();
             if (!newAddress || !newAddress.startsWith('0x') || newAddress.length !== 42) {
                 log('Please enter a valid contract address', 'error');
                 return;
             }
-            
+
             CONTRACT_ADDRESS = newAddress;
             spRegistry = null; // Reset registry instance
             warmStorage = null;
             log(`WarmStorage address updated to: ${CONTRACT_ADDRESS}`, 'success');
             log('Please reconnect your wallet to use the new contract', 'info');
         }
-        
-        async function resetToDefault() {
+
+        async function _resetToDefault() {
             if (!provider) {
                 log('Please connect wallet first to detect network', 'error');
                 return;
             }
-            
+
             try {
                 const { address, network } = await getDefaultWarmStorageAddress(provider);
                 CONTRACT_ADDRESS = address;
@@ -364,22 +367,31 @@
                 log(`Failed to get default address: ${error.message}`, 'error');
             }
         }
-        
-        async function connectMetaMask() {
+
+        async function _connectMetaMask() {
             if (typeof window.ethereum === 'undefined') {
                 log('Please install MetaMask!', 'error');
                 return;
             }
-            
+
             try {
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 provider = new ethers.BrowserProvider(window.ethereum);
                 signer = await provider.getSigner();
-                
+
                 // Get or auto-detect WarmStorage address
                 let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
                 let detectedNetwork = null;
-                if (!warmStorageAddress) {
+                if (warmStorageAddress) {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch {
+                        detectedNetwork = 'unknown';
+                    }
+                } else {
                     log('Auto-detecting WarmStorage address from network...', 'info');
                     const { address, network } = await getDefaultWarmStorageAddress(provider);
                     warmStorageAddress = address;
@@ -387,17 +399,8 @@
                     detectedNetwork = network;
                     document.getElementById('contractAddressInput').value = address;
                     log(`Using default ${network} WarmStorage: ${address}`, 'info');
-                } else {
-                    CONTRACT_ADDRESS = warmStorageAddress;
-                    // Still detect network for display
-                    try {
-                        const { network } = await getDefaultWarmStorageAddress(provider);
-                        detectedNetwork = network;
-                    } catch (e) {
-                        detectedNetwork = 'unknown';
-                    }
                 }
-                
+
                 // Update network display
                 const networkNames = {
                     'calibration': 'Filecoin Calibration Testnet',
@@ -405,39 +408,48 @@
                     'unknown': 'Unknown Network'
                 };
                 document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
-                
+
                 // Initialize WarmStorage and discover SP Registry
                 warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
                 const registryAddress = warmStorage.getServiceProviderRegistryAddress();
                 spRegistry = new SPRegistryService(provider, registryAddress);
-                
+
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
                 document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
-                
+
                 log(`Connected to MetaMask: ${address}`, 'success');
                 log(`SP Registry discovered: ${registryAddress}`, 'info');
             } catch (error) {
                 log(`Failed to connect: ${error.message}`, 'error');
             }
         }
-        
-        async function connectPrivateKey() {
+
+        async function _connectPrivateKey() {
             const privateKey = document.getElementById('privateKey').value.trim();
             if (!privateKey) {
                 log('Please enter a private key', 'error');
                 return;
             }
-            
+
             try {
                 provider = new ethers.JsonRpcProvider(RPC_URL);
                 signer = new ethers.Wallet(privateKey, provider);
-                
+
                 // Get or auto-detect WarmStorage address
                 let warmStorageAddress = document.getElementById('contractAddressInput').value.trim();
                 let detectedNetwork = null;
-                if (!warmStorageAddress) {
+                if (warmStorageAddress) {
+                    CONTRACT_ADDRESS = warmStorageAddress;
+                    // Still detect network for display
+                    try {
+                        const { network } = await getDefaultWarmStorageAddress(provider);
+                        detectedNetwork = network;
+                    } catch {
+                        detectedNetwork = 'unknown';
+                    }
+                } else {
                     log('Auto-detecting WarmStorage address from network...', 'info');
                     const { address, network } = await getDefaultWarmStorageAddress(provider);
                     warmStorageAddress = address;
@@ -445,17 +457,8 @@
                     detectedNetwork = network;
                     document.getElementById('contractAddressInput').value = address;
                     log(`Using default ${network} WarmStorage: ${address}`, 'info');
-                } else {
-                    CONTRACT_ADDRESS = warmStorageAddress;
-                    // Still detect network for display
-                    try {
-                        const { network } = await getDefaultWarmStorageAddress(provider);
-                        detectedNetwork = network;
-                    } catch (e) {
-                        detectedNetwork = 'unknown';
-                    }
                 }
-                
+
                 // Update network display
                 const networkNames = {
                     'calibration': 'Filecoin Calibration Testnet',
@@ -463,25 +466,25 @@
                     'unknown': 'Unknown Network'
                 };
                 document.getElementById('networkDisplay').textContent = networkNames[detectedNetwork] || detectedNetwork;
-                
+
                 // Initialize WarmStorage and discover SP Registry
                 warmStorage = await WarmStorageService.create(provider, CONTRACT_ADDRESS);
                 const registryAddress = warmStorage.getServiceProviderRegistryAddress();
                 spRegistry = new SPRegistryService(provider, registryAddress);
-                
+
                 const address = await signer.getAddress();
                 document.getElementById('connectionStatus').style.display = 'block';
                 document.getElementById('connectionStatus').innerHTML = `Connected: ${address}<br>WarmStorage: ${CONTRACT_ADDRESS}<br>Registry: ${registryAddress}`;
                 document.getElementById('connectionStatus').className = 'status success';
-                
+
                 log(`Connected with private key: ${address}`, 'success');
                 log(`SP Registry discovered: ${registryAddress}`, 'info');
             } catch (error) {
                 log(`Failed to connect: ${error.message}`, 'error');
             }
         }
-        
-        function showTab(tabName) {
+
+        function _showTab(tabName) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -489,18 +492,18 @@
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
+
             // Show selected tab
-            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.getElementById(`${tabName}Tab`).classList.add('active');
             event.target.classList.add('active');
         }
-        
-        async function registerProvider() {
+
+        async function _registerProvider() {
             if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             const name = document.getElementById('providerName').value.trim();
             const description = document.getElementById('providerDescription').value.trim();
@@ -511,25 +514,25 @@
             const minPieceSize = document.getElementById('minPieceSize').value;
             const maxPieceSize = document.getElementById('maxPieceSize').value;
             const minProvingPeriod = document.getElementById('minProvingPeriod').value;
-            
+
             if (!name || !description || !serviceUrl || !storagePrice || !minPieceSize || !maxPieceSize || !minProvingPeriod) {
                 log('Please fill in all required fields', 'error');
                 return;
             }
-            
+
             try {
                 log('Checking wallet balance...', 'info');
                 const signerAddress = await signer.getAddress();
                 const balance = await provider.getBalance(signerAddress);
                 const requiredFee = ethers.parseEther('5');
-                
+
                 if (balance < requiredFee) {
                     log(`Insufficient balance. Required: 5 FIL, Available: ${ethers.formatEther(balance)} FIL`, 'error');
                     return;
                 }
-                
+
                 log('Preparing registration...', 'info');
-                
+
                 // Prepare registration info
                 const registrationInfo = {
                     payee: payeeAddress || signerAddress,
@@ -542,44 +545,44 @@
                         ipniPiece: false,
                         ipniIpfs: false,
                         storagePricePerTibPerMonth: ethers.parseUnits(storagePrice, 18),
-                        minProvingPeriodInEpochs: parseInt(minProvingPeriod),
+                        minProvingPeriodInEpochs: parseInt(minProvingPeriod, 10),
                         location: location || 'unknown',
                         paymentTokenAddress: '0x0000000000000000000000000000000000000000'
                     },
                     capabilities: location ? { location: location } : {}
                 };
-                
+
                 log('Registering service provider...', 'info');
                 const tx = await spRegistry.registerProvider(signer, registrationInfo);
                 log(`Transaction sent: ${tx.hash}`, 'info');
-                
+
                 const receipt = await tx.wait();
                 log(`Registration successful! Gas used: ${receipt.gasUsed}`, 'success');
-                
+
                 // Try to get the provider ID from the transaction logs
                 try {
                     const providerId = await spRegistry.getProviderIdByAddress(signerAddress);
                     if (providerId > 0) {
                         log(`Your Provider ID: ${providerId}`, 'success');
                     }
-                } catch (e) {
+                } catch {
                     log('Provider registered successfully but could not retrieve ID immediately', 'info');
                 }
-                
+
             } catch (error) {
                 log(`Registration failed: ${error.message}`, 'error');
             }
         }
-        
-        
-        
-        
-        async function getProviderCount() {
+
+
+
+
+        async function _getProviderCount() {
             if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             try {
                 const count = await spRegistry.getProviderCount();
@@ -588,13 +591,13 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        async function getActiveProviderCount() {
+
+        async function _getActiveProviderCount() {
             if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             try {
                 const count = await spRegistry.activeProviderCount();
@@ -603,17 +606,17 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        
-        async function checkRegistration() {
+
+
+        async function _checkRegistration() {
             if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             const address = document.getElementById('queryAddress').value || await signer.getAddress();
-            
+
             try {
                 const isRegistered = await spRegistry.isRegisteredProvider(address);
                 log(`Address: ${address}`, 'info');
@@ -622,16 +625,16 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        async function getProviderId() {
+
+        async function _getProviderId() {
             if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             const address = document.getElementById('queryAddress').value || await signer.getAddress();
-            
+
             try {
                 const id = await spRegistry.getProviderIdByAddress(address);
                 log(`Address: ${address}`, 'info');
@@ -643,20 +646,20 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        async function getProviderInfo() {
+
+        async function _getProviderInfo() {
             if (!spRegistry || !signer) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             const address = document.getElementById('queryAddress').value || await signer.getAddress();
-            
+
             try {
                 const provider = await spRegistry.getProviderByAddress(address);
                 log(`Address: ${address}`, 'info');
-                
+
                 if (provider) {
                     log('Provider Information Found:', 'success');
                     log(`Provider ID: ${provider.id}`, 'info');
@@ -664,7 +667,7 @@
                     log(`Description: ${provider.description}`, 'info');
                     log(`Payee: ${provider.payee}`, 'info');
                     log(`Active: ${provider.active}`, 'info');
-                    
+
                     if (provider.products.PDP) {
                         const pdp = provider.products.PDP;
                         log('PDP Service:', 'info');
@@ -682,28 +685,28 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        async function getProviderById() {
+
+        async function _getProviderById() {
             if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             const id = document.getElementById('queryId').value;
-            
+
             if (!id) {
                 log('Please enter provider ID', 'error');
                 return;
             }
-            
+
             try {
-                const provider = await spRegistry.getProvider(parseInt(id));
-                
+                const provider = await spRegistry.getProvider(parseInt(id, 10));
+
                 if (provider) {
                     const div = document.createElement('div');
                     div.className = 'provider-info';
-                    
+
                     let pdpInfo = '';
                     if (provider.products.PDP) {
                         const pdp = provider.products.PDP;
@@ -716,7 +719,7 @@
                             <strong>PDP Active:</strong> ${pdp.isActive}<br>
                         `;
                     }
-                    
+
                     div.innerHTML = `
                         <h4>Provider #${id}</h4>
                         <strong>Name:</strong> ${provider.name}<br>
@@ -734,29 +737,29 @@
                 log(`Error: ${error.message}`, 'error');
             }
         }
-        
-        async function getAllProviders() {
+
+        async function _getAllProviders() {
             if (!spRegistry) {
                 log('Please connect wallet first', 'error');
                 return;
             }
-            
+
             clearOutput();
             try {
                 log('Fetching all active providers...', 'info');
                 const providers = await spRegistry.getAllActiveProviders();
-                
+
                 if (providers.length === 0) {
                     log('No active providers found', 'warning');
                     return;
                 }
-                
+
                 log(`Found ${providers.length} active providers:`, 'success');
-                
+
                 providers.forEach((provider) => {
                     const div = document.createElement('div');
                     div.className = 'provider-info';
-                    
+
                     let pdpInfo = '';
                     if (provider.products.PDP) {
                         const pdp = provider.products.PDP;
@@ -766,7 +769,7 @@
                             <strong>Price:</strong> ${ethers.formatUnits(pdp.data.storagePricePerTibPerMonth, 18)} USDFC/TiB/month<br>
                         `;
                     }
-                    
+
                     div.innerHTML = `
                         <h4>Provider #${provider.id}</h4>
                         <strong>Name:</strong> ${provider.name}<br>
@@ -784,4 +787,5 @@
         }
     </script>
 </body>
+
 </html>

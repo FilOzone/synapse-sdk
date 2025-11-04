@@ -52,6 +52,10 @@ Before diving into the code, understand these fundamental concepts:
 - **PDP (Proof of Data Possession)**: The cryptographic protocol that verifies storage providers are actually storing the data they claim to store. Providers must periodically prove they possess the data.
 - **Validators**: Service contracts (like Warm Storage) act as validators for payment settlements, ensuring services are delivered before payments are released.
 
+## Telemetry
+
+To help maintainers validate functionality and iron out problems throughout the whole Filecoin Onchain Cloud stack, starting from the SDK, telemetry is **temporarily enabled by default for the calibration network** in Synapse.  [Learn more (including how to disable)](/guides/telemetry).
+
 ## Usage
 
 The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
@@ -169,6 +173,10 @@ const depositTx = await synapse.payments.deposit(requiredAmount, TOKENS.USDFC, {
 })
 console.log(`Deposit transaction: ${depositTx.hash}`)
 await depositTx.wait()
+
+// Optional: Deposit to a different address (e.g., for a service or another user)
+const recipientAddress = '0x1234...'
+await synapse.payments.deposit(amount, TOKENS.USDFC, { to: recipientAddress })
 
 // Service operator approvals (required before creating data sets)
 const warmStorageAddress = await synapse.getWarmStorageAddress()
@@ -377,7 +385,7 @@ await synapse.storage.download(pieceCid, { context: storageContext })
 
 **Token Operations:**
 
-- `deposit(amount, token?, callbacks?)` - Deposit funds to payments contract (handles approval automatically), returns `TransactionResponse`
+- `deposit(amount, token?, options?)` - Deposit funds to payments contract (handles approval automatically). Options include `to` (recipient address), and callbacks for visibility. Returns `TransactionResponse`
 - `withdraw(amount, token?)` - Withdraw funds from payments contract, returns `TransactionResponse`
 - `approve(spender, amount, token?)` - Approve token spending (for manual control), returns `TransactionResponse`
 - `allowance(spender, token?)` - Check current token allowance

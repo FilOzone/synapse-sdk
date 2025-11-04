@@ -79,20 +79,6 @@ const context = await synapse.storage.createContext({
         console.log(`Created new data set: ${info.dataSetId}`)
       }
     },
-
-    // Only called when creating a new data set
-    onDataSetCreationStarted: (transaction, statusUrl) => {
-      console.log(`Creation transaction: ${transaction.hash}`)
-      if (statusUrl) {
-        console.log(`Monitor status at: ${statusUrl}`)
-      }
-    },
-
-    // Progress updates during data set creation
-    onDataSetCreationProgress: (status) => {
-      const elapsed = Math.round(status.elapsedMs / 1000)
-      console.log(`[${elapsed}s] Mining: ${status.transactionMined}, Live: ${status.dataSetLive}`)
-    }
   }
 })
 ```
@@ -106,7 +92,7 @@ interface StorageServiceOptions {
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services (alias for metadata: { withCDN: '' })
   metadata?: Record<string, string>        // Metadata requirements for data set selection/creation
-  callbacks?: StorageCreationCallbacks     // Progress callbacks
+  callbacks?: StorageContextCallbacks     // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
 ```
@@ -230,14 +216,8 @@ const result = await context.upload(data, {
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
-  onPieceAdded: (transaction) => {
-    // For new servers: transaction object with details
-    // For old servers: undefined (backward compatible)
-    if (transaction) {
-      console.log(`Transaction confirmed: ${transaction.hash}`)
-    } else {
-      console.log('Data added to data set (legacy server)')
-    }
+  onPieceAdded: (hash) => {
+    console.log(`Piece added, tx: ${hash}`)
   },
   onPieceConfirmed: (pieceIds) => {
     // Only called for new servers with transaction tracking

@@ -2,6 +2,10 @@
  * Types for ServiceProviderRegistry interaction
  */
 
+import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
+
+export type { PDPOffering }
+
 /**
  * Product types supported by the registry
  */
@@ -15,7 +19,7 @@ export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
  */
 export interface ProviderInfo {
   id: number
-  serviceProvider: string
+  serviceProvider: string // TODO Hex
   payee: string
   name: string
   description: string
@@ -35,28 +39,13 @@ export interface ServiceProduct {
 }
 
 /**
- * PDP offering details (decoded from productData)
- */
-export interface PDPOffering {
-  serviceURL: string
-  minPieceSizeInBytes: bigint
-  maxPieceSizeInBytes: bigint
-  ipniPiece: boolean
-  ipniIpfs: boolean
-  storagePricePerTibPerMonth: bigint
-  minProvingPeriodInEpochs: number
-  location: string
-  paymentTokenAddress: string
-}
-
-/**
  * Provider registration info for new providers
  */
 export interface ProviderRegistrationInfo {
   payee: string
   name: string
   description: string
-  pdpOffering?: PDPOffering
+  pdpOffering: PDPOffering
   capabilities?: Record<string, string> // Object map of capability key-value pairs
 }
 
