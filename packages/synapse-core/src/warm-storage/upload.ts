@@ -1,5 +1,5 @@
 import type { Account, Chain, Client, Transport } from 'viem'
-import * as PDP from '../sp.ts'
+import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -17,12 +17,12 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
 
   const uploadResponses = await Promise.all(
     options.data.map(async (data) => {
-      const upload = await PDP.uploadPiece({
+      const upload = await SP.uploadPiece({
         data: new Uint8Array(await data.arrayBuffer()),
         endpoint: dataSet.pdp.serviceURL,
       })
 
-      await PDP.findPiece({
+      await SP.findPiece({
         pieceCid: upload.pieceCid,
         endpoint: dataSet.pdp.serviceURL,
       })
@@ -36,7 +36,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
 
   const nonce = randU256()
 
-  const addPieces = await PDP.addPieces({
+  const addPieces = await SP.addPieces({
     dataSetId: options.dataSetId,
     pieces: uploadResponses.map((response) => response.pieceCid),
     endpoint: dataSet.pdp.serviceURL,

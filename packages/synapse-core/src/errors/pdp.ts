@@ -1,3 +1,4 @@
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { decodePDPError } from '../utils/decode-pdp-errors.ts'
 import { isSynapseError, SynapseError } from './base.ts'
 
@@ -144,5 +145,15 @@ export class DeletePieceError extends SynapseError {
 
   static override is(value: unknown): value is DeletePieceError {
     return isSynapseError(value) && value.name === 'DeletePieceError'
+  }
+}
+
+export class InvalidUploadSizeError extends SynapseError {
+  override name: 'InvalidUploadSizeError' = 'InvalidUploadSizeError'
+
+  constructor(size: number) {
+    super(`Invalid upload size.`, {
+      details: `Size ${size} bytes is below minimum allowed size of ${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes or exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes`,
+    })
   }
 }

@@ -19,7 +19,9 @@
  */
 
 import { ethers } from 'ethers'
-import { CONTRACT_ABIS } from '../utils/index.ts'
+import { hexToPieceCID } from '../piece/piece.ts'
+import type { PieceCID } from '../types.ts'
+import { CONTRACT_ABIS, createError } from '../utils/index.ts'
 
 export class PDPVerifier {
   private readonly _provider: ethers.Provider
@@ -110,6 +112,56 @@ export class PDPVerifier {
       throw new Error(
         `Failed to extract data set ID from receipt: ${error instanceof Error ? error.message : String(error)}`
       )
+    }
+  }
+
+  /**
+   * Get active pieces for a data set with pagination
+   * @param dataSetId - The PDPVerifier data set ID
+   * @param options - Optional configuration object
+   * @param options.offset - The offset to start from (default: 0)
+   * @param options.limit - The maximum number of pieces to return (default: 100)
+   * @param options.signal - Optional AbortSignal to cancel the operation
+   * @returns Object containing pieces, piece IDs, raw sizes, and hasMore flag
+   */
+  async getActivePieces(
+    dataSetId: number,
+    options?: {
+      offset?: number
+      limit?: number
+      signal?: AbortSignal
+    }
+  ): Promise<{
+    pieces: Array<{ pieceCid: PieceCID; pieceId: number }>
+    hasMore: boolean
+  }> {
+    const offset = options?.offset ?? 0
+    const limit = options?.limit ?? 100
+    const signal = options?.signal
+
+    if (signal?.aborted) {
+      throw new Error('Operation aborted')
+    }
+
+    const result = await this._contract.getActivePieces(dataSetId, offset, limit)
+
+    return {
+      pieces: result[0].map((piece: { data: string }, index: number) => {
+        try {
+          return {
+            pieceCid: hexToPieceCID(piece.data),
+            pieceId: Number(result[1][index]),
+          }
+        } catch (error) {
+          throw createError(
+            'PDPVerifier',
+            'getActivePieces',
+            `Failed to convert piece data to PieceCID: ${error instanceof Error ? error.message : String(error)}`,
+            error
+          )
+        }
+      }),
+      hasMore: Boolean(result[2]),
     }
   }
 

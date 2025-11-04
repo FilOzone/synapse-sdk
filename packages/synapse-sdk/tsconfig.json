@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "package.json"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {

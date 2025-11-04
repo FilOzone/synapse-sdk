@@ -2,9 +2,8 @@
  * Constants for the Synapse SDK
  */
 
+import * as Abis from '@filoz/synapse-core/abis'
 import { erc20Abi, multicall3Abi } from 'viem'
-import { erc20PermitAbi } from '../abis/erc20-permit.ts'
-import * as abis from '../abis/gen.ts'
 import type { FilecoinNetworkType } from '../types.ts'
 
 /**
@@ -35,29 +34,29 @@ export const CONTRACT_ABIS = {
   /**
    * Minimal ERC20Permit ABI - for reading nonces() and version()
    */
-  ERC20_PERMIT: erc20PermitAbi,
+  ERC20_PERMIT: Abis.erc20WithPermit,
 
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: abis.filecoinPayV1Abi,
+  PAYMENTS: Abis.payments,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
    */
-  PDP_VERIFIER: abis.pdpVerifierAbi,
+  PDP_VERIFIER: Abis.pdp,
 
   /**
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: abis.filecoinWarmStorageServiceAbi,
+  WARM_STORAGE: Abis.storage,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: abis.filecoinWarmStorageServiceStateViewAbi,
+  WARM_STORAGE_VIEW: Abis.storageView,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request
@@ -67,12 +66,12 @@ export const CONTRACT_ABIS = {
   /**
    * ServiceProviderRegistry ABI - for provider management
    */
-  SERVICE_PROVIDER_REGISTRY: abis.serviceProviderRegistryAbi,
+  SERVICE_PROVIDER_REGISTRY: Abis.serviceProviderRegistry,
 
   /**
    * SessionKeyRegistry ABI - for session key management
    */
-  SESSION_KEY_REGISTRY: abis.sessionKeyRegistryAbi,
+  SESSION_KEY_REGISTRY: Abis.sessionKeyRegistry,
 } as const
 
 /**
@@ -228,9 +227,10 @@ export const TIMING_CONSTANTS = {
   /**
    * How long to wait for a transaction to appear on the network
    * This is used when we have a transaction hash but need to fetch the transaction object
-   * Filecoin has 30-second epochs, so this gives one full epoch for propagation
+   * Filecoin has 30-second epochs, so this gives six full epochs for propagation
+   * Matches viem's standard timeout for transaction receipt (180s)
    */
-  TRANSACTION_PROPAGATION_TIMEOUT_MS: 30000, // 30 seconds (1 epoch)
+  TRANSACTION_PROPAGATION_TIMEOUT_MS: 180000, // 180 seconds (3 minutes, 6 epochs)
 
   /**
    * How often to poll when waiting for a transaction to appear

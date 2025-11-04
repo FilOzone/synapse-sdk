@@ -18,6 +18,7 @@ import {
   DeletePieceError,
   FindPieceError,
   GetDataSetError,
+  InvalidUploadSizeError,
   LocationHeaderError,
   PollDataSetCreationStatusError,
   PollForAddPiecesStatusError,
@@ -26,6 +27,7 @@ import {
 } from './errors/pdp.ts'
 import type { PieceCID } from './piece.ts'
 import * as Piece from './piece.ts'
+import { SIZE_CONSTANTS } from './utils/constants.ts'
 import { createPieceUrl } from './utils/piece-url.ts'
 
 let TIMEOUT = 1000 * 60 * 5 // 5 minutes
@@ -100,20 +102,22 @@ export type PollForDataSetCreationStatusOptions = {
 
 export type DataSetCreatedResponse =
   | {
-      createMessageHash: `0x${string}`
+      createMessageHash: Hex
       dataSetCreated: false
       service: string
       txStatus: 'pending' | 'confirmed' | 'rejected'
       ok: boolean
     }
-  | {
-      createMessageHash: `0x${string}`
-      dataSetCreated: true
-      service: string
-      txStatus: 'pending' | 'confirmed' | 'rejected'
-      ok: boolean
-      dataSetId: number
-    }
+  | DataSetCreateSuccess
+
+export type DataSetCreateSuccess = {
+  createMessageHash: Hex
+  dataSetCreated: true
+  service: string
+  txStatus: 'confirmed'
+  ok: true
+  dataSetId: number
+}
 
 /**
  * Poll for the data set creation status.
@@ -129,6 +133,7 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
     async onResponse(response) {
       if (response.ok) {
         const data = (await response.clone().json()) as DataSetCreatedResponse
+
         if (data.dataSetCreated) {
           return response
         }
@@ -151,7 +156,61 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
     throw response.error
   }
 
-  return response.result
+  return response.result as DataSetCreateSuccess
+}
+
+export type PDPCreateDataSetAndAddPiecesOptions = {
+  endpoint: string
+  recordKeeper: Address
+  extraData: Hex
+  pieces: PieceCID[]
+}
+
+/**
+ * Create a data set and add pieces to it on PDP API
+ *
+ * POST /pdp/data-sets/create-and-add
+ *
+ * @param options - The options for the create data set and add pieces to it on PDP API.
+ * @param options.endpoint - The endpoint of the PDP API.
+ * @param options.recordKeeper - The address of the record keeper.
+ * @param options.extraData - The extra data for the create data set.
+ * @returns The response from the create data set and add pieces to it on PDP API.
+ */
+export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddPiecesOptions) {
+  // Send the create data set message to the PDP
+  const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.endpoint), {
+    body: JSON.stringify({
+      recordKeeper: options.recordKeeper,
+      extraData: options.extraData,
+      pieces: options.pieces.map((piece) => ({
+        pieceCid: piece.toString(),
+        subPieces: [{ subPieceCid: piece.toString() }],
+      })),
+    }),
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    timeout: TIMEOUT,
+  })
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new CreateDataSetError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  const location = response.result.headers.get('Location')
+  const hash = location?.split('/').pop()
+  if (!location || !hash || !isHex(hash)) {
+    throw new LocationHeaderError(location)
+  }
+
+  return {
+    txHash: hash,
+    statusUrl: new URL(location, options.endpoint).toString(),
+  }
 }
 
 export type GetDataSetOptions = {
@@ -255,8 +314,12 @@ export type UploadPieceResponse = {
  * @returns The response from the upload piece.
  */
 export async function uploadPiece(options: UploadPieceOptions) {
-  const pieceCid = Piece.calculate(options.data)
   const size = options.data.length
+  if (size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+    throw new InvalidUploadSizeError(size)
+  }
+
+  const pieceCid = Piece.calculate(options.data)
 
   const response = await request.post(new URL(`pdp/piece`, options.endpoint), {
     body: JSON.stringify({
@@ -401,7 +464,7 @@ export async function addPieces(options: AddPiecesOptions) {
   }
 
   return {
-    txHash: txHash as `0x${string}`,
+    txHash: txHash as Hex,
     statusUrl: new URL(location, endpoint).toString(),
   }
 }
@@ -510,5 +573,13 @@ export async function deletePiece(options: DeletePieceOptions) {
     throw response.error
   }
 
+  return response.result
+}
+
+export async function ping(endpoint: string) {
+  const response = await request.get(new URL(`pdp/ping`, endpoint))
+  if (response.error) {
+    throw new Error('Ping failed')
+  }
   return response.result
 }

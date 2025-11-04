@@ -42,6 +42,10 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 Check the documentation [website](https://synapse.filecoin.services/)
 
+## Telemetry
+
+See [telemetry.md](../../docs/src/content/docs/guides/telemetry.md).
+
 ## Contributing
 
 Read contributing  [guidelines](../../.github/CONTRIBUTING.md).

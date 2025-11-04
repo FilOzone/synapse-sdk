@@ -77,9 +77,9 @@ export interface AddPiecesResponse {
   /** Success message from the server */
   message: string
   /** Transaction hash for the piece addition (optional - new servers only) */
-  txHash?: string
+  txHash: string
   /** URL to check piece addition status (optional - new servers only) */
-  statusUrl?: string
+  statusUrl: string
 }
 
 /**
@@ -278,45 +278,13 @@ export class PDPServer {
 
     const abiCoder = ethers.AbiCoder.defaultAbiCoder()
     const encoded = abiCoder.encode(['bytes', 'bytes'], [`0x${createExtraData}`, `0x${addExtraData}`])
-    const requestJson: PDPCreateAndAddInput = {
-      recordKeeper: recordKeeper,
-      pieces: PDPServer._formatPieceDataArrayForCurio(pieceDataArray),
-      extraData: `${encoded}`,
-    }
 
-    // Make the POST request to add pieces to the data set
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/create-and-add`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestJson),
+    return SP.createDataSetAndAddPieces({
+      endpoint: this._serviceURL,
+      recordKeeper: recordKeeper as Hex,
+      extraData: encoded as Hex,
+      pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
     })
-
-    if (response.status !== 201) {
-      const errorText = await response.text()
-      throw new Error(`Failed to create data set: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    // Extract transaction hash from Location header
-    const location = response.headers.get('Location')
-    if (location == null) {
-      throw new Error('Server did not provide Location header in response')
-    }
-
-    // Parse the location to extract the transaction hash
-    // Expected format: /pdp/data-sets/created/{txHash}
-    const locationMatch = location.match(/\/pdp\/data-sets\/created\/(.+)$/)
-    if (locationMatch == null) {
-      throw new Error(`Invalid Location header format: ${location}`)
-    }
-
-    const txHash = locationMatch[1]
-
-    return {
-      txHash,
-      statusUrl: `${this._serviceURL}${location}`,
-    }
   }
 
   private static _processAddPiecesInputs(
@@ -352,21 +320,6 @@ export class PDPServer {
     // If no metadata provided, create empty arrays for each piece
     const finalMetadata = metadata ?? pieceDataArray.map(() => [])
     return finalMetadata
-  }
-
-  private static _formatPieceDataArrayForCurio(pieceDataArray: PieceCID[] | string[]): PDPPieces[] {
-    return pieceDataArray.map((pieceData) => {
-      // Convert to string for JSON serialization
-      const cidString = typeof pieceData === 'string' ? pieceData : pieceData.toString()
-      return {
-        pieceCid: cidString,
-        subPieces: [
-          {
-            subPieceCid: cidString, // Piece is its own subpiece
-          },
-        ],
-      }
-    })
   }
 
   /**

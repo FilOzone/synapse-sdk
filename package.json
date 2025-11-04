@@ -11,9 +11,9 @@
   ],
   "scripts": {
     "preinstall": "pnpx only-allow pnpm",
-    "fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "build": "pnpm -r --filter='./packages/*' --if-present run build",
-    "lint": "pnpm -r --filter='./packages/*' --if-present run lint",
+    "lint": "pnpm -r --if-present run lint",
+    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test": "pnpm -r --filter='./packages/*' --if-present run test",
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
     "check:repo": "pnpx sherif@latest -r root-package-manager-field",
@@ -21,7 +21,7 @@
     "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules}"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.6",
+    "@biomejs/biome": "2.3.2",
     "knip": "^5.64.1",
     "markdownlint-cli2": "^0.18.1",
     "typescript": "5.9.3",
