@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts'
-import { metadataArrayToObject } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { metadataArrayToObject } from '@filoz/synapse-core/utils'
 import { getDataSets, getPieces, type Piece } from '@filoz/synapse-core/warm-storage'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
@@ -24,7 +24,7 @@ export const pieces: Command = command(
       examples: ['synapse pieces', 'synapse pieces --help'],
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')
@@ -58,6 +58,7 @@ export const pieces: Command = command(
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
             const rsp = await getPieces(publicClient, {
+              // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
               dataSet: dataSets.find((dataSet) => dataSet.dataSetId === dataSetId)!,
               address: account.address,
             })
@@ -98,6 +99,7 @@ export const pieces: Command = command(
       )
 
       if (group.action === 'info') {
+        // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const metadata = await readContract(publicClient, {
           address: calibration.contracts.storageView.address,
@@ -117,6 +119,7 @@ export const pieces: Command = command(
         )
       } else if (group.action === 'delete') {
         spinner.start('Deleting piece...')
+        // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const synapse = await Synapse.create({
           privateKey: privateKey as Hex,

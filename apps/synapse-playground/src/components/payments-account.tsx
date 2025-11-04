@@ -1,4 +1,4 @@
-import { formatFraction } from '@filoz/synapse-core'
+import { formatFraction } from '@filoz/synapse-core/utils'
 import { useAccountInfo, useApproveAllowance, useDeposit, useWithdraw } from '@filoz/synapse-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'

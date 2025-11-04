@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts'
-import { claimTokens, formatBalance } from '@filoz/synapse-core'
 import { calibration } from '@filoz/synapse-core/chains'
+import { claimTokens, formatBalance } from '@filoz/synapse-core/utils'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { createPublicClient, type Hex, http } from 'viem'
@@ -19,7 +19,7 @@ export const fund: Command = command(
     description: 'Fund the wallet',
     alias: 'f',
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')

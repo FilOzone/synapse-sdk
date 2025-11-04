@@ -1,61 +1,159 @@
 import { defineConfig } from '@wagmi/cli'
 import { fetch } from '@wagmi/cli/plugins'
-import type { Address } from 'viem'
+import { type Address, type Chain, type Client, createClient, http, type Transport } from 'viem'
+import { multicall } from 'viem/actions'
+import { calibration } from './src/chains.ts'
 
-// const REF = 'refs/tags/v0.3.0'
-// const REF = '15eeb6dc87db236507add5553a0c76c009705525'
-const REF = 'refs/heads/kubuxu/devnode-contracts'
-const URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${REF}/service_contracts/abi`
+// GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
+const GIT_REF = '8e162d676f3e83c495f104989b3014b3961e2f05'
+const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
+const FWSS_ADDRESS = '0x02925630df557F957f70E112bA06e50965417CA0' as Address
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
-const config: ReturnType<typeof defineConfig> = defineConfig(() => {
+async function readAddresses(client: Client<Transport, Chain>) {
+  const abi = [
+    {
+      type: 'function',
+      inputs: [],
+      name: 'paymentsContractAddress',
+      outputs: [{ name: '', internalType: 'address', type: 'address' }],
+      stateMutability: 'view',
+    },
+    {
+      type: 'function',
+      inputs: [],
+      name: 'pdpVerifierAddress',
+      outputs: [{ name: '', internalType: 'address', type: 'address' }],
+      stateMutability: 'view',
+    },
+    {
+      type: 'function',
+      inputs: [],
+      name: 'serviceProviderRegistry',
+      outputs: [
+        {
+          name: '',
+          internalType: 'contract ServiceProviderRegistry',
+          type: 'address',
+        },
+      ],
+      stateMutability: 'view',
+    },
+    {
+      type: 'function',
+      inputs: [],
+      name: 'sessionKeyRegistry',
+      outputs: [
+        {
+          name: '',
+          internalType: 'contract SessionKeyRegistry',
+          type: 'address',
+        },
+      ],
+      stateMutability: 'view',
+    },
+    {
+      type: 'function',
+      inputs: [],
+      name: 'viewContractAddress',
+      outputs: [{ name: '', internalType: 'address', type: 'address' }],
+      stateMutability: 'view',
+    },
+  ] as const
+  const addresses = await multicall(client, {
+    allowFailure: false,
+    contracts: [
+      {
+        address: FWSS_ADDRESS,
+        abi,
+        functionName: 'paymentsContractAddress',
+      },
+      {
+        address: FWSS_ADDRESS,
+        abi,
+        functionName: 'viewContractAddress',
+      },
+      {
+        address: FWSS_ADDRESS,
+        abi,
+        functionName: 'pdpVerifierAddress',
+      },
+      {
+        address: FWSS_ADDRESS,
+        abi,
+        functionName: 'serviceProviderRegistry',
+      },
+      {
+        address: FWSS_ADDRESS,
+        abi,
+        functionName: 'sessionKeyRegistry',
+      },
+    ],
+  })
+  return {
+    payments: addresses[0],
+    warmStorageView: addresses[1],
+    pdpVerifier: addresses[2],
+    serviceProviderRegistry: addresses[3],
+    sessionKeyRegistry: addresses[4],
+  }
+}
+
+const calibrationClient = createClient({
+  chain: calibration,
+  transport: http(),
+})
+
+const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
+  const calibrationAddresses = await readAddresses(calibrationClient)
   const contracts = [
     {
-      name: 'FilecoinPayV1',
+      name: 'Errors',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0' as Address,
+        314: ZERO_ADDRESS,
+        314159: ZERO_ADDRESS,
       },
     },
     {
       name: 'FilecoinWarmStorageService',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0xD3De778C05f89e1240ef70100Fb0d9e5b2eFD258' as Address,
+        314: ZERO_ADDRESS,
+        314159: FWSS_ADDRESS as Address,
       },
     },
     {
-      name: 'Errors',
+      name: 'FilecoinPayV1',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x0000000000000000000000000000000000000000' as Address,
+        314: ZERO_ADDRESS,
+        314159: calibrationAddresses.payments,
       },
     },
     {
       name: 'FilecoinWarmStorageServiceStateView',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x0295Ac959317391656fB7fFaA046046eF9C7E18F' as Address,
+        314: ZERO_ADDRESS,
+        314159: calibrationAddresses.warmStorageView,
       },
     },
     {
       name: 'PDPVerifier',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x06279D540BDCd6CA33B073cEAeA1425B6C68c93d' as Address,
+        314: ZERO_ADDRESS,
+        314159: calibrationAddresses.pdpVerifier,
       },
     },
     {
       name: 'ServiceProviderRegistry',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0xc758dB755f59189d8FB3C166Ee372b77d7CFA9D3' as Address,
+        314: ZERO_ADDRESS,
+        314159: calibrationAddresses.serviceProviderRegistry,
       },
     },
     {
       name: 'SessionKeyRegistry',
       address: {
-        314: '0x0000000000000000000000000000000000000000' as Address,
-        314159: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as Address,
+        314: ZERO_ADDRESS,
+        314159: calibrationAddresses.sessionKeyRegistry,
       },
     },
   ]
@@ -70,7 +168,7 @@ const config: ReturnType<typeof defineConfig> = defineConfig(() => {
           cacheDuration: 100,
           request(contract) {
             return {
-              url: `${URL}/${contract.name}.abi.json`,
+              url: `${BASE_URL}/${contract.name}.abi.json`,
             }
           },
         }),

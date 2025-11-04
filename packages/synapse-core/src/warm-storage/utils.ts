@@ -1,36 +1,30 @@
-import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../constants.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import type { ServicePriceResult } from './service-price.ts'
 
-export type StorageCosts = {
-  perEpoch: bigint
-  perDay: bigint
-  perMonth: bigint
-}
-
 export interface CalculateStorageCostsResult {
-  withCDN: StorageCosts
-  withoutCDN: StorageCosts
+  storagePerMonth: bigint
+  cdnEgressPerTiB: bigint
+  cacheMissEgressPerTiB: bigint
+  minimumPerMonth: bigint
 }
 
 /**
- * Calculate the costs for a storage operation
+ * Calculate the costs for a storage operation.
+ *
+ * Note: CDN pricing is egress-based, not time-based.
+ * storagePerMonth is calculated for a 30-day month based on 2880 epochs per day.
+ * Egress costs are per TiB of data transferred and are charged separately.
  */
 export function calculateStorageCosts(sizeInBytes: bigint, prices: ServicePriceResult): CalculateStorageCostsResult {
-  const { pricePerTiBPerMonthNoCDN, pricePerTiBPerMonthWithCDN, epochsPerMonth } = prices
-  // Calculate price per byte per epoch
-  const pricePerEpochNoCDN = (pricePerTiBPerMonthNoCDN * sizeInBytes) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
-  const pricePerEpochWithCDN = (pricePerTiBPerMonthWithCDN * sizeInBytes) / (SIZE_CONSTANTS.TiB * epochsPerMonth)
+  const { pricePerTiBPerMonthNoCDN, pricePerTiBCdnEgress, pricePerTiBCacheMissEgress, minimumPricePerMonth } = prices
+
+  // Calculate base storage cost per month for the given size
+  const storagePerMonth = (pricePerTiBPerMonthNoCDN * sizeInBytes) / SIZE_CONSTANTS.TiB
 
   return {
-    withCDN: {
-      perEpoch: pricePerEpochWithCDN,
-      perDay: pricePerEpochWithCDN * TIME_CONSTANTS.EPOCHS_PER_DAY,
-      perMonth: pricePerEpochWithCDN * epochsPerMonth,
-    },
-    withoutCDN: {
-      perEpoch: pricePerEpochNoCDN,
-      perDay: pricePerEpochNoCDN * TIME_CONSTANTS.EPOCHS_PER_DAY,
-      perMonth: pricePerEpochNoCDN * epochsPerMonth,
-    },
+    storagePerMonth,
+    cdnEgressPerTiB: pricePerTiBCdnEgress,
+    cacheMissEgressPerTiB: pricePerTiBCacheMissEgress,
+    minimumPerMonth: minimumPricePerMonth,
   }
 }

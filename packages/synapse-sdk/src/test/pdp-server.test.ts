@@ -359,7 +359,7 @@ InvalidSignature(address expected, address actual)
     it('should validate input parameters', async () => {
       // Test empty piece entries
       try {
-        await pdpServer.addPieces(1, 0n, 0, [])
+        await pdpServer.addPieces(1, 0n, [])
         assert.fail('Should have thrown error for empty piece entries')
       } catch (error) {
         assert.include((error as Error).message, 'At least one piece must be provided')
@@ -369,7 +369,7 @@ InvalidSignature(address expected, address actual)
       const invalidPieceCid = 'invalid-piece-link-string'
 
       try {
-        await pdpServer.addPieces(1, 0n, 0, [invalidPieceCid])
+        await pdpServer.addPieces(1, 0n, [invalidPieceCid])
         assert.fail('Should have thrown error for invalid PieceCID')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid PieceCID')
@@ -407,7 +407,7 @@ InvalidSignature(address expected, address actual)
       )
 
       // Should not throw
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -425,7 +425,7 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+        await pdpServer.addPieces(1, 0n, validPieceCid)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.instanceOf(error, AddPiecesError)
@@ -479,7 +479,7 @@ Invalid piece CID`
           }
         )
       )
-      const result = await pdpServer.addPieces(1, 0n, 0, multiplePieceCid)
+      const result = await pdpServer.addPieces(1, 0n, multiplePieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -499,7 +499,7 @@ Invalid piece CID`
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0n, 0, validPieceCid)
+      const result = await pdpServer.addPieces(1, 0n, validPieceCid)
       assert.isDefined(result)
       assert.isDefined(result.message)
       assert.strictEqual(result.txHash, mockTxHash)
@@ -848,7 +848,7 @@ Database error`
 
   describe('uploadPiece', () => {
     it('should successfully upload data', async () => {
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(127).fill(1)
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
 
       server.use(
@@ -877,13 +877,13 @@ Database error`
 
       const result = await pdpServer.uploadPiece(testData)
       assert.exists(result.pieceCid)
-      assert.equal(result.size, 5)
+      assert.equal(result.size, 127)
     })
 
     it('should handle ArrayBuffer input', async () => {
-      const buffer = new ArrayBuffer(5)
+      const buffer = new ArrayBuffer(127)
       const view = new Uint8Array(buffer)
-      view.set([1, 2, 3, 4, 5])
+      view.fill(1)
       const mockUuid = 'fedcba09-8765-4321-fedc-ba0987654321'
 
       server.use(
@@ -912,11 +912,11 @@ Database error`
 
       const result = await pdpServer.uploadPiece(buffer)
       assert.exists(result.pieceCid)
-      assert.equal(result.size, 5)
+      assert.equal(result.size, 127)
     })
 
     it('should handle existing piece (200 response)', async () => {
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(127).fill(1)
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
       server.use(
@@ -933,11 +933,11 @@ Database error`
       // Should not throw - existing piece is OK
       const result = await pdpServer.uploadPiece(testData)
       assert.exists(result.pieceCid)
-      assert.equal(result.size, 5)
+      assert.equal(result.size, 127)
     })
 
     it('should throw on create upload session error', async () => {
-      const testData = new Uint8Array([1, 2, 3, 4, 5])
+      const testData = new Uint8Array(127).fill(1)
 
       server.use(
         http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {

@@ -7,6 +7,7 @@
 import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
 import * as Hasher from '@web3-storage/data-segment/multihash'
 import { Unpadded } from '@web3-storage/data-segment/piece/size'
+import { ethers } from 'ethers'
 import { CID } from 'multiformats/cid'
 import * as Raw from 'multiformats/codecs/raw'
 import * as Digest from 'multiformats/hashes/digest'
@@ -238,4 +239,23 @@ export function getSizeFromPieceCID(pieceCidInput: PieceCID | CID | string): num
   }
 
   return Number(rawSize)
+}
+
+/**
+ * Convert a hex representation of a PieceCID to a PieceCID object
+ *
+ * The contract stores the full PieceCID multihash digest (including height and padding)
+ * The data comes as a hex string from ethers, we need to decode it as bytes then as a CID to get the PieceCID object
+ *
+ * @param pieceCidHex - The hex representation of the PieceCID
+ * @returns {PieceCID} The PieceCID object
+ */
+export function hexToPieceCID(pieceCidHex: string): PieceCID {
+  const pieceDataBytes = ethers.getBytes(pieceCidHex)
+  const possiblePieceCID = CID.decode(pieceDataBytes)
+  const isValid = isValidPieceCID(possiblePieceCID)
+  if (!isValid) {
+    throw new Error(`Hex string '${pieceCidHex}' is a valid CID but not a valid PieceCID`)
+  }
+  return possiblePieceCID satisfies PieceCID
 }

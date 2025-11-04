@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "lint": "biome check --no-errors-on-unmatched --files-ignore-unknown=true ."
+  },
   "dependencies": {
     "@filoz/synapse-sdk": "workspace:*",
     "ethers": "^6.15.0"

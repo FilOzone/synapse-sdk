@@ -22,6 +22,7 @@
  * ```
  */
 
+import { capabilitiesListToObject, decodePDPCapabilities, encodePDPCapabilities } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
@@ -106,25 +107,9 @@ export class SPRegistryService {
     const registrationFee = await contract.REGISTRATION_FEE()
 
     // Prepare product data and capabilities
-    let productType = 0 // No product
-    let productData = '0x'
-    let capabilityKeys: string[] = []
-    let capabilityValues: string[] = []
+    const productType = 0 // ProductType.PDP
 
-    if (info.pdpOffering != null) {
-      productType = 0 // ProductType.PDP
-      productData = await this.encodePDPOffering(info.pdpOffering)
-
-      // Convert capabilities object to key/value arrays
-      if (info.capabilities != null) {
-        capabilityKeys = []
-        capabilityValues = []
-        for (const [key, value] of Object.entries(info.capabilities)) {
-          capabilityKeys.push(key)
-          capabilityValues.push(value ?? '') // Normalize falsy/undefined to empty string
-        }
-      }
-    }
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(info.pdpOffering, info.capabilities)
 
     // Register provider with all parameters in a single call
     const tx = await contract.registerProvider(
@@ -132,7 +117,6 @@ export class SPRegistryService {
       info.name,
       info.description,
       productType,
-      productData,
       capabilityKeys,
       capabilityValues,
       { value: registrationFee }
@@ -177,6 +161,7 @@ export class SPRegistryService {
   async getProvider(providerId: number): Promise<ProviderInfo | null> {
     try {
       const contract = this._getRegistryContract()
+      // TODO: use getProviderWithProduct
       const rawProvider = await contract.getProvider(providerId)
 
       if (rawProvider.info.serviceProvider === ethers.ZeroAddress) {
@@ -203,24 +188,18 @@ export class SPRegistryService {
   async getProviderByAddress(address: string): Promise<ProviderInfo | null> {
     try {
       const contract = this._getRegistryContract()
-
-      // Get provider info and ID in parallel
-      const [rawProvider, providerId] = await Promise.all([
-        contract.getProviderByAddress(address),
-        contract.getProviderIdByAddress(address),
-      ])
+      const provider = await contract.getProviderByAddress(address)
 
       // Check if provider exists (beneficiary address will be zero if not found)
-      if (rawProvider.info.serviceProvider === ethers.ZeroAddress) {
+      if (provider.info.serviceProvider === ethers.ZeroAddress) {
         return null
       }
 
-      // Get products for this provider
-      const products = await this._getProviderProducts(Number(providerId))
-
-      // Convert to ProviderInfo
-      return this._convertToProviderInfo(Number(providerId), rawProvider.info, products)
-    } catch {
+      // Get products for this provider and convert to ProviderInfo
+      const products = await this._getProviderProducts(Number(provider.providerId))
+      return this._convertToProviderInfo(Number(provider.providerId), provider.info, products)
+    } catch (error) {
+      console.warn('Error fetching provider by address:', error)
       return null
     }
   }
@@ -282,7 +261,7 @@ export class SPRegistryService {
 
     // Loop through all pages and start fetching provider details in parallel
     while (hasMore) {
-      const result = await contract.getProvidersByProductType(productType, offset, limit)
+      const result = await contract.getProvidersByProductType(productType, true, offset, limit)
 
       // Convert BigInt IDs to numbers and start fetching provider details
       if (result.providerIds.length > 0) {
@@ -298,8 +277,7 @@ export class SPRegistryService {
     const providerBatches = await Promise.all(providerPromises)
     const allProviders = providerBatches.flat()
 
-    // Filter to only active providers (getProvidersByProductType may include inactive ones)
-    return allProviders.filter((provider) => provider.active)
+    return allProviders
   }
 
   /**
@@ -359,17 +337,11 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const encodedOffering = await this.encodePDPOffering(pdpOffering)
-
-    // Convert capabilities object to arrays
-    const entries = Object.entries(capabilities)
-    const capabilityKeys = entries.map(([key]) => key)
-    const capabilityValues = entries.map(([, value]) => value || '') // Handle empty values
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering, capabilities)
 
     // Add product
     return await contract.addProduct(
       0, // ProductType.PDP
-      encodedOffering,
       capabilityKeys,
       capabilityValues
     )
@@ -390,17 +362,11 @@ export class SPRegistryService {
     const contract = this._getRegistryContract().connect(signer) as ethers.Contract
 
     // Encode PDP offering
-    const encodedOffering = await this.encodePDPOffering(pdpOffering)
-
-    // Convert capabilities object to arrays
-    const entries = Object.entries(capabilities)
-    const capabilityKeys = entries.map(([key]) => key)
-    const capabilityValues = entries.map(([, value]) => value || '') // Handle empty values
+    const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering, capabilities)
 
     // Update product
     return await contract.updateProduct(
       0, // ProductType.PDP
-      encodedOffering,
       capabilityKeys,
       capabilityValues
     )
@@ -425,40 +391,19 @@ export class SPRegistryService {
   async getPDPService(providerId: number): Promise<PDPServiceInfo | null> {
     try {
       const contract = this._getRegistryContract()
-      const result = await contract.getPDPService(providerId)
+      const result = await contract.getProviderWithProduct(providerId, 0) // 0 = ProductType.PDP
 
-      // Check if product actually exists (Solidity returns empty values if no product)
-      // If serviceURL is empty, the product doesn't exist
-      if (!result.pdpOffering.serviceURL) {
+      // This also handles the case where the product does not exist
+      if (!result.product.isActive) {
         return null
       }
 
-      // Fetch capability values using the keys
-      let capabilities: Record<string, string> = {}
-      if (result.capabilityKeys && result.capabilityKeys.length > 0) {
-        // Convert to plain array to avoid ethers.js frozen array issues
-        const keys = Array.from(result.capabilityKeys) as string[]
-        const capResult = await contract.getProductCapabilities(providerId, 0, keys) // 0 = ProductType.PDP
-        // getProductCapabilities returns tuple: (bool[] exists, string[] values)
-        // Access as capResult[1] for values array
-        const values = Array.from(capResult[1] || []) as string[]
-        capabilities = this._convertCapabilitiesToObject(keys, values)
-      }
+      const capabilities = capabilitiesListToObject(result.product.capabilityKeys, result.productCapabilityValues)
 
       return {
-        offering: {
-          serviceURL: result.pdpOffering.serviceURL,
-          minPieceSizeInBytes: result.pdpOffering.minPieceSizeInBytes,
-          maxPieceSizeInBytes: result.pdpOffering.maxPieceSizeInBytes,
-          ipniPiece: result.pdpOffering.ipniPiece,
-          ipniIpfs: result.pdpOffering.ipniIpfs,
-          storagePricePerTibPerMonth: result.pdpOffering.storagePricePerTibPerMonth,
-          minProvingPeriodInEpochs: Number(result.pdpOffering.minProvingPeriodInEpochs),
-          location: result.pdpOffering.location,
-          paymentTokenAddress: result.pdpOffering.paymentTokenAddress,
-        },
+        offering: decodePDPCapabilities(capabilities),
         capabilities,
-        isActive: result.isActive,
+        isActive: result.product.isActive,
       }
     } catch {
       return null
@@ -490,14 +435,16 @@ export class SPRegistryService {
 
     try {
       // Use Multicall3 for efficiency
-      return await this._getProvidersWithMulticall(providerIds)
-    } catch {
+      const result = await this._getProvidersWithMulticall(providerIds)
+      return result
+    } catch (_error) {
       // TODO: Remove this fallback block and properly mock Multicall3 in tests
       // The fallback is only needed because SPRegistryService tests don't currently
       // mock Multicall3 calls. Once proper test infrastructure is in place, this
       // try/catch and the _getProvidersIndividually method can be removed.
       // Fall back to individual calls if Multicall3 fails
-      return await this._getProvidersIndividually(providerIds)
+      const result = await this._getProvidersIndividually(providerIds)
+      return result
     }
   }
 
@@ -530,17 +477,11 @@ export class SPRegistryService {
     const calls: Array<{ target: string; allowFailure: boolean; callData: string }> = []
 
     for (const id of providerIds) {
-      // Add getProvider call
+      // Add getProviderWithProduct call
       calls.push({
         target: this._registryAddress,
         allowFailure: true,
-        callData: iface.encodeFunctionData('getProvider', [id]),
-      })
-      // Add getPDPService call
-      calls.push({
-        target: this._registryAddress,
-        allowFailure: true,
-        callData: iface.encodeFunctionData('getPDPService', [id]),
+        callData: iface.encodeFunctionData('getProviderWithProduct', [id, 0]),
       })
     }
 
@@ -554,22 +495,29 @@ export class SPRegistryService {
     const providers: ProviderInfo[] = []
 
     for (let i = 0; i < providerIds.length; i++) {
-      const providerResultIndex = i * 2
-      const pdpServiceResultIndex = i * 2 + 1
-
-      if (!results[providerResultIndex].success) {
+      if (!results[i].success) {
         continue
       }
 
       try {
-        const decoded = iface.decodeFunctionResult('getProvider', results[providerResultIndex].returnData)
-        const rawProvider = decoded[0]
+        const [, rawProvider, product, productCapabilityValues] = iface.decodeFunctionResult(
+          'getProviderWithProduct',
+          results[i].returnData
+        )[0]
 
-        // Process PDP service if available
-        const products = this._extractProductsFromMulticallResult(results[pdpServiceResultIndex], iface)
-
+        const capabilities = capabilitiesListToObject(product.capabilityKeys, productCapabilityValues)
         // Convert to ProviderInfo
-        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider.info, products)
+        const providerInfo = this._convertToProviderInfo(providerIds[i], rawProvider, [
+          {
+            type: 'PDP',
+            isActive: product.isActive,
+            capabilities,
+            data: decodePDPCapabilities(capabilities),
+          },
+        ])
+        if (providerInfo.serviceProvider === ethers.ZeroAddress) {
+          continue
+        }
         providers.push(providerInfo)
       } catch {
         // Skip failed decoding
@@ -577,76 +525,6 @@ export class SPRegistryService {
     }
 
     return providers
-  }
-
-  /**
-   * Extract products from multicall PDP service result
-   * Note: For multicall batching, capability values are set to empty strings for performance.
-   * Use getProvider() or getPDPService() for full capability values.
-   */
-  private _extractProductsFromMulticallResult(pdpServiceResult: any, iface: ethers.Interface): ServiceProduct[] {
-    const products: ServiceProduct[] = []
-
-    if (!pdpServiceResult.success) {
-      return products
-    }
-
-    try {
-      const pdpDecoded = iface.decodeFunctionResult('getPDPService', pdpServiceResult.returnData)
-
-      // getPDPService returns a tuple of (pdpOffering, capabilityKeys, isActive)
-      const [pdpOffering, capabilityKeys, isActive] = pdpDecoded
-
-      // Check if product actually exists (serviceURL is the first element)
-      if (!pdpOffering[0]) {
-        return products
-      }
-
-      // Note: Capability values are not included in multicall for performance
-      // They would require additional contract calls per provider
-      // Use getProvider() or getPDPService() for full capability values
-      const capabilities = this._buildCapabilitiesFromKeys(capabilityKeys)
-
-      // Build PDP product
-      products.push({
-        type: 'PDP',
-        isActive,
-        capabilities,
-        data: {
-          serviceURL: pdpOffering[0],
-          minPieceSizeInBytes: pdpOffering[1],
-          maxPieceSizeInBytes: pdpOffering[2],
-          ipniPiece: pdpOffering[3],
-          ipniIpfs: pdpOffering[4],
-          storagePricePerTibPerMonth: pdpOffering[5],
-          minProvingPeriodInEpochs: Number(pdpOffering[6]),
-          location: pdpOffering[7],
-          paymentTokenAddress: pdpOffering[8],
-        },
-      })
-    } catch {
-      // Skip if PDP service decoding fails
-    }
-
-    return products
-  }
-
-  /**
-   * Build capabilities object from keys array (values set to empty for multicall performance)
-   * For full capability values, use getProvider() or getPDPService()
-   */
-  private _buildCapabilitiesFromKeys(capabilityKeys: any): Record<string, string> {
-    const capabilities: Record<string, string> = {}
-
-    if (capabilityKeys && Array.isArray(capabilityKeys)) {
-      for (const key of capabilityKeys) {
-        // For multicall batching, we only get keys to avoid N additional contract calls
-        // Values would need separate getProductCapabilities() calls per provider
-        capabilities[key] = ''
-      }
-    }
-
-    return capabilities
   }
 
   /**
@@ -714,29 +592,5 @@ export class SPRegistryService {
       active: providerInfo.isActive,
       products,
     }
-  }
-
-  /**
-   * Convert capability arrays to object map
-   * @param keys - Array of capability keys
-   * @param values - Array of capability values
-   * @returns Object map of capabilities
-   */
-  private _convertCapabilitiesToObject(keys: string[], values: string[]): Record<string, string> {
-    const capabilities: Record<string, string> = {}
-    for (let i = 0; i < keys.length; i++) {
-      capabilities[keys[i]] = values[i] || ''
-    }
-    return capabilities
-  }
-
-  /**
-   * Encode PDP offering to bytes
-   * @param offering - PDP offering to encode
-   * @returns Encoded bytes as hex string
-   */
-  private async encodePDPOffering(offering: PDPOffering): Promise<string> {
-    const contract = this._getRegistryContract()
-    return await contract.encodePDPOffering(offering)
   }
 }

@@ -15,11 +15,11 @@
  */
 
 import { ethers } from 'ethers'
+import { bytesToHex, type Hex, numberToBytes, stringToHex } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
-import { ProviderResolver } from '../utils/provider-resolver.ts'
-import type { WarmStorageService } from '../warm-storage/index.ts'
+import { ADDRESSES } from './mocks/jsonrpc/index.ts'
 
 /**
  * Addresses used by testing
@@ -151,7 +151,7 @@ export function createMockProvider(chainId: number = 314159): ethers.Provider {
         }
         // serviceProviderRegistry() - function selector: 0x05f892ec
         if (data?.startsWith('0x05f892ec') === true) {
-          return ethers.AbiCoder.defaultAbiCoder().encode(['address'], ['0x0000000000000000000000000000000000000001'])
+          return ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ADDRESSES.calibration.spRegistry])
         }
         // sessionKeyRegistry() - function selector: 0x9f6aa572
         if (data?.startsWith('0x9f6aa572') === true) {
@@ -459,7 +459,7 @@ export function createCustomMulticall3Mock(
         customAddresses?.usdfcToken ?? CONTRACT_ADDRESSES.USDFC.calibration, // usdfcToken
         customAddresses?.filCDN ?? '0x0000000000000000000000000000000000000000', // filCDN (not used)
         customAddresses?.viewContract ?? MOCK_ADDRESSES.WARM_STORAGE_VIEW, // viewContract
-        customAddresses?.spRegistry ?? '0x0000000000000000000000000000000000000001', // spRegistry
+        customAddresses?.spRegistry ?? ADDRESSES.calibration.spRegistry, // spRegistry
         customAddresses?.sessionKeyRegistry ?? MOCK_ADDRESSES.SESSION_KEY_REGISTRY, // sessionKeyRegistry
       ]
 
@@ -507,20 +507,6 @@ export function createMockSPRegistryService(providers: ProviderInfo[] = []): SPR
 }
 
 /**
- * Creates a mock ProviderResolver with WarmStorage integration
- */
-export function createMockProviderResolver(approvedIds: number[], providers: ProviderInfo[] = []): ProviderResolver {
-  const mockWarmStorage: Partial<WarmStorageService> = {
-    getApprovedProviderIds: async () => approvedIds,
-    isProviderIdApproved: async (id: number) => approvedIds.includes(id),
-  }
-
-  const mockSPRegistry = createMockSPRegistryService(providers)
-
-  return new ProviderResolver(mockWarmStorage as WarmStorageService, mockSPRegistry)
-}
-
-/**
  * Sets up provider mock responses for SPRegistry and WarmStorage contract calls
  * This extends the provider's call method to return mock data for registry operations
  *
@@ -552,10 +538,10 @@ export function setupProviderRegistryMocks(
               maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
               ipniPiece: false,
               ipniIpfs: false,
-              storagePricePerTibPerMonth: BigInt(2000000),
-              minProvingPeriodInEpochs: 2880,
+              storagePricePerTibPerDay: BigInt(2000000),
+              minProvingPeriodInEpochs: 2880n,
               location: 'EU-WEST',
-              paymentTokenAddress: ethers.ZeroAddress,
+              paymentTokenAddress: ethers.ZeroAddress as Hex,
             },
           },
         },
@@ -639,10 +625,7 @@ export function setupProviderRegistryMocks(
           if (callData.startsWith('0xab2b3ae5')) {
             return {
               success: true,
-              returnData: ethers.AbiCoder.defaultAbiCoder().encode(
-                ['address'],
-                ['0x0000000000000000000000000000000000000001']
-              ),
+              returnData: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [ADDRESSES.calibration.spRegistry]),
             }
           }
         }
@@ -660,7 +643,7 @@ export function setupProviderRegistryMocks(
 
         // Mock getProvider(uint256) calls to SPRegistry
         // Check if it's to the SPRegistry address
-        if (callData.startsWith('0x5c42d079') && target === '0x0000000000000000000000000000000000000001') {
+        if (callData.startsWith('0x5c42d079') && target === ADDRESSES.calibration.spRegistry) {
           const providerId = parseInt(callData.slice(10, 74), 16)
           const provider = providers.find((p) => p.id === providerId)
           if (provider) {
@@ -693,42 +676,75 @@ export function setupProviderRegistryMocks(
           return { success: true, returnData: encoded }
         }
 
-        // Mock getPDPService(uint256) calls
-        if (callData.startsWith('0xc439fd57') && target === '0x0000000000000000000000000000000000000001') {
+        // Mock getProviderWithProduct(uint256, uint8) calls to SPRegistry
+        if (callData.startsWith('0xadd33358') && target === ADDRESSES.calibration.spRegistry) {
           const providerId = parseInt(callData.slice(10, 74), 16)
           const provider = providers.find((p) => p.id === providerId)
+
           if (provider?.products?.PDP) {
             const pdp = provider.products.PDP
+            // Build capability keys and values including both offering fields and extra capabilities
+            const capabilityKeys = [
+              'serviceURL',
+              'minPieceSizeInBytes',
+              'maxPieceSizeInBytes',
+              'storagePricePerTibPerDay',
+              'minProvingPeriodInEpochs',
+              'location',
+              'paymentTokenAddress',
+            ]
+            if (pdp.data.ipniPiece) capabilityKeys.push('ipniPiece')
+            if (pdp.data.ipniIpfs) capabilityKeys.push('ipniIpfs')
+
+            // Encode product capability values using viem helpers
+            const capabilityValues = [
+              stringToHex(pdp.data.serviceURL),
+              bytesToHex(numberToBytes(pdp.data.minPieceSizeInBytes)),
+              bytesToHex(numberToBytes(pdp.data.maxPieceSizeInBytes)),
+              bytesToHex(numberToBytes(pdp.data.storagePricePerTibPerDay)),
+              bytesToHex(numberToBytes(BigInt(pdp.data.minProvingPeriodInEpochs))),
+              stringToHex(pdp.data.location || ''),
+              pdp.data.paymentTokenAddress as Hex,
+            ]
+            if (pdp.data.ipniPiece) capabilityValues.push('0x01')
+            if (pdp.data.ipniIpfs) capabilityValues.push('0x01')
+
+            // Add custom capabilities
+            if (pdp.capabilities) {
+              for (const [key, value] of Object.entries(pdp.capabilities)) {
+                capabilityKeys.push(key)
+                capabilityValues.push(stringToHex(value || ''))
+              }
+            }
+
             const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
               [
-                'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+                'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
               ],
               [
                 [
+                  providerId,
                   [
-                    pdp.data.serviceURL,
-                    pdp.data.minPieceSizeInBytes,
-                    pdp.data.maxPieceSizeInBytes,
-                    pdp.data.ipniPiece,
-                    pdp.data.ipniIpfs,
-                    pdp.data.storagePricePerTibPerMonth,
-                    pdp.data.minProvingPeriodInEpochs,
-                    pdp.data.location || '',
-                    pdp.data.paymentTokenAddress,
+                    provider.serviceProvider,
+                    provider.payee,
+                    provider.name,
+                    provider.description || '',
+                    provider.active,
                   ],
-                  Object.keys(pdp.capabilities || []),
-                  pdp.isActive,
+                  [0, capabilityKeys, pdp.isActive],
+                  capabilityValues,
                 ],
               ]
             )
             return { success: true, returnData: encoded }
           }
-          // Return empty PDP service
+
+          // Return empty provider with product
           const encoded = ethers.AbiCoder.defaultAbiCoder().encode(
             [
-              'tuple(tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress) pdpOffering, string[] capabilityKeys, bool isActive)',
+              'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
             ],
-            [[['', BigInt(0), BigInt(0), false, false, BigInt(0), BigInt(0), '', ethers.ZeroAddress], [], false]]
+            [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false], [0, [], false], []]]
           )
           return { success: true, returnData: encoded }
         }
@@ -774,56 +790,6 @@ export function setupProviderRegistryMocks(
       )
     }
 
-    // Mock getPDPService(uint256) - returns PDP service info for provider
-    if (data?.startsWith('0xc439fd57')) {
-      const providerId = parseInt(data.slice(10, 74), 16)
-      const provider = providers.find((p) => p.id === providerId)
-      if (provider?.products?.PDP) {
-        const pdp = provider.products.PDP
-        // Return the struct with named fields as ethers expects
-        const pdpOffering = {
-          serviceURL: pdp.data.serviceURL,
-          minPieceSizeInBytes: pdp.data.minPieceSizeInBytes,
-          maxPieceSizeInBytes: pdp.data.maxPieceSizeInBytes,
-          ipniPiece: pdp.data.ipniPiece,
-          ipniIpfs: pdp.data.ipniIpfs,
-          storagePricePerTibPerMonth: pdp.data.storagePricePerTibPerMonth,
-          minProvingPeriodInEpochs: pdp.data.minProvingPeriodInEpochs,
-          location: pdp.data.location || '',
-          paymentTokenAddress: pdp.data.paymentTokenAddress,
-        }
-
-        return ethers.AbiCoder.defaultAbiCoder().encode(
-          [
-            'tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress)',
-            'string[]',
-            'bool',
-          ],
-          [pdpOffering, Object.keys(pdp.capabilities ?? []), pdp.isActive]
-        )
-      }
-      // Return empty PDP service for provider without PDP
-      const emptyPdpOffering = {
-        serviceURL: '',
-        minPieceSizeInBytes: BigInt(0),
-        maxPieceSizeInBytes: BigInt(0),
-        ipniPiece: false,
-        ipniIpfs: false,
-        storagePricePerTibPerMonth: BigInt(0),
-        minProvingPeriodInEpochs: BigInt(0),
-        location: '',
-        paymentTokenAddress: ethers.ZeroAddress,
-      }
-      return ethers.AbiCoder.defaultAbiCoder().encode(
-        [
-          'tuple(string serviceURL, uint256 minPieceSizeInBytes, uint256 maxPieceSizeInBytes, bool ipniPiece, bool ipniIpfs, uint256 storagePricePerTibPerMonth, uint256 minProvingPeriodInEpochs, string location, address paymentTokenAddress)',
-          'string[]',
-          'bool',
-        ],
-        [emptyPdpOffering, [], false]
-      )
-    }
-
     // Mock decodePDPOffering(bytes) - decode PDP product data
     if (data?.startsWith('0xdeb0e462')) {
       // For simplicity, return a default PDP offering
@@ -839,7 +805,7 @@ export function setupProviderRegistryMocks(
               pdp.data.maxPieceSizeInBytes,
               pdp.data.ipniPiece,
               pdp.data.ipniIpfs,
-              pdp.data.storagePricePerTibPerMonth,
+              pdp.data.storagePricePerTibPerDay,
               pdp.data.minProvingPeriodInEpochs,
               pdp.data.location || '',
               pdp.data.paymentTokenAddress,
@@ -913,6 +879,71 @@ export function setupProviderRegistryMocks(
       )
     }
 
+    // Mock getProviderWithProduct(uint256, uint8) - returns provider with product capabilities
+    if (data?.startsWith('0xadd33358')) {
+      const providerId = parseInt(data.slice(10, 74), 16)
+      const provider = providers.find((p) => p.id === providerId)
+
+      if (provider?.products?.PDP) {
+        const pdp = provider.products.PDP
+        // Build capability keys and values including both offering fields and extra capabilities
+        const capabilityKeys = [
+          'serviceURL',
+          'minPieceSizeInBytes',
+          'maxPieceSizeInBytes',
+          'storagePricePerTibPerDay',
+          'minProvingPeriodInEpochs',
+          'location',
+          'paymentTokenAddress',
+        ]
+        if (pdp.data.ipniPiece) capabilityKeys.push('ipniPiece')
+        if (pdp.data.ipniIpfs) capabilityKeys.push('ipniIpfs')
+
+        // Encode product capability values using viem helpers
+        const capabilityValues = [
+          stringToHex(pdp.data.serviceURL),
+          bytesToHex(numberToBytes(pdp.data.minPieceSizeInBytes)),
+          bytesToHex(numberToBytes(pdp.data.maxPieceSizeInBytes)),
+          bytesToHex(numberToBytes(pdp.data.storagePricePerTibPerDay)),
+          bytesToHex(numberToBytes(BigInt(pdp.data.minProvingPeriodInEpochs))),
+          stringToHex(pdp.data.location || ''),
+          pdp.data.paymentTokenAddress as Hex,
+        ]
+        if (pdp.data.ipniPiece) capabilityValues.push('0x01')
+        if (pdp.data.ipniIpfs) capabilityValues.push('0x01')
+
+        // Add custom capabilities
+        if (pdp.capabilities) {
+          for (const [key, value] of Object.entries(pdp.capabilities)) {
+            capabilityKeys.push(key)
+            capabilityValues.push(stringToHex(value || ''))
+          }
+        }
+
+        return ethers.AbiCoder.defaultAbiCoder().encode(
+          [
+            'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+          ],
+          [
+            [
+              providerId,
+              [provider.serviceProvider, provider.payee, provider.name, provider.description || '', provider.active],
+              [0, capabilityKeys, pdp.isActive],
+              capabilityValues,
+            ],
+          ]
+        )
+      }
+
+      // Return empty provider with product
+      return ethers.AbiCoder.defaultAbiCoder().encode(
+        [
+          'tuple(uint256 providerId, tuple(address serviceProvider, address payee, string name, string description, bool isActive) providerInfo, tuple(uint8 productType, string[] capabilityKeys, bool isActive) product, bytes[] productCapabilityValues)',
+        ],
+        [[0n, [ethers.ZeroAddress, ethers.ZeroAddress, '', '', false], [0, [], false], []]]
+      )
+    }
+
     // Fallback to original call
     return originalCall.call(provider, transaction)
   }
@@ -945,8 +976,8 @@ export function createMockProviderInfo(overrides?: Partial<ProviderInfo>): Provi
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: false,
           ipniIpfs: false,
-          storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
@@ -978,8 +1009,8 @@ export function createSimpleProvider(props: {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: false,
           ipniIpfs: false,
-          storagePricePerTibPerMonth: BigInt(1000000),
-          minProvingPeriodInEpochs: 2880,
+          storagePricePerTibPerDay: BigInt(1000000),
+          minProvingPeriodInEpochs: 2880n,
           location: 'US',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },

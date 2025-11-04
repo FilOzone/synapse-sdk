@@ -5,8 +5,8 @@
 ## Packages
 
 - [@filoz/synapse-sdk](https://github.com/FilOzone/synapse-sdk/tree/master/packages/synapse-sdk) - Synapse SDK for Filecoin Onchain Cloud
-<!-- - [@filoz/synapse-react](https://github.com/FilOzone/synapse-sdk/tree/master/packages/synapse-sdk) - Synapse for React
-- [@filoz/synapse-core](https://github.com/FilOzone/synapse-sdk/tree/master/packages/synapse-sdk) - Core Filecoin Onchain Cloud contract actions -->
+- [@filoz/synapse-core](https://github.com/FilOzone/synapse-sdk/tree/master/packages/synapse-core) - JavaScript Standard Library for Filecoin Onchain Cloud
+- [@filoz/synapse-react](https://github.com/FilOzone/synapse-sdk/tree/master/packages/synapse-react) - React hooks for Synapse
 
 ## Docs
 
@@ -20,6 +20,7 @@ The `examples` folder has many examples on how to start using Synapse in differe
 
 - [`script-tag`](https://github.com/FilOzone/synapse-sdk/tree/master/examples/script-tag) - Use Synapse with CDN script tag.
 [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz_small.svg)](https://stackblitz.com/github/FilOzone/synapse-sdk/tree/master/examples/script-tag?title=Synapse%20Script%20Tag&hideExplorer=1&theme=dark)
+- [`cli`](https://github.com/FilOzone/synapse-sdk/tree/master/examples/cli) - How to build a CLI in Node JS using Synapse
 
 To clone it locally:
 

@@ -25,13 +25,14 @@ import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
+  CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
   PieceCID,
   PieceRetriever,
   PreflightInfo,
   ProviderInfo,
-  StorageCreationCallbacks,
+  StorageContextCallbacks,
   StorageInfo,
   StorageServiceOptions,
   UploadCallbacks,
@@ -46,12 +47,11 @@ import {
   TIME_CONSTANTS,
   TOKENS,
 } from '../utils/index.ts'
-import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
 // Combined callbacks type that can include both creation and upload callbacks
-type CombinedCallbacks = StorageCreationCallbacks & UploadCallbacks
+type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
 
 /**
  * Upload options for StorageManager.upload() - the all-in-one upload method
@@ -232,6 +232,40 @@ export class StorageManager {
   }
 
   /**
+   * Creates storage contexts for multi-provider storage deals and other operations.
+   *
+   * By storing data with multiple independent providers, you reduce dependency on any
+   * single provider and improve overall data availability. Use contexts together as a group.
+   *
+   * Contexts are selected by priority:
+   * 1. Specified datasets (`dataSetIds`) - uses their existing providers
+   * 2. Specified providers (`providerIds` or `providerAddresses`) - finds or creates matching datasets
+   * 3. Automatically selected from remaining approved providers
+   *
+   * For automatic selection, existing datasets matching the `metadata` are reused unless
+   * `forceCreateDataSets` is true. Providers are randomly chosen to distribute across the network.
+   *
+   * @param synapse - Synapse instance
+   * @param warmStorageService - Warm storage service instance
+   * @param options - Configuration options
+   * @param options.count - Maximum number of contexts to create (default: 2)
+   * @param options.dataSetIds - Specific dataset IDs to include
+   * @param options.providerIds - Specific provider IDs to use
+   * @param options.metadata - Metadata to match when finding/creating datasets
+   * @param options.forceCreateDataSets - Always create new datasets instead of reusing existing ones
+   * @param options.excludeProviderIds - Provider IDs to skip during selection
+   * @returns Promise resolving to array of storage contexts
+   */
+  async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
+    return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+      ...options,
+      withCDN: options?.withCDN ?? this._withCDN,
+      withIpni: options?.withIpni ?? this._withIpni,
+      dev: options?.dev ?? this._dev,
+    })
+  }
+
+  /**
    * Create a new storage context with specified options
    */
   async createContext(options?: StorageServiceOptions): Promise<StorageContext> {
@@ -269,14 +303,16 @@ export class StorageManager {
               console.error('Error in onProviderSelected callback:', error)
             }
 
-            try {
-              options.callbacks.onDataSetResolved?.({
-                isExisting: true, // Always true for cached context
-                dataSetId: this._defaultContext.dataSetId,
-                provider: this._defaultContext.provider,
-              })
-            } catch (error) {
-              console.error('Error in onDataSetResolved callback:', error)
+            if (this._defaultContext.dataSetId != null) {
+              try {
+                options.callbacks.onDataSetResolved?.({
+                  isExisting: true, // Always true for cached context
+                  dataSetId: this._defaultContext.dataSetId,
+                  provider: this._defaultContext.provider,
+                })
+              } catch (error) {
+                console.error('Error in onDataSetResolved callback:', error)
+              }
             }
           }
           return this._defaultContext
@@ -344,6 +380,8 @@ export class StorageManager {
           const approval = await this._synapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
           return {
             service: warmStorageAddress,
+            // Forward whether operator is approved so callers can react accordingly
+            isApproved: approval.isApproved,
             rateAllowance: approval.rateAllowance,
             lockupAllowance: approval.lockupAllowance,
             rateUsed: approval.rateUsed,
@@ -355,28 +393,34 @@ export class StorageManager {
         }
       }
 
-      // Create SPRegistryService and ProviderResolver to get providers
+      // Create SPRegistryService to get providers
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
-      const resolver = new ProviderResolver(this._warmStorageService, spRegistry)
 
       // Fetch all data in parallel for performance
-      const [pricingData, providers, allowances] = await Promise.all([
+      const [pricingData, approvedIds, allowances] = await Promise.all([
         this._warmStorageService.getServicePrice(),
-        resolver.getApprovedProviders(),
+        this._warmStorageService.getApprovedProviderIds(),
         getOptionalAllowances(),
       ])
+
+      // Get provider details for approved IDs
+      const providers = await spRegistry.getProviders(approvedIds)
 
       // Calculate pricing per different time units
       const epochsPerMonth = BigInt(pricingData.epochsPerMonth)
 
-      // Calculate per-epoch pricing
-      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
-      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / epochsPerMonth
+      // TODO: StorageInfo needs updating to reflect that CDN costs are usage-based
 
-      // Calculate per-day pricing
+      // Calculate per-epoch pricing (base storage cost)
+      const noCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+      // CDN costs are usage-based (egress charges), so base storage cost is the same
+      const withCDNPerEpoch = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / epochsPerMonth
+
+      // Calculate per-day pricing (base storage cost)
       const noCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
-      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthWithCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
+      // CDN costs are usage-based (egress charges), so base storage cost is the same
+      const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
@@ -390,8 +434,9 @@ export class StorageManager {
             perTiBPerDay: noCDNPerDay,
             perTiBPerEpoch: noCDNPerEpoch,
           },
+          // CDN costs are usage-based (egress charges), base storage cost is the same
           withCDN: {
-            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthWithCDN),
+            perTiBPerMonth: BigInt(pricingData.pricePerTiBPerMonthNoCDN),
             perTiBPerDay: withCDNPerDay,
             perTiBPerEpoch: withCDNPerEpoch,
           },

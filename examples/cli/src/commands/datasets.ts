@@ -21,7 +21,7 @@ export const datasets: Command = command(
       examples: ['synapse datasets', 'synapse datasets --help'],
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')
@@ -40,8 +40,9 @@ export const datasets: Command = command(
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {
         p.log.info(
-          `#${dataSet.dataSetId} ${dataSet.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}`
+          `#${dataSet.dataSetId} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}`
         )
+        console.log(dataSet)
       })
     } catch (error) {
       spinner.stop()

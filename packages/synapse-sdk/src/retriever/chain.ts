@@ -8,7 +8,6 @@
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.ts'
 import { createError } from '../utils/index.ts'
-import { ProviderResolver } from '../utils/provider-resolver.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { fetchPiecesFromProviders } from './utils.ts'
 
@@ -27,46 +26,44 @@ export class ChainRetriever implements PieceRetriever {
    * Find providers that can serve pieces for a client
    * @param client - The client address
    * @param providerAddress - Optional specific provider to use
-   * @returns List of approved provider info
+   * @returns List of provider info
    */
   private async findProviders(client: string, providerAddress?: string): Promise<ProviderInfo[]> {
-    // Create ProviderResolver using injected SPRegistryService
-    const resolver = new ProviderResolver(this.warmStorageService, this.spRegistry)
-
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
-      const provider = await resolver.getApprovedProviderByAddress(providerAddress)
+      const provider = await this.spRegistry.getProviderByAddress(providerAddress)
       if (provider == null) {
-        throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found or not approved`)
+        throw createError('ChainRetriever', 'findProviders', `Provider ${providerAddress} not found in registry`)
       }
       return [provider]
     }
 
     // Multiple provider case - need data sets to find providers
-    // 1. Get client's data sets with details
+
+    // Get client's data sets with details
     const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
 
-    // 2. Filter for live data sets with pieces
+    // Filter for live data sets with pieces
     const validDataSets = dataSets.filter((ds) => ds.isLive && ds.currentPieceCount > 0)
 
     if (validDataSets.length === 0) {
       throw createError('ChainRetriever', 'findProviders', `No active data sets with data found for client ${client}`)
     }
 
-    // 3. Get unique provider IDs from data sets (much more reliable than using payee addresses)
+    // Get unique provider IDs from data sets (much more reliable than using payee addresses)
     const uniqueProviderIds = [...new Set(validDataSets.map((ds) => ds.providerId))]
 
-    // 4. Batch fetch provider info for all unique provider IDs efficiently
-    const providerInfos = await resolver.getApprovedProvidersByIds(uniqueProviderIds)
+    // Batch fetch provider info for all unique provider IDs
+    const providerInfos = await this.spRegistry.getProviders(uniqueProviderIds)
 
-    // Filter out null values (unapproved/inactive providers)
+    // Filter out null values (providers not found in registry)
     const validProviderInfos = providerInfos.filter((info): info is ProviderInfo => info != null)
 
     if (validProviderInfos.length === 0) {
       throw createError(
         'ChainRetriever',
         'findProviders',
-        'No valid providers found (all providers may have been removed or are inactive)'
+        'No valid providers found (all providers may have been removed from registry or are inactive)'
       )
     }
 
@@ -90,7 +87,7 @@ export class ChainRetriever implements PieceRetriever {
       throw createError('ChainRetriever', 'fetchPiece', `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`)
     }
 
-    // Step 1: Find providers
+    // Find providers
     let providersToTry: ProviderInfo[] = []
     try {
       providersToTry = await this.findProviders(client, options?.providerAddress)
@@ -100,12 +97,12 @@ export class ChainRetriever implements PieceRetriever {
       return await tryChildOrThrow(message)
     }
 
-    // Step 2: If no providers found, try child retriever
+    // If no providers found, try child retriever
     if (providersToTry.length === 0) {
       return await tryChildOrThrow('No providers found and no additional retriever method was configured')
     }
 
-    // Step 3: Try to fetch from providers
+    // Try to fetch from providers
     try {
       return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', options?.signal)
     } catch {

@@ -1,4 +1,5 @@
 import type { AbiError } from 'abitype'
+import type { Hex } from 'viem'
 import { AbiErrorSignatureNotFoundError, decodeErrorResult } from 'viem'
 import { formatAbiItem, formatAbiItemWithArgs } from 'viem/utils'
 import * as Abis from '../abis/index.ts'
@@ -15,7 +16,7 @@ export function decodePDPError(error: string) {
     try {
       const value = decodeErrorResult({
         abi: Abis.storage,
-        data: extractedContent as `0x${string}`,
+        data: extractedContent as Hex,
       })
 
       return `Warm Storage\n${formatPDPError(value)}`
@@ -28,7 +29,7 @@ export function decodePDPError(error: string) {
       try {
         const value = decodeErrorResult({
           abi: Abis.payments,
-          data: extractedContent as `0x${string}`,
+          data: extractedContent as Hex,
         })
 
         return `Payments\n${formatPDPError(value)}`
@@ -42,7 +43,7 @@ export function decodePDPError(error: string) {
       try {
         const value = decodeErrorResult({
           abi: Abis.pdp,
-          data: extractedContent as `0x${string}`,
+          data: extractedContent as Hex,
         })
 
         return `PDP Verifier\n${formatPDPError(value)}`

@@ -5,7 +5,7 @@
 import type { ethers } from 'ethers'
 import type { FilecoinNetworkType } from '../types.ts'
 import { CHAIN_IDS } from './constants.ts'
-import { createError } from './errors.ts'
+import { createError } from './index.ts'
 
 /**
  * Extract and validate FilecoinNetworkType from an ethers Provider

@@ -28,7 +28,11 @@ export type getAllPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_S
 
 export type getPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getPieceMetadata'>
 
-export type clientDataSetIds = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'clientDataSetIds'>
+export type clientNonces = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'clientNonces'>
+
+export type getMaxProvingPeriod = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getMaxProvingPeriod'>
+
+export type challengeWindow = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'challengeWindow'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -43,7 +47,9 @@ export interface WarmStorageViewOptions {
   getDataSetMetadata?: (args: AbiToType<getDataSetMetadata['inputs']>) => AbiToType<getDataSetMetadata['outputs']>
   getAllPieceMetadata?: (args: AbiToType<getAllPieceMetadata['inputs']>) => AbiToType<getAllPieceMetadata['outputs']>
   getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
-  clientDataSetIds?: (args: AbiToType<clientDataSetIds['inputs']>) => AbiToType<clientDataSetIds['outputs']>
+  clientNonces?: (args: AbiToType<clientNonces['inputs']>) => AbiToType<clientNonces['outputs']>
+  getMaxProvingPeriod?: (args: AbiToType<getMaxProvingPeriod['inputs']>) => AbiToType<getMaxProvingPeriod['outputs']>
+  challengeWindow?: (args: AbiToType<challengeWindow['inputs']>) => AbiToType<challengeWindow['outputs']>
 }
 
 /**
@@ -69,6 +75,8 @@ export type sessionKeyRegistry = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_ST
 
 export type getServicePrice = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'getServicePrice'>
 
+export type owner = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'owner'>
+
 export interface WarmStorageOptions {
   pdpVerifierAddress?: (args: AbiToType<pdpVerifierAddress['inputs']>) => AbiToType<pdpVerifierAddress['outputs']>
   paymentsContractAddress?: (
@@ -84,6 +92,7 @@ export interface WarmStorageOptions {
   ) => AbiToType<serviceProviderRegistry['outputs']>
   sessionKeyRegistry?: (args: AbiToType<sessionKeyRegistry['inputs']>) => AbiToType<sessionKeyRegistry['outputs']>
   getServicePrice?: (args: AbiToType<getServicePrice['inputs']>) => AbiToType<getServicePrice['outputs']>
+  owner?: (args: AbiToType<owner['inputs']>) => AbiToType<owner['outputs']>
 }
 
 /**
@@ -172,6 +181,16 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       return encodeAbiParameters(
         CONTRACT_ABIS.WARM_STORAGE.find((abi) => abi.type === 'function' && abi.name === 'getServicePrice')!.outputs,
         options.warmStorage.getServicePrice(args)
+      )
+    }
+
+    case 'owner': {
+      if (!options.warmStorage?.owner) {
+        throw new Error('Warm Storage: owner is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE.find((abi) => abi.type === 'function' && abi.name === 'owner')!.outputs,
+        options.warmStorage.owner(args)
       )
     }
 
@@ -296,14 +315,33 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         options.warmStorageView.getPieceMetadata(args)
       )
     }
-    case 'clientDataSetIds': {
-      if (!options.warmStorageView?.clientDataSetIds) {
-        throw new Error('Warm Storage View: clientDataSetIds is not defined')
+    case 'clientNonces': {
+      if (!options.warmStorageView?.clientNonces) {
+        throw new Error('Warm Storage View: clientNonces is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'clientDataSetIds')!
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'clientNonces')!.outputs,
+        options.warmStorageView.clientNonces(args)
+      )
+    }
+    case 'getMaxProvingPeriod': {
+      if (!options.warmStorageView?.getMaxProvingPeriod) {
+        throw new Error('Warm Storage View: getMaxProvingPeriod is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getMaxProvingPeriod')!
           .outputs,
-        options.warmStorageView.clientDataSetIds(args)
+        options.warmStorageView.getMaxProvingPeriod(args)
+      )
+    }
+    case 'challengeWindow': {
+      if (!options.warmStorageView?.challengeWindow) {
+        throw new Error('Warm Storage View: challengeWindow is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'challengeWindow')!
+          .outputs,
+        options.warmStorageView.challengeWindow(args)
       )
     }
 

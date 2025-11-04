@@ -28,8 +28,8 @@ const mockProvider1: ProviderInfo = {
         maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
         ipniPiece: false,
         ipniIpfs: false,
-        storagePricePerTibPerMonth: BigInt(1000000),
-        minProvingPeriodInEpochs: 30,
+        storagePricePerTibPerDay: BigInt(1000000),
+        minProvingPeriodInEpochs: 30n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       },
@@ -55,8 +55,8 @@ const mockProvider2: ProviderInfo = {
         maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
         ipniPiece: false,
         ipniIpfs: false,
-        storagePricePerTibPerMonth: BigInt(1000000),
-        minProvingPeriodInEpochs: 30,
+        storagePricePerTibPerDay: BigInt(1000000),
+        minProvingPeriodInEpochs: 30n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       },
@@ -186,7 +186,7 @@ describe('ChainRetriever', () => {
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider 0xNotApproved not found or not approved')
+        assert.include(error.message, 'Provider 0xNotApproved not found in registry')
       }
     })
   })
@@ -242,8 +242,8 @@ describe('ChainRetriever', () => {
                 maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
                 ipniPiece: false,
                 ipniIpfs: false,
-                storagePricePerTibPerMonth: BigInt(1000000),
-                minProvingPeriodInEpochs: 30,
+                storagePricePerTibPerDay: BigInt(1000000),
+                minProvingPeriodInEpochs: 30n,
                 location: 'us-east',
                 paymentTokenAddress: '0x0000000000000000000000000000000000000000',
               },
@@ -268,8 +268,8 @@ describe('ChainRetriever', () => {
                 maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
                 ipniPiece: false,
                 ipniIpfs: false,
-                storagePricePerTibPerMonth: BigInt(1000000),
-                minProvingPeriodInEpochs: 30,
+                storagePricePerTibPerDay: BigInt(1000000),
+                minProvingPeriodInEpochs: 30n,
                 location: 'us-east',
                 paymentTokenAddress: '0x0000000000000000000000000000000000000000',
               },

@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { formatBalance } from '@filoz/synapse-core'
+import { formatBalance } from '@filoz/synapse-core/utils'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import type { Hex } from 'viem'
@@ -15,7 +15,7 @@ export const pay: Command = command(
       examples: ['synapse pay', 'synapse pay --help'],
     },
   },
-  async (argv) => {
+  async (_argv) => {
     const privateKey = config.get('privateKey')
     if (!privateKey) {
       p.log.error('Private key not found')
