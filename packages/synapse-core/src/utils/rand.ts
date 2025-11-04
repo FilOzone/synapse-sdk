@@ -30,18 +30,3 @@ export function randU256(): bigint {
 export function fallbackRandIndex(length: number): number {
   return Math.floor(Math.random() * length)
 }
-
-/**
- * Provides a random index into an array of supplied length (0 <= index < length)
- * @param length - exclusive upper boundary
- * @returns a valid index
- */
-export function randIndex(length: number): number {
-  if (crypto?.getRandomValues != null) {
-    const randomBytes = new Uint32Array(1)
-    crypto.getRandomValues(randomBytes)
-    return randomBytes[0] % length
-  } else {
-    return fallbackRandIndex(length)
-  }
-}
