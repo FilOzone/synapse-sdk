@@ -204,21 +204,26 @@ function setupShutdownHooks(opts: { timeoutMs?: number } = {}) {
 const originalFetch = (globalThis as any).fetch as typeof fetch
 let isFetchWrapped = false
 /**
- * This patches `globalThis.fetch` to add telemetry tracking.
- * It is safe to call multiple times as it will only wrap once.
+ * Patches `globalThis.fetch` to add manual telemetry tracking for all HTTP requests.
+ * This wrapper is safe to call multiple times as it will only wrap once.
  *
- * Problem to solve: ensure a [Sentry span](https://docs.sentry.io/platforms/javascript/tracing/span-metrics/) is created and published for every `fetch` call.
- * Sentry automatically creates a span for every `fetch`, but those spans require that there is already an active span.
- * This is implied in https://docs.sentry.io/platforms/javascript/tracing/instrumentation/requests-module/ and we have observed it empirically in testing.
- * The logic of this `fetch` wrapper is then to ensure that we have an active span, and if not, to create one so that the auto-instrumented http requests get collected.
+ * Implementation: This function explicitly creates a [Sentry span](https://docs.sentry.io/platforms/javascript/tracing/span-metrics/)
+ * for every `fetch` call by wrapping each request in `sentry.startSpan()`. The span captures HTTP metadata
+ * including method, URL, status code, and content length.
  *
- * Example cases where there will already be an active span:
- * - If [browser auto instrumentation](https://docs.sentry.io/platforms/javascript/tracing/instrumentation/automatic-instrumentation/) is enabled and the `pageload` or `navigation` spans are still active (i.e., haven't been closed)
- * - If a Synapse-using application has accessed the TelemetryService singleton and started a span.
+ * Behavior:
+ * - If telemetry is disabled or not initialized, the wrapper immediately delegates to the original `fetch`
+ * - If telemetry is enabled, creates a new span with op="http.client" and name="${METHOD} ${URL}"
+ * - Captures request attributes (URL, method, hostname, port) before the fetch
+ * - Captures response attributes (status code, content length) after the fetch
+ * - Returns the original fetch response unchanged
  *
- * Example cases where there won't be an active span:
- * - Directly invoking HTTP-inducing Synapse SDK functions from a node context.
- * In these cases, this wrapper creates a span before making the `fetch` call.
+ * Why this is needed: We have explicitly disabled Sentry's automatic fetch instrumentation
+ * (by limiting enabled integrations in service.ts). This manual wrapper gives us full control
+ * over which HTTP requests are tracked and what attributes are captured for each span.
+ *
+ * See: https://docs.sentry.io/platforms/javascript/tracing/instrumentation/requests-module/#wrap-http-requests-in-a-span
+ * See: https://docs.sentry.io/platforms/javascript/guides/node/tracing/instrumentation/requests-module/#wrap-http-requests-in-a-span
  */
 function wrapFetch(): void {
   if (isFetchWrapped) {
@@ -231,31 +236,31 @@ function wrapFetch(): void {
     input: string | URL | Request,
     init?: RequestInit
   ): Promise<Response> {
-    // Short circuit to the original fetch if
-    // - telemetry is disabled OR
-    // - we have an active span (since fetch calls will be instrumented by Sentry automatically and become a child span)
+    // Short circuit to the original fetch if telemetry is disabled
     const sentry = getGlobalTelemetry()?.sentry
-    if (!sentry || sentry.getActiveSpan() != null) {
+    if (!sentry) {
       return originalFetch(input, init)
     }
     const url = input instanceof Request ? new URL(input.url) : new URL(input.toString())
     const method = input instanceof Request ? input.method : init?.method || 'GET'
-
-    /**
-     * For this case, since there isn't an active span already, we will create one.
-     * This root wrapper span will effectively have the same duration as the child auto-instrumented-by-Sentry HTTP request span.
-     * These wrapper spans can be filtered out in the [Sentry Trace explorer](https://filoz.sentry.io/explore/traces) with `!span.op:http.wrapper`
-     * Note: URL sanitization is handled by the beforeSendSpan hook in service.ts
-     */
-    return sentry.startSpan(
-      {
-        name: `${method} ${url.toString()} Wrapper`, // Children spans (including automatic Sentry instrumentation) inherit this name.
-        op: 'http.wrapper',
-      },
-      async () => {
-        return originalFetch(input, init)
-      }
-    )
+    return await sentry.startSpan({ op: 'http.client', name: `${method} ${url}` }, async (span) => {
+      span.setAttributes({
+        'url.path': url.pathname,
+        'url.full': url.toString(),
+        'server.address': url.hostname,
+        'http.request.method': method,
+        'server.port': url.port || undefined,
+        'location.origin': isBrowser ? (globalThis as any).location?.origin : undefined,
+      })
+      const response = await originalFetch(input, init)
+      span.setAttributes({
+        'http.response.status_code': response.status,
+        'http.response_content_length': response.headers.get('content-length')
+          ? Number(response.headers.get('content-length'))
+          : undefined,
+      })
+      return response
+    })
   }
 }
 

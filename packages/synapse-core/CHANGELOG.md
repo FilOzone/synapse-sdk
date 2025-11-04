@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.1...synapse-core-v0.1.2) (2025-11-04)
+
+
+### Features
+
+* update FWSS Mainnet addresses ([2b9a17c](https://github.com/FilOzone/synapse-sdk/commit/2b9a17c1e035fa5d7896d42e3d84e34fc33b319d))
+* update FWSS Mainnet addresses ([#391](https://github.com/FilOzone/synapse-sdk/issues/391)) ([2b9a17c](https://github.com/FilOzone/synapse-sdk/commit/2b9a17c1e035fa5d7896d42e3d84e34fc33b319d))
+
+
+### Chores
+
+* fix docs ([#397](https://github.com/FilOzone/synapse-sdk/issues/397)) ([196e735](https://github.com/FilOzone/synapse-sdk/commit/196e7352c982d90553f5b186acfdb724077b8a26))
+* simplify linting and make sure git hook works ([#394](https://github.com/FilOzone/synapse-sdk/issues/394)) ([ee8a83d](https://github.com/FilOzone/synapse-sdk/commit/ee8a83d5b737eabb6dec5d9c0f821ea6370f2496))
+
 ## [0.1.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.0...synapse-core-v0.1.1) (2025-11-03)
 
 

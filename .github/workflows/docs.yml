@@ -26,6 +26,7 @@ jobs:
         with:
           node-version: lts/*
       - run: pnpm install
+      - run: pnpm run build
       - run: pnpm -r --filter docs run build
       - run: pnpx wrangler deploy --cwd docs --env production
         env:
