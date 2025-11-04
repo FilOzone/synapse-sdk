@@ -15,6 +15,7 @@ import {
   stringToHex,
 } from 'viem'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
+import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
 import { serviceProviderRegistryCallHandler } from './service-registry.ts'
@@ -124,6 +125,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         throw new Error('eth_accounts is not defined')
       }
       return options.eth_accounts
+    case 'eth_getBalance': {
+      if (!options.eth_getBalance) {
+        throw new Error('eth_getBalance is not defined')
+      }
+      return options.eth_getBalance(params)
+    }
     case 'eth_getTransactionByHash': {
       if (!options.eth_getTransactionByHash) {
         throw new Error('eth_getTransactionByHash is not defined')
@@ -206,6 +213,11 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         return paymentsCallHandler(data as Hex, options)
       }
 
+      // Handle ERC20 token calls (including USDFC)
+      if (isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address)) {
+        return erc20CallHandler(data as Hex, options)
+      }
+
       throw new Error(`Unknown eth_call to address: ${to}`)
     }
     case 'eth_signTypedData_v4': {
@@ -229,8 +241,9 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const results = []
 
   for (const arg of decoded.args[0] ?? []) {
-    results.push(
-      handler(
+    // Handle through normal eth_call handler (which will route to appropriate contract handler)
+    try {
+      const result = handler(
         {
           method: 'eth_call',
           params: [
@@ -242,7 +255,14 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         },
         options
       )
-    )
+      results.push(result)
+    } catch (error) {
+      if (arg.allowFailure) {
+        results.push('0x')
+      } else {
+        throw error
+      }
+    }
   }
 
   const result = encodeAbiParameters(
@@ -278,11 +298,29 @@ export const presets = {
     eth_chainId: '0x4cb2f', // 314159
     eth_blockNumber: '0x127001',
     eth_accounts: [ADDRESSES.client1],
+    eth_getBalance: () => numberToHex(parseUnits('100', 18)),
     eth_getTransactionByHash: () => {
       throw new Error('eth_getTransactionByHash undefined')
     },
-    eth_getTransactionReceipt: () => {
-      throw new Error('eth_getTransactionReceipt undefined')
+    eth_getTransactionReceipt: (params: [hash: Hex]) => {
+      const [hash] = params
+      return {
+        hash,
+        from: ADDRESSES.client1,
+        to: null,
+        contractAddress: null,
+        index: 0,
+        root: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        gasUsed: numberToHex(50000n),
+        gasPrice: numberToHex(1000000000n),
+        cumulativeGasUsed: numberToHex(50000n),
+        effectiveGasPrice: numberToHex(1000000000n),
+        logsBloom: `0x${'0'.repeat(512)}`,
+        blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        blockNumber: numberToHex(1000000n),
+        logs: [],
+        status: '0x1',
+      }
     },
     eth_signTypedData_v4: () => {
       throw new Error('eth_signTypedData_v4 undefined')
@@ -687,6 +725,15 @@ export const presets = {
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],
     },
+    erc20: {
+      balanceOf: () => [parseUnits('1000', 18)],
+      decimals: () => [18],
+      allowance: () => [0n],
+      name: () => [encodeAbiParameters([{ type: 'string' }], ['USDFC'])],
+      approve: () => [true],
+      version: () => [encodeAbiParameters([{ type: 'string' }], ['1'])],
+      nonces: () => [0n],
+    },
     payments: {
       operatorApprovals: () => [
         true, // isApproved
@@ -696,7 +743,58 @@ export const presets = {
         BigInt(5000000), // lockupUsed
         BigInt(86400), // maxLockupPeriod
       ],
-      accounts: () => [BigInt(0), BigInt(0), BigInt(0), BigInt(0)],
+      accounts: () => [
+        parseUnits('500', 18), // funds
+        BigInt(0), // lockupCurrent
+        BigInt(0), // lockupRate
+        BigInt(1000000), // lockupLastSettledAt (current epoch/block number)
+      ],
+      getRail: () => [
+        {
+          token: ADDRESSES.calibration.usdfcToken,
+          from: ADDRESSES.client1,
+          to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
+          operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          paymentRate: parseUnits('1', 18),
+          lockupPeriod: 2880n,
+          lockupFixed: 0n,
+          settledUpTo: 1000000n,
+          endEpoch: 0n, // 0 = active rail
+          commissionRateBps: 500n, // 5%
+          serviceFeeRecipient: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+        },
+      ],
+      getRailsForPayerAndToken: () => [
+        [
+          { railId: 1n, isTerminated: false, endEpoch: 0n },
+          { railId: 2n, isTerminated: true, endEpoch: 999999n },
+        ],
+        2n, // nextOffset
+        2n, // total
+      ],
+      getRailsForPayeeAndToken: () => [
+        [{ railId: 3n, isTerminated: false, endEpoch: 0n }],
+        2n, // nextOffset
+        2n, // total
+      ],
+      settleRail: () => [
+        parseUnits('100', 18), // totalSettledAmount
+        parseUnits('95', 18), // totalNetPayeeAmount
+        parseUnits('5', 18), // totalOperatorCommission
+        parseUnits('1', 18), // totalNetworkFee
+        1000000n, // finalSettledEpoch
+        'Settlement successful', // note
+      ],
+      settleTerminatedRailWithoutValidation: () => [
+        parseUnits('200', 18), // totalSettledAmount
+        parseUnits('190', 18), // totalNetPayeeAmount
+        parseUnits('10', 18), // totalOperatorCommission
+        parseUnits('2', 18), // totalNetworkFee
+        999999n, // finalSettledEpoch
+        'Terminated rail settlement', // note
+      ],
+      NETWORK_FEE: () => parseUnits('0.0013', 18), // 0.0013 FIL
     },
   } as RequiredDeep<JSONRPCOptions>,
 }
