@@ -255,7 +255,7 @@ function wrapFetch(): void {
       const response = await originalFetch(input, init)
       span.setAttributes({
         'http.response.status_code': response.status,
-        'http.response_content_length': Number(response.headers.get('content-length')),
+        'http.response_content_length': response.headers.get('content-length') ? Number(response.headers.get('content-length')) : undefined,
       })
       return response
     })
