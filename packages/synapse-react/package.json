@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "React hooks for interacting with Filecoin Onchain Cloud smart contracts",
   "repository": {
     "type": "git",
