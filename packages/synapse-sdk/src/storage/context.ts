@@ -643,13 +643,13 @@ export class StorageContext {
             continue
           }
 
-        const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
-        if (!dev && serviceStatus === '0x646576') {
-          // "dev" in hex
-          continue
-        }
+          const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
+          if (!dev && serviceStatus === '0x646576') {
+            // "dev" in hex
+            continue
+          }
 
-        yield provider
+          yield provider
         }
       }
 
