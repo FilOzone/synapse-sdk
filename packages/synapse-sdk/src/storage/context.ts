@@ -964,8 +964,7 @@ export class StorageContext {
     }
 
     // Extract up to uploadBatchSize pending pieces
-    const batch = this._pendingPieces.slice(0, this._uploadBatchSize)
-    this._pendingPieces = this._pendingPieces.slice(this._uploadBatchSize)
+    const batch = this._pendingPieces.splice(0, this._uploadBatchSize)
     try {
       // Create piece data array and metadata from the batch
       const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
