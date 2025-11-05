@@ -69,7 +69,7 @@ import { Synapse } from "@filoz/synapse-sdk";
 const data = null as unknown as Uint8Array;
 const synapse = await Synapse.create({});
 // ---cut---
-const context = await synapse.createStorage({
+const context = await synapse.storage.createContext({
   metadata: {
     Application: "My DApp",
     Version: "1.0.0",
