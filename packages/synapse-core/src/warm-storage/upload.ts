@@ -1,4 +1,5 @@
 import type { Account, Chain, Client, Transport } from 'viem'
+import * as Piece from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
@@ -16,20 +17,23 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   })
 
   const uploadResponses = await Promise.all(
-    options.data.map(async (data) => {
-      const upload = await SP.uploadPiece({
-        data: new Uint8Array(await data.arrayBuffer()),
+    options.data.map(async (file: File) => {
+      const data = new Uint8Array(await file.arrayBuffer())
+      const pieceCid = Piece.calculate(data)
+      await SP.uploadPiece({
+        data,
+        pieceCid,
         endpoint: dataSet.pdp.serviceURL,
       })
 
       await SP.findPiece({
-        pieceCid: upload.pieceCid,
+        pieceCid,
         endpoint: dataSet.pdp.serviceURL,
       })
 
       return {
-        pieceCid: upload.pieceCid,
-        metadata: { name: data.name, type: data.type },
+        pieceCid,
+        metadata: { name: file.name, type: file.type },
       }
     })
   )

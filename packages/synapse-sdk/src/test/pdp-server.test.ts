@@ -783,9 +783,10 @@ Database error`
     })
 
     it('should validate response structure', async () => {
-      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(mockPieceCid)
       const invalidResponse = {
-        pieceCid: mockPieceCid,
+        pieceCid: mockPieceCid.toString(),
         status: 'retrieved',
         // Missing required fields
       }
@@ -875,49 +876,14 @@ Database error`
         })
       )
 
-      const result = await pdpServer.uploadPiece(testData)
-      assert.exists(result.pieceCid)
-      assert.equal(result.size, 127)
-    })
-
-    it('should handle ArrayBuffer input', async () => {
-      const buffer = new ArrayBuffer(127)
-      const view = new Uint8Array(buffer)
-      view.fill(1)
-      const mockUuid = 'fedcba09-8765-4321-fedc-ba0987654321'
-
-      server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
-          try {
-            const body = await request.json()
-            assert.exists(body.pieceCid)
-            return HttpResponse.text('Created', {
-              status: 201,
-              headers: {
-                Location: `/pdp/piece/upload/${mockUuid}`,
-              },
-            })
-          } catch (error) {
-            return HttpResponse.text((error as Error).message, {
-              status: 400,
-            })
-          }
-        }),
-        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        })
-      )
-
-      const result = await pdpServer.uploadPiece(buffer)
-      assert.exists(result.pieceCid)
-      assert.equal(result.size, 127)
+      const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(mockPieceCid)
+      await pdpServer.uploadPiece(testData, mockPieceCid)
     })
 
     it('should handle existing piece (200 response)', async () => {
       const testData = new Uint8Array(127).fill(1)
-      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
 
       server.use(
         http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
@@ -931,13 +897,14 @@ Database error`
       )
 
       // Should not throw - existing piece is OK
-      const result = await pdpServer.uploadPiece(testData)
-      assert.exists(result.pieceCid)
-      assert.equal(result.size, 127)
+      assert.isNotNull(mockPieceCid)
+      await pdpServer.uploadPiece(testData, mockPieceCid)
     })
 
     it('should throw on create upload session error', async () => {
       const testData = new Uint8Array(127).fill(1)
+      const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      assert.isNotNull(mockPieceCid)
 
       server.use(
         http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
@@ -948,7 +915,7 @@ Database error`
       )
 
       try {
-        await pdpServer.uploadPiece(testData)
+        await pdpServer.uploadPiece(testData, mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.instanceOf(error, PostPieceError)
