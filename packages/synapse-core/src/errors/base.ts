@@ -1,6 +1,6 @@
 const symbol = Symbol.for('synapse-error')
 
-interface SynapseErrorOptions extends ErrorOptions {
+export interface SynapseErrorOptions extends ErrorOptions {
   cause?: Error
   details?: string
 }

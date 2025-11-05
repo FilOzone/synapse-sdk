@@ -10,6 +10,7 @@ import type {
   RpcTransaction,
   TransactionRequest,
 } from 'viem'
+import type { ERC20Options } from './erc20.ts'
 import type { PaymentsOptions } from './payments.ts'
 import type { PDPVerifierOptions } from './pdp.ts'
 import type { ServiceRegistryOptions } from './service-registry.ts'
@@ -31,6 +32,7 @@ export interface JSONRPCOptions {
   debug?: boolean
   eth_chainId?: string
   eth_blockNumber?: string
+  eth_getBalance?: (params: [address: Address, block: BlockNumber | BlockTag]) => Hex
   eth_getTransactionByHash?: (params: any) => any
   eth_getTransactionReceipt?: (params: any) => any
   eth_signTypedData_v4?: (params: any) => string
@@ -59,6 +61,7 @@ export interface JSONRPCOptions {
   warmStorageView?: WarmStorageViewOptions
   serviceRegistry?: ServiceRegistryOptions
   sessionKeyRegistry?: SessionKeyRegistryOptions
+  erc20?: ERC20Options
 }
 
 /**

@@ -2,7 +2,13 @@ import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
 import { depositAndApprove } from '@filoz/synapse-core/pay'
 import { type Command, command } from 'cleye'
-import { createPublicClient, createWalletClient, type Hex, http, parseEther } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+  parseEther,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
 import config from '../config.ts'

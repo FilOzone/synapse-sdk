@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.1...synapse-react-v0.1.2) (2025-11-04)
+
+
+### Chores
+
+* simplify linting and make sure git hook works ([#394](https://github.com/FilOzone/synapse-sdk/issues/394)) ([ee8a83d](https://github.com/FilOzone/synapse-sdk/commit/ee8a83d5b737eabb6dec5d9c0f821ea6370f2496))
+
 ## [0.1.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.0...synapse-react-v0.1.1) (2025-11-03)
 
 
