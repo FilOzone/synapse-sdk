@@ -23,6 +23,7 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
@@ -30,7 +31,6 @@ import type { Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
-import { asPieceCID } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
@@ -835,19 +835,39 @@ export class StorageContext {
 
   /**
    * Upload data to the service provider
+   *
+   * Accepts Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
+   * For large files, prefer streaming types (AsyncIterable or ReadableStream) to minimize memory usage.
+   *
+   * Note: When uploading to multiple contexts, pieceCid should be precalculated and passed to avoid
+   * redundant computation. For streaming uploads, pieceCid must be provided as it cannot be calculated
+   * without consuming the stream.
    */
-  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions, pieceCid?: PieceCID): Promise<UploadResult> {
+  async upload(
+    data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
+    options?: UploadOptions,
+    pieceCid?: PieceCID
+  ): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
-    // Validation Phase: Check data size
-    const dataBytes: Uint8Array = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    const size = dataBytes.length
+    // Validation Phase: Check data size and calculate pieceCid
+    let size: number | undefined
+    if (data instanceof Uint8Array) {
+      size = data.length
+      StorageContext.validateRawSize(size, 'upload')
 
-    // Validate size before proceeding
-    StorageContext.validateRawSize(size, 'upload')
-
-    if (pieceCid == null) {
-      pieceCid = Piece.calculate(dataBytes)
+      // Calculate pieceCid if not provided
+      if (pieceCid == null) {
+        pieceCid = Piece.calculate(data)
+      }
+    } else if (pieceCid == null) {
+      // For streams, pieceCid must be provided (cannot calculate without consuming stream)
+        throw createError(
+          'StorageContext',
+          'upload',
+          'pieceCid must be provided for streaming uploads (AsyncIterable or ReadableStream)'
+        )
+      // Size is unknown for streams
     }
 
     // Track this upload for batching purposes
@@ -855,10 +875,12 @@ export class StorageContext {
     this._activeUploads.add(uploadId)
 
     try {
-      // Upload Phase: Upload data to service provider and agree on PieceCID
+      // Upload Phase: Upload data to service provider
       try {
         performance.mark('synapse:pdpServer.uploadPiece-start')
-        await this._pdpServer.uploadPiece(dataBytes, pieceCid)
+        await this._pdpServer.uploadPiece(data, pieceCid, {
+          onProgress: options?.onProgress,
+        })
         performance.mark('synapse:pdpServer.uploadPiece-end')
         performance.measure(
           'synapse:pdpServer.uploadPiece',
@@ -920,7 +942,7 @@ export class StorageContext {
       performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
       return {
         pieceCid,
-        size,
+        size: size ?? 0, // Size is unknown for streams, use 0 as placeholder
         pieceId: finalPieceId,
       }
     } finally {

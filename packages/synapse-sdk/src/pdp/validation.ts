@@ -5,7 +5,7 @@
  * match the expected format before using them in the SDK.
  */
 
-import { asPieceCID } from '../piece/index.ts'
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import type { DataSetData, DataSetPieceData } from '../types.ts'
 import type {
   DataSetCreationStatusResponse,

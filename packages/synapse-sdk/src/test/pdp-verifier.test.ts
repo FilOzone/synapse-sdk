@@ -4,11 +4,11 @@
  * Tests for PDPVerifier class
  */
 
+import { calculate } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { PDPVerifier } from '../pdp/index.ts'
-import { calculate } from '../piece/index.ts'
 import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 const server = setup([])

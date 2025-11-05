@@ -27,11 +27,11 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
+import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randU256 } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
-import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
 import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
 import { constructPieceUrl } from '../utils/piece.ts'
@@ -480,18 +480,48 @@ export class PDPServer {
   }
 
   /**
-   * Upload a piece to the PDP server
-   * @param data - The data to upload
-   * @returns Upload response with PieceCID and size
+   * Upload a piece to the PDP server using the commp-last protocol.
+   *
+   * Accepts data as Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
+   * For optimal performance with non-trivial sizes, prefer streaming types (AsyncIterable or ReadableStream)
+   * to avoid memory pressure and blocking behavior. See SIZE_CONSTANTS.MAX_UPLOAD_SIZE
+   * documentation for detailed guidance.
+   *
+   * @param data - The data to upload (Uint8Array, AsyncIterable, or ReadableStream)
+   * @param pieceCid - The PieceCID to upload (precalculated for efficiency in multi-context uploads)
+   * @param options - Optional upload options including progress callback
    */
-  async uploadPiece(data: Uint8Array, pieceCid: PieceCID): Promise<void> {
-    // Convert ArrayBuffer to Uint8Array if needed
+  async uploadPiece(
+    data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
+    pieceCid: PieceCID,
+    options?: { onProgress?: (bytesUploaded: number) => void }
+  ): Promise<void> {
+    if (data instanceof Uint8Array) {
+      // Check hard limit
+      if (data.length > Piece.MAX_UPLOAD_SIZE) {
+        throw new Error(
+          `Upload size ${data.length} exceeds maximum ${Piece.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`
+        )
+      }
 
-    await SP.uploadPiece({
-      endpoint: this._serviceURL,
-      data,
-      pieceCid,
-    })
+      // Convert to async iterable with chunking
+      const iterable = Piece.uint8ArrayToAsyncIterable(data)
+
+      await SP.uploadPieceStreaming({
+        endpoint: this._serviceURL,
+        data: iterable,
+        size: data.length, // Known size for Content-Length
+        onProgress: options?.onProgress,
+      })
+    } else {
+      // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
+      await SP.uploadPieceStreaming({
+        endpoint: this._serviceURL,
+        data,
+        // size unknown for streams
+        onProgress: options?.onProgress,
+      })
+    }
   }
 
   /**

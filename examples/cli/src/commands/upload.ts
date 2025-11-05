@@ -1,8 +1,8 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import * as p from '@clack/prompts'
 import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import { readFile } from 'fs/promises'
-import path from 'path'
 import type { Hex } from 'viem'
 import config from '../config.ts'
 

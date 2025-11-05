@@ -3,6 +3,7 @@
  */
 
 import * as Abis from '@filoz/synapse-core/abis'
+import { MAX_UPLOAD_SIZE as CORE_MAX_UPLOAD_SIZE } from '@filoz/synapse-core/piece'
 import { erc20Abi, multicall3Abi } from 'viem'
 import type { FilecoinNetworkType } from '../types.ts'
 
@@ -161,10 +162,26 @@ export const SIZE_CONSTANTS = {
   PiB: 1n << 50n,
 
   /**
-   * Maximum upload size (200 MiB)
-   * Current limitation for PDP uploads
+   * Maximum upload size supported by Curio PDP servers: 1 GiB adjusted for fr32 expansion.
+   *
+   * 1 GiB * (126/127) = 1,065,353,216 bytes
+   *
+   * Fr32 encoding adds 1 bit of padding per 254 bits, resulting in 127 bytes
+   * of padded data for every 126 bytes of raw data.
+   *
+   * Note: While it's technically possible to upload pieces this large as Uint8Array
+   * (even in browsers), streaming via AsyncIterable is strongly recommended for
+   * non-trivial sizes. In-memory operations with large byte arrays can:
+   * - Cause memory pressure and garbage collection issues
+   * - Block the JavaScript event loop during allocation/copying
+   * - Trigger browser tab slowdowns or "unresponsive script" warnings
+   *
+   * For optimal performance and resource utilization, prefer streaming for pieces
+   * larger than a few megabytes, especially in browser environments.
+   *
+   * Imported from @filoz/synapse-core/piece
    */
-  MAX_UPLOAD_SIZE: 200 * 1024 * 1024,
+  MAX_UPLOAD_SIZE: CORE_MAX_UPLOAD_SIZE,
 
   /**
    * Minimum upload size (127 bytes)

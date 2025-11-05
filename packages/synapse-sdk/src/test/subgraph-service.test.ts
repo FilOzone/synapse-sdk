@@ -1,6 +1,7 @@
 /* globals describe, it, beforeEach, afterEach */
+
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.ts'
 import { SubgraphService } from '../subgraph/service.ts'
 import type { PieceCID } from '../types.ts'
 

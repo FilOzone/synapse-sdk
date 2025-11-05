@@ -16,6 +16,7 @@ import { PDP_PERMISSIONS } from '../session/key.ts'
 import type { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import type { UploadResult } from '../types.ts'
+import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
@@ -604,7 +605,7 @@ describe('Synapse', () => {
       assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
       assert.equal(storageInfo.serviceParameters.epochDuration, 30)
       assert.equal(storageInfo.serviceParameters.minUploadSize, 127)
-      assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
+      assert.equal(storageInfo.serviceParameters.maxUploadSize, SIZE_CONSTANTS.MAX_UPLOAD_SIZE)
 
       // Check allowances (including operator approval flag)
       assert.exists(storageInfo.allowances)

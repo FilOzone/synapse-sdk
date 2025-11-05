@@ -2,8 +2,8 @@
  * EIP-712 Authentication helpers for PDP operations
  */
 
+import { asPieceCID, type PieceCID } from '@filoz/synapse-core/piece'
 import { ethers } from 'ethers'
-import { asPieceCID, type PieceCID } from '../piece/index.ts'
 import type { AuthSignature, MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import { EIP712_TYPES } from '../utils/eip712.ts'

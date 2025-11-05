@@ -1,10 +1,11 @@
 /* globals describe it before after beforeEach */
+
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { PDPAuthHelper } from '../pdp/auth.ts'
 import { PDPServer } from '../pdp/server.ts'
-import { asPieceCID } from '../piece/index.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import {

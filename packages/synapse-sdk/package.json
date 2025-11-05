@@ -27,10 +27,6 @@
       "import": "./dist/src/index.js",
       "types": "./dist/src/index.d.ts"
     },
-    "./piece": {
-      "import": "./dist/src/piece/index.js",
-      "types": "./dist/src/piece/index.d.ts"
-    },
     "./pdp": {
       "import": "./dist/src/pdp/index.js",
       "types": "./dist/src/pdp/index.d.ts"

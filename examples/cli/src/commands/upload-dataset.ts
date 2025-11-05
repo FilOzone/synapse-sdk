@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp'
@@ -6,8 +8,6 @@ import {
   readProviders,
 } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { readFile } from 'fs/promises'
-import path from 'path'
 import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import config from '../config.ts'

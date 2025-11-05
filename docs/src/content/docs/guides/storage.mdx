@@ -239,15 +239,51 @@ console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 
 ##### Upload and Download
 
-Upload and download data with the storage context:
+The SDK uses memory-efficient streaming for uploads, enabling uploads up to 1 GiB with minimal memory usage.
+
+**Streaming Uploads (Recommended)**
+
+Stream data directly from files or other sources using `AsyncIterable<Uint8Array>`:
 
 ```typescript
-// Upload with optional progress callbacks and piece-specific metadata
-const result = await context.upload(data, {
-  // Optional: Add metadata specific to this piece (key-value pairs)
+// Node.js: Stream from file system
+import fs from 'fs'
+
+const result = await context.upload(fs.createReadStream('large-file.bin'), {
+  metadata: { filename: 'large-file.bin' },
+  onProgress: (progress) => {
+    const percent = (progress.uploadedBytes / progress.totalBytes * 100).toFixed(1)
+    console.log(`Upload progress: ${percent}%`)
+  },
+  onUploadComplete: (pieceCid) => {
+    console.log(`Upload complete! PieceCID: ${pieceCid}`)
+  }
+})
+
+// Browser: Stream from File input
+const fileInput = document.querySelector('input[type="file"]')
+const file = fileInput.files[0]
+const result = await context.upload(file.stream(), {
+  onProgress: (progress) => {
+    updateProgressBar(progress.uploadedBytes, progress.totalBytes)
+  }
+})
+```
+
+**Simple Uploads**
+
+For smaller files or when you already have data in memory, pass `Uint8Array` or `ArrayBuffer` directly. The SDK automatically streams it for you:
+
+```typescript
+// Upload from memory (automatically streamed internally)
+const fileData = await fs.promises.readFile('file.bin')
+const result = await context.upload(fileData, {
   metadata: {
     snapshotVersion: 'v2.1.0',
     generator: 'backup-system'
+  },
+  onProgress: (progress) => {
+    console.log(`${progress.uploadedBytes} / ${progress.totalBytes} bytes`)
   },
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
@@ -256,11 +292,14 @@ const result = await context.upload(data, {
     console.log(`Piece added, tx: ${hash}`)
   },
   onPieceConfirmed: (pieceIds) => {
-    // Only called for new servers with transaction tracking
-    console.log(`Piece IDs assigned: ${pieceIds.join(', ')}`)
+    console.log(`Piece IDs: ${pieceIds.join(', ')}`)
   }
 })
+```
 
+**Downloads**
+
+```typescript
 // Download data from this context's specific provider
 const downloaded = await context.download(result.pieceCid)
 
@@ -280,9 +319,11 @@ console.log(`Data set next proof due: ${status.dataSetNextProofDue}`)
 The storage service enforces the following size limits for uploads:
 
 - **Minimum**: 65 bytes
-- **Maximum**: 200 MiB (209,715,200 bytes)
+- **Maximum**: ~1 GiB (1,065,353,216 bytes accounting Filecoin's fr32 expansion)
 
 Attempting to upload data outside these limits will result in an error.
+
+**Streaming Implementation**: The SDK automatically uses memory-efficient streaming for all uploads. Your `Uint8Array` or `ArrayBuffer` data is streamed to the provider with parallel CommP (PieceCID) calculation. For very large files (hundreds of megabytes), be aware of memory pressure in resource-constrained environments like browsers.
 
 ***Note: these limits are temporary during this current pre-v1 period and will eventually be extended. You can read more in [this issue thread](https://github.com/FilOzone/synapse-sdk/issues/110)***
 

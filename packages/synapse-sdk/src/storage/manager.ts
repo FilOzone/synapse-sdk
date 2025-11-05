@@ -21,9 +21,9 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
+import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
-import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
@@ -117,9 +117,16 @@ export class StorageManager {
    * Upload data to storage
    * Uses the storage contexts or context provided in the options
    * Otherwise creates/reuses default context
+   *
+   * Accepts Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
+   * For large files, prefer streaming types to minimize memory usage.
+   *
+   * Note: Multi-context uploads (uploading to multiple providers simultaneously) currently
+   * only support Uint8Array. For streaming uploads with multiple contexts, convert your
+   * stream to Uint8Array first or use stream forking (future feature).
    */
   async upload(
-    data: Uint8Array | ArrayBuffer,
+    data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
     options?: StorageManagerUploadOptions
   ): Promise<PromiseSettledResult<UploadResult>[]> {
     // Validate options - if context is provided, no other options should be set
@@ -164,24 +171,57 @@ export class StorageManager {
             dataSetIds: options?.dataSetId ? [options.dataSetId] : undefined,
             callbacks: options?.callbacks,
           }))
-    // Convert once
-    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    // Calculate pieceCid once
-    const pieceCid = Piece.calculate(dataBytes)
 
-    // Upload using the contexts with piece metadata
-    return await Promise.allSettled(
-      contexts.map((context) =>
-        context.upload(
-          dataBytes,
-          {
-            ...options?.callbacks,
-            metadata: options?.metadata,
-          },
-          pieceCid
+    // Multi-context upload handling
+    if (contexts.length > 1) {
+      // Multi-context uploads require Uint8Array to calculate pieceCid once
+      if (!(data instanceof Uint8Array)) {
+        throw createError(
+          'StorageManager',
+          'upload',
+          'Multi-context uploads currently only support Uint8Array. ' +
+            'For streaming uploads to multiple providers, convert your stream to Uint8Array first.'
+        )
+      }
+
+      // Calculate pieceCid once for all contexts
+      const pieceCid = Piece.calculate(data)
+
+      // Upload to all contexts with the same pieceCid
+      return await Promise.allSettled(
+        contexts.map((context) =>
+          context.upload(
+            data,
+            {
+              ...options?.callbacks,
+              metadata: options?.metadata,
+            },
+            pieceCid
+          )
         )
       )
-    )
+    } else {
+      // Single context upload - supports all data types
+      const context = contexts[0]
+
+      // For Uint8Array, calculate pieceCid once
+      let pieceCid: Piece.PieceCID | undefined
+      if (data instanceof Uint8Array) {
+        pieceCid = Piece.calculate(data)
+      }
+
+      // Upload to single context
+      const result = await context.upload(
+        data,
+        {
+          ...options?.callbacks,
+          metadata: options?.metadata,
+        },
+        pieceCid
+      )
+
+      return [{ status: 'fulfilled' as const, value: result }]
+    }
   }
 
   /**

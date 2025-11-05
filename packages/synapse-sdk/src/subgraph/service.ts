@@ -25,9 +25,9 @@
  * ```
  */
 
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
-import { asPieceCID } from '../piece/index.ts'
 import { type PDPOffering, PRODUCTS, type ProductType, type ServiceProduct } from '../sp-registry/types.ts'
 import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.ts'
 import { createError } from '../utils/errors.ts'

@@ -4,20 +4,20 @@
  * Basic tests for PieceCID utilities
  */
 
-import type { API } from '@web3-storage/data-segment'
-import { Size, toLink } from '@web3-storage/data-segment/piece'
-import { assert } from 'chai'
-import { ethers } from 'ethers'
-import { CID } from 'multiformats/cid'
 import {
   asLegacyPieceCID,
   asPieceCID,
   calculate,
   createPieceCIDStream,
   getSizeFromPieceCID,
+  hexToPieceCID,
   type PieceCID,
-} from '../piece/index.ts'
-import { hexToPieceCID } from '../piece/piece.ts'
+} from '@filoz/synapse-core/piece'
+import type { API } from '@web3-storage/data-segment'
+import { Size, toLink } from '@web3-storage/data-segment/piece'
+import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { CID } from 'multiformats/cid'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -360,7 +360,7 @@ describe('PieceCID utilities', () => {
     it('should throw for invalid hex', () => {
       assert.throws(() => {
         hexToPieceCID('not-a-cid')
-      }, /invalid BytesLike value/)
+      }, /Invalid byte sequence/)
     })
 
     it('should throw for valid hex but invalid CID bytes', () => {

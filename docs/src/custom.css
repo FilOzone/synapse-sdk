@@ -26,6 +26,6 @@
 
 /* Make diagram images smaller */
 img[src*="foc-diagram.png"] {
-  max-width: 80% !important;
-  height: auto !important;
+  max-width: 80%;
+  height: auto;
 }

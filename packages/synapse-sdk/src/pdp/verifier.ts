@@ -18,8 +18,8 @@
  * ```
  */
 
+import { hexToPieceCID } from '@filoz/synapse-core/piece'
 import { ethers } from 'ethers'
-import { hexToPieceCID } from '../piece/piece.ts'
 import type { PieceCID } from '../types.ts'
 import { CONTRACT_ABIS, createError } from '../utils/index.ts'
 

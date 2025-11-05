@@ -1,6 +1,7 @@
 /* globals describe it */
+
+import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
-import { asPieceCID } from '../piece/index.ts'
 import { FilBeamRetriever } from '../retriever/filbeam.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
 
