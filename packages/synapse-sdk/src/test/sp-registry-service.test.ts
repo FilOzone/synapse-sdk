@@ -1,288 +1,182 @@
 /* globals describe it beforeEach */
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import { boolToBytes, bytesToHex, numberToBytes, stringToHex } from 'viem'
+import { setup } from 'iso-web/msw'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
+import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
+
+// mock server for testing
+const server = setup([])
 
 describe('SPRegistryService', () => {
-  let mockProvider: ethers.Provider
-  let mockSigner: ethers.Signer
+  let provider: ethers.Provider
+  let signer: ethers.Signer
   let service: SPRegistryService
 
-  // Mock contract responses
-  const mockRegistryAddress = '0x1234567890123456789012345678901234567890'
-  const mockProviderAddress = '0xabcdef1234567890123456789012345678901234'
+  before(async () => {
+    await server.start({ quiet: true })
+  })
 
-  // Helper to create mock contract that returns encoded data
-  const createMockContract = () => {
-    return {
-      getProviderIdByAddress: async (address: string) => {
-        if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
-          return BigInt(1)
-        }
-        return BigInt(0)
-      },
-      getProviderByAddress: async (address: string) => {
-        if (address.toLowerCase() === mockProviderAddress.toLowerCase()) {
-          return {
-            providerId: 1n,
-            info: {
-              serviceProvider: mockProviderAddress,
-              payee: mockProviderAddress,
-              name: 'Test Provider',
-              description: 'A test storage provider',
-              isActive: true,
-            },
-          }
-        }
-        // Return zero address for non-existent provider
-        return {
-          providerId: 0n,
-          info: {
-            serviceProvider: ethers.ZeroAddress,
-            payee: ethers.ZeroAddress,
-            name: '',
-            description: '',
-            isActive: false,
-          },
-        }
-      },
-      getProvider: async (id: number) => {
-        if (id === 1) {
-          return {
-            providerId: 1,
-            info: {
-              serviceProvider: mockProviderAddress,
-              payee: mockProviderAddress,
-              name: 'Test Provider',
-              description: 'A test storage provider',
-              isActive: true,
-            },
-          }
-        }
-        throw new Error('Provider not found')
-      },
-      providerHasProduct: async (id: number, productType: number) => {
-        return id === 1 && productType === 0
-      },
-      getProviderWithProduct: async (id: number, productType: number) => {
-        if (id === 1 && productType === 0) {
-          return {
-            providerId: 1n,
-            providerInfo: {
-              id: BigInt(1),
-              serviceProvider: mockProviderAddress,
-              payee: mockProviderAddress,
-              name: 'Test Provider',
-              description: 'A test storage provider',
-              isActive: true,
-            },
-            product: {
-              productType: 0n,
-              capabilityKeys: [
-                'serviceURL',
-                'minPieceSizeInBytes',
-                'maxPieceSizeInBytes',
-                'ipniPiece',
-                'storagePricePerTibPerDay',
-                'minProvingPeriodInEpochs',
-                'location',
-                'paymentTokenAddress',
-              ],
-              isActive: true,
-            },
-            productCapabilityValues: [
-              stringToHex('https://provider.example.com'),
-              bytesToHex(numberToBytes(SIZE_CONSTANTS.KiB)),
-              bytesToHex(numberToBytes(SIZE_CONSTANTS.GiB)),
-              bytesToHex(boolToBytes(true)),
-              bytesToHex(numberToBytes(1000000n)),
-              bytesToHex(numberToBytes(2880)),
-              stringToHex('US-EAST'),
-              '0x0000000000000000000000000000000000000000',
-            ],
-          }
-        }
-        return null
-      },
-      getAllActiveProviders: async (offset: number, _limit: number) => {
-        if (offset === 0) {
-          // Return array of provider IDs and hasMore flag
-          return [[BigInt(1)], false] // [providerIds[], hasMore]
-        }
-        return [[], false]
-      },
-      getProviderCount: async () => BigInt(1),
-      isProviderActive: async (id: number) => id === 1,
-      isRegisteredProvider: async (address: string) => {
-        return address.toLowerCase() === mockProviderAddress.toLowerCase()
-      },
-      REGISTRATION_FEE: async () => BigInt(0), // No fee for testing
-      registerProvider: async (
-        _payee: string,
-        _name: string,
-        _description: string,
-        _productType: number,
-        _productData: string,
-        _capabilityKeys: string[],
-        _capabilityValues: string[],
-        _options?: any
-      ) => {
-        // Mock transaction with hash
-        return {
-          hash: `0x${'1'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12345,
-          }),
-        }
-      },
-      updateProviderInfo: async (_name: string, _description: string) => {
-        return {
-          hash: `0x${'2'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12346,
-          }),
-        }
-      },
-      removeProvider: async () => {
-        return {
-          hash: `0x${'3'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12347,
-          }),
-        }
-      },
-      addProduct: async (_productType: number, _keys: string[], _values: Hex[]) => {
-        return {
-          hash: `0x${'5'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12349,
-          }),
-        }
-      },
-      updateProduct: async (_index: number, _keys: string[], _values: Hex[]) => {
-        return {
-          hash: `0x${'6'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12350,
-          }),
-        }
-      },
-      removeProduct: async (_productType: number) => {
-        return {
-          hash: `0x${'7'.repeat(64)}`,
-          wait: async () => ({
-            status: 1,
-            blockNumber: 12351,
-          }),
-        }
-      },
-      connect: function (_signer: any) {
-        // Return the same mock contract when connected
-        return this
-      },
-    }
-  }
+  after(() => {
+    server.stop()
+  })
 
   beforeEach(() => {
-    // Create mock provider
-    mockProvider = {
-      getNetwork: async () => ({ chainId: BigInt(314159), name: 'calibration' }),
-      call: async (_tx: any) => '0x',
-    } as any
-
-    // Create mock signer
-    mockSigner = {
-      getAddress: async () => '0x9999999999999999999999999999999999999999',
-      provider: mockProvider,
-    } as any
-
-    // Create service instance
-    service = new SPRegistryService(mockProvider, mockRegistryAddress)
-
-    // Override the internal contract creation to use our mock
-    ;(service as any)._getRegistryContract = () => createMockContract()
+    server.resetHandlers()
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    service = new SPRegistryService(provider, ADDRESSES.calibration.spRegistry)
   })
 
   describe('Constructor', () => {
     it('should create instance with provider and address', () => {
-      const instance = new SPRegistryService(mockProvider, mockRegistryAddress)
+      server.use(JSONRPC(presets.basic))
+      const instance = new SPRegistryService(provider, ADDRESSES.calibration.spRegistry)
       assert.exists(instance)
     })
   })
 
   describe('Provider Read Operations', () => {
     it('should get provider by ID', async () => {
+      server.use(JSONRPC(presets.basic))
       const provider = await service.getProvider(1)
       assert.exists(provider)
       assert.equal(provider?.id, 1)
-      assert.equal(provider?.serviceProvider, mockProviderAddress)
+      assert.equal(provider?.serviceProvider, ADDRESSES.serviceProvider1)
       assert.equal(provider?.name, 'Test Provider')
-      assert.equal(provider?.description, 'A test storage provider')
+      assert.equal(provider?.description, 'Test Provider')
       assert.isTrue(provider?.active)
     })
 
     it('should return null for non-existent provider', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProvider: () => [
+              {
+                providerId: 0n,
+                info: {
+                  serviceProvider: ADDRESSES.zero,
+                  payee: ADDRESSES.zero,
+                  isActive: false,
+                  name: '',
+                  description: '',
+                },
+              },
+            ],
+          },
+        })
+      )
       const provider = await service.getProvider(999)
       assert.isNull(provider)
     })
 
     it('should get provider by address', async () => {
-      const provider = await service.getProviderByAddress(mockProviderAddress)
+      server.use(JSONRPC(presets.basic))
+      const provider = await service.getProviderByAddress(ADDRESSES.serviceProvider1)
       assert.exists(provider)
-      assert.equal(provider?.id, 1)
-      assert.equal(provider?.serviceProvider, mockProviderAddress)
+      assert.equal(provider.id, 1)
+      assert.equal(provider.serviceProvider, ADDRESSES.serviceProvider1)
     })
 
     it('should return null for unregistered address', async () => {
-      const provider = await service.getProviderByAddress('0x0000000000000000000000000000000000000000')
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderByAddress: () => [
+              {
+                providerId: 0n,
+                info: {
+                  serviceProvider: ADDRESSES.zero,
+                  payee: ADDRESSES.zero,
+                  isActive: false,
+                  name: '',
+                  description: '',
+                },
+              },
+            ],
+          },
+        })
+      )
+      const provider = await service.getProviderByAddress(ADDRESSES.zero)
       assert.isNull(provider)
     })
 
     it('should get provider ID by address', async () => {
-      const id = await service.getProviderIdByAddress(mockProviderAddress)
+      server.use(JSONRPC(presets.basic))
+      const id = await service.getProviderIdByAddress(ADDRESSES.serviceProvider1)
       assert.equal(id, 1)
     })
 
     it('should return 0 for unregistered address', async () => {
-      const id = await service.getProviderIdByAddress('0x0000000000000000000000000000000000000000')
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderIdByAddress: () => [0n],
+          },
+        })
+      )
+      const id = await service.getProviderIdByAddress(ADDRESSES.zero)
       assert.equal(id, 0)
     })
 
     it('should check if provider is active', async () => {
+      server.use(JSONRPC(presets.basic))
       const isActive = await service.isProviderActive(1)
       assert.isTrue(isActive)
 
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            isProviderActive: () => [false],
+          },
+        })
+      )
       const isInactive = await service.isProviderActive(999)
       assert.isFalse(isInactive)
     })
 
     it('should check if address is registered provider', async () => {
-      const isRegistered = await service.isRegisteredProvider(mockProviderAddress)
+      server.use(JSONRPC(presets.basic))
+      const isRegistered = await service.isRegisteredProvider(ADDRESSES.serviceProvider1)
       assert.isTrue(isRegistered)
 
-      const isNotRegistered = await service.isRegisteredProvider('0x0000000000000000000000000000000000000000')
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            isRegisteredProvider: () => [false],
+          },
+        })
+      )
+      const isNotRegistered = await service.isRegisteredProvider(ADDRESSES.zero)
       assert.isFalse(isNotRegistered)
     })
 
     it('should get provider count', async () => {
+      server.use(JSONRPC(presets.basic))
       const count = await service.getProviderCount()
-      assert.equal(count, 1)
+      assert.equal(count, 2)
     })
   })
 
   describe('Provider Write Operations', () => {
     it('should register new provider', async () => {
-      const tx = await service.registerProvider(mockSigner, {
-        payee: '0x9999999999999999999999999999999999999999',
+      server.use(JSONRPC(presets.basic))
+      const tx = await service.registerProvider(signer, {
+        payee: await signer.getAddress(),
         name: 'New Provider',
         description: 'Description',
         pdpOffering: {
@@ -302,21 +196,23 @@ describe('SPRegistryService', () => {
     })
 
     it('should update provider info', async () => {
-      const tx = await service.updateProviderInfo(mockSigner, 'Updated Name', 'Updated Description')
+      server.use(JSONRPC(presets.basic))
+      const tx = await service.updateProviderInfo(signer, 'Updated Name', 'Updated Description')
       assert.exists(tx)
       assert.exists(tx.hash)
     })
 
     it('should remove provider', async () => {
-      const tx = await service.removeProvider(mockSigner)
+      server.use(JSONRPC(presets.basic))
+      const tx = await service.removeProvider(signer)
       assert.exists(tx)
       assert.exists(tx.hash)
     })
   })
 
   describe('Product Operations', () => {
-    it.skip('should get provider products', async () => {
-      // SKIPPED: Mock implementation issue with _getProviderProducts
+    it('should get provider products', async () => {
+      server.use(JSONRPC(presets.basic))
       const provider = await service.getProvider(1)
       assert.exists(provider)
       assert.exists(provider?.products)
@@ -328,24 +224,26 @@ describe('SPRegistryService', () => {
       assert.isTrue(product?.isActive)
     })
 
-    it.skip('should decode PDP product data', async () => {
-      // SKIPPED: Mock implementation issue with _getProviderProducts
+    it('should decode PDP product data', async () => {
+      server.use(JSONRPC(presets.basic))
       const provider = await service.getProvider(1)
       const product = provider?.products.PDP
+
       assert.exists(product)
       assert.equal(product?.type, 'PDP')
 
       if (product?.type === 'PDP') {
-        assert.equal(product.data.serviceURL, 'https://provider.example.com')
+        assert.equal(product.data.serviceURL, 'https://pdp.example.com')
         assert.equal(product.data.minPieceSizeInBytes, SIZE_CONSTANTS.KiB)
         assert.equal(product.data.maxPieceSizeInBytes, SIZE_CONSTANTS.GiB)
-        assert.isTrue(product.data.ipniPiece)
+        assert.isFalse(product.data.ipniPiece)
         assert.isFalse(product.data.ipniIpfs)
-        assert.equal(product.data.location, 'US-EAST')
+        assert.equal(product.data.location, 'US')
       }
     })
 
     it('should add new product', async () => {
+      server.use(JSONRPC(presets.basic))
       const pdpData = {
         serviceURL: 'https://new.example.com',
         minPieceSizeInBytes: SIZE_CONSTANTS.KiB,
@@ -358,13 +256,13 @@ describe('SPRegistryService', () => {
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const tx = await service.addPDPProduct(mockSigner, pdpData)
+      const tx = await service.addPDPProduct(signer, pdpData)
       assert.exists(tx)
       assert.exists(tx.hash)
     })
 
-    it.skip('should update existing product', async () => {
-      // SKIPPED: Mock implementation issue
+    it('should update existing product', async () => {
+      server.use(JSONRPC(presets.basic))
       const pdpData = {
         serviceURL: 'https://updated.example.com',
         minPieceSizeInBytes: SIZE_CONSTANTS.KiB * 2n,
@@ -377,13 +275,14 @@ describe('SPRegistryService', () => {
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const tx = await service.updatePDPProduct(mockSigner, pdpData)
+      const tx = await service.updatePDPProduct(signer, pdpData)
       assert.exists(tx)
       assert.exists(tx.hash)
     })
 
     it('should remove product', async () => {
-      const tx = await service.removeProduct(mockSigner, PRODUCTS.PDP)
+      server.use(JSONRPC(presets.basic))
+      const tx = await service.removeProduct(signer, PRODUCTS.PDP)
       assert.exists(tx)
       assert.exists(tx.hash)
     })
@@ -391,14 +290,18 @@ describe('SPRegistryService', () => {
 
   describe('Batch Operations', () => {
     it('should get multiple providers in batch', async () => {
+      server.use(JSONRPC(presets.basic))
       const providers = await service.getProviders([1, 2, 3])
       assert.isArray(providers)
-      assert.equal(providers.length, 1) // Only ID 1 exists in our mock
+      assert.equal(providers.length, 2) // Only IDs 1 and 2 exist in our mock
       assert.exists(providers[0]) // ID 1 exists
       assert.equal(providers[0].id, 1)
+      assert.exists(providers[1]) // ID 2 exists
+      assert.equal(providers[1].id, 2)
     })
 
     it('should handle empty provider ID list', async () => {
+      server.use(JSONRPC(presets.basic))
       const providers = await service.getProviders([])
       assert.isArray(providers)
       assert.equal(providers.length, 0)
@@ -406,35 +309,20 @@ describe('SPRegistryService', () => {
   })
 
   describe('Provider Info Conversion', () => {
-    it.skip('should extract serviceURL from first PDP product', async () => {
-      // SKIPPED: Mock implementation issue with _getProviderProducts
+    it('should extract serviceURL from first PDP product', async () => {
+      server.use(JSONRPC(presets.basic))
       const provider = await service.getProvider(1)
       assert.exists(provider)
-      assert.equal(provider?.products.PDP?.data.serviceURL, 'https://provider.example.com')
+      assert.equal(provider?.products.PDP?.data.serviceURL, 'https://pdp.example.com')
     })
 
     it('should handle provider without PDP products', async () => {
-      // Override to return provider without products
-      ;(service as any)._getRegistryContract = () => ({
-        ...createMockContract(),
-        getProviderWithProduct: async () => ({
-          providerId: 1,
-          providerInfo: {
-            id: BigInt(1),
-            serviceProvider: mockProviderAddress,
-            payee: mockProviderAddress,
-            name: 'Test Provider',
-            description: 'A test storage provider',
-            isActive: true,
-          },
-          product: {
-            productType: 0n,
-            capabilityKeys: [],
-            isActive: false,
-          },
-          productCapabilityValues: [],
-        }),
-      })
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.providerNoPDP]),
+        })
+      )
 
       const provider = await service.getProvider(1)
       assert.exists(provider)
@@ -443,29 +331,55 @@ describe('SPRegistryService', () => {
   })
 
   describe('Error Handling', () => {
-    it.skip('should handle contract call failures gracefully', async () => {
-      // SKIPPED: Mock implementation issue
-      // Override to throw error
-      ;(service as any)._getRegistryContract = () => ({
-        getProvider: async () => {
-          throw new Error('Contract call failed')
-        },
-      })
+    it('should handle contract call failures gracefully', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProvider: () => {
+              throw new Error('Contract call failed')
+            },
+          },
+        })
+      )
 
-      const provider = await service.getProvider(1)
-      assert.isNull(provider)
+      try {
+        const provider = await service.getProvider(1)
+        assert.isNull(provider)
+      } catch (error: any) {
+        assert.include((error as Error).message, 'Contract call failed')
+      }
     })
 
-    it.skip('should handle invalid product data', async () => {
-      // SKIPPED: Mock implementation issue
-      // Override to return invalid product data
-      ;(service as any)._getRegistryContract = () => ({
-        ...createMockContract(),
-        decodePDPOffering: async () => {
-          throw new Error('Invalid data')
-        },
-      })
-
+    it('should handle invalid product data', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          debug: true,
+          serviceRegistry: {
+            ...presets.basic.serviceRegistry,
+            getProviderWithProduct: () => [
+              {
+                providerId: 1n,
+                providerInfo: {
+                  serviceProvider: ADDRESSES.serviceProvider1,
+                  payee: ADDRESSES.payee1,
+                  name: 'Test Provider',
+                  description: 'Test Provider',
+                  isActive: true,
+                },
+                product: {
+                  productType: 0,
+                  capabilityKeys: [],
+                  isActive: false,
+                },
+                productCapabilityValues: [],
+              },
+            ],
+          },
+        })
+      )
       const provider = await service.getProvider(1)
       assert.exists(provider)
       assert.exists(provider?.products)

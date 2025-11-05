@@ -1,4 +1,4 @@
-/* globals describe it beforeEach */
+/* globals describe it beforeEach before after */
 
 /**
  * Tests for PaymentsService class
@@ -6,21 +6,34 @@
 
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { setup } from 'iso-web/msw'
 import { PaymentsService } from '../payments/index.ts'
-import { CONTRACT_ADDRESSES, TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
-import { createMockProvider, createMockSigner, MOCK_ADDRESSES } from './test-utils.ts'
+import { TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+
+// mock server for testing
+const server = setup([])
 
 describe('PaymentsService', () => {
-  let mockProvider: ethers.Provider
-  let mockSigner: ethers.Signer
+  let provider: ethers.Provider
+  let signer: ethers.Signer
   let payments: PaymentsService
-  const mockPaymentsAddress = MOCK_ADDRESSES.PAYMENTS
-  const mockUsdfcAddress = CONTRACT_ADDRESSES.USDFC.calibration
+  const paymentsAddress = ADDRESSES.calibration.payments
+  const usdfcAddress = ADDRESSES.calibration.usdfcToken
+
+  before(async () => {
+    await server.start({ quiet: true })
+  })
+
+  after(() => {
+    server.stop()
+  })
 
   beforeEach(() => {
-    mockProvider = createMockProvider()
-    mockSigner = createMockSigner(MOCK_ADDRESSES.SIGNER, mockProvider)
-    payments = new PaymentsService(mockProvider, mockSigner, mockPaymentsAddress, mockUsdfcAddress, false)
+    server.resetHandlers()
+    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    payments = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
   })
 
   describe('Instantiation', () => {
@@ -36,16 +49,19 @@ describe('PaymentsService', () => {
 
   describe('walletBalance', () => {
     it('should return FIL balance when no token specified', async () => {
+      server.use(JSONRPC(presets.basic))
       const balance = await payments.walletBalance()
       assert.equal(balance.toString(), ethers.parseEther('100').toString())
     })
 
     it('should return FIL balance when FIL token specified', async () => {
+      server.use(JSONRPC(presets.basic))
       const balance = await payments.walletBalance(TOKENS.FIL)
       assert.equal(balance.toString(), ethers.parseEther('100').toString())
     })
 
     it('should return USDFC balance when USDFC specified', async () => {
+      server.use(JSONRPC(presets.basic))
       const balance = await payments.walletBalance(TOKENS.USDFC)
       assert.equal(balance.toString(), ethers.parseUnits('1000', 18).toString())
     })
@@ -62,6 +78,7 @@ describe('PaymentsService', () => {
 
   describe('balance', () => {
     it('should return USDFC balance from payments contract', async () => {
+      server.use(JSONRPC(presets.basic))
       const balance = await payments.balance()
       // Should return available funds (500 USDFC - 0 locked = 500)
       assert.equal(balance.toString(), ethers.parseUnits('500', 18).toString())
@@ -90,13 +107,13 @@ describe('PaymentsService', () => {
 
   describe('Token operations', () => {
     it('should check allowance for USDFC', async () => {
-      const paymentsAddress = MOCK_ADDRESSES.PAYMENTS
+      server.use(JSONRPC(presets.basic))
       const allowance = await payments.allowance(paymentsAddress)
       assert.equal(allowance.toString(), '0')
     })
 
     it('should approve token spending', async () => {
-      const paymentsAddress = MOCK_ADDRESSES.PAYMENTS
+      server.use(JSONRPC(presets.basic))
       const amount = ethers.parseUnits('100', 18)
       const tx = await payments.approve(paymentsAddress, amount)
       assert.exists(tx)
@@ -127,6 +144,7 @@ describe('PaymentsService', () => {
     const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
 
     it('should approve service as operator', async () => {
+      server.use(JSONRPC(presets.basic))
       const rateAllowance = ethers.parseUnits('10', 18) // 10 USDFC per epoch
       const lockupAllowance = ethers.parseUnits('1000', 18) // 1000 USDFC lockup
 
@@ -142,6 +160,7 @@ describe('PaymentsService', () => {
     })
 
     it('should revoke service operator approval', async () => {
+      server.use(JSONRPC(presets.basic))
       const tx = await payments.revokeService(serviceAddress)
       assert.exists(tx)
       assert.exists(tx.hash)
@@ -149,6 +168,7 @@ describe('PaymentsService', () => {
     })
 
     it('should check service approval status', async () => {
+      server.use(JSONRPC(presets.basic))
       const approval = await payments.serviceApproval(serviceAddress)
       assert.exists(approval)
       assert.exists(approval.isApproved)
@@ -185,32 +205,18 @@ describe('PaymentsService', () => {
 
   describe('Error handling', () => {
     it('should throw errors from payment operations', async () => {
-      // Create a provider that throws an error for contract calls
-      const errorProvider = createMockProvider()
-
-      // Override sendTransaction to throw error
-      errorProvider.sendTransaction = async () => {
-        throw new Error('Contract execution failed')
-      }
-
-      const errorSigner = createMockSigner('0x1234567890123456789012345678901234567890', errorProvider)
-
-      // Also make the signer's sendTransaction throw
-      errorSigner.sendTransaction = async () => {
-        throw new Error('Transaction failed')
-      }
-
-      const errorPayments = new PaymentsService(
-        errorProvider,
-        errorSigner,
-        mockPaymentsAddress,
-        mockUsdfcAddress,
-        false
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_sendRawTransaction: () => {
+            throw new Error('Transaction failed')
+          },
+        })
       )
 
       try {
         // Try deposit which uses sendTransaction
-        await errorPayments.deposit(ethers.parseUnits('100', 18))
+        await payments.deposit(ethers.parseUnits('100', 18))
         assert.fail('Should have thrown')
       } catch (error: any) {
         // Should get an error (either from signer or contract)
@@ -222,6 +228,7 @@ describe('PaymentsService', () => {
 
   describe('Deposit and Withdraw', () => {
     it('should deposit USDFC tokens', async () => {
+      server.use(JSONRPC(presets.basic))
       const depositAmount = ethers.parseUnits('100', 18)
       const tx = await payments.deposit(depositAmount)
       assert.exists(tx)
@@ -233,6 +240,7 @@ describe('PaymentsService', () => {
     })
 
     it('should deposit with permit', async () => {
+      server.use(JSONRPC(presets.basic))
       const depositAmount = ethers.parseUnits('10', 18)
       const tx = await payments.depositWithPermit(depositAmount)
       assert.exists(tx)
@@ -240,6 +248,7 @@ describe('PaymentsService', () => {
     })
 
     it('should deposit with permit and approve operator', async () => {
+      server.use(JSONRPC(presets.basic))
       const depositAmount = ethers.parseUnits('10', 18)
       const operator = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
       const rateAllowance = ethers.parseUnits('5', 18)
@@ -258,6 +267,7 @@ describe('PaymentsService', () => {
     })
 
     it('should withdraw USDFC tokens', async () => {
+      server.use(JSONRPC(presets.basic))
       const withdrawAmount = ethers.parseUnits('50', 18)
       const tx = await payments.withdraw(withdrawAmount)
       assert.exists(tx)
@@ -305,6 +315,7 @@ describe('PaymentsService', () => {
     })
 
     it('should handle deposit callbacks', async () => {
+      server.use(JSONRPC(presets.basic))
       const depositAmount = ethers.parseUnits('100', 18)
       let allowanceChecked = false
       let approvalSent = false
@@ -342,6 +353,7 @@ describe('PaymentsService', () => {
   describe('Rail Settlement Features', () => {
     describe('getRailsAsPayer', () => {
       it('should return rails where wallet is payer', async () => {
+        server.use(JSONRPC(presets.basic))
         const rails = await payments.getRailsAsPayer()
         assert.isArray(rails)
         assert.equal(rails.length, 2)
@@ -362,6 +374,7 @@ describe('PaymentsService', () => {
 
     describe('getRailsAsPayee', () => {
       it('should return rails where wallet is payee', async () => {
+        server.use(JSONRPC(presets.basic))
         const rails = await payments.getRailsAsPayee()
         assert.isArray(rails)
         assert.equal(rails.length, 1)
@@ -394,6 +407,7 @@ describe('PaymentsService', () => {
 
     describe('settle', () => {
       it('should settle a rail up to current epoch', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         const tx = await payments.settle(railId)
 
@@ -409,6 +423,7 @@ describe('PaymentsService', () => {
       })
 
       it('should settle a rail up to specific epoch', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         const untilEpoch = 999999
         const tx = await payments.settle(railId, untilEpoch)
@@ -419,6 +434,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123n
         const tx = await payments.settle(railId)
 
@@ -430,6 +446,7 @@ describe('PaymentsService', () => {
 
     describe('getSettlementAmounts', () => {
       it('should get settlement amounts for a rail', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         const result = await payments.getSettlementAmounts(railId)
 
@@ -451,6 +468,7 @@ describe('PaymentsService', () => {
 
     describe('settleTerminatedRail', () => {
       it('should settle a terminated rail', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 456
         const tx = await payments.settleTerminatedRail(railId)
 
@@ -463,6 +481,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 456n
         const tx = await payments.settleTerminatedRail(railId)
 
@@ -474,6 +493,7 @@ describe('PaymentsService', () => {
 
     describe('getRail', () => {
       it('should get detailed rail information', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         const rail = await payments.getRail(railId)
 
@@ -492,7 +512,7 @@ describe('PaymentsService', () => {
         assert.exists(rail.serviceFeeRecipient)
 
         // Check values from mock
-        assert.equal(rail.from, '0x1234567890123456789012345678901234567890')
+        assert.equal(rail.from.toLowerCase(), ADDRESSES.client1.toLowerCase())
         assert.equal(rail.to.toLowerCase(), '0xaabbccddaabbccddaabbccddaabbccddaabbccdd')
         assert.equal(rail.operator, '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4')
         assert.equal(rail.paymentRate.toString(), ethers.parseUnits('1', 18).toString())
@@ -503,6 +523,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123n
         const rail = await payments.getRail(railId)
 
@@ -514,6 +535,7 @@ describe('PaymentsService', () => {
 
     describe('settleAuto', () => {
       it('should settle active rail using regular settle', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         // This rail has endEpoch = 0 (active)
         const tx = await payments.settleAuto(railId)
@@ -528,50 +550,36 @@ describe('PaymentsService', () => {
 
       it('should settle terminated rail using settleTerminatedRail', async () => {
         const railId = 456
-        // Mock getRail to return a terminated rail
-        const originalCall = mockProvider.call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-          // Check if this is a getRail call for rail 456
-          if (
-            data != null &&
-            data.includes('22e440b3') === true &&
-            data.includes('00000000000000000000000000000000000000000000000000000000000001c8')
-          ) {
-            // Return rail with endEpoch > 0 (terminated)
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              [
-                'address',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'address',
-              ],
-              [
-                CONTRACT_ADDRESSES.USDFC.calibration, // token
-                '0x1234567890123456789012345678901234567890', // from
-                '0xaabbccddaabbccddaabbccddaabbccddaabbccdd', // to
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // operator
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // validator
-                ethers.parseUnits('1', 18), // paymentRate
-                2880, // lockupPeriod
-                0, // lockupFixed
-                1000000, // settledUpTo
-                2000000, // endEpoch > 0 means terminated
-                500, // commissionRateBps
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // serviceFeeRecipient
-              ]
-            )
-          }
-          return await originalCall.call(mockProvider, transaction)
-        }
+        server.use(
+          JSONRPC({
+            ...presets.basic,
+            payments: {
+              ...presets.basic.payments,
+              getRail: (args) => {
+                const [railIdArg] = args
+                if (railIdArg === 456n) {
+                  return [
+                    {
+                      token: ADDRESSES.calibration.usdfcToken,
+                      from: ADDRESSES.client1,
+                      to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
+                      operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                      validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                      paymentRate: ethers.parseUnits('1', 18),
+                      lockupPeriod: 2880n,
+                      lockupFixed: 0n,
+                      settledUpTo: 1000000n,
+                      endEpoch: 2000000n, // > 0 means terminated
+                      commissionRateBps: 500n,
+                      serviceFeeRecipient: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                    },
+                  ]
+                }
+                return presets.basic.payments.getRail?.(args) ?? presets.basic.payments.getRail(args)
+              },
+            },
+          })
+        )
 
         const tx = await payments.settleAuto(railId)
 
@@ -583,6 +591,7 @@ describe('PaymentsService', () => {
       })
 
       it('should pass untilEpoch parameter to settle for active rails', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123
         const untilEpoch = 999999
         const tx = await payments.settleAuto(railId, untilEpoch)
@@ -595,6 +604,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
+        server.use(JSONRPC(presets.basic))
         const railId = 123n
         const tx = await payments.settleAuto(railId)
 
@@ -605,52 +615,38 @@ describe('PaymentsService', () => {
 
       it('should ignore untilEpoch for terminated rails', async () => {
         const railId = 456
-        // Mock getRail to return a terminated rail
-        const originalCall = mockProvider.call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-          if (
-            data != null &&
-            data.includes('22e440b3') === true &&
-            data.includes('00000000000000000000000000000000000000000000000000000000000001c8')
-          ) {
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              [
-                'address',
-                'address',
-                'address',
-                'address',
-                'address',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'uint256',
-                'address',
-              ],
-              [
-                CONTRACT_ADDRESSES.USDFC.calibration, // token
-                '0x1234567890123456789012345678901234567890', // from
-                '0xaabbccddaabbccddaabbccddaabbccddaabbccdd', // to
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // operator
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // validator
-                ethers.parseUnits('1', 18), // paymentRate
-                2880, // lockupPeriod
-                0, // lockupFixed
-                1000000, // settledUpTo
-                2000000, // endEpoch > 0 means terminated
-                500, // commissionRateBps
-                '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4', // serviceFeeRecipient
-              ]
-            )
-          }
-          return await originalCall.call(mockProvider, transaction)
-        }
+        server.use(
+          JSONRPC({
+            ...presets.basic,
+            payments: {
+              ...presets.basic.payments,
+              getRail: (args) => {
+                const [railIdArg] = args
+                if (railIdArg === 456n) {
+                  return [
+                    {
+                      token: ADDRESSES.calibration.usdfcToken,
+                      from: ADDRESSES.client1,
+                      to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
+                      operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                      validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                      paymentRate: ethers.parseUnits('1', 18),
+                      lockupPeriod: 2880n,
+                      lockupFixed: 0n,
+                      settledUpTo: 1000000n,
+                      endEpoch: 2000000n, // > 0 means terminated
+                      commissionRateBps: 500n,
+                      serviceFeeRecipient: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+                    },
+                  ]
+                }
+                return presets.basic.payments.getRail?.(args) ?? presets.basic.payments.getRail(args)
+              },
+            },
+          })
+        )
 
         // Pass untilEpoch, but it should be ignored for terminated rails
-        // The mock rail is already terminated, no need to verify
-
         const tx = await payments.settleAuto(railId, 999999)
 
         assert.exists(tx)
@@ -664,6 +660,7 @@ describe('PaymentsService', () => {
   describe('Enhanced Payment Features', () => {
     describe('accountInfo', () => {
       it('should return detailed account information with correct fields', async () => {
+        server.use(JSONRPC(presets.basic))
         const info = await payments.accountInfo()
 
         assert.exists(info.funds)
@@ -679,22 +676,24 @@ describe('PaymentsService', () => {
       })
 
       it('should calculate available funds correctly with time-based lockup', async () => {
-        // Override the mock to simulate lockup
-        const originalCall = mockProvider.call
-        mockProvider.call = async (transaction: any) => {
-          const data = transaction.data
-          if (data != null && data.includes('ad74b775') === true) {
-            const funds = ethers.parseUnits('500', 18)
-            const lockupCurrent = ethers.parseUnits('50', 18)
-            const lockupRate = ethers.parseUnits('0.1', 18) // 0.1 USDFC per epoch
-            const lockupLastSettledAt = 1000000 - 100 // 100 epochs ago
-            return ethers.AbiCoder.defaultAbiCoder().encode(
-              ['uint256', 'uint256', 'uint256', 'uint256'],
-              [funds, lockupCurrent, lockupRate, lockupLastSettledAt]
-            )
-          }
-          return await originalCall.call(mockProvider, transaction)
-        }
+        server.use(
+          JSONRPC({
+            ...presets.basic,
+            eth_blockNumber: '0xf4240', // 1000000 in hex - matches lockupLastSettledAt calculation
+            payments: {
+              ...presets.basic.payments,
+              accounts: (_args) => {
+                // args should be [token, owner]
+                return [
+                  ethers.parseUnits('500', 18), // funds
+                  ethers.parseUnits('50', 18), // lockupCurrent
+                  ethers.parseUnits('0.1', 18), // lockupRate
+                  BigInt(1000000 - 100), // lockupLastSettledAt (100 epochs ago)
+                ]
+              },
+            },
+          })
+        )
 
         const info = await payments.accountInfo()
 
@@ -706,6 +705,7 @@ describe('PaymentsService', () => {
       })
 
       it('should use accountInfo in balance() method', async () => {
+        server.use(JSONRPC(presets.basic))
         const balance = await payments.balance()
         const info = await payments.accountInfo()
 

@@ -250,8 +250,8 @@ async function main() {
         onUploadComplete: (pieceCid) => {
           console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
         },
-        onPieceAdded: (transaction) => {
-          console.log(`✓ ${pfx}Piece addition transaction: ${transaction.hash}`)
+        onPieceAdded: (transactionHash) => {
+          console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
         },
         onPieceConfirmed: (pieceIds) => {
           console.log(`✓ ${pfx}Piece addition confirmed! IDs: ${pieceIds.join(', ')}`)

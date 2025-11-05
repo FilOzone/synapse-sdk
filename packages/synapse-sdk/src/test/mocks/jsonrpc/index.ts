@@ -15,6 +15,8 @@ import {
   stringToHex,
 } from 'viem'
 import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
+import { ADDRESSES } from './constants.ts'
+import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
 import { serviceProviderRegistryCallHandler } from './service-registry.ts'
@@ -22,33 +24,7 @@ import { sessionKeyRegistryCallHandler } from './session-key-registry.ts'
 import type { JSONRPCOptions, RpcRequest, RpcResponse } from './types.ts'
 import { warmStorageCallHandler, warmStorageViewCallHandler } from './warm-storage.ts'
 
-export const PRIVATE_KEYS = {
-  key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
-  key2: '0x4123456789012345678901234567890123456789012345678901234567890123',
-}
-export const ADDRESSES = {
-  client1: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB' as Address,
-  zero: '0x0000000000000000000000000000000000000000' as Address,
-  serviceProvider1: '0x0000000000000000000000000000000000000001' as Address,
-  serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
-  payee1: '0x1000000000000000000000000000000000000001' as Address,
-  mainnet: {
-    warmStorage: '0x1234567890123456789012345678901234567890' as Address,
-    multicall3: CONTRACT_ADDRESSES.MULTICALL3.mainnet,
-    pdpVerifier: '0x9876543210987654321098765432109876543210',
-  },
-  calibration: {
-    warmStorage: CONTRACT_ADDRESSES.WARM_STORAGE.calibration as Address,
-    multicall3: CONTRACT_ADDRESSES.MULTICALL3.calibration,
-    pdpVerifier: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48' as Address,
-    payments: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0' as Address,
-    usdfcToken: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' as Address,
-    filCDN: '0x0000000000000000000000000000000000000000' as Address,
-    viewContract: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as Address,
-    spRegistry: '0x0000000000000000000000000000000000000001' as Address,
-    sessionKeyRegistry: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as Address,
-  },
-}
+export { ADDRESSES, PRIVATE_KEYS, PROVIDERS } from './constants.ts'
 
 function jsonrpcHandler(item: RpcRequest, options?: JSONRPCOptions): RpcResponse {
   const { id } = item
@@ -124,6 +100,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         throw new Error('eth_accounts is not defined')
       }
       return options.eth_accounts
+    case 'eth_getBalance': {
+      if (!options.eth_getBalance) {
+        throw new Error('eth_getBalance is not defined')
+      }
+      return options.eth_getBalance(params)
+    }
     case 'eth_getTransactionByHash': {
       if (!options.eth_getTransactionByHash) {
         throw new Error('eth_getTransactionByHash is not defined')
@@ -206,6 +188,11 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         return paymentsCallHandler(data as Hex, options)
       }
 
+      // Handle ERC20 token calls (including USDFC)
+      if (isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address)) {
+        return erc20CallHandler(data as Hex, options)
+      }
+
       throw new Error(`Unknown eth_call to address: ${to}`)
     }
     case 'eth_signTypedData_v4': {
@@ -229,8 +216,9 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const results = []
 
   for (const arg of decoded.args[0] ?? []) {
-    results.push(
-      handler(
+    // Handle through normal eth_call handler (which will route to appropriate contract handler)
+    try {
+      const result = handler(
         {
           method: 'eth_call',
           params: [
@@ -242,7 +230,14 @@ function multicall3CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         },
         options
       )
-    )
+      results.push(result)
+    } catch (error) {
+      if (arg.allowFailure) {
+        results.push('0x')
+      } else {
+        throw error
+      }
+    }
   }
 
   const result = encodeAbiParameters(
@@ -278,11 +273,29 @@ export const presets = {
     eth_chainId: '0x4cb2f', // 314159
     eth_blockNumber: '0x127001',
     eth_accounts: [ADDRESSES.client1],
+    eth_getBalance: () => numberToHex(parseUnits('100', 18)),
     eth_getTransactionByHash: () => {
       throw new Error('eth_getTransactionByHash undefined')
     },
-    eth_getTransactionReceipt: () => {
-      throw new Error('eth_getTransactionReceipt undefined')
+    eth_getTransactionReceipt: (params: [hash: Hex]) => {
+      const [hash] = params
+      return {
+        hash,
+        from: ADDRESSES.client1,
+        to: null,
+        contractAddress: null,
+        index: 0,
+        root: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        gasUsed: numberToHex(50000n),
+        gasPrice: numberToHex(1000000000n),
+        cumulativeGasUsed: numberToHex(50000n),
+        effectiveGasPrice: numberToHex(1000000000n),
+        logsBloom: `0x${'0'.repeat(512)}`,
+        blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        blockNumber: numberToHex(1000000n),
+        logs: [],
+        status: '0x1',
+      }
     },
     eth_signTypedData_v4: () => {
       throw new Error('eth_signTypedData_v4 undefined')
@@ -522,6 +535,20 @@ export const presets = {
           },
         ]
       },
+      getAllActiveProviders: () => [[1n, 2n], false],
+      getProviderCount: () => [2n],
+      isProviderActive: (data) => {
+        const providerId = data[0]
+        return [providerId === 1n || providerId === 2n]
+      },
+      isRegisteredProvider: (data) => {
+        const address = data[0]
+        return [
+          address.toLowerCase() === ADDRESSES.serviceProvider1.toLowerCase() ||
+            address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase(),
+        ]
+      },
+      REGISTRATION_FEE: () => 0n,
       getProvidersByProductType: () => [
         {
           providers: [
@@ -550,7 +577,7 @@ export const presets = {
               productCapabilityValues: [
                 stringToHex('https://pdp.example.com'),
                 bytesToHex(numberToBytes(1024n)),
-                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1073741824n)),
                 bytesToHex(numberToBytes(1000000n)),
                 bytesToHex(numberToBytes(2880n)),
                 stringToHex('US'),
@@ -582,7 +609,7 @@ export const presets = {
               productCapabilityValues: [
                 stringToHex('https://pdp.example.com'),
                 bytesToHex(numberToBytes(1024n)),
-                bytesToHex(numberToBytes(1024n)),
+                bytesToHex(numberToBytes(1073741824n)),
                 bytesToHex(numberToBytes(1000000n)),
                 bytesToHex(numberToBytes(2880n)),
                 stringToHex('US'),
@@ -660,7 +687,7 @@ export const presets = {
             productCapabilityValues: [
               stringToHex('https://pdp.example.com'),
               bytesToHex(numberToBytes(1024n)),
-              bytesToHex(numberToBytes(1024n)),
+              bytesToHex(numberToBytes(1073741824n)),
               bytesToHex(numberToBytes(1000000n)),
               bytesToHex(numberToBytes(2880n)),
               stringToHex('US'),
@@ -673,16 +700,76 @@ export const presets = {
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],
     },
+    erc20: {
+      balanceOf: () => [parseUnits('1000', 18)],
+      decimals: () => [18],
+      allowance: () => [0n],
+      name: () => [encodeAbiParameters([{ type: 'string' }], ['USDFC'])],
+      approve: () => [true],
+      version: () => [encodeAbiParameters([{ type: 'string' }], ['1'])],
+      nonces: () => [0n],
+    },
     payments: {
       operatorApprovals: () => [
         true, // isApproved
-        BigInt(1000000), // rateAllowance
-        BigInt(10000000), // lockupAllowance
-        BigInt(500000), // rateUsed
-        BigInt(5000000), // lockupUsed
-        BigInt(86400), // maxLockupPeriod
+        1000000n, // rateAllowance
+        10000000n, // lockupAllowance
+        500000n, // rateUsed
+        5000000n, // lockupUsed
+        86400n, // maxLockupPeriod
       ],
-      accounts: () => [BigInt(0), BigInt(0), BigInt(0), BigInt(0)],
+      accounts: () => [
+        parseUnits('500', 18), // funds
+        0n, // lockupCurrent
+        0n, // lockupRate
+        1000000n, // lockupLastSettledAt (current epoch/block number)
+      ],
+      getRail: () => [
+        {
+          token: ADDRESSES.calibration.usdfcToken,
+          from: ADDRESSES.client1,
+          to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
+          operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+          paymentRate: parseUnits('1', 18),
+          lockupPeriod: 2880n,
+          lockupFixed: 0n,
+          settledUpTo: 1000000n,
+          endEpoch: 0n, // 0 = active rail
+          commissionRateBps: 500n, // 5%
+          serviceFeeRecipient: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
+        },
+      ],
+      getRailsForPayerAndToken: () => [
+        [
+          { railId: 1n, isTerminated: false, endEpoch: 0n },
+          { railId: 2n, isTerminated: true, endEpoch: 999999n },
+        ],
+        2n, // nextOffset
+        2n, // total
+      ],
+      getRailsForPayeeAndToken: () => [
+        [{ railId: 3n, isTerminated: false, endEpoch: 0n }],
+        2n, // nextOffset
+        2n, // total
+      ],
+      settleRail: () => [
+        parseUnits('100', 18), // totalSettledAmount
+        parseUnits('95', 18), // totalNetPayeeAmount
+        parseUnits('5', 18), // totalOperatorCommission
+        parseUnits('1', 18), // totalNetworkFee
+        1000000n, // finalSettledEpoch
+        'Settlement successful', // note
+      ],
+      settleTerminatedRailWithoutValidation: () => [
+        parseUnits('200', 18), // totalSettledAmount
+        parseUnits('190', 18), // totalNetPayeeAmount
+        parseUnits('10', 18), // totalOperatorCommission
+        parseUnits('2', 18), // totalNetworkFee
+        999999n, // finalSettledEpoch
+        'Terminated rail settlement', // note
+      ],
+      NETWORK_FEE: () => parseUnits('0.0013', 18), // 0.0013 FIL
     },
   } as RequiredDeep<JSONRPCOptions>,
 }

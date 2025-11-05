@@ -4,8 +4,6 @@
  * Basic tests for Synapse class
  */
 
-import { capabilitiesListToObject, encodePDPCapabilities } from '@filoz/synapse-core/utils'
-import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -14,11 +12,9 @@ import pDefer from 'p-defer'
 import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
-import type { PDPServiceInfo } from '../sp-registry/types.ts'
 import { Synapse } from '../synapse.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import type { ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 import { createDataSetHandler, dataSetCreationStatusHandler, type PDPMockOptions } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
@@ -749,87 +745,31 @@ describe('Synapse', () => {
 
   describe('createContexts', () => {
     let synapse: Synapse
-    const mockProviders: ServiceProviderInfoView[] = [
-      {
-        providerId: 1n,
-        info: {
-          serviceProvider: ADDRESSES.serviceProvider1,
-          payee: ADDRESSES.serviceProvider1,
-          name: 'serviceProvider1',
-          description: 'mockProviders[0]',
-          isActive: true,
-        },
-      },
-      {
-        providerId: 2n,
-        info: {
-          serviceProvider: ADDRESSES.serviceProvider2,
-          payee: ADDRESSES.serviceProvider2,
-          name: 'serviceProvider2',
-          description: 'mockProviders[1]',
-          isActive: true,
-        },
-      },
-    ]
-    const offering1: PDPOffering = {
-      serviceURL: 'http://serviceProvider1.com',
-      minPieceSizeInBytes: 0n,
-      maxPieceSizeInBytes: 1n << 32n,
-      ipniPiece: false,
-      ipniIpfs: false,
-      storagePricePerTibPerDay: 1000n,
-      minProvingPeriodInEpochs: 3n,
-      location: 'narnia',
-      paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
-    }
-    const offering2: PDPOffering = {
-      serviceURL: 'http://serviceProvider2.org',
-      minPieceSizeInBytes: 0n,
-      maxPieceSizeInBytes: 1n << 32n,
-      ipniPiece: false,
-      ipniIpfs: false,
-      storagePricePerTibPerDay: 1000n,
-      minProvingPeriodInEpochs: 3n,
-      location: 'krypton',
-      paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
-    }
-
-    const mockPDPProducts: PDPServiceInfo[] = [
-      {
-        offering: offering1,
-        capabilities: capabilitiesListToObject(...encodePDPCapabilities(offering1)),
-        isActive: true,
-      },
-      {
-        offering: offering2,
-        capabilities: capabilitiesListToObject(...encodePDPCapabilities(offering2)),
-        isActive: true,
-      },
-    ]
 
     beforeEach(async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry(mockProviders, mockPDPProducts),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
         })
       )
       synapse = await Synapse.create({ signer })
-      for (const { offering } of mockPDPProducts) {
-        const pdpOptions: PDPMockOptions = {
-          baseUrl: offering.serviceURL,
-        }
-        server.use(PING(pdpOptions))
+      for (const { products } of [PROVIDERS.provider1, PROVIDERS.provider2]) {
+        server.use(
+          PING({
+            baseUrl: products[0].offering.serviceURL,
+          })
+        )
       }
     })
 
     it('selects specified providerIds', async () => {
       const contexts = await synapse.storage.createContexts({
-        providerIds: [mockProviders[0].providerId, mockProviders[1].providerId].map(Number),
+        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider2.providerId].map(Number),
       })
       assert.equal(contexts.length, 2)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
-      assert.equal(BigInt(contexts[1].provider.id), mockProviders[1].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
+      assert.equal(BigInt(contexts[1].provider.id), PROVIDERS.provider2.providerId)
       // should create new data sets
       assert.equal((contexts[0] as any)._dataSetId, undefined)
       assert.equal((contexts[1] as any)._dataSetId, undefined)
@@ -841,29 +781,28 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [mockProviders[0].providerId].map(Number),
+        providerIds: [PROVIDERS.provider1.providerId].map(Number),
         metadata,
         count: 1,
       })
       assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
       // should use existing data set
       assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
 
     it('force creates new data set specified by providerId even when metadata matches', async () => {
       const metadata = {
-        environment: 'test',
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [mockProviders[0].providerId].map(Number),
+        providerIds: [PROVIDERS.provider1.providerId].map(Number),
         metadata,
         count: 1,
         forceCreateDataSets: true,
       })
       assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), mockProviders[0].providerId)
+      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
       // should create new data set
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
@@ -875,7 +814,7 @@ describe('Synapse', () => {
         })
         assert.fail('Expected createContexts to fail for invalid specified providerIds')
       } catch (error: any) {
-        assert.include(error.message, 'Provider does not exist')
+        assert.include(error.message, 'Provider ID 3 not found in registry')
       }
     })
 
@@ -930,7 +869,7 @@ describe('Synapse', () => {
       }
       const contexts = await synapse.storage.createContexts({
         count: 2,
-        providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
+        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider1.providerId].map(Number),
         metadata,
       })
       assert.equal(contexts.length, 2)
@@ -946,7 +885,7 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         count: 2,
         dataSetIds: [1, 1],
-        providerIds: [mockProviders[0].providerId, mockProviders[0].providerId].map(Number),
+        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider1.providerId].map(Number),
         metadata,
       })
       assert.equal(contexts.length, 2)
