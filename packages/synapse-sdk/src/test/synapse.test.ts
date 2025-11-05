@@ -277,17 +277,17 @@ describe('Synapse', () => {
               assert.equal(operator, ADDRESSES.calibration.warmStorage)
               return [
                 true, // isApproved
-                BigInt(127001 * 635000000), // rateAllowance
-                BigInt(127001 * 635000000), // lockupAllowance
+                ethers.parseUnits('10', 18), // rateAllowance (10 USDFC)
+                ethers.parseUnits('100', 18), // lockupAllowance (100 USDFC)
                 BigInt(0), // rateUsage
                 BigInt(0), // lockupUsage
-                BigInt(28800), // maxLockupPeriod
+                BigInt(86400), // maxLockupPeriod (30 days)
               ]
             },
             accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
               assert.equal(token, ADDRESSES.calibration.usdfcToken)
-              return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
+              return [ethers.parseUnits('1000', 18), BigInt(0), BigInt(0), BigInt(0)]
             },
           },
           eth_getTransactionByHash: (params) => {
@@ -319,7 +319,7 @@ describe('Synapse', () => {
 
       // Payments uses the original signer
       const accountInfo = await synapse.payments.accountInfo()
-      assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
+      assert.equal(accountInfo.funds, ethers.parseUnits('1000', 18))
     })
   })
 
@@ -584,41 +584,43 @@ describe('Synapse', () => {
     })
   })
 
-  describe('getStorageInfo', () => {
-    it('should return comprehensive storage information', async () => {
+  describe('getServiceInfo', () => {
+    it('should return comprehensive service information', async () => {
       server.use(JSONRPC({ ...presets.basic }))
 
       const synapse = await Synapse.create({ signer })
-      const storageInfo = await synapse.getStorageInfo()
+      const serviceInfo = await synapse.storage.getServiceInfo()
 
       // Check pricing
-      assert.exists(storageInfo.pricing)
-      assert.exists(storageInfo.pricing.noCDN)
-      assert.exists(storageInfo.pricing.withCDN)
+      assert.exists(serviceInfo.pricing)
+      assert.exists(serviceInfo.pricing.storagePricePerTiBPerMonth)
+      assert.exists(serviceInfo.pricing.minimumPricePerMonth)
+      assert.exists(serviceInfo.pricing.cdnEgressPricePerTiB)
+      assert.exists(serviceInfo.pricing.cacheMissEgressPricePerTiB)
 
-      // Verify pricing calculations (2 USDFC per TiB per month)
-      const expectedNoCDNMonthly = parseUnits('2', 18) // 2 USDFC
-      assert.equal(storageInfo.pricing.noCDN.perTiBPerMonth, expectedNoCDNMonthly)
+      // Verify pricing (2 USDFC per TiB per month)
+      const expectedStorageMonthly = parseUnits('2', 18) // 2 USDFC
+      assert.equal(serviceInfo.pricing.storagePricePerTiBPerMonth, expectedStorageMonthly)
 
       // Check providers
-      assert.equal(storageInfo.providers.length, 2)
-      assert.equal(storageInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
-      assert.equal(storageInfo.providers[1].serviceProvider, ADDRESSES.serviceProvider2)
+      assert.equal(serviceInfo.providers.length, 2)
+      assert.equal(serviceInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(serviceInfo.providers[1].serviceProvider, ADDRESSES.serviceProvider2)
 
       // Check service parameters
-      assert.equal(storageInfo.serviceParameters.network, 'calibration')
-      assert.equal(storageInfo.serviceParameters.epochsPerMonth, 86400n)
-      assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
-      assert.equal(storageInfo.serviceParameters.epochDuration, 30)
-      assert.equal(storageInfo.serviceParameters.minUploadSize, 127)
-      assert.equal(storageInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
+      assert.equal(serviceInfo.serviceParameters.network, 'calibration')
+      assert.equal(serviceInfo.serviceParameters.epochsPerMonth, 86400n)
+      assert.equal(serviceInfo.serviceParameters.epochsPerDay, 2880n)
+      assert.equal(serviceInfo.serviceParameters.epochDuration, 30)
+      assert.equal(serviceInfo.serviceParameters.minUploadSize, 127)
+      assert.equal(serviceInfo.serviceParameters.maxUploadSize, 200 * 1024 * 1024)
 
-      // Check allowances (including operator approval flag)
-      assert.exists(storageInfo.allowances)
-      assert.equal(storageInfo.allowances?.isApproved, true)
-      assert.equal(storageInfo.allowances?.service, ADDRESSES.calibration.warmStorage)
-      assert.equal(storageInfo.allowances?.rateAllowance, 1000000n)
-      assert.equal(storageInfo.allowances?.lockupAllowance, 10000000n)
+      // Check allowances
+      assert.exists(serviceInfo.allowances)
+      assert.equal(serviceInfo.allowances?.isApproved, true)
+      assert.equal(serviceInfo.allowances?.service, ADDRESSES.calibration.warmStorage)
+      assert.equal(serviceInfo.allowances?.rateAllowance, 1000000n)
+      assert.equal(serviceInfo.allowances?.lockupAllowance, 10000000n)
     })
 
     it('should handle missing allowances gracefully', async () => {
@@ -632,13 +634,13 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({ signer })
-      const storageInfo = await synapse.getStorageInfo()
+      const serviceInfo = await synapse.storage.getServiceInfo()
 
       // Should still return data with null allowances
-      assert.exists(storageInfo.pricing)
-      assert.exists(storageInfo.providers)
-      assert.exists(storageInfo.serviceParameters)
-      assert.deepEqual(storageInfo.allowances, {
+      assert.exists(serviceInfo.pricing)
+      assert.exists(serviceInfo.providers)
+      assert.exists(serviceInfo.serviceParameters)
+      assert.deepEqual(serviceInfo.allowances, {
         isApproved: false,
         service: ADDRESSES.calibration.warmStorage,
         rateAllowance: 0n,
@@ -717,11 +719,11 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({ signer })
-      const storageInfo = await synapse.getStorageInfo()
+      const serviceInfo = await synapse.storage.getServiceInfo()
 
       // Should filter out zero address provider
-      assert.equal(storageInfo.providers.length, 1)
-      assert.equal(storageInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(serviceInfo.providers.length, 1)
+      assert.equal(serviceInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
     })
 
     it('should handle contract call failures', async () => {
@@ -738,7 +740,7 @@ describe('Synapse', () => {
       )
       try {
         const synapse = await Synapse.create({ signer })
-        await synapse.getStorageInfo()
+        await synapse.storage.getServiceInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
         // The error should bubble up from the contract call

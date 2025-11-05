@@ -38,10 +38,46 @@ const mockSynapse = {
   payments: {
     serviceApproval: async () => ({
       service: '0x1234567890123456789012345678901234567890',
-      rateAllowance: BigInt(1000000),
-      lockupAllowance: BigInt(10000000),
+      rateAllowance: ethers.parseUnits('10', 18), // 10 USDFC rate allowance
+      lockupAllowance: ethers.parseUnits('100', 18), // 100 USDFC lockup allowance
       rateUsed: BigInt(0),
       lockupUsed: BigInt(0),
+      maxLockupPeriod: BigInt(86400), // 30 days in epochs
+    }),
+    accountInfo: async () => ({
+      funds: ethers.parseUnits('1000', 18),
+      lockupCurrent: BigInt(0),
+      lockupRate: BigInt(0),
+      lockupLastSettledAt: BigInt(0),
+      availableFunds: ethers.parseUnits('1000', 18), // 1000 USDFC available
+    }),
+    checkServiceReadiness: async (_service: string, _requirements: any) => ({
+      sufficient: true,
+      checks: {
+        isOperatorApproved: true,
+        hasSufficientFunds: true,
+        hasRateAllowance: true,
+        hasLockupAllowance: true,
+        hasValidLockupPeriod: true,
+      },
+      currentState: {
+        approval: {
+          isApproved: true,
+          rateAllowance: ethers.parseUnits('10', 18),
+          rateUsed: BigInt(0),
+          lockupAllowance: ethers.parseUnits('100', 18),
+          lockupUsed: BigInt(0),
+          maxLockupPeriod: BigInt(86400),
+        },
+        accountInfo: {
+          funds: ethers.parseUnits('1000', 18),
+          lockupCurrent: BigInt(0),
+          lockupRate: BigInt(0),
+          lockupLastSettledAt: BigInt(0),
+          availableFunds: ethers.parseUnits('1000', 18),
+        },
+      },
+      gaps: undefined,
     }),
   },
   download: async (_pieceCid: string | PieceCID, _options?: any) => {
@@ -1716,21 +1752,21 @@ describe('StorageService', () => {
   describe('preflightUpload', () => {
     it('should calculate costs without CDN', async () => {
       const mockWarmStorageService = {
-        checkAllowanceForStorage: async () => ({
-          rateAllowanceNeeded: BigInt(100),
-          lockupAllowanceNeeded: BigInt(2880000),
-          currentRateAllowance: BigInt(1000000),
-          currentLockupAllowance: BigInt(10000000),
-          currentRateUsed: BigInt(0),
-          currentLockupUsed: BigInt(0),
-          sufficient: true,
-          message: undefined,
-          costs: {
-            perEpoch: BigInt(100),
-            perDay: BigInt(28800),
-            perMonth: BigInt(864000),
-          },
+        getServicePrice: async () => ({
+          pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18), // 2 USDFC per TiB per month
+          pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+          pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
+          minimumPricePerMonth: ethers.parseUnits('0.06', 18), // 0.06 USDFC floor
+          epochsPerMonth: BigInt(86400),
+          tokenAddress: '0xTOKEN',
         }),
+        calculateUploadCost: async (sizeInBytes: number) => {
+          const pricePerEpoch = (ethers.parseUnits('2', 18) * BigInt(sizeInBytes)) / (SIZE_CONSTANTS.TiB * 86400n)
+          const perMonth = pricePerEpoch * 86400n
+          const withFloorPerMonth = perMonth > ethers.parseUnits('0.06', 18) ? perMonth : ethers.parseUnits('0.06', 18)
+          return { perMonth, withFloorPerMonth }
+        },
+        getContractAddress: () => '0x1234567890123456789012345678901234567890',
         validateDataSet: async (): Promise<void> => {
           /* no-op */
         },
@@ -1750,29 +1786,28 @@ describe('StorageService', () => {
 
       const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
 
-      assert.equal(preflight.estimatedCost.perEpoch, BigInt(100))
-      assert.equal(preflight.estimatedCost.perDay, BigInt(28800))
-      assert.equal(preflight.estimatedCost.perMonth, BigInt(864000))
+      // For small sizes like 1 MiB, the floor price applies
+      assert.equal(preflight.estimatedCostPerMonth, ethers.parseUnits('0.06', 18))
       assert.isTrue(preflight.allowanceCheck.sufficient)
     })
 
     it('should calculate costs with CDN', async () => {
       const mockWarmStorageService = {
-        checkAllowanceForStorage: async (): Promise<any> => ({
-          rateAllowanceNeeded: BigInt(200),
-          lockupAllowanceNeeded: BigInt(5760000),
-          currentRateAllowance: BigInt(1000000),
-          currentLockupAllowance: BigInt(10000000),
-          currentRateUsed: BigInt(0),
-          currentLockupUsed: BigInt(0),
-          sufficient: true,
-          message: undefined,
-          costs: {
-            perEpoch: BigInt(200),
-            perDay: BigInt(57600),
-            perMonth: BigInt(1728000),
-          },
+        getServicePrice: async () => ({
+          pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18), // 2 USDFC per TiB per month
+          pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+          pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
+          minimumPricePerMonth: ethers.parseUnits('0.06', 18), // 0.06 USDFC floor
+          epochsPerMonth: BigInt(86400),
+          tokenAddress: '0xTOKEN',
         }),
+        calculateUploadCost: async (sizeInBytes: number) => {
+          const pricePerEpoch = (ethers.parseUnits('2', 18) * BigInt(sizeInBytes)) / (SIZE_CONSTANTS.TiB * 86400n)
+          const perMonth = pricePerEpoch * 86400n
+          const withFloorPerMonth = perMonth > ethers.parseUnits('0.06', 18) ? perMonth : ethers.parseUnits('0.06', 18)
+          return { perMonth, withFloorPerMonth }
+        },
+        getContractAddress: () => '0x1234567890123456789012345678901234567890',
         validateDataSet: async (): Promise<void> => {
           /* no-op */
         },
@@ -1792,39 +1827,88 @@ describe('StorageService', () => {
 
       const preflight = await service.preflightUpload(Number(SIZE_CONSTANTS.MiB)) // 1 MiB
 
-      // Should use CDN costs
-      assert.equal(preflight.estimatedCost.perEpoch, BigInt(200))
-      assert.equal(preflight.estimatedCost.perDay, BigInt(57600))
-      assert.equal(preflight.estimatedCost.perMonth, BigInt(1728000))
+      // Storage cost is the same regardless of CDN (CDN is usage-based)
+      // For small sizes like 1 MiB, the floor price applies
+      assert.equal(preflight.estimatedCostPerMonth, ethers.parseUnits('0.06', 18))
       assert.isTrue(preflight.allowanceCheck.sufficient)
     })
 
     it('should handle insufficient allowances', async () => {
       const mockWarmStorageService = {
-        checkAllowanceForStorage: async (): Promise<any> => ({
-          rateAllowanceNeeded: BigInt(2000000),
-          lockupAllowanceNeeded: BigInt(20000000),
-          currentRateAllowance: BigInt(1000000),
-          currentLockupAllowance: BigInt(10000000),
-          currentRateUsed: BigInt(0),
-          currentLockupUsed: BigInt(0),
-          sufficient: false,
-          message:
-            'Rate allowance insufficient: current 1000000, need 2000000. Lockup allowance insufficient: current 10000000, need 20000000',
-          costs: {
-            perEpoch: BigInt(100),
-            perDay: BigInt(28800),
-            perMonth: BigInt(864000),
-          },
+        getServicePrice: async () => ({
+          pricePerTiBPerMonthNoCDN: ethers.parseUnits('2', 18),
+          pricePerTiBCdnEgress: ethers.parseUnits('0.05', 18),
+          pricePerTiBCacheMissEgress: ethers.parseUnits('0.1', 18),
+          minimumPricePerMonth: ethers.parseUnits('0.06', 18),
+          epochsPerMonth: BigInt(86400),
+          tokenAddress: '0xTOKEN',
         }),
+        calculateUploadCost: async (sizeInBytes: number) => {
+          const pricePerEpoch = (ethers.parseUnits('2', 18) * BigInt(sizeInBytes)) / (SIZE_CONSTANTS.TiB * 86400n)
+          const perMonth = pricePerEpoch * 86400n
+          const withFloorPerMonth = perMonth > ethers.parseUnits('0.06', 18) ? perMonth : ethers.parseUnits('0.06', 18)
+          return { perMonth, withFloorPerMonth }
+        },
+        getContractAddress: () => '0x1234567890123456789012345678901234567890',
         validateDataSet: async (): Promise<void> => {
           /* no-op */
         },
         getDataSet: async (): Promise<any> => ({ clientDataSetId: 1n }),
         getServiceProviderRegistryAddress: () => ADDRESSES.calibration.spRegistry,
       } as any
+      const mockSynapseWithLowAllowance = {
+        ...mockSynapse,
+        payments: {
+          serviceApproval: async () => ({
+            service: '0x1234567890123456789012345678901234567890',
+            rateAllowance: ethers.parseUnits('0.00001', 18), // Very low rate allowance
+            lockupAllowance: ethers.parseUnits('0.0001', 18), // Very low lockup allowance
+            rateUsed: BigInt(0),
+            lockupUsed: BigInt(0),
+            maxLockupPeriod: BigInt(86400),
+          }),
+          accountInfo: async () => ({
+            funds: ethers.parseUnits('100', 18),
+            lockupCurrent: BigInt(0),
+            lockupRate: BigInt(0),
+            lockupLastSettledAt: BigInt(0),
+            availableFunds: ethers.parseUnits('100', 18), // Plenty of funds
+          }),
+          checkServiceReadiness: async (_service: string, requirements: any) => ({
+            sufficient: false,
+            checks: {
+              isOperatorApproved: true,
+              hasSufficientFunds: true,
+              hasRateAllowance: false,
+              hasLockupAllowance: false,
+              hasValidLockupPeriod: true,
+            },
+            currentState: {
+              approval: {
+                isApproved: true,
+                rateAllowance: ethers.parseUnits('0.00001', 18),
+                rateUsed: BigInt(0),
+                lockupAllowance: ethers.parseUnits('0.0001', 18),
+                lockupUsed: BigInt(0),
+                maxLockupPeriod: BigInt(86400),
+              },
+              accountInfo: {
+                funds: ethers.parseUnits('100', 18),
+                lockupCurrent: BigInt(0),
+                lockupRate: BigInt(0),
+                lockupLastSettledAt: BigInt(0),
+                availableFunds: ethers.parseUnits('100', 18),
+              },
+            },
+            gaps: {
+              rateAllowanceNeeded: requirements.rateNeeded,
+              lockupAllowanceNeeded: requirements.lockupNeeded,
+            },
+          }),
+        },
+      } as any
       const service = new StorageContext(
-        mockSynapse,
+        mockSynapseWithLowAllowance,
         mockWarmStorageService,
         mockProvider,
         123,
@@ -1837,8 +1921,7 @@ describe('StorageService', () => {
       const preflight = await service.preflightUpload(Number(100n * SIZE_CONSTANTS.MiB)) // 100 MiB
 
       assert.isFalse(preflight.allowanceCheck.sufficient)
-      assert.include(preflight.allowanceCheck.message, 'Rate allowance insufficient')
-      assert.include(preflight.allowanceCheck.message, 'Lockup allowance insufficient')
+      assert.include(preflight.allowanceCheck.message, 'allowance')
     })
 
     it('should enforce minimum size limit in preflightUpload', async () => {

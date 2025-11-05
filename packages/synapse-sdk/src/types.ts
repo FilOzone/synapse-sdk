@@ -365,19 +365,79 @@ export interface StorageServiceOptions {
 }
 
 /**
+ * Service readiness check result from PaymentsService
+ * Contains detailed information about whether a service can be used
+ */
+export interface ServiceReadinessCheck {
+  /** Overall readiness: all checks passed */
+  sufficient: boolean
+  /** Individual check results */
+  checks: {
+    /** Service operator is approved by payer */
+    isOperatorApproved: boolean
+    /** Payer has sufficient available funds for lockup */
+    hasSufficientFunds: boolean
+    /** Rate allowance is sufficient for required rate */
+    hasRateAllowance: boolean
+    /** Lockup allowance is sufficient for required lockup */
+    hasLockupAllowance: boolean
+    /** Maximum lockup period is sufficient */
+    hasValidLockupPeriod: boolean
+  }
+  /** Current state of approval and account */
+  currentState: {
+    /** Service approval details */
+    approval: {
+      isApproved: boolean
+      rateAllowance: bigint
+      rateUsed: bigint
+      lockupAllowance: bigint
+      lockupUsed: bigint
+      maxLockupPeriod: bigint
+    }
+    /** Account information */
+    accountInfo: {
+      funds: bigint
+      lockupCurrent: bigint
+      lockupRate: bigint
+      lockupLastSettledAt: bigint
+      availableFunds: bigint
+    }
+  }
+  /** Gaps to fill (only present when not sufficient) */
+  gaps?: {
+    fundsNeeded?: bigint
+    rateAllowanceNeeded?: bigint
+    lockupAllowanceNeeded?: bigint
+    lockupPeriodNeeded?: bigint
+  }
+}
+
+/**
  * Preflight information for storage uploads
  */
 export interface PreflightInfo {
-  /** Estimated storage costs */
-  estimatedCost: {
-    perEpoch: bigint
-    perDay: bigint
-    perMonth: bigint
-  }
+  /** Estimated storage cost per month */
+  estimatedCostPerMonth: bigint
   /** Allowance check results */
   allowanceCheck: {
+    /** Overall check: all requirements met */
     sufficient: boolean
+    /** Detailed human-readable message when insufficient */
     message?: string
+    /** Individual check results for programmatic handling */
+    checks: {
+      /** Payer has sufficient available funds for lockup */
+      hasSufficientFunds: boolean
+      /** Service operator is approved by payer */
+      isOperatorApproved: boolean
+      /** Rate allowance is sufficient for required rate */
+      hasRateAllowance: boolean
+      /** Lockup allowance is sufficient for required lockup */
+      hasLockupAllowance: boolean
+      /** Maximum lockup period is sufficient */
+      hasValidLockupPeriod: boolean
+    }
   }
   /** Selected service provider (null when no specific provider selected) */
   selectedProvider: ProviderInfo | null
@@ -437,32 +497,27 @@ export interface UploadResult {
 }
 
 /**
- * Comprehensive storage service information
+ * Service information including pricing, providers, and configuration
+ *
+ * Pricing model:
+ * - Base storage is charged per TiB per month (30-day month, 2880 epochs per day)
+ * - CDN egress charges only apply to data sets with CDN enabled
+ * - A minimum monthly charge applies regardless of data size
  */
-export interface StorageInfo {
-  /** Pricing information for storage services */
+export interface ServiceInfo {
+  /** Pricing information from the service contract */
   pricing: {
-    /** Pricing without CDN */
-    noCDN: {
-      /** Cost per TiB per month in token units */
-      perTiBPerMonth: bigint
-      /** Cost per TiB per day in token units */
-      perTiBPerDay: bigint
-      /** Cost per TiB per epoch in token units */
-      perTiBPerEpoch: bigint
-    }
-    /** Pricing with CDN enabled */
-    withCDN: {
-      /** Cost per TiB per month in token units */
-      perTiBPerMonth: bigint
-      /** Cost per TiB per day in token units */
-      perTiBPerDay: bigint
-      /** Cost per TiB per epoch in token units */
-      perTiBPerEpoch: bigint
-    }
-    /** Token contract address */
+    /** Base storage cost per TiB per month */
+    storagePricePerTiBPerMonth: bigint
+    /** Minimum monthly charge for data sets regardless of size */
+    minimumPricePerMonth: bigint
+    /** CDN egress cost per TiB (usage-based, only applies to data sets with CDN enabled) */
+    cdnEgressPricePerTiB: bigint
+    /** Cache miss egress cost per TiB (usage-based, only applies to data sets with CDN enabled) */
+    cacheMissEgressPricePerTiB: bigint
+    /** Token contract address for payments */
     tokenAddress: string
-    /** Token symbol (always USDFC for now) */
+    /** Token symbol */
     tokenSymbol: string
   }
 
@@ -473,11 +528,11 @@ export interface StorageInfo {
   serviceParameters: {
     /** Network type (mainnet or calibration) */
     network: FilecoinNetworkType
-    /** Number of epochs in a month */
+    /** Number of epochs per month */
     epochsPerMonth: bigint
-    /** Number of epochs in a day */
+    /** Number of epochs per day */
     epochsPerDay: bigint
-    /** Duration of each epoch in seconds */
+    /** Duration of each epoch in seconds (30) */
     epochDuration: number
     /** Minimum allowed upload size in bytes */
     minUploadSize: number
@@ -489,6 +544,10 @@ export interface StorageInfo {
     paymentsAddress: string
     /** PDP Verifier contract address */
     pdpVerifierAddress: string
+    /** Service Provider Registry contract address */
+    serviceProviderRegistryAddress: string
+    /** Session Key Registry contract address */
+    sessionKeyRegistryAddress: string
   }
 
   /** Current user allowances (null if wallet not connected) */

@@ -70,31 +70,29 @@ async function main() {
     const address = await signer.getAddress()
     console.log(`Wallet address: ${address}`)
 
-    // Get storage info
+    // Get service info
     console.log('\nFetching storage service information...')
-    const storageInfo = await synapse.storage.getStorageInfo()
+    const serviceInfo = await synapse.storage.getServiceInfo()
 
     // Display pricing information
     console.log('\n--- Pricing Information ---')
-    console.log(`Token: USDFC (${storageInfo.pricing.tokenAddress})`)
-    console.log('\nWithout CDN:')
-    console.log(`  Per TiB per month: ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerMonth)}`)
-    console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerDay)}`)
-    console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.noCDN.perTiBPerEpoch)}`)
+    console.log(`Token: ${serviceInfo.pricing.tokenSymbol} (${serviceInfo.pricing.tokenAddress})`)
+    console.log('\nBase Storage:')
+    console.log(`  Per TiB per month:        ${formatUSDFC(serviceInfo.pricing.storagePricePerTiBPerMonth)}`)
+    console.log(`  Minimum price per month:  ${formatUSDFC(serviceInfo.pricing.minimumPricePerMonth)}`)
 
-    console.log('\nWith CDN:')
-    console.log(`  Per TiB per month: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerMonth)}`)
-    console.log(`  Per TiB per day:   ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerDay)}`)
-    console.log(`  Per TiB per epoch: ${formatUSDFC(storageInfo.pricing.withCDN.perTiBPerEpoch)}`)
+    console.log('\nCDN Usage-Based Pricing (only for data sets with CDN enabled):')
+    console.log(`  CDN egress per TiB:       ${formatUSDFC(serviceInfo.pricing.cdnEgressPricePerTiB)}`)
+    console.log(`  Cache miss egress per TiB: ${formatUSDFC(serviceInfo.pricing.cacheMissEgressPricePerTiB)}`)
 
     // Display service providers
     console.log('\n--- Service Providers ---')
-    if (storageInfo.providers.length === 0) {
+    if (serviceInfo.providers.length === 0) {
       console.log('No approved providers found')
     } else {
-      console.log(`Total providers: ${storageInfo.providers.length}`)
+      console.log(`Total providers: ${serviceInfo.providers.length}`)
 
-      for (const [_index, provider] of storageInfo.providers.entries()) {
+      for (const [_index, provider] of serviceInfo.providers.entries()) {
         console.log(`\nProvider #${provider.id}:`)
         console.log(`  Name:        ${provider.name}`)
         console.log(`  Description: ${provider.description}`)
@@ -118,35 +116,121 @@ async function main() {
 
     // Display service parameters
     console.log('\n--- Service Parameters ---')
-    console.log(`Network:          ${storageInfo.serviceParameters.network}`)
-    console.log(`Epochs per month: ${storageInfo.serviceParameters.epochsPerMonth.toLocaleString()}`)
-    console.log(`Epochs per day:   ${storageInfo.serviceParameters.epochsPerDay.toLocaleString()}`)
-    console.log(`Epoch duration:   ${storageInfo.serviceParameters.epochDuration} seconds`)
-    console.log(`Min upload size:  ${formatBytes(storageInfo.serviceParameters.minUploadSize)}`)
-    console.log(`Max upload size:  ${formatBytes(storageInfo.serviceParameters.maxUploadSize)}`)
+    console.log(`Network:          ${serviceInfo.serviceParameters.network}`)
+    console.log(`Epochs per month: ${serviceInfo.serviceParameters.epochsPerMonth.toLocaleString()}`)
+    console.log(`Epochs per day:   ${serviceInfo.serviceParameters.epochsPerDay.toLocaleString()}`)
+    console.log(`Epoch duration:   ${serviceInfo.serviceParameters.epochDuration} seconds`)
+    console.log(`Min upload size:  ${formatBytes(serviceInfo.serviceParameters.minUploadSize)}`)
+    console.log(`Max upload size:  ${formatBytes(serviceInfo.serviceParameters.maxUploadSize)}`)
     console.log('\nContract Addresses:')
-    console.log(`  Warm Storage: ${storageInfo.serviceParameters.warmStorageAddress}`)
-    console.log(`  Payments:     ${storageInfo.serviceParameters.paymentsAddress}`)
-    console.log(`  PDP Verifier: ${storageInfo.serviceParameters.pdpVerifierAddress}`)
+    console.log(`  Warm Storage:                  ${serviceInfo.serviceParameters.warmStorageAddress}`)
+    console.log(`  Payments:                      ${serviceInfo.serviceParameters.paymentsAddress}`)
+    console.log(`  PDP Verifier:                  ${serviceInfo.serviceParameters.pdpVerifierAddress}`)
+    console.log(`  Service Provider Registry:     ${serviceInfo.serviceParameters.serviceProviderRegistryAddress}`)
+    console.log(`  Session Key Registry:          ${serviceInfo.serviceParameters.sessionKeyRegistryAddress}`)
 
     // Display current allowances
     console.log('\n--- Current Allowances ---')
-    if (storageInfo.allowances) {
-      console.log(`Service: ${storageInfo.allowances.service}`)
+    if (serviceInfo.allowances) {
+      console.log(`Service: ${serviceInfo.allowances.service}`)
       console.log('\nRate:')
-      console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.rateAllowance)}`)
-      console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.rateUsed)}`)
+      console.log(`  Allowance:  ${formatUSDFC(serviceInfo.allowances.rateAllowance)}`)
+      console.log(`  Used:       ${formatUSDFC(serviceInfo.allowances.rateUsed)}`)
       console.log(
-        `  Available:  ${formatUSDFC(storageInfo.allowances.rateAllowance - storageInfo.allowances.rateUsed)}`
+        `  Available:  ${formatUSDFC(serviceInfo.allowances.rateAllowance - serviceInfo.allowances.rateUsed)}`
       )
       console.log('\nLockup:')
-      console.log(`  Allowance:  ${formatUSDFC(storageInfo.allowances.lockupAllowance)}`)
-      console.log(`  Used:       ${formatUSDFC(storageInfo.allowances.lockupUsed)}`)
+      console.log(`  Allowance:  ${formatUSDFC(serviceInfo.allowances.lockupAllowance)}`)
+      console.log(`  Used:       ${formatUSDFC(serviceInfo.allowances.lockupUsed)}`)
       console.log(
-        `  Available:  ${formatUSDFC(storageInfo.allowances.lockupAllowance - storageInfo.allowances.lockupUsed)}`
+        `  Available:  ${formatUSDFC(serviceInfo.allowances.lockupAllowance - serviceInfo.allowances.lockupUsed)}`
       )
     } else {
       console.log('No allowances found (wallet may not be connected or no approvals set)')
+    }
+
+    // Check account balance
+    console.log('\n--- Account Balance ---')
+    try {
+      const accountInfo = await synapse.payments.accountInfo()
+      console.log(`Total funds:      ${formatUSDFC(accountInfo.funds)}`)
+      console.log(`Available funds:  ${formatUSDFC(accountInfo.availableFunds)}`)
+      console.log(`Locked up:        ${formatUSDFC(accountInfo.funds - accountInfo.availableFunds)}`)
+    } catch (error) {
+      console.log('Could not fetch account balance:', error.message)
+    }
+
+    // Show upload cost examples
+    console.log('\n--- Upload Cost Examples ---')
+    try {
+      const provider = synapse.getProvider()
+      const warmStorageAddress = synapse.getWarmStorageAddress()
+      const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+      const sizes = [
+        { name: '1 MiB', bytes: 1024 * 1024 },
+        { name: '100 MiB', bytes: 100 * 1024 * 1024 },
+        { name: '1 GiB', bytes: 1024 * 1024 * 1024 },
+        { name: '10 GiB', bytes: 10 * 1024 * 1024 * 1024 },
+      ]
+
+      for (const size of sizes) {
+        const cost = await warmStorageService.calculateUploadCost(size.bytes)
+        console.log(`\n${size.name}:`)
+        console.log(`  Base monthly cost:  ${formatUSDFC(cost.perMonth)}`)
+        console.log(`  With floor pricing: ${formatUSDFC(cost.withFloorPerMonth)}`)
+      }
+    } catch (error) {
+      console.log('Could not calculate upload costs:', error.message)
+    }
+
+    // Check wallet readiness for uploads
+    console.log('\n--- Wallet Readiness Check ---')
+    try {
+      const provider = synapse.getProvider()
+      const warmStorageAddress = synapse.getWarmStorageAddress()
+      const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+
+      // Check readiness for 1 GiB upload
+      const testSize = 1024 * 1024 * 1024 // 1 GiB
+      const cost = await warmStorageService.calculateUploadCost(testSize)
+      const pricing = await warmStorageService.getServicePrice()
+      const ratePerEpoch = cost.withFloorPerMonth / pricing.epochsPerMonth
+      const lockupEpochs = 30n * 2880n // 30 days in epochs
+      const lockupNeeded = ratePerEpoch * lockupEpochs
+
+      const readiness = await synapse.payments.checkServiceReadiness(warmStorageAddress, {
+        rateNeeded: ratePerEpoch,
+        lockupNeeded,
+        lockupPeriodNeeded: lockupEpochs,
+      })
+
+      console.log(`Checking readiness for 1 GiB upload (${formatUSDFC(cost.withFloorPerMonth)}/month)...`)
+      console.log(`\nReadiness: ${readiness.sufficient ? '✅ READY' : '❌ NOT READY'}`)
+      console.log('\nChecks:')
+      console.log(`  ✓ Operator approved:     ${readiness.checks.isOperatorApproved ? '✅' : '❌'}`)
+      console.log(`  ✓ Sufficient funds:      ${readiness.checks.hasSufficientFunds ? '✅' : '❌'}`)
+      console.log(`  ✓ Rate allowance:        ${readiness.checks.hasRateAllowance ? '✅' : '❌'}`)
+      console.log(`  ✓ Lockup allowance:      ${readiness.checks.hasLockupAllowance ? '✅' : '❌'}`)
+      console.log(`  ✓ Valid lockup period:   ${readiness.checks.hasValidLockupPeriod ? '✅' : '❌'}`)
+
+      if (!readiness.sufficient && readiness.gaps) {
+        console.log('\nRequired actions:')
+        if (readiness.gaps.fundsNeeded) {
+          console.log(`  - Deposit ${formatUSDFC(readiness.gaps.fundsNeeded)}`)
+        }
+        if (readiness.gaps.rateAllowanceNeeded) {
+          console.log(`  - Increase rate allowance by ${formatUSDFC(readiness.gaps.rateAllowanceNeeded)}`)
+        }
+        if (readiness.gaps.lockupAllowanceNeeded) {
+          console.log(`  - Increase lockup allowance by ${formatUSDFC(readiness.gaps.lockupAllowanceNeeded)}`)
+        }
+        if (readiness.gaps.lockupPeriodNeeded) {
+          console.log(`  - Extend lockup period by ${readiness.gaps.lockupPeriodNeeded} epochs`)
+        }
+      }
+    } catch (error) {
+      console.log('Could not check wallet readiness:', error.message)
     }
 
     // Get client's data sets
