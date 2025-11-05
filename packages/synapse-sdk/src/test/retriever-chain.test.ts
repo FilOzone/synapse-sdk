@@ -1,6 +1,3 @@
-/* globals describe it beforeEach */
-import { capabilitiesListToObject, encodePDPCapabilities } from '@filoz/synapse-core/utils'
-import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -8,11 +5,9 @@ import { HttpResponse, http } from 'msw'
 import { asPieceCID } from '../piece/index.ts'
 import { ChainRetriever } from '../retriever/chain.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
-import type { PDPServiceInfo } from '../sp-registry/types.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
-import type { ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { ADDRESSES, JSONRPC, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 
 // Mock server for testing
@@ -20,69 +15,6 @@ const server = setup([])
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
-
-const CLIENT_ADDRESS = ADDRESSES.client1
-const PROVIDER1_ADDRESS = ADDRESSES.serviceProvider1
-const PROVIDER2_ADDRESS = ADDRESSES.serviceProvider2
-
-// Mock provider info
-const mockProvider1Info: ServiceProviderInfoView = {
-  providerId: 1n,
-  info: {
-    serviceProvider: PROVIDER1_ADDRESS,
-    payee: ADDRESSES.payee1,
-    name: 'Provider 1',
-    description: 'Test provider 1',
-    isActive: true,
-  },
-}
-
-const mockProvider2Info: ServiceProviderInfoView = {
-  providerId: 2n,
-  info: {
-    serviceProvider: PROVIDER2_ADDRESS,
-    payee: ADDRESSES.payee1,
-    name: 'Provider 2',
-    description: 'Test provider 2',
-    isActive: true,
-  },
-}
-
-const mockProvider1Offering: PDPOffering = {
-  serviceURL: 'https://provider1.example.com',
-  minPieceSizeInBytes: BigInt(1024),
-  maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
-  ipniPiece: false,
-  ipniIpfs: false,
-  storagePricePerTibPerDay: BigInt(1000000),
-  minProvingPeriodInEpochs: 30n,
-  location: 'us-east',
-  paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-}
-
-const mockProvider2Offering: PDPOffering = {
-  serviceURL: 'https://provider2.example.com',
-  minPieceSizeInBytes: BigInt(1024),
-  maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
-  ipniPiece: false,
-  ipniIpfs: false,
-  storagePricePerTibPerDay: BigInt(1000000),
-  minProvingPeriodInEpochs: 30n,
-  location: 'us-east',
-  paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-}
-
-const mockProvider1Service: PDPServiceInfo = {
-  offering: mockProvider1Offering,
-  capabilities: capabilitiesListToObject(...encodePDPCapabilities(mockProvider1Offering)),
-  isActive: true,
-}
-
-const mockProvider2Service: PDPServiceInfo = {
-  offering: mockProvider2Offering,
-  capabilities: capabilitiesListToObject(...encodePDPCapabilities(mockProvider2Offering)),
-  isActive: true,
-}
 
 // Mock child retriever
 const mockChildRetriever: PieceRetriever = {
@@ -125,7 +57,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([mockProvider1Info], [mockProvider1Service]),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
         }),
         http.get('https://provider1.example.com/pdp/piece', async ({ request }) => {
           findPieceCalled = true
@@ -140,8 +72,8 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS, {
-        providerAddress: PROVIDER1_ADDRESS,
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1, {
+        providerAddress: ADDRESSES.serviceProvider1,
       })
 
       assert.isTrue(findPieceCalled, 'Should call findPiece')
@@ -173,7 +105,7 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS, {
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1, {
         providerAddress: '0xNotApproved',
       })
       assert.equal(response.status, 200)
@@ -205,7 +137,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(warmStorage, spRegistry)
 
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS, {
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1, {
           providerAddress: '0xNotApproved',
         })
         assert.fail('Should have thrown')
@@ -217,72 +149,10 @@ describe('ChainRetriever', () => {
 
   describe('fetchPiece with multiple providers', () => {
     it('should wait for successful provider even if others fail first', async () => {
-      // This tests that Promise.any() waits for success rather than settling with first failure
-      const pdp1Offering: PDPOffering = {
-        serviceURL: 'https://pdp1.example.com',
-        minPieceSizeInBytes: BigInt(1024),
-        maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
-        ipniPiece: false,
-        ipniIpfs: false,
-        storagePricePerTibPerDay: BigInt(1000000),
-        minProvingPeriodInEpochs: 30n,
-        location: 'us-east',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      }
-
-      const pdp2Offering: PDPOffering = {
-        serviceURL: 'https://pdp2.example.com',
-        minPieceSizeInBytes: BigInt(1024),
-        maxPieceSizeInBytes: BigInt(32) * BigInt(1024) * BigInt(1024) * BigInt(1024),
-        ipniPiece: false,
-        ipniIpfs: false,
-        storagePricePerTibPerDay: BigInt(1000000),
-        minProvingPeriodInEpochs: 30n,
-        location: 'us-east',
-        paymentTokenAddress: '0x0000000000000000000000000000000000000000',
-      }
-
-      const provider1Info: ServiceProviderInfoView = {
-        providerId: 1n,
-        info: {
-          serviceProvider: PROVIDER1_ADDRESS,
-          payee: ADDRESSES.payee1,
-          name: 'Provider 1',
-          description: 'Test provider',
-          isActive: true,
-        },
-      }
-
-      const provider2Info: ServiceProviderInfoView = {
-        providerId: 2n,
-        info: {
-          serviceProvider: PROVIDER2_ADDRESS,
-          payee: ADDRESSES.payee1,
-          name: 'Provider 2',
-          description: 'Test provider',
-          isActive: true,
-        },
-      }
-
-      const provider1Service: PDPServiceInfo = {
-        offering: pdp1Offering,
-        capabilities: capabilitiesListToObject(...encodePDPCapabilities(pdp1Offering)),
-        isActive: true,
-      }
-
-      const provider2Service: PDPServiceInfo = {
-        offering: pdp2Offering,
-        capabilities: capabilitiesListToObject(...encodePDPCapabilities(pdp2Offering)),
-        isActive: true,
-      }
-
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry(
-            [provider1Info, provider2Info],
-            [provider1Service, provider2Service]
-          ),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n, 2n]],
@@ -294,9 +164,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -312,9 +182,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 2n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER2_ADDRESS,
-                    serviceProvider: PROVIDER2_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider2,
                     commissionBps: 100n,
                     clientDataSetId: 2n,
                     pdpEndEpoch: 0n,
@@ -326,32 +196,25 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         }),
-        http.get('https://pdp1.example.com/pdp/piece', async () => {
+        http.get('https://provider1.example.com/pdp/piece', async () => {
           return HttpResponse.json(null, { status: 404 })
         }),
-        http.get('https://pdp2.example.com/pdp/piece', async ({ request }) => {
+        http.get('https://provider2.example.com/pdp/piece', async ({ request }) => {
           // Simulate network delay
           await new Promise((resolve) => setTimeout(resolve, 50))
           const url = new URL(request.url)
           const pieceCid = url.searchParams.get('pieceCid')
           return HttpResponse.json({ pieceCid })
         }),
-        http.get('https://pdp2.example.com/piece/:pieceCid', async () => {
+        http.get('https://provider2.example.com/piece/:pieceCid', async () => {
           return HttpResponse.text('success from provider 2', { status: 200 })
         })
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
 
       // Should get response from provider 2 even though provider 1 failed first
       assert.equal(response.status, 200)
@@ -365,61 +228,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry(
-            [mockProvider1Info, mockProvider2Info],
-            [mockProvider1Service, mockProvider2Service]
-          ),
-          warmStorageView: {
-            ...presets.basic.warmStorageView,
-            clientDataSets: () => [[1n, 2n]],
-            getDataSet: (args) => {
-              const [dataSetId] = args
-              if (dataSetId === 1n) {
-                return [
-                  {
-                    pdpRailId: 1n,
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
-                    commissionBps: 100n,
-                    clientDataSetId: 1n,
-                    pdpEndEpoch: 0n,
-                    providerId: 1n,
-                    paymentEndEpoch: 0n,
-                    dataSetId: 1n,
-                  },
-                ]
-              }
-              if (dataSetId === 2n) {
-                return [
-                  {
-                    pdpRailId: 2n,
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER2_ADDRESS,
-                    serviceProvider: PROVIDER2_ADDRESS,
-                    commissionBps: 100n,
-                    clientDataSetId: 2n,
-                    pdpEndEpoch: 0n,
-                    providerId: 2n,
-                    paymentEndEpoch: 0n,
-                    dataSetId: 2n,
-                  },
-                ]
-              }
-              return presets.basic.warmStorageView.getDataSet(args)
-            },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
-          },
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
         }),
         http.get('https://provider1.example.com/pdp/piece', async ({ request }) => {
           provider1Called = true
@@ -446,7 +255,7 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
 
       assert.isTrue(provider1Called || provider2Called, 'At least one provider should be called')
       assert.equal(response.status, 200)
@@ -458,7 +267,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([mockProvider1Info], [mockProvider1Service]),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
@@ -470,9 +279,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -484,13 +293,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         }),
         http.get('https://provider1.example.com/pdp/piece', async () => {
@@ -502,7 +304,7 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -512,7 +314,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([mockProvider1Info], [mockProvider1Service]),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
@@ -524,9 +326,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -538,13 +340,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         }),
         http.get('https://provider1.example.com/pdp/piece', async () => {
@@ -557,7 +352,7 @@ describe('ChainRetriever', () => {
 
       const retriever = new ChainRetriever(warmStorage, spRegistry)
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'All provider retrieval attempts failed')
@@ -576,7 +371,7 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
     })
@@ -595,7 +390,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(warmStorage, spRegistry)
 
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'No active data sets with data found')
@@ -620,7 +415,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(warmStorage, spRegistry)
 
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Database connection failed')
@@ -628,21 +423,10 @@ describe('ChainRetriever', () => {
     })
 
     it('should handle provider with no PDP product', async () => {
-      const providerNoPDPInfo: ServiceProviderInfoView = {
-        providerId: 1n,
-        info: {
-          serviceProvider: PROVIDER1_ADDRESS,
-          payee: ADDRESSES.payee1,
-          name: 'Provider 1',
-          description: 'Test provider 1',
-          isActive: true,
-        },
-      }
-
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([providerNoPDPInfo], [null]), // No PDP product
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.providerNoPDP]), // No PDP product
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
@@ -654,9 +438,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -668,13 +452,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         })
       )
@@ -682,7 +459,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(warmStorage, spRegistry)
 
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -693,10 +470,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry(
-            [mockProvider1Info, mockProvider2Info],
-            [mockProvider1Service, mockProvider2Service]
-          ),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n, 2n]],
@@ -708,9 +482,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -726,9 +500,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 2n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER2_ADDRESS,
-                    serviceProvider: PROVIDER2_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider2,
                     commissionBps: 100n,
                     clientDataSetId: 2n,
                     pdpEndEpoch: 0n,
@@ -740,13 +514,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         }),
         http.get('https://provider1.example.com/pdp/piece', async () => {
@@ -763,7 +530,7 @@ describe('ChainRetriever', () => {
       )
 
       const retriever = new ChainRetriever(warmStorage, spRegistry)
-      const response = await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+      const response = await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'success from provider2')
@@ -784,9 +551,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -798,7 +565,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
           },
           pdpVerifier: {
             ...presets.basic.pdpVerifier,
@@ -818,7 +584,7 @@ describe('ChainRetriever', () => {
       const retriever = new ChainRetriever(warmStorage, spRegistry)
 
       try {
-        await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS)
+        await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'No active data sets with data found')
@@ -833,7 +599,7 @@ describe('ChainRetriever', () => {
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([mockProvider1Info], [mockProvider1Service]),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
           warmStorageView: {
             ...presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
@@ -845,9 +611,9 @@ describe('ChainRetriever', () => {
                     pdpRailId: 1n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: CLIENT_ADDRESS,
-                    payee: PROVIDER1_ADDRESS,
-                    serviceProvider: PROVIDER1_ADDRESS,
+                    payer: ADDRESSES.client1,
+                    payee: ADDRESSES.payee1,
+                    serviceProvider: ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -859,13 +625,6 @@ describe('ChainRetriever', () => {
               }
               return presets.basic.warmStorageView.getDataSet(args)
             },
-            getAllDataSetMetadata: () => [[], []],
-          },
-          pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
-            getNextPieceId: () => [1n],
           },
         }),
         http.get('https://provider1.example.com/pdp/piece', async ({ request }) => {
@@ -886,7 +645,7 @@ describe('ChainRetriever', () => {
 
       const controller = new AbortController()
       const retriever = new ChainRetriever(warmStorage, spRegistry)
-      await retriever.fetchPiece(mockPieceCID, CLIENT_ADDRESS, { signal: controller.signal })
+      await retriever.fetchPiece(mockPieceCID, ADDRESSES.client1, { signal: controller.signal })
 
       assert.isTrue(signalPassed, 'AbortSignal should be passed to fetch')
     })

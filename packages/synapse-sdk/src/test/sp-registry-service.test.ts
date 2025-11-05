@@ -5,8 +5,7 @@ import { setup } from 'iso-web/msw'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import type { ServiceProviderInfoView } from './mocks/jsonrpc/service-registry.ts'
+import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 
 // mock server for testing
@@ -318,22 +317,10 @@ describe('SPRegistryService', () => {
     })
 
     it('should handle provider without PDP products', async () => {
-      const mockProviders: ServiceProviderInfoView[] = [
-        {
-          providerId: 1n,
-          info: {
-            serviceProvider: ADDRESSES.serviceProvider1,
-            payee: ADDRESSES.payee1,
-            name: 'Test Provider',
-            description: 'Test Provider',
-            isActive: true,
-          },
-        },
-      ]
       server.use(
         JSONRPC({
           ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry(mockProviders, [null]),
+          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.providerNoPDP]),
         })
       )
 
