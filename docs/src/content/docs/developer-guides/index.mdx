@@ -155,11 +155,9 @@ LegacyPieceCID (v1 format) conversion utilities are provided for interoperabilit
 
 **Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
 
-### Error Handling
+## Error Handling
 
 The SDK provides consistent error handling across all operations to help you debug issues quickly.
-
-All SDK methods use descriptive error messages with proper error chaining:
 
 ```typescript
 try {
