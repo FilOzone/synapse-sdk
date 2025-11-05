@@ -20,9 +20,8 @@ By the end of this guide, you'll understand how to:
 
 - Install and configure the Synapse SDK
 - Connect to Filecoin networks (mainnet and calibration)
-- Upload and download data using decentralized storage
 - Manage payments and allowances
-- Work with different authentication methods
+- Upload and download data with Synapse SDK
 - Use advanced features like CDN and custom providers
 
 ## Installation
@@ -37,7 +36,7 @@ Note: `ethers` v6 is a peer dependency and must be installed separately.
 
 ## Quick Start Example
 
-The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
+The [`Synapse`](../api/filoz/synapse-sdk/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
 
 Get started with storage in just a few lines of code:
 
@@ -181,9 +180,9 @@ Congratulations! You've successfully stored and retrieved data using the Synapse
 |                            | **Proof Verification**: Verify data integrity with PDP           |
 |                            | **Subgraph Integration**: Query blockchain data efficiently      |
 
-### Quick Examples
+#### Quick Examples
 
-#### Advanced Storage with Contexts
+##### Advanced Storage with Contexts
 
 For more control over provider selection and data set management:
 
@@ -210,7 +209,7 @@ const result = await context.upload(data);
 const downloaded = await context.download(result.pieceCid);
 ```
 
-#### Finding Service Providers
+##### Finding Service Providers
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
@@ -238,16 +237,15 @@ providers.forEach((provider) => {
 
 Ready to dive deeper? Check out these comprehensive guides:
 
+- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and FilecoinPay protocols
 - **[Storage Operations](/developer-guides/storage/)** - Complete guide to uploading, downloading, and managing datasets
 - **[Payment Management](/developer-guides/payments/)** - Learn about deposits, approvals, and monitoring costs
-- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and FilecoinPay protocols
 
-### Developer Resources
+#### Developer Resources
 
 - **[Example Application](https://github.com/FIL-Builders/fs-upload-dapp)** - Full-stack upload application
-- **[Troubleshooting]()** - Common issues and solutions
 
-### API Reference
+#### API Reference
 
 For complete API documentation, see the [API Reference](/api/filoz/synapse-sdk/readme/) which covers:
 
@@ -256,7 +254,8 @@ For complete API documentation, see the [API Reference](/api/filoz/synapse-sdk/r
 - Configuration options
 - Error handling patterns
 
-### Community & Support
+#### Community & Support
 
 - **GitHub**: [Report issues and contribute](https://github.com/FilOzone/synapse-sdk)
-- **Slack**: Join the Filecoin Slack for help and discussions
+- **Slack**: Join the `#fil-builders` on [Filecoin Slack](https://filecoin.io/slac) for help and discussions
+- **Telegram**: Join `FIL Builders` on [Telegram](https://t.me/+Xj6_zTPfcUA4MGQ1)
