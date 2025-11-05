@@ -1,6 +1,6 @@
 ---
-title: Synapse SDK
-description: A JavaScript/TypeScript SDK for interacting with Filecoin Onchain Cloud - a smart-contract based marketplace for storage and other services in the Filecoin ecosystem.
+title: Filecoin Onchain Cloud
+description: Learn how to build on Filecoin Onchain Cloud.
 template: splash
 editUrl: false
 lastUpdated: false
@@ -9,8 +9,8 @@ hero:
   image:
     file: ../../assets/corgi.png
   actions:
-    - text: Get started
-      link: intro/getting-started/
+    - text: Documentation
+      link: /introduction/about-filecoin-onchain-cloud/
       icon: right-arrow
     - text: Star on GitHub
       link: https://github.com/FilOzone/synapse-sdk
@@ -18,31 +18,39 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
-import FilozLogo from '../../assets/filoz.svg';
-import FilozLogoText from '../../assets/filoz-text.svg';
+import { Card, CardGrid } from "@astrojs/starlight/components";
+import FilozLogo from "../../assets/filoz.svg";
+import FilozLogoText from "../../assets/filoz-text.svg";
 
-## Features
+## Get Started
+
+Ready to integrate Filecoin Onchain Cloud into your application?
 
 <CardGrid>
- <Card title="Filecoin Pay" icon="seti:javascript">
-  Manage Pay account and service payments rails.
- </Card>
- <Card title="Storage" icon="seti:default">
-  Upload and download data to the Filecoin network.
- </Card>
- <Card title="React Hooks" icon="seti:react">
-  React hooks for Filecoin Pay, payment rails, storage and more.
- </Card>
- <Card title="AI support" icon="magnifier">
-  Index this website with your editor and add to your LLM context easily with `llms.txt` support.
- </Card>
+  <Card title="Filecoin Onchain Cloud" icon="seti:default">
+    Learn about the Filecoin Onchain Cloud architecture and how it works. [Learn
+    More →](/introduction/about-filecoin-onchain-cloud/)
+  </Card>
+  <Card title="Quick Start Guide" icon="rocket">
+    Get up and running in minutes with our step-by-step tutorial. [Start
+    Building →](/getting-started/)
+  </Card>
+  <Card title="Core Concepts" icon="open-book">
+    Understand the architecture and key protocols behind FOC. [Learn More
+    →](/core-concepts/architecture/)
+  </Card>
+  <Card title="Developer Guides" icon="seti:typescript">
+    Comprehensive guides for storage, payments, and monitoring. [Explore Guides
+    →](/developer-guides/)
+  </Card>
 </CardGrid>
 
 <div className="footer">
   <p>Brought to you by</p>
-  <a href="https://filoz.org" target="_blank"><div className="filoz">
-    <FilozLogo />
-    <FilozLogoText />
-  </div></a>
+  <a href="https://filoz.org" target="_blank">
+    <div className="filoz">
+      <FilozLogo />
+      <FilozLogoText />
+    </div>
+  </a>
 </div>

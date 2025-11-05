@@ -1,0 +1,216 @@
+---
+title: FilecoinPay Cookbook
+description: Core concepts for building automated payment systems with native token streaming.
+sidebar:
+  order: 0
+---
+
+:::tip[Looking for Technical Details?]
+This guide focuses on **conceptual understanding** and **use cases**. For technical implementation details, smart contract functions, and integration patterns, see the [**FilecoinPay Technical Overview**](/core-concepts/filecoin-pay-overview).
+:::
+
+## What is FilecoinPay?
+
+FilecoinPay transforms how Web3 services get paid. A token agnostic payment system that supports payment flows through "rails" - automated payment channels between payers and recipients. FilecoinPay supports continuous rate based payments, one-time transfers, and payment validation during settlement.
+
+**Before FilecoinPay:**
+
+- Manual invoicing and payments
+- Trust-based service agreements
+- No automatic quality enforcement
+- No support for streaming payments using native tokens
+
+**With FilecoinPay:**
+
+- Continuous, automatic payments
+- Cryptographic guarantees and verifiable delivery
+- Programmable quality checks with instant consequences
+- Supports both streaming and one-time payments
+- Supports native token streaming
+
+The real innovation isn't just streaming payments - it's enabling **trustless business relationships** where math and code enforce agreements, eliminating the need for intermediaries and manual oversight.
+
+## Core Concepts
+
+### Payment Rails
+
+A "payment rail" is like setting up an automated pipeline between two parties. Instead of making manual payments every month, you establish a continuous flow that moves funds automatically at a steady rate.
+
+**Traditional one-time payment:**
+You manually send $100 to a friend once.
+
+**FilecoinPay payment rail:**
+You set up an automatic stream of $100/month for 3 months. Payments flow continuously without any manual intervention, with built-in guarantees that protect both parties.
+
+### Lockup
+
+Unlike traditional escrow systems that lock funds away completely, FilecoinPay uses a "lockup" mechanism that reserves funds while keeping them in your account.
+
+Think of it like a credit card authorization at a hotel:
+
+- The hotel reserves $200 on your card for incidentals
+- The money stays in your account and isn't charged yet
+- You can still use the rest of your balance freely
+- The reservation protects the hotel while giving you flexibility
+
+**Benefits:**
+
+- Recipients get payment guarantees without full escrow
+- Payers maintain access to their funds
+- More capital efficient than traditional escrow systems
+
+### Three-Party Model
+
+FilecoinPay supports a flexible three-party structure:
+
+1. **Payer**: The account owner who has funds and sets spending limits
+2. **Payee**: The service provider who receives automatic payments
+3. **Operator**: A smart contract service (or the payer themselves) that manages payment rails on the payer's behalf
+
+### Epochs and Time
+
+FilecoinPay measures time in "epochs" - roughly 30-second intervals on the Filecoin blockchain. Payment rates are specified per-epoch:
+
+- 1 month ≈ 86,400 epochs
+- 1 day ≈ 2,880 epochs
+
+This granular timing enables smooth, continuous payment flows rather than large periodic transfers.
+
+### Validators
+
+Validators are optional quality-checking mechanisms that can verify service delivery before releasing payments. They can:
+
+- Verify uptime and performance metrics
+- Check proof-of-work or proof-of-delivery
+- Implement custom business logic
+- Adjust or block payments based on service quality
+
+## How It Works: A Simple Example
+
+**Scenario**: Bob wants to pay Alice $500/month for the next 3 months.
+
+**The Setup:**
+
+1. Bob deposits funds into the payment system
+2. Bob creates a payment rail to Alice specifying:
+   - Payment rate: $500/month
+   - Duration: 3 months (lockup period)
+   - Optional validator for quality checks
+3. Payments begin flowing automatically from Bob to Alice
+
+**What Happens:**
+
+- Bob's account shows $1,500 locked (3 months × $500)
+- Funds continuously accumulate in Alice's account
+- Alice can collect (settle) payments at any time
+- No manual intervention needed - it's fully automatic
+
+**The Result:**
+
+- Bob doesn't need to remember monthly payments
+- Alice gets guaranteed, predictable income
+- Both parties have on-chain proof of payment history
+
+## What You Can Build: Advanced Patterns
+
+FilecoinPay's power comes from combining payment rails with custom validators that check service quality. Here are the key patterns that enable sophisticated Web3 applications.
+
+- **Off-Chain Service Verification (via Gelato Functions)**
+
+  **What it does:** Uses oracle networks to verify off-chain services (APIs, web services, databases) and trigger on-chain payments based on real-world performance.
+
+  **Use cases:**
+  - Web hosting services that pay based on actual uptime
+  - API providers compensated for response time and availability
+  - Content delivery networks with performance-based pricing
+
+  **How it works:** Automated checks run periodically (every hour, for example) to query your service's health endpoint. Results are stored on-chain and used to calculate payments. If uptime is 95%, you receive 95% of the full payment.
+
+  **Benefits:** Trustless verification of off-chain services without manual reporting.
+
+---
+
+- **Verifiable Computation (via Zero-Knowledge Proofs)**
+
+  **What it does:** Requires cryptographic proofs of correct computation or data processing without revealing the underlying data.
+
+  **Use cases:**
+  - Privacy-preserving data processing services
+  - Verifiable AI model inference without exposing models
+  - Trustless computation marketplaces
+
+  **How it works:** Service providers submit zero-knowledge proofs at regular intervals proving they performed the agreed-upon work. Payments are proportional to proof submission - if you submit 8 out of 10 required proofs, you receive 80% payment.
+
+  **Benefits:** Verify work was done correctly without accessing private data or proprietary algorithms.
+
+---
+
+- **Service Level Agreement (SLA) Enforcement**
+
+  **What it does:** Automatically enforces uptime and performance requirements with graduated penalties.
+
+  **Use cases:**
+  - Cloud services with 99.9% uptime guarantees
+  - API providers with response time requirements
+  - Hosting services with availability commitments
+
+  **How it works:** Define specific targets (e.g., 99% uptime, 100ms response time) with grace periods. Initial violations are free, but repeated failures trigger automatic payment reductions. Hit your targets, get full pay. Miss them, face proportional penalties.
+
+  **Benefits:** Self-enforcing contracts that don't require dispute resolution or manual intervention.
+
+---
+
+- **Progressive Penalty System**
+
+  **What it does:** Implements escalating consequences for repeated failures with automatic circuit breakers.
+
+  **Use cases:**
+  - Critical infrastructure requiring high reliability
+  - Services where repeated failures indicate serious problems
+  - Quality control with increasing stakes
+
+  **How it works:** First failure = 10% penalty. Third failure = 25% penalty. Fifth failure = 50% penalty. After 10 failures, payments stop completely (circuit breaker). Success resets the counter. This encourages quick problem resolution while protecting against persistent issues.
+
+  **Benefits:** Balances tolerance for occasional issues with protection against systemic problems.
+
+---
+
+- **Time-Weighted Quality Scoring**
+
+  **What it does:** Maintains a quality score that decays over time and adjusts based on recent performance.
+
+  **Use cases:**
+  - ML model serving with accuracy metrics
+  - Content delivery with user satisfaction scores
+  - Dynamic reputation systems for service providers
+
+  **How it works:** Your quality score starts at 100. Each measurement updates the score using exponential moving average - recent performance matters more than old data. The score naturally decays if not updated, incentivizing consistent performance. Payments scale directly with score.
+
+  **Benefits:** Recent performance matters most, encouraging continuous quality improvement.
+
+---
+
+- **Milestone-Based Settlement**
+
+  **What it does:** Releases payments only when specific deliverables are completed and verified.
+
+  **Use cases:**
+  - Software development contracts with feature milestones
+  - Grant funding with deliverable requirements
+  - Project-based work with staged payments
+
+  **How it works:** Define milestones upfront with proof requirements. Complete milestone 1, submit proof, receive payment 1. No shortcuts - you must complete milestones in order. Payments are locked until proof is verified.
+
+  **Benefits:** Clear expectations, provable delivery, automatic payment on completion.
+
+---
+
+## Next Steps
+
+Ready to dive deeper?
+
+- [FilecoinPay Technical Overview](/core-concepts/filecoin-pay-overview) - Technical architecture and implementation details
+- [System Architecture](/core-concepts/architecture) - How FilecoinPay integrates with the broader system
+- [Developer Guides](/developer-guides/) - Start building applications with FilecoinPay
+
+FilecoinPay represents a fundamental shift in how Web3 infrastructure gets paid - from manual, trust-based payments to automated, verifiable, programmable payment rails. The patterns above are just the beginning of what's possible.

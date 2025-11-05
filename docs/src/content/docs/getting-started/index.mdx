@@ -1,0 +1,262 @@
+---
+title: Quick Start with Synapse SDK
+description: Learn how to install and use the Synapse SDK.
+sidebar:
+  order: 0
+---
+
+The **Synapse SDK** is your gateway to **Filecoin Onchain Cloud** — a decentralized, programmable cloud platform built on Filecoin. This comprehensive guide will walk you through everything you need to know to start building with the SDK.
+
+The Synapse SDK provides an interface to Filecoin's decentralized services ecosystem:
+
+- **🚀 Recommended Usage**: Use the high-level `Synapse` class for a streamlined experience with sensible defaults
+- **🔧 Composable Components**: Import and use individual components for fine-grained control over specific functionality
+
+The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
+
+### What You'll Learn
+
+By the end of this guide, you'll understand how to:
+
+- Install and configure the Synapse SDK
+- Connect to Filecoin networks (mainnet and calibration)
+- Upload and download data using decentralized storage
+- Manage payments and allowances
+- Work with different authentication methods
+- Use advanced features like CDN and custom providers
+
+## Installation
+
+The Synapse SDK requires Node.js 18+ and can be installed via npm, yarn, or pnpm:
+
+```bash
+pnpm install @filoz/synapse-sdk ethers
+```
+
+Note: `ethers` v6 is a peer dependency and must be installed separately.
+
+## Quick Start Example
+
+The [`Synapse`](/api/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
+
+Get started with storage in just a few lines of code:
+
+### 1: Initialize the SDK
+
+First, set up the Synapse SDK with your credentials:
+
+```ts twoslash
+import { Synapse, RPC_URLS } from "@filoz/synapse-sdk";
+
+// Initialize SDK with your private key and RPC endpoint
+const synapse = await Synapse.create({
+  privateKey: "0x...", // Your private key
+  rpcURL: RPC_URLS.calibration.websocket, // Use calibration testnet for testing
+});
+
+console.log("SDK initialized successfully!");
+console.log(`Connected to network: ${synapse.getNetwork()}`);
+```
+
+### 2: Get Test Tokens
+
+Before you can deposit USDFC, you'll need test tokens from faucets. For the calibration testnet:
+
+**Get tFIL tokens:**
+
+- Visit the [Filecoin Calibration Faucet](https://faucet.calibnet.chainsafe-fil.io/funds.html)
+- Enter your wallet address to receive free tFIL tokens
+- You need FIL for gas fees
+
+**Get test USDFC tokens:**
+
+- Visit the [Filecoin Calibration USDFC Faucet](https://forest-explorer.chainsafe.dev/faucet/calibnet_usdfc)
+- Enter your wallet address to receive free test USDFC tokens
+- You need USDFC for storage payments
+
+### 3: USDFC Deposit
+
+Before storing data, you need to deposit USDFC tokens in your payments account:
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+import { TOKENS } from "@filoz/synapse-sdk";
+import { ethers } from "ethers";
+
+// Check current USDFC balance
+const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
+console.log(
+  `Wallet USDFC balance: ${ethers.formatUnits(walletBalance, 18)} USDFC`
+);
+
+const depositAmount = ethers.parseUnits("5", 18);
+
+console.log("💰 Depositing 5 USDFC tokens to the FilecoinPay contract...");
+
+// Handling the approve and deposit in one transaction
+const tx = await synapse.payments.depositWithPermit(
+  depositAmount,
+  TOKENS.USDFC // Token: USDFC
+);
+await tx.wait();
+
+console.log("✅ USDFC deposit successful!");
+```
+
+### 4: Payment Setup
+
+Approve the storage service to create & manage payment rails on your behalf:
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+import { ethers } from "ethers";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
+// Get Warm Storage address
+const warmStorageAddress = synapse.getWarmStorageAddress();
+console.log(`Approving Warm Storage service: ${warmStorageAddress}`);
+
+const tx = await synapse.payments.approveService(
+  warmStorageAddress,
+  ethers.parseUnits("10", 18), // Rate allowance: 10 USDFC per epoch
+  ethers.parseUnits("1000", 18), // Lockup allowance: 1000 USDFC total
+  TIME_CONSTANTS.EPOCHS_PER_MONTH // Max lockup period: 30 days (in epochs)
+);
+await tx.wait();
+console.log("Service approval complete!");
+```
+
+### 5: Store and Download Data
+
+Now you can upload data to decentralized storage and retrieve it:
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+// Upload data - SDK automatically selects provider and creates data set if needed
+// (your first upload will take longer than subsequent uploads due to setup)
+const uploadResult = await synapse.storage.upload(
+  new TextEncoder().encode(
+    "🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍"
+  )
+);
+
+console.log(`Upload complete!`);
+console.log(`PieceCID: ${uploadResult.pieceCid}`);
+console.log(`Size: ${uploadResult.size} bytes`);
+
+// Download data from any provider that has it
+const data = await synapse.storage.download(uploadResult.pieceCid);
+const text = new TextDecoder().decode(data);
+
+console.log("Downloaded data:", text);
+console.log("✅ Data storage and retrieval successful!");
+```
+
+## What's Next?
+
+Congratulations! You've successfully stored and retrieved data using the Synapse SDK. But this is just the beginning - the SDK offers many powerful features for building decentralized applications:
+
+### Key Features
+
+| Category                   | Features                                                         |
+| -------------------------- | ---------------------------------------------------------------- |
+| 🗄️ **Advanced Storage**    | **CDN Integration**: Enable fast global content delivery         |
+|                            | **Metadata Management**: Tag and organize your data              |
+|                            | **Batch Operations**: Upload multiple files efficiently          |
+| 💰 **Payment Management**  | **Automated Settlements**: Handle payment rails automatically    |
+|                            | **Cost Estimation**: Preview storage costs before uploading      |
+|                            | **Allowance Management**: Control spending limits                |
+| 🛠️ **Developer Tools**     | **Session Keys**: Improve user experience with delegated signing |
+|                            | **Progress Callbacks**: Track upload/download progress           |
+|                            | **Error Handling**: Comprehensive error management               |
+| 🌐 **Network Integration** | **Provider Discovery**: Find optimal storage providers           |
+|                            | **Proof Verification**: Verify data integrity with PDP           |
+|                            | **Subgraph Integration**: Query blockchain data efficiently      |
+
+### Quick Examples
+
+#### Advanced Storage with Contexts
+
+For more control over provider selection and data set management:
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+const data = {} as unknown as Uint8Array;
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+// Create a storage context with specific provider
+const context = await synapse.storage.createContext({
+  providerId: 1, // Use specific provider
+  withCDN: true, // Enable CDN for faster retrieval
+  metadata: {
+    category: "documents",
+    version: "1.0",
+  },
+});
+
+// Upload to this specific context
+const result = await context.upload(data);
+
+// Download from this context
+const downloaded = await context.download(result.pieceCid);
+```
+
+#### Finding Service Providers
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+// Get all approved providers
+const storageInfo = await synapse.storage.getStorageInfo();
+const providers = storageInfo.providers;
+
+console.log("Available providers:");
+providers.forEach((provider) => {
+  console.table({
+    ID: provider.id,
+    Name: provider.name,
+    Description: provider.description,
+    Active: provider.active,
+    ProviderAddress: provider.serviceProvider,
+    PDPServiceURL: provider.products.PDP!.data.serviceURL,
+  });
+});
+```
+
+### Explore More
+
+Ready to dive deeper? Check out these comprehensive guides:
+
+- **[Storage Operations](/developer-guides/storage/)** - Complete guide to uploading, downloading, and managing datasets
+- **[Payment Management](/developer-guides/payments/)** - Learn about deposits, approvals, and monitoring costs
+- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and FilecoinPay protocols
+
+### Developer Resources
+
+- **[Example Application](https://github.com/FIL-Builders/fs-upload-dapp)** - Full-stack upload application
+- **[Troubleshooting]()** - Common issues and solutions
+
+### API Reference
+
+For complete API documentation, see the [API Reference](/api/filoz/synapse-sdk/readme/) which covers:
+
+- All SDK classes and methods
+- TypeScript interfaces and types
+- Configuration options
+- Error handling patterns
+
+### Community & Support
+
+- **GitHub**: [Report issues and contribute](https://github.com/FilOzone/synapse-sdk)
+- **Slack**: Join the Filecoin Slack for help and discussions

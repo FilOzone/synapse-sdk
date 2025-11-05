@@ -1,0 +1,128 @@
+---
+title: React Integration
+description: Guide to integrating Synapse SDK into React applications with Wagmi or MetaMask.
+sidebar:
+  order: 6
+---
+
+## Setup
+
+**Install dependencies:**
+
+```bash
+# Core (required)
+npm install @filoz/synapse-sdk ethers
+
+# Wagmi integration (recommended)
+npm install wagmi viem @tanstack/react-query
+```
+
+**Requirements:**
+
+- React 18+, Ethers 6.x, Wagmi 2.x (if used), Node 18+
+- Connected Web3 wallet
+- Supported networks: Filecoin Mainnet, Filecoin Calibration
+
+## Wagmi Integration (Recommended)
+
+Multi-wallet support, React Query caching, type-safe.
+
+### 1. viem to ethers Signer Hook
+
+```typescript
+import { BrowserProvider, JsonRpcSigner } from "ethers";
+import { type Config, useConnectorClient } from "wagmi";
+
+export const useEthersSigner = ({ chainId }: { chainId?: number } = {}) => {
+  const { data: client } = useConnectorClient<Config>({ chainId });
+  if (!client) return null;
+  const { account, chain, transport } = client;
+  const provider = new BrowserProvider(transport, {
+    chainId: chain.id,
+    name: chain.name,
+  });
+  return new JsonRpcSigner(provider, account.address);
+};
+```
+
+### 2. Simple Component Example
+
+```tsx
+import { Synapse, TOKENS } from "@filoz/synapse-sdk";
+import { ethers } from "ethers";
+import { useEffect, useState } from "react";
+import { useEthersSigner } from "./useEthersSigner";
+
+const SimpleWagmiExample = () => {
+  const signer = useEthersSigner();
+  const [synapse, setSynapse] = useState<Synapse | null>(null);
+
+  useEffect(() => {
+    if (signer)
+      Synapse.create({ signer }).then(setSynapse).catch(console.error);
+  }, [signer]);
+
+  const deposit = async () => {
+    if (!synapse) return;
+    const amount = ethers.parseUnits("1", 18);
+    const tx = await synapse.payments.deposit(amount, TOKENS.USDFC);
+    await tx.wait();
+    alert("Deposit confirmed!");
+  };
+
+  return synapse ? (
+    <button onClick={deposit}>Deposit 1 USDFC</button>
+  ) : (
+    <div>Connect wallet</div>
+  );
+};
+```
+
+## MetaMask Integration
+
+Minimal dependencies, smaller bundle. MetaMask-only.
+
+```tsx
+import { Synapse, TOKENS } from "@filoz/synapse-sdk";
+import { BrowserProvider } from "ethers";
+import { useState } from "react";
+import { ethers } from "ethers";
+
+const SimpleMetaMaskExample = () => {
+  const [synapse, setSynapse] = useState<Synapse | null>(null);
+
+  const connect = async () => {
+    if (!window.ethereum) return alert("Install MetaMask");
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const provider = new BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    setSynapse(await Synapse.create({ signer }));
+  };
+  const deposit = async () => {
+    if (!synapse) return;
+    const amount = ethers.parseUnits("1", 18);
+    const tx = await synapse.payments.deposit(amount, TOKENS.USDFC);
+    await tx.wait();
+    alert("Deposit confirmed!");
+  };
+
+  return synapse ? (
+    <button onClick={deposit}>Deposit 1 USDFC</button>
+  ) : (
+    <button onClick={connect}>Connect MetaMask</button>
+  );
+};
+```
+
+## Next Steps
+
+#### Ready to Build?
+
+Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
+
+- [**Storage Operations →**](/developer-guides/storage) - Upload and download your first file
+- [**Storage Context →**](/developer-guides/storage/storage-context) - Advanced storage operations and batch uploads
+- [**Payment Operations →**](/developer-guides/payments) - Fund your account and manage payments
+- [**Rails & Settlement →**](/developer-guides/payments/rails-settlement) - Payment mechanics and settlement strategies
+
+**Resources**: [Wagmi](https://wagmi.sh) · [Ethers v6](https://docs.ethers.org/v6/) · [React](https://react.dev/learn) · [Filecoin](https://docs.filecoin.io)

@@ -1,0 +1,407 @@
+---
+title: Storage Context
+description: Guides for using the Storage Context API.
+sidebar:
+  order: 6
+---
+
+:::tip[Advanced Guide]
+This guide is for developers who need fine-grained control over storage operations.
+You'll learn about explicit provider selection, batch uploads, lifecycle management, and download strategies.
+
+**Audience**: Experienced developers building production applications
+**Prerequisites**: Complete the [Storage Operations Guide](./index) first
+**When to use this**: Batch operations, custom callbacks, specific provider requirements, advanced error handling
+:::
+
+## Storage Context Overview
+
+A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](./index), contexts give you explicit control over these key capabilities:
+
+- **Provider Selection**: Choose specific providers for your data
+- **Data Set Management**: Create, reuse, and manage data sets explicitly
+- **Batch Operations**: Upload multiple pieces efficiently with progress tracking
+- **Lifecycle Control**: Terminate data sets and delete pieces when needed
+- **Download Strategies**: Choose between SP-agnostic and SP-specific retrieval
+
+This guide assumes you've already completed the [Storage Operations Guide](./index) and understand the basics of uploading and downloading data.
+
+### Creating a Storage Context
+
+Behind the scenes, context creation may be:
+
+- **Fast (< 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
+- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (e.g., creating a brand new data set)
+
+#### Advanced Usage with Callbacks
+
+Monitor the creation process with detailed callbacks to track progress:
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+const storageContext = await synapse.storage.createContext({
+  providerAddress: "0x...", // Optional: use specific provider address
+  withCDN: true, // Optional: enable CDN for faster downloads
+  metadata: {
+    Application: "Filecoin Storage DApp",
+    Version: "1.0.0",
+    Category: "AI",
+  },
+  callbacks: {
+    onDataSetResolved: (info) => {
+      console.log(`Data set resolved: ${info.dataSetId}`);
+    },
+    onProviderSelected: (provider) => {
+      console.log(`Selected provider: ${provider}`);
+    },
+  },
+});
+```
+
+#### Creation Options
+
+```typescript
+interface StorageServiceOptions {
+  providerId?: number; // Specific provider ID to use
+  providerAddress?: string; // Specific provider address to use
+  dataSetId?: number; // Specific data set ID to use
+  withCDN?: boolean; // Enable CDN services (alias for metadata: { withCDN: '' })
+  metadata?: Record<string, string>; // Metadata requirements for data set selection/creation
+  callbacks?: StorageContextCallbacks; // Progress callbacks
+  uploadBatchSize?: number; // Max uploads per batch (default: 32, min: 1)
+}
+```
+
+#### Data Set Selection and Matching
+
+:::tip[Metadata Matching for Cost Efficiency]
+**The SDK reuses existing data sets when metadata matches exactly**, avoiding unnecessary dataset creation costs. To maximize reuse:
+
+- Use consistent metadata keys and values across uploads
+- Avoid changing metadata unnecessarily
+- Group related content with the same metadata
+
+**Example**: If you create a dataset with `{Application: "MyApp", Version: "1.0"}`, all subsequent uploads with the same metadata will reuse that dataset and its payment rail.
+:::
+
+The SDK intelligently manages data sets to minimize on-chain transactions. The selection behavior depends on the parameters you provide:
+
+**Selection Scenarios**:
+
+1. **Explicit data set ID**: If you specify `dataSetId`, that exact data set is used (must exist and be accessible)
+2. **Specific provider**: If you specify `providerId` or `providerAddress`, the SDK searches for matching data sets only within that provider's existing data sets
+3. **Automatic selection**: Without specific parameters, the SDK searches across all your data sets with any approved provider
+
+**Exact Metadata Matching**: In scenarios 2 and 3, the SDK will reuse an existing data set only if it has **exactly** the same metadata keys and values as requested. This ensures data sets remain organized according to your specific requirements.
+
+**Selection Priority**: When multiple data sets match your criteria:
+
+- Data sets with existing pieces are preferred over empty ones
+- Within each group (with pieces vs. empty), the oldest data set (lowest ID) is selected
+
+**Provider Selection** (when no matching data sets exist):
+
+- If you specify a provider (via `providerId` or `providerAddress`), that provider is used
+- Otherwise, the SDK currently uses random selection from all approved providers
+- Before finalizing selection, the SDK verifies the provider is reachable via a ping test
+- If a provider fails the ping test, the SDK tries the next candidate
+- After the provider is selected, the SDK will automatically create a new data set in the next file upload.
+
+**API Design**:
+
+```ts twoslash
+import {
+  PieceCID,
+  UploadResult,
+  ProviderInfo,
+  PreflightInfo,
+  PieceStatus,
+} from "@filoz/synapse-sdk";
+import { ethers } from "ethers";
+type Transaction = Promise<ethers.TransactionResponse>;
+type Hex = `0x${string}`;
+/**
+ * Callbacks for tracking upload progress
+ *
+ * These callbacks provide visibility into the upload process stages:
+ * 1. Upload completion (piece uploaded to provider)
+ * 2. Piece addition (transaction submitted to chain)
+ * 3. Confirmation (transaction confirmed on-chain)
+ */
+export interface UploadCallbacks {
+  /** Called when upload to service provider completes */
+  onUploadComplete?: (pieceCid: PieceCID) => void;
+  /** Called when the service provider has added the piece and submitted the transaction to the chain */
+  onPieceAdded?: (transaction?: Hex) => void;
+  /** Called when the service provider agrees that the piece addition is confirmed on-chain */
+  onPieceConfirmed?: (pieceIds: number[]) => void;
+}
+
+/**
+ * Options for uploading individual pieces to an existing storage context
+ * @param metadata - Custom metadata for this specific piece (key-value pairs)
+ * @param onUploadComplete - Called when upload to service provider completes
+ * @param onPieceAdded - Called when the service provider has added the piece and submitted the transaction to the chain
+ * @param onPieceConfirmed - Called when the service provider agrees that the piece addition is confirmed on-chain
+ */
+type UploadOptions = {
+  metadata?: Record<string, string>;
+  onUploadComplete?: (pieceCid: PieceCID) => void;
+  onPieceAdded?: (transaction?: Hex) => void;
+  onPieceConfirmed?: (pieceIds: number[]) => void;
+};
+// ---cut---
+interface StorageContextAPI {
+  // Properties
+  readonly provider: ProviderInfo;
+  readonly serviceProvider: string;
+  readonly withCDN: boolean;
+  readonly dataSetId: number | undefined;
+  readonly dataSetMetadata: Record<string, string>;
+
+  // Upload & Download
+  upload(
+    data: Uint8Array | ArrayBuffer,
+    options?: UploadOptions
+  ): Promise<UploadResult>;
+  download(pieceCid: string | PieceCID): Promise<Uint8Array>;
+
+  // Piece Queries
+  hasPiece(pieceCid: string | PieceCID): Promise<boolean>;
+  pieceStatus(pieceCid: string | PieceCID): Promise<PieceStatus>;
+  getDataSetPieces(): Promise<PieceCID[]>;
+
+  // Piece Management
+  deletePiece(piece: string | PieceCID | number): Promise<string>;
+
+  // Info & Preflight
+  getProviderInfo(): Promise<ProviderInfo>;
+  preflightUpload(size: number): Promise<PreflightInfo>;
+
+  // Lifecycle
+  terminate(): Transaction;
+}
+```
+
+### Storage Context Methods
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+const storageContext = await synapse.storage.createContext({
+  providerAddress: "0x...", // Optional: use specific provider address
+  withCDN: true, // Optional: enable CDN for faster downloads
+  metadata: {
+    Application: "Filecoin Storage DApp",
+    Version: "1.0.0",
+    Category: "AI",
+  },
+});
+
+const llmModel = "sonnnet-4.5";
+const conversationId = "1234567890";
+
+const data = new TextEncoder().encode("Deep research on decentralization...");
+
+const preflight = await storageContext.preflightUpload(data.length);
+
+console.log("Estimated costs:", preflight.estimatedCost);
+console.log("Allowance sufficient:", preflight.allowanceCheck.sufficient);
+
+const { pieceCid, size, pieceId } = await storageContext.upload(data, {
+  metadata: { llmModel, conversationId },
+  onUploadComplete: (piece) => {
+    console.log(
+      `Uploaded PieceCID: ${piece.toV1().toString()} to storage provider!`
+    );
+  },
+  onPieceAdded: (hash) => {
+    console.log(
+      `🔄 Waiting for transaction to be confirmed on chain (txHash: ${hash})`
+    );
+  },
+  onPieceConfirmed: () => {
+    console.log("Data pieces added to dataset successfully");
+  },
+});
+
+const receivedData = await storageContext.download(pieceCid);
+
+console.log(`Received data: ${new TextDecoder().decode(receivedData)}`);
+
+// Get the list of piece CIDs in the current data set by querying the provider
+const pieceCids = await storageContext.getDataSetPieces();
+console.log(`Piece CIDs: ${pieceCids.map((cid) => cid.toString()).join(", ")}`);
+
+// Check the status of a piece on the service provider
+const status = await storageContext.pieceStatus(pieceCid);
+console.log(`Piece exists: ${status.exists}`);
+console.log(`Data set last proven: ${status.dataSetLastProven}`);
+console.log(`Data set next proof due: ${status.dataSetNextProofDue}`);
+```
+
+##### Efficient Batch Uploads
+
+When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
+The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
+
+:::tip[Batch Upload Performance]
+**For best performance, start all uploads without awaiting** and let the SDK batch them automatically. This can significantly reduce total upload time for multiple files.
+
+```typescript
+// ✅ Efficient: Batched automatically
+const uploads = dataArray.map((data) => context.upload(data));
+const results = await Promise.all(uploads);
+
+// ❌ Slow: Forces sequential processing
+for (const data of dataArray) {
+  await context.upload(data);
+}
+```
+
+:::
+
+### Terminating a Data Set
+
+:::warning[Irreversible Operation]
+**Data set termination cannot be undone.** Once initiated:
+
+- The termination transaction is irreversible
+- After the termination period, the provider may delete all data
+- Payment rails associated with the dataset will be terminated
+- You cannot cancel the termination
+
+Only terminate datasets when you're certain you no longer need the data.
+:::
+
+To delete an entire data set and discontinue payments for the service, call `context.terminate()`.
+This method submits an on-chain transaction to initiate the termination process. Following a defined termination period, payments will cease, and the service provider will be able to delete the data set.
+
+You can also terminate a data set using `synapse.storage.terminateDataSet(dataSetId)`, in a case that creation of the context is not possible or `dataSetId` is known and creation of the context is not necessary.
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+const storageContext = await synapse.storage.createContext({
+  providerAddress: "0x...", // Optional: use specific provider address
+  withCDN: true, // Optional: enable CDN for faster downloads
+});
+const datasetTerminationTx = await storageContext.terminate();
+console.log(`Dataset termination transaction: ${datasetTerminationTx.hash}`);
+
+await datasetTerminationTx.wait();
+console.log("Dataset terminated successfully");
+```
+
+### Deleting a Piece
+
+To delete an individual piece from the data set, call `context.deletePiece(pieceCid)`.
+This method submits an on-chain transaction to initiate the deletion process.
+
+**Important:** Piece deletion is irreversible and cannot be canceled once initiated.
+
+```ts twoslash
+import { Synapse } from "@filoz/synapse-sdk";
+// @ts-ignore
+const synapse = await Synapse.create();
+// ---cut---
+const storageContext = await synapse.storage.createContext({
+  providerAddress: "0x...", // Optional: use specific provider address
+  withCDN: true, // Optional: enable CDN for faster downloads
+});
+
+// Collect all pieces at once
+const pieces = [];
+for await (const piece of storageContext.getPieces()) {
+  pieces.push(piece);
+}
+
+// Delete the first piece
+await storageContext.deletePiece(pieces[0].pieceId);
+console.log(
+  `Piece ${pieces[0].pieceCid} (ID: ${pieces[0].pieceId}) deleted successfully`
+);
+```
+
+### Download Options
+
+The SDK provides flexible download options with clear semantics:
+
+#### SP-Agnostic Download (from anywhere)
+
+Download pieces from any available provider using the StorageManager:
+
+```typescript
+// Download from any provider that has the piece
+const data = await synapse.storage.download(pieceCid);
+
+// Download with CDN optimization (if available)
+const dataWithCDN = await synapse.storage.download(pieceCid, { withCDN: true });
+
+// Prefer a specific provider (falls back to others if unavailable)
+const dataFromProvider = await synapse.storage.download(pieceCid, {
+  providerAddress: "0x...",
+});
+```
+
+#### Context-Specific Download (from this provider)
+
+When using a StorageContext, downloads are automatically restricted to that specific provider:
+
+```typescript
+// Downloads from the provider associated with this context
+const context = await synapse.storage.createContext({
+  providerAddress: "0x...",
+});
+const data = await context.download(pieceCid);
+
+// The context passes its withCDN setting to the download
+const contextWithCDN = await synapse.storage.createContext({ withCDN: true });
+const dataWithCDN = await contextWithCDN.download(pieceCid); // Uses CDN if available
+```
+
+#### CDN Option Inheritance
+
+The `withCDN` option (which is an alias for `metadata: { withCDN: '' }`) follows a clear inheritance hierarchy:
+
+1. **Synapse level**: Default setting for all operations
+2. **StorageContext level**: Can override Synapse's default
+3. **Method level**: Can override instance settings
+
+```typescript
+// Example of inheritance
+const synapse = await Synapse.create({ withCDN: true }); // Global default: CDN enabled
+const context = await synapse.storage.createContext({ withCDN: false }); // Context override: CDN disabled
+await synapse.storage.download(pieceCid); // Uses Synapse's withCDN: true
+await context.download(pieceCid); // Uses context's withCDN: false
+await synapse.storage.download(pieceCid, { withCDN: false }); // Method override: CDN disabled
+```
+
+Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's metadata, ensuring CDN-enabled and non-CDN data sets remain separate.
+
+## Next Steps
+
+Now that you understand Storage Context and advanced operations:
+
+- **[Calculate Storage Costs →](./storage-costs)**
+  Plan your budget and fund your storage account.
+  _Use the quick calculator to estimate monthly costs._
+
+- **[Storage Operations Basics →](./index)**
+  Review fundamental storage concepts and auto-managed operations.
+  _Good for a refresher on the simpler approach._
+
+- **[Component Architecture →](/developer-guides/components)**
+  Understand how StorageContext fits into the SDK design.
+  _Deep dive into the component architecture._
+
+- **[Payment Management →](/developer-guides/payments/)**
+  Manage deposits, approvals, and payment rails.
+  _Required before your first upload._
