@@ -2,7 +2,8 @@
 title: Storage Operations
 description: Learn how to store and retrieve data using the Synapse SDK.
 sidebar:
-  order: 4
+  
+  order: 1
 ---
 
 :::tip[Purpose]
@@ -16,7 +17,7 @@ You'll learn the fundamentals of uploading data, managing data sets, and retriev
 
 This guide explains the core storage concepts and provides examples of how to use the Synapse SDK to store, retrieve, and manage data on Filecoin On-Chain Cloud.
 
-## Key Concepts
+### Key Concepts
 
 **Data Set**: A logical container of pieces stored with one provider. When a data set is created, a payment rail is established with that provider. All pieces in the data set share this single payment rail and are verified together via PDP proofs.
 
@@ -31,7 +32,7 @@ This guide explains the core storage concepts and provides examples of how to us
 
 **Storage Context**: A connection to a specific storage provider and data set. Created explicitly for fine-grained control or automatically by StorageManager. Enables uploads and downloads with the specific storage provider.
 
-## Storage Approaches
+### Storage Approaches
 
 The SDK offers two ways to work with storage operations:
 

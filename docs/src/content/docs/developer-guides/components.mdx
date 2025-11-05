@@ -9,13 +9,13 @@ This page describes the components of the Synapse SDK and how they work together
 
 The SDK is built from these core components:
 
-- `Synapse` - Main SDK entry point with simple, high-level API
-- `PaymentsService` - SDK client for managing deposits, approvals, and payment rails (interacts with FilecoinPay V1 contract)
-- `StorageManager`, `StorageContext` - Storage operation classes
-- `WarmStorageService` - SDK client for storage coordination and pricing (interacts with WarmStorage contract)
-- `PDPVerifier` - Client for PDPVerifier contract - get dataset and piece status, create data sets and add pieces
-- `PDPServer` - HTTP client for Curio providers - create data sets and add pieces
-- `PDPAuthHelper` - Signature generation utility - Generate EIP-712 signatures for authenticated operations (create data sets and add pieces)
+- **`Synapse`** - Main SDK entry point with simple, high-level API
+- **`PaymentsService`** - SDK client for managing deposits, approvals, and payment rails (interacts with FilecoinPay V1 contract)
+- **`StorageManager`**, **`StorageContext`** - Storage operation classes
+- **`WarmStorageService`** - SDK client for storage coordination and pricing (interacts with WarmStorage contract)
+- **`PDPVerifier`** - Client for PDPVerifier contract - get dataset and piece status, create data sets and add pieces
+- **`PDPServer`** - HTTP client for Curio providers - create data sets and add pieces
+- **`PDPAuthHelper`** - Signature generation utility - Generate EIP-712 signatures for authenticated operations (create data sets and add pieces)
 
 The following diagram illustrates how these components relate to each other and the external systems they interact with:
 
@@ -63,9 +63,9 @@ The SDK architecture is guided by several key principles that ensure maintainabi
 
 The SDK is organized into three layers, each serving a specific purpose:
 
-**High-Level API**: The `Synapse` class provides a simple interface for common operations.
-**Service Layer**: `PaymentsService` and `StorageManager` handle domain-specific logic.
-**Lower-Level Clients**: Direct access to contracts and providers for advanced use cases.
+- **High-Level API**: The `Synapse` class provides a simple interface for common operations.
+- **Service Layer**: `PaymentsService` and `StorageManager` handle domain-specific logic.
+- **Lower-Level Clients**: Direct access to contracts and providers for advanced use cases.
 
 ### Synapse
 

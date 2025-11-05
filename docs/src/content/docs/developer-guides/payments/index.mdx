@@ -5,15 +5,15 @@ sidebar:
   order: 2
 ---
 
-The Synapse SDK uses USDFC (a Filecoin-native stablecoin) for storage payments. Before uploading files, you must fund your account and approve operators.
+The Synapse SDK uses [**USDFC**](https://app.usdfc.net/) (a Filecoin-native stablecoin) for storage payments. Before uploading files, you must fund your account and approve operators.
 
 This guide covers the essential operations. For advanced topics (understanding rails, settlement strategies), see [Rails & Settlement](/developer-guides/payments/rails-settlement).
 
 Before working with payments, familiarize yourself with these fundamental concepts:
 
-## Key Concepts
+### Key Concepts
 
-- **USDFC Token**: ERC20 stablecoin used for all payments. The protocol requires USDFC approval before operations.
+- **USDFC Token**: Stablecoin on Filecoin which is used for all storage payments. The protocol requires USDFC approval before operations.
 - **Payment Rails**: Continuous payment streams created automatically when you upload files. Rate is fixed per epoch.
 - **Epochs**: Time periods (one epoch is 30 seconds). Payments accumulate per epoch and can be settled periodically.
 - **Operator Allowances**: Permissions that allow contracts (like WarmStorage) to spend your USDFC and create payment rails.
@@ -55,7 +55,7 @@ await tx.wait();
 ```
 
 <details>
-<summary>Alternative: Two-Transaction Deposit (not recommended)</summary>
+<summary>*Alternative: Two-Transaction Deposit (not recommended)*</summary>
 
 If you cannot use permit-based deposits, you can use the traditional two-transaction approach:
 
