@@ -1,0 +1,56 @@
+name: Automated Release (Script-based)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (skip actual merging)'
+        required: false
+        default: false
+        type: boolean
+      wait_timeout:
+        description: 'Timeout for waiting for release workflows (seconds)'
+        required: false
+        default: 600
+        type: number
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run release automation script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node utils/release-automation.js \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            --timeout=${{ inputs.wait_timeout || 600 }}
