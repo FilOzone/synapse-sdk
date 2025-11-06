@@ -28,12 +28,31 @@ This guide assumes you've already completed the [Storage Operations Guide](./ind
 
 ### Creating a Storage Context
 
-Behind the scenes, context creation may be:
+#### Creation Options
 
-- **Fast (< 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
-- **Slower (1-3 minutes)**: When setting up new blockchain infrastructure (e.g., creating a brand new data set)
-
-#### Advanced Usage with Callbacks
+```ts twoslash
+import { ProviderInfo } from "@filoz/synapse-sdk";
+type StorageContextCallbacks = {
+  onProviderSelected?: (provider: ProviderInfo) => void;
+  onDataSetResolved?: (info: {
+    isExisting: boolean;
+    dataSetId: number;
+    provider: ProviderInfo;
+  }) => void;
+};
+// ---cut---
+interface StorageServiceOptions {
+  providerId?: number; // Specific provider ID to use (optional)
+  excludeProviderIds?: number[]; // Do not select any of these providers (optional)
+  providerAddress?: string; // Specific provider address to use (optional)
+  dataSetId?: number; // Specific data set ID to use (optional)
+  withCDN?: boolean; // Enable CDN services (optional)
+  forceCreateDataSet?: boolean; // Force creation of a new data set, even if a candidate exists (optional)
+  callbacks?: StorageContextCallbacks; // Progress callbacks (optional)
+  metadata?: Record<string, string>; // Metadata requirements for data set selection/creation
+  uploadBatchSize?: number; // Max uploads per batch (default: 32, min: 1)
+}
+```
 
 Monitor the creation process with detailed callbacks to track progress:
 
@@ -51,30 +70,34 @@ const storageContext = await synapse.storage.createContext({
   },
   callbacks: {
     onDataSetResolved: (info) => {
-      console.log(`Data set resolved: ${info.dataSetId}`);
+      if (info.isExisting) {
+        console.log(
+          `Data set with id ${info.dataSetId}`,
+          `matches your context criteria and will be reused`
+        );
+      } else {
+        console.log(
+          `No matching data set found`,
+          `A new data set will be created in the next file upload`,
+          `In a single transaction!`
+        );
+      }
     },
     onProviderSelected: (provider) => {
-      console.log(`Selected provider: ${provider}`);
+      console.log(
+        `Selected Provider with`,
+        ` id: ${provider.id}`,
+        ` name: ${provider.name}`,
+        ` description: ${provider.description}`,
+        ` address: ${provider.serviceProvider}`,
+        ` products: ${JSON.stringify(provider.products)}`
+      );
     },
   },
 });
 ```
 
-#### Creation Options
-
-```typescript
-interface StorageServiceOptions {
-  providerId?: number; // Specific provider ID to use
-  providerAddress?: string; // Specific provider address to use
-  dataSetId?: number; // Specific data set ID to use
-  withCDN?: boolean; // Enable CDN services (alias for metadata: { withCDN: '' })
-  metadata?: Record<string, string>; // Metadata requirements for data set selection/creation
-  callbacks?: StorageContextCallbacks; // Progress callbacks
-  uploadBatchSize?: number; // Max uploads per batch (default: 32, min: 1)
-}
-```
-
-#### Data Set Selection and Matching
+### Data Set Selection and Matching
 
 :::tip[Metadata Matching for Cost Efficiency]
 **The SDK reuses existing data sets when metadata matches exactly**, avoiding floor pricing. To maximize reuse:
@@ -107,7 +130,7 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 - Otherwise, the SDK currently uses random selection from all approved providers
 - Before finalizing selection, the SDK verifies the provider is reachable via a ping test
 - If a provider fails the ping test, the SDK tries the next candidate
-- After the provider is selected, the SDK will automatically create a new data set in the next file upload.
+- After the provider is selected, the SDK will automatically create a new data set in the next file upload in a single transaction.
 
 **API Design**:
 
