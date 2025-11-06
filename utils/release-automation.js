@@ -19,6 +19,12 @@
  *   --dry-run       Show what would be done without making changes
  *   --timeout=N     Timeout for waiting for workflows in seconds (default: 600)
  *   --help          Show this help message
+ *
+ * Security:
+ *   This script is designed to run in a trusted CI environment (GitHub Actions)
+ *   with proper access controls. It executes git and gh CLI commands using data
+ *   from controlled sources (PACKAGES constant) and validated GitHub API responses.
+ *   Do not run this script with untrusted input or in untrusted environments.
  */
 
 import { execSync, spawn } from 'node:child_process'
@@ -54,6 +60,10 @@ Options:
   --dry-run       Show what would be done without making changes
   --timeout=N     Timeout for waiting for workflows in seconds (default: 600)
   --help          Show this help message
+
+Security:
+  Designed for trusted CI environments (GitHub Actions). Do not run with
+  untrusted input or in untrusted environments.
 `
 
 class ReleaseAutomation {
