@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      wait_timeout:
+        description: 'Timeout for waiting for release workflows (seconds)'
+        required: false
+        default: 600
+        type: number
 
 permissions:
   contents: write
@@ -17,6 +22,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      WAIT_TIMEOUT: ${{ inputs.wait_timeout || 600 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -49,14 +56,15 @@ jobs:
         run: |
           echo "🔍 Searching for release-please PRs..."
 
-          # Find PRs with release-please label
+          # Find PRs with release-please label and matching title patterns
+          # Release-please creates PRs with titles like "chore(main): release synapse-core 0.1.2"
           core_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
-            --jq '.[] | select(.title | contains("synapse-core")) | .number' | head -1)
+            --jq '.[] | select(.title | test("release synapse-core"; "i")) | .number' | head -1)
           sdk_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
-            --jq '.[] | select(.title | contains("synapse-sdk") and (contains("synapse-core") | not) and (contains("synapse-react") | not)) | .number' \
+            --jq '.[] | select(.title | test("release synapse-sdk"; "i")) | select(.title | test("synapse-core|synapse-react"; "i") | not) | .number' \
             | head -1)
           react_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
-            --jq '.[] | select(.title | contains("synapse-react")) | .number' | head -1)
+            --jq '.[] | select(.title | test("release synapse-react"; "i")) | .number' | head -1)
 
           echo "core_pr=$core_pr" >> $GITHUB_OUTPUT
           echo "sdk_pr=$sdk_pr" >> $GITHUB_OUTPUT
@@ -125,16 +133,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # NOTE: This wait logic is duplicated for each package (core, sdk, react)
+          # NOTE: This wait logic is duplicated for each package (core, sdk, react).
           # This is intentional as GitHub Actions doesn't support reusable bash functions
           # across steps easily. Each wait is specific to its package's release.
+          # Future improvement: Consider using a composite action to reduce duplication.
           echo "⏳ Waiting for release-please workflow to complete..."
 
           # Wait a bit for the workflow to start
           sleep 30
 
-          # Wait for the workflow to complete (max 10 minutes)
-          timeout=600
+          # Wait for the workflow to complete
+          timeout=$WAIT_TIMEOUT
           elapsed=0
           interval=15
 
@@ -281,7 +290,7 @@ jobs:
           sleep 30
 
           # Wait for the workflow to complete (max 10 minutes)
-          timeout=600
+          timeout=$WAIT_TIMEOUT
           elapsed=0
           interval=15
 
@@ -427,7 +436,7 @@ jobs:
           sleep 30
 
           # Wait for the workflow to complete (max 10 minutes)
-          timeout=600
+          timeout=$WAIT_TIMEOUT
           elapsed=0
           interval=15
 
