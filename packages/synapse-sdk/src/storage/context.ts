@@ -836,7 +836,7 @@ export class StorageContext {
   /**
    * Upload data to the service provider
    */
-  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions): Promise<UploadResult> {
+  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions, pieceCid?: PieceCID): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size
@@ -846,7 +846,9 @@ export class StorageContext {
     // Validate size before proceeding
     StorageContext.validateRawSize(size, 'upload')
 
-    const pieceCid = Piece.calculate(dataBytes)
+    if (pieceCid == null) {
+      pieceCid = Piece.calculate(dataBytes)
+    }
 
     // Track this upload for batching purposes
     const uploadId = Symbol('upload')

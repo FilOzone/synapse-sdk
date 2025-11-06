@@ -20,6 +20,7 @@
  * ```
  */
 
+import * as Piece from '@filoz/synapse-core/piece'
 import { ethers } from 'ethers'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -144,14 +145,22 @@ export class StorageManager {
 
     // Get the context to use
     const contexts = options?.contexts ?? [options?.context ?? (await this.createContext(options))]
+    // Convert once
+    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+    // Calculate pieceCid once
+    const pieceCid = Piece.calculate(dataBytes)
 
     // Upload using the contexts with piece metadata
     return await Promise.all(
       contexts.map((context) =>
-        context.upload(data, {
-          ...options?.callbacks,
-          metadata: options?.metadata,
-        })
+        context.upload(
+          dataBytes,
+          {
+            ...options?.callbacks,
+            metadata: options?.metadata,
+          },
+          pieceCid
+        )
       )
     )
   }
