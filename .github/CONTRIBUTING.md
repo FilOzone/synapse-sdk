@@ -140,15 +140,15 @@ Below are the specific steps to take.  They use the example of releasing `synaps
 | # | Package | Step | Example |
 |---|---------|------|---------|
 | 1 | synapse-core | Find the `synapse-core` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/382) |
-| 2 | synapse-core | Merge the PR | |
+| 2 | synapse-core | Squash and merge the PR |[example](https://github.com/FilOzone/synapse-sdk/commit/76853b64b2d5f1c9e42baf9ab6dc746d46aca5d5) |
 | 3 | synapse-core | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044395310) |
 | 4 | synapse-sdk | Find the `synapse-sdk` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/380) |
 | 5 | synapse-sdk | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/380/commits/ca1b61b8c87e306609cd4b3c6216bfc8f8a40348) |
-| 6 | synapse-sdk | Merge the PR | |
+| 6 | synapse-sdk | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/f14c088cba31fad0d861f4d1f1bec08bc35d9d83) |
 | 7 | synapse-sdk | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044573289) |
 | 8 | synapse-react | Find the `synapse-react` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/381) |
 | 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
-| 10 | synapse-react | Merge the PR | |
+| 10 | synapse-react | Squash and merge the PR |[example](https://github.com/FilOzone/synapse-sdk/commit/4b381d8a6e023315652a83c6782f18ac554dba2e) |
 | 11 | synapse-react | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044833170) |
 
 ### How should I write my commits?
