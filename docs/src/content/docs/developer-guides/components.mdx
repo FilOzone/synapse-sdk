@@ -434,6 +434,10 @@ const extractedId = await pdpVerifier.extractDataSetIdFromReceipt(transactionRec
 
 **Purpose**: Generate EIP-712 signatures for authenticated operations - create data set, add pieces, schedule piece removals, delete data set. Used by PDPServer to sign operations and pass to Curio providers.
 
+:::note[Advanced Usage]
+This component is used internally by the SDK but exposed for developers who need explicit control over signature generation and authentication flows.
+:::
+
 **API Reference**: [PDPAuthHelper API Reference](/api/filoz/synapse-sdk/synapse/classes/pdpauthhelper/)
 
 **PDPAuthHelper Example**:
@@ -489,6 +493,10 @@ const deleteDataSetSig = await authHelper.signDeleteDataSet(clientDataSetId);
 #### PDPServer
 
 **Purpose**: HTTP client for Curio provider APIs - data set creation and management, piece uploads and downloads, piece discovery and status tracking, transaction status polling, EIP-712 signature generation for operations.
+
+:::note[Advanced Usage]
+This component is used internally by the SDK but exposed for developers who need explicit control over provider communication and low-level storage operations.
+:::
 
 **API Reference**: [PDPServer API Reference](/api/filoz/synapse-sdk/synapse/classes/pdpserver/)
 
