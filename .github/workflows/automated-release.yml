@@ -186,7 +186,7 @@ jobs:
             git checkout $pr_branch
 
             # Get the current version from package.json before merge
-            sdk_version=$(cat packages/synapse-sdk/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+            sdk_version=$(jq -r '.version' packages/synapse-sdk/package.json)
             echo "  Current synapse-sdk version: $sdk_version"
 
             # Try to merge master
@@ -200,7 +200,8 @@ jobs:
                 git checkout --theirs packages/synapse-sdk/package.json
 
                 # Update the synapse-sdk version back to what it was in the PR
-                sed -i "s/\"version\": \".*\"/\"version\": \"$sdk_version\"/" packages/synapse-sdk/package.json
+                jq --arg v "$sdk_version" '.version = $v' packages/synapse-sdk/package.json > /tmp/pkg.json
+                mv /tmp/pkg.json packages/synapse-sdk/package.json
 
                 git add packages/synapse-sdk/package.json
               fi
@@ -216,7 +217,8 @@ jobs:
                 git checkout --theirs .github/release-please-manifest.json
 
                 # Update the synapse-sdk version in the manifest
-                sed -i "s/\"packages\/synapse-sdk\": \".*\"/\"packages\/synapse-sdk\": \"$sdk_version\"/" .github/release-please-manifest.json
+                jq --arg v "$sdk_version" '.["packages/synapse-sdk"] = $v' .github/release-please-manifest.json > /tmp/manifest.json
+                mv /tmp/manifest.json .github/release-please-manifest.json
 
                 git add .github/release-please-manifest.json
               fi
@@ -330,7 +332,7 @@ jobs:
             git checkout $pr_branch
 
             # Get the current version from package.json before merge
-            react_version=$(cat packages/synapse-react/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+            react_version=$(jq -r '.version' packages/synapse-react/package.json)
             echo "  Current synapse-react version: $react_version"
 
             # Try to merge master
@@ -344,7 +346,8 @@ jobs:
                 git checkout --theirs packages/synapse-react/package.json
 
                 # Update the synapse-react version back to what it was in the PR
-                sed -i "s/\"version\": \".*\"/\"version\": \"$react_version\"/" packages/synapse-react/package.json
+                jq --arg v "$react_version" '.version = $v' packages/synapse-react/package.json > /tmp/pkg.json
+                mv /tmp/pkg.json packages/synapse-react/package.json
 
                 git add packages/synapse-react/package.json
               fi
@@ -360,7 +363,8 @@ jobs:
                 git checkout --theirs .github/release-please-manifest.json
 
                 # Update the synapse-react version in the manifest
-                sed -i "s/\"packages\/synapse-react\": \".*\"/\"packages\/synapse-react\": \"$react_version\"/" .github/release-please-manifest.json
+                jq --arg v "$react_version" '.["packages/synapse-react"] = $v' .github/release-please-manifest.json > /tmp/manifest.json
+                mv /tmp/manifest.json .github/release-please-manifest.json
 
                 git add .github/release-please-manifest.json
               fi
