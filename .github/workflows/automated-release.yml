@@ -125,6 +125,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # NOTE: This wait logic is duplicated for each package (core, sdk, react)
+          # This is intentional as GitHub Actions doesn't support reusable bash functions
+          # across steps easily. Each wait is specific to its package's release.
           echo "⏳ Waiting for release-please workflow to complete..."
 
           # Wait a bit for the workflow to start
@@ -193,10 +196,6 @@ jobs:
 
               # Accept incoming changes for dependency updates in package.json
               if [ -f packages/synapse-sdk/package.json ]; then
-                # Get the new core version from master
-                git checkout origin/master -- packages/synapse-core/package.json 2>/dev/null || true
-                core_version=$(cat packages/synapse-core/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
-
                 # Reset package.json to their version (master), then restore our version
                 git checkout --theirs packages/synapse-sdk/package.json
 
