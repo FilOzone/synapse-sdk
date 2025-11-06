@@ -4,6 +4,7 @@
   "private": true,
   "description": "Synapse cdn script tag example",
   "scripts": {
+    "lint": "biome check --no-errors-on-unmatched .",
     "dev": "servor --reload"
   },
   "keywords": [],

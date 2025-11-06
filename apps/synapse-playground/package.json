@@ -71,7 +71,7 @@
     "@tanstack/react-query-persist-client": "^5.90.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.546.0",
+    "lucide-react": "^0.552.0",
     "nanostores": "^1.0.1",
     "next-themes": "^0.4.6",
     "p-retry": "^7.1.0",
@@ -87,7 +87,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.6",
+    "@biomejs/biome": "^2.3.3",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.0.4",

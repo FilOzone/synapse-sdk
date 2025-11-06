@@ -644,16 +644,11 @@ export class StorageContext {
           }
 
           const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
-          console.log(
-            `[DEBUG] Provider ${provider.id}: dev=${dev}, serviceStatus=${serviceStatus}, typeof=${typeof serviceStatus}`
-          )
           if (!dev && serviceStatus === '0x646576') {
             // "dev" in hex
-            console.log(`[DEBUG] Filtering out dev provider ${provider.id}`)
             continue
           }
 
-          console.log(`[DEBUG] Yielding provider ${provider.id}`)
           yield provider
         }
       }
@@ -969,8 +964,7 @@ export class StorageContext {
     }
 
     // Extract up to uploadBatchSize pending pieces
-    const batch = this._pendingPieces.slice(0, this._uploadBatchSize)
-    this._pendingPieces = this._pendingPieces.slice(this._uploadBatchSize)
+    const batch = this._pendingPieces.splice(0, this._uploadBatchSize)
     try {
       // Create piece data array and metadata from the batch
       const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)

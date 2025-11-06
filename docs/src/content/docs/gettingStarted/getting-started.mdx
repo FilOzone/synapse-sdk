@@ -586,11 +586,11 @@ const result = await context.upload(data, {
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
-  onPieceAdded: (transaction) => {
+  onPieceAdded: (transactionHash) => {
     // For new servers: transaction object with details
     // For old servers: undefined (backward compatible)
-    if (transaction) {
-      console.log(`Transaction confirmed: ${transaction.hash}`)
+    if (transactionHash) {
+      console.log(`Transaction confirmed: ${transactionHash}`)
     } else {
       console.log('Data added to data set (legacy server)')
     }

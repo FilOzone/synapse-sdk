@@ -465,7 +465,7 @@ export const errorsConfig = { address: errorsAddress, abi: errorsAbi } as const
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
  */
 export const filecoinPayV1Abi = [
@@ -1682,16 +1682,16 @@ export const filecoinPayV1Abi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
  */
 export const filecoinPayV1Address = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa',
   314159: '0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x23b1e018F08BB982348b15a86ee926eEBf7F4DAa)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x09a0fDc2723fAd1A7b8e3e00eE5DF73841df55a0)
  */
 export const filecoinPayV1Config = {
@@ -1704,7 +1704,7 @@ export const filecoinPayV1Config = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x8408502033C418E1bbC97cE9ac48E5528F371A9f)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x02925630df557F957f70E112bA06e50965417CA0)
  */
 export const filecoinWarmStorageServiceAbi = [
@@ -3161,16 +3161,16 @@ export const filecoinWarmStorageServiceAbi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x8408502033C418E1bbC97cE9ac48E5528F371A9f)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x02925630df557F957f70E112bA06e50965417CA0)
  */
 export const filecoinWarmStorageServiceAddress = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0x8408502033C418E1bbC97cE9ac48E5528F371A9f',
   314159: '0x02925630df557F957f70E112bA06e50965417CA0',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x8408502033C418E1bbC97cE9ac48E5528F371A9f)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x02925630df557F957f70E112bA06e50965417CA0)
  */
 export const filecoinWarmStorageServiceConfig = {
@@ -3183,7 +3183,7 @@ export const filecoinWarmStorageServiceConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x9e4e6699d8F67dFc883d6b0A7344Bd56F7E80B46)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA5D87b04086B1d591026cCE10255351B5AA4689B)
  */
 export const filecoinWarmStorageServiceStateViewAbi = [
@@ -3502,16 +3502,16 @@ export const filecoinWarmStorageServiceStateViewAbi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x9e4e6699d8F67dFc883d6b0A7344Bd56F7E80B46)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA5D87b04086B1d591026cCE10255351B5AA4689B)
  */
 export const filecoinWarmStorageServiceStateViewAddress = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0x9e4e6699d8F67dFc883d6b0A7344Bd56F7E80B46',
   314159: '0xA5D87b04086B1d591026cCE10255351B5AA4689B',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x9e4e6699d8F67dFc883d6b0A7344Bd56F7E80B46)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xA5D87b04086B1d591026cCE10255351B5AA4689B)
  */
 export const filecoinWarmStorageServiceStateViewConfig = {
@@ -3524,7 +3524,7 @@ export const filecoinWarmStorageServiceStateViewConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xBADd0B92C1c71d02E7d520f64c0876538fa2557F)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C)
  */
 export const pdpVerifierAbi = [
@@ -4264,16 +4264,16 @@ export const pdpVerifierAbi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xBADd0B92C1c71d02E7d520f64c0876538fa2557F)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C)
  */
 export const pdpVerifierAddress = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0xBADd0B92C1c71d02E7d520f64c0876538fa2557F',
   314159: '0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xBADd0B92C1c71d02E7d520f64c0876538fa2557F)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x85e366Cf9DD2c0aE37E963d9556F5f4718d6417C)
  */
 export const pdpVerifierConfig = {
@@ -4286,7 +4286,7 @@ export const pdpVerifierConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xf55dDbf63F1b55c3F1D4FA7e339a68AB7b64A5eB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x839e5c9988e4e9977d40708d0094103c0839Ac9D)
  */
 export const serviceProviderRegistryAbi = [
@@ -5179,16 +5179,16 @@ export const serviceProviderRegistryAbi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xf55dDbf63F1b55c3F1D4FA7e339a68AB7b64A5eB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x839e5c9988e4e9977d40708d0094103c0839Ac9D)
  */
 export const serviceProviderRegistryAddress = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0xf55dDbf63F1b55c3F1D4FA7e339a68AB7b64A5eB',
   314159: '0x839e5c9988e4e9977d40708d0094103c0839Ac9D',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0xf55dDbf63F1b55c3F1D4FA7e339a68AB7b64A5eB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x839e5c9988e4e9977d40708d0094103c0839Ac9D)
  */
 export const serviceProviderRegistryConfig = {
@@ -5201,7 +5201,7 @@ export const serviceProviderRegistryConfig = {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
  */
 export const sessionKeyRegistryAbi = [
@@ -5291,16 +5291,16 @@ export const sessionKeyRegistryAbi = [
 ] as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
  */
 export const sessionKeyRegistryAddress = {
-  314: '0x0000000000000000000000000000000000000000',
+  314: '0x74FD50525A958aF5d484601E252271f9625231aB',
   314159: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452',
 } as const
 
 /**
- * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x0000000000000000000000000000000000000000)
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
  * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
  */
 export const sessionKeyRegistryConfig = {

@@ -39,10 +39,18 @@ export const pay: Command = command(
       spinner.stop('Balances')
       p.log.info(`FIL balance: ${formatBalance({ value: filBalance })}`)
       p.log.info(`USDFC balance: ${formatBalance({ value: usdfcBalance })}`)
-      p.log.info(`Available funds: ${formatBalance({ value: paymentsBalance.availableFunds })}`)
-      p.log.info(`Lockup current: ${formatBalance({ value: paymentsBalance.lockupCurrent })}`)
-      p.log.info(`Lockup rate: ${formatBalance({ value: paymentsBalance.lockupRate })}`)
-      p.log.info(`Lockup last settled at: ${formatBalance({ value: paymentsBalance.lockupLastSettledAt })}`)
+      p.log.info(
+        `Available funds: ${formatBalance({ value: paymentsBalance.availableFunds })}`
+      )
+      p.log.info(
+        `Lockup current: ${formatBalance({ value: paymentsBalance.lockupCurrent })}`
+      )
+      p.log.info(
+        `Lockup rate: ${formatBalance({ value: paymentsBalance.lockupRate })}`
+      )
+      p.log.info(
+        `Lockup last settled at: ${formatBalance({ value: paymentsBalance.lockupLastSettledAt })}`
+      )
       p.log.info(`Funds: ${formatBalance({ value: paymentsBalance.funds })}`)
       p.log.info(`Address: ${await synapse.getSigner().getAddress()}`)
     } catch (error) {

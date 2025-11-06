@@ -48,9 +48,7 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
-    "lineWidth": 120,
-    "attributePosition": "auto",
-    "includes": ["**"]
+    "lineWidth": 120
   },
   "assist": {
     "enabled": true,
@@ -99,14 +97,9 @@
   "javascript": {
     "formatter": {
       "jsxQuoteStyle": "double",
-      "quoteProperties": "asNeeded",
       "trailingCommas": "es5",
       "semicolons": "asNeeded",
-      "arrowParentheses": "always",
-      "bracketSpacing": true,
-      "bracketSameLine": false,
-      "quoteStyle": "single",
-      "attributePosition": "auto"
+      "quoteStyle": "single"
     },
     "globals": ["document", "navigator", "window"]
   }

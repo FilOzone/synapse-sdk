@@ -10,15 +10,17 @@
     "entryPoints": [
       "src/index.ts",
       "src/chains.ts",
-      "src/curio.ts",
-      "src/usdfc.ts",
+      "src/sp.ts",
       "src/erc20.ts",
+      "src/usdfc.ts",
       "src/abis/index.ts",
       "src/pay/index.ts",
       "src/warm-storage/index.ts",
       "src/typed-data/index.ts",
       "src/session-key/index.ts",
-      "src/errors/index.ts"
+      "src/errors/index.ts",
+      "src/piece.ts",
+      "src/utils/index.ts"
     ]
   }
 }
