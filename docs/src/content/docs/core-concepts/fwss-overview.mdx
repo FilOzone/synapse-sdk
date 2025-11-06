@@ -144,6 +144,13 @@ price: `7 USDFC per TiB of egress used`
 - Retrieval latency: milliseconds
 - Higher cost, for performance-critical data
 
+:::note
+**FWSS Lockup Model:**  
+FWSS uses a simple fixed lockup: you always prepay for 30 days of active service. 
+
+If your balance drops below this threshold, you risk default—at which point the service provider may begin removing your data. There is no variable lockup or complex collateral calculation: just keep your balance above 30 days to avoid disruption.
+:::
+
 ## Summary
 
 FWSS enables the Filecoin Onchain Cloud to behave not just as a passive archive, but as a live data service:

@@ -13,15 +13,16 @@ Storage operates on a **pay-per-epoch** model where you deposit USDFC tokens and
 
 Storage costs consist of four main components:
 
-### The Cost Model
-
 | Component      | Cost               | Notes                                                                                     |
 | -------------- | ------------------ | ----------------------------------------------------------------------------------------- |
 | **Storage**    | $2.50/TiB/month    | Minimum $0.06/month per data set (~24.567 GiB threshold)                                   |
 | **CDN Egress** | $7/TiB downloaded  | 1 USDFC top-up = ~146 GiB of downloads                                                    |
 | **CDN Topup**  | 1 USDFC (one-time) | Pre-paid egress credits, not a fee. Reusing an existing data set incurs no additional cost |
-| **Epoch**      | 30 seconds         | Costs calculated per epoch                                                                |
+| **Epoch**      | 30 seconds         | Costs calculated per epoch                                                              |
 
+:::note[Be aware]
+Per month means **per 30 days** here, not calendar month like a traditional storage service.
+:::
 **Pricing Logic:**
 
 - Storage **< 24.567 GiB**: Pay minimum $0.06/month

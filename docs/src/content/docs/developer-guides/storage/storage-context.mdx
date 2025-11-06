@@ -31,7 +31,7 @@ This guide assumes you've already completed the [Storage Operations Guide](./ind
 Behind the scenes, context creation may be:
 
 - **Fast (< 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
-- **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (e.g., creating a brand new data set)
+- **Slower (1-3 minutes)**: When setting up new blockchain infrastructure (e.g., creating a brand new data set)
 
 #### Advanced Usage with Callbacks
 
@@ -78,7 +78,7 @@ interface StorageServiceOptions {
 #### Data Set Selection and Matching
 
 :::tip[Metadata Matching for Cost Efficiency]
-**The SDK reuses existing data sets when metadata matches exactly**, avoiding unnecessary data set creation costs. To maximize reuse:
+**The SDK reuses existing data sets when metadata matches exactly**, avoiding floor pricing. To maximize reuse:
 
 - Use consistent metadata keys and values across uploads
 - Avoid changing metadata unnecessarily
