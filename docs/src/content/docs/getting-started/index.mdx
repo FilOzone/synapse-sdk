@@ -122,7 +122,7 @@ console.log(`Approving Warm Storage service: ${warmStorageAddress}`);
 
 const tx = await synapse.payments.approveService(
   warmStorageAddress,
-  ethers.parseUnits("10", 18), // Rate allowance: 10 USDFC per epoch
+  ethers.parseUnits("10", 18), // Rate allowance: 10 USDFC per epoch and you can change this accordingly
   ethers.parseUnits("1000", 18), // Lockup allowance: 1000 USDFC total
   TIME_CONSTANTS.EPOCHS_PER_MONTH // Max lockup period: 30 days (in epochs)
 );
@@ -140,7 +140,6 @@ import { Synapse } from "@filoz/synapse-sdk";
 const synapse = await Synapse.create();
 // ---cut---
 // Upload data - SDK automatically selects provider and creates data set if needed
-// (your first upload will take longer than subsequent uploads due to setup)
 const uploadResult = await synapse.storage.upload(
   new TextEncoder().encode(
     "🚀 Welcome to decentralized storage on Filecoin! Your data is safe here. 🌍"
