@@ -27,11 +27,34 @@ import { resolve } from 'node:path'
 
 const RELEASE_LABEL = 'autorelease: pending'
 const WORKFLOW_NAME = 'release-please.yml'
+const WORKFLOW_START_DELAY = 30000 // 30 seconds
+const WORKFLOW_POLL_INTERVAL = 15000 // 15 seconds
+
 const PACKAGES = [
 	{ name: 'synapse-core', path: 'packages/synapse-core' },
 	{ name: 'synapse-sdk', path: 'packages/synapse-sdk' },
 	{ name: 'synapse-react', path: 'packages/synapse-react' },
 ]
+
+const HELP_TEXT = `Automated Release Script for Synapse SDK Monorepo
+
+This script automates the release process for packages in the monorepo:
+1. Finds release-please PRs by label and title pattern
+2. Merges them in dependency order (synapse-core → synapse-sdk → synapse-react)
+3. Waits for release-please workflow to complete after each merge
+4. Automatically resolves merge conflicts for dependent packages
+
+Usage:
+  node utils/release-automation.js [--dry-run] [--timeout=600]
+
+Environment:
+  GITHUB_TOKEN - GitHub personal access token (required)
+
+Options:
+  --dry-run       Show what would be done without making changes
+  --timeout=N     Timeout for waiting for workflows in seconds (default: 600)
+  --help          Show this help message
+`
 
 class ReleaseAutomation {
 	constructor(options = {}) {
@@ -80,7 +103,10 @@ class ReleaseAutomation {
 		const prs = {}
 
 		for (const pkg of PACKAGES) {
-			const pattern = `release ${pkg.name}`
+			// Escape package name for safe use in jq regex
+			const escapedName = pkg.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			const pattern = `release ${escapedName}`
+
 			const result = this.exec(
 				`gh pr list --label "${RELEASE_LABEL}" --json number,title,headRefName --jq '.[] | select(.title | test("${pattern}"; "i")) | .number'`,
 				{ silent: true },
@@ -136,11 +162,11 @@ class ReleaseAutomation {
 		}
 
 		// Wait a bit for the workflow to start
-		await this.sleep(30000)
+		await this.sleep(WORKFLOW_START_DELAY)
 
 		const startTime = Date.now()
 		const timeoutMs = this.timeout * 1000
-		const interval = 15000
+		const interval = WORKFLOW_POLL_INTERVAL
 
 		while (Date.now() - startTime < timeoutMs) {
 			const result = this.exec(
@@ -344,7 +370,7 @@ async function main() {
 	const args = process.argv.slice(2)
 
 	if (args.includes('--help') || args.includes('-h')) {
-		console.log(readFileSync(new URL(import.meta.url), 'utf8').split('*/')[0].slice(3))
+		console.log(HELP_TEXT)
 		process.exit(0)
 	}
 
@@ -363,7 +389,10 @@ async function main() {
 	await automation.run()
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run as CLI if this is the main module
+const isMainModule = import.meta.url === new URL(process.argv[1], 'file:').href
+
+if (isMainModule) {
 	main().catch((error) => {
 		console.error(error)
 		process.exit(1)
