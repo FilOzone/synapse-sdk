@@ -23,6 +23,7 @@ import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
+import { createAndAddPiecesHandler } from './mocks/pdp/handlers.ts'
 
 // mock server for testing
 const server = setup([])
@@ -238,14 +239,7 @@ InvalidSignature(address expected, address actual)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      server.use(
-        http.post('http://pdp.local/pdp/data-sets/create-and-add', () => {
-          return new HttpResponse(null, {
-            status: 201,
-            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
-          })
-        })
-      )
+      server.use(createAndAddPiecesHandler(mockTxHash))
 
       const result = await pdpServer.createAndAddPieces(
         0n,
