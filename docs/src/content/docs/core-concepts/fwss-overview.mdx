@@ -9,7 +9,7 @@ sidebar:
 
 ## What is FWSS?
 
-**Filecoin Warm Storage Service (FWSS)** enables datasets to be stored, verified, retrieved and billed in a live fashion: providers continuously demonstrate possession (via PDP), clients access data with lower latency, and payments are triggered via on-chain service contracts.
+**Filecoin Warm Storage Service (FWSS)** enables data sets to be stored, verified, retrieved and billed in a live fashion: providers continuously demonstrate possession (via PDP), clients access data with lower latency, and payments are triggered via on-chain service contracts.
 
 This service transforms Filecoin from an archival storage network into a data service layer suitable for real-time applications, analytics, and content-heavy workflows.
 
@@ -36,7 +36,7 @@ WarmStorage manages the complete storage marketplace:
 
 ## How FWSS works
 
-**Filecoin Warm Storage Service (FWSS)** combines PDP (Proof of Data Possession) verification with integrated payment rails using Filecoin Pay to offer dataSet management for developers.
+**Filecoin Warm Storage Service (FWSS)** combines PDP (Proof of Data Possession) verification with integrated payment rails using Filecoin Pay to offer data set management for developers.
 
 ```mermaid
 graph LR
@@ -85,9 +85,9 @@ When a new data set is created in `PDPVerifier`, this function is called to set 
 
 ##### _`piecesAdded()`_
 
-When pieces are added to an existing dataset, this function is called to store piece metadata and update payment rail configuration if needed.
+When pieces are added to an existing data set, this function is called to store piece metadata and update payment rail configuration if needed.
 
-**Key actions for first dataSet**:
+**Key actions for first data set**:
 
 - Payment rail creation deferred to first piece upload
 - Enables data sets without immediate storage
@@ -119,7 +119,7 @@ Beyond the PDP and Filecoin Pay integrations, FWSS implements critical business 
 The key areas of service-specific logic include:
 
 - **Provider registration and approval workflow**: Curated whitelist management for quality assurance in `ServiceProviderRegistry.sol`.
-- **Client dataset creation with CDN integration options**: Flexible storage tier selection and configuration
+- **Client data set creation with CDN integration options**: Flexible storage tier selection and configuration
 - **Automated cost calculation**: Dynamic pricing based on data size, duration, and service tiers
 
 #### Two-Tier Pricing

@@ -18,7 +18,7 @@ Together, these entities define how information, proofs, and payments move throu
 | Concept	| Purpose |
 |---------|---------|
 | **Piece** | Smallest data unit stored in the Filecoin network. |
-| **Dataset** |	Logical collection of stored data pieces with a shared lifecycle.|
+| **Data Set** |	Logical collection of stored data pieces with a shared lifecycle.|
 | **Proof Record**	| Verifiable claim proving continued possession of data. |
 | **Payment Rail** |	Economic channel defining how and when payments are released. |
 
@@ -26,13 +26,13 @@ Together, these entities define how information, proofs, and payments move throu
 
 A Piece is the smallest unit of content stored in the Filecoin network. Each piece is identified by a **Content Identifier (CID)** and represents a verifiable reference to raw data, independent of its physical location.
 
-#### **Dataset**
+#### **Data Set**
 
-A Dataset represents a logical grouping of one or more Pieces of content which will be stored and proved by PDP service providers.
+A data set represents a logical grouping of one or more Pieces of content which will be stored and proved by PDP service providers.
 
-When a client uploads data via the **Filecoin Warm Storage Service (FWSS)**, the service contract registers a new dataset and links it to a **Payment Rail** that defines its settlement conditions.
+When a client uploads data via the **Filecoin Warm Storage Service (FWSS)**, the service contract registers a new data set and links it to a **Payment Rail** that defines its settlement conditions.
 
-Each dataset becomes a persistent, onchain-tracked object — tied to:
+Each data set becomes a persistent, onchain-tracked object — tied to:
 
 - its pieces (content CIDs),
 - its service provider,
@@ -40,15 +40,15 @@ Each dataset becomes a persistent, onchain-tracked object — tied to:
 
 #### **Proof Record**
 
-A Proof Record captures the cryptographic evidence that a PDP Service Provider still holds the data in a dataset. Proofs are generated periodically using **Proof of Data Possession (PDP)** — a lightweight cryptographic protocol optimized for verifiable warm storage.
+A Proof Record captures the cryptographic evidence that a PDP Service Provider still holds the data in a data set. Proofs are generated periodically using **Proof of Data Possession (PDP)** — a lightweight cryptographic protocol optimized for verifiable warm storage.
 
 Each Proof Record:
 
 - Is submitted onchain by the provider.
-- Includes a timestamp, dataset reference, and proof hash.
+- Includes a timestamp, data set reference, and proof hash.
 - Is automatically verified and recorded by the service contract.
 
-These records create a **public, immutable audit trail** of dataset availability, enabling anyone to verify that data remains online without re-downloading it. Proof Records also act as **payment triggers**, signaling Filecoin Pay to settle balances once proofs succeed.
+These records create a **public, immutable audit trail** of data set availability, enabling anyone to verify that data remains online without re-downloading it. Proof Records also act as **payment triggers**, signaling Filecoin Pay to settle balances once proofs succeed.
 
 #### **Payment Rail**
 
@@ -95,7 +95,7 @@ Service Contracts serve the same purpose as “microservices” in conventional 
 Each contract:
 
 - Defines the logic for one service (e.g., storage, retrieval, payment).
-- Manages its own state — datasets, providers, balances, and proofs.
+- Manages its own state — data sets, providers, balances, and proofs.
 - Exposes a standard interface for cross-service interaction.
 - Emits events that allow public auditing and monitoring.
 

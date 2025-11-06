@@ -78,13 +78,13 @@ interface StorageServiceOptions {
 #### Data Set Selection and Matching
 
 :::tip[Metadata Matching for Cost Efficiency]
-**The SDK reuses existing data sets when metadata matches exactly**, avoiding unnecessary dataset creation costs. To maximize reuse:
+**The SDK reuses existing data sets when metadata matches exactly**, avoiding unnecessary data set creation costs. To maximize reuse:
 
 - Use consistent metadata keys and values across uploads
 - Avoid changing metadata unnecessarily
 - Group related content with the same metadata
 
-**Example**: If you create a dataset with `{Application: "MyApp", Version: "1.0"}`, all subsequent uploads with the same metadata will reuse that dataset and its payment rail.
+**Example**: If you create a data set with `{Application: "MyApp", Version: "1.0"}`, all subsequent uploads with the same metadata will reuse that data set and its payment rail.
 :::
 
 The SDK intelligently manages data sets to minimize on-chain transactions. The selection behavior depends on the parameters you provide:
@@ -226,7 +226,7 @@ const { pieceCid, size, pieceId } = await storageContext.upload(data, {
     );
   },
   onPieceConfirmed: () => {
-    console.log("Data pieces added to dataset successfully");
+    console.log("Data pieces added to data set successfully");
   },
 });
 
@@ -273,10 +273,10 @@ for (const data of dataArray) {
 
 - The termination transaction is irreversible
 - After the termination period, the provider may delete all data
-- Payment rails associated with the dataset will be terminated
+- Payment rails associated with the data set will be terminated
 - You cannot cancel the termination
 
-Only terminate datasets when you're certain you no longer need the data.
+Only terminate data sets when you're certain you no longer need the data.
 :::
 
 To delete an entire data set and discontinue payments for the service, call `context.terminate()`.

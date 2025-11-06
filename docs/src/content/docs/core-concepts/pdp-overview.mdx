@@ -5,7 +5,7 @@ sidebar:
   order: 2
 ---
 
-This page explains **Proof of Data Possession (PDP)**, the cryptographic protocol which ensures every dataset stored within the **Filecoin Onchain Cloud (FOC)** remains accessible, verifiable, and provably intact without re-uploading the full data.
+This page explains **Proof of Data Possession (PDP)**, the cryptographic protocol which ensures every data set stored within the **Filecoin Onchain Cloud (FOC)** remains accessible, verifiable, and provably intact without re-uploading the full data.
 
 :::tip[Architecture Integration]
 This page focuses on the PDP protocol details. To understand how PDP integrates with the overall system architecture, see [**System Architecture**](/core-concepts/architecture).
@@ -13,7 +13,7 @@ This page focuses on the PDP protocol details. To understand how PDP integrates 
 
 ## What is PDP?
 
-**Proof of Data Possession (PDP)** is a cryptographic protocol that allows a client or smart contract to verify that a storage provider still holds a dataset, without downloading it again.
+**Proof of Data Possession (PDP)** is a cryptographic protocol that allows a client or smart contract to verify that a storage provider still holds a data set, without downloading it again.
 
 In simple terms — PDP asks a provider to prove they still have the data by responding correctly to a randomized challenge generated from that data.
 If the provider no longer stores the content, they cannot produce a valid proof.
@@ -66,9 +66,9 @@ sequenceDiagram
 
 #### **Step-by-step Summary:**
 
-1. **Data Upload**: The Client uploads file in a dataset to a PDP-enabled Service Provider which will stores the file, and add piece in the dataset with the PDP contract onchain.
+1. **Data Upload**: The Client uploads file in a data set to a PDP-enabled Service Provider which will stores the file, and add piece in the data set with the PDP contract onchain.
 
-2. **Challenge Creation**: The PDP contract generates a randomized challenge based on the drand beacon and dataset ID.
+2. **Challenge Creation**: The PDP contract generates a randomized challenge based on the drand beacon and data set ID.
 
 3. **Proof Generation**: The Service Provider computes a a Merkle inclusion proof using a subset of the stored data blocks determined by the challenge.
 
@@ -78,7 +78,7 @@ sequenceDiagram
 
 6. **Period Advancement**: After the proving period, the provider calls `nextProvingPeriod` on the PDP contract to advance to the next proving period.
 
-Each successful PDP round is a verifiable heartbeat proving that the dataset is still alive within the Onchain Cloud.
+Each successful PDP round is a verifiable heartbeat proving that the data set is still alive within the Onchain Cloud.
 
 ## Implementation Summary
 
@@ -104,9 +104,9 @@ struct Piece {
 - Each leaf = 32 bytes of data
 - Last 32 bytes of v2 CID = the digest used on-chain
 
-#### DataSet
+#### Data Set
 
-A Dataset represents a logical grouping of one or more Pieces of content which will be stored and proved by PDP service providers.
+A data set represents a logical grouping of one or more Pieces of content which will be stored and proved by PDP service providers.
 
 ```solidity
 struct DataSet {
@@ -208,7 +208,7 @@ The **Proof of Data Possession (PDP)** protocol is the fast storage & verifiabil
 
 It ensures that:
 
-- Every dataset is cryptographically registered and continuously verified.
+- Every data set is cryptographically registered and continuously verified.
 - Providers cannot fake data possession — they must prove it.
 - Payments and service continuity are tied to cryptographic proofs.
 

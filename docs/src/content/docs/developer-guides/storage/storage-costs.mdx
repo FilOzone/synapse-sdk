@@ -17,16 +17,16 @@ Storage costs consist of four main components:
 
 | Component      | Cost               | Notes                                                                                     |
 | -------------- | ------------------ | ----------------------------------------------------------------------------------------- |
-| **Storage**    | $2.50/TiB/month    | Minimum $0.06/month per dataset (~24.567 GiB threshold)                                   |
+| **Storage**    | $2.50/TiB/month    | Minimum $0.06/month per data set (~24.567 GiB threshold)                                   |
 | **CDN Egress** | $7/TiB downloaded  | 1 USDFC top-up = ~146 GiB of downloads                                                    |
-| **CDN Topup**  | 1 USDFC (one-time) | Pre-paid egress credits, not a fee. Reusing an existing dataset incurs no additional cost |
+| **CDN Topup**  | 1 USDFC (one-time) | Pre-paid egress credits, not a fee. Reusing an existing data set incurs no additional cost |
 | **Epoch**      | 30 seconds         | Costs calculated per epoch                                                                |
 
 **Pricing Logic:**
 
 - Storage **< 24.567 GiB**: Pay minimum $0.06/month
 - Storage **≥ 24.567 GiB**: Pay actual cost `(bytes / TiB) × $2.50/month`
-- CDN datasets require 1 USDFC topup on first creation only
+- CDN data sets require 1 USDFC topup on first creation only
 - You can top up your egress credits at any time to avoid running out.
 
 ### Funding & Operator Approvals
@@ -172,7 +172,7 @@ console.log("Per-epoch cost:", pricePerEpoch);
 
 ### Step 2: Calculate Required Allowances
 
-Determine lockup and rate allowances, including CDN costs if creating a new dataset:
+Determine lockup and rate allowances, including CDN costs if creating a new data set:
 
 ```ts twoslash
 import { Synapse, TOKENS } from "@filoz/synapse-sdk";
@@ -185,7 +185,7 @@ const warmStorageAddress = await synapse.getWarmStorageAddress();
 // Define storage duration
 const persistencePeriodInMonths = 12;
 
-// Check if creating a new CDN dataset
+// Check if creating a new CDN data set
 const storageContext = await synapse.storage.createContext({
   withCDN: true,
   metadata: { Application: "MyApp", Version: "1.0.0" },
