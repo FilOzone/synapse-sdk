@@ -72,14 +72,14 @@ async function main() {
       rpcURL: RPC_URLS.calibration.websocket,
     });
 
-    console.log("   ✅ SDK initialized successfully!");
-    console.log(`   Connected to network: ${synapse.getNetwork()}\n`);
+    console.log("✅ SDK initialized successfully!");
+    console.log(`Connected to network: ${synapse.getNetwork()}\n`);
 
     // 2. Check current USDFC balance
     console.log("2) Checking wallet balance...");
     const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
     const formattedBalance = ethers.formatUnits(walletBalance, 18);
-    console.log(`   Wallet USDFC balance: ${formattedBalance} USDFC\n`);
+    console.log(`Wallet USDFC balance: ${formattedBalance} USDFC\n`);
 
     // Validate sufficient balance before proceeding
     const depositAmount = ethers.parseUnits("5", 18);
@@ -90,14 +90,14 @@ async function main() {
       depositAmount,
       TOKENS.USDFC
     );
-    
+
     await depositTx.wait();
-    console.log(`   ✅ USDFC deposit successful!`);
+    console.log(`✅ USDFC deposit successful!`);
 
     // 4. Approve Warm Storage service for payment
     console.log("4) Approving Warm Storage service...");
     const warmStorageAddress = synapse.getWarmStorageAddress();
-    console.log(`   Warm Storage address: ${warmStorageAddress}`);
+    console.log(`Warm Storage address: ${warmStorageAddress}`);
 
     const approveTx = await synapse.payments.approveService(
       warmStorageAddress,
@@ -105,34 +105,35 @@ async function main() {
       ethers.parseUnits("1000", 18), // Lockup allowance: 1000 USDFC total
       TIME_CONSTANTS.EPOCHS_PER_MONTH // Max lockup period: 30 days (in epochs)
     );
-    
+
     const approveReceipt = await approveTx.wait();
-    console.log(`   ✅ Service approval complete!`);
+    console.log(`✅ Service approval complete!`);
 
     // 5. Upload data - SDK automatically selects provider and creates data set if needed
     console.log("5) Uploading data to decentralized storage...");
     const dataBytes = new TextEncoder().encode(
-        "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You need to make sure to meet the minimum size requirement of 127 bytes for the storage context."
+      "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You need to make sure to meet the minimum size requirement of 127 bytes for the storage context."
     );
 
     const uploadResult = await synapse.storage.upload(dataBytes);
-    console.log(`   ✅ Upload complete!`);
-    console.log(`   PieceCID: ${uploadResult.pieceCid}`);
-    console.log(`   Size: ${uploadResult.size} bytes\n`);
+    console.log(`✅ Upload complete!`);
+    console.log(`PieceCID: ${uploadResult.pieceCid}`);
+    console.log(`Size: ${uploadResult.size} bytes\n`);
 
     // 6. Download data from any provider that has it
     console.log("6) Downloading data from storage...");
-    const downloadedData = await synapse.storage.download(uploadResult.pieceCid);
+    const downloadedData = await synapse.storage.download(
+      uploadResult.pieceCid
+    );
     const decodedText = new TextDecoder().decode(downloadedData);
 
-    console.log(`   ✅ Download successful!`);
-    console.log(`   Downloaded data: ${decodedText}\n`);
+    console.log(`✅ Download successful!`);
+    console.log(`Downloaded data: ${decodedText}\n`);
     console.log("🎉 Data storage and retrieval successful!");
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorStack = error instanceof Error ? error.stack : undefined;
-    
+
     console.error("❌ Error occurred:", errorMessage);
     if (errorStack) {
       console.error("Stack trace:", errorStack);
@@ -144,6 +145,7 @@ async function main() {
 // Execute main function
 main();
 ```
+
 What you just did:
 
 - ✅ Initialized synapse SDK for Filecoin Calibration
@@ -162,14 +164,14 @@ First, set up the Synapse SDK with your credentials:
 import { Synapse, RPC_URLS } from "@filoz/synapse-sdk";
 
 // 1. Initialize SDK with your private key and RPC endpoint
-    console.log("1) Initializing SDK...");
-    const synapse = await Synapse.create({
-      privateKey: "YOUR_PRIVATE_KEY",
-      rpcURL: RPC_URLS.calibration.websocket,
-    });
+console.log("1) Initializing SDK...");
+const synapse = await Synapse.create({
+  privateKey: "YOUR_PRIVATE_KEY",
+  rpcURL: RPC_URLS.calibration.websocket,
+});
 
-    console.log("   ✅ SDK initialized successfully!");
-    console.log(`   Connected to network: ${synapse.getNetwork()}\n`);
+console.log(" ✅ SDK initialized successfully!");
+console.log(`Connected to network: ${synapse.getNetwork()}\n`);
 ```
 
 :::note[Keep your private key safe]
@@ -182,8 +184,7 @@ Before storing data, you need to deposit USDFC tokens in your payments account:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 import { TOKENS } from "@filoz/synapse-sdk";
 import { ethers } from "ethers";
@@ -192,7 +193,7 @@ import { ethers } from "ethers";
 console.log("2) Checking wallet balance...");
 const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
 const formattedBalance = ethers.formatUnits(walletBalance, 18);
-console.log(`   Wallet USDFC balance: ${formattedBalance} USDFC\n`);
+console.log(`Wallet USDFC balance: ${formattedBalance} USDFC\n`);
 
 // Validate sufficient balance before proceeding
 const depositAmount = ethers.parseUnits("5", 18);
@@ -205,7 +206,7 @@ const depositTx = await synapse.payments.depositWithPermit(
 );
 
 await depositTx.wait();
-console.log(`   ✅ USDFC deposit successful!`);
+console.log(`✅ USDFC deposit successful!`);
 ```
 
 ### 3: Payment Setup
@@ -215,14 +216,14 @@ Approve the storage service to create & manage payment rails on your behalf:
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
 import { ethers } from "ethers";
-// @ts-ignore
-const synapse = await Synapse.create();
+
+const synapse = await Synapse.create({});
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
 // 4. Approve Warm Storage service for payment
 console.log("4) Approving Warm Storage service...");
 const warmStorageAddress = synapse.getWarmStorageAddress();
-console.log(`   Warm Storage address: ${warmStorageAddress}`);
+console.log(`Warm Storage address: ${warmStorageAddress}`);
 
 const approveTx = await synapse.payments.approveService(
   warmStorageAddress,
@@ -232,8 +233,7 @@ const approveTx = await synapse.payments.approveService(
 );
 
 await approveTx.wait();
-console.log(`   ✅ Service approval complete!`);
-
+console.log(`✅ Service approval complete!`);
 ```
 
 ### 5: Store and Download Data
@@ -242,26 +242,26 @@ Now you can upload data to decentralized storage and retrieve it:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+
+const synapse = await Synapse.create({});
 // ---cut---
 // 5. Upload data - SDK automatically selects provider and creates data set if needed
 console.log("5) Uploading data to decentralized storage...");
 const dataBytes = new TextEncoder().encode(
-    "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You need to make sure to meet the minimum size requirement of 127 bytes for the storage context."
+  "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You need to make sure to meet the minimum size requirement of 127 bytes for the storage context."
 );
 
 const uploadResult = await synapse.storage.upload(dataBytes);
-console.log(`   ✅ Upload complete!`);
-console.log(`   PieceCID: ${uploadResult.pieceCid}`);
-console.log(`   Size: ${uploadResult.size} bytes\n`);
+console.log(`✅ Upload complete!`);
+console.log(`PieceCID: ${uploadResult.pieceCid}`);
+console.log(`Size: ${uploadResult.size} bytes\n`);
 
 // 6. Download data from any provider that has it
 console.log("6) Downloading data from storage...");
 const downloadedData = await synapse.storage.download(uploadResult.pieceCid);
 const decodedText = new TextDecoder().decode(downloadedData);
 
-console.log(`   ✅ Download successful!`);
+console.log(`✅ Download successful!`);
 console.log("🎉 Data storage and retrieval successful!");
 ```
 
@@ -295,8 +295,7 @@ For more control over provider selection and data set management:
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
 const data = {} as unknown as Uint8Array;
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 // Create a storage context with specific provider
 const context = await synapse.storage.createContext({
@@ -319,8 +318,7 @@ const downloaded = await context.download(result.pieceCid);
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 // Get all approved providers
 const storageInfo = await synapse.storage.getStorageInfo();

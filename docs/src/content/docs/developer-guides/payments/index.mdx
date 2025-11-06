@@ -26,8 +26,7 @@ Monitor your account balance to ensure you have sufficient funds for storage ope
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 import { TOKENS } from "@filoz/synapse-sdk";
 
@@ -43,8 +42,7 @@ console.log("Spending rate:", accountInfo.lockupRate, "per epoch");
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 import { ethers } from "ethers";
 import { TOKENS } from "@filoz/synapse-sdk";
@@ -77,8 +75,7 @@ This requires two transactions and higher gas costs. Use `depositWithPermit` ins
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
 
@@ -95,8 +92,7 @@ if (daysRemaining < 7) console.warn("⚠️ Low balance!");
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const info = await synapse.payments.accountInfo();
 await synapse.payments.withdraw(info.availableFunds);
@@ -118,8 +114,7 @@ Approving warmStorage for 1TiB of storage for 3 months.
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 const monthlyPricePerTiB = null as unknown as bigint;
 // ---cut---
 import { TIME_CONSTANTS } from "@filoz/synapse-sdk";
@@ -145,8 +140,7 @@ Revoking warmStorage's operator approvals.
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const warmStorage = synapse.getWarmStorageAddress();
 await synapse.payments.revokeService(warmStorage);
@@ -156,8 +150,7 @@ await synapse.payments.revokeService(warmStorage);
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const warmStorage = synapse.getWarmStorageAddress();
 const approval = await synapse.payments.serviceApproval(warmStorage);

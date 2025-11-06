@@ -38,9 +38,8 @@ Behind the scenes, context creation may be:
 Monitor the creation process with detailed callbacks to track progress:
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+import { Synapse, StorageServiceOptions } from "@filoz/synapse-sdk";
+const synapse = await Synapse.create({});
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -190,8 +189,7 @@ interface StorageContextAPI {
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -286,8 +284,7 @@ You can also terminate a data set using `synapse.storage.terminateDataSet(dataSe
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -309,8 +306,7 @@ This method submits an on-chain transaction to initiate the deletion process.
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address

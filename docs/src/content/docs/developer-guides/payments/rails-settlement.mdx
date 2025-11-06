@@ -77,8 +77,7 @@ Check rails where you're the payer:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const payerRails = await synapse.payments.getRailsAsPayer();
 console.log(`You have ${payerRails.length} outgoing payment rails`);
@@ -96,8 +95,7 @@ Check rails where you're receiving payments:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 const payeeRails = await synapse.payments.getRailsAsPayee();
 console.log(`You have ${payeeRails.length} incoming payment rails`);

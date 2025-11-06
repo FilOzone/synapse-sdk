@@ -59,8 +59,7 @@ For quick estimates without executing transactions:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 import { SIZE_CONSTANTS, WarmStorageService } from "@filoz/synapse-sdk";
 import { ethers } from "ethers";
@@ -140,8 +139,7 @@ import {
   WarmStorageService,
   SIZE_CONSTANTS,
 } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 // ---cut---
 // Get pricing structure
 const warmStorageAddress = await synapse.getWarmStorageAddress();
@@ -177,8 +175,7 @@ Determine lockup and rate allowances, including CDN costs if creating a new data
 
 ```ts twoslash
 import { Synapse, TOKENS } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 const pricePerMonth = null as unknown as bigint;
 const pricePerEpoch = null as unknown as bigint;
 const warmStorageAddress = await synapse.getWarmStorageAddress();
@@ -220,8 +217,7 @@ Check balances, calculate deposit amount, and execute the appropriate transactio
 
 ```ts twoslash
 import { Synapse, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-// @ts-ignore
-const synapse = await Synapse.create();
+const synapse = await Synapse.create({});
 const warmStorageAddress = await synapse.getWarmStorageAddress();
 const lockupNeeded = null as unknown as bigint;
 const rateAllowanceNeeded = null as unknown as bigint;
