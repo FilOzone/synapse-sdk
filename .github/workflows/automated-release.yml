@@ -222,6 +222,12 @@ jobs:
                 git add .github/release-please-manifest.json
               fi
 
+              # Accept ours for CHANGELOG (keep the PR's changelog)
+              if git ls-files -u | grep -q packages/synapse-sdk/CHANGELOG.md; then
+                git checkout --ours packages/synapse-sdk/CHANGELOG.md
+                git add packages/synapse-sdk/CHANGELOG.md
+              fi
+
               # Complete the merge
               git commit --no-edit
 
@@ -358,6 +364,12 @@ jobs:
                 sed -i "s/\"packages\/synapse-react\": \".*\"/\"packages\/synapse-react\": \"$react_version\"/" .github/release-please-manifest.json
 
                 git add .github/release-please-manifest.json
+              fi
+
+              # Accept ours for CHANGELOG (keep the PR's changelog)
+              if git ls-files -u | grep -q packages/synapse-react/CHANGELOG.md; then
+                git checkout --ours packages/synapse-react/CHANGELOG.md
+                git add packages/synapse-react/CHANGELOG.md
               fi
 
               # Complete the merge
