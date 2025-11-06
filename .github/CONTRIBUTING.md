@@ -129,13 +129,36 @@ These Release PRs are kept up-to-date as additional work is merged. When we're r
 When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs. 
 
 ### How to merge the Release PRs?
-Overview:
+
+#### Automated Release (Recommended)
+
+We have an automated workflow that handles the entire release process for you:
+
+1. Navigate to [Actions > Automated Release](https://github.com/FilOzone/synapse-sdk/actions/workflows/automated-release.yml)
+2. Click **Run workflow**
+3. Choose whether to do a dry run (recommended for first time)
+4. Click **Run workflow**
+
+The workflow will:
+- Find all release-please PRs
+- Merge them in the correct order (synapse-core → synapse-sdk → synapse-react)
+- Wait for each release-please workflow to complete
+- Automatically resolve dependency conflicts
+- Provide detailed logging for audit
+
+If the workflow fails at any step, it will stop and provide clear error messages.
+
+#### Manual Release (Advanced)
+
+If you need to manually release packages, follow these steps:
+
+**Overview:**
 * Release PRs are created individually for each package in the mono repo.  
 * The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
 * Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
-* Dependent packages like `synapse-core` and `synapse-sdk` will have to resolve conflicts before merging because the `main` branch will have an updated `synapse-core` version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
+* Dependent packages like `synapse-sdk` and `synapse-react` will have to resolve conflicts before merging because the `master` branch will have an updated dependency version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
 
-Below are the specific steps to take.  They use the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`.
+**Steps** (using the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`):
 
 | # | Package | Step | Example |
 |---|---------|------|---------|
@@ -147,7 +170,7 @@ Below are the specific steps to take.  They use the example of releasing `synaps
 | 6 | synapse-sdk | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/f14c088cba31fad0d861f4d1f1bec08bc35d9d83) |
 | 7 | synapse-sdk | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044573289) |
 | 8 | synapse-react | Find the `synapse-react` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/381) |
-| 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
+| 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-react` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
 | 10 | synapse-react | Squash and merge the PR |[example](https://github.com/FilOzone/synapse-sdk/commit/4b381d8a6e023315652a83c6782f18ac554dba2e) |
 | 11 | synapse-react | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044833170) |
 

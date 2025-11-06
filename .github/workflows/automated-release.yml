@@ -1,0 +1,463 @@
+name: Automated Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (skip actual merging)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Find release PRs
+        id: find_prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Searching for release-please PRs..."
+
+          # Find PRs with release-please label
+          core_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
+            --jq '.[] | select(.title | contains("synapse-core")) | .number' | head -1)
+          sdk_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
+            --jq '.[] | select(.title | contains("synapse-sdk") and (contains("synapse-core") | not) and (contains("synapse-react") | not)) | .number' \
+            | head -1)
+          react_pr=$(gh pr list --label "autorelease: pending" --json number,title,headRefName \
+            --jq '.[] | select(.title | contains("synapse-react")) | .number' | head -1)
+
+          echo "core_pr=$core_pr" >> $GITHUB_OUTPUT
+          echo "sdk_pr=$sdk_pr" >> $GITHUB_OUTPUT
+          echo "react_pr=$react_pr" >> $GITHUB_OUTPUT
+
+          echo "📦 Found release PRs:"
+          echo "  - synapse-core: ${core_pr:-none}"
+          echo "  - synapse-sdk: ${sdk_pr:-none}"
+          echo "  - synapse-react: ${react_pr:-none}"
+
+      - name: Validate release PRs
+        id: validate
+        env:
+          CORE_PR: ${{ steps.find_prs.outputs.core_pr }}
+          SDK_PR: ${{ steps.find_prs.outputs.sdk_pr }}
+          REACT_PR: ${{ steps.find_prs.outputs.react_pr }}
+        run: |
+          echo "✅ Validating release PRs..."
+
+          if [ -z "$CORE_PR" ] && [ -z "$SDK_PR" ] && [ -z "$REACT_PR" ]; then
+            echo "❌ No release PRs found. Nothing to release."
+            exit 1
+          fi
+
+          # Determine release order
+          release_order=""
+          if [ -n "$CORE_PR" ]; then
+            release_order="core"
+          fi
+          if [ -n "$SDK_PR" ]; then
+            release_order="${release_order}${release_order:+ }sdk"
+          fi
+          if [ -n "$REACT_PR" ]; then
+            release_order="${release_order}${release_order:+ }react"
+          fi
+
+          echo "release_order=$release_order" >> $GITHUB_OUTPUT
+          echo "📋 Release order: $release_order"
+
+      - name: Release synapse-core
+        if: steps.find_prs.outputs.core_pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find_prs.outputs.core_pr }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "📦 Processing synapse-core release (PR #$PR_NUMBER)..."
+
+          # Get PR details
+          pr_branch=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+          pr_title=$(gh pr view $PR_NUMBER --json title --jq '.title')
+
+          echo "  Branch: $pr_branch"
+          echo "  Title: $pr_title"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 DRY RUN: Would merge PR #$PR_NUMBER"
+          else
+            echo "🔀 Merging PR #$PR_NUMBER..."
+            gh pr merge $PR_NUMBER --squash --auto=false --delete-branch
+            echo "✅ Merged synapse-core PR #$PR_NUMBER"
+          fi
+
+      - name: Wait for synapse-core release workflow
+        if: steps.find_prs.outputs.core_pr != '' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "⏳ Waiting for release-please workflow to complete..."
+
+          # Wait a bit for the workflow to start
+          sleep 30
+
+          # Wait for the workflow to complete (max 10 minutes)
+          timeout=600
+          elapsed=0
+          interval=15
+
+          while [ $elapsed -lt $timeout ]; do
+            # Get the latest workflow run for release-please
+            status=$(gh run list --workflow=release-please.yml --limit=1 --json status --jq '.[0].status')
+            conclusion=$(gh run list --workflow=release-please.yml --limit=1 --json conclusion --jq '.[0].conclusion')
+
+            echo "  Status: $status, Conclusion: $conclusion"
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "✅ Release workflow completed successfully"
+                break
+              else
+                echo "❌ Release workflow failed with conclusion: $conclusion"
+                exit 1
+              fi
+            fi
+
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ Timeout waiting for release workflow"
+            exit 1
+          fi
+
+      - name: Resolve synapse-sdk conflicts
+        if: steps.find_prs.outputs.sdk_pr != '' && steps.find_prs.outputs.core_pr != '' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find_prs.outputs.sdk_pr }}
+        run: |
+          echo "🔧 Checking and resolving conflicts for synapse-sdk PR #$PR_NUMBER..."
+
+          # Get PR branch
+          pr_branch=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+
+          # Check if PR has conflicts
+          mergeable=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
+
+          if [ "$mergeable" = "CONFLICTING" ]; then
+            echo "⚠️  PR has conflicts, resolving..."
+
+            # Checkout the PR branch
+            git fetch origin $pr_branch
+            git checkout $pr_branch
+
+            # Get the current version from package.json before merge
+            sdk_version=$(cat packages/synapse-sdk/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+            echo "  Current synapse-sdk version: $sdk_version"
+
+            # Try to merge master
+            git fetch origin master
+            if ! git merge origin/master --no-edit; then
+              echo "  Merge conflicts detected, resolving..."
+
+              # Accept incoming changes for dependency updates in package.json
+              if [ -f packages/synapse-sdk/package.json ]; then
+                # Get the new core version from master
+                git checkout origin/master -- packages/synapse-core/package.json 2>/dev/null || true
+                core_version=$(cat packages/synapse-core/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+
+                # Reset package.json to their version (master), then restore our version
+                git checkout --theirs packages/synapse-sdk/package.json
+
+                # Update the synapse-sdk version back to what it was in the PR
+                sed -i "s/\"version\": \".*\"/\"version\": \"$sdk_version\"/" packages/synapse-sdk/package.json
+
+                git add packages/synapse-sdk/package.json
+              fi
+
+              # Accept theirs for pnpm-lock.yaml
+              if git ls-files -u | grep -q pnpm-lock.yaml; then
+                git checkout --theirs pnpm-lock.yaml
+                git add pnpm-lock.yaml
+              fi
+
+              # Accept theirs for .release-please-manifest.json
+              if git ls-files -u | grep -q .github/release-please-manifest.json; then
+                git checkout --theirs .github/release-please-manifest.json
+
+                # Update the synapse-sdk version in the manifest
+                sed -i "s/\"packages\/synapse-sdk\": \".*\"/\"packages\/synapse-sdk\": \"$sdk_version\"/" .github/release-please-manifest.json
+
+                git add .github/release-please-manifest.json
+              fi
+
+              # Complete the merge
+              git commit --no-edit
+
+              # Push the resolved conflicts
+              git push origin $pr_branch
+
+              echo "✅ Conflicts resolved and pushed"
+            else
+              echo "  No conflicts after merge"
+            fi
+
+            # Return to master
+            git checkout master
+          else
+            echo "  No conflicts to resolve (mergeable: $mergeable)"
+          fi
+
+      - name: Release synapse-sdk
+        if: steps.find_prs.outputs.sdk_pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find_prs.outputs.sdk_pr }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "📦 Processing synapse-sdk release (PR #$PR_NUMBER)..."
+
+          # Get PR details
+          pr_branch=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+          pr_title=$(gh pr view $PR_NUMBER --json title --jq '.title')
+
+          echo "  Branch: $pr_branch"
+          echo "  Title: $pr_title"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 DRY RUN: Would merge PR #$PR_NUMBER"
+          else
+            echo "🔀 Merging PR #$PR_NUMBER..."
+            gh pr merge $PR_NUMBER --squash --auto=false --delete-branch
+            echo "✅ Merged synapse-sdk PR #$PR_NUMBER"
+          fi
+
+      - name: Wait for synapse-sdk release workflow
+        if: steps.find_prs.outputs.sdk_pr != '' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "⏳ Waiting for release-please workflow to complete..."
+
+          # Wait a bit for the workflow to start
+          sleep 30
+
+          # Wait for the workflow to complete (max 10 minutes)
+          timeout=600
+          elapsed=0
+          interval=15
+
+          while [ $elapsed -lt $timeout ]; do
+            status=$(gh run list --workflow=release-please.yml --limit=1 --json status --jq '.[0].status')
+            conclusion=$(gh run list --workflow=release-please.yml --limit=1 --json conclusion --jq '.[0].conclusion')
+
+            echo "  Status: $status, Conclusion: $conclusion"
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "✅ Release workflow completed successfully"
+                break
+              else
+                echo "❌ Release workflow failed with conclusion: $conclusion"
+                exit 1
+              fi
+            fi
+
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ Timeout waiting for release workflow"
+            exit 1
+          fi
+
+      - name: Resolve synapse-react conflicts
+        if: steps.find_prs.outputs.react_pr != '' && (steps.find_prs.outputs.core_pr != '' || steps.find_prs.outputs.sdk_pr != '') && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find_prs.outputs.react_pr }}
+        run: |
+          echo "🔧 Checking and resolving conflicts for synapse-react PR #$PR_NUMBER..."
+
+          # Get PR branch
+          pr_branch=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+
+          # Check if PR has conflicts
+          mergeable=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
+
+          if [ "$mergeable" = "CONFLICTING" ]; then
+            echo "⚠️  PR has conflicts, resolving..."
+
+            # Checkout the PR branch
+            git fetch origin $pr_branch
+            git checkout $pr_branch
+
+            # Get the current version from package.json before merge
+            react_version=$(cat packages/synapse-react/package.json | grep '"version"' | head -1 | awk -F'"' '{print $4}')
+            echo "  Current synapse-react version: $react_version"
+
+            # Try to merge master
+            git fetch origin master
+            if ! git merge origin/master --no-edit; then
+              echo "  Merge conflicts detected, resolving..."
+
+              # Accept incoming changes for dependency updates in package.json
+              if [ -f packages/synapse-react/package.json ]; then
+                # Reset package.json to their version (master), then restore our version
+                git checkout --theirs packages/synapse-react/package.json
+
+                # Update the synapse-react version back to what it was in the PR
+                sed -i "s/\"version\": \".*\"/\"version\": \"$react_version\"/" packages/synapse-react/package.json
+
+                git add packages/synapse-react/package.json
+              fi
+
+              # Accept theirs for pnpm-lock.yaml
+              if git ls-files -u | grep -q pnpm-lock.yaml; then
+                git checkout --theirs pnpm-lock.yaml
+                git add pnpm-lock.yaml
+              fi
+
+              # Accept theirs for .release-please-manifest.json
+              if git ls-files -u | grep -q .github/release-please-manifest.json; then
+                git checkout --theirs .github/release-please-manifest.json
+
+                # Update the synapse-react version in the manifest
+                sed -i "s/\"packages\/synapse-react\": \".*\"/\"packages\/synapse-react\": \"$react_version\"/" .github/release-please-manifest.json
+
+                git add .github/release-please-manifest.json
+              fi
+
+              # Complete the merge
+              git commit --no-edit
+
+              # Push the resolved conflicts
+              git push origin $pr_branch
+
+              echo "✅ Conflicts resolved and pushed"
+            else
+              echo "  No conflicts after merge"
+            fi
+
+            # Return to master
+            git checkout master
+          else
+            echo "  No conflicts to resolve (mergeable: $mergeable)"
+          fi
+
+      - name: Release synapse-react
+        if: steps.find_prs.outputs.react_pr != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find_prs.outputs.react_pr }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "📦 Processing synapse-react release (PR #$PR_NUMBER)..."
+
+          # Get PR details
+          pr_branch=$(gh pr view $PR_NUMBER --json headRefName --jq '.headRefName')
+          pr_title=$(gh pr view $PR_NUMBER --json title --jq '.title')
+
+          echo "  Branch: $pr_branch"
+          echo "  Title: $pr_title"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 DRY RUN: Would merge PR #$PR_NUMBER"
+          else
+            echo "🔀 Merging PR #$PR_NUMBER..."
+            gh pr merge $PR_NUMBER --squash --auto=false --delete-branch
+            echo "✅ Merged synapse-react PR #$PR_NUMBER"
+          fi
+
+      - name: Wait for synapse-react release workflow
+        if: steps.find_prs.outputs.react_pr != '' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "⏳ Waiting for release-please workflow to complete..."
+
+          # Wait a bit for the workflow to start
+          sleep 30
+
+          # Wait for the workflow to complete (max 10 minutes)
+          timeout=600
+          elapsed=0
+          interval=15
+
+          while [ $elapsed -lt $timeout ]; do
+            status=$(gh run list --workflow=release-please.yml --limit=1 --json status --jq '.[0].status')
+            conclusion=$(gh run list --workflow=release-please.yml --limit=1 --json conclusion --jq '.[0].conclusion')
+
+            echo "  Status: $status, Conclusion: $conclusion"
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" = "success" ]; then
+                echo "✅ Release workflow completed successfully"
+                break
+              else
+                echo "❌ Release workflow failed with conclusion: $conclusion"
+                exit 1
+              fi
+            fi
+
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          if [ $elapsed -ge $timeout ]; then
+            echo "❌ Timeout waiting for release workflow"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          CORE_PR: ${{ steps.find_prs.outputs.core_pr }}
+          SDK_PR: ${{ steps.find_prs.outputs.sdk_pr }}
+          REACT_PR: ${{ steps.find_prs.outputs.react_pr }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          echo "## 📊 Release Summary"
+          echo ""
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "🔍 **DRY RUN MODE** - No actual changes were made"
+            echo ""
+          fi
+          echo "### Packages processed:"
+          [ -n "$CORE_PR" ] && echo "- ✅ synapse-core (PR #$CORE_PR)" || echo "- ⏭️  synapse-core (skipped - no release PR)"
+          [ -n "$SDK_PR" ] && echo "- ✅ synapse-sdk (PR #$SDK_PR)" || echo "- ⏭️  synapse-sdk (skipped - no release PR)"
+          [ -n "$REACT_PR" ] && echo "- ✅ synapse-react (PR #$REACT_PR)" || echo "- ⏭️  synapse-react (skipped - no release PR)"
+          echo ""
+          echo "🎉 Automated release process completed!"
