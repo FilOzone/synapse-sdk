@@ -60,10 +60,16 @@ class ReleaseAutomation {
 	constructor(options = {}) {
 		this.dryRun = options.dryRun || false
 		this.timeout = options.timeout || 600
+		// Prefer GITHUB_TOKEN, fallback to GH_TOKEN for compatibility
 		this.token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN
 
 		if (!this.token) {
 			throw new Error('GITHUB_TOKEN or GH_TOKEN environment variable is required')
+		}
+
+		// Validate timeout is a positive number
+		if (typeof this.timeout !== 'number' || this.timeout <= 0 || Number.isNaN(this.timeout)) {
+			throw new Error(`Invalid timeout value: ${this.timeout}. Must be a positive number.`)
 		}
 	}
 
@@ -379,10 +385,16 @@ async function main() {
 		timeout: 600,
 	}
 
-	// Parse timeout
+	// Parse and validate timeout
 	const timeoutArg = args.find((arg) => arg.startsWith('--timeout='))
 	if (timeoutArg) {
-		options.timeout = Number.parseInt(timeoutArg.split('=')[1], 10)
+		const timeoutValue = Number.parseInt(timeoutArg.split('=')[1], 10)
+		if (Number.isNaN(timeoutValue) || timeoutValue <= 0) {
+			console.error(`❌ Invalid timeout value: ${timeoutArg.split('=')[1]}`)
+			console.error('Timeout must be a positive integer (seconds)')
+			process.exit(1)
+		}
+		options.timeout = timeoutValue
 	}
 
 	const automation = new ReleaseAutomation(options)
