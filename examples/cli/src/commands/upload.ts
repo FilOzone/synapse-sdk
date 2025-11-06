@@ -70,8 +70,8 @@ export const upload: Command = command(
         metadata: {
           name: path.basename(absolutePath),
         },
-        onPieceAdded(transaction) {
-          p.log.info(`Piece added, tx: ${transaction}`)
+        onPieceAdded(transactionHash) {
+          p.log.info(`Piece added, tx: ${transactionHash}`)
         },
         onPieceConfirmed(pieceIds) {
           p.log.info(`Piece confirmed: ${pieceIds.join(', ')}`)

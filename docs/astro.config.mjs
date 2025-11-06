@@ -21,8 +21,8 @@ export default defineConfig({
       autoTheme: true,
     }),
     starlight({
-      title: 'Filecoin Onchain Cloud',
-      logo: { src: './src/assets/foc-logo.svg', alt: 'synapse' },
+      title: 'Filecion Onchain Cloud',
+      logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
       customCss: ['./src/custom.css'],
       head: [
@@ -97,7 +97,7 @@ export default defineConfig({
         },
         {
           label: 'Developer Guides',
-          collapsed: true,
+          collapsed: false,
           autogenerate: { directory: 'developer-guides' , collapsed: true},
         },
         {

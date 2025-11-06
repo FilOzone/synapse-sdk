@@ -23,3 +23,9 @@
   font-size: 0.8rem;
   color: #666;
 }
+
+/* Make diagram images smaller */
+img[src*="foc-diagram.png"] {
+  max-width: 80% !important;
+  height: auto !important;
+}
