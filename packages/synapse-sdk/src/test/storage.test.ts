@@ -14,7 +14,12 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
-import { findPieceHandler, postPieceHandler, uploadPieceHandler } from './mocks/pdp/handlers.ts'
+import {
+  createAndAddPiecesHandler,
+  findPieceHandler,
+  postPieceHandler,
+  uploadPieceHandler,
+} from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
@@ -1271,12 +1276,7 @@ describe('StorageService', () => {
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        http.post('https://pdp.example.com/pdp/data-sets/create-and-add', () => {
-          return new HttpResponse(null, {
-            status: 201,
-            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
-          })
-        }),
+        createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
@@ -1344,12 +1344,7 @@ describe('StorageService', () => {
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        http.post('https://pdp.example.com/pdp/data-sets/create-and-add', () => {
-          return new HttpResponse(null, {
-            status: 201,
-            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
-          })
-        }),
+        createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
