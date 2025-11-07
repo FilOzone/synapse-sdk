@@ -181,14 +181,6 @@ async function main() {
             console.log(`✓ Created new data set: ${info.dataSetId}`)
           }
         },
-        onDataSetCreationStarted: (transaction) => {
-          console.log(`  Creating data set, tx: ${transaction.hash}`)
-        },
-        onDataSetCreationProgress: (progress) => {
-          if (progress.transactionMined && !progress.dataSetLive) {
-            console.log('  Transaction mined, waiting for data set to be live...')
-          }
-        },
       },
     })
 
