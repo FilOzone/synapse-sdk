@@ -167,8 +167,8 @@ async function main() {
     // Create storage context (optional - synapse.storage.upload() will auto-create if needed)
     // We create it explicitly here to show provider selection and data set creation callbacks
     console.log('\n--- Setting Up Storage Context ---')
-    const storageContext = await synapse.storage.createContext({
-      // providerId: 123, // Optional: specify a provider ID
+    const contexts = await synapse.storage.createContexts({
+      // providerIds: [123], // Optional: specify provider IDs
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
@@ -184,29 +184,35 @@ async function main() {
       },
     })
 
-    console.log(`Data set ID: ${storageContext.dataSetId}`)
-    const pieceCids = await storageContext.getDataSetPieces()
-    console.log(`Data set contains ${pieceCids.length} piece CIDs`)
-    /* Uncomment to see piece CIDs
-    for (const cid of pieceCids) {
-      console.log(`  - Piece CID: ${cid}`)
-    }
-    */
+    for (const storageContext of contexts) {
+      if (storageContext.dataSetId === undefined) {
+        console.log(`Data set not yet created`)
+      } else {
+        console.log(`Data set ID: ${storageContext.dataSetId}`)
+      }
+      const pieceCids = await storageContext.getDataSetPieces()
+      console.log(`Data set contains ${pieceCids.length} piece CIDs`)
+      /* Uncomment to see piece CIDs
+      for (const cid of pieceCids) {
+        console.log(`  - Piece CID: ${cid}`)
+      }
+      */
 
-    // Get detailed provider information
-    console.log('\n--- Service Provider Details ---')
-    const providerInfo = await storageContext.getProviderInfo()
-    console.log(`Provider ID: ${providerInfo.id}`)
-    console.log(`Provider Address: ${providerInfo.serviceProvider}`)
-    console.log(`Provider Name: ${providerInfo.name}`)
-    console.log(`Active: ${providerInfo.active}`)
-    if (providerInfo.products.PDP?.data.serviceURL) {
-      console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
+      // Get detailed provider information
+      console.log('\n--- Service Provider Details ---')
+      const providerInfo = await storageContext.getProviderInfo()
+      console.log(`Provider ID: ${providerInfo.id}`)
+      console.log(`Provider Address: ${providerInfo.serviceProvider}`)
+      console.log(`Provider Name: ${providerInfo.name}`)
+      console.log(`Active: ${providerInfo.active}`)
+      if (providerInfo.products.PDP?.data.serviceURL) {
+        console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
+      }
     }
 
     // Run preflight checks, using total size since we care about our ability to pay
     console.log('\n--- Preflight Upload Check ---')
-    const preflight = await storageContext.preflightUpload(totalSize)
+    const preflight = await synapse.storage.preflightUpload(totalSize)
 
     console.log('Estimated costs:')
     console.log(`  Per epoch (30s): ${formatUSDFC(preflight.estimatedCost.perEpoch)}`)
@@ -238,7 +244,8 @@ async function main() {
       if (files.length > 1) {
         pfx = `[File ${index + 1}/${files.length}] `
       }
-      return storageContext.upload(file.data, {
+      return synapse.storage.upload(file.data, {
+        contexts,
         onUploadComplete: (pieceCid) => {
           console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
         },
@@ -255,11 +262,20 @@ async function main() {
     const uploadResults = await Promise.all(uploadPromises)
 
     console.log('\n--- Upload Summary ---')
-    uploadResults.forEach((result, index) => {
-      console.log(`File ${index + 1}: ${files[index].path}`)
-      console.log(`  PieceCID: ${result.pieceCid}`)
-      console.log(`  Size: ${formatBytes(result.size)}`)
-      console.log(`  Piece ID: ${result.pieceId}`)
+    uploadResults.forEach((fileResult, fileIndex) => {
+      console.log(`File ${fileIndex + 1}: ${files[fileIndex].path}`)
+      fileResult.forEach((spResult, spIndex) => {
+        console.log(`  ProviderId: ${contexts[spIndex].provider.id}`)
+        if (spResult.status === 'fulfilled') {
+          const uploaded = spResult.value
+          console.log(`    PieceCID: ${uploaded.pieceCid}`)
+          console.log(`    Size: ${formatBytes(uploaded.size)}`)
+          console.log(`    Piece ID: ${uploaded.pieceId}`)
+        } else {
+          const reason = spResult.reason
+          console.error(`    Failure reason: ${reason.message}`)
+        }
+      })
     })
 
     // Download all files back in parallel
@@ -267,11 +283,17 @@ async function main() {
     console.log(`Downloading file${files.length !== 1 ? 's in parallel' : ''}...\n`)
 
     // Start all downloads without waiting (collect promises)
-    const downloadPromises = uploadResults.map((result, index) => {
-      console.log(`  Downloading file ${index + 1}: ${result.pieceCid}`)
-      // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
-      // Could also use storageContext.download() to download from the specific provider
-      return synapse.storage.download(result.pieceCid)
+    const downloadPromises = uploadResults.map((fileResult, index) => {
+      const pieceCid = fileResult.find((res) => res.status === 'fulfilled')?.value.pieceCid
+      if (pieceCid == null) {
+        console.error(`  Skipping download because no successful upload`)
+        return new Promise((resolve) => resolve(null))
+      } else {
+        console.log(`  Downloading file ${index + 1}: ${pieceCid}`)
+        // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
+        // Could also use storageContext.download() to download from the specific provider
+        return synapse.storage.download(pieceCid)
+      }
     })
 
     // Wait for all downloads to complete in parallel
@@ -284,8 +306,12 @@ async function main() {
     let allMatch = true
 
     for (let i = 0; i < files.length; i++) {
-      const originalData = files[i].data
       const downloadedData = downloadedFiles[i]
+      if (downloadedData == null) {
+        console.warn(`Skipped File ${i + 1} (${files[i].path})`)
+        continue
+      }
+      const originalData = files[i].data
       const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
 
       console.log(
@@ -307,41 +333,52 @@ async function main() {
     // Check piece status for all files
     console.log('\n--- Piece Status ---')
 
-    // Check status for the first piece (data set info is shared)
-    const firstPieceStatus = await storageContext.pieceStatus(uploadResults[0].pieceCid)
-    console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
-    if (firstPieceStatus.dataSetLastProven) {
-      console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
-    }
-    if (firstPieceStatus.dataSetNextProofDue) {
-      console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
-    }
-    if (firstPieceStatus.inChallengeWindow) {
-      console.log('Currently in challenge window - proof must be submitted soon')
-    } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
-      console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
-    }
-
-    // Show storage info
-    console.log('\n--- Storage Information ---')
-    console.log(
-      `Your ${uploadResults.length} file${files.length !== 1 ? 's' : ''} are now stored on the Filecoin network:`
-    )
-    console.log(`- Data set ID: ${storageContext.dataSetId}`)
-    console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
-
-    console.log('\nUploaded pieces:')
-    uploadResults.forEach((result, index) => {
-      console.log(`\n  File ${index + 1}: ${files[index].path}`)
-      console.log(`    PieceCID: ${result.pieceCid}`)
-      console.log(`    Piece ID: ${result.pieceId}`)
-      console.log(`    Size: ${formatBytes(result.size)}`)
-      if (providerInfo.products.PDP?.data.serviceURL) {
-        console.log(
-          `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${result.pieceCid}`
-        )
+    for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
+      const storageContext = contexts[spIndex]
+      // Check status for the first piece (data set info is shared)
+      const pieceCid = uploadResults[0][spIndex].value?.pieceCid
+      if (pieceCid == null) {
+        continue
       }
-    })
+      const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
+      console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
+      if (firstPieceStatus.dataSetLastProven) {
+        console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
+      }
+      if (firstPieceStatus.dataSetNextProofDue) {
+        console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
+      }
+      if (firstPieceStatus.inChallengeWindow) {
+        console.log('Currently in challenge window - proof must be submitted soon')
+      } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
+        console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
+      }
+
+      const providerInfo = storageContext.provider
+      // Show storage info
+      console.log('\n--- Storage Information ---')
+      console.log(
+        `Your ${uploadResults.length} file${files.length !== 1 ? 's' : ''} are now stored on the Filecoin network:`
+      )
+      console.log(`- Data set ID: ${storageContext.dataSetId}`)
+      console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
+
+      console.log('\nUploaded pieces:')
+      uploadResults.forEach((fileResult, fileIndex) => {
+        console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
+        if (fileResult[spIndex].status === 'fulfilled') {
+          const result = fileResult[spIndex].value
+          console.log(`    PieceCID: ${result.pieceCid}`)
+          console.log(`    Piece ID: ${result.pieceId}`)
+          console.log(`    Size: ${formatBytes(result.size)}`)
+          if (providerInfo.products.PDP?.data.serviceURL) {
+            console.log(
+              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${result.pieceCid}`
+            )
+          }
+        }
+      })
+    }
 
     console.log('\nThe service provider will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
