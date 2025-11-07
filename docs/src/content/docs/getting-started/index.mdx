@@ -54,6 +54,10 @@ Before you start building with Synapse SDK, you'll need to request test tokens f
 
 The [`Synapse`](../api/filoz/synapse-sdk/synapse/classes/synapse/) class provides a complete, easy-to-use interface for interacting with Filecoin storage services.
 
+:::note[Keep your private key safe]
+Instead of hardcoding `privateKey` in the code, you should always consider to store and access it from `.env` files. And never commit your private key.
+:::
+
 Get started with storage in just a few lines of code.
 
 ```ts twoslash
@@ -112,7 +116,7 @@ async function main() {
     // 5. Upload data - SDK automatically selects provider and creates data set if needed
     console.log("5) Uploading data to decentralized storage...");
     const dataBytes = new TextEncoder().encode(
-      "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You need to make sure to meet the minimum size requirement of 127 bytes for the storage context."
+      "🚀 Welcome to decentralized storage on Filecoin Onchain Cloud! Your data is safe here. 🌍 You will be able to use Synapse SDK to access full FOC features, such Filecoin warm storage serivce, Filecoin pay, Filecoin Beam, etc. "
     );
 
     const uploadResult = await synapse.storage.upload(dataBytes);
@@ -169,10 +173,6 @@ const synapse = await Synapse.create({
   rpcURL: RPC_URLS.calibration.websocket,
 });
 ```
-
-:::note[Keep your private key safe]
-Instead of hardcoding `privateKey` in the code, you should always consider to store and access it from `.env` files.
-:::
 
 ### 2: USDFC Deposit
 
