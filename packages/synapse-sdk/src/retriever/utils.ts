@@ -95,9 +95,12 @@ export async function fetchPiecesFromProviders(
       if (!failures.some((f) => f.provider === provider.serviceProvider)) {
         failures.push({ provider: provider.serviceProvider, error: errorMsg })
       }
-      // TODO: remove this at some point, it might get noisy
-      console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
-      throw error
+      if (errorMsg !== 'This operation was aborted') {
+        // TODO: remove this at some point, it might get noisy
+        console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
+      } else {
+        throw error
+      }
     }
   })
 
