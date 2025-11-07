@@ -25,93 +25,6 @@ export interface PieceMetadataCapture {
   values: string[][]
 }
 
-/**
- * Creates a handler for successful data set creation
- */
-export function createDataSetHandler(txHash: Hex, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
-
-  return http.post(`${baseUrl}/pdp/data-sets`, async ({ request }) => {
-    // Validate that request contains required fields
-    const body = (await request.json()) as any
-
-    if (options.debug) {
-      console.debug('PDP Mock: createDataSet request', body)
-    }
-    if (!body.extraData) {
-      return new HttpResponse(JSON.stringify({ error: 'Missing extraData' }), { status: 400 })
-    }
-
-    // Parse extraData to verify metadata encoding
-    // Structure: (address payer, uint256 clientDataSetId, string[] keys, string[] values, bytes signature)
-    try {
-      const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-      const decoded = abiCoder.decode(['address', 'uint256', 'string[]', 'string[]', 'bytes'], body.extraData)
-
-      if (options.debug) {
-        console.debug('PDP Mock: decoded metadata keys', decoded[2])
-        console.debug('PDP Mock: decoded metadata values', decoded[3])
-      }
-    } catch (error) {
-      if (options.debug) {
-        console.debug('PDP Mock: failed to decode extraData', error)
-      }
-    }
-
-    return new HttpResponse(null, {
-      status: 201,
-      headers: { Location: `/pdp/data-sets/created/${txHash}` },
-    })
-  })
-}
-
-/**
- * Creates a handler for successful piece addition
- */
-export function addPiecesHandler(dataSetId: number, txHash: Hex, options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
-
-  return http.post<{ id: string }, PDPAddPiecesInput>(
-    `${baseUrl}/pdp/data-sets/:id/pieces`,
-    async ({ params, request }) => {
-      if (params.id !== dataSetId.toString()) {
-        return new HttpResponse(null, { status: 404 })
-      }
-
-      const body = await request.json()
-
-      if (options.debug) {
-        console.debug('PDP Mock: addPieces request', body)
-      }
-
-      // Validate that request contains required fields
-      if (!body.extraData) {
-        return new HttpResponse(JSON.stringify({ error: 'Missing extraData' }), { status: 400 })
-      }
-
-      // Parse extraData to verify metadata encoding
-      try {
-        const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-        const decoded = abiCoder.decode(['bytes', 'string[][]', 'string[][]'], body.extraData)
-
-        if (options.debug) {
-          console.debug('PDP Mock: decoded piece metadata', decoded[1])
-          console.debug('PDP Mock: decoded piece metadata values', decoded[2])
-        }
-      } catch (error) {
-        if (options.debug) {
-          console.debug('PDP Mock: failed to decode extraData', error)
-        }
-      }
-
-      return new HttpResponse(null, {
-        status: 201,
-        headers: { Location: `/pdp/data-sets/${dataSetId}/pieces/added/${txHash}` },
-      })
-    }
-  )
-}
-
 export function createAndAddPiecesHandler(txHash: Hex, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
   return http.post(`${baseUrl}/pdp/data-sets/create-and-add`, () => {
@@ -227,21 +140,6 @@ export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMo
       headers: {
         Location: `/pdp/piece/upload/${uuid}`,
       },
-    })
-  })
-}
-
-/**
- * Create a handler that reflects back any pieceCid and reports that piece as parked
- */
-export function postParkedPieceHandler(options: PDPMockOptions = {}) {
-  const baseUrl = options.baseUrl ?? 'http://pdp.local'
-  return http.post(`${baseUrl}/pdp/piece`, async ({ request }) => {
-    const url = new URL(request.url)
-    const pieceCid = url.searchParams.get('pieceCid')
-
-    return HttpResponse.json({
-      pieceCid,
     })
   })
 }
