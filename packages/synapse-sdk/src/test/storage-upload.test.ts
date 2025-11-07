@@ -55,6 +55,7 @@ describe('Storage Upload', () => {
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
@@ -66,7 +67,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -77,7 +78,7 @@ describe('Storage Upload', () => {
           dataSetId: parseInt(params.id, 10),
           pieceCount: 3,
           piecesAdded: true,
-          txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+          txHash,
           txStatus: 'confirmed',
         }
 
@@ -130,6 +131,7 @@ describe('Storage Upload', () => {
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -144,7 +146,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -159,25 +161,22 @@ describe('Storage Upload', () => {
               dataSetId: parseInt(params.id, 10),
               pieceCount: 1,
               piecesAdded: true,
-              txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+              txHash,
               txStatus: 'confirmed',
             } satisfies AddPiecesSuccess,
             { status: 200 }
           )
         }
 
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0, 1],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 2,
-            piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
-            txStatus: 'confirmed',
-          } satisfies AddPiecesSuccess,
-          { status: 200 }
-        )
+        return HttpResponse.json({
+          addMessageOk: true,
+          confirmedPieceIds: [0, 1],
+          dataSetId: parseInt(params.id, 10),
+          pieceCount: 2,
+          piecesAdded: true,
+          txHash,
+          txStatus: 'confirmed',
+        } satisfies AddPiecesSuccess)
       })
     )
     const synapse = await Synapse.create({ signer })
@@ -206,6 +205,7 @@ describe('Storage Upload', () => {
 
   it('should handle batch size of 1', async () => {
     let addPiecesCalls = 0
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -229,7 +229,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -244,7 +244,7 @@ describe('Storage Upload', () => {
               dataSetId: parseInt(params.id, 10),
               pieceCount: 1,
               piecesAdded: true,
-              txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+              txHash,
               txStatus: 'confirmed',
             } satisfies AddPiecesSuccess,
             { status: 200 }
@@ -258,7 +258,7 @@ describe('Storage Upload', () => {
               dataSetId: parseInt(params.id, 10),
               pieceCount: 1,
               piecesAdded: true,
-              txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+              txHash,
               txStatus: 'confirmed',
             } satisfies AddPiecesSuccess,
             { status: 200 }
@@ -272,7 +272,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
@@ -310,6 +310,7 @@ describe('Storage Upload', () => {
 
   it('should debounce uploads for better batching', async () => {
     let addPiecesCalls = 0
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -333,7 +334,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -347,7 +348,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 5,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
@@ -373,6 +374,7 @@ describe('Storage Upload', () => {
 
   it('should accept exactly 127 bytes', async () => {
     let addPiecesCalls = 0
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -396,7 +398,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -410,7 +412,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
@@ -434,6 +436,7 @@ describe('Storage Upload', () => {
 
   it('should accept data up to 200 MiB', async () => {
     let addPiecesCalls = 0
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -455,7 +458,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -469,7 +472,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
@@ -496,6 +499,7 @@ describe('Storage Upload', () => {
     let pieceAddedCallbackFired = false
     let pieceConfirmedCallbackFired = false
     let uploadCompleteCallbackFired = false
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -517,7 +521,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -529,7 +533,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
@@ -566,6 +570,7 @@ describe('Storage Upload', () => {
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
     }
+    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -579,7 +584,7 @@ describe('Storage Upload', () => {
         return new HttpResponse(null, {
           status: 201,
           headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456`,
+            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
           },
         })
       }),
@@ -591,7 +596,7 @@ describe('Storage Upload', () => {
             dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
-            txHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456',
+            txHash,
             txStatus: 'confirmed',
           } satisfies AddPiecesSuccess,
           { status: 200 }
