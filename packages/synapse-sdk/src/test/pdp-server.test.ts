@@ -230,6 +230,46 @@ InvalidSignature(address expected, address actual)
         )
       }
     })
+
+    it('should fail with CreateDataSetError typed error - reversed', async () => {
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets', () => {
+          return HttpResponse.text(
+            `Failed to send transaction: failed to estimate gas: message execution failed (exit=[33], vm error=[message failed with backtrace:
+00: f0169791 (method 3844450837) -- contract reverted at 75 (33)
+01: f0169791 (method 6) -- contract reverted at 4535 (33)
+02: f0169800 (method 3844450837) -- contract reverted at 75 (33)
+03: f0169800 (method 6) -- contract reverted at 18957 (33)
+(RetCode=33)], revert reason=[0x42d750dc0000000000000000000000007e4abd63a7c8314cc28d388303472353d884f292000000000000000000000000b0ff6622d99a325151642386f65ab33a08c30213])
+`,
+            {
+              status: 500,
+            }
+          )
+        })
+      )
+      try {
+        await pdpServer.createDataSet(
+          0n, // clientDataSetId
+          '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
+          await signer.getAddress(), // payer
+          [], // metadata (empty for no CDN)
+          TEST_CONTRACT_ADDRESS // recordKeeper
+        )
+        assert.fail('Should have thrown error for no Location header')
+      } catch (error) {
+        assert.instanceOf(error, CreateDataSetError)
+        assert.equal(error.shortMessage, 'Failed to create data set.')
+        assert.equal(
+          error.message,
+          `Failed to create data set.
+
+Details: Warm Storage
+InvalidSignature(address expected, address actual)
+                (0x7e4ABd63A7C8314Cc28D388303472353D884f292, 0xb0fF6622D99A325151642386F65AB33a08c30213)`
+        )
+      }
+    })
   })
 
   describe('createAndAddPieces', () => {

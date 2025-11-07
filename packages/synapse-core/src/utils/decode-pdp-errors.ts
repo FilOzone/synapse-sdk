@@ -5,59 +5,60 @@ import { formatAbiItem, formatAbiItemWithArgs } from 'viem/utils'
 import * as Abis from '../abis/index.ts'
 
 export function decodePDPError(error: string) {
-  const regex = /error=\[(.*?)]/
-  const match = error.match(regex)
-  const extractedContent = match?.[1]
+  const regex = /(?:vm error|revert reason)=\[(.*?)\]/g
+  const matches = error.matchAll(regex)
 
-  if (extractedContent?.startsWith('0x')) {
-    let error: Error
+  for (const match of matches) {
+    const extractedContent = match[1]
+    if (extractedContent?.startsWith('0x')) {
+      let error: Error
 
-    // try warm storage abi
-    try {
-      const value = decodeErrorResult({
-        abi: Abis.storage,
-        data: extractedContent as Hex,
-      })
-
-      return `Warm Storage\n${formatPDPError(value)}`
-    } catch (err) {
-      error = err as Error
-    }
-
-    // try payments abi
-    if (error instanceof AbiErrorSignatureNotFoundError) {
+      // try warm storage abi
       try {
         const value = decodeErrorResult({
-          abi: Abis.payments,
+          abi: Abis.storage,
           data: extractedContent as Hex,
         })
 
-        return `Payments\n${formatPDPError(value)}`
+        return `Warm Storage\n${formatPDPError(value)}`
       } catch (err) {
         error = err as Error
       }
-    }
 
-    // try pdp verifier abi
-    if (error instanceof AbiErrorSignatureNotFoundError) {
-      try {
-        const value = decodeErrorResult({
-          abi: Abis.pdp,
-          data: extractedContent as Hex,
-        })
+      // try payments abi
+      if (error instanceof AbiErrorSignatureNotFoundError) {
+        try {
+          const value = decodeErrorResult({
+            abi: Abis.payments,
+            data: extractedContent as Hex,
+          })
 
-        return `PDP Verifier\n${formatPDPError(value)}`
-      } catch (err) {
-        error = err as Error
+          return `Payments\n${formatPDPError(value)}`
+        } catch (err) {
+          error = err as Error
+        }
       }
-    }
 
-    return `Unable to decode error\n${error}`
-  } else if (extractedContent?.startsWith('Error(')) {
-    return `\n${extractedContent.replace('Error(', '').replace(')', '')}`
-  } else {
-    return `Service Provider PDP\n${error}`
+      // try pdp verifier abi
+      if (error instanceof AbiErrorSignatureNotFoundError) {
+        try {
+          const value = decodeErrorResult({
+            abi: Abis.pdp,
+            data: extractedContent as Hex,
+          })
+
+          return `PDP Verifier\n${formatPDPError(value)}`
+        } catch (err) {
+          error = err as Error
+        }
+      }
+
+      return `Unable to decode error\n${error}`
+    } else if (extractedContent?.startsWith('Error(')) {
+      return `\n${extractedContent.replace('Error(', '').replace(')', '')}`
+    }
   }
+  return `Service Provider PDP\n${error}`
 }
 
 /**
