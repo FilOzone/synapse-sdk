@@ -1,7 +1,7 @@
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { assert, config } from 'chai'
+import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -19,8 +19,6 @@ import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
 const server = setup([])
-
-config.truncateThreshold = 0
 
 function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
