@@ -321,6 +321,9 @@ export async function uploadPiece(options: UploadPieceOptions): Promise<void> {
   }
 
   const pieceCid = options.pieceCid
+  if (!Piece.isPieceCID(pieceCid)) {
+    throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
+  }
   const response = await request.post(new URL(`pdp/piece`, options.endpoint), {
     body: JSON.stringify({
       pieceCid: pieceCid.toString(),
