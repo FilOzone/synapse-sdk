@@ -15,6 +15,7 @@ import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
 import type { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
+import type { UploadResult } from '../types.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
@@ -975,6 +976,7 @@ describe('Synapse', () => {
           )
         }
       })
+
       it('succeeds for ArrayBuffer data when upload found', async () => {
         const data = new ArrayBuffer(1024)
         const pieceCid = Piece.calculate(new Uint8Array(data))
@@ -1007,6 +1009,56 @@ describe('Synapse', () => {
         }
         const results = await synapse.storage.upload(data, { contexts })
         assert.equal(results.length, contexts.length)
+        for (let i = 0; i < results.length; i++) {
+          assert.equal(results[i].status, 'fulfilled')
+          const value = (results[i] as PromiseFulfilledResult<UploadResult>).value
+          assert.equal(value.pieceCid.toString(), pieceCid.toString())
+          assert.equal(value.size, 1024)
+        }
+      })
+
+      it('handles when one storage provider fails to create an upload session', async () => {
+        const data = new ArrayBuffer(1024)
+        const pieceCid = Piece.calculate(new Uint8Array(data))
+        const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
+        const found = true
+        const wrongCid = 'wrongCid'
+        for (const provider of [PROVIDERS.provider1, PROVIDERS.provider2]) {
+          const pdpOptions = {
+            baseUrl: provider.products[0].offering.serviceURL,
+          }
+          server.use(
+            postPieceHandler(provider === PROVIDERS.provider1 ? pieceCid.toString() : wrongCid, mockUUID, pdpOptions)
+          )
+          server.use(uploadPieceHandler(mockUUID, pdpOptions))
+          server.use(findPieceHandler(pieceCid.toString(), found, pdpOptions))
+          server.use(createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
+          server.use(
+            pieceAdditionStatusHandler(
+              DATA_SET_ID,
+              FAKE_TX_HASH,
+              {
+                txHash: FAKE_TX_HASH,
+                txStatus: 'pending',
+                dataSetId: DATA_SET_ID,
+                pieceCount: 1,
+                addMessageOk: true,
+                piecesAdded: true,
+                confirmedPieceIds: [0],
+              },
+              pdpOptions
+            )
+          )
+        }
+        const results = await synapse.storage.upload(data, { contexts })
+        assert.equal(results.length, contexts.length)
+        assert.equal(results[0].status, 'fulfilled')
+        const value0 = (results[0] as PromiseFulfilledResult<UploadResult>).value
+        assert.equal(value0.pieceCid.toString(), pieceCid.toString())
+        assert.equal(value0.size, 1024)
+        assert.equal(results[1].status, 'rejected')
+        const reason1 = (results[1] as PromiseRejectedResult).reason
+        assert.include(reason1.message, wrongCid)
       })
     })
   })

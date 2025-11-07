@@ -114,10 +114,13 @@ export class StorageManager {
 
   /**
    * Upload data to storage
-   * If context is provided, routes to context.upload()
+   * Uses the storage contexts or context provided in the options
    * Otherwise creates/reuses default context
    */
-  async upload(data: Uint8Array | ArrayBuffer, options?: StorageManagerUploadOptions): Promise<UploadResult[]> {
+  async upload(
+    data: Uint8Array | ArrayBuffer,
+    options?: StorageManagerUploadOptions
+  ): Promise<PromiseSettledResult<UploadResult>[]> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []
@@ -151,7 +154,7 @@ export class StorageManager {
     const pieceCid = Piece.calculate(dataBytes)
 
     // Upload using the contexts with piece metadata
-    return await Promise.all(
+    return await Promise.allSettled(
       contexts.map((context) =>
         context.upload(
           dataBytes,
