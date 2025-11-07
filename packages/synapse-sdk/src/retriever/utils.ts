@@ -98,9 +98,8 @@ export async function fetchPiecesFromProviders(
       if (errorMsg !== 'This operation was aborted') {
         // TODO: remove this at some point, it might get noisy
         console.warn(`Failed to fetch from provider ${provider.serviceProvider}:`, errorMsg)
-      } else {
-        throw error
       }
+      throw error
     }
   })
 
