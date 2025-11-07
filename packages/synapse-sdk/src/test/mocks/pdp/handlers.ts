@@ -190,6 +190,19 @@ export function findPieceHandler(pieceCid: string, found: boolean, options: PDPM
   })
 }
 
+export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
+    const url = new URL(request.url)
+    const queryCid = url.searchParams.get('pieceCid')
+    if (found) {
+      return HttpResponse.json({ pieceCid: queryCid })
+    } else {
+      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+    }
+  })
+}
+
 /**
  * Creates a handler that supports only one pieceCid
  * Returns a UUID for 201, or a CID for 200
@@ -204,14 +217,9 @@ export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMo
     assert.equal(body.pieceCid, pieceCid)
     if (uuid == null) {
       // parked piece found
-      return HttpResponse.json(
-        {
-          pieceCid,
-        },
-        {
-          status: 200,
-        }
-      )
+      return HttpResponse.json({
+        pieceCid,
+      })
     }
     // Piece does not exist, proceed to create a new upload request
     return HttpResponse.text('Created', {
@@ -219,6 +227,21 @@ export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMo
       headers: {
         Location: `/pdp/piece/upload/${uuid}`,
       },
+    })
+  })
+}
+
+/**
+ * Create a handler that reflects back any pieceCid and reports that piece as parked
+ */
+export function postParkedPieceHandler(options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.post(`${baseUrl}/pdp/piece`, async ({ request }) => {
+    const url = new URL(request.url)
+    const pieceCid = url.searchParams.get('pieceCid')
+
+    return HttpResponse.json({
+      pieceCid,
     })
   })
 }

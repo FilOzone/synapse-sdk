@@ -1,6 +1,7 @@
+import * as Piece from '@filoz/synapse-core/piece'
 import { calculate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { assert } from 'chai'
+import { assert, config } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -13,10 +14,13 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
+import { findPieceHandler, postPieceHandler, uploadPieceHandler } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
 const server = setup([])
+
+config.truncateThreshold = 0
 
 function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
@@ -1402,19 +1406,16 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
+      const testPieceCID = Piece.calculate(testData).toString()
+      const pdpOptions = {
+        baseUrl: 'https://pdp.example.com',
+      }
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
-            },
-          })
-        }),
+        postPieceHandler(testPieceCID, '12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
         http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
           return HttpResponse.error()
         })
@@ -1433,28 +1434,18 @@ describe('StorageService', () => {
 
     it('should handle add pieces failure', async () => {
       const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = Piece.calculate(testData).toString()
+      const pdpOptions = {
+        baseUrl: 'https://pdp.example.com',
+      }
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
-            },
-          })
-        }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        postPieceHandler(testPieceCID, '12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
+        uploadPieceHandler('12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
           return HttpResponse.error()
         })

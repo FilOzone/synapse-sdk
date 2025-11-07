@@ -12,6 +12,7 @@ import { HttpResponse, http } from 'msw'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
+import { findAnyPieceHandler, postParkedPieceHandler } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
 // mock server for testing
@@ -51,27 +52,16 @@ describe('Storage Upload', () => {
   })
 
   it('should support parallel uploads', async () => {
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        const body = await request.arrayBuffer()
-
-        return HttpResponse.json({
-          pieceCid,
-          size: body.byteLength,
-        })
-      }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      postParkedPieceHandler(pdpOptions),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -137,19 +127,13 @@ describe('Storage Upload', () => {
 
   it('should respect batch size configuration', async () => {
     let addPiecesCalls = 0
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        const body = await request.arrayBuffer()
-
-        return HttpResponse.json({
-          pieceCid,
-          size: body.byteLength,
-        })
-      }),
+      postParkedPieceHandler(pdpOptions),
       http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
         const url = new URL(request.url)
         const queryCid = url.searchParams.get('pieceCid')
@@ -579,18 +563,13 @@ describe('Storage Upload', () => {
   })
 
   it('should handle ArrayBuffer input', async () => {
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        // const body = await request.arrayBuffer()
-        return HttpResponse.json({
-          pieceCid,
-          size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-        })
-      }),
+      postParkedPieceHandler(pdpOptions),
       http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
         const url = new URL(request.url)
         const queryCid = url.searchParams.get('pieceCid')
