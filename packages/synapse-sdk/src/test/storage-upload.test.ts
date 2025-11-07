@@ -136,12 +136,7 @@ describe('Storage Upload', () => {
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
       postParkedPieceHandler(pdpOptions),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -206,6 +201,9 @@ describe('Storage Upload', () => {
   it('should handle batch size of 1', async () => {
     let addPiecesCalls = 0
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -219,12 +217,7 @@ describe('Storage Upload', () => {
           size: body.byteLength,
         })
       }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -311,6 +304,9 @@ describe('Storage Upload', () => {
   it('should debounce uploads for better batching', async () => {
     let addPiecesCalls = 0
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -324,12 +320,7 @@ describe('Storage Upload', () => {
           size: body.byteLength,
         })
       }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -374,6 +365,9 @@ describe('Storage Upload', () => {
 
   it('should accept exactly 127 bytes', async () => {
     let addPiecesCalls = 0
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
@@ -388,12 +382,7 @@ describe('Storage Upload', () => {
           size: body.byteLength,
         })
       }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -437,6 +426,9 @@ describe('Storage Upload', () => {
   it('should accept data up to 200 MiB', async () => {
     let addPiecesCalls = 0
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -449,11 +441,7 @@ describe('Storage Upload', () => {
           size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
         })
       }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -500,6 +488,9 @@ describe('Storage Upload', () => {
     let pieceConfirmedCallbackFired = false
     let uploadCompleteCallbackFired = false
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
@@ -512,11 +503,7 @@ describe('Storage Upload', () => {
           size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
         })
       }),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -575,11 +562,7 @@ describe('Storage Upload', () => {
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
       postParkedPieceHandler(pdpOptions),
-      http.get(`https://pdp.example.com/pdp/piece`, ({ request }) => {
-        const url = new URL(request.url)
-        const queryCid = url.searchParams.get('pieceCid')
-        return HttpResponse.json({ pieceCid: queryCid }, { status: 200 })
-      }),
+      findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,

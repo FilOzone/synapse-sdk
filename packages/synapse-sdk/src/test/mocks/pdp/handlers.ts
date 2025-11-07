@@ -179,11 +179,11 @@ export function findPieceHandler(pieceCid: string, found: boolean, options: PDPM
     const queryCid = url.searchParams.get('pieceCid')
 
     if (queryCid !== pieceCid) {
-      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+      return HttpResponse.text(null, { status: 404 })
     }
 
     if (!found) {
-      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+      return HttpResponse.text(null, { status: 404 })
     }
 
     return HttpResponse.json({ pieceCid }, { status: 200 })
@@ -198,7 +198,7 @@ export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}
     if (found) {
       return HttpResponse.json({ pieceCid: queryCid })
     } else {
-      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+      return HttpResponse.text(null, { status: 404 })
     }
   })
 }

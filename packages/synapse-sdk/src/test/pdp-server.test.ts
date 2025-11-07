@@ -23,7 +23,7 @@ import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
-import { createAndAddPiecesHandler } from './mocks/pdp/handlers.ts'
+import { createAndAddPiecesHandler, findPieceHandler } from './mocks/pdp/handlers.ts'
 
 // mock server for testing
 const server = setup([])
@@ -594,17 +594,8 @@ Database error`
   describe('findPiece', () => {
     it('should find a piece successfully', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
-      const mockResponse = {
-        pieceCid: mockPieceCid,
-      }
 
-      server.use(
-        http.get('http://pdp.local/pdp/piece', async () => {
-          return HttpResponse.json(mockResponse, {
-            status: 200,
-          })
-        })
-      )
+      server.use(findPieceHandler(mockPieceCid, true))
 
       const result = await pdpServer.findPiece(mockPieceCid)
       assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
@@ -614,13 +605,7 @@ Database error`
       SP.setTimeout(100)
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      server.use(
-        http.get('http://pdp.local/pdp/piece', async () => {
-          return HttpResponse.text(undefined, {
-            status: 404,
-          })
-        })
-      )
+      server.use(findPieceHandler(mockPieceCid, false))
 
       try {
         await pdpServer.findPiece(mockPieceCid)

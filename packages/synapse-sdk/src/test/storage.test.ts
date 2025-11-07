@@ -1074,10 +1074,12 @@ describe('StorageService', () => {
   })
 
   describe('download', () => {
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     it('should download and verify a piece', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
       const testPieceCID = calculate(testData).toString()
-
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1088,9 +1090,7 @@ describe('StorageService', () => {
             status: 404,
           })
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
@@ -1114,9 +1114,7 @@ describe('StorageService', () => {
           ...presets.basic,
         }),
         PING(),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.error()
         })
@@ -1142,9 +1140,7 @@ describe('StorageService', () => {
           ...presets.basic,
         }),
         PING(),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
@@ -1713,6 +1709,9 @@ describe('StorageService', () => {
 
   describe('pieceStatus()', () => {
     const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+    const pdpOptions = {
+      baseUrl: 'https://pdp.example.com',
+    }
     it('should return exists=false when piece not found on provider', async () => {
       server.use(
         JSONRPC({
@@ -1804,9 +1803,7 @@ describe('StorageService', () => {
             nextChallengeEpoch: 5000,
           })
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
-        })
+        findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
@@ -1999,9 +1996,7 @@ describe('StorageService', () => {
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.error()
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
-        })
+        findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
