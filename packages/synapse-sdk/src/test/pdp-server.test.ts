@@ -23,7 +23,7 @@ import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
-import { createAndAddPiecesHandler, findPieceHandler } from './mocks/pdp/handlers.ts'
+import { createAndAddPiecesHandler, findPieceHandler, uploadPieceHandler } from './mocks/pdp/handlers.ts'
 
 // mock server for testing
 const server = setup([])
@@ -848,11 +848,7 @@ Database error`
             })
           }
         }),
-        http.put('http://pdp.local/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        })
+        uploadPieceHandler(mockUuid)
       )
 
       const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')

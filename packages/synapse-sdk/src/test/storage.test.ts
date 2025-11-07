@@ -26,6 +26,10 @@ function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
 }
 
+const pdpOptions = {
+  baseUrl: 'https://pdp.example.com',
+}
+
 describe('StorageService', () => {
   let signer: ethers.Signer
   let provider: ethers.Provider
@@ -1074,9 +1078,6 @@ describe('StorageService', () => {
   })
 
   describe('download', () => {
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
     it('should download and verify a piece', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
       const testPieceCID = calculate(testData).toString()
@@ -1254,6 +1255,7 @@ describe('StorageService', () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1263,15 +1265,11 @@ describe('StorageService', () => {
           return HttpResponse.text('Created', {
             status: 201,
             headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
+              Location: `/pdp/piece/upload/${mockUuid}`,
             },
           })
         }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
+        uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
@@ -1330,6 +1328,7 @@ describe('StorageService', () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1339,15 +1338,11 @@ describe('StorageService', () => {
           return HttpResponse.text('Created', {
             status: 201,
             headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
+              Location: `/pdp/piece/upload/${mockUuid}`,
             },
           })
         }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
+        uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
@@ -1403,15 +1398,13 @@ describe('StorageService', () => {
     it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = Piece.calculate(testData).toString()
-      const pdpOptions = {
-        baseUrl: 'https://pdp.example.com',
-      }
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        postPieceHandler(testPieceCID, '12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
+        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
         http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
           return HttpResponse.error()
         })
@@ -1431,16 +1424,14 @@ describe('StorageService', () => {
     it('should handle add pieces failure', async () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = Piece.calculate(testData).toString()
-      const pdpOptions = {
-        baseUrl: 'https://pdp.example.com',
-      }
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        postPieceHandler(testPieceCID, '12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
-        uploadPieceHandler('12345678-90ab-cdef-1234-567890abcdef', pdpOptions),
+        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
+        uploadPieceHandler(mockUuid, pdpOptions),
         findPieceHandler(testPieceCID, true, pdpOptions),
         http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
           return HttpResponse.error()
@@ -1709,9 +1700,6 @@ describe('StorageService', () => {
 
   describe('pieceStatus()', () => {
     const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
     it('should return exists=false when piece not found on provider', async () => {
       server.use(
         JSONRPC({
