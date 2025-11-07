@@ -839,19 +839,19 @@ export class StorageContext {
    * Accepts Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
    * For large files, prefer streaming types (AsyncIterable or ReadableStream) to minimize memory usage.
    *
-   * Note: When uploading to multiple contexts, pieceCid should be precalculated and passed to avoid
-   * redundant computation. For streaming uploads, pieceCid must be provided as it cannot be calculated
-   * without consuming the stream.
+   * Note: When uploading to multiple contexts, pieceCid should be precalculated and passed in options
+   * to avoid redundant computation. For streaming uploads, pieceCid must be provided in options as it
+   * cannot be calculated without consuming the stream.
    */
   async upload(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
-    options?: UploadOptions,
-    pieceCid?: PieceCID
+    options?: UploadOptions
   ): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size and calculate pieceCid
     let size: number | undefined
+    let pieceCid = options?.pieceCid
     if (data instanceof Uint8Array) {
       size = data.length
       StorageContext.validateRawSize(size, 'upload')
@@ -862,13 +862,13 @@ export class StorageContext {
       }
     } else if (pieceCid == null) {
       // For streams, pieceCid must be provided (cannot calculate without consuming stream)
-        throw createError(
-          'StorageContext',
-          'upload',
-          'pieceCid must be provided for streaming uploads (AsyncIterable or ReadableStream)'
-        )
-      // Size is unknown for streams
+      throw createError(
+        'StorageContext',
+        'upload',
+        'options.pieceCid must be provided for streaming uploads (AsyncIterable or ReadableStream)'
+      )
     }
+    // Note: Size is unknown for streams (size will be undefined)
 
     // Track this upload for batching purposes
     const uploadId = Symbol('upload')
@@ -878,8 +878,9 @@ export class StorageContext {
       // Upload Phase: Upload data to service provider
       try {
         performance.mark('synapse:pdpServer.uploadPiece-start')
-        await this._pdpServer.uploadPiece(data, pieceCid, {
+        await this._pdpServer.uploadPiece(data, {
           onProgress: options?.onProgress,
+          pieceCid,
         })
         performance.mark('synapse:pdpServer.uploadPiece-end')
         performance.measure(
@@ -1184,11 +1185,11 @@ export class StorageContext {
       offset += batchSize
     }
   }
-  private async _getPieceIdByCID(pieceCID: string | PieceCID): Promise<number> {
+  private async _getPieceIdByCID(pieceCid: string | PieceCID): Promise<number> {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Data set not found')
     }
-    const parsedPieceCID = asPieceCID(pieceCID)
+    const parsedPieceCID = asPieceCID(pieceCid)
     if (parsedPieceCID == null) {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
     }

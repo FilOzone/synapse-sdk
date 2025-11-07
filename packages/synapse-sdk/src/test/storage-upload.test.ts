@@ -12,7 +12,7 @@ import { HttpResponse, http } from 'msw'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import { findAnyPieceHandler, postParkedPieceHandler } from './mocks/pdp/handlers.ts'
+import { findAnyPieceHandler, streamingUploadHandlers } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
 // mock server for testing
@@ -61,7 +61,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      postParkedPieceHandler(pdpOptions),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -135,7 +135,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      postParkedPieceHandler(pdpOptions),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -207,16 +207,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        const body = await request.arrayBuffer()
-
-        return HttpResponse.json({
-          pieceCid,
-          size: body.byteLength,
-        })
-      }),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -310,16 +301,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        const body = await request.arrayBuffer()
-
-        return HttpResponse.json({
-          pieceCid,
-          size: body.byteLength,
-        })
-      }),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -372,16 +354,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        const body = await request.arrayBuffer()
-
-        return HttpResponse.json({
-          pieceCid,
-          size: body.byteLength,
-        })
-      }),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -432,15 +405,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        // const body = await request.arrayBuffer()
-        return HttpResponse.json({
-          pieceCid,
-          size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-        })
-      }),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -494,15 +459,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      http.post('https://pdp.example.com/pdp/piece', async ({ request }) => {
-        const url = new URL(request.url)
-        const pieceCid = url.searchParams.get('pieceCid')
-        // const body = await request.arrayBuffer()
-        return HttpResponse.json({
-          pieceCid,
-          size: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-        })
-      }),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -561,7 +518,7 @@ describe('Storage Upload', () => {
     server.use(
       JSONRPC({ ...presets.basic, debug: false }),
       PING(),
-      postParkedPieceHandler(pdpOptions),
+      ...streamingUploadHandlers(pdpOptions),
       findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
@@ -594,7 +551,7 @@ describe('Storage Upload', () => {
       },
     })
 
-    const buffer = new ArrayBuffer(1024)
+    const buffer = new Uint8Array(1024)
     const upload = await context.upload(buffer)
     assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')

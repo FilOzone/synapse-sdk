@@ -488,13 +488,13 @@ export class PDPServer {
    * documentation for detailed guidance.
    *
    * @param data - The data to upload (Uint8Array, AsyncIterable, or ReadableStream)
-   * @param pieceCid - The PieceCID to upload (precalculated for efficiency in multi-context uploads)
-   * @param options - Optional upload options including progress callback
+   * @param options - Optional upload options including progress callback and optional PieceCID
+   * @param options.pieceCid - Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID)
+   * @param options.onProgress - Optional progress callback
    */
   async uploadPiece(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
-    pieceCid: PieceCID,
-    options?: { onProgress?: (bytesUploaded: number) => void }
+    options?: { onProgress?: (bytesUploaded: number) => void; pieceCid?: PieceCID }
   ): Promise<void> {
     if (data instanceof Uint8Array) {
       // Check hard limit
@@ -512,6 +512,7 @@ export class PDPServer {
         data: iterable,
         size: data.length, // Known size for Content-Length
         onProgress: options?.onProgress,
+        pieceCid: options?.pieceCid,
       })
     } else {
       // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
@@ -520,6 +521,7 @@ export class PDPServer {
         data,
         // size unknown for streams
         onProgress: options?.onProgress,
+        pieceCid: options?.pieceCid,
       })
     }
   }

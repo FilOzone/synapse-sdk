@@ -190,14 +190,11 @@ export class StorageManager {
       // Upload to all contexts with the same pieceCid
       return await Promise.allSettled(
         contexts.map((context) =>
-          context.upload(
-            data,
-            {
-              ...options?.callbacks,
-              metadata: options?.metadata,
-            },
-            pieceCid
-          )
+          context.upload(data, {
+            ...options?.callbacks,
+            metadata: options?.metadata,
+            pieceCid,
+          })
         )
       )
     } else {
@@ -211,14 +208,11 @@ export class StorageManager {
       }
 
       // Upload to single context
-      const result = await context.upload(
-        data,
-        {
-          ...options?.callbacks,
-          metadata: options?.metadata,
-        },
-        pieceCid
-      )
+      const result = await context.upload(data, {
+        ...options?.callbacks,
+        metadata: options?.metadata,
+        pieceCid,
+      })
 
       return [{ status: 'fulfilled' as const, value: result }]
     }

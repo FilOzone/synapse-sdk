@@ -414,6 +414,7 @@ export type UploadPieceStreamingOptions = {
   data: AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>
   size?: number
   onProgress?: (bytesUploaded: number) => void
+  pieceCid?: PieceCID
 }
 
 /**
@@ -462,10 +463,17 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
 
   const uploadUuid = locationMatch[1]
 
-  // Stream data with CommP calculation
+  // Stream data with CommP calculation (unless PieceCID provided)
 
-  // Create CommP calculator stream
-  const { stream: pieceCidStream, getPieceCID } = Piece.createPieceCIDStream()
+  // Create CommP calculator stream only if PieceCID not provided
+  let getPieceCID: () => PieceCID | null = () => options.pieceCid ?? null
+  let pieceCidStream: TransformStream<Uint8Array, Uint8Array> | null = null
+
+  if (options.pieceCid == null) {
+    const result = Piece.createPieceCIDStream()
+    pieceCidStream = result.stream
+    getPieceCID = result.getPieceCID
+  }
 
   // Convert to ReadableStream if needed (skip if already ReadableStream)
   const isReadableStream =
@@ -498,8 +506,10 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
     },
   })
 
-  // Chain streams: data → tracking → CommP calculation
-  const bodyStream = dataStream.pipeThrough(trackingStream).pipeThrough(pieceCidStream)
+  // Chain streams: data → tracking → CommP calculation (if needed)
+  const bodyStream = pieceCidStream
+    ? dataStream.pipeThrough(trackingStream).pipeThrough(pieceCidStream)
+    : dataStream.pipeThrough(trackingStream)
 
   // PUT /pdp/piece/uploads/{uuid} with streaming body
   const headers: Record<string, string> = {
@@ -529,7 +539,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
     throw new UploadPieceError(`Expected 204 No Content, got ${uploadResponse.result.status}`)
   }
 
-  // Get calculated PieceCID and finalize
+  // Get PieceCID (either provided or calculated) and finalize
   const pieceCid = getPieceCID()
   if (pieceCid === null) {
     throw new Error('Failed to calculate PieceCID during upload')

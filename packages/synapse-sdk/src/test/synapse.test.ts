@@ -23,11 +23,12 @@ import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts
 import {
   createAndAddPiecesHandler,
   dataSetCreationStatusHandler,
+  finalizePieceUploadHandler,
   findPieceHandler,
   type PDPMockOptions,
   pieceAdditionStatusHandler,
-  postPieceHandler,
-  uploadPieceHandler,
+  postPieceUploadsHandler,
+  uploadPieceStreamingHandler,
 } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
@@ -983,16 +984,17 @@ describe('Synapse', () => {
       })
 
       it('succeeds for ArrayBuffer data when upload found', async () => {
-        const data = new ArrayBuffer(1024)
-        const pieceCid = Piece.calculate(new Uint8Array(data))
+        const data = new Uint8Array(1024)
+        const pieceCid = Piece.calculate(data)
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
         for (const provider of [PROVIDERS.provider1, PROVIDERS.provider2]) {
           const pdpOptions = {
             baseUrl: provider.products[0].offering.serviceURL,
           }
-          server.use(postPieceHandler(pieceCid.toString(), mockUUID, pdpOptions))
-          server.use(uploadPieceHandler(mockUUID, pdpOptions))
+          server.use(postPieceUploadsHandler(mockUUID, pdpOptions))
+          server.use(uploadPieceStreamingHandler(mockUUID, pdpOptions))
+          server.use(finalizePieceUploadHandler(mockUUID, undefined, pdpOptions))
           server.use(findPieceHandler(pieceCid.toString(), found, pdpOptions))
           server.use(createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
           server.use(
@@ -1023,8 +1025,8 @@ describe('Synapse', () => {
       })
 
       it('handles when one storage provider fails to create an upload session', async () => {
-        const data = new ArrayBuffer(1024)
-        const pieceCid = Piece.calculate(new Uint8Array(data))
+        const data = new Uint8Array(1024)
+        const pieceCid = Piece.calculate(data)
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
         const wrongCid = 'wrongCid'
@@ -1032,10 +1034,15 @@ describe('Synapse', () => {
           const pdpOptions = {
             baseUrl: provider.products[0].offering.serviceURL,
           }
+          server.use(postPieceUploadsHandler(mockUUID, pdpOptions))
+          server.use(uploadPieceStreamingHandler(mockUUID, pdpOptions))
           server.use(
-            postPieceHandler(provider === PROVIDERS.provider1 ? pieceCid.toString() : wrongCid, mockUUID, pdpOptions)
+            finalizePieceUploadHandler(
+              mockUUID,
+              provider === PROVIDERS.provider1 ? pieceCid.toString() : wrongCid,
+              pdpOptions
+            )
           )
-          server.use(uploadPieceHandler(mockUUID, pdpOptions))
           server.use(findPieceHandler(pieceCid.toString(), found, pdpOptions))
           server.use(createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
           server.use(

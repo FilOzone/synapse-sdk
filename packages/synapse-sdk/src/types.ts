@@ -424,6 +424,8 @@ export interface UploadCallbacks {
 export interface UploadOptions extends UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
   metadata?: Record<string, string>
+  /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
+  pieceCid?: PieceCID
 }
 
 /**

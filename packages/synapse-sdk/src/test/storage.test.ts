@@ -1,5 +1,5 @@
 import * as Piece from '@filoz/synapse-core/piece'
-import { calculate } from '@filoz/synapse-core/piece'
+import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -7,7 +7,6 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { CID } from 'multiformats/cid'
 import { numberToHex } from 'viem'
-import { calculate as calculatePieceCID } from '../piece/index.ts'
 import { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -16,9 +15,12 @@ import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/js
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 import {
   createAndAddPiecesHandler,
+  finalizePieceUploadHandler,
   findPieceHandler,
   postPieceHandler,
+  postPieceUploadsHandler,
   uploadPieceHandler,
+  uploadPieceStreamingHandler,
 } from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
@@ -1070,12 +1072,13 @@ describe('StorageService', () => {
       })
 
       try {
-        await service.preflightUpload(Number(210n * SIZE_CONSTANTS.MiB)) // 210 MiB
+        // 1 GiB + 1 byte exceeds the 1 GiB limit
+        await service.preflightUpload(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1)
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
-        assert.include(error.message, '220200960') // 210 * 1024 * 1024
-        assert.include(error.message, '209715200') // 200 * 1024 * 1024
+        assert.include(error.message, String(SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1))
+        assert.include(error.message, String(SIZE_CONSTANTS.MAX_UPLOAD_SIZE))
       }
     })
   })
@@ -1204,7 +1207,7 @@ describe('StorageService', () => {
       }
     })
 
-    it('should enforce 200 MiB size limit', async () => {
+    it('should enforce 1 GiB size limit', async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1215,16 +1218,19 @@ describe('StorageService', () => {
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
-      // Create data that exceeds the limit
-      const oversizedData = new Uint8Array(Number(210n * SIZE_CONSTANTS.MiB)) // 210 MiB
+      // Create minimal data but mock length to simulate oversized data
+      // This tests validation without allocating 1+ GiB
+      const smallData = new Uint8Array(127)
+      const testSize = SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1
+      Object.defineProperty(smallData, 'length', { value: testSize })
 
       try {
-        await service.upload(oversizedData)
+        await service.upload(smallData)
         assert.fail('Should have thrown size limit error')
       } catch (error: any) {
         assert.include(error.message, 'exceeds maximum allowed size')
-        assert.include(error.message, '220200960') // 210 * 1024 * 1024
-        assert.include(error.message, '209715200') // 200 * 1024 * 1024
+        assert.include(error.message, String(testSize))
+        assert.include(error.message, String(SIZE_CONSTANTS.MAX_UPLOAD_SIZE))
       }
     })
 
@@ -1423,8 +1429,9 @@ describe('StorageService', () => {
           ...presets.basic,
         }),
         PING(),
-        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
-        uploadPieceHandler(mockUuid, pdpOptions),
+        postPieceUploadsHandler(mockUuid, pdpOptions),
+        uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        finalizePieceUploadHandler(mockUuid, undefined, pdpOptions),
         findPieceHandler(testPieceCID, true, pdpOptions),
         http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
           return HttpResponse.error()

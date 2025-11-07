@@ -15,6 +15,7 @@ import {
   LocationHeaderError,
   PostPieceError,
 } from '@filoz/synapse-core/errors'
+import { asPieceCID, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -22,8 +23,13 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
-import { asPieceCID, calculate as calculatePieceCID } from '../piece/index.ts'
-import { createAndAddPiecesHandler, findPieceHandler, uploadPieceHandler } from './mocks/pdp/handlers.ts'
+import {
+  createAndAddPiecesHandler,
+  finalizePieceUploadHandler,
+  findPieceHandler,
+  postPieceUploadsHandler,
+  uploadPieceStreamingHandler,
+} from './mocks/pdp/handlers.ts'
 
 // mock server for testing
 const server = setup([])
@@ -870,50 +876,43 @@ Database error`
     it('should successfully upload data', async () => {
       const testData = new Uint8Array(127).fill(1)
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-
-      server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async ({ request }) => {
-          try {
-            const body = await request.json()
-            assert.exists(body.pieceCid)
-            return HttpResponse.text('Created', {
-              status: 201,
-              headers: {
-                Location: `/pdp/piece/upload/${mockUuid}`,
-              },
-            })
-          } catch (error) {
-            return HttpResponse.text((error as Error).message, {
-              status: 400,
-            })
-          }
-        }),
-        uploadPieceHandler(mockUuid)
-      )
-
       const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
       assert.isNotNull(mockPieceCid)
-      await pdpServer.uploadPiece(testData, mockPieceCid)
+
+      server.use(
+        postPieceUploadsHandler(mockUuid),
+        uploadPieceStreamingHandler(mockUuid),
+        finalizePieceUploadHandler(mockUuid)
+      )
+
+      await pdpServer.uploadPiece(testData)
     })
 
-    it('should handle existing piece (200 response)', async () => {
+    it('should accept BYO PieceCID and skip CommP calculation', async () => {
       const testData = new Uint8Array(127).fill(1)
-      const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const providedPieceCid = calculatePieceCID(testData)
+
+      // Create a handler that verifies the provided PieceCID is used
+      let finalizedWithPieceCid: string | null = null
 
       server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
-          return HttpResponse.json(
-            { pieceCid: mockPieceCid },
-            {
-              status: 200,
-            }
-          )
-        })
+        postPieceUploadsHandler(mockUuid),
+        uploadPieceStreamingHandler(mockUuid),
+        http.post<{ uuid: string }, { pieceCid: string }>(
+          'http://pdp.local/pdp/piece/uploads/:uuid',
+          async ({ request }) => {
+            const body = await request.json()
+            finalizedWithPieceCid = body.pieceCid
+            return HttpResponse.json({ pieceCid: body.pieceCid }, { status: 200 })
+          }
+        )
       )
 
-      // Should not throw - existing piece is OK
-      assert.isNotNull(mockPieceCid)
-      await pdpServer.uploadPiece(testData, mockPieceCid)
+      await pdpServer.uploadPiece(testData, { pieceCid: providedPieceCid })
+
+      // Verify the provided PieceCID was used
+      assert.equal(finalizedWithPieceCid, providedPieceCid.toString())
     })
 
     it('should throw on create upload session error', async () => {
@@ -922,7 +921,7 @@ Database error`
       assert.isNotNull(mockPieceCid)
 
       server.use(
-        http.post<Record<string, never>, { pieceCid: string }>('http://pdp.local/pdp/piece', async () => {
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
           return HttpResponse.text('Database error', {
             status: 500,
           })
@@ -930,7 +929,7 @@ Database error`
       )
 
       try {
-        await pdpServer.uploadPiece(testData, mockPieceCid)
+        await pdpServer.uploadPiece(testData)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.instanceOf(error, PostPieceError)
@@ -940,7 +939,7 @@ Database error`
           `Failed to create upload session.
 
 Details: Service Provider PDP
-Database error`
+Failed to create upload session: Database error`
         )
       }
     })
@@ -1022,7 +1021,8 @@ Database error`
         await pdpServer.downloadPiece(mockPieceCid)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Response body is null')
+        // Accept either error message as HttpResponse() behaves differently in Node vs browser
+        assert.match(error.message, /Response body is (null|empty)/)
       }
     })
 
