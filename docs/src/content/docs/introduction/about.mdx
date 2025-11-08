@@ -13,12 +13,12 @@ Built on the **Filecoin Virtual Machine (FVM)** and powered by a distributed net
 
 ## Architecture
 
-FOC addresses this next-generation demand by creating composable onchain modules where each capability (storage, retrieval, billing, verification) can be combined, forked, or extended, giving developers the flexibility to create customized decentralized applications and data-driven services. It is built around four fundamental layers:
+FOC addresses this next-generation demand by creating composable onchain services where each capability (storage, retrieval, compute, payments, verification) can be combined, forked, or extended, giving developers the flexibility to create customized decentralized applications and data-driven services. It is built around four fundamental layers:
 
-1. **Warm Storage Services** – Provided by decentralized service providers using the Filecoin Warm Storage Service (FWSS), optimized for accessibility and speed through PDP proofs.
-2. **Payment & Settlement Layer** – Managed by Filecoin Pay, enabling flexible, auditable billing flows between clients and providers.
-3. **Retrieval Layer** – Powered by Filecoin Beam, enabling fast, CDN-like retrieval with verifiable delivery proofs and pay-per-byte billing.
-4. **Developer & Application Layer** – Powered by the Synapse SDK, which abstracts service contracts, data sets, and payment rails into simple APIs usable across web, node, and edge environments.
+1. **Storage Layer** – Provided by decentralized service providers using the Filecoin Warm Storage Service (FWSS), optimized for accessibility and speed through crytographic storage proof, Proof of Data Possession (PDP)..
+2. **Data Delievery Layer** – Provided by storage provides and an optional add-on service -Filecoin Beam. Filecoin Beam is an incentivized data delievery layer that caches data from storage providers and enables faster data delivery globally with onchain auditable delivery proofs and pay-by-egress billing.
+3. **Payment & Settlement Layer** – Managed by Filecoin Pay, enabling flexible, auditable billing flows between clients and providers, based on actual service delievered.
+4. **Developer & Application Layer** – Powered by the Synapse SDK, which abstracts services and payment rails into simple APIs usable across web, node, and edge environments.
 
 ![Filecoin Onchain Cloud Architecture](../../../assets/foc-diagram.png)
 
@@ -34,12 +34,12 @@ This design allows Filecoin to move beyond static data storage — offering real
 
 ### Core Components
 
-The Filecoin Onchain Cloud services are built from foundational components that together create a verifiable, service-oriented cloud stack:
+The Filecoin Onchain Cloud offers foundational components that together create an onchain verifiable, service-oriented cloud stack. Today, the building blocks includes:
 
-- [**Proof of Data Possession (PDP)**](https://github.com/FilOzone/pdp) — The cryptographic proof layer ensuring data storage integrity and retrievability.
+- [**Filecoin Warm Storage Service (FWSS)**](https://github.com/FilOzone/filecoin-services) — The operational layer providing fast, persistent, and verifiable data storage backed by Proof of Data Possession, powered by Filecoin's world storage providers.
+- [**Proof of Data Possession (PDP)**](https://github.com/FilOzone/pdp) — The cryptographic storage proof ensuring data storage integrity and availability.
 - [**Filecoin Pay**](https://github.com/FilOzone/filecoin-pay) — The financial settlement engine that enables programmable payments for onchain services.
-- [**Filecoin Beam**](https://docs.filbeam.com/) — The retrieval and delivery network that ensures global accessibility of stored data.
-- [**Filecoin Warm Storage Service (FWSS)**](https://github.com/FilOzone/filecoin-services) — The operational layer providing fast, persistent, and verifiable data storage.
+- [**Filecoin Beam**](https://docs.filbeam.com/) — Available as an add-on, a retrieval and delivery layer that ensures global accessibility of stored data.
 
 Each of these components works independently yet integrates seamlessly through onchain smart contracts and the [**Synapse SDK**](https://github.com/FilOzone/synapse-sdk), forming a cohesive, modular system. Together, they deliver the core properties of a next-generation decentralized cloud: verifiability, programmability, and composability.
 
