@@ -1,26 +1,26 @@
 ---
-title: FilecoinPay Cookbook
+title: Filecoin Pay Cookbook
 description: Core concepts for building automated payment systems with native token streaming.
 sidebar:
   order: 0
 ---
 
 :::tip[Looking for Technical Details?]
-This guide focuses on **conceptual understanding** and **use cases**. For technical implementation details, smart contract functions, and integration patterns, see the [**FilecoinPay Technical Overview**](/core-concepts/filecoin-pay-overview).
+This guide focuses on **conceptual understanding** and **use cases**. For technical implementation details, smart contract functions, and integration patterns, see the [**Filecoin Pay Technical Overview**](/core-concepts/filecoin-pay-overview).
 :::
 
-## What is FilecoinPay?
+## What is Filecoin Pay?
 
-FilecoinPay transforms how Web3 services get paid. A token agnostic payment system that supports payment flows through "rails" - automated payment channels between payers and recipients. FilecoinPay supports continuous rate based payments, one-time transfers, and payment validation during settlement.
+Filecoin Pay transforms how Web3 services get paid. A token agnostic payment system that supports payment flows through "rails" - automated payment channels between payers and recipients. Filecoin Pay supports continuous rate based payments, one-time transfers, and payment validation during settlement.
 
-**Before FilecoinPay:**
+**Before Filecoin Pay:**
 
 - Manual invoicing and payments
 - Trust-based service agreements
 - No automatic quality enforcement
 - No support for streaming payments using native tokens
 
-**With FilecoinPay:**
+**With Filecoin Pay:**
 
 - Continuous, automatic payments
 - Cryptographic guarantees and verifiable delivery
@@ -39,12 +39,12 @@ A "payment rail" is like setting up an automated pipeline between two parties. I
 **Traditional one-time payment:**
 You manually send $100 to a friend once.
 
-**FilecoinPay payment rail:**
+**Filecoin Pay payment rail:**
 You set up an automatic stream of $100/month for 3 months. Payments flow continuously without any manual intervention, with built-in guarantees that protect both parties.
 
 ### Lockup
 
-Unlike traditional escrow systems that lock funds away completely, FilecoinPay uses a "lockup" mechanism that reserves funds while keeping them in your account.
+Unlike traditional escrow systems that lock funds away completely, Filecoin Pay uses a "lockup" mechanism that reserves funds while keeping them in your account.
 
 Think of it like a credit card authorization at a hotel:
 
@@ -61,7 +61,7 @@ Think of it like a credit card authorization at a hotel:
 
 ### Three-Party Model
 
-FilecoinPay supports a flexible three-party structure:
+Filecoin Pay supports a flexible three-party structure:
 
 1. **Payer**: The account owner who has funds and sets spending limits
 2. **Payee**: The service provider who receives automatic payments
@@ -69,7 +69,7 @@ FilecoinPay supports a flexible three-party structure:
 
 ### Epochs and Time
 
-FilecoinPay measures time in "epochs" - roughly 30-second intervals on the Filecoin blockchain. Payment rates are specified per-epoch:
+Filecoin Pay measures time in "epochs" - roughly 30-second intervals on the Filecoin blockchain. Payment rates are specified per-epoch:
 
 - 1 month ≈ 86,400 epochs
 - 1 day ≈ 2,880 epochs
@@ -113,7 +113,7 @@ Validators are optional quality-checking mechanisms that can verify service deli
 
 ## What You Can Build: Advanced Patterns
 
-FilecoinPay's power comes from combining payment rails with custom validators that check service quality. Here are the key patterns that enable sophisticated Web3 applications.
+Filecoin Pay power comes from combining payment rails with custom validators that check service quality. Here are the key patterns that enable sophisticated Web3 applications.
 
 - **Off-Chain Service Verification (via Gelato Functions)**
 
@@ -209,8 +209,8 @@ FilecoinPay's power comes from combining payment rails with custom validators th
 
 Ready to dive deeper?
 
-- [FilecoinPay Technical Overview](/core-concepts/filecoin-pay-overview) - Technical architecture and implementation details
-- [System Architecture](/core-concepts/architecture) - How FilecoinPay integrates with the broader system
-- [Developer Guides](/developer-guides/) - Start building applications with FilecoinPay
+- [Filecoin Pay Technical Overview](/core-concepts/filecoin-pay-overview) - Technical architecture and implementation details
+- [System Architecture](/core-concepts/architecture) - How Filecoin Pay integrates with the broader system
+- [Developer Guides](/developer-guides/) - Start building applications with Filecoin Pay
 
-FilecoinPay represents a fundamental shift in how Web3 infrastructure gets paid - from manual, trust-based payments to automated, verifiable, programmable payment rails. The patterns above are just the beginning of what's possible.
+Filecoin Pay represents a fundamental shift in how Web3 infrastructure gets paid - from manual, trust-based payments to automated, verifiable, programmable payment rails. The patterns above are just the beginning of what's possible.

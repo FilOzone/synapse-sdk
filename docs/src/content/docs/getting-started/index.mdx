@@ -89,7 +89,7 @@ async function main() {
     const depositAmount = ethers.parseUnits("5", 18);
 
     // 3. Deposit USDFC for payment
-    console.log(`3) Depositing 5 USDFC tokens to the FilecoinPay contract...`);
+    console.log(`3) Depositing 5 USDFC tokens to the Filecoin Pay contract...`);
     const depositTx = await synapse.payments.depositWithPermit(
       depositAmount,
       TOKENS.USDFC
@@ -318,7 +318,7 @@ providers.forEach((provider) => {
 
 Ready to dive deeper? Check out these comprehensive guides:
 
-- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and FilecoinPay protocols
+- **[Core Concepts](/core-concepts/architecture/)** - Understand the architecture, PDP, and Filecoin Pay protocols
 - **[Storage Operations](/developer-guides/storage/)** - Complete guide to uploading, downloading, and managing data sets
 - **[Payment Management](/developer-guides/payments/)** - Learn about deposits, approvals, and monitoring costs
 

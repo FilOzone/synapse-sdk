@@ -10,7 +10,7 @@ This page describes the components of the Synapse SDK and how they work together
 The SDK is built from these core components:
 
 - **`Synapse`** - Main SDK entry point with simple, high-level API
-- **`PaymentsService`** - SDK client for managing deposits, approvals, and payment rails (interacts with FilecoinPay V1 contract)
+- **`PaymentsService`** - SDK client for managing deposits, approvals, and payment rails (interacts with Filecoin Pay contract)
 - **`StorageManager`**, **`StorageContext`** - Storage operation classes
 - **`WarmStorageService`** - SDK client for storage coordination and pricing (interacts with WarmStorage contract)
 - **`PDPVerifier`** - Client for PDPVerifier contract - get data set and piece status, create data sets and add pieces
@@ -110,7 +110,7 @@ interface SynapseAPI {
 
 ### PaymentsService
 
-The PaymentsService provides direct access to the FilecoinPay contract, enabling you to:
+The PaymentsService provides direct access to the Filecoin Pay contract, enabling you to:
 
 - Manage token deposits and withdrawals
 - Approve operators for automated payments
