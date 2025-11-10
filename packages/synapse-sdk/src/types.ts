@@ -284,7 +284,7 @@ export interface SettlementResult {
  * Callbacks for storage service creation process
  *
  * These callbacks provide visibility into the context creation process,
- * including provider selection and data set creation/reuse.
+ * including provider and data set selection.
  */
 export interface StorageContextCallbacks {
   /**

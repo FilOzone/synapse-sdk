@@ -45,9 +45,9 @@ export class FilBeamRetriever implements PieceRetriever {
       } catch (error) {
         console.warn('CDN fetch failed:', error)
       }
+      console.log('Falling back to direct retrieval')
     }
 
-    console.log('Falling back to direct retrieval')
     return await this.baseRetriever.fetchPiece(pieceCid, client, options)
   }
 }
