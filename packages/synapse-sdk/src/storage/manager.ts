@@ -282,12 +282,25 @@ export class StorageManager {
    * @returns Promise resolving to array of storage contexts
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
-    return await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+    const canUseDefault =
+      options == null ||
+      (options.providerIds == null &&
+        options.dataSetIds == null &&
+        options.forceCreateDataSets !== true &&
+        options.uploadBatchSize == null)
+
+    const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
       ...options,
       withCDN: options?.withCDN ?? this._withCDN,
       withIpni: options?.withIpni ?? this._withIpni,
       dev: options?.dev ?? this._dev,
     })
+
+    if (canUseDefault) {
+      this._defaultContexts = contexts
+    }
+
+    return contexts
   }
 
   /**
@@ -309,41 +322,39 @@ export class StorageManager {
         options.forceCreateDataSet !== true &&
         options.uploadBatchSize == null)
 
-    if (canUseDefault) {
+    if (canUseDefault && this._defaultContexts != null) {
       // Check if we have a default context with compatible metadata
-      if (this._defaultContexts != null) {
-        // Combine the current request metadata with effective withCDN setting
-        const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
-        for (const defaultContext of this._defaultContexts) {
-          if (options?.excludeProviderIds?.includes(defaultContext.provider.id)) {
-            continue
-          }
-          // Check if the requested metadata matches what the default context was created with
-          if (!metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)) {
-            continue
-          }
-          // Fire callbacks for cached context to ensure consistent behavior
-          if (options?.callbacks != null) {
-            try {
-              options.callbacks.onProviderSelected?.(defaultContext.provider)
-            } catch (error) {
-              console.error('Error in onProviderSelected callback:', error)
-            }
 
-            if (defaultContext.dataSetId != null) {
-              try {
-                options.callbacks.onDataSetResolved?.({
-                  isExisting: true, // Always true for cached context
-                  dataSetId: defaultContext.dataSetId,
-                  provider: defaultContext.provider,
-                })
-              } catch (error) {
-                console.error('Error in onDataSetResolved callback:', error)
-              }
+      const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
+      for (const defaultContext of this._defaultContexts) {
+        if (options?.excludeProviderIds?.includes(defaultContext.provider.id)) {
+          continue
+        }
+        // Check if the requested metadata matches what the default context was created with
+        if (!metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)) {
+          continue
+        }
+        // Fire callbacks for cached context to ensure consistent behavior
+        if (options?.callbacks != null) {
+          try {
+            options.callbacks.onProviderSelected?.(defaultContext.provider)
+          } catch (error) {
+            console.error('Error in onProviderSelected callback:', error)
+          }
+
+          if (defaultContext.dataSetId != null) {
+            try {
+              options.callbacks.onDataSetResolved?.({
+                isExisting: true, // Always true for cached context
+                dataSetId: defaultContext.dataSetId,
+                provider: defaultContext.provider,
+              })
+            } catch (error) {
+              console.error('Error in onDataSetResolved callback:', error)
             }
           }
-          return defaultContext
         }
+        return defaultContext
       }
     }
 
