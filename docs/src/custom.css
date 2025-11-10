@@ -29,3 +29,8 @@ img[src*="foc-diagram.png"] {
   max-width: 80% !important;
   height: auto !important;
 }
+
+/* Alternative: Target the title specifically */
+.site-title {
+  color: #0090ff !important; /* Change this to your desired color */
+}
