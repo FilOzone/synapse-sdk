@@ -53,3 +53,17 @@ By exposing verifiable storage, retrieval, and payment capabilities as onchain s
 [Learn more about Filecoin Fin →](https://docs.filecoin.io/builder-cookbook/filecoin-pin)
 
 *More products will be built to extending the capability of the Filecoin Onchain Cloud.*
+
+### Pricing
+
+The **Filecoin Onchain Cloud (FOC)** offers transparent and verifiable pricing for its **Filecoin Warm Storage Service (FWSS)** and **Filecoin Beam** retrieval layer.
+All payments are settled automatically through Filecoin Pay, ensuring on-chain accountability and proof-linked billing.
+
+| **Service** | **Pricing** | **Description** |
+|-------|---------|--------------------|
+| **Base Storage & Retrival** | **$2.5/TiB/month/copy** (minimum 2 copies) | Redundant storage ensures durability and continuous PDP verification.<br />Minimum monthly charge of **0.06 USDFC**, covering roughly **24 GiB** of total data (two copies). |
+| **Add-on Retrieval (Filecoin Beam)**  | **Up to $0.014/GiB egress** | Charged for outbound data delivered via Filecoin Beam gateways or retrieval providers. |
+
+:::note[Verifiable Payment]
+All storage and retrieval charges are denominated in **USDFC** (or supported ERC-20 tokens) and settled via **Filecoin Pay**. Every transaction is on-chain, auditable, and linked to verifiable service proofs.
+:::
