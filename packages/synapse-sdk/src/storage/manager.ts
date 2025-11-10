@@ -21,6 +21,7 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
+import { randIndex } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -94,7 +95,7 @@ export class StorageManager {
   private readonly _withCDN: boolean
   private readonly _dev: boolean
   private readonly _withIpni: boolean | undefined
-  private _defaultContext?: StorageContext
+  private _defaultContexts?: StorageContext[]
 
   constructor(
     synapse: Synapse,
@@ -203,20 +204,19 @@ export class StorageManager {
 
     // Fast path: If we have a default context with CDN disabled and no specific provider requested,
     // check if the piece exists on the default context's provider first
-    if (this._defaultContext != null && !withCDN && options?.providerAddress == null) {
-      // Check if the default context has CDN disabled
-      const defaultHasCDN = (this._defaultContext as any)._withCDN ?? this._withCDN
-      if (defaultHasCDN === false) {
-        // Check if the piece exists on this provider
-        const hasPiece = await this._defaultContext.hasPiece(parsedPieceCID)
-        if (hasPiece) {
-          // Fast path: download directly from the default context's provider
-          return await this._defaultContext.download(pieceCid, options)
+    if (this._defaultContexts != null && !withCDN && options?.providerAddress == null) {
+      const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
+      const contextsHavePiece = await Promise.all(contextsWithoutCDN.map((context) => context.hasPiece(parsedPieceCID)))
+      const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
+      if (defaultContextsWithPiece.length > 0) {
+        options = {
+          ...options,
+          providerAddress:
+            defaultContextsWithPiece[randIndex(defaultContextsWithPiece.length)].provider.serviceProvider,
         }
       }
     }
 
-    // Fall back to normal SP-agnostic download with discovery
     const clientAddress = await this._synapse.getClient().getAddress()
 
     // Use piece retriever to fetch
@@ -311,57 +311,54 @@ export class StorageManager {
 
     if (canUseDefault) {
       // Check if we have a default context with compatible metadata
-      if (
-        this._defaultContext != null &&
-        options?.excludeProviderIds?.includes(this._defaultContext.provider.id) !== true
-      ) {
+      if (this._defaultContexts != null) {
         // Combine the current request metadata with effective withCDN setting
         const requestedMetadata = combineMetadata(options?.metadata, effectiveWithCDN)
-
-        // Check if the requested metadata matches what the default context was created with
-        if (metadataMatches(this._defaultContext.dataSetMetadata, requestedMetadata)) {
+        for (const defaultContext of this._defaultContexts) {
+          if (options?.excludeProviderIds?.includes(defaultContext.provider.id)) {
+            continue
+          }
+          // Check if the requested metadata matches what the default context was created with
+          if (!metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)) {
+            continue
+          }
           // Fire callbacks for cached context to ensure consistent behavior
           if (options?.callbacks != null) {
             try {
-              options.callbacks.onProviderSelected?.(this._defaultContext.provider)
+              options.callbacks.onProviderSelected?.(defaultContext.provider)
             } catch (error) {
               console.error('Error in onProviderSelected callback:', error)
             }
 
-            if (this._defaultContext.dataSetId != null) {
+            if (defaultContext.dataSetId != null) {
               try {
                 options.callbacks.onDataSetResolved?.({
                   isExisting: true, // Always true for cached context
-                  dataSetId: this._defaultContext.dataSetId,
-                  provider: this._defaultContext.provider,
+                  dataSetId: defaultContext.dataSetId,
+                  provider: defaultContext.provider,
                 })
               } catch (error) {
                 console.error('Error in onDataSetResolved callback:', error)
               }
             }
           }
-          return this._defaultContext
+          return defaultContext
         }
       }
-
-      // Create new default context with current CDN setting
-      const context = await StorageContext.create(this._synapse, this._warmStorageService, {
-        ...options,
-        withCDN: effectiveWithCDN,
-        withIpni: options?.withIpni ?? this._withIpni,
-        dev: options?.dev ?? this._dev,
-      })
-      this._defaultContext = context
-      return context
     }
 
-    // Create a new context with specific options (not cached)
-    return await StorageContext.create(this._synapse, this._warmStorageService, {
+    // Create a new context with specific options
+    const context = await StorageContext.create(this._synapse, this._warmStorageService, {
       ...options,
       withCDN: effectiveWithCDN,
       withIpni: options?.withIpni ?? this._withIpni,
       dev: options?.dev ?? this._dev,
     })
+
+    if (canUseDefault) {
+      this._defaultContexts = [context]
+    }
+    return context
   }
 
   /**
