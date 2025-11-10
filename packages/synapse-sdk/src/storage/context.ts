@@ -879,7 +879,7 @@ export class StorageContext {
       try {
         performance.mark('synapse:pdpServer.uploadPiece-start')
         await this._pdpServer.uploadPiece(data, {
-          onProgress: options?.onProgress,
+          ...options,
           pieceCid,
         })
         performance.mark('synapse:pdpServer.uploadPiece-end')

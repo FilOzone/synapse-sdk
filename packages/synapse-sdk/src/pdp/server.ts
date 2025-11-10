@@ -132,6 +132,18 @@ export interface PieceAdditionStatusResponse {
 }
 
 /**
+ * Options for uploading a piece
+ */
+export interface UploadPieceOptions {
+  /** Optional progress callback */
+  onProgress?: (bytesUploaded: number) => void
+  /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID, it will be checked by the server) */
+  pieceCid?: PieceCID
+  /** Optional AbortSignal to cancel the upload */
+  signal?: AbortSignal
+}
+
+/**
  * Input for adding pieces to a data set
  */
 export interface PDPAddPiecesInput {
@@ -488,13 +500,11 @@ export class PDPServer {
    * documentation for detailed guidance.
    *
    * @param data - The data to upload (Uint8Array, AsyncIterable, or ReadableStream)
-   * @param options - Optional upload options including progress callback and optional PieceCID
-   * @param options.pieceCid - Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID)
-   * @param options.onProgress - Optional progress callback
+   * @param options - Optional upload options
    */
   async uploadPiece(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
-    options?: { onProgress?: (bytesUploaded: number) => void; pieceCid?: PieceCID }
+    options?: UploadPieceOptions
   ): Promise<void> {
     if (data instanceof Uint8Array) {
       // Check hard limit
@@ -513,6 +523,7 @@ export class PDPServer {
         size: data.length, // Known size for Content-Length
         onProgress: options?.onProgress,
         pieceCid: options?.pieceCid,
+        signal: options?.signal,
       })
     } else {
       // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
@@ -522,6 +533,7 @@ export class PDPServer {
         // size unknown for streams
         onProgress: options?.onProgress,
         pieceCid: options?.pieceCid,
+        signal: options?.signal,
       })
     }
   }

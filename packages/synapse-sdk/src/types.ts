@@ -426,6 +426,8 @@ export interface UploadOptions extends UploadCallbacks {
   metadata?: Record<string, string>
   /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
   pieceCid?: PieceCID
+  /** Optional AbortSignal to cancel the upload */
+  signal?: AbortSignal
 }
 
 /**

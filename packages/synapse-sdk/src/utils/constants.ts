@@ -164,10 +164,10 @@ export const SIZE_CONSTANTS = {
   /**
    * Maximum upload size supported by Curio PDP servers: 1 GiB adjusted for fr32 expansion.
    *
-   * 1 GiB * (126/127) = 1,065,353,216 bytes
+   * 1 GiB * (127/128) = 1,065,353,216 bytes
    *
-   * Fr32 encoding adds 1 bit of padding per 254 bits, resulting in 127 bytes
-   * of padded data for every 126 bytes of raw data.
+   * Fr32 encoding adds 2 bits of padding per 254 bits of data, resulting in 128 bytes
+   * of padded data for every 127 bytes of raw data.
    *
    * Note: While it's technically possible to upload pieces this large as Uint8Array
    * (even in browsers), streaming via AsyncIterable is strongly recommended for

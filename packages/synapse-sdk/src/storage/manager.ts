@@ -80,6 +80,12 @@ interface StorageManagerUploadOptions extends StorageServiceOptions {
 
   // Callbacks that can include both creation and upload callbacks
   callbacks?: Partial<CombinedCallbacks>
+
+  /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID, it will be checked by the server) */
+  pieceCid?: PieceCID
+
+  /** Optional AbortSignal to cancel the upload */
+  signal?: AbortSignal
 }
 
 interface StorageManagerDownloadOptions extends DownloadOptions {
@@ -194,6 +200,7 @@ export class StorageManager {
             ...options?.callbacks,
             metadata: options?.metadata,
             pieceCid,
+            signal: options?.signal,
           })
         )
       )
@@ -212,6 +219,7 @@ export class StorageManager {
         ...options?.callbacks,
         metadata: options?.metadata,
         pieceCid,
+        signal: options?.signal,
       })
 
       return [{ status: 'fulfilled' as const, value: result }]

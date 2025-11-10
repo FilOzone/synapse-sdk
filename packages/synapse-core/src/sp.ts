@@ -48,6 +48,10 @@ export function setTimeout(timeout: number) {
  * chunks are consumed in order.
  */
 function asyncIterableToReadableStream(iterable: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array> {
+  if (!isAsyncIterable(iterable)) {
+    throw new Error('Input must be an AsyncIterable')
+  }
+
   // Use native ReadableStream.from() if available
   // See https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static for latest
   // support matrix, as of late 2025 this is still "Experimental"
@@ -68,6 +72,14 @@ function asyncIterableToReadableStream(iterable: AsyncIterable<Uint8Array>): Rea
           controller.enqueue(value)
         }
       } catch (error) {
+        // run cleanup on internal errors
+        if (iterator.return) {
+          try {
+            await iterator.return()
+          } catch {
+            // safely ignore
+          }
+        }
         controller.error(error)
       }
     },
@@ -415,6 +427,7 @@ export type UploadPieceStreamingOptions = {
   size?: number
   onProgress?: (bytesUploaded: number) => void
   pieceCid?: PieceCID
+  signal?: AbortSignal
 }
 
 /**
@@ -430,6 +443,7 @@ export type UploadPieceStreamingOptions = {
  * @param options.data - AsyncIterable or ReadableStream yielding Uint8Array chunks
  * @param options.size - Optional known size for Content-Length header
  * @param options.onProgress - Optional progress callback
+ * @param options.signal - Optional AbortSignal to cancel the upload
  * @returns PieceCID and size of uploaded data
  * @throws Error if upload fails at any step or if size exceeds MAX_UPLOAD_SIZE
  */
@@ -437,6 +451,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
   // Create upload session (POST /pdp/piece/uploads)
   const createResponse = await request.post(new URL('pdp/piece/uploads', options.endpoint), {
     timeout: TIMEOUT,
+    signal: options.signal,
   })
 
   if (createResponse.error) {
@@ -463,8 +478,6 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
 
   const uploadUuid = locationMatch[1]
 
-  // Stream data with CommP calculation (unless PieceCID provided)
-
   // Create CommP calculator stream only if PieceCID not provided
   let getPieceCID: () => PieceCID | null = () => options.pieceCid ?? null
   let pieceCidStream: TransformStream<Uint8Array, Uint8Array> | null = null
@@ -476,15 +489,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
   }
 
   // Convert to ReadableStream if needed (skip if already ReadableStream)
-  const isReadableStream =
-    typeof options.data === 'object' &&
-    options.data !== null &&
-    'getReader' in options.data &&
-    typeof (options.data as ReadableStream<Uint8Array>).getReader === 'function'
-
-  const dataStream = isReadableStream
-    ? (options.data as ReadableStream<Uint8Array>)
-    : asyncIterableToReadableStream(options.data)
+  const dataStream = asReadableStream(options.data)
 
   // Add size tracking and progress reporting
   let bytesUploaded = 0
@@ -525,6 +530,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
     body: bodyStream,
     headers,
     timeout: false, // No timeout for streaming upload
+    signal: options.signal,
     duplex: 'half', // Required for streaming request bodies
   } as Parameters<typeof request.put>[1] & { duplex: 'half' })
 
@@ -556,6 +562,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
       'Content-Type': 'application/json',
     },
     timeout: TIMEOUT,
+    signal: options.signal,
   })
 
   if (finalizeResponse.error) {
@@ -782,4 +789,41 @@ export async function ping(endpoint: string) {
     throw new Error('Ping failed')
   }
   return response.result
+}
+
+/**
+ * Type guard to check if a value is a ReadableStream
+ * @param value - The value to check
+ * @returns True if it's a ReadableStream
+ */
+function isReadableStream(value: unknown): value is ReadableStream<Uint8Array> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'getReader' in value &&
+    typeof (value as ReadableStream<Uint8Array>).getReader === 'function'
+  )
+}
+
+/**
+ * Convert AsyncIterable or ReadableStream to ReadableStream
+ * @param data - AsyncIterable or ReadableStream to convert
+ * @returns ReadableStream
+ */
+function asReadableStream(data: AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+  return isReadableStream(data) ? data : asyncIterableToReadableStream(data)
+}
+
+/**
+ * Type guard to check if a value is an AsyncIterable
+ * @param value - The value to check
+ * @returns True if it's an AsyncIterable
+ */
+function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Array> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Symbol.asyncIterator in value &&
+    typeof (value as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] === 'function'
+  )
 }

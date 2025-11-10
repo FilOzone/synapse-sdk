@@ -19,16 +19,16 @@ const SHA2_256_TRUNC254_PADDED = 0x1012
 /**
  * Maximum upload size currently supported by PDP servers.
  *
- * 1 GiB adjusted for fr32 expansion: 1 GiB * (126/127) = 1,065,353,216 bytes
+ * 1 GiB adjusted for fr32 expansion: 1 GiB * (127/128) = 1,065,353,216 bytes
  *
- * Fr32 encoding adds 1 bit of padding per 254 bits, resulting in 127 bytes
- * of padded data for every 126 bytes of raw data.
+ * Fr32 encoding adds 2 bits of padding per 254 bits of data, resulting in 128 bytes
+ * of padded data for every 127 bytes of raw data.
  *
  * Note: While it's technically possible to upload pieces this large as Uint8Array,
  * streaming via AsyncIterable is strongly recommended for non-trivial sizes.
  * See SIZE_CONSTANTS.MAX_UPLOAD_SIZE in synapse-sdk for detailed guidance.
  */
-export const MAX_UPLOAD_SIZE = 1065353216 // 1 GiB * 126/127
+export const MAX_UPLOAD_SIZE = 1_065_353_216 // 1 GiB * 127/128
 
 /**
  * PieceCID - A constrained CID type for Piece Commitments.
@@ -95,6 +95,15 @@ function parseLegacyPieceCID(pieceCidString: string): LegacyPieceCID | null {
 }
 
 /**
+ * Type guard to check if a value is a CID
+ * @param value - The value to check
+ * @returns True if it's a CID
+ */
+function isCID(value: unknown): value is CID {
+  return typeof value === 'object' && value !== null && CID.asCID(value as CID) !== null
+}
+
+/**
  * Check if a CID is a valid PieceCID
  * @param cid - The CID to check
  * @returns True if it's a valid PieceCID
@@ -127,14 +136,12 @@ export function asPieceCID(pieceCidInput: PieceCID | CID | string | null | undef
     return parsePieceCID(pieceCidInput)
   }
 
-  if (typeof pieceCidInput === 'object' && CID.asCID(pieceCidInput as CID) !== null) {
-    // It's already a CID, validate it
-    if (isValidPieceCID(pieceCidInput as CID)) {
-      return pieceCidInput as PieceCID
+  if (isCID(pieceCidInput)) {
+    if (isValidPieceCID(pieceCidInput)) {
+      return pieceCidInput
     }
   }
 
-  // Nope
   return null
 }
 
@@ -152,9 +159,10 @@ export function asLegacyPieceCID(
     return null
   }
 
-  const pieceCid = asPieceCID(pieceCidInput as CID | string)
+  // Try converting as PieceCID first (handles PieceCID and CID types)
+  const pieceCid = asPieceCID(pieceCidInput as PieceCID | CID | string | null | undefined)
   if (pieceCid != null) {
-    // downgrade to LegacyPieceCID
+    // Downgrade PieceCID to LegacyPieceCID
     const digest = Digest.create(SHA2_256_TRUNC254_PADDED, pieceCid.multihash.digest.subarray(-32))
     return Link.create(FIL_COMMITMENT_UNSEALED, digest) as LegacyPieceCID
   }
@@ -163,14 +171,12 @@ export function asLegacyPieceCID(
     return parseLegacyPieceCID(pieceCidInput)
   }
 
-  if (typeof pieceCidInput === 'object' && CID.asCID(pieceCidInput as CID) !== null) {
-    // It's already a CID, validate it
-    if (isValidLegacyPieceCID(pieceCidInput as CID)) {
-      return pieceCidInput as LegacyPieceCID
+  if (isCID(pieceCidInput)) {
+    if (isValidLegacyPieceCID(pieceCidInput)) {
+      return pieceCidInput
     }
   }
 
-  // Nope
   return null
 }
 
@@ -465,31 +471,4 @@ export async function downloadAndValidate(
   }
 
   return result
-}
-
-/**
- * Download data from a URL, validate its PieceCID, and return as Uint8Array
- *
- * This is a convenience function that fetches from a URL and then uses
- * downloadAndValidate to download and validate the data.
- *
- * @param url - The URL to download from
- * @param expectedPieceCid - The expected PieceCID to validate against
- * @returns The downloaded data as a Uint8Array
- * @throws Error if PieceCID validation fails or download errors occur
- *
- * @example
- * ```typescript
- * const data = await downloadAndValidateFromUrl(
- *   'https://provider.com/piece/bafkzcib...',
- *   'bafkzcib...'
- * )
- * ```
- */
-export async function downloadAndValidateFromUrl(
-  url: string,
-  expectedPieceCid: string | PieceCID
-): Promise<Uint8Array> {
-  const response = await fetch(url)
-  return await downloadAndValidate(response, expectedPieceCid)
 }
