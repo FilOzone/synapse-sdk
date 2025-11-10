@@ -220,6 +220,7 @@ export class StorageManager {
     // Fast path: If we have a default context with CDN disabled and no specific provider requested,
     // check if the piece exists on the default context's provider first
     if (this._defaultContexts != null && !withCDN && options?.providerAddress == null) {
+      // from the default contexts, select a random storage provider that has the piece
       const contextsWithoutCDN = this._defaultContexts.filter((context) => context.withCDN === false)
       const contextsHavePiece = await Promise.all(contextsWithoutCDN.map((context) => context.hasPiece(parsedPieceCID)))
       const defaultContextsWithPiece = contextsWithoutCDN.filter((_context, i) => contextsHavePiece[i])
