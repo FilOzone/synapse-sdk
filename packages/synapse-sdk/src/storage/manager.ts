@@ -148,7 +148,22 @@ export class StorageManager {
     }
 
     // Get the context to use
-    const contexts = options?.contexts ?? [options?.context ?? (await this.createContext(options))]
+    const contexts =
+      options?.contexts ??
+      (options?.context
+        ? [options.context]
+        : await this.createContexts({
+            withCDN: options?.withCDN,
+            withIpni: options?.withIpni,
+            dev: options?.dev,
+            uploadBatchSize: options?.uploadBatchSize,
+            forceCreateDataSets: options?.forceCreateDataSet,
+            metadata: options?.metadata,
+            excludeProviderIds: options?.excludeProviderIds,
+            providerIds: options?.providerId ? [options.providerId] : undefined,
+            dataSetIds: options?.dataSetId ? [options.dataSetId] : undefined,
+            callbacks: options?.callbacks,
+          }))
     // Convert once
     const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
     // Calculate pieceCid once
