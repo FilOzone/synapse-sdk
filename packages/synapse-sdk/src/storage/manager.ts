@@ -282,16 +282,54 @@ export class StorageManager {
    * @returns Promise resolving to array of storage contexts
    */
   async createContexts(options?: CreateContextsOptions): Promise<StorageContext[]> {
+    const withCDN = options?.withCDN ?? this._withCDN
     const canUseDefault =
       options == null ||
       (options.providerIds == null &&
         options.dataSetIds == null &&
         options.forceCreateDataSets !== true &&
         options.uploadBatchSize == null)
+    if (this._defaultContexts != null) {
+      const expectedSize = options?.count ?? 2
+      if (
+        this._defaultContexts.length === expectedSize &&
+        this._defaultContexts.every((context) => options?.excludeProviderIds?.includes(context.provider.id) !== true)
+      ) {
+        const requestedMetadata = combineMetadata(options?.metadata, withCDN)
+        if (
+          this._defaultContexts.every((defaultContext) =>
+            metadataMatches(defaultContext.dataSetMetadata, requestedMetadata)
+          )
+        ) {
+          if (options?.callbacks != null) {
+            for (const defaultContext of this._defaultContexts) {
+              try {
+                options.callbacks.onProviderSelected?.(defaultContext.provider)
+              } catch (error) {
+                console.error('Error in onProviderSelected callback:', error)
+              }
+
+              if (defaultContext.dataSetId != null) {
+                try {
+                  options.callbacks.onDataSetResolved?.({
+                    isExisting: true, // Always true for cached context
+                    dataSetId: defaultContext.dataSetId,
+                    provider: defaultContext.provider,
+                  })
+                } catch (error) {
+                  console.error('Error in onDataSetResolved callback:', error)
+                }
+              }
+            }
+          }
+          return this._defaultContexts
+        }
+      }
+    }
 
     const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
       ...options,
-      withCDN: options?.withCDN ?? this._withCDN,
+      withCDN,
       withIpni: options?.withIpni ?? this._withIpni,
       dev: options?.dev ?? this._dev,
     })
