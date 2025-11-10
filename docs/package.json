@@ -10,7 +10,7 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@filoz/synapse-sdk": "workspace:*",
+    "@filoz/synapse-sdk": "0.35.3",
     "ethers": "^6.15.0"
   },
   "devDependencies": {
