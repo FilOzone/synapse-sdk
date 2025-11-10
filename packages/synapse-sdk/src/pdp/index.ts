@@ -16,7 +16,6 @@ export type {
   DataSetCreationStatusResponse,
   FindPieceResponse,
   PieceAdditionStatusResponse,
-  UploadResponse,
 } from './server.ts'
 export { PDPServer } from './server.ts'
 // Export validation utilities for advanced use

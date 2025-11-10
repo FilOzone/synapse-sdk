@@ -114,16 +114,6 @@ export interface PieceStatusResponse {
 }
 
 /**
- * Upload response containing piece information
- */
-export interface UploadResponse {
-  /** PieceCID CID of the uploaded piece */
-  pieceCid: PieceCID
-  /** Size of the uploaded piece in bytes */
-  size: number
-}
-
-/**
  * Response from checking piece addition status
  */
 export interface PieceAdditionStatusResponse {
@@ -494,13 +484,13 @@ export class PDPServer {
    * @param data - The data to upload
    * @returns Upload response with PieceCID and size
    */
-  async uploadPiece(data: Uint8Array | ArrayBuffer): Promise<UploadResponse> {
+  async uploadPiece(data: Uint8Array, pieceCid: PieceCID): Promise<void> {
     // Convert ArrayBuffer to Uint8Array if needed
-    const uint8Data = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
-    return await SP.uploadPiece({
+    await SP.uploadPiece({
       endpoint: this._serviceURL,
-      data: uint8Data,
+      data,
+      pieceCid,
     })
   }
 

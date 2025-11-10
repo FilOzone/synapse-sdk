@@ -296,6 +296,7 @@ export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): 
 export type UploadPieceOptions = {
   endpoint: string
   data: Uint8Array
+  pieceCid: PieceCID
 }
 
 export type UploadPieceResponse = {
@@ -313,14 +314,16 @@ export type UploadPieceResponse = {
  * @param options.data - The data to upload.
  * @returns The response from the upload piece.
  */
-export async function uploadPiece(options: UploadPieceOptions) {
+export async function uploadPiece(options: UploadPieceOptions): Promise<void> {
   const size = options.data.length
   if (size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
     throw new InvalidUploadSizeError(size)
   }
 
-  const pieceCid = Piece.calculate(options.data)
-
+  const pieceCid = options.pieceCid
+  if (!Piece.isPieceCID(pieceCid)) {
+    throw new Error(`Invalid PieceCID: ${String(options.pieceCid)}`)
+  }
   const response = await request.post(new URL(`pdp/piece`, options.endpoint), {
     body: JSON.stringify({
       pieceCid: pieceCid.toString(),
@@ -339,10 +342,7 @@ export async function uploadPiece(options: UploadPieceOptions) {
   }
   if (response.result.status === 200) {
     // Piece already exists on server
-    return {
-      pieceCid,
-      size,
-    }
+    return
   }
 
   // Extract upload ID from Location header
@@ -366,11 +366,6 @@ export async function uploadPiece(options: UploadPieceOptions) {
       throw new UploadPieceError(await uploadResponse.error.response.text())
     }
     throw uploadResponse.error
-  }
-
-  return {
-    pieceCid,
-    size,
   }
 }
 

@@ -20,6 +20,7 @@
  * ```
  */
 
+import * as Piece from '@filoz/synapse-core/piece'
 import { ethers } from 'ethers'
 import { asPieceCID, downloadAndValidate } from '../piece/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
@@ -70,6 +71,9 @@ type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
  * @internal This type is intentionally not exported as it's specific to StorageManager
  */
 interface StorageManagerUploadOptions extends StorageServiceOptions {
+  // Multiple storage providers: if provided, all other context options are invalid
+  contexts?: StorageContext[]
+
   // Context routing - if provided, all other context options are invalid
   context?: StorageContext
 
@@ -110,12 +114,15 @@ export class StorageManager {
 
   /**
    * Upload data to storage
-   * If context is provided, routes to context.upload()
+   * Uses the storage contexts or context provided in the options
    * Otherwise creates/reuses default context
    */
-  async upload(data: Uint8Array | ArrayBuffer, options?: StorageManagerUploadOptions): Promise<UploadResult> {
+  async upload(
+    data: Uint8Array | ArrayBuffer,
+    options?: StorageManagerUploadOptions
+  ): Promise<PromiseSettledResult<UploadResult>[]> {
     // Validate options - if context is provided, no other options should be set
-    if (options?.context != null) {
+    if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []
       if (options.providerId !== undefined) invalidOptions.push('providerId')
       if (options.providerAddress !== undefined) invalidOptions.push('providerAddress')
@@ -133,14 +140,32 @@ export class StorageManager {
       }
     }
 
-    // Get the context to use
-    const context = options?.context ?? (await this.createContext(options))
+    if (options?.contexts != null && options.contexts.length > 0) {
+      if (options?.context != null) {
+        throw createError('StorageManager', 'upload', "Cannot specify both 'context' and 'contexts'")
+      }
+    }
 
-    // Upload using the context with piece metadata
-    return await context.upload(data, {
-      ...options?.callbacks,
-      metadata: options?.metadata,
-    })
+    // Get the context to use
+    const contexts = options?.contexts ?? [options?.context ?? (await this.createContext(options))]
+    // Convert once
+    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+    // Calculate pieceCid once
+    const pieceCid = Piece.calculate(dataBytes)
+
+    // Upload using the contexts with piece metadata
+    return await Promise.allSettled(
+      contexts.map((context) =>
+        context.upload(
+          dataBytes,
+          {
+            ...options?.callbacks,
+            metadata: options?.metadata,
+          },
+          pieceCid
+        )
+      )
+    )
   }
 
   /**

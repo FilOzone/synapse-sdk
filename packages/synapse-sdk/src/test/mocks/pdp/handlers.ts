@@ -4,8 +4,10 @@
  * These handlers can be used to mock PDP Server HTTP responses in tests
  */
 
+import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { HttpResponse, http } from 'msw'
+import type { Hex } from 'viem'
 import type { PDPAddPiecesInput } from '../../../pdp/server.ts'
 
 export interface PDPMockOptions {
@@ -26,7 +28,7 @@ export interface PieceMetadataCapture {
 /**
  * Creates a handler for successful data set creation
  */
-export function createDataSetHandler(txHash: string, options: PDPMockOptions = {}) {
+export function createDataSetHandler(txHash: Hex, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
   return http.post(`${baseUrl}/pdp/data-sets`, async ({ request }) => {
@@ -66,7 +68,7 @@ export function createDataSetHandler(txHash: string, options: PDPMockOptions = {
 /**
  * Creates a handler for successful piece addition
  */
-export function addPiecesHandler(dataSetId: number, txHash: string, options: PDPMockOptions = {}) {
+export function addPiecesHandler(dataSetId: number, txHash: Hex, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
   return http.post<{ id: string }, PDPAddPiecesInput>(
@@ -110,11 +112,21 @@ export function addPiecesHandler(dataSetId: number, txHash: string, options: PDP
   )
 }
 
+export function createAndAddPiecesHandler(txHash: Hex, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.post(`${baseUrl}/pdp/data-sets/create-and-add`, () => {
+    return new HttpResponse(null, {
+      status: 201,
+      headers: { Location: `/pdp/data-sets/created/${txHash}` },
+    })
+  })
+}
+
 /**
  * Creates a handler for data set creation status check
  */
 export function dataSetCreationStatusHandler(
-  txHash: string,
+  txHash: Hex,
   response: {
     createMessageHash: string
     dataSetCreated: boolean
@@ -141,7 +153,7 @@ export function dataSetCreationStatusHandler(
  */
 export function pieceAdditionStatusHandler(
   dataSetId: number,
-  txHash: string,
+  txHash: Hex,
   response: any,
   options: PDPMockOptions = {}
 ) {
@@ -162,19 +174,84 @@ export function pieceAdditionStatusHandler(
 export function findPieceHandler(pieceCid: string, found: boolean, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.get(`${baseUrl}/pdp/piece/`, ({ request }) => {
+  return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
     const url = new URL(request.url)
     const queryCid = url.searchParams.get('pieceCid')
 
     if (queryCid !== pieceCid) {
-      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+      return HttpResponse.text(null, { status: 404 })
     }
 
     if (!found) {
-      return HttpResponse.json({ pieceCid: null }, { status: 200 })
+      return HttpResponse.text(null, { status: 404 })
     }
 
     return HttpResponse.json({ pieceCid }, { status: 200 })
+  })
+}
+
+export function findAnyPieceHandler(found: boolean, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
+    const url = new URL(request.url)
+    const queryCid = url.searchParams.get('pieceCid')
+    if (found) {
+      return HttpResponse.json({ pieceCid: queryCid })
+    } else {
+      return HttpResponse.text(null, { status: 404 })
+    }
+  })
+}
+
+/**
+ * Creates a handler that supports only one pieceCid
+ * Returns a UUID for 201, or a CID for 200
+ */
+export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.post<Record<string, never>, { pieceCid: string }>(`${baseUrl}/pdp/piece`, async ({ request }) => {
+    const body = await request.json()
+    assert.isDefined(body)
+    assert.isNotNull(body)
+    assert.exists(body.pieceCid)
+    assert.equal(body.pieceCid, pieceCid)
+    if (uuid == null) {
+      // parked piece found
+      return HttpResponse.json({
+        pieceCid,
+      })
+    }
+    // Piece does not exist, proceed to create a new upload request
+    return HttpResponse.text('Created', {
+      status: 201,
+      headers: {
+        Location: `/pdp/piece/upload/${uuid}`,
+      },
+    })
+  })
+}
+
+/**
+ * Create a handler that reflects back any pieceCid and reports that piece as parked
+ */
+export function postParkedPieceHandler(options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.post(`${baseUrl}/pdp/piece`, async ({ request }) => {
+    const url = new URL(request.url)
+    const pieceCid = url.searchParams.get('pieceCid')
+
+    return HttpResponse.json({
+      pieceCid,
+    })
+  })
+}
+
+export function uploadPieceHandler(uuid: string, options: PDPMockOptions = {}) {
+  const baseUrl = options.baseUrl ?? 'http://pdp.local'
+  return http.put(`${baseUrl}/pdp/piece/upload/${uuid}`, async () => {
+    return HttpResponse.text('No Content', {
+      status: 204,
+    })
   })
 }
 
@@ -210,7 +287,7 @@ export function decodePieceMetadataFromExtraData(extraData: string): PieceMetada
  * @param options - Additional options
  */
 export function createDataSetWithMetadataCapture(
-  txHash: string,
+  txHash: Hex,
   captureCallback: (metadata: MetadataCapture) => void,
   options: PDPMockOptions = {}
 ) {
@@ -252,7 +329,7 @@ export function createDataSetWithMetadataCapture(
  */
 export function addPiecesWithMetadataCapture(
   dataSetId: number,
-  txHash: string,
+  txHash: Hex,
   captureCallback: (metadata: PieceMetadataCapture) => void,
   options: PDPMockOptions = {}
 ) {

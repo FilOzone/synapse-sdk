@@ -1,3 +1,4 @@
+import * as Piece from '@filoz/synapse-core/piece'
 import { calculate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
@@ -13,6 +14,12 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
+import {
+  createAndAddPiecesHandler,
+  findPieceHandler,
+  postPieceHandler,
+  uploadPieceHandler,
+} from './mocks/pdp/handlers.ts'
 import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
@@ -20,6 +27,10 @@ const server = setup([])
 
 function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
+}
+
+const pdpOptions = {
+  baseUrl: 'https://pdp.example.com',
 }
 
 describe('StorageService', () => {
@@ -1073,7 +1084,6 @@ describe('StorageService', () => {
     it('should download and verify a piece', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
       const testPieceCID = calculate(testData).toString()
-
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1084,9 +1094,7 @@ describe('StorageService', () => {
             status: 404,
           })
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
@@ -1110,9 +1118,7 @@ describe('StorageService', () => {
           ...presets.basic,
         }),
         PING(),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.error()
         })
@@ -1138,9 +1144,7 @@ describe('StorageService', () => {
           ...presets.basic,
         }),
         PING(),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
@@ -1254,6 +1258,7 @@ describe('StorageService', () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1263,24 +1268,15 @@ describe('StorageService', () => {
           return HttpResponse.text('Created', {
             status: 201,
             headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
+              Location: `/pdp/piece/upload/${mockUuid}`,
             },
           })
         }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
+        uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        http.post('https://pdp.example.com/pdp/data-sets/create-and-add', () => {
-          return new HttpResponse(null, {
-            status: 201,
-            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
-          })
-        }),
+        createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
@@ -1330,6 +1326,7 @@ describe('StorageService', () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -1339,24 +1336,15 @@ describe('StorageService', () => {
           return HttpResponse.text('Created', {
             status: 201,
             headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
+              Location: `/pdp/piece/upload/${mockUuid}`,
             },
           })
         }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
+        uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        http.post('https://pdp.example.com/pdp/data-sets/create-and-add', () => {
-          return new HttpResponse(null, {
-            status: 201,
-            headers: { Location: `/pdp/data-sets/created/${mockTxHash}` },
-          })
-        }),
+        createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
@@ -1402,19 +1390,14 @@ describe('StorageService', () => {
 
     it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
+      const testPieceCID = Piece.calculate(testData).toString()
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
-            },
-          })
-        }),
+        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
         http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
           return HttpResponse.error()
         })
@@ -1433,28 +1416,16 @@ describe('StorageService', () => {
 
     it('should handle add pieces failure', async () => {
       const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
+      const testPieceCID = Piece.calculate(testData).toString()
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
         JSONRPC({
           ...presets.basic,
         }),
         PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/12345678-90ab-cdef-1234-567890abcdef`,
-            },
-          })
-        }),
-        http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
-          return HttpResponse.text('No Content', {
-            status: 204,
-          })
-        }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
+        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
+        uploadPieceHandler(mockUuid, pdpOptions),
+        findPieceHandler(testPieceCID, true, pdpOptions),
         http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
           return HttpResponse.error()
         })
@@ -1813,9 +1784,7 @@ describe('StorageService', () => {
             nextChallengeEpoch: 5000,
           })
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
-        })
+        findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
@@ -2008,9 +1977,7 @@ describe('StorageService', () => {
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.error()
         }),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: mockPieceCID })
-        })
+        findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)

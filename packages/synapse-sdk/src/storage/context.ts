@@ -22,6 +22,7 @@
  * ```
  */
 
+import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
@@ -75,7 +76,7 @@ export class StorageContext {
 
   // AddPieces batching state
   private _pendingPieces: Array<{
-    pieceData: PieceCID
+    pieceCid: PieceCID
     resolve: (pieceId: number) => void
     reject: (error: Error) => void
     callbacks?: UploadCallbacks
@@ -835,15 +836,19 @@ export class StorageContext {
   /**
    * Upload data to the service provider
    */
-  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions): Promise<UploadResult> {
+  async upload(data: Uint8Array | ArrayBuffer, options?: UploadOptions, pieceCid?: PieceCID): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size
-    const dataBytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
-    const sizeBytes = dataBytes.length
+    const dataBytes: Uint8Array = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+    const size = dataBytes.length
 
     // Validate size before proceeding
-    StorageContext.validateRawSize(sizeBytes, 'upload')
+    StorageContext.validateRawSize(size, 'upload')
+
+    if (pieceCid == null) {
+      pieceCid = Piece.calculate(dataBytes)
+    }
 
     // Track this upload for batching purposes
     const uploadId = Symbol('upload')
@@ -851,10 +856,9 @@ export class StorageContext {
 
     try {
       // Upload Phase: Upload data to service provider and agree on PieceCID
-      let uploadResult: { pieceCid: PieceCID; size: number }
       try {
         performance.mark('synapse:pdpServer.uploadPiece-start')
-        uploadResult = await this._pdpServer.uploadPiece(dataBytes)
+        await this._pdpServer.uploadPiece(dataBytes, pieceCid)
         performance.mark('synapse:pdpServer.uploadPiece-end')
         performance.measure(
           'synapse:pdpServer.uploadPiece',
@@ -873,7 +877,7 @@ export class StorageContext {
 
       // Poll for piece to be "parked" (ready)
       performance.mark('synapse:findPiece-start')
-      await this._pdpServer.findPiece(uploadResult.pieceCid)
+      await this._pdpServer.findPiece(pieceCid)
       performance.mark('synapse:findPiece-end')
       performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
 
@@ -882,11 +886,10 @@ export class StorageContext {
 
       // Notify upload complete
       if (options?.onUploadComplete != null) {
-        options.onUploadComplete(uploadResult.pieceCid)
+        options.onUploadComplete(pieceCid)
       }
 
       // Add Piece Phase: Queue the AddPieces operation for sequential processing
-      const pieceData = uploadResult.pieceCid
 
       // Validate metadata early (before queueing) to fail fast
       if (options?.metadata != null) {
@@ -896,7 +899,7 @@ export class StorageContext {
       const finalPieceId = await new Promise<number>((resolve, reject) => {
         // Add to pending batch
         this._pendingPieces.push({
-          pieceData,
+          pieceCid,
           resolve,
           reject,
           callbacks: options,
@@ -916,8 +919,8 @@ export class StorageContext {
       performance.mark('synapse:upload-end')
       performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
       return {
-        pieceCid: uploadResult.pieceCid,
-        size: uploadResult.size,
+        pieceCid,
+        size,
         pieceId: finalPieceId,
       }
     } finally {
@@ -967,7 +970,7 @@ export class StorageContext {
     const batch = this._pendingPieces.splice(0, this._uploadBatchSize)
     try {
       // Create piece data array and metadata from the batch
-      const pieceDataArray: PieceCID[] = batch.map((item) => item.pieceData)
+      const pieceCids: PieceCID[] = batch.map((item) => item.pieceCid)
       const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
       const confirmedPieceIds: number[] = []
 
@@ -980,7 +983,7 @@ export class StorageContext {
         const addPiecesResult = await this._pdpServer.addPieces(
           this.dataSetId, // PDPVerifier data set ID
           dataSetInfo.clientDataSetId, // Client's dataset ID
-          pieceDataArray,
+          pieceCids,
           metadataArray
         )
 
@@ -1013,7 +1016,7 @@ export class StorageContext {
           this._provider.payee,
           payer,
           this._synapse.getWarmStorageAddress(),
-          pieceDataArray,
+          pieceCids,
           {
             dataset: finalMetadata,
             pieces: metadataArray,
