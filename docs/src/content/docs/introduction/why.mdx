@@ -49,6 +49,6 @@ By unifying data, payments, and verifiability, FOC provides the foundation for t
 
 ## Getting Started
 
-Ready to start building with Filecoin Onchain Cloud? Check out our [**Getting Started guide**](/docs/getting-started/) to learn how to integrate the Synapse SDK into your application.
+Ready to start building with Filecoin Onchain Cloud? Check out our [**Getting Started guide**](/gettingstarted/getting-started/) to learn how to integrate the Synapse SDK into your application.
 
 The **Synapse SDK** provides a simple, familiar API that abstracts away the complexity of blockchain interactions, allowing you to focus on building your application while leveraging the power of decentralized storage.

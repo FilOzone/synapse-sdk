@@ -12,7 +12,7 @@ The Synapse SDK automatically handles all the complexity of storage setup for yo
 You have two options:
 
 1. **Simple mode**: Just use `synapse.storage.upload()` directly - the SDK auto-manages contexts for you.
-2. **Explicit mode**: Create a context with `synapse.storage.createContext()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
+2. **Explicit mode**: Create contexts with `synapse.storage.createContexts()` for more control. Contexts can be used directly or passed in the options to `synapse.storage.upload()` and `synapse.storage.download()`.
 
 Behind the scenes, the process may be:
 
@@ -26,18 +26,22 @@ Behind the scenes, the process may be:
 await synapse.storage.upload(data)  // Context created/reused automatically
 
 // Option 2: Explicit context creation
-const context = await synapse.storage.createContext()
-await context.upload(data)  // Upload to this specific context
+const contexts = await synapse.storage.createContexts()
+await synapse.storage.upload(data, { contexts })
 
-// Option 3: Context with metadata requirements
-const context = await synapse.storage.createContext({
+// Option 3: Explicit context upload
+const contexts = await synapse.storage.createContexts()
+await contexts[0].upload(data)  // Upload to this specific context
+
+// Option 4: Contexts with metadata requirements
+const contexts = await synapse.storage.createContexts({
   metadata: {
     withIPFSIndexing: '',
     category: 'videos'
   }
 })
-// This will reuse any existing data set that has both of these metadata entries,
-// or create a new one if none match
+// This will reuse existing data sets that have both of these metadata entries,
+// or create new ones if none match
 ```
 
 #### Metadata Limits
@@ -63,8 +67,8 @@ These limits are enforced by the blockchain contracts. The SDK will validate met
 Monitor the creation process with detailed callbacks:
 
 ```typescript
-const context = await synapse.storage.createContext({
-  providerAddress: '0x...', // Optional: use specific provider address
+const contexts = await synapse.storage.createContexts({
+  providerAddresses: ['0x...'], // Optional: specify provider by address
   withCDN: true,            // Optional: enable CDN for faster downloads
   callbacks: {
     // Called when a provider is selected
@@ -87,14 +91,34 @@ const context = await synapse.storage.createContext({
 
 #### Creation Options
 
+##### createContexts
+```typescript
+export interface CreateContextsOptions {
+  count?: number                           // Number of contexts to create (default: 2)
+  providerIds?: number                     // Specific provider IDs to use
+  providerAddresses?: string               // Specific provider addresses to use
+  dataSetIds?: number                      // Specific data set IDs to use
+  excludeProviderIds?: number[]            // Do not select any of these providers 
+  forceCreateDataSets?: boolean            // Create new data sets, even if candidates exist
+  withCDN?: boolean                        // Enable CDN services
+  withIpni?: boolean                       // Enable IPNI
+  metadata?: Record<string, string>        // Metadata requirements for data set selection/creation
+  callbacks?: StorageContextCallbacks      // Progress callbacks
+  uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
+}
+```
+
+##### createContext
+
 ```typescript
 interface StorageServiceOptions {
   providerId?: number                      // Specific provider ID to use
   providerAddress?: string                 // Specific provider address to use
   dataSetId?: number                       // Specific data set ID to use
   withCDN?: boolean                        // Enable CDN services (alias for metadata: { withCDN: '' })
+  withIpni?: boolean                       // Enable IPNI
   metadata?: Record<string, string>        // Metadata requirements for data set selection/creation
-  callbacks?: StorageContextCallbacks     // Progress callbacks
+  callbacks?: StorageContextCallbacks      // Progress callbacks
   uploadBatchSize?: number                 // Max uploads per batch (default: 32, min: 1)
 }
 ```
@@ -105,8 +129,8 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 
 **Selection Scenarios**:
 
-1. **Explicit data set ID**: If you specify `dataSetId`, that exact data set is used (must exist and be accessible)
-2. **Specific provider**: If you specify `providerId` or `providerAddress`, the SDK searches for matching data sets only within that provider's existing data sets
+1. **Explicit data set ID**: If you specify `dataSetIds`, those exact data sets are used (must exist and be accessible)
+2. **Specific provider**: If you specify `providerIds` or `providerAddresses`, the SDK searches for matching data sets only within those providers' existing data sets
 3. **Automatic selection**: Without specific parameters, the SDK searches across all your data sets with any approved provider
 
 **Exact Metadata Matching**: In scenarios 2 and 3, the SDK will reuse an existing data set only if it has **exactly** the same metadata keys and values as requested. This ensures data sets remain organized according to your specific requirements.
@@ -125,18 +149,28 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 
 ```typescript
 // Scenario 1: Explicit data set (no matching required)
+const contexts1 = await synapse.storage.createContexts({
+  dataSetIds: [42, 44],
+})
 const context1 = await synapse.storage.createContext({
   dataSetId: 42  // Uses data set 42 directly
 })
 
 // Scenario 2: Provider-specific search
+const contexts2 = await synapse.storage.createContexts({
+  providerIds: [3, 7],
+  metadata: { app: 'myapp', env: 'prod' },
+})
 const context2 = await synapse.storage.createContext({
   providerId: 3,
-  metadata: { app: 'myapp', env: 'prod' }
+  metadata: { app: 'myapp', env: 'prod' },
 })
 // Searches ONLY within provider 3's data sets for exact metadata match
 
 // Scenario 3: Automatic selection across all providers
+const contexts3 = await synapse.storage.createContexts({
+  metadata: { app: 'myapp', env: 'prod' }
+})
 const context3 = await synapse.storage.createContext({
   metadata: { app: 'myapp', env: 'prod' }
 })

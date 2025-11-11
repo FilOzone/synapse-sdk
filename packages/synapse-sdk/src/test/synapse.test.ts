@@ -938,6 +938,10 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, undefined)
       assert.equal((contexts[1] as any)._dataSetId, undefined)
       assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+
+      // should return the same contexts when invoked again
+      const defaultContexts = await synapse.storage.createContexts()
+      assert.isTrue(defaultContexts === contexts)
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
