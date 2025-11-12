@@ -1,6 +1,4 @@
 /**
- * FilBeam Service - Pay-Per-Byte Infrastructure Integration
- *
  * This module provides access to FilBeam's services and trusted measurement layer, which powers
  * Filecoin's revolutionary pay-per-byte pricing model. FilBeam solves the fundamental challenge
  * that proving data retrieval is cryptographically impossible without enabling fraud, by acting
