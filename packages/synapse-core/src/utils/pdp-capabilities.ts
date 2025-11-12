@@ -1,5 +1,6 @@
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
+import { decodeEndorsements } from '../super-good-enough-certs/cert.ts'
 import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
 
@@ -29,6 +30,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
+    endorsements: decodeEndorsements(capabilities),
   }
 }
 

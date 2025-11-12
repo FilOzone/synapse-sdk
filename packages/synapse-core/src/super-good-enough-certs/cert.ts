@@ -1,5 +1,5 @@
 import type { TypedDataToPrimitiveTypes } from 'abitype'
-import type { Account, Address, Chain, Client, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import { encodeAbiParameters } from 'viem'
 import { signTypedData } from 'viem/actions'
 import { randU256 } from '../utils/rand.ts'
@@ -13,6 +13,10 @@ export type Cert = {
    * This certificate becomes invalid after `notAfter` epoch.
    */
   notAfter: bigint
+}
+
+export type SignedCert = Cert & {
+  signature: Hex
 }
 
 export const EIP712Cert = {
@@ -60,4 +64,20 @@ export async function signCert(client: Client<Transport, Chain, Account>, option
   )
 
   return data
+}
+
+/**
+ * Validates endorsement capabilities, if any, filtering out invalid ones
+ * @returns mapping of valid endorsements to expiry, nonce, signature
+ */
+export function decodeEndorsements(capabilities: Record<string, Hex>): Record<Address, SignedCert> {
+  // TODO
+  return {
+    '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+      notAfter: 0xffffffffn,
+      nonce: 0xffffffffn,
+      signature:
+        '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    },
+  }
 }

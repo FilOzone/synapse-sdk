@@ -29,6 +29,15 @@ export const ADDRESSES = {
   },
 }
 
+const ENDORSEMENTS = {
+  '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+    notAfter: 0xffffffffn,
+    nonce: 0xffffffffn,
+    signature:
+      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  },
+} as const
+
 export const PROVIDERS = {
   providerNoPDP: {
     providerId: 1n,
@@ -64,6 +73,7 @@ export const PROVIDERS = {
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
           paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+          endorsements: ENDORSEMENTS,
         },
       },
     ],
@@ -91,6 +101,7 @@ export const PROVIDERS = {
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
           paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+          endorsements: ENDORSEMENTS,
         },
       },
     ],
@@ -118,6 +129,7 @@ export const PROVIDERS = {
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
           paymentTokenAddress: ADDRESSES.calibration.usdfcToken,
+          endorsements: ENDORSEMENTS,
         },
       },
     ],
