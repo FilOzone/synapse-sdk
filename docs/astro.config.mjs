@@ -98,7 +98,7 @@ export default defineConfig({
         {
           label: 'Developer Guides',
           collapsed: false,
-          autogenerate: { directory: 'developer-guides' , collapsed: true},
+          autogenerate: { directory: 'developer-guides', collapsed: true },
         },
         {
           label: 'CookBooks',
