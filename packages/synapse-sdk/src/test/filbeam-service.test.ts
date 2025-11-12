@@ -26,7 +26,7 @@ describe('FilBeamService', () => {
   })
 
   describe('getDataSetStats', () => {
-    it('should successfully fetch and parse stats for mainnet', async () => {
+    it('should successfully fetch and parse remaining stats for mainnet', async () => {
       const mockResponse = {
         cdnEgressQuota: '217902493044',
         cacheMissEgressQuota: '94243853808',
@@ -50,7 +50,7 @@ describe('FilBeamService', () => {
       })
     })
 
-    it('should successfully fetch and parse stats for calibration', async () => {
+    it('should successfully fetch and parse remaining stats for calibration', async () => {
       const mockResponse = {
         cdnEgressQuota: '100000000000',
         cacheMissEgressQuota: '50000000000',

@@ -369,7 +369,7 @@ export class Synapse {
   /**
    * Gets the FilBeam service instance
    *
-   * @returns The FilBeam service for accessing FilBeam stats API
+   * @returns The FilBeam service for interacting with FilBeam infrastructure
    */
   get filbeam(): FilBeamService {
     return this._filbeamService
