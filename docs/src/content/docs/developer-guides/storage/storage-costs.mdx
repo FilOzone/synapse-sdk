@@ -20,7 +20,7 @@ An **epoch** is Filecoin's block time, which is 30 seconds. Storage costs are ca
 | Component      | Cost               | Notes                                                    |
 | -------------- | ------------------ | -------------------------------------------------------- |
 | **Storage**    | $2.50/TiB/month    | Minimum $0.06/month per data set (~24.567 GiB threshold) |
-| **CDN Egress** | $7/TiB downloaded  | 1 USDFC top-up ≈ 146 GiB of downloads                    |
+| **CDN Egress** | $14/TiB downloaded  | 1 USDFC top-up ≈ 71.5 GiB of downloads                    |
 | **CDN Setup**  | 1 USDFC (one-time) | Per data set; reusing existing data sets incurs no cost  |
 
 :::note[Be aware]
@@ -55,38 +55,38 @@ const PRICE_FOR_24_MONTHS = PRICE_PER_MONTH * 24; // 1.44 USDFC
 **Example 2: User Content Platform with CDN**
 
 - **Storage:** 1,000 users × 100 MiB ≈ 100,000 MiB
-- **Traffic:** 1,000 users × 500 MiB/month ≈ 500,000 MiB/month egress
+- **Traffic:** 1,000 users × 100 MiB/month ≈ 100,000 MiB/month egress
 
 ```ts twoslash
 const STORAGE_PRICE_PER_TIB_PER_MONTH = 2.5; // $2.50/TiB/month
-const CDN_EGRESS_PRICE_PER_TIB = 7.0; // $7/TiB downloaded
+const CDN_EGRESS_PRICE_PER_TIB = 14; // $14/TiB downloaded
 const storageMiB = 100_000;
-const egressMiB = 500_000;
+const egressMiB = 100_000;
 
 // Storage: 100,000 MiB ≈ 0.0953 TiB
 const storageTiB = storageMiB / 1024 / 1024;
 
-// Egress: 500,000 MiB ≈ 0.476 TiB
+// Egress: 100,000 MiB ≈ 0.0953 TiB
 const egressTiB = egressMiB / 1024 / 1024;
 
 // Storage cost per month: 0.0953 TiB × $2.50 ≈ $0.238/month
 const storageCostPerMonth = storageTiB * STORAGE_PRICE_PER_TIB_PER_MONTH;
 
-// Egress cost per month: 0.476 TiB × $7 ≈ $3.332/month
+// Egress cost per month: 0.0953 TiB × $14 ≈ $1.334/month
 const egressCostPerMonth = egressTiB * CDN_EGRESS_PRICE_PER_TIB;
 
-// Total cost per month: $0.238/month + $3.332/month ≈ $3.57/month
+// Total cost per month: $0.238/month + $1.334/month ≈ $1.572/month
 const totalCostPerMonth = storageCostPerMonth + egressCostPerMonth;
 
-// Total cost for 24 months: $3.57/month × 24 ≈ $85.68
+// Total cost for 24 months: $1.572/month × 24 ≈ $37.728
 const totalCostFor24Months = totalCostPerMonth * 24;
 ```
 
 | Cost Component | Per Month        | 24 Months         |
 | -------------- | ---------------- | ----------------- |
 | Storage        | ≈ 0.238 USDFC    | ≈ 5.71 USDFC      |
-| CDN Egress     | ≈ 3.332 USDFC    | ≈ 79.97 USDFC     |
-| **Total**      | **≈ 3.57 USDFC** | **≈ 85.68 USDFC** |
+| CDN Egress     | ≈ 1.334 USDFC    | ≈ 32.016 USDFC     |
+| **Total**      | **≈ 1.572 USDFC** | **≈ 37.728 USDFC** |
 
 ## Warm Storage Service Approvals
 
