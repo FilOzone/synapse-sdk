@@ -25,7 +25,7 @@ export const ADDRESSES = {
     filCDN: '0x0000000000000000000000000000000000000000' as Address,
     viewContract: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as Address,
     spRegistry: '0x0000000000000000000000000000000000000001' as Address,
-    sessionKeyRegistry: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452' as Address,
+    sessionKeyRegistry: '0x518411c2062E119Aaf7A8B12A2eDf9a939347655' as Address,
   },
 }
 
