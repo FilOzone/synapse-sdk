@@ -1,15 +1,17 @@
 /**
- * This module provides access to FilBeam's services and trusted measurement layer, which powers
- * Filecoin's revolutionary pay-per-byte pricing model. FilBeam solves the fundamental challenge
- * that proving data retrieval is cryptographically impossible without enabling fraud, by acting
+ * FilBeam Service
+ *
+ * This module provides access to FilBeam's services and trusted measurement layer. 
+ * FilBeam solves the fundamental challenge that proving data retrieval 
+ * is cryptographically impossible without enabling fraud, by acting
  * as a trusted intermediary that measures actual egress volumes through real client traffic.
  *
  * ## Key Features
  *
  * - **Trusted Measurement**: Accurately tracks data egress from storage providers
  * - **Dual-Tier Architecture**: Differentiates between CDN cache hits and cache misses
- * - **Economic Incentives**: Enables storage providers to earn ~7 USDFC per TiB served
- * - **Pay-As-You-Go**: Clients pay only for what they use (~0.014 USDFC per TiB)
+ * - **Economic Incentives**: Enables storage providers to earn 7 USDFC per TiB served
+ * - **Pay-As-You-Go**: Clients pay only for what they use (~0.014 USDFC per GiB)
  * - **No Subscriptions**: Wallet-centric model without monthly fees
  *
  * ## Architecture
