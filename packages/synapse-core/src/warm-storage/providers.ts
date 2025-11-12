@@ -1,8 +1,9 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import type { Chain, Client, Hex, Transport } from 'viem'
+import type { Address, Chain, Client, Hex, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
+import type { SignedCert } from '../super-good-enough-certs/cert.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 
@@ -23,6 +24,7 @@ export interface PDPOffering {
   minProvingPeriodInEpochs: bigint
   location: string
   paymentTokenAddress: Hex
+  endorsements?: Record<Address, SignedCert>
 }
 
 export interface PDPProvider extends ServiceProviderInfo {

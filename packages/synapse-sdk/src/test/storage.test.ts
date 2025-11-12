@@ -1546,6 +1546,14 @@ describe('StorageService', () => {
               minProvingPeriodInEpochs: 30n,
               location: 'us-east',
               paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
+              endorsements: {
+                '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+                  nonce: 4294967295n,
+                  notAfter: 4294967295n,
+                  signature:
+                    '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+                },
+              },
             },
           },
         },
