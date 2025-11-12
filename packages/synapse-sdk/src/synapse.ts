@@ -169,7 +169,7 @@ export class Synapse {
     }
 
     // Create FilBeamService
-    const filbeamService = await FilBeamService.create(provider)
+    const filbeamService = FilBeamService.create(network)
 
     // Create and initialize the global TelemetryService.
     // If telemetry is disabled, this will do nothing.

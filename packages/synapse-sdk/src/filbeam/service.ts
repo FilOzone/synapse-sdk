@@ -1,7 +1,5 @@
-import type { Provider } from 'ethers'
 import type { FilecoinNetworkType } from '../types.ts'
 import { createError } from '../utils/errors.ts'
-import { getFilecoinNetworkType } from '../utils/network.ts'
 
 /**
  * Data set statistics from FilBeam
@@ -26,8 +24,7 @@ export class FilBeamService {
   /**
    * Creates a new FilBeamService instance
    */
-  static async create(provider: Provider, fetchImpl?: typeof fetch): Promise<FilBeamService> {
-    const network = await getFilecoinNetworkType(provider)
+  static create(network: FilecoinNetworkType, fetchImpl?: typeof fetch): FilBeamService {
     return new FilBeamService(network, fetchImpl)
   }
 
@@ -36,6 +33,30 @@ export class FilBeamService {
    */
   private _getStatsBaseUrl(): string {
     return this._network === 'mainnet' ? 'https://stats.filbeam.io' : 'https://calibration.stats.filbeam.io'
+  }
+
+  /**
+   * Validates the response from FilBeam stats API
+   */
+  private _validateStatsResponse(data: unknown): { cdnEgressQuota: string; cacheMissEgressQuota: string } {
+    if (typeof data !== 'object' || data === null) {
+      throw createError('FilBeamService', 'validateStatsResponse', 'Response is not an object')
+    }
+
+    const response = data as Record<string, unknown>
+
+    if (typeof response.cdnEgressQuota !== 'string') {
+      throw createError('FilBeamService', 'validateStatsResponse', 'cdnEgressQuota must be a string')
+    }
+
+    if (typeof response.cacheMissEgressQuota !== 'string') {
+      throw createError('FilBeamService', 'validateStatsResponse', 'cacheMissEgressQuota must be a string')
+    }
+
+    return {
+      cdnEgressQuota: response.cdnEgressQuota,
+      cacheMissEgressQuota: response.cacheMissEgressQuota,
+    }
   }
 
   /**
@@ -67,11 +88,12 @@ export class FilBeamService {
       )
     }
 
-    const data = (await response.json()) as { cdnEgressQuota: string; cacheMissEgressQuota: string }
+    const data = await response.json()
+    const validated = this._validateStatsResponse(data)
 
     return {
-      cdnEgressQuota: BigInt(data.cdnEgressQuota),
-      cacheMissEgressQuota: BigInt(data.cacheMissEgressQuota),
+      cdnEgressQuota: BigInt(validated.cdnEgressQuota),
+      cacheMissEgressQuota: BigInt(validated.cacheMissEgressQuota),
     }
   }
 }

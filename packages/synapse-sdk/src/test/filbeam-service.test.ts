@@ -111,5 +111,66 @@ describe('FilBeamService', () => {
         expect(error.message).to.include('HTTP 500 Internal Server Error')
       }
     })
+
+    it('should validate response is an object', async () => {
+      const mockFetch = async (): Promise<Response> => {
+        return {
+          status: 200,
+          statusText: 'OK',
+          json: async () => null,
+        } as Response
+      }
+
+      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+
+      try {
+        await service.getDataSetStats('test-dataset')
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        expect(error.message).to.include('Response is not an object')
+      }
+    })
+
+    it('should validate cdnEgressQuota is present', async () => {
+      const mockFetch = async (): Promise<Response> => {
+        return {
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({
+            cacheMissEgressQuota: '12345',
+          }),
+        } as Response
+      }
+
+      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+
+      try {
+        await service.getDataSetStats('test-dataset')
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        expect(error.message).to.include('cdnEgressQuota must be a string')
+      }
+    })
+
+    it('should validate cacheMissEgressQuota is present', async () => {
+      const mockFetch = async (): Promise<Response> => {
+        return {
+          status: 200,
+          statusText: 'OK',
+          json: async () => ({
+            cdnEgressQuota: '12345',
+          }),
+        } as Response
+      }
+
+      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+
+      try {
+        await service.getDataSetStats('test-dataset')
+        expect.fail('Should have thrown an error')
+      } catch (error: any) {
+        expect(error.message).to.include('cacheMissEgressQuota must be a string')
+      }
+    })
   })
 })
