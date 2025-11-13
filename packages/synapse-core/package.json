@@ -185,14 +185,14 @@
   "dependencies": {
     "@web3-storage/data-segment": "^5.3.0",
     "dnum": "^2.15.0",
-    "filsnap-adapter": "^3.3.8",
-    "iso-web": "^1.4.2",
+    "@hugomrdias/filsnap-adapter": "^3.3.8",
+    "iso-web": "^1.4.3",
     "multiformats": "^13.4.1",
     "ox": "^0.9.12",
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.3",
+    "@biomejs/biome": "2.3.5",
     "@types/assert": "^1.5.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.7.2",
