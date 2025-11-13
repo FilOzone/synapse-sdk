@@ -45,15 +45,18 @@ const iconUrl = `${baseUrl}/filecoin-logo.svg`
 
 export const config = createConfig({
   chains: [mainnet, calibration],
-  connectors: [injected(), walletConnect({
-    projectId: '5dc22b5e6ac40238a76062d77107ab29',
-    metadata: {
-      name: 'Synapse Playground',
-      description: 'Synapse Playground',
-      url: baseUrl,
-      icons: [iconUrl],
-    },
-  })],
+  connectors: [
+    injected(),
+    walletConnect({
+      projectId: '5dc22b5e6ac40238a76062d77107ab29',
+      metadata: {
+        name: 'Synapse Playground',
+        description: 'Synapse Playground',
+        url: baseUrl,
+        icons: [iconUrl],
+      },
+    }),
+  ],
   transports: {
     [mainnet.id]: http(),
     [calibration.id]: http(undefined, {
