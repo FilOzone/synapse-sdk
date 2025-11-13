@@ -331,6 +331,7 @@ export class WarmStorageService {
         clientDataSetId: ds.clientDataSetId,
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
+        dataSetId: Number(ds.dataSetId),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -433,6 +434,17 @@ export class WarmStorageService {
         }), managed by ${String(listener)}`
       )
     }
+  }
+
+  /**
+   * Get the next piece ID for a dataset (effectively the current piece count)
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The next piece ID as a number
+   */
+  async getNextPieceId(dataSetId: number): Promise<number> {
+    const pdpVerifier = this._getPDPVerifier()
+    const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
+    return nextPieceId
   }
 
   /**
