@@ -19,7 +19,7 @@
       },
       "routes": [
         {
-          "pattern": "synapse.filecoin.services",
+          "pattern": "docs.filecoin.cloud",
           "custom_domain": true
         }
       ]
