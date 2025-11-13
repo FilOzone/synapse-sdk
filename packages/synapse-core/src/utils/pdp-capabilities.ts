@@ -1,6 +1,6 @@
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
-import { decodeEndorsements } from '../super-good-enough-certs/cert.ts'
+import { decodeEndorsements, encodeEndorsements } from '../super-good-enough-certs/cert.ts'
 import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
 
@@ -63,6 +63,12 @@ export function encodePDPCapabilities(
   capabilityValues.push(stringToHex(pdpOffering.location))
   capabilityKeys.push(CAP_PAYMENT_TOKEN)
   capabilityValues.push(pdpOffering.paymentTokenAddress)
+
+  if (pdpOffering.endorsements != null) {
+    const [endorsementKeys, endorsementValues] = encodeEndorsements(pdpOffering.endorsements)
+    capabilityKeys.push(...endorsementKeys)
+    capabilityValues.push(...endorsementValues)
+  }
 
   if (capabilities != null) {
     for (const [key, value] of Object.entries(capabilities)) {
