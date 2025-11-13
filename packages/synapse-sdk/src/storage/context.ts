@@ -491,7 +491,18 @@ export class StorageContext {
   }
 
   /**
-   * Resolve using a specific provider ID
+   * Resolve the best matching DataSet for a Provider using a specific provider ID
+   *
+   * Optimization Strategy:
+   * Uses `getClientDataSets` fetch followed by batched parallel checks to find
+   * the best matching data set while minimizing RPC calls.
+   *
+   * Selection Logic:
+   * 1. Filters for datasets belonging to this provider
+   * 2. Sorts by dataSetId ascending (oldest first)
+   * 3. Searches in batches (size dynamic based on total count) for metadata match
+   * 4. Prioritizes datasets with pieces > 0, then falls back to the oldest valid dataset
+   * 5. Exits early as soon as a non-empty matching dataset is found
    */
   private static async resolveByProviderId(
     clientAddress: string,
@@ -504,14 +515,13 @@ export class StorageContext {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider(providerId),
-      forceCreateDataSet ? Promise.resolve(null) : warmStorageService.getClientDataSetsWithDetails(clientAddress),
+      forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets(clientAddress),
     ])
 
     if (provider == null) {
       throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} not found in registry`)
     }
 
-    // If forcing creation, skip the search for existing data sets
     if (forceCreateDataSet === true) {
       return {
         provider,
@@ -521,35 +531,85 @@ export class StorageContext {
       }
     }
 
-    // dataSets is guaranteed non-null here since forceCreateDataSet is false
+    // Filter for this provider's active datasets
+    const providerDataSets = dataSets.filter(
+      (dataSet) => Number.isFinite(dataSet.dataSetId) && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0
+    )
 
-    // Filter for this provider's data sets with matching metadata
-    const providerDataSets = (
-      dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
-    ).filter((ps) => {
-      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
-        return false
-      }
-      // Check if metadata matches
-      return metadataMatches(ps.metadata, requestedMetadata)
+    type EvaluatedDataSet = {
+      dataSetId: number
+      dataSetMetadata: Record<string, string>
+      currentPieceCount: number
+    }
+
+    // Sort ascending by ID (oldest first) for deterministic selection
+    const sortedDataSets = providerDataSets.sort((a, b) => {
+      return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
-    if (providerDataSets.length > 0) {
-      // Sort by preference: data sets with pieces first, then by ID
-      const sorted = providerDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
-        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
-      })
+    // Batch strategy: 1/3 of total datasets per batch, with min & max, to balance latency vs RPC burst
+    const MIN_BATCH_SIZE = 50
+    const MAX_BATCH_SIZE = 200
+    const BATCH_SIZE = Math.min(MAX_BATCH_SIZE, Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3), 1))
+    let selectedDataSet: EvaluatedDataSet | null = null
 
-      // Fetch metadata for existing data set
-      const dataSetMetadata = await warmStorageService.getDataSetMetadata(sorted[0].pdpVerifierDataSetId)
+    for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
+      const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
+        sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
+          const dataSetId = Number(dataSet.dataSetId)
+          try {
+            const [dataSetMetadata, currentPieceCount] = await Promise.all([
+              warmStorageService.getDataSetMetadata(dataSetId),
+              warmStorageService.getNextPieceId(dataSetId),
+              warmStorageService.validateDataSet(dataSetId),
+            ])
 
+            if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+              return null
+            }
+
+            return {
+              dataSetId,
+              dataSetMetadata,
+              currentPieceCount,
+            }
+          } catch (error) {
+            console.warn(
+              `Skipping data set ${dataSetId} for provider ${providerId}:`,
+              error instanceof Error ? error.message : String(error)
+            )
+            return null
+          }
+        })
+      )
+
+      for (const result of batchResults) {
+        if (result == null) continue
+
+        // select the first dataset with pieces and break out of the inner loop
+        if (result.currentPieceCount > 0) {
+          selectedDataSet = result
+          break
+        }
+
+        // keep the first (oldest) dataset found so far (no pieces)
+        if (selectedDataSet == null) {
+          selectedDataSet = result
+        }
+      }
+
+      // early exit if we found a dataset with pieces; break out of the outer loop
+      if (selectedDataSet != null && selectedDataSet.currentPieceCount > 0) {
+        break
+      }
+    }
+
+    if (selectedDataSet != null) {
       return {
         provider,
-        dataSetId: sorted[0].pdpVerifierDataSetId,
+        dataSetId: selectedDataSet.dataSetId,
         isExisting: true,
-        dataSetMetadata,
+        dataSetMetadata: selectedDataSet.dataSetMetadata,
       }
     }
 
