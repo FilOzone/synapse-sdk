@@ -125,3 +125,16 @@ export function decodeEndorsements(capabilities: Record<string, Hex>): Record<Ad
     },
   }
 }
+
+/**
+ * @returns a list of capability keys and a list of capability values for the ServiceProviderRegistry
+ */
+export function encodeEndorsements(endorsements: Record<Address, SignedEndorsement>): [string[], Hex[]] {
+  const keys: string[] = []
+  const values: Hex[] = []
+  Object.values(endorsements).forEach((value, index) => {
+    keys.push('endorsement' + index.toString())
+    values.push(concat([numberToHex(value.nonce), numberToHex(value.notAfter), value.signature]))
+  })
+  return [keys, values]
+}
