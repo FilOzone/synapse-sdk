@@ -3,7 +3,7 @@ import type { Address, Chain, Client, Hex, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import type { SignedCert } from '../super-good-enough-certs/cert.ts'
+import type { SignedEndorsement } from '../super-good-enough-certs/cert.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 
@@ -24,7 +24,7 @@ export interface PDPOffering {
   minProvingPeriodInEpochs: bigint
   location: string
   paymentTokenAddress: Hex
-  endorsements?: Record<Address, SignedCert>
+  endorsements?: Record<Address, SignedEndorsement>
 }
 
 export interface PDPProvider extends ServiceProviderInfo {

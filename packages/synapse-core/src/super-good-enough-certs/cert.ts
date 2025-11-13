@@ -1,10 +1,20 @@
 import type { TypedDataToPrimitiveTypes } from 'abitype'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
-import { encodeAbiParameters } from 'viem'
-import { signTypedData } from 'viem/actions'
+import {
+  bytesToBigInt,
+  bytesToHex,
+  concat,
+  encodeAbiParameters,
+  hexToBigInt,
+  hexToBytes,
+  hexToNumber,
+  numberToBytes,
+  numberToHex,
+} from 'viem'
+import { signTypedData, verifyTypedData } from 'viem/actions'
 import { randU256 } from '../utils/rand.ts'
 
-export type Cert = {
+export type Endorsement = {
   /**
    * Unique nonce to suport nonce based revocation.
    */
@@ -15,23 +25,23 @@ export type Cert = {
   notAfter: bigint
 }
 
-export type SignedCert = Cert & {
+export type SignedEndorsement = Endorsement & {
   signature: Hex
 }
 
-export const EIP712Cert = {
-  Cert: [
-    { name: 'nonce', type: 'uint256' },
-    { name: 'notAfter', type: 'uint256' },
+export const EIP712Endorsement = {
+  Endorsement: [
+    { name: 'nonce', type: 'uint64' },
+    { name: 'notAfter', type: 'uint64' },
     { name: 'providerId', type: 'uint256' },
   ],
 } as const
 
-export type TypedCert = TypedDataToPrimitiveTypes<typeof EIP712Cert>['Cert']
+export type TypedEn = TypedDataToPrimitiveTypes<typeof EIP712Endorsement>['Endorsement']
 
 export type SignCertOptions = {
-  nonce?: bigint
-  notAfter: bigint
+  nonce?: bigint // uint64
+  notAfter: bigint //uint64
   provider: bigint
 } /**
  * Signs a certificate that a provider is super good enough.
@@ -39,18 +49,17 @@ export type SignCertOptions = {
  * @param options - nonce (randomised if null), not after and who to sign it for
  * @returns encoded certificate data abiEncode([nonce, notAfter, signature]), the provider id is implicit by where it will get placed in registry.
  */
-export async function signCert(client: Client<Transport, Chain, Account>, options: SignCertOptions) {
+export async function signEndorsement(client: Client<Transport, Chain, Account>, options: SignCertOptions) {
   const nonce = options.nonce ?? randU256()
   const signature = await signTypedData(client, {
     account: client.account,
     domain: {
-      name: 'Super Good Enough Storage Provider Certificate',
+      name: 'Storage Endorsement',
       version: '1',
       chainId: client.chain.id,
-      verifyingContract: '0x0',
     },
-    types: EIP712Cert,
-    primaryType: 'Cert',
+    types: EIP712Endorsement,
+    primaryType: 'Endorsement',
     message: {
       nonce: nonce,
       notAfter: options.notAfter,
@@ -58,19 +67,54 @@ export async function signCert(client: Client<Transport, Chain, Account>, option
     },
   })
 
-  const data = encodeAbiParameters(
-    [{ type: 'uint256' }, { type: 'uint256' }, { type: 'bytes' }],
-    [nonce, options.notAfter, signature]
-  )
+  // 16 because size is after hex encoding
+  const encodedNonce = numberToHex(nonce, { size: 16 })
+  const encodedNotAfter = numberToHex(options.notAfter, { size: 16 })
+
+  const data = concat([encodedNonce, encodedNotAfter, signature])
 
   return data
+}
+
+async function decodeEndorsement(
+  client: Client<Transport, Chain, Account>,
+  address: Address,
+  providerId: bigint,
+  hexData: Hex
+) {
+  const data = hexToBytes(hexData)
+  const endorsement: SignedEndorsement = {
+    nonce: bytesToBigInt(data.slice(0, 8)),
+    notAfter: bytesToBigInt(data.slice(8, 16)),
+    signature: bytesToHex(data.slice(16)),
+  }
+  const valid = await verifyTypedData(client, {
+    address,
+    domain: {
+      name: 'Storage Endorsement',
+      version: '1',
+      chainId: client.chain.id,
+    },
+    types: EIP712Endorsement,
+    primaryType: 'Endorsement',
+    message: {
+      nonce: endorsement.nonce,
+      notAfter: endorsement.notAfter,
+      providerId: providerId,
+    },
+    signature: endorsement.signature,
+  })
+  if (!valid) {
+    return undefined
+  }
+  return endorsement
 }
 
 /**
  * Validates endorsement capabilities, if any, filtering out invalid ones
  * @returns mapping of valid endorsements to expiry, nonce, signature
  */
-export function decodeEndorsements(capabilities: Record<string, Hex>): Record<Address, SignedCert> {
+export function decodeEndorsements(capabilities: Record<string, Hex>): Record<Address, SignedEndorsement> {
   // TODO
   return {
     '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
