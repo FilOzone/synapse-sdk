@@ -1,8 +1,8 @@
 /**
  * FilBeam Service
  *
- * This module provides access to FilBeam's services and trusted measurement layer. 
- * FilBeam solves the fundamental challenge that proving data retrieval 
+ * This module provides access to FilBeam's services and trusted measurement layer.
+ * FilBeam solves the fundamental challenge that proving data retrieval
  * is cryptographically impossible without enabling fraud, by acting
  * as a trusted intermediary that measures actual egress volumes through real client traffic.
  *
@@ -31,7 +31,7 @@
  * import { FilBeamService } from '@filoz/synapse-sdk/filbeam'
  *
  * // Create service for mainnet
- * const service = FilBeamService.create('mainnet')
+ * const service = new FilBeamService('mainnet')
  *
  * // Get remaining data set statistics
  * const stats = await service.getDataSetStats('dataset-id')

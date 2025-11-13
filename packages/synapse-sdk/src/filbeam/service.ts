@@ -63,22 +63,6 @@ export class FilBeamService {
   }
 
   /**
-   * Creates a new FilBeamService instance.
-   *
-   * @param network - The Filecoin network type ('mainnet' or 'calibration')
-   * @param fetchImpl - Optional custom fetch implementation for testing
-   * @returns A new FilBeamService instance
-   *
-   * @example
-   * ```typescript
-   * const service = FilBeamService.create('mainnet')
-   * ```
-   */
-  static create(network: FilecoinNetworkType, fetchImpl?: typeof fetch): FilBeamService {
-    return new FilBeamService(network, fetchImpl)
-  }
-
-  /**
    * Get the base stats URL for the current network
    */
   private _getStatsBaseUrl(): string {
