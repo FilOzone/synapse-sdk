@@ -5202,7 +5202,7 @@ export const serviceProviderRegistryConfig = {
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x518411c2062E119Aaf7A8B12A2eDf9a939347655)
  */
 export const sessionKeyRegistryAbi = [
   {
@@ -5292,16 +5292,16 @@ export const sessionKeyRegistryAbi = [
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x518411c2062E119Aaf7A8B12A2eDf9a939347655)
  */
 export const sessionKeyRegistryAddress = {
   314: '0x74FD50525A958aF5d484601E252271f9625231aB',
-  314159: '0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452',
+  314159: '0x518411c2062E119Aaf7A8B12A2eDf9a939347655',
 } as const
 
 /**
  * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x74FD50525A958aF5d484601E252271f9625231aB)
- * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x97Dd879F5a97A8c761B94746d7F5cfF50AAd4452)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0x518411c2062E119Aaf7A8B12A2eDf9a939347655)
  */
 export const sessionKeyRegistryConfig = {
   address: sessionKeyRegistryAddress,
