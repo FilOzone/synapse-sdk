@@ -400,6 +400,107 @@ export class StorageManager {
   }
 
   /**
+   * Create a storage context from an existing dataset ID without scanning all client datasets.
+   * This is optimized for reconnecting to a known dataset.
+   *
+   * This method bypasses the expensive dataset enumeration in createContext({ dataSetId }),
+   * making it significantly faster when the client has many datasets.
+   *
+   * @param dataSetId - The dataset ID to create a context for
+   * @param options - Optional storage options (withCDN, callbacks, etc.)
+   * @returns Storage context for the specified dataset
+   *
+   * @example
+   * ```typescript
+   * // Reconnect to a known dataset
+   * const context = await synapse.storage.createContextFromDataSetId(123)
+   * await context.upload(data)
+   * ```
+   */
+  async createContextFromDataSetId(dataSetId: number, options?: StorageServiceOptions): Promise<StorageContext> {
+    // Get basic dataset info and validate in parallel
+    const [dataSetInfo] = await Promise.all([
+      this._warmStorageService.getDataSet(dataSetId),
+      this._warmStorageService.validateDataSet(dataSetId),
+    ])
+
+    // Verify ownership
+    const signerAddress = await this._synapse.getClient().getAddress()
+    if (dataSetInfo.payer.toLowerCase() !== signerAddress.toLowerCase()) {
+      throw createError(
+        'StorageContext',
+        'resolveByDataSetId',
+        `Data set ${dataSetId} is not owned by ${signerAddress} (owned by ${dataSetInfo.payer})`
+      )
+    }
+
+    // Get provider info and metadata in parallel
+    const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
+    const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
+
+    const [provider, dataSetMetadata] = await Promise.all([
+      spRegistry.getProvider(dataSetInfo.providerId),
+      this._warmStorageService.getDataSetMetadata(dataSetId),
+    ])
+
+    if (provider == null) {
+      throw createError(
+        'StorageContext',
+        'resolveByDataSetId',
+        `Provider ID ${dataSetInfo.providerId} for data set ${dataSetId} not found in registry`
+      )
+    }
+
+    // Validate CDN settings if specified
+    const withCDN = dataSetInfo.cdnRailId > 0
+    const effectiveWithCDN = options?.withCDN ?? withCDN
+    if (options?.withCDN != null && withCDN !== options.withCDN) {
+      throw createError(
+        'StorageContext',
+        'resolveByDataSetId',
+        `Data set ${dataSetId} has CDN ${withCDN ? 'enabled' : 'disabled'}, ` +
+          `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
+      )
+    }
+
+    // Construct storage context directly
+    const context = new StorageContext(
+      this._synapse,
+      this._warmStorageService,
+      provider,
+      dataSetId,
+      {
+        ...options,
+        withCDN: effectiveWithCDN,
+        withIpni: options?.withIpni ?? this._withIpni,
+        dev: options?.dev ?? this._dev,
+      },
+      dataSetMetadata
+    )
+
+    // Fire callbacks to match behavior of createContext
+    if (options?.callbacks != null) {
+      try {
+        options.callbacks.onProviderSelected?.(provider)
+      } catch (error) {
+        console.error('Error in onProviderSelected callback:', error)
+      }
+
+      try {
+        options.callbacks.onDataSetResolved?.({
+          isExisting: true,
+          dataSetId,
+          provider,
+        })
+      } catch (error) {
+        console.error('Error in onDataSetResolved callback:', error)
+      }
+    }
+
+    return context
+  }
+
+  /**
    * Create a new storage context with specified options
    */
   async createContext(options?: StorageServiceOptions): Promise<StorageContext> {

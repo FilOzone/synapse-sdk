@@ -392,46 +392,63 @@ export class StorageContext {
     signerAddress: string,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    // Fetch data sets to find the specific one
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
-    const dataSet = dataSets.find((ds) => ds.pdpVerifierDataSetId === dataSetId)
+    // Optimized approach: fetch only the single dataset we need instead of all client datasets
+    // This avoids expensive getClientDataSetsWithDetails() which does multicalls for ALL datasets
 
-    if (dataSet == null || !dataSet.isLive || !dataSet.isManaged) {
+    // Step 1: Validate that dataset is live and managed (throws if not)
+    await warmStorageService.validateDataSet(dataSetId)
+
+    // Step 2: Get basic dataset info and metadata in parallel
+    const [dataSetInfo, dataSetMetadata] = await Promise.all([
+      warmStorageService.getDataSet(dataSetId),
+      warmStorageService.getDataSetMetadata(dataSetId),
+    ])
+
+    // Step 3: Verify ownership
+    if (dataSetInfo.payer.toLowerCase() !== signerAddress.toLowerCase()) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Data set ${dataSetId} not found, not owned by ${signerAddress}, ` +
-          'or not managed by the current WarmStorage contract'
+        `Data set ${dataSetId} is not owned by ${signerAddress} (owned by ${dataSetInfo.payer})`
       )
     }
 
-    // Validate consistency with other parameters if provided
+    // Step 4: Validate consistency with other parameters if provided
     if (options.providerId != null || options.providerAddress != null) {
-      await StorageContext.validateDataSetConsistency(dataSet, options, spRegistry)
+      // Create minimal EnhancedDataSetInfo for validation
+      const enhancedInfo: EnhancedDataSetInfo = {
+        ...dataSetInfo,
+        pdpVerifierDataSetId: dataSetId,
+        nextPieceId: 0, // Not needed for validation
+        currentPieceCount: 0, // Not needed for validation
+        isLive: true, // Already validated above
+        isManaged: true, // Already validated above
+        withCDN: dataSetInfo.cdnRailId > 0,
+        metadata: dataSetMetadata,
+      }
+      await StorageContext.validateDataSetConsistency(enhancedInfo, options, spRegistry)
     }
 
-    // Look up provider by ID from the data set
-    const provider = await spRegistry.getProvider(dataSet.providerId)
+    // Step 5: Look up provider by ID from the data set
+    const provider = await spRegistry.getProvider(dataSetInfo.providerId)
     if (provider == null) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Provider ID ${dataSet.providerId} for data set ${dataSetId} not found in registry`
+        `Provider ID ${dataSetInfo.providerId} for data set ${dataSetId} not found in registry`
       )
     }
 
-    // Validate CDN settings match if specified
-    if (options.withCDN != null && dataSet.withCDN !== options.withCDN) {
+    // Step 6: Validate CDN settings match if specified
+    const withCDN = dataSetInfo.cdnRailId > 0
+    if (options.withCDN != null && withCDN !== options.withCDN) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Data set ${dataSetId} has CDN ${dataSet.withCDN ? 'enabled' : 'disabled'}, ` +
+        `Data set ${dataSetId} has CDN ${withCDN ? 'enabled' : 'disabled'}, ` +
           `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
       )
     }
-
-    // Backfill data set metadata from chain
-    const dataSetMetadata = await warmStorageService.getDataSetMetadata(dataSetId)
 
     return {
       provider,
