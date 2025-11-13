@@ -20,7 +20,7 @@ export type Endorsement = {
    */
   nonce: bigint
   /**
-   * This certificate becomes invalid after `notAfter` epoch.
+   * This certificate becomes invalid after `notAfter` timestamp.
    */
   notAfter: bigint
 }
