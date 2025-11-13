@@ -6,7 +6,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createConfig, deserialize, http, serialize, WagmiProvider } from 'wagmi'
 
-import { injected } from 'wagmi/connectors'
+import { injected, walletConnect } from 'wagmi/connectors'
 import { App } from './app.tsx'
 import { ThemeProvider } from './components/theme-provider.tsx'
 
@@ -40,13 +40,27 @@ persistQueryClient({
 //   storage: window.localStorage,
 // })
 
+const baseUrl = globalThis.location.origin
+const iconUrl = `${baseUrl}/filecoin-logo.svg`
+
 export const config = createConfig({
   chains: [mainnet, calibration],
-  connectors: [injected()],
+  connectors: [
+    injected(),
+    walletConnect({
+      projectId: '5dc22b5e6ac40238a76062d77107ab29',
+      metadata: {
+        name: 'Synapse Playground',
+        description: 'Synapse Playground',
+        url: baseUrl,
+        icons: [iconUrl],
+      },
+    }),
+  ],
   transports: {
     [mainnet.id]: http(),
     [calibration.id]: http(undefined, {
-      batch: false,
+      batch: true,
     }),
   },
   batch: {
@@ -65,7 +79,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider storageKey="synapse-theme">
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={config}>
+        <WagmiProvider config={config} reconnectOnMount={false}>
           <App />
         </WagmiProvider>
       </QueryClientProvider>

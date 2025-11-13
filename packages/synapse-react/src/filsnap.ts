@@ -1,4 +1,4 @@
-import { type EIP1193Provider, getOrInstallSnap } from 'filsnap-adapter'
+import { type EIP1193Provider, getOrInstallSnap } from '@hugomrdias/filsnap-adapter'
 import { useAccountEffect } from 'wagmi'
 
 const SNAP_ID = 'npm:filsnap' //'local:http://localhost:8080'
