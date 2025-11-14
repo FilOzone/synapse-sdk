@@ -30,11 +30,11 @@ export const ADDRESSES = {
 }
 
 const ENDORSEMENTS = {
-  '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+  '0x50724807600e804Fe842439860D5b62baa26aFff': {
     notAfter: 0xffffffffn,
     nonce: 0xffffffffn,
     signature:
-      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      '0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b',
   },
 } as const
 

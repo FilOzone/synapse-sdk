@@ -973,6 +973,14 @@ describe('Synapse', () => {
       assert.isAbove(counts[Number(PROVIDERS.provider2.providerId)], 0)
 
       // mock provider1 having no endorsements
+      const mockEndorsements = {
+        '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+          notAfter: 0xffffffffffffffffn,
+          nonce: 0xffffffffffffffffn,
+          signature:
+            '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+        },
+      } as const
       const getPDPService = SPRegistryService.prototype.getPDPService
       sandbox.replace(
         SPRegistryService.prototype,
@@ -982,10 +990,10 @@ describe('Synapse', () => {
           if (service == null) {
             return service
           }
-          if (providerId !== providerId1) {
+          if (providerId !== providerId2) {
             return service
           }
-          service.offering.endorsements = {}
+          service.offering.endorsements = mockEndorsements
           return service
         })
       )
@@ -996,8 +1004,8 @@ describe('Synapse', () => {
         sandbox.fake(async function (this: SPRegistryService, providerIds) {
           const providers = await getProviders.call(this, providerIds)
           for (const provider of providers) {
-            if (provider.id === providerId1 && provider.products.PDP !== undefined) {
-              provider.products.PDP.data.endorsements = {}
+            if (provider.id === providerId2 && provider.products.PDP !== undefined) {
+              provider.products.PDP.data.endorsements = mockEndorsements
             }
           }
           return providers

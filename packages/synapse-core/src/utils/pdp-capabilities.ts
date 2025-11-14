@@ -19,7 +19,11 @@ export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
-export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOffering {
+export async function decodePDPCapabilities(
+  providerId: bigint,
+  chainId: number | bigint,
+  capabilities: Record<string, Hex>
+): Promise<PDPOffering> {
   return {
     serviceURL: hexToString(capabilities.serviceURL),
     minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
@@ -30,7 +34,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
-    endorsements: decodeEndorsements(capabilities),
+    endorsements: await decodeEndorsements(providerId, chainId, capabilities),
   }
 }
 
