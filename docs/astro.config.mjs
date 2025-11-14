@@ -90,12 +90,12 @@ export default defineConfig({
           autogenerate: { directory: 'introduction' },
         },
         {
-          label: 'Getting Started',
-          autogenerate: { directory: 'getting-started' },
-        },
-        {
           label: 'Core Concepts',
           autogenerate: { directory: 'core-concepts' },
+        },
+        {
+          label: 'Getting Started',
+          autogenerate: { directory: 'getting-started' },
         },
         {
           label: 'Developer Guides',
