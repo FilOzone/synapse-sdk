@@ -179,6 +179,8 @@
     "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
+    "@types/sinon": "^20.0.0",
+    "@wagmi/cli": "^2.7.0",
     "abitype": "catalog:",
     "chai": "^6.2.0",
     "ethers": "catalog:",
@@ -187,6 +189,7 @@
     "msw": "catalog:",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
+    "sinon": "^21.0.0",
     "type-fest": "^5.1.0",
     "typescript": "catalog:"
   },
