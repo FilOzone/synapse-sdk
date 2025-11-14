@@ -99,7 +99,9 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
       ],
     })
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-    const pdpCaps = decodePDPCapabilities(
+    const pdpCaps = await decodePDPCapabilities(
+      dataSet.providerId,
+      client.chain.id,
       capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
     )
 
@@ -178,7 +180,9 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   })
 
   // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-  const pdpCaps = decodePDPCapabilities(
+  const pdpCaps = await decodePDPCapabilities(
+    dataSet.providerId,
+    client.chain.id,
     capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
   )
 

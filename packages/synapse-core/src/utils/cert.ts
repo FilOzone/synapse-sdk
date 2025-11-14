@@ -1,17 +1,7 @@
 import type { TypedDataToPrimitiveTypes } from 'abitype'
 import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
-import {
-  bytesToBigInt,
-  bytesToHex,
-  concat,
-  encodeAbiParameters,
-  hexToBigInt,
-  hexToBytes,
-  hexToNumber,
-  numberToBytes,
-  numberToHex,
-} from 'viem'
-import { signTypedData, verifyTypedData } from 'viem/actions'
+import { bytesToBigInt, bytesToHex, concat, hexToBytes, numberToHex, recoverTypedDataAddress } from 'viem'
+import { signTypedData } from 'viem/actions'
 import { randU256 } from '../utils/rand.ts'
 
 export type Endorsement = {
@@ -77,23 +67,34 @@ export async function signEndorsement(client: Client<Transport, Chain, Account>,
 }
 
 async function decodeEndorsement(
-  client: Client<Transport, Chain, Account>,
-  address: Address,
   providerId: bigint,
+  chainId: number | bigint | undefined,
   hexData: Hex
-) {
+): Promise<{
+  address: Address | null
+  endorsement: SignedEndorsement
+}> {
+  if (hexData.length !== 164) {
+    return {
+      address: null,
+      endorsement: {
+        nonce: 0n,
+        notAfter: 0n,
+        signature: '0x',
+      },
+    }
+  }
   const data = hexToBytes(hexData)
   const endorsement: SignedEndorsement = {
     nonce: bytesToBigInt(data.slice(0, 8)),
     notAfter: bytesToBigInt(data.slice(8, 16)),
     signature: bytesToHex(data.slice(16)),
   }
-  const valid = await verifyTypedData(client, {
-    address,
+  const address = await recoverTypedDataAddress({
     domain: {
       name: 'Storage Endorsement',
       version: '1',
-      chainId: client.chain.id,
+      chainId,
     },
     types: EIP712Endorsement,
     primaryType: 'Endorsement',
@@ -103,27 +104,36 @@ async function decodeEndorsement(
       providerId: providerId,
     },
     signature: endorsement.signature,
+  }).catch((reason) => {
+    console.warn('Failed to recover product endorsement:', reason)
+    return null
   })
-  if (!valid) {
-    return undefined
-  }
-  return endorsement
+  return { address, endorsement }
 }
 
 /**
  * Validates endorsement capabilities, if any, filtering out invalid ones
  * @returns mapping of valid endorsements to expiry, nonce, signature
  */
-export function decodeEndorsements(capabilities: Record<string, Hex>): Record<Address, SignedEndorsement> {
-  // TODO
-  return {
-    '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
-      notAfter: 0xffffffffn,
-      nonce: 0xffffffffn,
-      signature:
-        '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-    },
-  }
+export async function decodeEndorsements(
+  providerId: bigint,
+  chainId: number | bigint,
+  capabilities: Record<string, Hex>
+): Promise<Record<Address, SignedEndorsement>> {
+  const now = Date.now() / 1000
+  return await Promise.all(
+    Object.values(capabilities).map((capabilityValue) => decodeEndorsement(providerId, chainId, capabilityValue))
+  ).then((results) =>
+    results.reduce(
+      (endorsements, { address, endorsement }) => {
+        if (address != null && endorsement.notAfter > now) {
+          endorsements[address] = endorsement
+        }
+        return endorsements
+      },
+      {} as Record<Address, SignedEndorsement>
+    )
+  )
 }
 
 /**
@@ -133,8 +143,10 @@ export function encodeEndorsements(endorsements: Record<Address, SignedEndorseme
   const keys: string[] = []
   const values: Hex[] = []
   Object.values(endorsements).forEach((value, index) => {
-    keys.push('endorsement' + index.toString())
-    values.push(concat([numberToHex(value.nonce), numberToHex(value.notAfter), value.signature]))
+    keys.push(`endorsement${index.toString()}`)
+    values.push(
+      concat([numberToHex(value.nonce, { size: 8 }), numberToHex(value.notAfter, { size: 8 }), value.signature])
+    )
   })
   return [keys, values]
 }

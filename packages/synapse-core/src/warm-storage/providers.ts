@@ -61,7 +61,9 @@ export async function readProviders(client: Client<Transport, Chain>): Promise<P
       providers.push({
         id: provider.providerId,
         ...provider.providerInfo,
-        pdp: decodePDPCapabilities(
+        pdp: await decodePDPCapabilities(
+          provider.providerId,
+          client.chain.id,
           capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
         ),
       })
@@ -85,7 +87,9 @@ export async function getProvider(client: Client<Transport, Chain>, options: Get
   return {
     id: provider.providerId,
     ...provider.providerInfo,
-    pdp: decodePDPCapabilities(
+    pdp: await decodePDPCapabilities(
+      provider.providerId,
+      client.chain.id,
       capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
     ),
   }
