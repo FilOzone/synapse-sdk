@@ -82,6 +82,8 @@ async function main() {
     const synapse = await Synapse.create({
       privateKey: "YOUR_PRIVATE_KEY",
       rpcURL: RPC_URLS.calibration.websocket,
+      // Uncomment to supercharge retrievability with Filecoin Beam
+      // withCDN: true
     });
 
     console.log("✅ SDK initialized successfully!");
