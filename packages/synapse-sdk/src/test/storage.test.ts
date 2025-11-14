@@ -1535,6 +1535,8 @@ describe('StorageService', () => {
               minProvingPeriodInEpochs: '0x1e',
               location: '0x75732d65617374',
               paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
+              endorsement0:
+                '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
             },
             data: {
               serviceURL: 'https://provider1.example.com',
