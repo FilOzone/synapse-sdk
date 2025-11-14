@@ -10,9 +10,12 @@ import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
+import type { SinonSandbox } from 'sinon'
+import { createSandbox } from 'sinon'
 import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
+import { SPRegistryService } from '../sp-registry/service.ts'
 import type { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import type { UploadResult } from '../types.ts'
@@ -744,6 +747,7 @@ describe('Synapse', () => {
 
   describe('createContexts', () => {
     let synapse: Synapse
+    let sandbox: SinonSandbox
 
     beforeEach(async () => {
       server.use(
@@ -760,6 +764,11 @@ describe('Synapse', () => {
           })
         )
       }
+      sandbox = createSandbox()
+    })
+
+    afterEach(() => {
+      sandbox.restore()
     })
 
     it('selects specified providerIds', async () => {
@@ -944,6 +953,78 @@ describe('Synapse', () => {
       // should return the same contexts when invoked again
       const defaultContexts = await synapse.storage.createContexts()
       assert.isTrue(defaultContexts === contexts)
+    })
+
+    it('prefers to select at least one context with an endorsement', async function () {
+      this.timeout(15000)
+      const providerId1 = Number(PROVIDERS.provider1.providerId)
+      const providerId2 = Number(PROVIDERS.provider2.providerId)
+      // verify that without an endorsement distinction, this function selects randomly
+      const counts = {
+        [providerId1]: 0,
+        [providerId2]: 0,
+      }
+      for (let i = 0; i < 14; i++) {
+        const contexts = await synapse.storage.createContexts({
+          forceCreateDataSets: true, // This prevents the defaultContexts caching
+        })
+        assert.equal(contexts.length, 2)
+        assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+        assert.equal((contexts[0] as any)._dataSetId, undefined)
+        assert.equal((contexts[1] as any)._dataSetId, undefined)
+        counts[contexts[0].provider.id]++
+      }
+      // These tests can fail probabilistically
+      assert.isAbove(counts[Number(PROVIDERS.provider1.providerId)], 0)
+      assert.isAbove(counts[Number(PROVIDERS.provider2.providerId)], 0)
+
+      // mock provider1 having no endorsements
+      const getPDPService = SPRegistryService.prototype.getPDPService
+      sandbox.replace(
+        SPRegistryService.prototype,
+        'getPDPService',
+        sandbox.fake(async function (this: SPRegistryService, providerId) {
+          const service = await getPDPService.call(this, providerId)
+          if (service == null) {
+            return service
+          }
+          if (providerId !== providerId1) {
+            return service
+          }
+          service.offering.endorsements = {}
+          return service
+        })
+      )
+      const getProviders = SPRegistryService.prototype.getProviders
+      sandbox.replace(
+        SPRegistryService.prototype,
+        'getProviders',
+        sandbox.fake(async function (this: SPRegistryService, providerIds) {
+          const providers = await getProviders.call(this, providerIds)
+          for (const provider of providers) {
+            if (provider.id === providerId1 && provider.products.PDP !== undefined) {
+              provider.products.PDP.data.endorsements = {}
+            }
+          }
+          return providers
+        })
+      )
+
+      // now, the first provider selected is the one with the endorsements
+      counts[providerId1] = 0
+      counts[providerId2] = 0
+      for (let i = 0; i < 14; i++) {
+        const contexts = await synapse.storage.createContexts({
+          forceCreateDataSets: true, // This prevents the defaultContexts caching
+        })
+        assert.equal(contexts.length, 2)
+        assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+        assert.equal((contexts[0] as any)._dataSetId, undefined)
+        assert.equal((contexts[1] as any)._dataSetId, undefined)
+        counts[contexts[0].provider.id]++
+      }
+      assert.equal(counts[providerId1], 0)
+      assert.isAbove(counts[providerId2], 0)
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
