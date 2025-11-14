@@ -630,7 +630,7 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 999 not found')
+        assert.include(error.message, 'Data set 999 does not exist')
       }
     })
 
@@ -827,6 +827,7 @@ describe('StorageService', () => {
           ...presets.basic,
           pdpVerifier: {
             dataSetLive: () => [false],
+            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
           },
           warmStorageView: {
             ...presets.basic.warmStorageView,
@@ -861,7 +862,7 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 1 not found')
+        assert.include(error.message, 'Data set 1 does not exist or is not live')
       }
     })
 
