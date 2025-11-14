@@ -3,8 +3,8 @@ import type { Address, Chain, Client, Hex, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
-import type { SignedEndorsement } from '../super-good-enough-certs/cert.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
+import type { SignedEndorsement } from '../utils/cert.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 
 export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>

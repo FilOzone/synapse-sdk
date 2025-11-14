@@ -1,8 +1,8 @@
 import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
-import { decodeEndorsements, encodeEndorsements } from '../super-good-enough-certs/cert.ts'
 import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
+import { decodeEndorsements, encodeEndorsements } from './cert.ts'
 
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
