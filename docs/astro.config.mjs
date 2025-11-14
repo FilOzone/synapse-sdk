@@ -21,7 +21,9 @@ export default defineConfig({
       autoTheme: true,
     }),
     starlight({
-      title: 'Filecoin Onchain Cloud',
+      title: 'Filecoin Onchain Cloud Documentation',
+      description:
+        'Filecoin Onchain Cloud provides transparent storage, retrieval, and payments on the Filecoin network.',
       logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
       customCss: ['./src/custom.css'],
@@ -62,7 +64,7 @@ export default defineConfig({
           tag: 'meta',
           attrs: {
             property: 'og:image',
-            content: new URL('og.jpg?v=1', site).href,
+            content: new URL('og2.jpg?v=1', site).href,
           },
         },
       ],
