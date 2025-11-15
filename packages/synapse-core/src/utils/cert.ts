@@ -119,19 +119,20 @@ export async function decodeEndorsements(
   capabilities: Record<string, Hex>
 ): Promise<Record<Address, SignedEndorsement>> {
   const now = Date.now() / 1000
-  return await Promise.all(
-    Object.values(capabilities).map((capabilityValue) => decodeEndorsement(providerId, chainId, capabilityValue))
-  ).then((results) =>
-    results.reduce(
-      (endorsements, { address, endorsement }) => {
-        if (address != null && endorsement.notAfter > now) {
-          endorsements[address] = endorsement
-        }
-        return endorsements
-      },
-      {} as Record<Address, SignedEndorsement>
-    )
-  )
+  const result: Record<Address, SignedEndorsement> = {}
+
+  for (const hexData of Object.values(capabilities)) {
+    try {
+      const { address, endorsement } = await decodeEndorsement(providerId, chainId, hexData)
+      if (address && endorsement.notAfter > now) {
+        result[address] = endorsement
+      }
+    } catch {
+      // Skip invalid endorsements
+    }
+  }
+
+  return result
 }
 
 /**
