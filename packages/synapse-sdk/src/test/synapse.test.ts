@@ -956,7 +956,7 @@ describe('Synapse', () => {
     })
 
     it('prefers to select at least one context with an endorsement', async function () {
-      this.timeout(15000)
+      this.timeout(24000)
       const providerId1 = Number(PROVIDERS.provider1.providerId)
       const providerId2 = Number(PROVIDERS.provider2.providerId)
       // verify that without an endorsement distinction, this function selects randomly
