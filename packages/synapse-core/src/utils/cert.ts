@@ -31,16 +31,16 @@ export type TypedEn = TypedDataToPrimitiveTypes<typeof EIP712Endorsement>['Endor
 
 export type SignCertOptions = {
   nonce?: bigint // uint64
-  notAfter: bigint //uint64
-  provider: bigint
+  notAfter: bigint // uint64
+  providerId: bigint
 } /**
  * Signs a certificate that a provider is super good enough.
  * @param client - The client to use to sign the message
  * @param options - nonce (randomised if null), not after and who to sign it for
- * @returns encoded certificate data abiEncode([nonce, notAfter, signature]), the provider id is implicit by where it will get placed in registry.
+ * @returns encoded certificate data abiEncodePacked([nonce, notAfter, signature]), the provider id is implicit by where it will get placed in registry.
  */
 export async function signEndorsement(client: Client<Transport, Chain, Account>, options: SignCertOptions) {
-  const nonce = options.nonce ?? randU256()
+  const nonce = (options.nonce ?? randU256()) & 0xffffffffffffffffn
   const signature = await signTypedData(client, {
     account: client.account,
     domain: {
@@ -53,20 +53,18 @@ export async function signEndorsement(client: Client<Transport, Chain, Account>,
     message: {
       nonce: nonce,
       notAfter: options.notAfter,
-      providerId: options.provider,
+      providerId: options.providerId,
     },
   })
 
   // 16 because size is after hex encoding
-  const encodedNonce = numberToHex(nonce, { size: 16 })
-  const encodedNotAfter = numberToHex(options.notAfter, { size: 16 })
+  const encodedNonce = numberToHex(nonce, { size: 8 })
+  const encodedNotAfter = numberToHex(options.notAfter, { size: 8 })
 
-  const data = concat([encodedNonce, encodedNotAfter, signature])
-
-  return data
+  return concat([encodedNonce, encodedNotAfter, signature])
 }
 
-async function decodeEndorsement(
+export async function decodeEndorsement(
   providerId: bigint,
   chainId: number | bigint | undefined,
   hexData: Hex
