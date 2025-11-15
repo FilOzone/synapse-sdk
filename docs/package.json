@@ -11,13 +11,14 @@
   },
   "dependencies": {
     "@filoz/synapse-sdk": "0.35.3",
-    "ethers": "^6.15.0"
+    "ethers": "^6.15.0",
+    "starlight-page-actions": "^0.1.1"
   },
   "devDependencies": {
     "@astrojs/starlight": "^0.36.1",
     "@hugomrdias/docs": "^0.1.5",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.2",
+    "@types/react": "^19.2.4",
+    "@types/react-dom": "^19.2.3",
     "astro": "^5.14.7",
     "astro-mermaid": "^1.1.0",
     "expressive-code-twoslash": "^0.5.3",

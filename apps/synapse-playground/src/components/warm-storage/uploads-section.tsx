@@ -30,12 +30,15 @@ export function UploadsSection({
     ...provider,
     dataSets: dataSets?.filter((d) => d.providerId === provider.id),
   }))
+  const approvedProviders = providers?.map((p) => p.id)
+
+  const dataSetsFromApprovedProviders = dataSets?.filter((d) => approvedProviders?.includes(d.providerId))
 
   useEffect(() => {
-    if (!dataSet && dataSets && dataSets.length > 0) {
-      setDataSet(dataSets[0].dataSetId.toString())
+    if (!dataSet && dataSetsFromApprovedProviders && dataSetsFromApprovedProviders.length > 0) {
+      setDataSet(dataSetsFromApprovedProviders[0].dataSetId.toString())
     }
-  }, [dataSets, dataSet])
+  }, [dataSetsFromApprovedProviders, dataSet])
 
   const {
     mutate: upload,

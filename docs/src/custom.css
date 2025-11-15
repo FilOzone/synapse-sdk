@@ -1,3 +1,70 @@
+/* Dark mode colors. */
+:root {
+  --sl-color-accent-low: #1a2532;
+  --sl-color-accent: #0090ff;
+  --sl-color-accent-high: #c8e3ff;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #eceef2;
+  --sl-color-gray-2: #c0c2c7;
+  --sl-color-gray-3: #888b96;
+  --sl-color-gray-4: #545861;
+  --sl-color-gray-5: #353841;
+  --sl-color-gray-6: #24272f;
+  --sl-color-black: #17181c;
+
+  --sl-hue-orange: 41;
+  --sl-color-orange-low: hsl(var(--sl-hue-orange), 39%, 22%);
+  --sl-color-orange: hsl(var(--sl-hue-orange), 82%, 63%);
+  --sl-color-orange-high: hsl(var(--sl-hue-orange), 82%, 87%);
+  --sl-hue-green: 101;
+  --sl-color-green-low: hsl(var(--sl-hue-green), 39%, 22%);
+  --sl-color-green: hsl(var(--sl-hue-green), 82%, 63%);
+  --sl-color-green-high: hsl(var(--sl-hue-green), 82%, 80%);
+  --sl-hue-blue: 206;
+  --sl-color-blue-low: hsl(var(--sl-hue-blue), 54%, 20%);
+  --sl-color-blue: hsl(var(--sl-hue-blue), 100%, 60%);
+  --sl-color-blue-high: hsl(var(--sl-hue-blue), 100%, 87%);
+  --sl-hue-purple: 270;
+  --sl-color-purple-low: hsl(var(--sl-hue-purple), 39%, 22%);
+  --sl-color-purple: hsl(var(--sl-hue-purple), 82%, 63%);
+  --sl-color-purple-high: hsl(var(--sl-hue-purple), 82%, 89%);
+  --sl-hue-red: 339;
+  --sl-color-red-low: hsl(var(--sl-hue-red), 39%, 22%);
+  --sl-color-red: hsl(var(--sl-hue-red), 82%, 63%);
+  --sl-color-red-high: hsl(var(--sl-hue-red), 82%, 87%);
+}
+/* Light mode colors. */
+:root[data-theme="light"] {
+  --sl-color-accent-low: #c3d6ec;
+  --sl-color-accent: #0090ff;
+  --sl-color-accent-high: #003463;
+  --sl-color-white: #202020;
+  --sl-color-gray-1: #646464;
+  --sl-color-gray-2: #646464;
+  --sl-color-gray-3: #8d8d8d;
+  --sl-color-gray-4: #bbbbbb;
+  --sl-color-gray-5: #e1e1e1;
+  --sl-color-gray-6: #f0f0f0;
+  --sl-color-gray-7: #f9f9f9;
+  --sl-color-black: #fdfdfd;
+
+  --sl-color-orange-high: hsl(var(--sl-hue-orange), 80%, 25%);
+  --sl-color-orange: hsl(var(--sl-hue-orange), 90%, 60%);
+  --sl-color-orange-low: hsl(var(--sl-hue-orange), 90%, 88%);
+  --sl-color-green-high: hsl(var(--sl-hue-green), 80%, 22%);
+  --sl-color-green: hsl(var(--sl-hue-green), 90%, 46%);
+  --sl-color-green-low: hsl(var(--sl-hue-green), 85%, 90%);
+  --sl-color-blue-high: hsl(var(--sl-hue-blue), 80%, 30%);
+  --sl-color-blue: hsl(var(--sl-hue-blue), 90%, 60%);
+  --sl-color-blue-low: hsl(var(--sl-hue-blue), 88%, 90%);
+  --sl-color-purple-high: hsl(var(--sl-hue-purple), 90%, 30%);
+  --sl-color-purple: hsl(var(--sl-hue-purple), 90%, 60%);
+  --sl-color-purple-low: hsl(var(--sl-hue-purple), 80%, 90%);
+  --sl-color-red-high: hsl(var(--sl-hue-red), 80%, 30%);
+  --sl-color-red: hsl(var(--sl-hue-red), 90%, 60%);
+  --sl-color-red-low: hsl(var(--sl-hue-red), 80%, 90%);
+}
+
 .filoz {
   flex: auto;
   align-items: center;
@@ -28,9 +95,9 @@
 img[src*="foc-diagram.png"] {
   max-width: 80%;
   height: auto;
+  margin: 0 auto;
 }
 
-/* Alternative: Target the title specifically */
-.site-title {
-  color: #0090ff !important; /* Change this to your desired color */
+.site-title span {
+  display: none;
 }

@@ -111,7 +111,7 @@ export function CreateDataSetDialog() {
                 name="cdn"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>CDN</FormLabel>
+                    <FormLabel>Filecoin Beam</FormLabel>
                     <Switch checked={field.value} id="cdn" onCheckedChange={field.onChange} />
                     <FormDescription>Enable CDN for the data set. </FormDescription>
                     <FormMessage />

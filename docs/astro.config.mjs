@@ -4,9 +4,10 @@ import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
 import ecTwoSlash from 'expressive-code-twoslash'
 import starlightLlmsTxt from 'starlight-llms-txt'
+import starlightPageActions from 'starlight-page-actions'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
 
-const site = 'https://synapse.filecoin.services'
+const site = 'https://docs.filecoin.cloud'
 
 // https://astro.build/config
 export default defineConfig({
@@ -21,7 +22,9 @@ export default defineConfig({
       autoTheme: true,
     }),
     starlight({
-      title: 'Filecoin Onchain Cloud',
+      title: 'Filecoin Onchain Cloud Documentation',
+      description:
+        'Filecoin Onchain Cloud provides transparent storage, retrieval, and payments on the Filecoin network.',
       logo: { src: './src/assets/foc-logo.svg', alt: 'foc' },
       favicon: 'favicon.ico',
       customCss: ['./src/custom.css'],
@@ -62,7 +65,7 @@ export default defineConfig({
           tag: 'meta',
           attrs: {
             property: 'og:image',
-            content: new URL('og.jpg?v=1', site).href,
+            content: new URL('og2.jpg?v=1', site).href,
           },
         },
       ],
@@ -88,17 +91,17 @@ export default defineConfig({
           autogenerate: { directory: 'introduction' },
         },
         {
-          label: 'Getting Started',
-          autogenerate: { directory: 'getting-started' },
-        },
-        {
           label: 'Core Concepts',
           autogenerate: { directory: 'core-concepts' },
         },
         {
+          label: 'Getting Started',
+          autogenerate: { directory: 'getting-started' },
+        },
+        {
           label: 'Developer Guides',
           collapsed: false,
-          autogenerate: { directory: 'developer-guides' , collapsed: true},
+          autogenerate: { directory: 'developer-guides', collapsed: true },
         },
         {
           label: 'CookBooks',
@@ -144,6 +147,7 @@ export default defineConfig({
           },
         }),
         starlightLlmsTxt(),
+        starlightPageActions(),
       ],
     }),
   ],
