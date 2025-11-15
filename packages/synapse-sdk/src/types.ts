@@ -404,14 +404,23 @@ export interface PreflightInfo {
  * 2. Piece addition (transaction submitted to chain)
  * 3. Confirmation (transaction confirmed on-chain)
  */
+export interface PieceIdentifiers {
+  pieceId: number
+  pieceCid: PieceCID
+}
+
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
-  /** Called when the service provider has added the piece and submitted the transaction to the chain */
+  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
+  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void
+  /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void
-  /** Called when the service provider agrees that the piece addition is confirmed on-chain */
+  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
+  onPiecesConfirmed?: (dataSetId: number, pieces: PieceIdentifiers[]) => void
+  /** @deprecated Use onPiecesConfirmed instead */
   onPieceConfirmed?: (pieceIds: number[]) => void
 }
 

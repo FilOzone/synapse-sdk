@@ -137,6 +137,7 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 ```ts twoslash
 import {
   PieceCID,
+  PieceIdentifiers,
   UploadResult,
   ProviderInfo,
   PreflightInfo,
@@ -153,12 +154,23 @@ type Hex = `0x${string}`;
  * 2. Piece addition (transaction submitted to chain)
  * 3. Confirmation (transaction confirmed on-chain)
  */
+export interface PieceIdentifiers {
+  pieceId: number;
+  pieceCid: PieceCID;
+}
+
 export interface UploadCallbacks {
+  /** Called periodically during upload with bytes uploaded so far */
+  onProgress?: (bytesUploaded: number) => void;
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void;
-  /** Called when the service provider has added the piece and submitted the transaction to the chain */
+  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
+  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
+  /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void;
-  /** Called when the service provider agrees that the piece addition is confirmed on-chain */
+  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
+  onPiecesConfirmed?: (dataSetId: number, pieces: PieceIdentifiers[]) => void;
+  /** @deprecated Use onPiecesConfirmed instead */
   onPieceConfirmed?: (pieceIds: number[]) => void;
 }
 
@@ -166,14 +178,14 @@ export interface UploadCallbacks {
  * Options for uploading individual pieces to an existing storage context
  * @param metadata - Custom metadata for this specific piece (key-value pairs)
  * @param onUploadComplete - Called when upload to service provider completes
- * @param onPieceAdded - Called when the service provider has added the piece and submitted the transaction to the chain
- * @param onPieceConfirmed - Called when the service provider agrees that the piece addition is confirmed on-chain
+ * @param onPiecesAdded - Called when the service provider has added the piece(s) and submitted the transaction to the chain
+ * @param onPiecesConfirmed - Called when the service provider agrees that the piece addition(s) are confirmed on-chain and provides the dataSetId
  */
 type UploadOptions = {
   metadata?: Record<string, string>;
   onUploadComplete?: (pieceCid: PieceCID) => void;
-  onPieceAdded?: (transaction?: Hex) => void;
-  onPieceConfirmed?: (pieceIds: number[]) => void;
+  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
+  onPiecesConfirmed?: (dataSetId: number, pieces: PieceIdentifiers[]) => void;
 };
 // ---cut---
 interface StorageContextAPI {
@@ -241,13 +253,23 @@ const { pieceCid, size, pieceId } = await storageContext.upload(data, {
       `Uploaded PieceCID: ${piece.toV1().toString()} to storage provider!`
     );
   },
-  onPieceAdded: (hash) => {
+  onPiecesAdded: (hash, pieces) => {
     console.log(
       `🔄 Waiting for transaction to be confirmed on chain (txHash: ${hash})`
     );
+    console.log(
+      `Batch includes PieceCIDs: ${
+        pieces?.map(({ pieceCid }) => pieceCid.toString()).join(", ") ?? ""
+      }`
+    );
   },
-  onPieceConfirmed: () => {
-    console.log("Data pieces added to data set successfully");
+  onPiecesConfirmed: (dataSetId, pieces) => {
+    console.log(`Data set ${dataSetId} confirmed with provider`);
+    console.log(
+      `Piece ID mapping: ${pieces
+        .map(({ pieceId, pieceCid }) => `${pieceId}:${pieceCid}`)
+        .join(", ")}`
+    );
   },
 });
 

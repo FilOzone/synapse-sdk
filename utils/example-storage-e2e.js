@@ -271,11 +271,18 @@ async function main() {
         onUploadComplete: (pieceCid) => {
           console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
         },
-        onPieceAdded: (transactionHash) => {
+        onPiecesAdded: (transactionHash, pieces) => {
           console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
+          if (pieces?.length) {
+            console.log(`  Pieces: ${pieces.map(({ pieceCid }) => pieceCid.toString()).join(', ')}`)
+          }
         },
-        onPieceConfirmed: (pieceIds) => {
-          console.log(`✓ ${pfx}Piece addition confirmed! IDs: ${pieceIds.join(', ')}`)
+        onPiecesConfirmed: (dataSetId, pieces) => {
+          console.log(
+            `✓ ${pfx}Piece addition confirmed on data set ${dataSetId}! IDs: ${pieces
+              .map(({ pieceId }) => pieceId)
+              .join(', ')}`
+          )
         },
       })
     })

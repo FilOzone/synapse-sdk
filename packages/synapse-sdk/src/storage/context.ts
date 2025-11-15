@@ -40,6 +40,7 @@ import type {
   EnhancedDataSetInfo,
   MetadataEntry,
   PieceCID,
+  PieceIdentifiers,
   PieceStatus,
   PreflightInfo,
   ProviderSelectionResult,
@@ -996,6 +997,7 @@ export class StorageContext {
       const pieceCids: PieceCID[] = batch.map((item) => item.pieceCid)
       const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
       const confirmedPieceIds: number[] = []
+      const piecesForAdded = pieceCids.map((pieceCid) => ({ pieceCid }))
 
       if (this.dataSetId) {
         const [, dataSetInfo] = await Promise.all([
@@ -1012,6 +1014,7 @@ export class StorageContext {
 
         // Notify callbacks with transaction
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, piecesForAdded)
           item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
         const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
@@ -1019,7 +1022,16 @@ export class StorageContext {
         // Handle transaction tracking if available
         confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
 
+        const dataSetId = this.dataSetId
+        if (dataSetId == null) {
+          throw createError('StorageContext', 'addPieces', 'Data set ID missing during confirmation callbacks')
+        }
+        const piecesForConfirmed: PieceIdentifiers[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(dataSetId, piecesForConfirmed)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       } else {
@@ -1046,6 +1058,7 @@ export class StorageContext {
           }
         )
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, piecesForAdded)
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
         const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
@@ -1060,7 +1073,16 @@ export class StorageContext {
 
         confirmedPieceIds.push(...(confirmedPieces.confirmedPieceIds ?? []))
 
+        const dataSetId = this.dataSetId
+        if (dataSetId == null) {
+          throw createError('StorageContext', 'addPieces', 'Data set ID missing during confirmation callbacks')
+        }
+        const piecesForConfirmed: PieceIdentifiers[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(dataSetId, piecesForConfirmed)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       }
@@ -1147,10 +1169,7 @@ export class StorageContext {
    * @param options.signal - Optional AbortSignal to cancel the operation
    * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
-  async *getPieces(options?: {
-    batchSize?: number
-    signal?: AbortSignal
-  }): AsyncGenerator<{ pieceCid: PieceCID; pieceId: number }> {
+  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<PieceIdentifiers> {
     if (this._dataSetId == null) {
       return
     }
