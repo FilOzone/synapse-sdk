@@ -1,5 +1,6 @@
 export * from './calibration.ts'
 export * from './capabilities.ts'
+export * from './cert.ts'
 export * from './constants.ts'
 export * from './decode-pdp-errors.ts'
 export * from './format.ts'
