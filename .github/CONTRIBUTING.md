@@ -126,16 +126,14 @@ Rather than continuously releasing what's landed to our default branch, release-
 
 These Release PRs are kept up-to-date as additional work is merged. When we're ready to tag a release, we simply merge the release PR.
 
-When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs.
+When the release PR is merged the release job is triggered to create a new tag, a new github release and run other package specific jobs. 
 
 ### How to merge the Release PRs?
-
 Overview:
-
-- Release PRs are created individually for each package in the mono repo.  
-- The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
-- Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
-- Dependent packages like `synapse-core` and `synapse-sdk` will have to resolve conflicts before merging because the `main` branch will have an updated `synapse-core` version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
+* Release PRs are created individually for each package in the mono repo.  
+* The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
+* Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
+* Dependent packages like `synapse-core` and `synapse-sdk` will have to resolve conflicts before merging because the `main` branch will have an updated `synapse-core` version.  Conflicts should be handled by "accepting incoming changes" and then manually again updating the version for the package that is about to be released (e.g., `synapse-sdk`, `synapse-react`).  This effectively updates the dependencies in the "Release PR" branch.  ([Example merge commit](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21).)
 
 Below are the specific steps to take.  They use the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`.
 
