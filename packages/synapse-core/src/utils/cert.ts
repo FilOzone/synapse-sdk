@@ -57,7 +57,6 @@ export async function signEndorsement(client: Client<Transport, Chain, Account>,
     },
   })
 
-  // 16 because size is after hex encoding
   const encodedNonce = numberToHex(nonce, { size: 8 })
   const encodedNotAfter = numberToHex(options.notAfter, { size: 8 })
 
