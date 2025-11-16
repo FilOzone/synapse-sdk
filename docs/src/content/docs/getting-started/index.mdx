@@ -184,7 +184,7 @@ const synapse = await Synapse.create({
 
 ### 2: USDFC Deposit
 
-Before storing data, you need to deposit USDFC tokens in your payments account. The amount you deposit is entirely up to your anticipated storage and retrieval needs. 
+Before storing data, you need to deposit USDFC tokens in your payments account. The amount you deposit is entirely up to your anticipated storage and retrieval needs.
 :::note[Pricing]
 To help you set an appropriate deposit amount, please see the [**Pricing**](../introduction/about/#pricing) section for up-to-date details on storage and retrieval costs.
 :::
@@ -301,6 +301,7 @@ const result = await context.upload(data);
 // Download from this context
 const downloaded = await context.download(result.pieceCid);
 ```
+
 - **providerId**: By specifying `providerId`, you tell Synapse SDK to store (and later retrieve) your data specifically with that provider.
 
 - **withCDN**: Setting `withCDN: true` enables **Filecoin Beam**, the decentralized retrieval and delivery layer. So global users can download data faster, and pay-by-egress billing.

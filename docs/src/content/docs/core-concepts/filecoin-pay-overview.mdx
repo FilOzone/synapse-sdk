@@ -9,7 +9,6 @@ As the economic core of the Filecoin Onchain Cloud (FOC), **Filecoin Pay** embed
 
 With Filecoin Pay, service economics become as **transparent and composable** as the data services they underpin, enabling the Filecoin network to operate not just as a storage market but as a fully programmable cloud economy.
 
-
 ## What is Filecoin Pay?
 
 In the Filecoin Onchain Cloud architecture, services (storage, retrieval) must be paired with economic incentives. Without a robust, verifiable settlement layer, the system risks:
@@ -17,7 +16,6 @@ In the Filecoin Onchain Cloud architecture, services (storage, retrieval) must b
 - Providers performing work without guaranteed payment.
 - Clients paying upfront without verifiable service delivery.
 - Opaque billing and trust-based relationships that undermine decentralisation.
-
 
 Filecoin Pay addresses these risks by tying **service delivery** (e.g., proofs of data possession, retrieval success) to **on-chain payment flows** that lets services run automated, controllable payment “rails” between a payer and a payee. It supports:
 
@@ -29,6 +27,7 @@ Filecoin Pay addresses these risks by tying **service delivery** (e.g., proofs o
 At its core, Filecoin Pay makes future payment guarantees explicit via lockups and enforces them in the contract’s accounting, so participants can reason clearly about risk, solvency, and termination behavior.
 
 ## How Filecoin Pay works
+
 The Filecoin Pay smart contract enables ERC20 token payment flows through "rails" - enables automatic, verifiable, programmable settlement between users and service providers on the Filecoin Onchain Cloud.
 
 At its core, Filecoin Pay works by:
@@ -41,39 +40,47 @@ At its core, Filecoin Pay works by:
 ### Core Building Blocks
 
 #### **Account**
+
 Represents the client’s funds allocated for a service.
+
 - Holds balances in **FIL or ERC-20 tokens**
 - Controlled by the user, not the provider
 - Can be topped up, withdrawn, and managed through smart contracts
 
-#### **Payment Rail**: 
-A **automatic settlement channel** between a user and a provider for a specific service or data set. Payer ↔ Payee pairs can have multiple payment rails between them but they can also reuse the same rail across multiple deals. 
+#### **Payment Rail**
+
+A **automatic settlement channel** between a user and a provider for a specific service or data set. Payer ↔ Payee pairs can have multiple payment rails between them but they can also reuse the same rail across multiple deals.
 
 Each rail defines:
+
 - `token`: FIL, stablecoin, ERC-20
 - `payer` & `payee`: clients & service providers
-- `operator` & `validator` 
+- `operator` & `validator`
 - `paymentRate`: tokens per epoch
 - `lockupPeriod`： epochs of guaranteed cover after termination
 - `lockupFixed`: pool for one-time payments
 - `endEpoch`: Final epoch up to which the rail can be settled
 
 #### **Operator**
+
 **Trusted smart contract** or entity that manages rails on behalf of payers with caps. A payer must explicitly approve an operator and grant it specific allowances, which act as a budget for how much the operator can spend or lock up on the payer's behalf.
 
-The operator sometimes referred to as the "**service contract**", such as Filecoin Warm Storage Service, and File Beam CND service, etc. 
+The operator sometimes referred to as the "**service contract**", such as Filecoin Warm Storage Service, and File Beam CND service, etc.
 
 **Capabilities** of an approved operator: create rails, modify rail terms (rate, lockup), settle payments, terminate rails, execute one-time payments
 
 #### **Validator**
+
 A validator is an optional contract that acts as a trusted arbitrator for a rail. Its primary role is to validate payments during settlement, but it also plays a crucial part in the rail's lifecycle, especially during termination.
 
-**Capabilities**: 
+**Capabilities**:
+
 - **Validate settlements**: Adjust payment amounts during settlement
 - **Veto terminations**: Block rail termination attempts
 - **Decide final payout**: Determine total payout after termination
 
 ### Lockup Mechanism
+
 Each payment rail can be configured to require the payer to lock funds to guarantee future payments. The lockup mechanism ensures providers get paid even if clients abandon their accounts. It's a **safety guarantee**, not a pre-payment.
 
 This lockup is composed of two distinct components:
@@ -92,17 +99,18 @@ This lockup is composed of two distinct components:
 - Reduced as payments are made
 
 ## Payment Flow
-The life circle of a payment rail. 
+
+The life circle of a payment rail.
 
 1) **Funding and approvals**
-   
+
    Deposit ERC-20 or FIL into the payer’s internal account
 
 2) **Rail creation and configuration**
    - Operator `createRail` & Configure lockups via `modifyRailLockup`
    - Start/adjust streaming via `modifyRailPayment`
 
-3) **Settlement** 
+3) **Settlement**
    - Active rails: can only settle up to payer’s `lockupLastSettledAt`
    - Terminated rails: can settle up to `endEpoch` using the streaming lockup
 
@@ -112,13 +120,12 @@ The life circle of a payment rail.
    - After settlement reaches `endEpoch`, the rail is finalized and zeroed; operator usage is released.
 
 5) **Escape hatch**
-   
+
    If a validator malfunctions, the payer can pay in full for the guaranteed window and unlock funds.
 
 **Normal Operation** (before termination): Payments flow from general account funds, lockup remains untouched.
 
 **Safety Hatch** (after termination): Provider can settle up to `endEpoch` using locked funds, even if client account is empty.
-
 
 ```mermaid
 stateDiagram-v2

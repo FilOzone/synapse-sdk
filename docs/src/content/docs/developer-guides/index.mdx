@@ -16,7 +16,6 @@ The SDK integrates with four key components of the Filecoin Onchain Cloud:
 - **Filecoin Warm Storage Service** : Business logic contract powered by ([WarmStorage](/core-concepts/fwss-overview))
 - **Service Providers** : Service providers are the actors that safeguard the data stored in the Filecoin Onchain Cloud powered by the [Curio Storage software](https://github.com/filecoin-project/curio)
 
-
 :::tip[New to Synapse SDK?]
 **Start building in 5 minutes!** Follow the [**Getting Started Guide →**](/getting-started/) to install the SDK, configure your environment, and upload your first file to Filecoin Onchain Cloud.
 :::
@@ -63,7 +62,7 @@ interface SynapseAPI {
 
 ### Payment Operations
 
-Fund your account and manage payments for Filecoin storage services. 
+Fund your account and manage payments for Filecoin storage services.
 
 **When You Need This**:
 
@@ -129,7 +128,7 @@ The storage service enforces the following size limits for uploads:
 Attempting to upload data outside these limits will result in an error.
 
 :::note
-These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). While the underlying Curio PDP service supports files up to 254 MiB, the SDK currently limits uploads to 200 MiB. Future versions will support larger files through chunking and aggregate PieceCIDs. 
+These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). While the underlying Curio PDP service supports files up to 254 MiB, the SDK currently limits uploads to 200 MiB. Future versions will support larger files through chunking and aggregate PieceCIDs.
 
 See [this issue](https://github.com/FilOzone/synapse-sdk/issues/110) for details.
 :::
