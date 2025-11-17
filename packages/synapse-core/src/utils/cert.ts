@@ -102,7 +102,6 @@ export async function decodeEndorsement(
     },
     signature: endorsement.signature,
   }).catch((reason) => {
-    console.warn('Failed to recover product endorsement:', reason)
     return null
   })
   return { address, endorsement }
