@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-sdk",
-  "version": "0.35.3",
+  "version": "0.36.0",
   "description": "JavaScript SDK for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
