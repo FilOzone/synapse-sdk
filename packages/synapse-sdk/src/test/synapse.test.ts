@@ -11,8 +11,6 @@ import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
-import type { SinonSandbox } from 'sinon'
-import { createSandbox } from 'sinon'
 import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
 import { PaymentsService } from '../payments/index.ts'
 import { PDP_PERMISSIONS } from '../session/key.ts'
@@ -24,6 +22,8 @@ import { makeDataSetCreatedLog } from './mocks/events.ts'
 
 // mock server for testing
 const server = setup()
+
+const providerIds = [Number(PROVIDERS.provider1.providerId), Number(PROVIDERS.provider2.providerId)]
 
 describe('Synapse', () => {
   let signer: ethers.Signer
@@ -734,7 +734,6 @@ describe('Synapse', () => {
 
   describe('createContexts', () => {
     let synapse: Synapse
-    let sandbox: SinonSandbox
 
     beforeEach(async () => {
       server.use(
@@ -751,11 +750,6 @@ describe('Synapse', () => {
           })
         )
       }
-      sandbox = createSandbox()
-    })
-
-    afterEach(() => {
-      sandbox.restore()
     })
 
     it('selects specified providerIds', async () => {
@@ -949,84 +943,72 @@ describe('Synapse', () => {
       assert.isTrue(defaultContexts === contexts)
     })
 
-    it('prefers to select at least one context with an endorsement', async function () {
-      this.timeout(24000)
-      const providerId1 = Number(PROVIDERS.provider1.providerId)
-      const providerId2 = Number(PROVIDERS.provider2.providerId)
-      // verify that without an endorsement distinction, this function selects randomly
-      const counts = {
-        [providerId1]: 0,
-        [providerId2]: 0,
-      }
-      for (let i = 0; i < 14; i++) {
-        const contexts = await synapse.storage.createContexts({
-          forceCreateDataSets: true, // This prevents the defaultContexts caching
-        })
-        assert.equal(contexts.length, 2)
-        assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
-        assert.equal((contexts[0] as any)._dataSetId, undefined)
-        assert.equal((contexts[1] as any)._dataSetId, undefined)
-        counts[contexts[0].provider.id]++
-      }
-      // These tests can fail probabilistically
-      assert.isAbove(counts[Number(PROVIDERS.provider1.providerId)], 0)
-      assert.isAbove(counts[Number(PROVIDERS.provider2.providerId)], 0)
-
-      // mock provider1 having no endorsements
-      const mockEndorsements = {
-        '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
-          notAfter: 0xffffffffffffffffn,
-          nonce: 0xffffffffffffffffn,
-          signature:
-            '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-        },
-      } as const
-      const getPDPService = SPRegistryService.prototype.getPDPService
-      sandbox.replace(
-        SPRegistryService.prototype,
-        'getPDPService',
-        sandbox.fake(async function (this: SPRegistryService, providerId) {
-          const service = await getPDPService.call(this, providerId)
-          if (service == null) {
-            return service
-          }
-          if (providerId !== providerId2) {
-            return service
-          }
-          service.offering.endorsements = mockEndorsements
-          return service
-        })
-      )
-      const getProviders = SPRegistryService.prototype.getProviders
-      sandbox.replace(
-        SPRegistryService.prototype,
-        'getProviders',
-        sandbox.fake(async function (this: SPRegistryService, providerIds) {
-          const providers = await getProviders.call(this, providerIds)
-          for (const provider of providers) {
-            if (provider.id === providerId2 && provider.products.PDP !== undefined) {
-              provider.products.PDP.data.endorsements = mockEndorsements
+    providerIds.forEach((endorsedProviderId, index) => {
+      describe(`when endorsing providers[${index}]`, async () => {
+        const getPDPService = SPRegistryService.prototype.getPDPService
+        const getProviders = SPRegistryService.prototype.getProviders
+        beforeEach(async () => {
+          // mock provider1 having no endorsements
+          const mockEndorsements = {
+            '0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5': {
+              notAfter: 0xffffffffffffffffn,
+              nonce: 0xffffffffffffffffn,
+              signature:
+                '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+            },
+          } as const
+          SPRegistryService.prototype.getPDPService = async function (this: SPRegistryService, providerId) {
+            const service = await getPDPService.call(this, providerId)
+            if (service == null) {
+              return service
             }
+            if (providerId !== endorsedProviderId) {
+              return service
+            }
+            service.offering.endorsements = mockEndorsements
+            return service
           }
-          return providers
+          SPRegistryService.prototype.getProviders = async function (this: SPRegistryService, providerIds) {
+            const providers = await getProviders.call(this, providerIds)
+            for (const provider of providers) {
+              if (provider.id === endorsedProviderId && provider.products.PDP !== undefined) {
+                provider.products.PDP.data.endorsements = mockEndorsements
+              }
+            }
+            return providers
+          }
         })
-      )
 
-      // now, the first provider selected is the one with the endorsements
-      counts[providerId1] = 0
-      counts[providerId2] = 0
-      for (let i = 0; i < 14; i++) {
-        const contexts = await synapse.storage.createContexts({
-          forceCreateDataSets: true, // This prevents the defaultContexts caching
+        afterEach(async () => {
+          SPRegistryService.prototype.getProviders = getProviders
+          SPRegistryService.prototype.getPDPService = getPDPService
         })
-        assert.equal(contexts.length, 2)
-        assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
-        assert.equal((contexts[0] as any)._dataSetId, undefined)
-        assert.equal((contexts[1] as any)._dataSetId, undefined)
-        counts[contexts[0].provider.id]++
-      }
-      assert.equal(counts[providerId1], 0)
-      assert.isAbove(counts[providerId2], 0)
+
+        for (const count of [1, 2]) {
+          it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
+            const counts: Record<number, number> = {}
+            for (const providerId of providerIds) {
+              counts[providerId] = 0
+            }
+            for (let i = 0; i < 5; i++) {
+              const contexts = await synapse.storage.createContexts({
+                count,
+                forceCreateDataSets: true, // This prevents the defaultContexts caching
+              })
+              assert.equal(contexts.length, count)
+              assert.equal((contexts[0] as any)._dataSetId, undefined)
+              counts[contexts[0].provider.id]++
+              if (count > 1) {
+                assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+                assert.equal((contexts[1] as any)._dataSetId, undefined)
+              }
+            }
+            for (const providerId of providerIds) {
+              assert.equal(counts[providerId], providerId === endorsedProviderId ? 5 : 0)
+            }
+          })
+        }
+      })
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
