@@ -33,7 +33,9 @@ export type SignCertOptions = {
   nonce?: bigint // uint64
   notAfter: bigint // uint64
   providerId: bigint
-} /**
+}
+
+/**
  * Signs a certificate that a provider is super good enough.
  * @param client - The client to use to sign the message
  * @param options - nonce (randomised if null), not after and who to sign it for
@@ -101,7 +103,7 @@ export async function decodeEndorsement(
       providerId: providerId,
     },
     signature: endorsement.signature,
-  }).catch((reason) => {
+  }).catch(() => {
     return null
   })
   return { address, endorsement }
