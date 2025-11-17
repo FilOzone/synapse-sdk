@@ -124,17 +124,17 @@ export class StorageManager {
    * Uses the storage contexts or context provided in the options
    * Otherwise creates/reuses default context
    *
-   * Accepts Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
-   * For large files, prefer streaming types to minimize memory usage.
+   * Accepts Uint8Array or ReadableStream<Uint8Array>.
+   * For large files, prefer streaming to minimize memory usage.
    *
    * Note: Multi-context uploads (uploading to multiple providers simultaneously) currently
    * only support Uint8Array. For streaming uploads with multiple contexts, convert your
    * stream to Uint8Array first or use stream forking (future feature).
    */
   async upload(
-    data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
+    data: Uint8Array | ReadableStream<Uint8Array>,
     options?: StorageManagerUploadOptions
-  ): Promise<PromiseSettledResult<UploadResult>[]> {
+  ): Promise<UploadResult> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []
@@ -168,6 +168,7 @@ export class StorageManager {
         : await this.createContexts({
             withCDN: options?.withCDN,
             withIpni: options?.withIpni,
+            count: 1, // single context by default for now - this will be changed in a future version
             dev: options?.dev,
             uploadBatchSize: options?.uploadBatchSize,
             forceCreateDataSets: options?.forceCreateDataSet,
@@ -194,35 +195,26 @@ export class StorageManager {
       const pieceCid = Piece.calculate(data)
 
       // Upload to all contexts with the same pieceCid
-      return await Promise.allSettled(
+      return Promise.all(
         contexts.map((context) =>
           context.upload(data, {
-            ...options?.callbacks,
+            ...options?.callbacks, // TODO: callbacks should be able to differentiate by provider
             metadata: options?.metadata,
             pieceCid,
             signal: options?.signal,
           })
         )
-      )
+      ).then((results) => results[0]) // all results should be the same
     } else {
       // Single context upload - supports all data types
       const context = contexts[0]
 
-      // For Uint8Array, calculate pieceCid once
-      let pieceCid: Piece.PieceCID | undefined
-      if (data instanceof Uint8Array) {
-        pieceCid = Piece.calculate(data)
-      }
-
       // Upload to single context
-      const result = await context.upload(data, {
+      return context.upload(data, {
         ...options?.callbacks,
         metadata: options?.metadata,
-        pieceCid,
         signal: options?.signal,
       })
-
-      return [{ status: 'fulfilled' as const, value: result }]
     }
   }
 

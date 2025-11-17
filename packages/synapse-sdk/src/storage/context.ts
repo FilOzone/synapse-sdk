@@ -22,7 +22,6 @@
  * ```
  */
 
-import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
@@ -836,37 +835,22 @@ export class StorageContext {
   /**
    * Upload data to the service provider
    *
-   * Accepts Uint8Array, AsyncIterable<Uint8Array>, or ReadableStream<Uint8Array>.
-   * For large files, prefer streaming types (AsyncIterable or ReadableStream) to minimize memory usage.
+   * Accepts Uint8Array or ReadableStream<Uint8Array>.
+   * For large files, prefer streaming to minimize memory usage.
    *
-   * Note: When uploading to multiple contexts, pieceCid should be precalculated and passed in options
+   * Note: When uploading to multiple contexts, pieceCid should be pre-calculated and passed in options
    * to avoid redundant computation. For streaming uploads, pieceCid must be provided in options as it
    * cannot be calculated without consuming the stream.
    */
-  async upload(
-    data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
-    options?: UploadOptions
-  ): Promise<UploadResult> {
+  async upload(data: Uint8Array | ReadableStream<Uint8Array>, options?: UploadOptions): Promise<UploadResult> {
     performance.mark('synapse:upload-start')
 
     // Validation Phase: Check data size and calculate pieceCid
     let size: number | undefined
-    let pieceCid = options?.pieceCid
+    const pieceCid = options?.pieceCid
     if (data instanceof Uint8Array) {
       size = data.length
       StorageContext.validateRawSize(size, 'upload')
-
-      // Calculate pieceCid if not provided
-      if (pieceCid == null) {
-        pieceCid = Piece.calculate(data)
-      }
-    } else if (pieceCid == null) {
-      // For streams, pieceCid must be provided (cannot calculate without consuming stream)
-      throw createError(
-        'StorageContext',
-        'upload',
-        'options.pieceCid must be provided for streaming uploads (AsyncIterable or ReadableStream)'
-      )
     }
     // Note: Size is unknown for streams (size will be undefined)
 
@@ -875,10 +859,11 @@ export class StorageContext {
     this._activeUploads.add(uploadId)
 
     try {
+      let uploadResult: SP.UploadPieceResponse
       // Upload Phase: Upload data to service provider
       try {
         performance.mark('synapse:pdpServer.uploadPiece-start')
-        await this._pdpServer.uploadPiece(data, {
+        uploadResult = await this._pdpServer.uploadPiece(data, {
           ...options,
           pieceCid,
         })
@@ -900,7 +885,7 @@ export class StorageContext {
 
       // Poll for piece to be "parked" (ready)
       performance.mark('synapse:findPiece-start')
-      await this._pdpServer.findPiece(pieceCid)
+      await this._pdpServer.findPiece(uploadResult.pieceCid)
       performance.mark('synapse:findPiece-end')
       performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
 
@@ -909,7 +894,7 @@ export class StorageContext {
 
       // Notify upload complete
       if (options?.onUploadComplete != null) {
-        options.onUploadComplete(pieceCid)
+        options.onUploadComplete(uploadResult.pieceCid)
       }
 
       // Add Piece Phase: Queue the AddPieces operation for sequential processing
@@ -922,7 +907,7 @@ export class StorageContext {
       const finalPieceId = await new Promise<number>((resolve, reject) => {
         // Add to pending batch
         this._pendingPieces.push({
-          pieceCid,
+          pieceCid: uploadResult.pieceCid,
           resolve,
           reject,
           callbacks: options,
@@ -942,8 +927,8 @@ export class StorageContext {
       performance.mark('synapse:upload-end')
       performance.measure('synapse:upload', 'synapse:upload-start', 'synapse:upload-end')
       return {
-        pieceCid,
-        size: size ?? 0, // Size is unknown for streams, use 0 as placeholder
+        pieceCid: uploadResult.pieceCid,
+        size: uploadResult.size,
         pieceId: finalPieceId,
       }
     } finally {
