@@ -192,7 +192,7 @@
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.5",
+    "@biomejs/biome": "2.3.6",
     "@types/assert": "^1.5.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.7.2",

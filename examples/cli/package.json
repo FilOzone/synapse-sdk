@@ -21,7 +21,7 @@
     "viem": "^2.38.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.5",
+    "@biomejs/biome": "2.3.6",
     "@types/node": "^24.9.1"
   }
 }
