@@ -36,7 +36,7 @@ export type SignCertOptions = {
 }
 
 /**
- * Signs a certificate that a provider is super good enough.
+ * Signs an endorsement certificate for a specific provider
  * @param client - The client to use to sign the message
  * @param options - nonce (randomised if null), not after and who to sign it for
  * @returns encoded certificate data abiEncodePacked([nonce, notAfter, signature]), the provider id is implicit by where it will get placed in registry.
