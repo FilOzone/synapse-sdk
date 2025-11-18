@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.2...synapse-core-v0.1.3) (2025-11-17)
+
+
+### Features
+
+* streaming upload support ([9510752](https://github.com/FilOzone/synapse-sdk/commit/95107525d2dc71590cfbe07ab9d53f59fe44252f))
+
+
+### Bug Fixes
+
+* error outputs out of lotus are weird ([#411](https://github.com/FilOzone/synapse-sdk/issues/411)) ([341eeff](https://github.com/FilOzone/synapse-sdk/commit/341eeff0692b768e7a8cf99c74511df58e719192))
+
+
+### Chores
+
+* plumb AbortSignal through upload flow, address feedback ([077fc92](https://github.com/FilOzone/synapse-sdk/commit/077fc921a9522e6aafd8625c4b415f0031ad1a23))
+* update calibnet SessionKeyRegistry address ([#431](https://github.com/FilOzone/synapse-sdk/issues/431)) ([3137130](https://github.com/FilOzone/synapse-sdk/commit/3137130d2daf816739f51c30df372b31ba62668f))
+* update deps ([#432](https://github.com/FilOzone/synapse-sdk/issues/432)) ([6a9205b](https://github.com/FilOzone/synapse-sdk/commit/6a9205beede7b425469608980d2500c16884aa08))
+
 ## [0.1.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.1...synapse-core-v0.1.2) (2025-11-04)
 
 
