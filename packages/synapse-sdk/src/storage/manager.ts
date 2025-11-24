@@ -69,9 +69,10 @@ type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
  * 2. Auto-create context: `{ providerId?, dataSetId?, withCDN?, callbacks?, metadata? }` - creates/reuses context
  * 3. Use default context: `{ callbacks?, metadata? }` - uses cached default context
  *
- * @internal This type is intentionally not exported as it's specific to StorageManager
+ * @internal This type is originally intended not to be exported as it was specific to the StorageManager.
+ * At least that's what we thought. Not anymore. See [here](https://github.com/FilOzone/synapse-sdk/issues/461) and [here](https://github.com/filecoin-project/filecoin-pin/commit/6861385ab189b481f8ef719b75d235e6d90f7317)
  */
-interface StorageManagerUploadOptions extends StorageServiceOptions {
+export interface StorageManagerUploadOptions extends StorageServiceOptions {
   // Multiple storage providers: if provided, all other context options are invalid
   contexts?: StorageContext[]
 
