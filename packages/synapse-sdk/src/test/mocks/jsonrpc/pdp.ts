@@ -14,6 +14,8 @@ export type getDataSetStorageProvider = ExtractAbiFunction<
   'getDataSetStorageProvider'
 >
 export type getDataSetLeafCount = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getDataSetLeafCount'>
+export type getScheduledRemovals = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getScheduledRemovals'>
+export type schedulePieceDeletions = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'schedulePieceDeletions'>
 
 export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>
@@ -24,6 +26,8 @@ export interface PDPVerifierOptions {
     args: AbiToType<getDataSetStorageProvider['inputs']>
   ) => AbiToType<getDataSetStorageProvider['outputs']>
   getDataSetLeafCount?: (args: AbiToType<getDataSetLeafCount['inputs']>) => AbiToType<getDataSetLeafCount['outputs']>
+  getScheduledRemovals?: (args: AbiToType<getScheduledRemovals['inputs']>) => AbiToType<getScheduledRemovals['outputs']>
+  schedulePieceDeletions?: (args: AbiToType<schedulePieceDeletions['inputs']>) => void
 }
 
 /**
@@ -94,6 +98,25 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
           .outputs,
         options.pdpVerifier.getDataSetLeafCount(args)
       )
+    }
+    case 'getScheduledRemovals': {
+      if (!options.pdpVerifier?.getScheduledRemovals) {
+        throw new Error('PDP Verifier: getScheduledRemovals is not defined')
+      }
+      return encodeAbiParameters(
+        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getScheduledRemovals')!
+          .outputs,
+        options.pdpVerifier.getScheduledRemovals(args)
+      )
+    }
+    case 'schedulePieceDeletions': {
+      if (!options.pdpVerifier?.schedulePieceDeletions) {
+        throw new Error('PDP Verifier: schedulePieceDeletions is not defined')
+      }
+      // Call the handler (for tracking/validation)
+      options.pdpVerifier.schedulePieceDeletions(args)
+      // Return empty for non-payable transaction (success is implied)
+      return '0x' as Hex
     }
     default: {
       throw new Error(`PDP Verifier: unknown function: ${functionName} with args: ${args}`)

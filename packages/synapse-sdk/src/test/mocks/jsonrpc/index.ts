@@ -478,6 +478,10 @@ export const presets = {
       getActivePieces: () => [[], [], false],
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
       getDataSetLeafCount: () => [0n],
+      getScheduledRemovals: () => [[]],
+      schedulePieceDeletions: () => {
+        // No-op for default preset
+      },
     },
     serviceRegistry: {
       getProviderByAddress: (data) => [

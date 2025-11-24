@@ -207,4 +207,64 @@ describe('PDPVerifier', () => {
       assert.equal(address, testAddress)
     })
   })
+
+  describe('getScheduledRemovals', () => {
+    it('should get scheduled removals for a data set', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[1n, 2n, 5n]],
+          },
+        })
+      )
+
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      assert.isArray(scheduledRemovals)
+      assert.equal(scheduledRemovals.length, 3)
+      assert.equal(scheduledRemovals[0], 1)
+      assert.equal(scheduledRemovals[1], 2)
+      assert.equal(scheduledRemovals[2], 5)
+    })
+
+    it('should return empty array when no removals scheduled', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[]],
+          },
+        })
+      )
+
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      assert.isArray(scheduledRemovals)
+      assert.equal(scheduledRemovals.length, 0)
+    })
+  })
+
+  describe('schedulePieceDeletions', () => {
+    it('should schedule piece deletions', async () => {
+      const signer = new ethers.Wallet('0x1234567890123456789012345678901234567890123456789012345678901234', provider)
+      const dataSetId = 123
+      const pieceIds = [1, 2, 3]
+      const extraData = '0x1234'
+
+      const txHash = await pdpVerifier.schedulePieceDeletions(signer, dataSetId, pieceIds, extraData)
+
+      // Verify the transaction hash is returned
+      assert.isString(txHash)
+      assert.match(txHash, /^0x/)
+    })
+
+    it('should handle single piece deletion', async () => {
+      const signer = new ethers.Wallet('0x1234567890123456789012345678901234567890123456789012345678901234', provider)
+      const txHash = await pdpVerifier.schedulePieceDeletions(signer, 123, [5], '0xabcd')
+
+      assert.isString(txHash)
+      assert.match(txHash, /^0x/)
+    })
+  })
 })
