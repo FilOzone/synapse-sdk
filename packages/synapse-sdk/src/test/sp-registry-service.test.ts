@@ -9,7 +9,7 @@ import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/js
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('SPRegistryService', () => {
   let provider: ethers.Provider
@@ -17,7 +17,7 @@ describe('SPRegistryService', () => {
   let service: SPRegistryService
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

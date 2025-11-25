@@ -12,7 +12,7 @@ import { TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('PaymentsService', () => {
   let provider: ethers.Provider
@@ -22,7 +22,7 @@ describe('PaymentsService', () => {
   const usdfcAddress = ADDRESSES.calibration.usdfcToken
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
