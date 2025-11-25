@@ -9,7 +9,9 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
+import type { Hex } from 'viem'
 import { Synapse } from '../synapse.ts'
+import type { PieceCID, PieceIdentifiers } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 import { findAnyPieceHandler, streamingUploadHandlers } from './mocks/pdp/handlers.ts'
@@ -451,7 +453,10 @@ describe('Storage Upload', () => {
   it('should handle new server with transaction tracking', async () => {
     let pieceAddedCallbackFired = false
     let pieceConfirmedCallbackFired = false
+    let piecesAddedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } | null = null
+    let piecesConfirmedArgs: { dataSetId?: number; pieces?: PieceIdentifiers[] } | null = null
     let uploadCompleteCallbackFired = false
+    let resolvedDataSetId: number | undefined
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
@@ -470,11 +475,12 @@ describe('Storage Upload', () => {
         })
       }),
       http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
+        resolvedDataSetId = parseInt(params.id, 10)
         return HttpResponse.json(
           {
             addMessageOk: true,
             confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
+            dataSetId: resolvedDataSetId,
             pieceCount: 1,
             piecesAdded: true,
             txHash,
@@ -493,7 +499,13 @@ describe('Storage Upload', () => {
     })
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
-    await context.upload(new Uint8Array(expectedSize).fill(1), {
+    const uploadResult = await context.upload(new Uint8Array(expectedSize).fill(1), {
+      onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
+        piecesAddedArgs = { transaction, pieces }
+      },
+      onPiecesConfirmed(dataSetId: number, pieces: PieceIdentifiers[]) {
+        piecesConfirmedArgs = { dataSetId, pieces }
+      },
       onPieceAdded() {
         pieceAddedCallbackFired = true
       },
@@ -508,6 +520,21 @@ describe('Storage Upload', () => {
     assert.isTrue(pieceAddedCallbackFired, 'pieceAddedCallback should have been called')
     assert.isTrue(pieceConfirmedCallbackFired, 'pieceConfirmedCallback should have been called')
     assert.isTrue(uploadCompleteCallbackFired, 'uploadCompleteCallback should have been called')
+    assert.isNotNull(piecesAddedArgs, 'onPiecesAdded args should be captured')
+    assert.isNotNull(piecesConfirmedArgs, 'onPiecesConfirmed args should be captured')
+    if (piecesAddedArgs == null || piecesConfirmedArgs == null) {
+      throw new Error('Callbacks should have been called')
+    }
+    const addedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } = piecesAddedArgs
+    const confirmedArgs: { dataSetId?: number; pieces?: PieceIdentifiers[] } = piecesConfirmedArgs
+    assert.strictEqual(addedArgs.transaction, txHash, 'onPiecesAdded should receive transaction hash')
+    assert.strictEqual(
+      addedArgs.pieces?.[0].pieceCid.toString(),
+      uploadResult.pieceCid.toString(),
+      'onPiecesAdded should provide matching pieceCid'
+    )
+    assert.strictEqual(confirmedArgs.dataSetId, resolvedDataSetId, 'onPiecesConfirmed should provide the dataset id')
+    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0, 'onPiecesConfirmed should include piece IDs')
   })
 
   it('should handle ArrayBuffer input', async () => {
