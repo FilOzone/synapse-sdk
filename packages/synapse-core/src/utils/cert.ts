@@ -67,7 +67,7 @@ export async function signEndorsement(client: Client<Transport, Chain, Account>,
 
 export async function decodeEndorsement(
   providerId: bigint,
-  chainId: number | bigint | undefined,
+  chainId: number | bigint,
   hexData: Hex
 ): Promise<{
   address: Address | null
