@@ -14,6 +14,15 @@ export type AuctionInfo = {
   startTime: bigint
 }
 
+/**
+ * Get the initial state of the current FilecoinPay auction
+ * This auction information can be passed to auctionPriceAt to calculate the current price
+ * Auctions are dutch, so the acceptance price decreases over time
+ * Each token has a separate auction
+ * @param client used to read the FilecoinPay contract
+ * @param token specifies which token's auction
+ * @returns the auction startPrice and startTime
+ */
 export async function auctionInfo(client: Client<Transport, Chain>, token: Address): Promise<AuctionInfo> {
   const chain = getChain(client.chain.id)
   const [startPrice, startTime] = await readContract(client, {
@@ -29,6 +38,14 @@ export async function auctionInfo(client: Client<Transport, Chain>, token: Addre
   }
 }
 
+/**
+ * Get the current funds available in the FilecoinPay auction
+ * These auction funds accrue as payment rails settle
+ * Each token has a separate auction
+ * @param client used to read the FilecoinPay contract
+ * @param token specifies which token's auction
+ * @returns how much of the token is available to purchasae in the auction
+ */
 export async function auctionFunds(client: Client<Transport, Chain>, token: Address): Promise<bigint> {
   const chain = getChain(client.chain.id)
   const [funds] = await readContract(client, {
