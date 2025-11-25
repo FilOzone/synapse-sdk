@@ -48,6 +48,10 @@
       "types": "./dist/src/abis/index.d.ts",
       "default": "./dist/src/abis/index.js"
     },
+    "./auction": {
+      "types": "./dist/src/auction/index.d.ts",
+      "default": "./dist/src/auction/index.js"
+    },
     "./pay": {
       "types": "./dist/src/pay/index.d.ts",
       "default": "./dist/src/pay/index.js"
@@ -192,7 +196,7 @@
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.6",
+    "@biomejs/biome": "2.3.7",
     "@types/assert": "^1.5.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.7.2",

@@ -12,7 +12,7 @@
   "dependencies": {
     "@filoz/synapse-sdk": "0.35.3",
     "ethers": "^6.15.0",
-    "starlight-page-actions": "^0.1.1"
+    "starlight-page-actions": "^0.2.0"
   },
   "devDependencies": {
     "@astrojs/starlight": "^0.36.1",
