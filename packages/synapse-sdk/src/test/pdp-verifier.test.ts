@@ -244,27 +244,4 @@ describe('PDPVerifier', () => {
       assert.equal(scheduledRemovals.length, 0)
     })
   })
-
-  describe('schedulePieceDeletions', () => {
-    it('should schedule piece deletions', async () => {
-      const signer = new ethers.Wallet('0x1234567890123456789012345678901234567890123456789012345678901234', provider)
-      const dataSetId = 123
-      const pieceIds = [1, 2, 3]
-      const extraData = '0x1234'
-
-      const txHash = await pdpVerifier.schedulePieceDeletions(signer, dataSetId, pieceIds, extraData)
-
-      // Verify the transaction hash is returned
-      assert.isString(txHash)
-      assert.match(txHash, /^0x/)
-    })
-
-    it('should handle single piece deletion', async () => {
-      const signer = new ethers.Wallet('0x1234567890123456789012345678901234567890123456789012345678901234', provider)
-      const txHash = await pdpVerifier.schedulePieceDeletions(signer, 123, [5], '0xabcd')
-
-      assert.isString(txHash)
-      assert.match(txHash, /^0x/)
-    })
-  })
 })

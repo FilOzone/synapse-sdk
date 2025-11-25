@@ -25,7 +25,7 @@
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
-import { ethers } from 'ethers'
+import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
@@ -1179,16 +1179,12 @@ export class StorageContext {
       throw createError('StorageContext', 'deletePiece', 'Invalid PieceCID provided')
     }
 
-    // Use PDPVerifier contract to find the piece ID
-    // Search through all pieces to find matching CID
-    // This uses the contract-based getPieces which is the source of truth
-    for await (const piece of this.getPieces()) {
-      if (piece.pieceCid.toString() === parsedPieceCID.toString()) {
-        return piece.pieceId
-      }
+    const dataSetData = await this._pdpServer.getDataSet(this.dataSetId)
+    const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
+    if (pieceData == null) {
+      throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
     }
-
-    throw createError('StorageContext', 'deletePiece', 'Piece not found in data set')
+    return pieceData.pieceId
   }
 
   /**
@@ -1203,17 +1199,7 @@ export class StorageContext {
     const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
     const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
 
-    // Use PDPVerifier contract to schedule piece deletion
-    const authData = await this._pdpServer
-      .getAuthHelper()
-      .signSchedulePieceRemovals(dataSetInfo.clientDataSetId, [BigInt(pieceId)])
-
-    const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
-    const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
-
-    const extraData = ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [authData.signature])
-
-    return await pdpVerifier.schedulePieceDeletions(this._signer, this.dataSetId, [pieceId], extraData)
+    return this._pdpServer.deletePiece(this.dataSetId, dataSetInfo.clientDataSetId, pieceId)
   }
 
   /**

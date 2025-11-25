@@ -20,7 +20,6 @@
 
 import { hexToPieceCID } from '@filoz/synapse-core/piece'
 import { ethers } from 'ethers'
-import type { Hex } from 'viem'
 import type { PieceCID } from '../types.ts'
 import { CONTRACT_ABIS, createError } from '../utils/index.ts'
 
@@ -174,25 +173,6 @@ export class PDPVerifier {
   async getScheduledRemovals(dataSetId: number): Promise<number[]> {
     const result = await this._contract.getScheduledRemovals(dataSetId)
     return result.map((pieceId: bigint) => Number(pieceId))
-  }
-
-  /**
-   * Schedule piece deletions for a data set
-   * @param signer - The signer authorized to schedule deletions
-   * @param dataSetId - The PDPVerifier data set ID
-   * @param pieceIds - Array of piece IDs to schedule for deletion
-   * @param extraData - Additional data for authorization (typically signature)
-   * @returns Transaction hash
-   */
-  async schedulePieceDeletions(
-    signer: ethers.Signer,
-    dataSetId: number,
-    pieceIds: number[],
-    extraData: string
-  ): Promise<Hex> {
-    const contractWithSigner = this._contract.connect(signer) as ethers.Contract
-    const tx = await contractWithSigner.schedulePieceDeletions(dataSetId, pieceIds, extraData)
-    return tx.hash as Hex
   }
 
   /**

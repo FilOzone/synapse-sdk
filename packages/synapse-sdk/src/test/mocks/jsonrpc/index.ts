@@ -479,9 +479,6 @@ export const presets = {
       getDataSetStorageProvider: () => [ADDRESSES.serviceProvider1, ADDRESSES.zero],
       getDataSetLeafCount: () => [0n],
       getScheduledRemovals: () => [[]],
-      schedulePieceDeletions: () => {
-        // No-op for default preset
-      },
     },
     serviceRegistry: {
       getProviderByAddress: (data) => [
