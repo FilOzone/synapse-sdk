@@ -1,4 +1,4 @@
-import type { Chain, Client, Hex, Transport } from 'viem'
+import type { Address, Chain, Client, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import { getChain } from '../chains.ts'
 
@@ -6,7 +6,7 @@ export type ServicePriceResult = {
   pricePerTiBPerMonthNoCDN: bigint
   pricePerTiBCdnEgress: bigint
   pricePerTiBCacheMissEgress: bigint
-  tokenAddress: Hex
+  tokenAddress: Address
   epochsPerMonth: bigint
   minimumPricePerMonth: bigint
 }

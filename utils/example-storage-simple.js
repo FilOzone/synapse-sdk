@@ -43,7 +43,7 @@ async function main() {
 
   // The synapse.storage API auto-manages contexts for you
   // No need to explicitly create a storage context unless you need specific control
-  console.log('Storage API ready. Will auto-select provider on first upload.')
+  console.log('Storage API ready. Will auto-select provider to use.')
 
   // Create test data (must be at least 127 bytes)
   const testMessage =
