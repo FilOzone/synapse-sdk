@@ -827,19 +827,26 @@ describe('Synapse', () => {
     })
 
     it('fails when provided an invalid data set id', async () => {
-      for (const dataSetId of [0, 2]) {
-        try {
-          await synapse.storage.createContexts({
-            count: 1,
-            dataSetIds: [dataSetId],
-          })
-          assert.fail('Expected createContexts to fail for invalid specified data set id')
-        } catch (error: any) {
-          assert.equal(
-            error?.message,
-            `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
-          )
-        }
+      // Test dataSetId 0: should fail with "does not exist" (pdpRailId is 0)
+      try {
+        await synapse.storage.createContexts({
+          count: 1,
+          dataSetIds: [0],
+        })
+        assert.fail('Expected createContexts to fail for data set id 0')
+      } catch (error: any) {
+        assert.include(error?.message, 'Data set 0 does not exist')
+      }
+
+      // Test dataSetId 2: should fail (not in mock data, so pdpRailId will be 0)
+      try {
+        await synapse.storage.createContexts({
+          count: 1,
+          dataSetIds: [2],
+        })
+        assert.fail('Expected createContexts to fail for data set id 2')
+      } catch (error: any) {
+        assert.include(error?.message, 'Data set 2 does not exist')
       }
     })
 
