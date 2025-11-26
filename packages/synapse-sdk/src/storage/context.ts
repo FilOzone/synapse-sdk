@@ -26,7 +26,7 @@ import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
@@ -60,6 +60,7 @@ import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadat
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
+const PRIME_ENDORSEMENTS: Address[] = ['0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5']
 
 export class StorageContext {
   private readonly _synapse: Synapse
@@ -191,7 +192,7 @@ export class StorageContext {
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = await synapse.getClient().getAddress()
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.getProvider(), synapse.getChainId(), registryAddress)
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
@@ -245,6 +246,7 @@ export class StorageContext {
             warmStorageService,
             spRegistry,
             excludeProviderIds,
+            resolutions.length === 0 ? PRIME_ENDORSEMENTS : [],
             options.forceCreateDataSets ?? false,
             options.withIpni ?? false,
             options.dev ?? false
@@ -278,7 +280,7 @@ export class StorageContext {
   ): Promise<StorageContext> {
     // Create SPRegistryService
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.getProvider(), synapse.getChainId(), registryAddress)
 
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
@@ -375,6 +377,7 @@ export class StorageContext {
       warmStorageService,
       spRegistry,
       options.excludeProviderIds ?? [],
+      PRIME_ENDORSEMENTS,
       options.forceCreateDataSet ?? false,
       options.withIpni ?? false,
       options.dev ?? false
@@ -592,6 +595,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
     excludeProviderIds: number[],
+    preferEndorsements: Address[],
     forceCreateDataSet: boolean,
     withIpni: boolean,
     dev: boolean
@@ -653,9 +657,9 @@ export class StorageContext {
         }
       }
 
-      try {
-        const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
+      const selectedProvider = await StorageContext.selectProviderWithPing(generateProviders())
 
+      if (selectedProvider != null) {
         // Find the first matching data set ID for this provider
         // Match by provider ID (stable identifier in the registry)
         const matchingDataSet = sorted.find((ps) => ps.providerId === selectedProvider.id)
@@ -677,9 +681,6 @@ export class StorageContext {
             dataSetMetadata,
           }
         }
-      } catch (_error) {
-        console.warn('All providers from existing data sets failed health check. Falling back to all providers.')
-        // Fall through to select from all approved providers below
       }
     }
 
@@ -698,8 +699,37 @@ export class StorageContext {
       throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
     }
 
-    // Random selection from all providers
-    const provider = await StorageContext.selectRandomProvider(allProviders)
+    let provider: ProviderInfo | null
+    if (preferEndorsements.length > 0) {
+      // Split providers according to whether they have all of the endorsements
+      const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
+        (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
+          results[
+            preferEndorsements.some(
+              (endorsement: Address) => endorsement in (provider.products.PDP?.data.endorsements ?? {})
+            )
+              ? 1
+              : 0
+          ].push(provider)
+          return results
+        },
+        [[], []]
+      )
+      provider =
+        (await StorageContext.selectRandomProvider(endorsedProviders)) ||
+        (await StorageContext.selectRandomProvider(otherProviders))
+    } else {
+      // Random selection from all providers
+      provider = await StorageContext.selectRandomProvider(allProviders)
+    }
+
+    if (provider == null) {
+      throw createError(
+        'StorageContext',
+        'selectProviderWithPing',
+        `All ${allProviders.length} providers failed health check. Storage may be temporarily unavailable.`
+      )
+    }
 
     return {
       provider,
@@ -716,9 +746,9 @@ export class StorageContext {
    * @param dev - Include dev providers
    * @returns Selected provider
    */
-  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo> {
+  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo | null> {
     if (providers.length === 0) {
-      throw createError('StorageContext', 'selectRandomProvider', 'No providers available')
+      return null
     }
 
     // Create async generator that yields providers in random order
@@ -742,12 +772,9 @@ export class StorageContext {
    * @returns The first provider that responds
    * @throws If all providers fail
    */
-  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo> {
-    let providerCount = 0
-
+  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo | null> {
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
-      providerCount++
       try {
         // Create a temporary PDPServer for this specific provider's endpoint
         if (!provider.products.PDP?.data.serviceURL) {
@@ -766,16 +793,7 @@ export class StorageContext {
       }
     }
 
-    // All providers failed ping test
-    if (providerCount === 0) {
-      throw createError('StorageContext', 'selectProviderWithPing', 'No providers available to select from')
-    }
-
-    throw createError(
-      'StorageContext',
-      'selectProviderWithPing',
-      `All ${providerCount} providers failed health check. Storage may be temporarily unavailable.`
-    )
+    return null
   }
 
   /**

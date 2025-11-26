@@ -1,9 +1,10 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import type { Chain, Client, Hex, Transport } from 'viem'
+import type { Address, Chain, Client, Hex, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
+import type { SignedEndorsement } from '../utils/cert.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 
 export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
@@ -23,6 +24,7 @@ export interface PDPOffering {
   minProvingPeriodInEpochs: bigint
   location: string
   paymentTokenAddress: Hex
+  endorsements?: Record<Address, SignedEndorsement>
 }
 
 export interface PDPProvider extends ServiceProviderInfo {
@@ -59,7 +61,9 @@ export async function readProviders(client: Client<Transport, Chain>): Promise<P
       providers.push({
         id: provider.providerId,
         ...provider.providerInfo,
-        pdp: decodePDPCapabilities(
+        pdp: await decodePDPCapabilities(
+          provider.providerId,
+          client.chain.id,
           capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
         ),
       })
@@ -83,7 +87,9 @@ export async function getProvider(client: Client<Transport, Chain>, options: Get
   return {
     id: provider.providerId,
     ...provider.providerInfo,
-    pdp: decodePDPCapabilities(
+    pdp: await decodePDPCapabilities(
+      provider.providerId,
+      client.chain.id,
       capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
     ),
   }
