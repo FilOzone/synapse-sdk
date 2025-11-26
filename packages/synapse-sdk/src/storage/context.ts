@@ -705,7 +705,7 @@ export class StorageContext {
       const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
         (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
           results[
-            preferEndorsements.every(
+            preferEndorsements.some(
               (endorsement: Address) => endorsement in (provider.products.PDP?.data.endorsements ?? {})
             )
               ? 1
