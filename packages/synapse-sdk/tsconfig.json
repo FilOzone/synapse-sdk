@@ -17,7 +17,8 @@
       "src/piece/index.ts",
       "src/pdp/index.ts",
       "src/payments/index.ts",
-      "src/storage/index.ts"
+      "src/storage/index.ts",
+      "src/filbeam/index.ts"
     ]
   }
 }

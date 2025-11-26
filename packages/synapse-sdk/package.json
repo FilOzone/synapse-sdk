@@ -46,6 +46,10 @@
     "./sp-registry": {
       "import": "./dist/src/sp-registry/index.js",
       "types": "./dist/src/sp-registry/index.d.ts"
+    },
+    "./filbeam": {
+      "import": "./dist/src/filbeam/index.js",
+      "types": "./dist/src/filbeam/index.d.ts"
     }
   },
   "scripts": {

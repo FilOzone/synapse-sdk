@@ -3,6 +3,7 @@
  */
 
 import { ethers } from 'ethers'
+import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
 import { SessionKey } from './session/key.ts'
@@ -35,6 +36,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
 
   /**
@@ -166,6 +168,9 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
+    // Create FilBeamService
+    const filbeamService = new FilBeamService(network)
+
     // Create and initialize the global TelemetryService.
     // If telemetry is disabled, this will do nothing.
     await initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
@@ -179,6 +184,7 @@ export class Synapse {
       warmStorageAddress,
       warmStorageService,
       pieceRetriever,
+      filbeamService,
       options.dev === false,
       options.withIpni
     )
@@ -194,6 +200,7 @@ export class Synapse {
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
+    filbeamService: FilBeamService,
     dev: boolean,
     withIpni?: boolean
   ) {
@@ -205,6 +212,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._filbeamService = filbeamService
     this._session = null
 
     // Initialize StorageManager
@@ -356,6 +364,15 @@ export class Synapse {
    */
   get storage(): StorageManager {
     return this._storageManager
+  }
+
+  /**
+   * Gets the FilBeam service instance
+   *
+   * @returns The FilBeam service for interacting with FilBeam infrastructure
+   */
+  get filbeam(): FilBeamService {
+    return this._filbeamService
   }
 
   /**
