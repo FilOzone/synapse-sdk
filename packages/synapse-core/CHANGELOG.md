@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.3...synapse-core-v0.1.4) (2025-11-26)
+
+
+### Features
+
+* auctionPriceAt ([#454](https://github.com/FilOzone/synapse-sdk/issues/454)) ([b38d81f](https://github.com/FilOzone/synapse-sdk/commit/b38d81fb912c6388804ba917154be8e2d61151b3))
+
+
+### Chores
+
+* **deps-dev:** bump @biomejs/biome from 2.3.5 to 2.3.6 ([#448](https://github.com/FilOzone/synapse-sdk/issues/448)) ([ebcab4e](https://github.com/FilOzone/synapse-sdk/commit/ebcab4ea166aa69c35d988ff2356b3f5972af351))
+* **deps-dev:** bump @biomejs/biome from 2.3.6 to 2.3.7 ([#459](https://github.com/FilOzone/synapse-sdk/issues/459)) ([d3c65a8](https://github.com/FilOzone/synapse-sdk/commit/d3c65a806e4819bbc560f5a7087f79eec31417a5))
+
 ## [0.1.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.2...synapse-core-v0.1.3) (2025-11-17)
 
 
