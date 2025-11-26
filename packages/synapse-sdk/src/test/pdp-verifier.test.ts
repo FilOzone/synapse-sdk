@@ -11,7 +11,7 @@ import { setup } from 'iso-web/msw'
 import { PDPVerifier } from '../pdp/index.ts'
 import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
-const server = setup([])
+const server = setup()
 
 describe('PDPVerifier', () => {
   let provider: ethers.Provider
@@ -19,7 +19,7 @@ describe('PDPVerifier', () => {
   const testAddress = ADDRESSES.calibration.pdpVerifier
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

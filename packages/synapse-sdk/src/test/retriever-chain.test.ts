@@ -11,7 +11,7 @@ import { ADDRESSES, JSONRPC, PROVIDERS, presets } from './mocks/jsonrpc/index.ts
 import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
 
 // Mock server for testing
-const server = setup([])
+const server = setup()
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
@@ -33,7 +33,7 @@ describe('ChainRetriever', () => {
   let spRegistry: SPRegistryService
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

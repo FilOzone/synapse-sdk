@@ -15,7 +15,7 @@ import { makeDataSetCreatedLog } from './mocks/events.ts'
 import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('WarmStorageService', () => {
   let provider: ethers.Provider
@@ -28,7 +28,7 @@ describe('WarmStorageService', () => {
   }
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

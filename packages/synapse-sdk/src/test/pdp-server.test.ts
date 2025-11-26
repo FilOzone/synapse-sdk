@@ -32,7 +32,7 @@ import {
 } from './mocks/pdp/handlers.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('PDPServer', () => {
   let pdpServer: PDPServer
@@ -45,7 +45,7 @@ describe('PDPServer', () => {
   const TEST_CHAIN_ID = 31337
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

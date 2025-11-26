@@ -16,7 +16,7 @@ import { sanitizeUrlForSpan } from '../telemetry/utils.ts'
 import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // Mock server for testing
-const server = setup([])
+const server = setup()
 
 interface SentryRequest {
   request: Request
@@ -52,7 +52,7 @@ describe('Telemetry', () => {
   let signer: ethers.Signer
 
   beforeEach(async () => {
-    await server.start({ quiet: true })
+    await server.start()
     server.use(JSONRPC(presets.basic))
     mockSentryRequests()
 
