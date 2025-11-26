@@ -170,6 +170,175 @@ describe('Synapse', () => {
     })
   })
 
+  describe('Devnet Support', () => {
+    it('should create instance with devnet chain ID (31415926)', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76', // 31415926 in hex
+        })
+      )
+      const devnetAddresses = {
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        usdfcAddress: '0x2000000000000000000000000000000000000001',
+      }
+      const synapse = await Synapse.create({
+        provider,
+        ...devnetAddresses,
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
+    })
+
+    it('should require multicall3Address for devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76', // devnet chain ID
+        })
+      )
+      try {
+        await Synapse.create({
+          provider,
+          warmStorageAddress: ADDRESSES.calibration.warmStorage,
+          usdfcAddress: '0x2000000000000000000000000000000000000001',
+          // Missing multicall3Address
+        })
+        assert.fail('Should have thrown for missing multicall3Address')
+      } catch (error: any) {
+        assert.include(error.message, 'multicall3Address')
+        assert.include(error.message, 'devnet')
+      }
+    })
+
+    it('should require warmStorageAddress for devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      try {
+        await Synapse.create({
+          provider,
+          multicall3Address: '0x1000000000000000000000000000000000000001',
+          usdfcAddress: '0x2000000000000000000000000000000000000001',
+          // Missing warmStorageAddress
+        })
+        assert.fail('Should have thrown for missing warmStorageAddress')
+      } catch (error: any) {
+        assert.include(error.message, 'warmStorageAddress')
+        assert.include(error.message, 'devnet')
+      }
+    })
+
+    it('should allow usdfcAddress to be auto-discovered from warmStorage on devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      // usdfcAddress is optional - it will be auto-discovered from warmStorage contract
+      const synapse = await Synapse.create({
+        provider,
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        // usdfcAddress not provided - should be auto-discovered
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.payments)
+    })
+
+    it('should accept optional genesisTimestamp for devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      const devnetAddresses = {
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        usdfcAddress: '0x2000000000000000000000000000000000000001',
+        genesisTimestamp: 1234567890,
+      }
+      const synapse = await Synapse.create({
+        provider,
+        ...devnetAddresses,
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.payments)
+    })
+
+    it('should accept optional warmStorageViewAddress for devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      const devnetAddresses = {
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        warmStorageViewAddress: ADDRESSES.calibration.viewContract,
+        usdfcAddress: '0x2000000000000000000000000000000000000001',
+      }
+      const synapse = await Synapse.create({
+        provider,
+        ...devnetAddresses,
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.storage)
+      assert.exists(synapse.payments)
+    })
+
+    it('should create instance with private key on devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      const devnetAddresses = {
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        usdfcAddress: '0x2000000000000000000000000000000000000001',
+      }
+      const synapse = await Synapse.create({
+        privateKey: PRIVATE_KEYS.key1,
+        rpcURL: 'https://api.calibration.node.glif.io/rpc/v1', // use calibration RPC URL for devnet because the local RPC URL is not working in mocks
+        ...devnetAddresses,
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.payments)
+      assert.isTrue(synapse.payments instanceof PaymentsService)
+    })
+
+    it('should disable CDN and IPNI by default on devnet', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          eth_chainId: '0x1DF5E76',
+        })
+      )
+      const devnetAddresses = {
+        multicall3Address: '0x1000000000000000000000000000000000000001',
+        warmStorageAddress: ADDRESSES.calibration.warmStorage,
+        usdfcAddress: '0x2000000000000000000000000000000000000001',
+      }
+      const synapse = await Synapse.create({
+        provider,
+        ...devnetAddresses,
+      })
+      assert.exists(synapse)
+      assert.exists(synapse.storage)
+      // CDN and IPNI should be disabled for devnet (no external services available)
+    })
+  })
+
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
       server.use(JSONRPC(presets.basic))
