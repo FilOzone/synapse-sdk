@@ -4,6 +4,14 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.36.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.0...synapse-sdk-v0.36.1) (2025-11-26)
+
+
+### Chores
+
+* **deps-dev:** bump @biomejs/biome from 2.3.5 to 2.3.6 ([#448](https://github.com/FilOzone/synapse-sdk/issues/448)) ([ebcab4e](https://github.com/FilOzone/synapse-sdk/commit/ebcab4ea166aa69c35d988ff2356b3f5972af351))
+* **deps-dev:** bump @biomejs/biome from 2.3.6 to 2.3.7 ([#459](https://github.com/FilOzone/synapse-sdk/issues/459)) ([d3c65a8](https://github.com/FilOzone/synapse-sdk/commit/d3c65a806e4819bbc560f5a7087f79eec31417a5))
+
 ## [0.36.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.3...synapse-sdk-v0.36.0) (2025-11-17)
 
 
