@@ -1,11 +1,11 @@
-import { createWalletClient, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { toAccount } from 'viem/accounts'
-import TransportNodeHidModule from '@ledgerhq/hw-transport-node-hid'
 import EthModule from '@ledgerhq/hw-app-eth'
+import TransportNodeHidModule from '@ledgerhq/hw-transport-node-hid'
+import { createWalletClient, http } from 'viem'
+import { privateKeyToAccount, toAccount } from 'viem/accounts'
 
 const TransportNodeHid = TransportNodeHidModule.default || TransportNodeHidModule
 const Eth = EthModule.default || EthModule
+
 import { getChain } from '../src/chains.ts'
 import { signEndorsement } from '../src/utils/cert.ts'
 
@@ -38,27 +38,25 @@ if (providerIds.length === 0) {
 async function createLedgerAccount() {
   const transport = await TransportNodeHid.open('')
   const eth = new Eth(transport)
-  
+
   const { address } = await eth.getAddress(LEDGER_PATH)
-  
+
   const account = toAccount({
     address,
     async signMessage({ message }) {
-      const messageHex = typeof message === 'string' 
-        ? Buffer.from(message).toString('hex') 
-        : message.slice(2)
+      const messageHex = typeof message === 'string' ? Buffer.from(message).toString('hex') : message.slice(2)
       const result = await eth.signPersonalMessage(LEDGER_PATH, messageHex)
       return `0x${result.r}${result.s}${(result.v - 27).toString(16).padStart(2, '0')}`
     },
-    async signTransaction(transaction) {
+    async signTransaction(_transaction) {
       throw new Error('signTransaction not needed for this script')
     },
     async signTypedData(typedData) {
       const result = await eth.signEIP712Message(LEDGER_PATH, typedData)
       return `0x${result.r}${result.s}${(result.v - 27).toString(16).padStart(2, '0')}`
-    }
+    },
   })
-  
+
   return { account, close: () => transport.close() }
 }
 
@@ -80,7 +78,7 @@ async function main() {
     CHAIN_ID = result.result
   }
   console.log('ChainId:', Number(CHAIN_ID))
-  
+
   let account
   let closeLedgerTransport = null
   if (USE_LEDGER) {
@@ -95,16 +93,16 @@ async function main() {
   } else {
     account = privateKeyToAccount(PRIVATE_KEY)
   }
-  
+
   try {
     const client = createWalletClient({
       account,
       transport: http(ETH_RPC_URL),
       chain: getChain(Number(CHAIN_ID)),
     })
-    
+
     console.log('Expiry:', new Date(Number(EXPIRY) * 1000).toDateString())
-    
+
     for (const providerId of providerIds) {
       if (USE_LEDGER) console.log('\n⏳ Confirm on Ledger for provider:', providerId)
       const encoded = await signEndorsement(client, {
