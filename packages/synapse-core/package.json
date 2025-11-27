@@ -201,6 +201,7 @@
     }
   },
   "dependencies": {
+    "@hugomrdias/filsnap-adapter": "^3.3.8",
     "@web3-storage/data-segment": "^5.3.0",
     "dnum": "^2.15.0",
     "iso-web": "^2.1.0",
@@ -210,6 +211,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
+    "@ledgerhq/hw-app-eth": "^6.47.1",
+    "@ledgerhq/hw-transport-node-hid": "^6.29.14",
     "@types/assert": "^1.5.11",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
