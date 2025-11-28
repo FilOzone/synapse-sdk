@@ -69,9 +69,8 @@ type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
  * 2. Auto-create context: `{ providerId?, dataSetId?, withCDN?, callbacks?, metadata? }` - creates/reuses context
  * 3. Use default context: `{ callbacks?, metadata? }` - uses cached default context
  *
- * @internal This type is intentionally not exported as it's specific to StorageManager
  */
-interface StorageManagerUploadOptions extends StorageServiceOptions {
+export interface StorageManagerUploadOptions extends StorageServiceOptions {
   // Multiple storage providers: if provided, all other context options are invalid
   contexts?: StorageContext[]
 
