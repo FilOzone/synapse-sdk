@@ -48,6 +48,10 @@
       "types": "./dist/src/abis/index.d.ts",
       "default": "./dist/src/abis/index.js"
     },
+    "./auction": {
+      "types": "./dist/src/auction/index.d.ts",
+      "default": "./dist/src/auction/index.js"
+    },
     "./pay": {
       "types": "./dist/src/pay/index.d.ts",
       "default": "./dist/src/pay/index.js"
