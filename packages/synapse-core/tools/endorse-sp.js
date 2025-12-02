@@ -101,7 +101,7 @@ async function main() {
       chain: getChain(Number(CHAIN_ID)),
     })
 
-    console.log('Expiry:', new Date(Number(EXPIRY) * 1000).toDateString())
+    console.log('Expiry:', new Date(Number(EXPIRY) * 1000).toLocaleString())
 
     for (const providerId of providerIds) {
       if (USE_LEDGER) console.log('\n⏳ Confirm on Ledger for provider:', providerId)
