@@ -97,3 +97,7 @@ img[src*="foc-diagram.png"] {
   height: auto;
   margin: 0 auto;
 }
+
+.site-title span {
+  display: none;
+}

@@ -505,7 +505,7 @@ export class PDPServer {
   async uploadPiece(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
     options?: UploadPieceOptions
-  ): Promise<void> {
+  ): Promise<SP.UploadPieceResponse> {
     if (data instanceof Uint8Array) {
       // Check hard limit
       if (data.length > Piece.MAX_UPLOAD_SIZE) {
@@ -517,7 +517,7 @@ export class PDPServer {
       // Convert to async iterable with chunking
       const iterable = Piece.uint8ArrayToAsyncIterable(data)
 
-      await SP.uploadPieceStreaming({
+      return SP.uploadPieceStreaming({
         endpoint: this._serviceURL,
         data: iterable,
         size: data.length, // Known size for Content-Length
@@ -527,7 +527,7 @@ export class PDPServer {
       })
     } else {
       // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
-      await SP.uploadPieceStreaming({
+      return SP.uploadPieceStreaming({
         endpoint: this._serviceURL,
         data,
         // size unknown for streams
