@@ -66,25 +66,6 @@
  * }, 60000) // Check every minute
  * ```
  *
- * @example Testing with Mock Fetch
- * ```typescript
- * import { FilBeamService } from '@filoz/synapse-sdk/filbeam'
- *
- * // Create service with mock fetch for testing
- * const mockFetch = async (url: string) => {
- *   return {
- *     status: 200,
- *     json: async () => ({
- *       cdnEgressQuota: '1099511627776', // 1 TiB in bytes
- *       cacheMissEgressQuota: '549755813888' // 0.5 TiB in bytes
- *     })
- *   } as Response
- * }
- *
- * const service = new FilBeamService('mainnet', mockFetch)
- * const stats = await service.getDataSetStats('test')
- * ```
- *
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  * @see {@link https://meridian.space/blog/introducing-pay-per-byte-a-new-era-for-filecoin-retrieval | Pay Per Byte Blog Post} - Introduction to the pay-per-byte pricing model
  * @see {@link DataSetStats} for the structure of returned statistics
