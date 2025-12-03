@@ -207,4 +207,41 @@ describe('PDPVerifier', () => {
       assert.equal(address, testAddress)
     })
   })
+
+  describe('getScheduledRemovals', () => {
+    it('should get scheduled removals for a data set', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[1n, 2n, 5n]],
+          },
+        })
+      )
+
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      assert.isArray(scheduledRemovals)
+      assert.equal(scheduledRemovals.length, 3)
+      assert.equal(scheduledRemovals[0], 1)
+      assert.equal(scheduledRemovals[1], 2)
+      assert.equal(scheduledRemovals[2], 5)
+    })
+
+    it('should return empty array when no removals scheduled', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[]],
+          },
+        })
+      )
+
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      assert.isArray(scheduledRemovals)
+      assert.equal(scheduledRemovals.length, 0)
+    })
+  })
 })

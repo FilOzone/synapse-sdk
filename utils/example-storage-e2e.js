@@ -19,7 +19,7 @@
  */
 
 import { ethers } from 'ethers'
-import { readFile } from 'fs/promises'
+import fsPromises from 'fs/promises'
 import {
   ADD_PIECES_TYPEHASH,
   CREATE_DATA_SET_TYPEHASH,
@@ -78,18 +78,21 @@ async function main() {
     // Currently we deal in Uint8Array blobs, so we have to read files into memory
     for (const filePath of filePaths) {
       console.log(`  Reading file: ${filePath}`)
-      const fileData = await readFile(filePath)
-      console.log(`    File size: ${formatBytes(fileData.length)}`)
-
-      // Check per-file size limit
-      if (fileData.length > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
+      const stat = await fsPromises.stat(filePath)
+      if (!stat.isFile()) {
+        throw new Error(`Path is not a file: ${filePath}`)
+      }
+      if (stat.size > SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES) {
         throw new Error(
-          `File ${filePath} size (${formatBytes(fileData.length)}) exceeds maximum allowed size of ${formatBytes(SIZE_CONSTANTS.MAX_UPLOAD_SIZE)}`
+          `File exceeds maximum size of ${formatBytes(
+            SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES
+          )}: ${filePath} (${formatBytes(stat.size)})`
         )
       }
+      const fh = await fsPromises.open(filePath, 'r')
 
-      files.push({ path: filePath, data: fileData })
-      totalSize += fileData.length
+      files.push({ path: filePath, handle: fh, length: stat.size })
+      totalSize += stat.size
     }
 
     // Create Synapse instance
@@ -165,10 +168,15 @@ async function main() {
     }
 
     // Create storage context (optional - synapse.storage.upload() will auto-create if needed)
-    // We create it explicitly here to show provider selection and data set creation callbacks
+    // We create it explicitly here to show provider selection and data set creation callbacks.
+    //
+    // Currently we create a single context, but multiple can be created for multi-provider uploads.
+    // Multi-provider uploads is currently an experimental feature. A single context can also be
+    // created using the synapse.storage.createContext() method.
     console.log('\n--- Setting Up Storage Context ---')
     const contexts = await synapse.storage.createContexts({
-      // providerIds: [123], // Optional: specify provider IDs
+      // providerId: 1, // Optional: specify provider ID
+      count: 1,
       withCDN: false, // Set to true if you want CDN support
       callbacks: {
         onProviderSelected: (provider) => {
@@ -241,41 +249,48 @@ async function main() {
     }
 
     // Start all uploads without waiting (collect promises and not block with await)
-    const uploadPromises = files.map((file, index) => {
+    const uploadPromises = files.map(async (file, index) => {
       let pfx = ''
       if (files.length > 1) {
         pfx = `[File ${index + 1}/${files.length}] `
       }
 
-      // Track progress in 50MiB chunks
-      const PROGRESS_CHUNK_SIZE = 50 * 1024 * 1024 // 50 MiB
+      // Track progress in chunks
+      const PROGRESS_CHUNK_SIZE = 10 * 1024 * 1024 // 10 MiB
       let lastReportedBytes = 0
-      let data = file.data
+      let data
       if (contexts.length !== 1) {
-        // Streaming currently unsupported for multiple providers, collect into a Uint8Array
-        data = Uint8Array.from(file.data)
+        // Streaming currently unsupported for multiple providers, collect into a buffer
+        data = await file.handle.readFile()
+      } else {
+        data = file.handle.readableWebStream()
       }
 
       return synapse.storage.upload(data, {
         contexts,
-        onProgress: (bytesUploaded) => {
-          // Report progress every 50MiB or at completion
-          if (bytesUploaded - lastReportedBytes >= PROGRESS_CHUNK_SIZE || bytesUploaded === file.data.length) {
-            const percent = ((bytesUploaded / file.data.length) * 100).toFixed(1)
-            console.log(
-              `  ${pfx}Upload progress: ${formatBytes(bytesUploaded)} / ${formatBytes(file.data.length)} (${percent}%)`
-            )
-            lastReportedBytes = bytesUploaded
-          }
-        },
-        onUploadComplete: (pieceCid) => {
-          console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
-        },
-        onPieceAdded: (transactionHash) => {
-          console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
-        },
-        onPieceConfirmed: (pieceIds) => {
-          console.log(`✓ ${pfx}Piece addition confirmed! IDs: ${pieceIds.join(', ')}`)
+        callbacks: {
+          onProgress: (bytesUploaded) => {
+            if (bytesUploaded - lastReportedBytes >= PROGRESS_CHUNK_SIZE || bytesUploaded === file.length) {
+              let progressMsg = ''
+              if (file.length !== -1) {
+                const percent = ((bytesUploaded / file.length) * 100).toFixed(1)
+                progressMsg = `${formatBytes(bytesUploaded)} / ${formatBytes(file.length)} (${percent}%)`
+              } else {
+                progressMsg = `${formatBytes(bytesUploaded)}`
+              }
+              console.log(`  ${pfx}Upload progress: ${progressMsg}`)
+              lastReportedBytes = bytesUploaded
+            }
+          },
+          onUploadComplete: (pieceCid) => {
+            console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
+          },
+          onPieceAdded: (transactionHash) => {
+            console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
+          },
+          onPieceConfirmed: (pieceIds) => {
+            console.log(`✓ ${pfx}Piece addition confirmed! ID(s): ${pieceIds.join(', ')}`)
+          },
         },
       })
     })
@@ -283,21 +298,15 @@ async function main() {
     // Wait for all uploads to complete in parallel
     const uploadResults = await Promise.all(uploadPromises)
 
+    // Close all file handles
+    await Promise.all(files.map((file) => file.handle.close()))
+
     console.log('\n--- Upload Summary ---')
     uploadResults.forEach((fileResult, fileIndex) => {
       console.log(`File ${fileIndex + 1}: ${files[fileIndex].path}`)
-      fileResult.forEach((spResult, spIndex) => {
-        console.log(`  ProviderId: ${contexts[spIndex].provider.id}`)
-        if (spResult.status === 'fulfilled') {
-          const uploaded = spResult.value
-          console.log(`    PieceCID: ${uploaded.pieceCid}`)
-          console.log(`    Size: ${formatBytes(uploaded.size)}`)
-          console.log(`    Piece ID: ${uploaded.pieceId}`)
-        } else {
-          const reason = spResult.reason
-          console.error(`    Failure reason: ${reason.message}`)
-        }
-      })
+      console.log(`    PieceCID: ${fileResult.pieceCid}`)
+      console.log(`    Size: ${formatBytes(fileResult.size)}`)
+      console.log(`    Piece ID: ${fileResult.pieceId}`)
     })
 
     // Download all files back in parallel
@@ -306,16 +315,10 @@ async function main() {
 
     // Start all downloads without waiting (collect promises)
     const downloadPromises = uploadResults.map((fileResult, index) => {
-      const pieceCid = fileResult.find((res) => res.status === 'fulfilled')?.value.pieceCid
-      if (pieceCid == null) {
-        console.error(`  Skipping download because no successful upload`)
-        return new Promise((resolve) => resolve(null))
-      } else {
-        console.log(`  Downloading file ${index + 1}: ${pieceCid}`)
-        // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
-        // Could also use storageContext.download() to download from the specific provider
-        return synapse.storage.download(pieceCid)
-      }
+      console.log(`  Downloading file ${index + 1}: ${fileResult.pieceCid}`)
+      // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
+      // Could also use storageContext.download() to download from the specific provider
+      return synapse.storage.download(fileResult.pieceCid)
     })
 
     // Wait for all downloads to complete in parallel
@@ -333,7 +336,10 @@ async function main() {
         console.warn(`Skipped File ${i + 1} (${files[i].path})`)
         continue
       }
-      const originalData = files[i].data
+
+      // This isn't pretty (or recommended), but just to demonstrate that our verified download
+      // verified the data correctly, we'll do a direct comparison of the bytes
+      const originalData = await fsPromises.readFile(files[i].path)
       const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
 
       console.log(
@@ -355,60 +361,58 @@ async function main() {
     // Check piece status for all files
     console.log('\n--- Piece Status ---')
 
-    for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
-      const storageContext = contexts[spIndex]
-      const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
-      // Check status for the first piece (data set info is shared)
-      const pieceCid = uploadResults[0][spIndex].value?.pieceCid
-      if (pieceCid == null) {
-        continue
-      }
-      const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
-      console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
-      if (firstPieceStatus.dataSetLastProven) {
-        console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
-      }
-      if (firstPieceStatus.dataSetNextProofDue) {
-        console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
-      }
-      if (firstPieceStatus.inChallengeWindow) {
-        console.log('Currently in challenge window - proof must be submitted soon')
-      } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
-        console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
-      }
+    for (const fileResult of uploadResults) {
+      const pieceCid = fileResult.pieceCid
 
-      const providerInfo = storageContext.provider
-      // Show storage info
-      console.log(`\n--- Storage Information${providerLabel} ---`)
-      const fileText = files.length !== 1 ? 'files are' : 'file is'
-      console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
-      console.log(`- Data set ID: ${storageContext.dataSetId}`)
-      console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
+      for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
+        const storageContext = contexts[spIndex]
+        const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
+        // Check status for the first piece (data set info is shared)
+        const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
+        console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
+        if (firstPieceStatus.dataSetLastProven) {
+          console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
+        }
+        if (firstPieceStatus.dataSetNextProofDue) {
+          console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
+        }
+        if (firstPieceStatus.inChallengeWindow) {
+          console.log('Currently in challenge window - proof must be submitted soon')
+        } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
+          console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
+        }
 
-      console.log('\nUploaded pieces:')
-      uploadResults.forEach((fileResult, fileIndex) => {
-        console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
-        if (fileResult[spIndex].status === 'fulfilled') {
-          const result = fileResult[spIndex].value
-          console.log(`    PieceCID: ${result.pieceCid}`)
-          console.log(`    Piece ID: ${result.pieceId}`)
-          console.log(`    Size: ${formatBytes(result.size)}`)
+        const providerInfo = storageContext.provider
+        // Show storage info
+        console.log(`\n--- Storage Information${providerLabel} ---`)
+        const fileText = files.length !== 1 ? 'files are' : 'file is'
+        console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
+        console.log(`- Data set ID: ${storageContext.dataSetId}`)
+        console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
+
+        console.log('\nUploaded pieces:')
+        uploadResults.forEach((fileResult, fileIndex) => {
+          console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
+          console.log(`    PieceCID: ${fileResult.pieceCid}`)
+          console.log(`    Piece ID: ${fileResult.pieceId}`)
+          console.log(`    Size: ${formatBytes(fileResult.size)}`)
           if (providerInfo.products.PDP?.data.serviceURL) {
             console.log(
-              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${result.pieceCid}`
+              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
             )
           }
-        }
-      })
+        })
+      }
     }
 
-    console.log('\nThe service provider will periodically prove they still have your data.')
+    console.log('\nThe service provider(s) will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
     console.error('\n❌ Error:', error.message)
     if (error.cause) {
       console.error('Caused by:', error.cause.message)
     }
+    console.error(error)
     process.exit(1)
   }
 }

@@ -4,6 +4,33 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.36.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.3...synapse-sdk-v0.36.0) (2025-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* revert golden path upload() API + minor fixes ([#446](https://github.com/FilOzone/synapse-sdk/issues/446))
+
+### Features
+
+* streaming upload support ([9510752](https://github.com/FilOzone/synapse-sdk/commit/95107525d2dc71590cfbe07ab9d53f59fe44252f))
+
+
+### Bug Fixes
+
+* error outputs out of lotus are weird ([#411](https://github.com/FilOzone/synapse-sdk/issues/411)) ([341eeff](https://github.com/FilOzone/synapse-sdk/commit/341eeff0692b768e7a8cf99c74511df58e719192))
+* revert golden path upload() API + minor fixes ([#446](https://github.com/FilOzone/synapse-sdk/issues/446)) ([12d11e9](https://github.com/FilOzone/synapse-sdk/commit/12d11e9df2232186b5918cce3ef60cc9e2a6b676))
+
+
+### Chores
+
+* converts test to jsonrpc mocks ([#408](https://github.com/FilOzone/synapse-sdk/issues/408)) ([6f3a09e](https://github.com/FilOzone/synapse-sdk/commit/6f3a09e458e9a137af9489fa8f8111b50c4676db))
+* plumb AbortSignal through upload flow, address feedback ([077fc92](https://github.com/FilOzone/synapse-sdk/commit/077fc921a9522e6aafd8625c4b415f0031ad1a23))
+* remove unused code ([503f5f0](https://github.com/FilOzone/synapse-sdk/commit/503f5f0ef2ec0aaceeed62e6905100753b40886a))
+* update calibnet SessionKeyRegistry address ([#431](https://github.com/FilOzone/synapse-sdk/issues/431)) ([3137130](https://github.com/FilOzone/synapse-sdk/commit/3137130d2daf816739f51c30df372b31ba62668f))
+* update deps ([#432](https://github.com/FilOzone/synapse-sdk/issues/432)) ([6a9205b](https://github.com/FilOzone/synapse-sdk/commit/6a9205beede7b425469608980d2500c16884aa08))
+* use splice instead of double slice ([#400](https://github.com/FilOzone/synapse-sdk/issues/400)) ([681df95](https://github.com/FilOzone/synapse-sdk/commit/681df95bd376726fe403af2dd881db569af3227c))
+
 ## [0.35.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.2...synapse-sdk-v0.35.3) (2025-11-04)
 
 
