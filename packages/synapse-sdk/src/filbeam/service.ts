@@ -8,9 +8,9 @@
  * transforming Filecoin from a passive archival system to an active data delivery network.
  *
  * FilBeam measures actual egress volumes through real client traffic, enabling storage providers
- * to be compensated for data retrieval at 7 USDFC per TiB of egress.
+ * to be compensated for data retrieval based on measured egress.
  *
- * @see {@link https://docs.filbeam.com | FilBeam Documentation} for comprehensive API documentation
+ * @see {@link https://docs.filbeam.com | FilBeam Docs} for full documentation
  */
 
 import type { FilecoinNetworkType } from '../types.ts'
@@ -103,8 +103,8 @@ export class FilBeamService {
    * - **CDN Egress Quota**: Remaining bytes that can be served from FilBeam's cache (fast, direct delivery)
    * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (triggers caching)
    *
-   * Both types of egress are billed at approximately 0.014 USDFC per GiB, with storage
-   * providers receiving 7 USDFC per TiB for data served to FilBeam.
+   * Both types of egress are billed based on volume. Query current pricing via
+   * {@link WarmStorageService.getServicePrice} or see https://docs.filbeam.com for rates.
    *
    * @param dataSetId - The unique identifier of the data set to query
    * @returns A promise that resolves to the data set statistics with remaining quotas as BigInt values

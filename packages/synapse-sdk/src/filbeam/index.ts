@@ -10,8 +10,8 @@
  *
  * - **Trusted Measurement**: Accurately tracks data egress from storage providers
  * - **Dual-Tier Architecture**: Differentiates between CDN cache hits and cache misses
- * - **Economic Incentives**: Enables storage providers to earn 7 USDFC per TiB served
- * - **Pay-As-You-Go**: Clients pay only for what they use (~0.014 USDFC per GiB)
+ * - **Economic Incentives**: Enables storage providers to earn based on data served
+ * - **Pay-As-You-Go**: Clients pay only for actual egress consumed
  * - **No Subscriptions**: Wallet-centric model without monthly fees
  *
  * ## Architecture
