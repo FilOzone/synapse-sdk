@@ -1,8 +1,9 @@
 import { formatBalance } from '@filoz/synapse-core/utils'
 import { useAddUsdfc, useERC20Balance, useFundWallet } from '@filoz/synapse-react'
+import { isLedgerConnector } from '@filoz/synapse-react/ledger'
 import { ArrowUpRight, Copy, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAccount, useBalance, useDisconnect } from 'wagmi'
+import { useBalance, useConnection, useDisconnect } from 'wagmi'
 import * as Icons from '@/components/icons.tsx'
 import { Button } from '@/components/ui/button.tsx'
 import {
@@ -18,9 +19,10 @@ import {
 import { useCopyToClipboard } from '@/hooks/use-clipboard.ts'
 import { toastError, truncateMiddle } from '@/lib/utils.ts'
 import { ExplorerLink } from './explorer-link.tsx'
+import { LedgerChangeAccountDialog } from './wallet-menu/ledger-change-account.tsx'
 
 export function WalletMenu() {
-  const { address } = useAccount()
+  const { address, connector } = useConnection()
   const { disconnect } = useDisconnect()
   const [_, copyToClipboard] = useCopyToClipboard()
   const { data: balance } = useBalance({
@@ -86,6 +88,7 @@ export function WalletMenu() {
               <Icons.Usdfc />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+          {isLedgerConnector(connector) && <LedgerChangeAccountDialog />}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuLabel>Tools</DropdownMenuLabel>
