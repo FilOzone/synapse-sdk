@@ -1,28 +1,28 @@
 /**
  * FilBeam Service
  *
- * This module provides access to FilBeam's services and trusted measurement layer.
- * FilBeam solves the fundamental challenge that proving data retrieval
- * is cryptographically impossible without enabling fraud, by acting
- * as a trusted intermediary that measures actual egress volumes through real client traffic.
+ * Client for the FilBeam stats API.
  *
- * ## Key Features
+ * ## Overview
  *
- * - **Trusted Measurement**: Accurately tracks data egress from storage providers
- * - **Dual-Tier Architecture**: Differentiates between CDN cache hits and cache misses
- * - **Economic Incentives**: Enables storage providers to earn based on data served
- * - **Pay-As-You-Go**: Clients pay only for actual egress consumed
- * - **No Subscriptions**: Wallet-centric model without monthly fees
+ * FilBeam enables retrieval incentives for Filecoin PDP (Proof of Data Possession)
+ * service providers by acting as a trusted intermediary that measures traffic
+ * between clients and storage providers.
  *
  * ## Architecture
  *
- * FilBeam operates as a caching layer between clients and storage providers:
+ * FilBeam operates as a caching layer between clients and storage providers,
+ * enabling efficient retrieval of content-addressable data stored on Filecoin PDP.
  *
- * 1. **Cache Hits**: Data served directly from FilBeam's CDN (fast, efficient)
- * 2. **Cache Misses**: Data retrieved from storage providers and cached for future use
+ * ```
+ * Client  <-->  FilBeam (cache + metering)  <-->  Storage Provider
+ * ```
  *
- * Both scenarios generate billable egress events, transforming Filecoin from passive
- * archival storage to an active "serve many" data delivery infrastructure.
+ * ## Billing Model
+ *
+ * Both cache hits and cache misses generate billable egress events. This transforms
+ * Filecoin from passive archival storage into an active "serve many" data delivery
+ * infrastructure, where service providers are compensated for serving retrievals.
  *
  * @module FilBeam
  *

@@ -3,14 +3,9 @@
  * @description FilBeam service integration for Filecoin's pay-per-byte infrastructure.
  *
  * This module provides integration with FilBeam's services, including querying egress quotas
- * and managing pay-per-byte data delivery metrics. FilBeam serves as
- * the trusted measurement layer that enables Filecoin's "Pay Per Byte" pricing model,
- * transforming Filecoin from a passive archival system to an active data delivery network.
+ * and managing pay-per-byte data delivery metrics.
  *
- * FilBeam measures actual egress volumes through real client traffic, enabling storage providers
- * to be compensated for data retrieval based on measured egress.
- *
- * @see {@link https://docs.filbeam.com | FilBeam Docs} for full documentation
+ * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
 import type { FilecoinNetworkType } from '../types.ts'
