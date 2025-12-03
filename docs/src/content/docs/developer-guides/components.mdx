@@ -518,7 +518,7 @@ const clientDataSetId = null as unknown as bigint;
 const payee = null as unknown as string;
 const dataSetId = null as unknown as number;
 const pieceDataArray = null as unknown as PieceCID[] | string[];
-const data = null as unknown as Uint8Array | ArrayBuffer;
+const data = null as unknown as Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>;
 const datasetMetadata = null as unknown as MetadataEntry[];
 const piecesMetadata = null as unknown as MetadataEntry[][];
 const payer = null as unknown as string;
@@ -583,7 +583,7 @@ console.log(`Dataset ${dataSet.id}: ${dataSet.pieces.length} pieces`);
 
 **PieceCID Utilities Example**:
 
-```typescript
+```ts
 import {
   calculate,
   asPieceCID,
