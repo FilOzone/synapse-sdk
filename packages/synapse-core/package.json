@@ -79,6 +79,10 @@
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
       "default": "./dist/src/utils/index.js"
+    },
+    "./ledger": {
+      "types": "./dist/src/ledger.d.ts",
+      "default": "./dist/src/ledger.js"
     }
   },
   "typesVersions": {
@@ -115,6 +119,9 @@
       ],
       "piece": [
         "./dist/src/piece"
+      ],
+      "ledger": [
+        "./dist/src/ledger"
       ]
     }
   },
@@ -192,7 +199,7 @@
     "dnum": "^2.15.0",
     "iso-web": "^2.1.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.12",
+    "ox": "^0.9.17",
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
@@ -201,7 +208,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.7.2",
     "@wagmi/cli": "^2.7.0",
-    "abitype": "^1.1.1",
+    "abitype": "^1.2.0",
     "assert": "^2.1.0",
     "mocha": "^11.7.4",
     "playwright-test": "^14.1.12",
