@@ -29,6 +29,24 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
+    },
+    "./filsnap": {
+      "types": "./dist/src/filsnap.d.ts",
+      "default": "./dist/src/filsnap.js"
+    },
+    "./ledger": {
+      "types": "./dist/src/ledger.d.ts",
+      "default": "./dist/src/ledger.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "filsnap": [
+        "./dist/src/filsnap"
+      ],
+      "ledger": [
+        "./dist/src/ledger"
+      ]
     }
   },
   "files": [
@@ -70,7 +88,8 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "@hugomrdias/filsnap-adapter": "^3.3.8"
+    "@hugomrdias/filsnap-adapter": "^3.3.8",
+    "@ledgerhq/hw-transport-webhid": "^6.30.9"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
@@ -88,7 +107,8 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "5.x",
+    "@wagmi/core": "3.x",
     "viem": "2.x",
-    "wagmi": "2.x"
+    "wagmi": "3.x"
   }
 }
