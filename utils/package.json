@@ -8,6 +8,6 @@
   },
   "dependencies": {
     "@filoz/synapse-sdk": "workspace:*",
-    "ethers": "^6.15.0"
+    "ethers": "^6.16.0"
   }
 }
