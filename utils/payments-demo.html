@@ -755,9 +755,9 @@ Max Lockup Period: ${approval.maxLockupPeriod} epochs (${Number(approval.maxLock
 
         function getExplorerUrl(txHash) {
             if (network === 'mainnet') {
-                return `https://filfox.info/en/tx/${txHash}`;
+                return `https://filecoin.blockscout.com/tx/${txHash}`;
             } else {
-                return `https://calibration.filfox.info/en/tx/${txHash}`;
+                return `https://filecoin-testnet.blockscout.com/tx/${txHash}`;
             }
         }
 

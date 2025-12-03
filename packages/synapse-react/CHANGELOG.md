@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.2...synapse-react-v0.1.3) (2025-11-17)
+
+
+### Chores
+
+* update deps ([#432](https://github.com/FilOzone/synapse-sdk/issues/432)) ([6a9205b](https://github.com/FilOzone/synapse-sdk/commit/6a9205beede7b425469608980d2500c16884aa08))
+
 ## [0.1.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.1...synapse-react-v0.1.2) (2025-11-04)
 
 

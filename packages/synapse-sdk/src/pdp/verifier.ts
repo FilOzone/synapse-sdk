@@ -166,6 +166,16 @@ export class PDPVerifier {
   }
 
   /**
+   * Get pieces scheduled for removal from a data set
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns Array of piece IDs scheduled for removal
+   */
+  async getScheduledRemovals(dataSetId: number): Promise<number[]> {
+    const result = await this._contract.getScheduledRemovals(dataSetId)
+    return result.map((pieceId: bigint) => Number(pieceId))
+  }
+
+  /**
    * Get the PDPVerifier contract address for the current network
    */
   getContractAddress(): string {

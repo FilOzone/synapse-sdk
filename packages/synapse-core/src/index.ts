@@ -10,6 +10,7 @@
  */
 
 export * as abis from './abis/index.ts'
+export * as auction from './auction/index.ts'
 export * as chains from './chains.ts'
 export * as erc20 from './erc20.ts'
 export * as errors from './errors/index.ts'
