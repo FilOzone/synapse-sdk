@@ -35,8 +35,8 @@ import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
   CreateContextsOptions,
+  DataSetInfo,
   DownloadOptions,
-  EnhancedDataSetInfo,
   MetadataEntry,
   PieceCID,
   PieceStatus,
@@ -391,19 +391,15 @@ export class StorageContext {
     signerAddress: string,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    // Optimized approach: fetch only the single dataset we need instead of all client datasets
-    // This avoids expensive getClientDataSetsWithDetails() which does multicalls for ALL datasets
-
-    // Step 1: Validate that dataset is live and managed (throws if not)
-    await warmStorageService.validateDataSet(dataSetId)
-
-    // Step 2: Get basic dataset info and metadata in parallel
     const [dataSetInfo, dataSetMetadata] = await Promise.all([
-      warmStorageService.getDataSet(dataSetId),
+      warmStorageService.getDataSet(dataSetId).then(async (dataSetInfo) => {
+        await StorageContext.validateDataSetConsistency(dataSetInfo, options, spRegistry)
+        return dataSetInfo
+      }),
       warmStorageService.getDataSetMetadata(dataSetId),
+      warmStorageService.validateDataSet(dataSetId),
     ])
 
-    // Step 3: Verify ownership
     if (dataSetInfo.payer.toLowerCase() !== signerAddress.toLowerCase()) {
       throw createError(
         'StorageContext',
@@ -412,23 +408,6 @@ export class StorageContext {
       )
     }
 
-    // Step 4: Validate consistency with other parameters if provided
-    if (options.providerId != null || options.providerAddress != null) {
-      // Create minimal EnhancedDataSetInfo for validation
-      const enhancedInfo: EnhancedDataSetInfo = {
-        ...dataSetInfo,
-        pdpVerifierDataSetId: dataSetId,
-        nextPieceId: 0, // Not needed for validation
-        currentPieceCount: 0, // Not needed for validation
-        isLive: true, // Already validated above
-        isManaged: true, // Already validated above
-        withCDN: dataSetInfo.cdnRailId > 0,
-        metadata: dataSetMetadata,
-      }
-      await StorageContext.validateDataSetConsistency(enhancedInfo, options, spRegistry)
-    }
-
-    // Step 5: Look up provider by ID from the data set
     const provider = await spRegistry.getProvider(dataSetInfo.providerId)
     if (provider == null) {
       throw createError(
@@ -438,7 +417,6 @@ export class StorageContext {
       )
     }
 
-    // Step 6: Validate CDN settings match if specified
     const withCDN = dataSetInfo.cdnRailId > 0
     if (options.withCDN != null && withCDN !== options.withCDN) {
       throw createError(
@@ -461,7 +439,7 @@ export class StorageContext {
    * Validate data set consistency with provided options
    */
   private static async validateDataSetConsistency(
-    dataSet: EnhancedDataSetInfo,
+    dataSet: DataSetInfo,
     options: StorageServiceOptions,
     spRegistry: SPRegistryService
   ): Promise<void> {
@@ -471,8 +449,7 @@ export class StorageContext {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${dataSet.providerId}, ` +
-            `but provider ID ${options.providerId} was requested`
+          `Data set belongs to provider ID ${dataSet.providerId}, but provider ID ${options.providerId} was requested`
         )
       }
     }
@@ -488,8 +465,7 @@ export class StorageContext {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${actualProvider?.serviceProvider ?? 'unknown'}, ` +
-            `but provider ${options.providerAddress} was requested`
+          `Data set belongs to provider ${actualProvider?.serviceProvider ?? 'unknown'}, but provider ${options.providerAddress} was requested`
         )
       }
     }
