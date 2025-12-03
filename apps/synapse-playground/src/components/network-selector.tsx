@@ -1,13 +1,13 @@
 import { useStore } from '@nanostores/react'
 import { useEffect } from 'react'
-import { useAccount, useSwitchChain } from 'wagmi'
+import { useConnection, useSwitchChain } from 'wagmi'
 import { filecoin, filecoinCalibration } from 'wagmi/chains'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx'
 import { store } from '@/lib/store.ts'
 
 export function NetworkSelector() {
   const { network } = useStore(store, { keys: ['network'] })
-  const { chainId } = useAccount()
+  const { chainId } = useConnection()
   const { switchChain } = useSwitchChain()
 
   // update the network in the store when the chainId changes
