@@ -18,7 +18,7 @@
     "@filoz/synapse-sdk": "workspace:^",
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
-    "viem": "^2.38.4"
+    "viem": "^2.40.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.8",
