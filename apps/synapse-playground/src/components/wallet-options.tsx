@@ -1,14 +1,22 @@
-import { useFilsnap } from '@filoz/synapse-react'
+import { useFilsnap } from '@filoz/synapse-react/filsnap'
 import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
-import { type Connector, useConnect } from 'wagmi'
+import { type Connector, useConnect, useConnectors } from 'wagmi'
 import { filecoin, filecoinCalibration } from 'wagmi/chains'
 import { store } from '@/lib/store.ts'
+import { toastError } from '@/lib/utils.ts'
 import { Button } from './ui/button.tsx'
 
 export function WalletOptions() {
-  const { connectors, connect } = useConnect()
+  const connectors = useConnectors()
   const { network } = useStore(store, { keys: ['network'] })
+  const { connect, isPending } = useConnect({
+    mutation: {
+      onError: (error) => {
+        toastError(error, 'connect-wallet', 'Connecting wallet failed')
+      },
+    },
+  })
   useFilsnap({
     // force: true,
   })
@@ -20,6 +28,7 @@ export function WalletOptions() {
     return (
       <WalletOption
         connector={connector}
+        isPending={isPending}
         key={connector.uid}
         onClick={() => {
           connect({
@@ -32,7 +41,15 @@ export function WalletOptions() {
   })
 }
 
-function WalletOption({ connector, onClick }: { connector: Connector; onClick: () => void }) {
+function WalletOption({
+  connector,
+  onClick,
+  isPending,
+}: {
+  connector: Connector
+  onClick: () => void
+  isPending: boolean
+}) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -43,7 +60,7 @@ function WalletOption({ connector, onClick }: { connector: Connector; onClick: (
   }, [connector])
 
   return (
-    <Button disabled={!ready} onClick={onClick} type="button">
+    <Button disabled={!ready || isPending} onClick={onClick} type="button">
       {connector.name}
     </Button>
   )
