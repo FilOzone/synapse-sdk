@@ -77,7 +77,7 @@ export function LedgerChangeAccountDialog() {
                     required: 'Address Index is required',
                     validate: (value) => {
                       if (value < 0) {
-                        return 'Address Index must be greater than 0'
+                        return 'Address Index must be equal or greater than 0'
                       }
                       return true
                     },
