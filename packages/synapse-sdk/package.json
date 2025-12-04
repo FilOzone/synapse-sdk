@@ -1,6 +1,6 @@
 {
   "name": "@filoz/synapse-sdk",
-  "version": "0.36.0",
+  "version": "0.36.1",
   "description": "JavaScript SDK for Filecoin Onchain Cloud",
   "repository": {
     "type": "git",
@@ -135,9 +135,9 @@
     "@wagmi/cli": "^2.7.0",
     "abitype": "^1.1.1",
     "chai": "^6.2.0",
-    "iso-web": "^1.4.3",
+    "iso-web": "^2.0.0",
     "mocha": "^11.7.4",
-    "msw": "~2.10.5",
+    "msw": "~2.12.4",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",

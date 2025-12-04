@@ -11,8 +11,8 @@ describe('WarmStorageService Metadata', () => {
   let warmStorageService: WarmStorageService
 
   before(async () => {
-    server = setup([])
-    await server.start({ quiet: true })
+    server = setup()
+    await server.start()
   })
 
   after(() => {
