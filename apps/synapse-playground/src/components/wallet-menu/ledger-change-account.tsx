@@ -26,19 +26,19 @@ import {
 import { Input } from '@/components/ui/input.tsx'
 import { DropdownMenuItem } from '../ui/dropdown-menu.tsx'
 
-const withdrawFormSchema = z.object({
+const changeAccountFormSchema = z.object({
   addressIndex: z.number().min(0),
 })
 export function LedgerChangeAccountDialog() {
   const { connector } = useConnection()
   const [open, setOpen] = useState(false)
-  const form = useForm<z.infer<typeof withdrawFormSchema>>({
+  const form = useForm<z.infer<typeof changeAccountFormSchema>>({
     defaultValues: {
       addressIndex: 0,
     },
   })
 
-  function onSubmit(values: z.infer<typeof withdrawFormSchema>) {
+  function onSubmit(values: z.infer<typeof changeAccountFormSchema>) {
     if (isLedgerConnector(connector)) {
       connector.changeAccount({ addressIndex: values.addressIndex })
       setOpen(false)
