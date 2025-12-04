@@ -169,11 +169,11 @@ export function ledger({
           navigator.hid.removeEventListener('disconnect', onHidDisconnect)
           onHidDisconnect = undefined
         }
-        await config.storage?.removeItem('ledgerDevice')
         const device = await findDevice(config)
         if (device) {
           await device.forget()
         }
+        await config.storage?.removeItem('ledgerDevice')
       },
 
       async getClient(parameters?: { chainId?: number | undefined }) {
@@ -256,7 +256,10 @@ export function ledger({
         }
         return _eth
       },
-      async changeAccount({ accountIndex = 0, changeIndex = 0, addressIndex = 0 }: DerivationPathParts = {}) {
+      async changeAccount(parts: DerivationPathParts = {}) {
+        accountIndex = parts.accountIndex ?? accountIndex
+        changeIndex = parts.changeIndex ?? changeIndex
+        addressIndex = parts.addressIndex ?? addressIndex
         path = `m/44'/60'/${accountIndex}'/${changeIndex}/${addressIndex}`
         const accounts = await this.getAccounts()
 
