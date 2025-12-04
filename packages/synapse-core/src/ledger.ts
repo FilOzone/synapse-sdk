@@ -149,7 +149,7 @@ export async function ledgerToAccount({
         ...parameters.types,
       }
 
-      const domainSeperator = hashDomain({
+      const domainSeparator = hashDomain({
         domain,
         types: types as Record<string, MessageTypeProperty[]>,
       })
@@ -160,7 +160,7 @@ export async function ledgerToAccount({
         types: types as Record<string, MessageTypeProperty[]>,
       })
 
-      const { r, s, v } = await eth.signEIP712HashedMessage(path, domainSeperator, messageHash)
+      const { r, s, v } = await eth.signEIP712HashedMessage(path, domainSeparator, messageHash)
       return serializeSignature({ r: ensureLeading0x(r), s: ensureLeading0x(s), v: BigInt(v) })
     },
   })
