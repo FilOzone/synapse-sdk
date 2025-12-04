@@ -37,14 +37,16 @@ import type {
 
 export class SPRegistryService {
   private readonly _provider: ethers.Provider
+  private readonly _chainId: number | bigint
   private readonly _registryAddress: string
   private _registryContract: ethers.Contract | null = null
 
   /**
    * Constructor for SPRegistryService
    */
-  constructor(provider: ethers.Provider, registryAddress: string) {
+  constructor(provider: ethers.Provider, chainId: number | bigint, registryAddress: string) {
     this._provider = provider
+    this._chainId = chainId
     this._registryAddress = registryAddress
   }
 
@@ -52,7 +54,8 @@ export class SPRegistryService {
    * Create a new SPRegistryService instance
    */
   static async create(provider: ethers.Provider, registryAddress: string): Promise<SPRegistryService> {
-    return new SPRegistryService(provider, registryAddress)
+    const network = await provider.getNetwork()
+    return new SPRegistryService(provider, network.chainId, registryAddress)
   }
 
   /**
@@ -401,7 +404,7 @@ export class SPRegistryService {
       const capabilities = capabilitiesListToObject(result.product.capabilityKeys, result.productCapabilityValues)
 
       return {
-        offering: decodePDPCapabilities(capabilities),
+        offering: await decodePDPCapabilities(BigInt(providerId), this._chainId, capabilities),
         capabilities,
         isActive: result.product.isActive,
       }
@@ -464,7 +467,7 @@ export class SPRegistryService {
     const results = await multicall.aggregate3.staticCall(calls)
 
     // Process results
-    return this._processMulticallResults(providerIds, results, iface)
+    return await this._processMulticallResults(providerIds, results, iface)
   }
 
   /**
@@ -491,7 +494,11 @@ export class SPRegistryService {
   /**
    * Process Multicall3 results into ProviderInfo array
    */
-  private _processMulticallResults(providerIds: number[], results: any[], iface: ethers.Interface): ProviderInfo[] {
+  private async _processMulticallResults(
+    providerIds: number[],
+    results: any[],
+    iface: ethers.Interface
+  ): Promise<ProviderInfo[]> {
     const providers: ProviderInfo[] = []
 
     for (let i = 0; i < providerIds.length; i++) {
@@ -512,7 +519,7 @@ export class SPRegistryService {
             type: 'PDP',
             isActive: product.isActive,
             capabilities,
-            data: decodePDPCapabilities(capabilities),
+            data: await decodePDPCapabilities(BigInt(providerIds[i]), this._chainId, capabilities),
           },
         ])
         if (providerInfo.serviceProvider === ethers.ZeroAddress) {
