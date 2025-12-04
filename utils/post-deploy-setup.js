@@ -81,7 +81,7 @@
  *
  * - WARM_STORAGE_CONTRACT_ADDRESS: Warm Storage address (defaults to address in constants.ts for network)
  * - SP_REGISTRY_ADDRESS: ServiceProviderRegistry address (auto-discovered from WarmStorage if not provided)
- * - NETWORK: Either 'mainnet' or 'calibration' (default: calibration)
+ * - NETWORK: Either 'mainnet', 'calibration', or 'devnet' (default: calibration)
  * - RPC_URL: Custom RPC endpoint (overrides default network RPC)
  * - SP_NAME: Provider name (default: "Test Service Provider")
  * - SP_DESCRIPTION: Provider description (default: "Test provider for Warm Storage")
@@ -433,8 +433,8 @@ async function main() {
     const customRpcUrl = process.env.RPC_URL
 
     // Validate network
-    if (network !== 'mainnet' && network !== 'calibration') {
-      error('NETWORK must be either "mainnet" or "calibration"')
+    if (network !== 'mainnet' && network !== 'calibration' && network !== 'devnet') {
+      error('NETWORK must be either "mainnet", "calibration", or "devnet"')
       process.exit(1)
     }
 

@@ -112,6 +112,7 @@ export class WarmStorageService {
     serviceProviderRegistry: string
     sessionKeyRegistry: string
   }
+  private readonly _multicall3Address: string
 
   /**
    * Private constructor - use WarmStorageService.create() instead
@@ -119,6 +120,7 @@ export class WarmStorageService {
   private constructor(
     provider: ethers.Provider,
     warmStorageAddress: string,
+    multicall3Address: string,
     addresses: {
       pdpVerifier: string
       payments: string
@@ -132,21 +134,36 @@ export class WarmStorageService {
     this._provider = provider
     this._warmStorageAddress = warmStorageAddress
     this._addresses = addresses
+    this._multicall3Address = multicall3Address
   }
 
   /**
    * Create a new WarmStorageService instance with initialized addresses
    */
-  static async create(provider: ethers.Provider, warmStorageAddress: string): Promise<WarmStorageService> {
+  static async create(
+    provider: ethers.Provider,
+    warmStorageAddress: string,
+    multicall3Address: string | null = null,
+    overrideViewAddress: string | null = null
+  ): Promise<WarmStorageService> {
     // Get network from provider and validate it's a supported Filecoin network
     const networkName = await getFilecoinNetworkType(provider)
 
+    // Resolve Multicall3 address (runtime override or constants)
+    const resolvedMulticallAddress =
+      multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[networkName as keyof typeof CONTRACT_ADDRESSES.MULTICALL3]
+
+    if (!resolvedMulticallAddress) {
+      throw createError(
+        'WarmStorageService',
+        'create',
+        `No Multicall3 address configured for network: ${networkName}. ` +
+          'Provide multicall3Address when initializing in devnet.'
+      )
+    }
+
     // Initialize all contract addresses using Multicall3
-    const multicall = new ethers.Contract(
-      CONTRACT_ADDRESSES.MULTICALL3[networkName],
-      CONTRACT_ABIS.MULTICALL3,
-      provider
-    )
+    const multicall = new ethers.Contract(resolvedMulticallAddress, CONTRACT_ABIS.MULTICALL3, provider)
 
     const iface = new ethers.Interface(CONTRACT_ABIS.WARM_STORAGE)
 
@@ -195,16 +212,20 @@ export class WarmStorageService {
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
       filBeamBeneficiary: iface.decodeFunctionResult('filBeamBeneficiaryAddress', results[3].returnData)[0],
-      viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
+      viewContract: overrideViewAddress ?? iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
     }
 
-    return new WarmStorageService(provider, warmStorageAddress, addresses)
+    return new WarmStorageService(provider, warmStorageAddress, resolvedMulticallAddress, addresses)
   }
 
   getPDPVerifierAddress(): string {
     return this._addresses.pdpVerifier
+  }
+
+  getMulticall3Address(): string {
+    return this._multicall3Address
   }
 
   getPaymentsAddress(): string {
@@ -225,6 +246,10 @@ export class WarmStorageService {
 
   getSessionKeyRegistryAddress(): string {
     return this._addresses.sessionKeyRegistry
+  }
+
+  getFilBeamBeneficiaryAddress(): string {
+    return this._addresses.filBeamBeneficiary
   }
 
   /**

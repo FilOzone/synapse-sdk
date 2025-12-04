@@ -44,6 +44,28 @@ export function getGenesisTimestamp(network: FilecoinNetworkType): number {
 }
 
 /**
+ * Query the genesis timestamp from the blockchain by getting block 0
+ * Useful for devnet where genesis timestamp is not known in advance
+ * @param provider - Ethers provider to query the blockchain
+ * @returns Promise resolving to genesis timestamp in seconds (Unix timestamp)
+ */
+export async function queryGenesisTimestamp(provider: ethers.Provider): Promise<number> {
+  try {
+    const genesisBlock = await provider.getBlock(0)
+    if (!genesisBlock) {
+      throw createError('EpochUtils', 'queryGenesisTimestamp', 'Genesis block (block 0) not found')
+    }
+    return genesisBlock.timestamp
+  } catch (error) {
+    throw createError(
+      'EpochUtils',
+      'queryGenesisTimestamp',
+      `Failed to query genesis timestamp: ${error instanceof Error ? error.message : String(error)}`
+    )
+  }
+}
+
+/**
  * Calculate the time until a future epoch
  * @param futureEpoch - The future epoch number
  * @param currentEpoch - The current epoch number

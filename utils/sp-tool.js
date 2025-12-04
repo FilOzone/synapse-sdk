@@ -766,7 +766,7 @@ WarmStorage Commands:
   warm-list   List WarmStorage approved providers
 
 Options:
-  --network <network>       Network to use: 'mainnet' or 'calibration' (default: calibration)
+  --network <network>       Network to use: 'mainnet', 'calibration', or 'devnet' (default: calibration)
   --rpc-url <url>           RPC endpoint (overrides network default)
   --key <private-key>       Private key for signing (required for write operations)
   --registry <address>      Registry contract address (overrides discovery)
@@ -835,8 +835,8 @@ Examples:
 
   // Setup provider based on network flag
   const network = options.network || 'calibration'
-  if (network !== 'mainnet' && network !== 'calibration') {
-    console.error(`Error: Invalid network '${network}'. Must be 'mainnet' or 'calibration'`)
+  if (network !== 'mainnet' && network !== 'calibration' && network !== 'devnet') {
+    console.error(`Error: Invalid network '${network}'. Must be 'mainnet', 'calibration', or 'devnet'`)
     process.exit(1)
   }
 

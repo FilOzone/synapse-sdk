@@ -40,6 +40,7 @@ export class PaymentsService {
   private readonly _paymentsAddress: string
   private readonly _usdfcAddress: string
   private readonly _disableNonceManager: boolean
+  private readonly _multicall3Address: string | null
   // Cached contract instances
   private _usdfcContract: ethers.Contract | null = null
   private _paymentsContract: ethers.Contract | null = null
@@ -60,13 +61,15 @@ export class PaymentsService {
     signer: ethers.Signer,
     paymentsAddress: string,
     usdfcAddress: string,
-    disableNonceManager: boolean
+    disableNonceManager: boolean,
+    multicall3Address: string | null = null
   ) {
     this._provider = provider
     this._signer = signer
     this._paymentsAddress = paymentsAddress
     this._usdfcAddress = usdfcAddress
     this._disableNonceManager = disableNonceManager
+    this._multicall3Address = multicall3Address
   }
 
   /**
@@ -108,7 +111,15 @@ export class PaymentsService {
     const chainId = CHAIN_IDS[networkType]
 
     // Setup Multicall3 for batched RPC calls
-    const multicall3Address = CONTRACT_ADDRESSES.MULTICALL3[networkType]
+    const multicall3Address =
+      this._multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[networkType as keyof typeof CONTRACT_ADDRESSES.MULTICALL3]
+    if (!multicall3Address) {
+      throw createError(
+        'PaymentsService',
+        '_getPermitSignature',
+        `No Multicall3 address available for network: ${networkType}`
+      )
+    }
     const multicall = new ethers.Contract(multicall3Address, CONTRACT_ABIS.MULTICALL3, this._provider)
 
     // Create interfaces for encoding/decoding
