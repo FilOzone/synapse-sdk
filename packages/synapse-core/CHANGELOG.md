@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.4...synapse-core-v0.1.5) (2025-12-05)
+
+
+### Chores
+
+* update msw ([#465](https://github.com/FilOzone/synapse-sdk/issues/465)) ([ea02a6d](https://github.com/FilOzone/synapse-sdk/commit/ea02a6dba86ad91a012c4ef6bb167c5fa774cc67))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.3...synapse-core-v0.1.4) (2025-12-02)
 
 
