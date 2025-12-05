@@ -437,8 +437,8 @@ export class WarmStorageService {
    */
   async getNextPieceId(dataSetId: number): Promise<number> {
     const pdpVerifier = this._getPDPVerifier()
-    const nextPieceId = await pdpVerifier.getNextPieceId(Number(dataSetId))
-    return Number(nextPieceId)
+    const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
+    return nextPieceId
   }
 
   /**

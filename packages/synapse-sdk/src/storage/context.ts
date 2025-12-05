@@ -513,13 +513,9 @@ export class StorageContext {
     }
 
     // Filter for this provider's active datasets
-    const providerDataSets = dataSets
-      .filter(
-        (dataSet) =>
-          Number.isFinite(dataSet.dataSetId) &&
-          dataSet.providerId === provider.id &&
-          dataSet.pdpEndEpoch === 0
-      )
+    const providerDataSets = dataSets.filter(
+      (dataSet) => Number.isFinite(dataSet.dataSetId) && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0
+    )
 
     type EvaluatedDataSet = {
       dataSetId: number
