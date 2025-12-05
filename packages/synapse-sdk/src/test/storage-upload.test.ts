@@ -16,13 +16,13 @@ import { findAnyPieceHandler, streamingUploadHandlers } from './mocks/pdp/handle
 import { PING } from './mocks/ping.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('Storage Upload', () => {
   let signer: ethers.Signer
   let provider: ethers.Provider
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
