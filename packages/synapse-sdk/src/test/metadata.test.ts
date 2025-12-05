@@ -16,7 +16,7 @@ import {
 } from './mocks/pdp/handlers.ts'
 
 // Mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('Metadata Support', () => {
   const TEST_PRIVATE_KEY = '0x0101010101010101010101010101010101010101010101010101010101010101'
@@ -28,7 +28,7 @@ describe('Metadata Support', () => {
   let pdpServer: PDPServer
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {

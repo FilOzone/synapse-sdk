@@ -25,7 +25,7 @@ import {
 import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
-const server = setup([])
+const server = setup()
 
 function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
@@ -42,7 +42,7 @@ describe('StorageService', () => {
   before(async () => {
     // Set timeout to 100ms for testing
     SP.setTimeout(100)
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
