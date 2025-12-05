@@ -53,8 +53,19 @@ export class FilBeamService {
   private readonly _fetch: typeof fetch
 
   constructor(network: FilecoinNetworkType, fetchImpl: typeof fetch = globalThis.fetch) {
+    this._validateNetworkType(network)
     this._network = network
     this._fetch = fetchImpl
+  }
+
+  private _validateNetworkType(network: FilecoinNetworkType) {
+    if (network === 'mainnet' || network === 'calibration') return
+
+    throw createError(
+      'FilBeamService',
+      'validateNetworkType',
+      'Unsupported network type: Only Filecoin mainnet and calibration networks are supported.'
+    )
   }
 
   /**

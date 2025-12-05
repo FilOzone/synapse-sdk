@@ -3,6 +3,17 @@ import { FilBeamService } from '../filbeam/service.ts'
 import type { FilecoinNetworkType } from '../types.ts'
 
 describe('FilBeamService', () => {
+  describe('network type validation', () => {
+    it('should throw error if network type not mainnet or calibration', () => {
+      try {
+        // @ts-expect-error
+        new FilBeamService('base-sepolia')
+      } catch (error: any) {
+        expect(error.message).to.include('Unsupported network type')
+      }
+    })
+  })
+
   describe('URL construction', () => {
     it('should use mainnet URL for mainnet network', () => {
       const mockFetch = async (): Promise<Response> => {
