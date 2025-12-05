@@ -4,6 +4,23 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.36.2](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.1...synapse-sdk-v0.36.2) (2025-12-05)
+
+
+### Features
+
+* Add API for querying remaining egress ([#430](https://github.com/FilOzone/synapse-sdk/issues/430)) ([c40d6b8](https://github.com/FilOzone/synapse-sdk/commit/c40d6b8df748f9e401b035d04a85f00353cc3c0c))
+
+
+### Bug Fixes
+
+* createStorageContext without getClientDataSetsWithDetails ([#438](https://github.com/FilOzone/synapse-sdk/issues/438)) ([76e2439](https://github.com/FilOzone/synapse-sdk/commit/76e24391ebada6d70014f0bfa08d4474b04043df))
+
+
+### Chores
+
+* update msw ([#465](https://github.com/FilOzone/synapse-sdk/issues/465)) ([ea02a6d](https://github.com/FilOzone/synapse-sdk/commit/ea02a6dba86ad91a012c4ef6bb167c5fa774cc67))
+
 ## [0.36.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.0...synapse-sdk-v0.36.1) (2025-12-04)
 
 
