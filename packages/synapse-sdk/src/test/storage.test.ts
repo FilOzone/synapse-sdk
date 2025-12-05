@@ -410,6 +410,29 @@ describe('StorageService', () => {
     })
 
     it('should prefer data sets with existing pieces', async () => {
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        payee: ADDRESSES.serviceProvider1,
+        payer: ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        providerId: 1n,
+        serviceProvider: ADDRESSES.serviceProvider1,
+      }
+      const expectedDataSets = [
+        {
+          ...expectedDataSetBase,
+          dataSetId: 1n,
+          pdpRailId: 1n,
+        },
+        {
+          ...expectedDataSetBase,
+          dataSetId: 2n,
+          pdpRailId: 2n,
+        },
+      ]
       server.use(
         JSONRPC({
           ...presets.basic,
@@ -426,43 +449,11 @@ describe('StorageService', () => {
           },
           warmStorageView: {
             ...presets.basic.warmStorageView,
-            clientDataSets: () => [[1n, 2n]],
+            getClientDataSets: () => [expectedDataSets],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: (args) => {
               const [dataSetId] = args
-              if (dataSetId === 1n) {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 1n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 1n,
-                    providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
-                  },
-                ]
-              } else {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 2n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 2n,
-                    providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
-                  },
-                ]
-              }
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
             },
           },
         }),
