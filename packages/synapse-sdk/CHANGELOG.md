@@ -4,6 +4,21 @@
 
 * add terminateDataSet functionality ([#230](https://github.com/FilOzone/synapse-sdk/issues/230)) ([ffaacac](https://github.com/FilOzone/synapse-sdk/commit/ffaacac507b4882abfc33d3de72fe9fa98843cd2))
 
+## [0.36.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.0...synapse-sdk-v0.36.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* add getScheduledRemovals method ([#464](https://github.com/FilOzone/synapse-sdk/issues/464)) ([05e6b92](https://github.com/FilOzone/synapse-sdk/commit/05e6b92bb62ff4a4da48b4fa35398a66da23b049))
+
+
+### Chores
+
+* **deps-dev:** bump @biomejs/biome from 2.3.5 to 2.3.6 ([#448](https://github.com/FilOzone/synapse-sdk/issues/448)) ([ebcab4e](https://github.com/FilOzone/synapse-sdk/commit/ebcab4ea166aa69c35d988ff2356b3f5972af351))
+* **deps-dev:** bump @biomejs/biome from 2.3.6 to 2.3.7 ([#459](https://github.com/FilOzone/synapse-sdk/issues/459)) ([d3c65a8](https://github.com/FilOzone/synapse-sdk/commit/d3c65a806e4819bbc560f5a7087f79eec31417a5))
+* **deps-dev:** bump @biomejs/biome from 2.3.7 to 2.3.8 ([#476](https://github.com/FilOzone/synapse-sdk/issues/476)) ([d95f812](https://github.com/FilOzone/synapse-sdk/commit/d95f812d7752a9b1dcb46219a4857eb99b54ebf0))
+* export StorageManagerUploadOptions ([#462](https://github.com/FilOzone/synapse-sdk/issues/462)) ([c5897f2](https://github.com/FilOzone/synapse-sdk/commit/c5897f21ac11b41f03e1552a09a8d34d6c42666b))
+
 ## [0.36.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.35.3...synapse-sdk-v0.36.0) (2025-11-17)
 
 
