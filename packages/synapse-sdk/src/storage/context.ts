@@ -39,6 +39,7 @@ import type {
   DownloadOptions,
   MetadataEntry,
   PieceCID,
+  PieceRecord,
   PieceStatus,
   PreflightInfo,
   ProviderSelectionResult,
@@ -974,6 +975,7 @@ export class StorageContext {
       const pieceCids: PieceCID[] = batch.map((item) => item.pieceCid)
       const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
       const confirmedPieceIds: number[] = []
+      const addedPieceRecords = pieceCids.map((pieceCid) => ({ pieceCid }))
 
       if (this.dataSetId) {
         const [, dataSetInfo] = await Promise.all([
@@ -990,6 +992,7 @@ export class StorageContext {
 
         // Notify callbacks with transaction
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
         const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
@@ -997,7 +1000,12 @@ export class StorageContext {
         // Handle transaction tracking if available
         confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
 
+        const confirmedPieceRecords: PieceRecord[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(this.dataSetId as number, confirmedPieceRecords)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       } else {
@@ -1024,6 +1032,7 @@ export class StorageContext {
           }
         )
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
         const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
@@ -1038,7 +1047,12 @@ export class StorageContext {
 
         confirmedPieceIds.push(...(confirmedPieces.confirmedPieceIds ?? []))
 
+        const confirmedPieceRecords: PieceRecord[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(this.dataSetId as number, confirmedPieceRecords)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       }
@@ -1125,10 +1139,7 @@ export class StorageContext {
    * @param options.signal - Optional AbortSignal to cancel the operation
    * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
-  async *getPieces(options?: {
-    batchSize?: number
-    signal?: AbortSignal
-  }): AsyncGenerator<{ pieceCid: PieceCID; pieceId: number }> {
+  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<PieceRecord> {
     if (this._dataSetId == null) {
       return
     }
