@@ -514,13 +514,9 @@ export class StorageContext {
 
     // Filter for this provider's active datasets
     const providerDataSets = dataSets
-      .map((dataSet) => {
-        const pdpVerifierDataSetId = Number(dataSet.dataSetId ?? dataSet.clientDataSetId)
-        return { ...dataSet, pdpVerifierDataSetId }
-      })
       .filter(
         (dataSet) =>
-          Number.isFinite(dataSet.pdpVerifierDataSetId) &&
+          Number.isFinite(dataSet.dataSetId) &&
           dataSet.providerId === provider.id &&
           dataSet.pdpEndEpoch === 0
       )
@@ -533,7 +529,7 @@ export class StorageContext {
 
     // Sort ascending by ID (oldest first) for deterministic selection
     const sortedDataSets = providerDataSets.sort((a, b) => {
-      return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
+      return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
     // Batch strategy: 1/3 of total datasets per batch (min 50) to balance latency vs RPC burst
@@ -544,29 +540,26 @@ export class StorageContext {
     for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
       const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
         sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
+          const dataSetId = Number(dataSet.dataSetId)
           try {
-            const dataSetMetadata = await warmStorageService.getDataSetMetadata(dataSet.pdpVerifierDataSetId)
+            const [dataSetMetadata, currentPieceCount] = await Promise.all([
+              warmStorageService.getDataSetMetadata(dataSetId),
+              warmStorageService.getNextPieceId(dataSetId),
+              warmStorageService.validateDataSet(dataSetId),
+            ])
 
             if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
               return null
             }
 
-            /**
-             * Only check piece count/validity once metadata matches. We could do the `validateDataSet` check in parallel with the getDataSetMetadata call, but it's done here because otherwise we would be doing 2 RPC calls per dataset before knowing it matches metadata.
-             */
-            const [currentPieceCount] = await Promise.all([
-              warmStorageService.getNextPieceId(dataSet.pdpVerifierDataSetId),
-              warmStorageService.validateDataSet(dataSet.pdpVerifierDataSetId),
-            ])
-
             return {
-              dataSetId: dataSet.pdpVerifierDataSetId,
+              dataSetId,
               dataSetMetadata,
               currentPieceCount,
             }
           } catch (error) {
             console.warn(
-              `Skipping data set ${dataSet.pdpVerifierDataSetId} for provider ${providerId}:`,
+              `Skipping data set ${dataSetId} for provider ${providerId}:`,
               error instanceof Error ? error.message : String(error)
             )
             return null
