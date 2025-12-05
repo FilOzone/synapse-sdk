@@ -494,7 +494,7 @@ export class StorageContext {
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
-    const [provider, dataSets] = await Promise.all<[Promise<ProviderInfo | null>, Promise<DataSetInfo[]>]>([
+    const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider(providerId),
       forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets(signerAddress),
     ])
