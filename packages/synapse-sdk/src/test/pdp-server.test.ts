@@ -705,6 +705,27 @@ Database error`
         )
       }
     })
+
+    it('should retry on 202 status and eventually succeed', async () => {
+      SP.setTimeout(10000) // Set shorter timeout for test
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      let attemptCount = 0
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece', async () => {
+          attemptCount++
+          // Return 202 for first 2 attempts, then 200
+          if (attemptCount < 3) {
+            return HttpResponse.json({ message: 'Processing' }, { status: 202 })
+          }
+          return HttpResponse.json({ pieceCid: mockPieceCid }, { status: 200 })
+        })
+      )
+
+      const result = await pdpServer.findPiece(mockPieceCid)
+      assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
+      assert.isAtLeast(attemptCount, 3, 'Should have retried at least 3 times')
+    })
   })
 
   describe('getPieceStatus', () => {
@@ -913,6 +934,27 @@ Database error`
 
       // Verify the provided PieceCID was used
       assert.equal(finalizedWithPieceCid, providedPieceCid.toString())
+    })
+
+    it('should accept 202 status on upload session creation', async () => {
+      const testData = new Uint8Array(127).fill(1)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+      server.use(
+        http.post('http://pdp.local/pdp/piece/uploads', async () => {
+          // Return 202 Accepted instead of 201 Created
+          return HttpResponse.text('Accepted', {
+            status: 202,
+            headers: {
+              Location: `/pdp/piece/uploads/${mockUuid}`,
+            },
+          })
+        }),
+        uploadPieceStreamingHandler(mockUuid),
+        finalizePieceUploadHandler(mockUuid)
+      )
+
+      await pdpServer.uploadPiece(testData)
     })
 
     it('should throw on create upload session error', async () => {
