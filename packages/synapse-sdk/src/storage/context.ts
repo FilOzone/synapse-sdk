@@ -1118,6 +1118,25 @@ export class StorageContext {
   }
 
   /**
+   * Get pieces scheduled for removal from this data set
+   * @returns Array of piece IDs scheduled for removal
+   */
+  async getScheduledRemovals(): Promise<number[]> {
+    if (this._dataSetId == null) {
+      return []
+    }
+
+    const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
+    const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
+
+    try {
+      return await pdpVerifier.getScheduledRemovals(this._dataSetId)
+    } catch (error) {
+      throw createError('StorageContext', 'getScheduledRemovals', 'Failed to get scheduled removals', error)
+    }
+  }
+
+  /**
    * Get all active pieces for this data set as an async generator.
    * This provides lazy evaluation and better memory efficiency for large data sets.
    * @param options - Optional configuration object

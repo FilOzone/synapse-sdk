@@ -2004,6 +2004,46 @@ describe('StorageService', () => {
     })
   })
 
+  describe('getScheduledRemovals', () => {
+    it('should return scheduled removals for the data set', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[1n, 2n, 5n]],
+          },
+        })
+      )
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [1, 2, 5])
+    })
+
+    it('should return an empty array when no data set is configured', async () => {
+      server.use(JSONRPC({ ...presets.basic }), PING())
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      ;(context as any)._dataSetId = undefined
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [])
+    })
+  })
+
   describe('getPieces', () => {
     it('should get all active pieces with pagination', async () => {
       // Use actual valid PieceCIDs from test data
