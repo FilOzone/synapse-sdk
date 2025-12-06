@@ -71,6 +71,7 @@ export class StorageContext {
   private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
   private _dataSetId: number | undefined
+  private _clientDataSetId: bigint | undefined
   private readonly _dataSetMetadata: Record<string, string>
 
   // AddPieces batching state
@@ -111,6 +112,23 @@ export class StorageContext {
   // Getter for data set ID
   get dataSetId(): number | undefined {
     return this._dataSetId
+  }
+
+  /**
+   * Get the client data set ID, either from cache or by fetching from the chain
+   * @returns The client data set ID
+   * @throws Error if data set ID is not set
+   */
+  private async getClientDataSetId(): Promise<bigint> {
+    if (this._clientDataSetId !== undefined) {
+      return this._clientDataSetId
+    }
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'getClientDataSetId', 'Data set not found')
+    }
+    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
+    this._clientDataSetId = dataSetInfo.clientDataSetId
+    return this._clientDataSetId
   }
 
   /**
@@ -976,14 +994,14 @@ export class StorageContext {
       const confirmedPieceIds: number[] = []
 
       if (this.dataSetId) {
-        const [, dataSetInfo] = await Promise.all([
+        const [, clientDataSetId] = await Promise.all([
           this._warmStorageService.validateDataSet(this.dataSetId),
-          this._warmStorageService.getDataSet(this.dataSetId),
+          this.getClientDataSetId(),
         ])
         // Add pieces to the data set
         const addPiecesResult = await this._pdpServer.addPieces(
           this.dataSetId, // PDPVerifier data set ID
-          dataSetInfo.clientDataSetId, // Client's dataset ID
+          clientDataSetId, // Client's dataset ID
           pieceCids,
           metadataArray
         )
@@ -1190,9 +1208,9 @@ export class StorageContext {
       throw createError('StorageContext', 'deletePiece', 'Data set not found')
     }
     const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
-    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
+    const clientDataSetId = await this.getClientDataSetId()
 
-    return this._pdpServer.deletePiece(this.dataSetId, dataSetInfo.clientDataSetId, pieceId)
+    return this._pdpServer.deletePiece(this.dataSetId, clientDataSetId, pieceId)
   }
 
   /**
