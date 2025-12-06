@@ -388,7 +388,7 @@ export class StorageContext {
     dataSetId: number,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
-    signerAddress: string,
+    clientAddress: string,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
     const [dataSetInfo, dataSetMetadata] = await Promise.all([
@@ -400,11 +400,11 @@ export class StorageContext {
       warmStorageService.validateDataSet(dataSetId),
     ])
 
-    if (dataSetInfo.payer.toLowerCase() !== signerAddress.toLowerCase()) {
+    if (dataSetInfo.payer.toLowerCase() !== clientAddress.toLowerCase()) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Data set ${dataSetId} is not owned by ${signerAddress} (owned by ${dataSetInfo.payer})`
+        `Data set ${dataSetId} is not owned by ${clientAddress} (owned by ${dataSetInfo.payer})`
       )
     }
 
@@ -475,7 +475,7 @@ export class StorageContext {
    * Resolve using a specific provider ID
    */
   private static async resolveByProviderId(
-    signerAddress: string,
+    clientAddress: string,
     providerId: number,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
@@ -485,7 +485,7 @@ export class StorageContext {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider(providerId),
-      forceCreateDataSet ? Promise.resolve(null) : warmStorageService.getClientDataSetsWithDetails(signerAddress),
+      forceCreateDataSet ? Promise.resolve(null) : warmStorageService.getClientDataSetsWithDetails(clientAddress),
     ])
 
     if (provider == null) {
@@ -550,7 +550,7 @@ export class StorageContext {
     providerAddress: string,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
-    signerAddress: string,
+    clientAddress: string,
     requestedMetadata: Record<string, string>,
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
@@ -566,7 +566,7 @@ export class StorageContext {
 
     // Use the providerId resolution logic
     return await StorageContext.resolveByProviderId(
-      signerAddress,
+      clientAddress,
       provider.id,
       requestedMetadata,
       warmStorageService,
@@ -580,7 +580,7 @@ export class StorageContext {
    * Prioritizes existing data sets and provider health
    */
   private static async smartSelectProvider(
-    signerAddress: string,
+    clientAddress: string,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
@@ -594,7 +594,7 @@ export class StorageContext {
     // 2. If no existing data sets, find a healthy provider
 
     // Get client's data sets
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
+    const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
 
     const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
