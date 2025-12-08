@@ -115,9 +115,9 @@ export class StorageContext {
   }
 
   /**
-   * Get the client data set ID, either from cache or by fetching from the chain
-   * @returns The client data set ID
-   * @throws Error if data set ID is not set
+   * Get the client data set nonce ("clientDataSetId"), either from cache or by fetching from the chain
+   * @returns The client data set nonce
+   * @throws Error if data set nonce is not set
    */
   private async getClientDataSetId(): Promise<bigint> {
     if (this._clientDataSetId !== undefined) {
@@ -1001,7 +1001,7 @@ export class StorageContext {
         // Add pieces to the data set
         const addPiecesResult = await this._pdpServer.addPieces(
           this.dataSetId, // PDPVerifier data set ID
-          clientDataSetId, // Client's dataset ID
+          clientDataSetId, // Client's dataset nonce
           pieceCids,
           metadataArray
         )
