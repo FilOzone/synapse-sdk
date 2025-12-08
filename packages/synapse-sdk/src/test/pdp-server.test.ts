@@ -936,27 +936,6 @@ Database error`
       assert.equal(finalizedWithPieceCid, providedPieceCid.toString())
     })
 
-    it('should accept 202 status on upload session creation', async () => {
-      const testData = new Uint8Array(127).fill(1)
-      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-
-      server.use(
-        http.post('http://pdp.local/pdp/piece/uploads', async () => {
-          // Return 202 Accepted instead of 201 Created
-          return HttpResponse.text('Accepted', {
-            status: 202,
-            headers: {
-              Location: `/pdp/piece/uploads/${mockUuid}`,
-            },
-          })
-        }),
-        uploadPieceStreamingHandler(mockUuid),
-        finalizePieceUploadHandler(mockUuid)
-      )
-
-      await pdpServer.uploadPiece(testData)
-    })
-
     it('should throw on create upload session error', async () => {
       const testData = new Uint8Array(127).fill(1)
       const mockPieceCid = asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
