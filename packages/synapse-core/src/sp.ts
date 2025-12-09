@@ -462,7 +462,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
   }
 
   if (createResponse.result.status !== 201) {
-    throw new PostPieceError(`Expected 201 , got ${createResponse.result.status}`)
+    throw new PostPieceError(`Expected 201 Created, got ${createResponse.result.status}`)
   }
 
   // Extract UUID from Location header: /pdp/piece/uploads/{uuid}
