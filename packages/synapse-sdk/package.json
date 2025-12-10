@@ -157,5 +157,8 @@
   },
   "browser": {
     "@sentry/node": "@sentry/browser"
+  },
+  "peerDependencies": {
+    "ethers": "6.x"
   }
 }
