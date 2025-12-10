@@ -1167,7 +1167,7 @@ describe('StorageService', () => {
   })
 
   describe('upload', () => {
-    it.only('should handle errors in batch processing gracefully', async () => {
+    it('should handle errors in batch processing gracefully', async () => {
       server.use(
         JSONRPC({
           ...presets.basic,
