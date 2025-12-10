@@ -10,7 +10,7 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@filoz/synapse-sdk": "0.36.0",
+    "@filoz/synapse-sdk": "workspace:*",
     "ethers": "^6.16.0",
     "starlight-page-actions": "^0.2.0"
   },
