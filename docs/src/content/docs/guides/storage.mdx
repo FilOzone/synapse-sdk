@@ -288,12 +288,12 @@ const result = await context.upload(fileData, {
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
-  onPieceAdded: (hash) => {
-    console.log(`Piece added, tx: ${hash}`)
+  onPiecesAdded: (hash, pieces) => {
+    console.log(`Pieces added in tx ${hash}: ${pieces?.length ?? 0}`)
   },
-  onPieceConfirmed: (pieceIds) => {
-    console.log(`Piece IDs: ${pieceIds.join(', ')}`)
-  }
+  onPiecesConfirmed: (dataSetId, pieces) => {
+    console.log(`Data set ${dataSetId} confirmed with pieces: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`)
+  },
 })
 ```
 
