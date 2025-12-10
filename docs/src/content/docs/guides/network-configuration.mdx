@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-### RPC Endpoints
+## RPC Endpoints
 
 ```typescript
 import { RPC_URLS } from '@filoz/synapse-sdk'
@@ -19,7 +19,7 @@ RPC_URLS.calibration.websocket  // wss://wss.calibration.node.glif.io/apigw/lotu
 RPC_URLS.calibration.http       // https://api.calibration.node.glif.io/rpc/v1
 ```
 
-### GLIF Authorization
+## GLIF Authorization
 
 For higher rate limits with GLIF endpoints:
 
@@ -34,9 +34,9 @@ const synapse = await Synapse.create({
 })
 ```
 
-### Connection Management
+## Connection Management
 
-#### WebSocket vs HTTP
+### WebSocket vs HTTP
 
 The SDK supports both WebSocket and HTTP connections:
 
@@ -96,14 +96,14 @@ process.on('SIGINT', async () => {
 })
 ```
 
-### Network Details
+## Network Details
 
-#### Filecoin Mainnet
+### Filecoin Mainnet
 
 - Chain ID: 314
 - USDFC Contract: `0x80B98d3aa09ffff255c3ba4A241111Ff1262F045`
 
-#### Filecoin Calibration Testnet
+### Filecoin Calibration Testnet
 
 - Chain ID: 314159
 - USDFC Contract: `0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0`

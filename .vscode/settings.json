@@ -11,12 +11,13 @@
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "javascript.preferences.importModuleSpecifierEnding": "js",
   "typescript.preferences.importModuleSpecifierEnding": "js",
-  "markdownlint.configFile": "./.github/.markdownlint-cli2.jsonc",
+  "markdownlint.configFile": ".github/.markdownlint-cli2.jsonc",
   "search.exclude": {
     "**/dist/**": true,
     "pnpm-lock.yaml": true
   },
   "files.associations": {
+    "*.mdx": "markdown",
     ".vscode/*.json": "jsonc",
     "*.css": "tailwindcss",
     "*.svg": "html",
@@ -31,5 +32,6 @@
   },
   "[mdx]": {
     "editor.defaultFormatter": "DavidAnson.vscode-markdownlint"
-  }
+  },
+  "markdown.validate.enabled": false
 }

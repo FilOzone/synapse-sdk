@@ -24,7 +24,7 @@ This service transforms Filecoin from an archival storage network into a data se
 
 Together, FWSS enables builders to depend on Filecoin not only for “store and forget,” but for “store and serve” in a verifiable, programmable manner.
 
-#### **Core Responsibilities**
+### Core Responsibilities
 
 WarmStorage manages the complete storage marketplace:
 
@@ -72,7 +72,7 @@ interface PDPListener {
 }
 ```
 
-##### _`dataSetCreated()`_
+#### _`dataSetCreated()`_
 
 When a new data set is created in `PDPVerifier`, this function is called to set up payment infrastructure and validate the client operation.
 
@@ -83,7 +83,7 @@ When a new data set is created in `PDPVerifier`, this function is called to set 
 3. **Metadata storage**: Save data set metadata (category, project, etc.)
 4. **Payment rail creation**: Establish automated payment channel
 
-##### _`piecesAdded()`_
+#### _`piecesAdded()`_
 
 When pieces are added to an existing data set, this function is called to store piece metadata and update payment rail configuration if needed.
 
@@ -92,11 +92,11 @@ When pieces are added to an existing data set, this function is called to store 
 - Payment rail creation deferred to first piece upload
 - Enables data sets without immediate storage
 
-##### _`possessionProven()`_
+#### _`possessionProven()`_
 
 When a storage provider successfully completes a proof verification, this function is called to record the successful proof completion.
 
-##### _`nextProvingPeriod()`_
+#### _`nextProvingPeriod()`_
 
 When a proof window expires without a valid proof (indicating a fault), this function is called to handle the failure and apply penalties.
 
@@ -146,7 +146,7 @@ price: `14 USDFC per TiB of egress used`
 
 :::note
 **FWSS Lockup Model:**  
-FWSS uses a simple fixed lockup: you always prepay for 30 days of active service. 
+FWSS uses a simple fixed lockup: you always prepay for 30 days of active service.
 
 If your balance drops below this threshold, you risk default—at which point the service provider may begin removing your data. There is no variable lockup or complex collateral calculation: just keep your balance above 30 days to avoid disruption.
 :::

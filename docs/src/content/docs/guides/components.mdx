@@ -7,7 +7,7 @@ sidebar:
 
 All components can be imported and used independently for advanced use cases. The SDK is organized to match the external service structure:
 
-### Payments Service
+## Payments Service
 
 Direct interface to the Payments contract for token operations and operator approvals.
 
@@ -43,7 +43,7 @@ console.log(`Service approval transaction: ${approveTx.hash}`)
 await approveTx.wait() // Wait for confirmation
 ```
 
-### Service Provider Registry
+## Service Provider Registry
 
 Query and manage service providers registered in the on-chain registry.
 
@@ -92,7 +92,7 @@ console.log('Service URL:', pdpService.offering.serviceURL)
 console.log('Storage Price:', pdpService.offering.storagePricePerTibPerMonth)
 ```
 
-### Warm Storage Service
+## Warm Storage Service
 
 Interact with the Warm Storage contract for data set management, service provider operations, and storage cost calculations.
 
@@ -146,7 +146,7 @@ const providers = await warmStorageService.getAllApprovedProviders()
 await wamStorageService.topUpCDNPaymentRails(signer, dataSetId, cdnAmountToAdd, cacheMissAmountToAdd)
 ```
 
-### Subgraph Service
+## Subgraph Service
 
 The SubgraphService provides access to Synapse-compatible subgraphs for provider discovery, data set tracking, and more.
 
@@ -179,7 +179,7 @@ const activeProviders = await subgraphService.queryProviders({
 const providers = await subgraphService.getApprovedProvidersForPieceCID(pieceCid)
 ```
 
-#### Custom Subgraph Service Implementations
+### Custom Subgraph Service Implementations
 
 The SDK supports custom implementations of the `SubgraphRetrievalService` interface, allowing you to provide alternative data sources for provider discovery. This is useful for testing, custom integrations, or cases where you need specialized provider selection logic.
 
@@ -211,11 +211,11 @@ const synapse = await Synapse.create({
 })
 ```
 
-### PDP Components
+## PDP Components
 
 The PDP (Proof of Data Possession) system has three main components:
 
-#### PDP Verifier
+### PDP Verifier
 
 Low-level interface to the PDPVerifier contract for protocol operations.
 
@@ -237,7 +237,7 @@ const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId)
 const dataSetId = await pdpVerifier.extractDataSetIdFromReceipt(receipt)
 ```
 
-#### PDP Server
+### PDP Server
 
 Consolidated interface for all PDP server (Curio) HTTP operations including data sets, uploads, and downloads.
 
@@ -289,7 +289,7 @@ const dataSet = await pdpServer.getDataSet(dataSetId)
 console.log(`Data set ${dataSet.id} has ${dataSet.pieces.length} pieces`)
 ```
 
-#### PDP Auth Helper
+### PDP Auth Helper
 
 Sign EIP-712 typed data for PDP operations. Compatible with MetaMask and other browser wallets.
 
@@ -316,7 +316,7 @@ const addPiecesSig = await authHelper.signAddPieces(
 // All signatures return { signature, v, r, s, signedData }
 ```
 
-### PieceCID Utilities
+## PieceCID Utilities
 
 Utilities for calculating PieceCIDs and converting between formats.
 
