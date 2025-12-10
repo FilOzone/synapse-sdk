@@ -122,30 +122,30 @@
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
     "@web3-storage/data-segment": "^5.3.0",
-    "ethers": "^6.16.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.17",
-    "viem": "^2.41.2"
+    "ox": "catalog:",
+    "viem": "catalog:"
   },
   "optionalDependencies": {
     "@sentry/browser": "^10.21.0",
     "@sentry/node": "^10.21.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
+    "@biomejs/biome": "catalog:",
     "@types/chai": "^5.2.3",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^24.9.1",
+    "@types/mocha": "catalog:",
+    "@types/node": "catalog:",
     "@wagmi/cli": "^2.7.0",
-    "abitype": "^1.2.0",
+    "abitype": "catalog:",
     "chai": "^6.2.0",
+    "ethers": "catalog:",
     "iso-web": "^2.1.0",
-    "mocha": "^11.7.4",
+    "mocha": "catalog:",
     "msw": "~2.12.4",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",
-    "typescript": "5.9.3"
+    "typescript": "catalog:"
   },
   "publishConfig": {
     "access": "public"

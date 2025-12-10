@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
+import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import {
   createDataSetAndAddPieces,
@@ -64,29 +65,33 @@ export const uploadDataset: Command = command(
         p.outro('Please try again')
         return
       }
-      const upload = await SP.uploadPiece({
+
+      const pieceCid = Piece.calculate(fileData)
+      await SP.uploadPiece({
         data: fileData,
         endpoint: provider.pdp.serviceURL,
+        pieceCid,
       })
 
       await SP.findPiece({
-        pieceCid: upload.pieceCid,
+        pieceCid,
         endpoint: provider.pdp.serviceURL,
       })
 
       const rsp = await createDataSetAndAddPieces(client, {
-        provider,
+        endpoint: provider.pdp.serviceURL,
+        payee: provider.payee,
         cdn: argv.flags.withCDN,
         pieces: [
           {
-            pieceCid: upload.pieceCid,
+            pieceCid,
             metadata: { name: path.basename(absolutePath) },
           },
         ],
       })
 
       await SP.pollForDataSetCreationStatus(rsp)
-      spinner.stop(`File uploaded ${upload.pieceCid}`)
+      spinner.stop(`File uploaded ${pieceCid}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)

@@ -6,7 +6,7 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "lint": "biome check --no-errors-on-unmatched .",
+    "lint": "tsc && biome check --no-errors-on-unmatched .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,10 +18,10 @@
     "@filoz/synapse-sdk": "workspace:^",
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
-    "viem": "^2.41.2"
+    "viem": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
-    "@types/node": "^24.9.1"
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:"
   }
 }

@@ -192,21 +192,21 @@
     "dnum": "^2.15.0",
     "iso-web": "^2.1.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.17",
+    "ox": "catalog:",
     "p-retry": "^7.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
+    "@biomejs/biome": "catalog:",
     "@types/assert": "^1.5.11",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^24.7.2",
+    "@types/mocha": "catalog:",
+    "@types/node": "catalog:",
     "@wagmi/cli": "^2.7.0",
-    "abitype": "^1.2.0",
+    "abitype": "catalog:",
     "assert": "^2.1.0",
-    "mocha": "^11.7.4",
+    "mocha": "catalog:",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",
-    "typescript": "5.9.3"
+    "typescript": "catalog:"
   },
   "publishConfig": {
     "access": "public"
