@@ -13,7 +13,6 @@ import {
   EIP2612_PERMIT_TYPES,
   getCurrentEpoch,
   getFilecoinNetworkType,
-  SETTLEMENT_FEE,
   TIMING_CONSTANTS,
   TOKENS,
 } from '../utils/index.ts'
@@ -881,9 +880,7 @@ export class PaymentsService {
     const paymentsContract = this._getPaymentsContract()
 
     // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {
-      value: SETTLEMENT_FEE, // Include the settlement fee (NETWORK_FEE in contract) as msg.value
-    }
+    const txOptions: any = {}
     if (this._disableNonceManager) {
       const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
       txOptions.nonce = currentNonce

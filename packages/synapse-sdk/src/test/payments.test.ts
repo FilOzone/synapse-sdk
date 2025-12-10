@@ -393,18 +393,6 @@ describe('PaymentsService', () => {
       })
     })
 
-    describe('SETTLEMENT_FEE constant', () => {
-      it('should have correct settlement fee value', () => {
-        // Import the constant
-        const { SETTLEMENT_FEE } = require('../utils/constants.ts')
-
-        assert.exists(SETTLEMENT_FEE)
-        assert.typeOf(SETTLEMENT_FEE, 'bigint')
-        // Settlement fee should be 0.0013 FIL (1300000000000000 attoFIL)
-        assert.equal(SETTLEMENT_FEE, 1300000000000000n)
-      })
-    })
-
     describe('settle', () => {
       it('should settle a rail up to current epoch', async () => {
         server.use(JSONRPC(presets.basic))

@@ -130,27 +130,6 @@ Settlement is the process of executing the accumulated payments in a rail. Until
 - **Flexibility**: Allows validators to adjust payments if needed
 - **Finality**: Makes funds available for withdrawal
 
-### Settlement Fee
-
-:::warning[FIL Required for Settlement]
-**Every settlement operation requires 0.0013 FIL** in your wallet (separate from USDFC deposits). This fee is burned to the Filecoin network and is **NOT** returned. Ensure you have sufficient FIL balance before attempting settlement operations.
-:::
-
-Settlement operations require a network fee that is burned (permanently removed from circulation), effectively paying the Filecoin network for providing the settlement service:
-
-- **Amount**: 0.0013 FIL (defined as `SETTLEMENT_FEE` constant)
-- **Mechanism**: The fee is burned to Filecoin's burn actor, `f099` (also known as address `0xff00000000000000000000000000000000000063`), reducing FIL supply
-- **Purpose**: This burn mechanism compensates the network for processing and securing payment settlements
-- **Automatic**: The SDK automatically includes this fee when calling settlement methods
-
-```ts twoslash
-import { ethers } from "ethers";
-// ---cut---
-import { SETTLEMENT_FEE } from "@filoz/synapse-sdk";
-console.log(`Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`);
-// This fee is burned to the network, not paid to any party
-```
-
 ### Performing Settlement
 
 #### Automatic Settlement (Recommended)
