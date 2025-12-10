@@ -8,10 +8,10 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../../packages/synapse-sdk"
+      "path": "../../packages/synapse-sdk/tsconfig.json"
     },
     {
-      "path": "../../packages/synapse-core"
+      "path": "../../packages/synapse-core/tsconfig.json"
     }
   ]
 }

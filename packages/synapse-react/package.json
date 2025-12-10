@@ -29,6 +29,17 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
+    },
+    "./filsnap": {
+      "types": "./dist/src/filsnap.d.ts",
+      "default": "./dist/src/filsnap.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "filsnap": [
+        "./dist/src/filsnap"
+      ]
     }
   },
   "files": [
@@ -88,7 +99,8 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "5.x",
+    "@wagmi/core": "3.x",
     "viem": "2.x",
-    "wagmi": "2.x"
+    "wagmi": "3.x"
   }
 }

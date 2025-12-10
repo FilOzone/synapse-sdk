@@ -122,10 +122,10 @@
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
     "@web3-storage/data-segment": "^5.3.0",
-    "ethers": "^6.15.0",
+    "ethers": "^6.16.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.12",
-    "viem": "^2.38.3"
+    "ox": "^0.9.17",
+    "viem": "^2.41.2"
   },
   "optionalDependencies": {
     "@sentry/browser": "^10.21.0",
@@ -137,7 +137,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.9.1",
     "@wagmi/cli": "^2.7.0",
-    "abitype": "^1.1.1",
+    "abitype": "^1.2.0",
     "chai": "^6.2.0",
     "iso-web": "^2.1.0",
     "mocha": "^11.7.4",

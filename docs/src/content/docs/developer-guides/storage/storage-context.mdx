@@ -275,7 +275,7 @@ console.log(`Data set last proven: ${status.dataSetLastProven}`);
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`);
 ```
 
-##### Efficient Batch Uploads
+#### Efficient Batch Uploads
 
 When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
 The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
