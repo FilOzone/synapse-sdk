@@ -3,6 +3,7 @@ import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
 import ecTwoSlash from 'expressive-code-twoslash'
+import rehypeExternalLinks from 'rehype-external-links'
 import starlightLlmsTxt from 'starlight-llms-txt'
 import starlightPageActions from 'starlight-page-actions'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
@@ -15,6 +16,16 @@ export default defineConfig({
   base: '/',
   vite: {
     plugins: [viteTsconfigPaths()],
+  },
+  markdown: {
+    rehypePlugins: [
+      [
+        rehypeExternalLinks,
+        {
+          target: '_blank',
+        },
+      ],
+    ],
   },
   integrations: [
     mermaid({

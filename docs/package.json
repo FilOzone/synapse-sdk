@@ -12,6 +12,7 @@
   "dependencies": {
     "@filoz/synapse-sdk": "workspace:*",
     "ethers": "^6.16.0",
+    "rehype-external-links": "^3.0.0",
     "starlight-page-actions": "^0.3.0"
   },
   "devDependencies": {
