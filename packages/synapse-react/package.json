@@ -33,19 +33,12 @@
     "./filsnap": {
       "types": "./dist/src/filsnap.d.ts",
       "default": "./dist/src/filsnap.js"
-    },
-    "./ledger": {
-      "types": "./dist/src/ledger.d.ts",
-      "default": "./dist/src/ledger.js"
     }
   },
   "typesVersions": {
     "*": {
       "filsnap": [
         "./dist/src/filsnap"
-      ],
-      "ledger": [
-        "./dist/src/ledger"
       ]
     }
   },
@@ -88,8 +81,7 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "@hugomrdias/filsnap-adapter": "^3.3.8",
-    "@ledgerhq/hw-transport-webhid": "^6.30.9"
+    "@hugomrdias/filsnap-adapter": "^3.3.8"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.8",

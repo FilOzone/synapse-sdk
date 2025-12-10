@@ -79,10 +79,6 @@
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
       "default": "./dist/src/utils/index.js"
-    },
-    "./ledger": {
-      "types": "./dist/src/ledger.d.ts",
-      "default": "./dist/src/ledger.js"
     }
   },
   "typesVersions": {
@@ -119,9 +115,6 @@
       ],
       "piece": [
         "./dist/src/piece"
-      ],
-      "ledger": [
-        "./dist/src/ledger"
       ]
     }
   },

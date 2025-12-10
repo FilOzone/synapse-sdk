@@ -1,6 +1,6 @@
 import { formatBalance } from '@filoz/synapse-core/utils'
 import { useAddUsdfc, useERC20Balance, useFundWallet } from '@filoz/synapse-react'
-import { isLedgerConnector } from '@filoz/synapse-react/ledger'
+import { isLedgerConnector } from 'iso-ledger/ledger-connector'
 import { ArrowUpRight, Copy, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { useBalance, useConnection, useDisconnect } from 'wagmi'

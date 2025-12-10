@@ -1,4 +1,4 @@
-import { isLedgerConnector } from '@filoz/synapse-react/ledger'
+import { isLedgerConnector } from 'iso-ledger/ledger-connector'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useConnection } from 'wagmi'
@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input.tsx'
 import { DropdownMenuItem } from '../ui/dropdown-menu.tsx'
 
 const changeAccountFormSchema = z.object({
+  accountIndex: z.number().min(0),
   addressIndex: z.number().min(0),
 })
 export function LedgerChangeAccountDialog() {
@@ -34,13 +35,14 @@ export function LedgerChangeAccountDialog() {
   const [open, setOpen] = useState(false)
   const form = useForm<z.infer<typeof changeAccountFormSchema>>({
     defaultValues: {
+      accountIndex: 0,
       addressIndex: 0,
     },
   })
 
   function onSubmit(values: z.infer<typeof changeAccountFormSchema>) {
     if (isLedgerConnector(connector)) {
-      connector.changeAccount({ addressIndex: values.addressIndex })
+      connector.changeAccount({ accountIndex: values.accountIndex, addressIndex: values.addressIndex })
       setOpen(false)
     }
   }
@@ -62,6 +64,29 @@ export function LedgerChangeAccountDialog() {
               <div className="grid gap-3">
                 <FormField
                   control={form.control}
+                  name="accountIndex"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account Index</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormDescription>Ledger Live</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                  rules={{
+                    required: 'Account Index is required',
+                    validate: (value) => {
+                      if (value < 0) {
+                        return 'Account Index must be equal or greater than 0'
+                      }
+                      return true
+                    },
+                  }}
+                />
+                <FormField
+                  control={form.control}
                   name="addressIndex"
                   render={({ field }) => (
                     <FormItem>
@@ -69,7 +94,7 @@ export function LedgerChangeAccountDialog() {
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
-                      <FormDescription>The index of the account to use with the Ledger device.</FormDescription>
+                      <FormDescription>MetaMask and Trezor (BIP44)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
