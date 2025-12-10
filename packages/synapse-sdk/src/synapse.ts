@@ -17,6 +17,7 @@ import type {
   FilecoinNetworkType,
   PieceCID,
   PieceRetriever,
+  ProviderFilterOptions,
   ProviderInfo,
   StorageInfo,
   StorageServiceOptions,
@@ -488,5 +489,23 @@ export class Synapse {
   async getStorageInfo(): Promise<StorageInfo> {
     console.warn('synapse.getStorageInfo() is deprecated. Use synapse.storage.getStorageInfo() instead.')
     return await this._storageManager.getStorageInfo()
+  }
+
+  /**
+   * Get providers with filtering options
+   * @param filter - Filtering options
+   * @returns Filtered list of providers
+   */
+  async providerFiltering(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
+    // Create SPRegistryService
+    try {
+      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
+      const spRegistry = new SPRegistryService(this._provider, registryAddress)
+
+      const providers = await spRegistry.providerFiltering(filter)
+      return providers
+    } catch (error) {
+      throw new Error(`Failed to filter providers: ${error instanceof Error ? error.message : String(error)}`)
+    }
   }
 }
