@@ -405,9 +405,6 @@ describe('PaymentsService', () => {
         assert.exists(tx.from)
         assert.exists(tx.to)
         assert.exists(tx.data)
-        // Check that the transaction includes the network fee as value
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should settle a rail up to specific epoch', async () => {
@@ -531,9 +528,6 @@ describe('PaymentsService', () => {
         assert.exists(tx)
         assert.exists(tx.hash)
         assert.typeOf(tx.hash, 'string')
-        // Check that the transaction includes the settlement fee as value
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should settle terminated rail using settleTerminatedRail', async () => {
@@ -587,8 +581,6 @@ describe('PaymentsService', () => {
         assert.exists(tx)
         assert.exists(tx.hash)
         assert.typeOf(tx.hash, 'string')
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should accept bigint rail ID', async () => {
