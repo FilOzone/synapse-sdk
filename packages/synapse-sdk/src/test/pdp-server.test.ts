@@ -705,6 +705,27 @@ Database error`
         )
       }
     })
+
+    it('should retry on 202 status and eventually succeed', async () => {
+      SP.setTimeout(10000) // Set shorter timeout for test
+      const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
+      let attemptCount = 0
+
+      server.use(
+        http.get('http://pdp.local/pdp/piece', async () => {
+          attemptCount++
+          // Return 202 for first 2 attempts, then 200
+          if (attemptCount < 3) {
+            return HttpResponse.json({ message: 'Processing' }, { status: 202 })
+          }
+          return HttpResponse.json({ pieceCid: mockPieceCid }, { status: 200 })
+        })
+      )
+
+      const result = await pdpServer.findPiece(mockPieceCid)
+      assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
+      assert.isAtLeast(attemptCount, 3, 'Should have retried at least 3 times')
+    })
   })
 
   describe('getPieceStatus', () => {

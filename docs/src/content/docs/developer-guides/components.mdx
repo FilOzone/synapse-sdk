@@ -518,7 +518,7 @@ const clientDataSetId = null as unknown as bigint;
 const payee = null as unknown as string;
 const dataSetId = null as unknown as number;
 const pieceDataArray = null as unknown as PieceCID[] | string[];
-const data = null as unknown as Uint8Array | ArrayBuffer;
+const data = null as unknown as Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>;
 const datasetMetadata = null as unknown as MetadataEntry[];
 const piecesMetadata = null as unknown as MetadataEntry[][];
 const payer = null as unknown as string;
@@ -583,7 +583,7 @@ console.log(`Dataset ${dataSet.id}: ${dataSet.pieces.length} pieces`);
 
 **PieceCID Utilities Example**:
 
-```typescript
+```ts
 import {
   calculate,
   asPieceCID,
@@ -678,7 +678,7 @@ sequenceDiagram
 
 Choose your learning path based on your immediate needs:
 
-#### Ready to Build?
+### Ready to Build?
 
 Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
 
@@ -687,7 +687,7 @@ Jump straight to code with the [**Getting Started Guide →**](/getting-started/
 - [**Payment Operations →**](/developer-guides/payments) - Fund your account and manage payments
 - [**Rails & Settlement →**](/developer-guides/payments/rails-settlement) - Payment mechanics and settlement strategies
 
-#### Want to Learn More?
+### Want to Learn More?
 
 - [**Architecture →**](/core-concepts/architecture/) - Understanding how all components work together
 - [**PDP Overview →**](/core-concepts/pdp-overview) - Proof verification and data integrity

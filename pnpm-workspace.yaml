@@ -10,3 +10,29 @@ onlyBuiltDependencies:
   - msw
   - sharp
   - workerd
+  
+catalog:
+  ethers: ~6.16.0
+  wagmi: ^3.0.2
+  viem: ~2.41.2
+  ox: ~0.9.17
+  abitype: ~1.2.0
+  mocha: ^11.7.4
+  typescript: 5.9.3
+  '@biomejs/biome': 2.3.8
+  '@types/mocha': ^10.0.10
+  '@types/node': ^24.9.1
+  '@types/react': ^19.2.7
+  '@types/react-dom': ^19.2.3
+
+minimumReleaseAge: 2880 # 2 days
+minimumReleaseAgeExclude:
+  - iso-ledger
+
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - vite@6.4.1
+  - chokidar@4.0.3
+  - semver@6.3.1
+  - undici-types@6.19.8
+  - langium@3.3.1

@@ -7,7 +7,7 @@ sidebar:
 
 The Synapse SDK automatically handles all the complexity of storage setup for you - selecting providers, managing data sets, and coordinating with the blockchain.
 
-### Storage Context Creation
+## Storage Context Creation
 
 You have two options:
 
@@ -19,7 +19,7 @@ Behind the scenes, the process may be:
 - **Fast (< 1 second)**: When reusing existing data sets that match your requirements (including all metadata)
 - **Slower (2-5 minutes)**: When setting up new blockchain infrastructure (i.e. creating a brand new data set)
 
-#### Basic Usage
+### Basic Usage
 
 ```typescript
 // Option 1: Auto-managed context (simplest)
@@ -62,7 +62,7 @@ Metadata is subject to the following contract-enforced limits:
 
 These limits are enforced by the blockchain contracts. The SDK will validate metadata before submission and throw descriptive errors if limits are exceeded.
 
-#### Advanced Usage with Callbacks
+### Advanced Usage with Callbacks
 
 Monitor the creation process with detailed callbacks:
 
@@ -92,6 +92,7 @@ const contexts = await synapse.storage.createContexts({
 #### Creation Options
 
 ##### createContexts
+
 ```typescript
 export interface CreateContextsOptions {
   count?: number                           // Number of contexts to create (default: 2)
@@ -237,11 +238,11 @@ console.log('Estimated costs:', preflight.estimatedCost)
 console.log('Allowance sufficient:', preflight.allowanceCheck.sufficient)
 ```
 
-##### Upload and Download
+#### Upload and Download
 
 The SDK uses memory-efficient streaming for uploads, enabling uploads up to 1 GiB with minimal memory usage.
 
-**Streaming Uploads (Recommended)**
+Streaming Uploads (Recommended)
 
 Stream data directly from files or other sources using `AsyncIterable<Uint8Array>`:
 
@@ -270,7 +271,7 @@ const result = await context.upload(file.stream(), {
 })
 ```
 
-**Simple Uploads**
+Simple Uploads
 
 For smaller files or when you already have data in memory, pass `Uint8Array` or `ArrayBuffer` directly. The SDK automatically streams it for you:
 
@@ -288,16 +289,16 @@ const result = await context.upload(fileData, {
   onUploadComplete: (pieceCid) => {
     console.log(`Upload complete! PieceCID: ${pieceCid}`)
   },
-  onPieceAdded: (hash) => {
-    console.log(`Piece added, tx: ${hash}`)
+  onPiecesAdded: (hash, pieces) => {
+    console.log(`Pieces added in tx ${hash}: ${pieces?.length ?? 0}`)
   },
-  onPieceConfirmed: (pieceIds) => {
-    console.log(`Piece IDs: ${pieceIds.join(', ')}`)
-  }
+  onPiecesConfirmed: (dataSetId, pieces) => {
+    console.log(`Data set ${dataSetId} confirmed with pieces: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`)
+  },
 })
 ```
 
-**Downloads**
+Downloads
 
 ```typescript
 // Download data from this context's specific provider

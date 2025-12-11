@@ -14,7 +14,7 @@ The Synapse SDK provides an interface to Filecoin's decentralized services ecosy
 
 The SDK handles all the complexity of blockchain interactions, provider selection, and data management, so you can focus on building your application.
 
-#### What You'll Learn
+## What You'll Learn
 
 By the end of this guide, you'll understand how to:
 
@@ -32,7 +32,7 @@ Before installing the Synapse SDK, make sure you have the following:
 - A **supported package manager** (npm, yarn, or pnpm).
 - Added [Filecoin **Calibration**](https://chainlist.org/chain/314159) into you MetaMask.
 
-#### Get Test Tokens
+### Get Test Tokens
 
 Before you start building with Synapse SDK, you'll need to request test tokens from faucets to pay transaction fees and storage fees. For the calibration testnet:
 
@@ -148,7 +148,7 @@ const synapse = await Synapse.create({
 
 ### 2: Payment Setup
 
-Before storing data, you need to deposit USDFC tokens in your payments account. The amount you deposit is entirely up to your anticipated storage and retrieval needs. 
+Before storing data, you need to deposit USDFC tokens in your payments account. The amount you deposit is entirely up to your anticipated storage and retrieval needs.
 :::note[Pricing]
 To size your deposit, check the up‑to‑date rates in [**Pricing**](../introduction/about/#pricing) and use the [storage costs calculator](/developer-guides/storage/storage-costs/#detailed-calculator-guide) for a precise estimate.
 :::
@@ -254,6 +254,7 @@ const result = await context.upload(data);
 // Download from this context
 const downloaded = await context.download(result.pieceCid);
 ```
+
 - **providerId**: By specifying `providerId`, you tell Synapse SDK to store (and later retrieve) your data specifically with that provider.
 
 - **withCDN**: Setting `withCDN: true` enables **Filecoin Beam**, the decentralized retrieval and delivery layer. So global users can download data faster, and pay-by-egress billing.

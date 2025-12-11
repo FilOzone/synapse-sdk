@@ -3,7 +3,7 @@ import { useAccountInfo, useApproveAllowance, useDeposit, useWithdraw } from '@f
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { parseEther } from 'viem'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { z } from 'zod/v4'
 import * as Icons from '@/components/icons.tsx'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card.tsx'
@@ -25,7 +25,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from './ui/input.tsx'
 
 export function PaymentsAccount() {
-  const { address } = useAccount()
+  const { address } = useConnection()
   const { data: paymentsBalance } = useAccountInfo({
     address,
   })

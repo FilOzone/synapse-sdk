@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { Button } from '@/components/ui/button.tsx'
 import {
   Dialog,
@@ -13,7 +13,7 @@ import { WalletOptions } from './wallet-options.tsx'
 
 export function ConnectWallet() {
   const [open, setOpen] = useState(false)
-  const { isConnected } = useAccount()
+  const { isConnected } = useConnection()
 
   useEffect(() => {
     if (isConnected) {

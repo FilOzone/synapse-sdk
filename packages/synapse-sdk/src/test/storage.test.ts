@@ -1175,7 +1175,13 @@ describe('StorageService', () => {
         PING(),
         http.post<Record<string, never>, { pieceCid: string }>('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.error()
-        })
+        }),
+        http.post<Record<string, never>, { pieceCid: string }>(
+          'https://pdp.example.com/pdp/piece/uploads',
+          async () => {
+            return HttpResponse.error()
+          }
+        )
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)

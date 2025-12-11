@@ -603,7 +603,7 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
 
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
     retry: {
-      statusCodes: [404],
+      statusCodes: [202, 404],
       retries: RETRIES,
       factor: FACTOR,
     },
