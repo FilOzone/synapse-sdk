@@ -144,7 +144,6 @@ For more control, you can use the specific settlement methods:
 Settle up to the current epoch:
 
 ```typescript
-// Settle a specific rail (requires settlement fee)
 const tx = await synapse.payments.settle(railId)
 await tx.wait()
 console.log('Rail settled successfully')
@@ -272,9 +271,7 @@ Common settlement errors and solutions:
 try {
   await synapse.payments.settle(railId)
 } catch (error) {
-  if (error.message.includes('InsufficientNativeTokenForBurn')) {
-    console.error('Insufficient FIL for settlement fee (0.0013 FIL required)')
-  } else if (error.message.includes('NoProgressInSettlement')) {
+  if (error.message.includes('NoProgressInSettlement')) {
     console.error('Rail already settled to current epoch')
   } else if (error.message.includes('RailNotActive')) {
     console.error('Rail is not active or already terminated')

@@ -860,7 +860,7 @@ export class PaymentsService {
 
   /**
    * Settle a payment rail up to a specific epoch (sends a transaction)
-   * Note: This method automatically includes the required network fee (FIL) for burning
+   *
    * @param railId - The rail ID to settle
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
    *                     Can be used for partial settlements to a past epoch.
@@ -901,7 +901,7 @@ export class PaymentsService {
 
   /**
    * Get the expected settlement amounts for a rail (read-only simulation)
-   * Note: The actual settlement will require a network fee (FIL) to be sent with the transaction
+   *
    * @param railId - The rail ID to check
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
    *                     Can be used to preview partial settlements to a past epoch.
@@ -918,7 +918,6 @@ export class PaymentsService {
 
     try {
       // Use staticCall to simulate the transaction and get the return values
-      // Include the settlement fee (NETWORK_FEE in contract) in the simulation
       const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint)
 
       return {
@@ -1023,7 +1022,7 @@ export class PaymentsService {
    * Automatically settle a rail, detecting whether it's terminated or active
    * This method checks the rail status and calls the appropriate settlement method:
    * - For terminated rails: calls settleTerminatedRail()
-   * - For active rails: calls settle() with optional untilEpoch (requires settlement fee)
+   * - For active rails: calls settle() with optional untilEpoch
    *
    * @param railId - The rail ID to settle
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)
