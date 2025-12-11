@@ -10,7 +10,7 @@
  */
 
 import { ethers } from 'ethers'
-import { SETTLEMENT_FEE, Synapse } from '../packages/synapse-sdk/src/index.ts'
+import { Synapse } from '../packages/synapse-sdk/src/index.ts'
 import { getCurrentEpoch } from '../packages/synapse-sdk/src/utils/index.ts'
 import { WarmStorageService } from '../packages/synapse-sdk/src/warm-storage/index.ts'
 
@@ -147,7 +147,6 @@ async function main() {
     }
 
     console.log(`Checking settlement amounts for ${railsToSettle.length} rail(s)...`)
-    console.log(`${DIM}Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL per transaction${RESET}`)
     console.log('')
 
     let totalSettled = 0n
@@ -231,7 +230,6 @@ async function main() {
         // Check if it's the InsufficientNativeTokenForBurn error
         if (error.message.includes('InsufficientNativeTokenForBurn')) {
           console.log(`  ${YELLOW}Insufficient FIL for network fee${RESET}`)
-          console.log(`  Required: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
         }
 
         console.log('')

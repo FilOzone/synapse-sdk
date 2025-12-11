@@ -118,21 +118,6 @@ Settlement is the process of executing the accumulated payments in a rail. Until
 - **Flexibility**: Allows validators to adjust payments if needed
 - **Finality**: Makes funds available for withdrawal
 
-### Settlement Fee
-
-Settlement operations require a network fee that is burned (permanently removed from circulation), effectively paying the Filecoin network for providing the settlement service:
-
-- **Amount**: 0.0013 FIL (defined as `SETTLEMENT_FEE` constant)
-- **Mechanism**: The fee is burned to Filecoin's burn actor, `f099` (also known as address `0xff00000000000000000000000000000000000063`), reducing FIL supply
-- **Purpose**: This burn mechanism compensates the network for processing and securing payment settlements
-- **Automatic**: The SDK automatically includes this fee when calling settlement methods
-
-```typescript
-import { SETTLEMENT_FEE } from '@filoz/synapse-sdk'
-console.log(`Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`)
-// This fee is burned to the network, not paid to any party
-```
-
 ### Performing Settlement
 
 #### Automatic Settlement (Recommended)
@@ -159,7 +144,6 @@ For more control, you can use the specific settlement methods:
 Settle up to the current epoch:
 
 ```typescript
-// Settle a specific rail (requires settlement fee)
 const tx = await synapse.payments.settle(railId)
 await tx.wait()
 console.log('Rail settled successfully')
@@ -287,9 +271,7 @@ Common settlement errors and solutions:
 try {
   await synapse.payments.settle(railId)
 } catch (error) {
-  if (error.message.includes('InsufficientNativeTokenForBurn')) {
-    console.error('Insufficient FIL for settlement fee (0.0013 FIL required)')
-  } else if (error.message.includes('NoProgressInSettlement')) {
+  if (error.message.includes('NoProgressInSettlement')) {
     console.error('Rail already settled to current epoch')
   } else if (error.message.includes('RailNotActive')) {
     console.error('Rail is not active or already terminated')
