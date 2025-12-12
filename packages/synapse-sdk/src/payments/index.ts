@@ -1,9 +1,10 @@
 /**
- * Exports the PaymentsService and DepositOptions types
+ * Payments Service
  *
  * @module Payments
+ *
  * @example
- * ```ts
+ * ```ts twoslash
  * import { PaymentsService } from '@filoz/synapse-sdk/payments'
  * ```
  */

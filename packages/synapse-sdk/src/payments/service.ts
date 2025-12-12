@@ -1,8 +1,3 @@
-/**
- * PaymentsService - Consolidated interface for all Payments contract operations
- * along with some additional token related utilities.
- */
-
 import { ethers } from 'ethers'
 import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
 import {
@@ -33,6 +28,9 @@ export interface DepositOptions {
   onDepositStarting?: () => void
 }
 
+/**
+ * PaymentsService - Filecoin Pay client for managing deposits, approvals, and payment rails
+ */
 export class PaymentsService {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
