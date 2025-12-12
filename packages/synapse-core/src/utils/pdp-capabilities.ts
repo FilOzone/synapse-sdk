@@ -2,6 +2,7 @@ import type { Hex } from 'viem'
 import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
+import { decodeEndorsements, encodeEndorsements } from './cert.ts'
 
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
@@ -18,7 +19,11 @@ export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
  */
-export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOffering {
+export async function decodePDPCapabilities(
+  providerId: bigint,
+  chainId: number | bigint,
+  capabilities: Record<string, Hex>
+): Promise<PDPOffering> {
   return {
     serviceURL: hexToString(capabilities.serviceURL),
     minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
@@ -29,6 +34,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
+    endorsements: await decodeEndorsements(providerId, chainId, capabilities),
   }
 }
 
@@ -61,6 +67,12 @@ export function encodePDPCapabilities(
   capabilityValues.push(stringToHex(pdpOffering.location))
   capabilityKeys.push(CAP_PAYMENT_TOKEN)
   capabilityValues.push(pdpOffering.paymentTokenAddress)
+
+  if (pdpOffering.endorsements != null) {
+    const [endorsementKeys, endorsementValues] = encodeEndorsements(pdpOffering.endorsements)
+    capabilityKeys.push(...endorsementKeys)
+    capabilityValues.push(...endorsementValues)
+  }
 
   if (capabilities != null) {
     for (const [key, value] of Object.entries(capabilities)) {
