@@ -98,6 +98,9 @@
       "abis": [
         "./dist/src/abis/index"
       ],
+      "auction": [
+        "./dist/src/auction/index"
+      ],
       "pay": [
         "./dist/src/pay/index"
       ],
@@ -115,6 +118,9 @@
       ],
       "piece": [
         "./dist/src/piece"
+      ],
+      "utils": [
+        "./dist/src/utils/index"
       ]
     }
   },

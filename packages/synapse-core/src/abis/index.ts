@@ -1,12 +1,12 @@
 /**
- * Synapse Core - ABIs
+ * ABIs
  *
  * @example
  * ```ts
  * import * as Abis from '@filoz/synapse-core/abis'
  * ```
  *
- * @packageDocumentation
+ * @module abis
  */
 
 export * from './erc20.ts'

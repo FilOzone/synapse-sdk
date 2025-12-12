@@ -1,12 +1,12 @@
 /**
- * Synapse Core - ERC20 Contract Operations
+ * ERC20 Contract Operations
  *
  * @example
  * ```ts
  * import * as ERC20 from '@filoz/synapse-core/erc20'
  * ```
  *
- * @packageDocumentation
+ * @module erc20
  */
 
 import {

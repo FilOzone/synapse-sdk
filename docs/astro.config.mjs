@@ -4,6 +4,9 @@ import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
 import ecTwoSlash from 'expressive-code-twoslash'
 import rehypeExternalLinks from 'rehype-external-links'
+import starlightAutoSidebar from 'starlight-auto-sidebar'
+import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
+import starlightLinksValidator from 'starlight-links-validator'
 import starlightLlmsTxt from 'starlight-llms-txt'
 import starlightPageActions from 'starlight-page-actions'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
@@ -125,9 +128,32 @@ export default defineConfig({
           autogenerate: { directory: 'resources' },
         },
         {
-          label: 'API',
+          label: 'Changelogs',
           collapsed: true,
-          autogenerate: { directory: 'api' },
+          items: [
+            ...makeChangelogsSidebarLinks([
+              {
+                type: 'all',
+                base: 'changelog-sdk',
+                label: '@filoz/synapse-sdk',
+              },
+              {
+                type: 'all',
+                base: 'changelog-core',
+                label: '@filoz/synapse-core',
+              },
+              {
+                type: 'all',
+                base: 'changelog-react',
+                label: '@filoz/synapse-react',
+              },
+            ]),
+          ],
+        },
+        {
+          label: 'Reference',
+          collapsed: true,
+          autogenerate: { directory: 'reference' },
         },
       ],
       expressiveCode: {
@@ -144,6 +170,7 @@ export default defineConfig({
       },
       plugins: [
         docsPlugin({
+          outputDirectory: 'reference',
           pagination: true,
           typeDocOptions: {
             githubPages: true,
@@ -159,6 +186,9 @@ export default defineConfig({
         }),
         starlightLlmsTxt(),
         starlightPageActions(),
+        starlightAutoSidebar(),
+        starlightChangelogs(),
+        starlightLinksValidator(),
       ],
     }),
   ],
