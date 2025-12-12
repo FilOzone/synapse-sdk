@@ -144,7 +144,9 @@ console.log(`Found ${pieces.length} pieces`);
 Calculate total storage size by summing piece sizes extracted from PieceCIDs:
 
 ```ts twoslash
-import { Synapse, PDPVerifier } from "@filoz/synapse-sdk";
+import { Synapse } from "@filoz/synapse-sdk";
+import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
+
 const synapse = await Synapse.create({});
 const dataSetId = null as unknown as number;
 // ---cut---
@@ -163,7 +165,8 @@ console.log(`Data set size: ${sizeInBytes} bytes`);
 Access custom metadata attached to individual pieces for organization and filtering:
 
 ```ts twoslash
-import { Synapse, WarmStorageService } from "@filoz/synapse-sdk";
+import { Synapse } from "@filoz/synapse-sdk";
+import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
 const synapse = await Synapse.create({});
 const dataSetId = null as unknown as number;
 const piece = null as unknown as { pieceCid: string; pieceId: number };

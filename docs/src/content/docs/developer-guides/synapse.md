@@ -34,29 +34,30 @@ import {
   StorageInfo,
   ProviderInfo,
   FilecoinNetworkType,
-} from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-import type { PaymentsService, StorageManager } from "@filoz/synapse-sdk";
+} from "@filoz/synapse-sdk"
+import { ethers } from "ethers"
+import type { PaymentsService } from "@filoz/synapse-sdk/payments"
+import type { StorageManager } from "@filoz/synapse-sdk/storage"
 // ---cut---
 interface SynapseAPI {
   // Create a new Synapse instance
-  create(options: SynapseOptions): Promise<Synapse>;
+  create(options: SynapseOptions): Promise<Synapse>
   // Properties
-  payments: PaymentsService;
-  storage: StorageManager;
+  payments: PaymentsService
+  storage: StorageManager
   // Storage Information (pricing, providers, service parameters, allowances)
-  getStorageInfo(): Promise<StorageInfo>;
-  getProviderInfo(providerAddress: string): Promise<ProviderInfo>;
+  getStorageInfo(): Promise<StorageInfo>
+  getProviderInfo(providerAddress: string): Promise<ProviderInfo>
   // Network Information
-  getNetwork(): FilecoinNetworkType;
-  getChainId(): number;
+  getNetwork(): FilecoinNetworkType
+  getChainId(): number
   // Contract Addresses
-  getWarmStorageAddress(): string;
-  getPaymentsAddress(): string;
-  getPDPVerifierAddress(): string;
+  getWarmStorageAddress(): string
+  getPaymentsAddress(): string
+  getPDPVerifierAddress(): string
   // Ethers Helpers
-  getProvider(): ethers.Provider;
-  getSigner(): ethers.Signer;
+  getProvider(): ethers.Provider
+  getSigner(): ethers.Signer
 }
 ```
 
