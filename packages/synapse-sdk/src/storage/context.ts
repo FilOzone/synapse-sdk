@@ -436,7 +436,7 @@ export class StorageContext {
       )
     }
 
-    const withCDN = dataSetInfo.cdnRailId > 0
+    const withCDN = dataSetInfo.cdnRailId > 0 && METADATA_KEYS.WITH_CDN in dataSetMetadata
     if (options.withCDN != null && withCDN !== options.withCDN) {
       throw createError(
         'StorageContext',
