@@ -84,7 +84,8 @@ import {
   FilecoinNetworkType,
 } from "@filoz/synapse-sdk";
 import { ethers } from "ethers";
-import type { PaymentsService, StorageManager } from "@filoz/synapse-sdk";
+import type { PaymentsService } from "@filoz/synapse-sdk/payments";
+import type { StorageManager } from "@filoz/synapse-sdk/storage";
 // ---cut---
 interface SynapseAPI {
   // Create a new Synapse instance
@@ -130,10 +131,9 @@ import {
   RailInfo,
   TokenIdentifier,
   TokenAmount,
-  DepositOptions,
-  PaymentsService,
   SettlementResult,
 } from "@filoz/synapse-sdk";
+import type { PaymentsService, DepositOptions } from "@filoz/synapse-sdk/payments";
 import { ethers } from "ethers";
 import { TOKENS } from "@filoz/synapse-sdk";
 interface AccountInfo {
@@ -232,8 +232,8 @@ import {
   EnhancedDataSetInfo,
   StorageServiceOptions,
   PreflightInfo,
-  StorageContext,
 } from "@filoz/synapse-sdk";
+import type { StorageContext } from "@filoz/synapse-sdk/storage";
 import { ethers } from "ethers";
 interface StorageManagerUploadOptions {}
 
@@ -284,115 +284,115 @@ Check out the [Storage Context](/developer-guides/storage/storage-context/) guid
 import {
   DataSetInfo,
   EnhancedDataSetInfo,
-  WarmStorageService,
-} from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-import type { PaymentsService } from "@filoz/synapse-sdk";
+} from "@filoz/synapse-sdk"
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+import { ethers } from "ethers"
+import type { PaymentsService } from "@filoz/synapse-sdk/payments"
 
 type ServicePriceInfo = {
-  pricePerTiBPerMonthNoCDN: bigint;
-  pricePerTiBCdnEgress: bigint;
-  pricePerTiBCacheMissEgress: bigint;
-  tokenAddress: string;
-  epochsPerMonth: bigint;
-  minimumPricePerMonth: bigint;
-};
+  pricePerTiBPerMonthNoCDN: bigint
+  pricePerTiBCdnEgress: bigint
+  pricePerTiBCacheMissEgress: bigint
+  tokenAddress: string
+  epochsPerMonth: bigint
+  minimumPricePerMonth: bigint
+}
 
 type DataSetCreationVerification = {
-  transactionMined: boolean;
-  transactionSuccess: boolean;
-  dataSetId?: number;
-  dataSetLive: boolean;
-  blockNumber?: number;
-  gasUsed?: bigint;
-  error?: string;
-};
+  transactionMined: boolean
+  transactionSuccess: boolean
+  dataSetId?: number
+  dataSetLive: boolean
+  blockNumber?: number
+  gasUsed?: bigint
+  error?: string
+}
 type CheckAllowanceForStorageResult = {
-  rateAllowanceNeeded: bigint;
-  lockupAllowanceNeeded: bigint;
-  currentRateAllowance: bigint;
-  currentLockupAllowance: bigint;
-  currentRateUsed: bigint;
-  currentLockupUsed: bigint;
-  sufficient: boolean;
-  message?: string;
+  rateAllowanceNeeded: bigint
+  lockupAllowanceNeeded: bigint
+  currentRateAllowance: bigint
+  currentLockupAllowance: bigint
+  currentRateUsed: bigint
+  currentLockupUsed: bigint
+  sufficient: boolean
+  message?: string
   costs: {
-    perEpoch: bigint;
-    perDay: bigint;
-    perMonth: bigint;
-  };
-  depositAmountNeeded: bigint;
-};
-type Transaction = Promise<ethers.TransactionResponse>;
+    perEpoch: bigint
+    perDay: bigint
+    perMonth: bigint
+  }
+  depositAmountNeeded: bigint
+}
+type Transaction = Promise<ethers.TransactionResponse>
 type CalculateStorageCostResult = {
-  perEpoch: bigint;
-  perDay: bigint;
-  perMonth: bigint;
+  perEpoch: bigint
+  perDay: bigint
+  perMonth: bigint
   withCDN: {
-    perEpoch: bigint;
-    perDay: bigint;
-    perMonth: bigint;
-  };
-};
+    perEpoch: bigint
+    perDay: bigint
+    perMonth: bigint
+  }
+}
 // ---cut---
 interface WarmStorageServiceAPI {
   // Factory Method
   create(
     provider: ethers.Provider,
     warmStorageAddress: string
-  ): Promise<WarmStorageService>;
+  ): Promise<WarmStorageService>
 
   // Data Set Queries
-  getDataSet(dataSetId: number): Promise<DataSetInfo>;
-  getClientDataSets(clientAddress: string): Promise<DataSetInfo[]>;
+  getDataSet(dataSetId: number): Promise<DataSetInfo>
+  getClientDataSets(clientAddress: string): Promise<DataSetInfo[]>
   getClientDataSetsWithDetails(
     client: string,
     onlyManaged?: boolean
-  ): Promise<EnhancedDataSetInfo[]>;
+  ): Promise<EnhancedDataSetInfo[]>
 
   // Metadata Operations
-  getDataSetMetadata(dataSetId: number): Promise<Record<string, string>>;
+  getDataSetMetadata(dataSetId: number): Promise<Record<string, string>>
   getDataSetMetadataByKey(
     dataSetId: number,
     key: string
-  ): Promise<string | null>;
+  ): Promise<string | null>
   getPieceMetadata(
     dataSetId: number,
     pieceId: number
-  ): Promise<Record<string, string>>;
+  ): Promise<Record<string, string>>
   getPieceMetadataByKey(
     dataSetId: number,
     pieceId: number,
     key: string
-  ): Promise<string | null>;
+  ): Promise<string | null>
 
   // Pricing & Cost Calculations
-  getServicePrice(): Promise<ServicePriceInfo>;
+  getServicePrice(): Promise<ServicePriceInfo>
   calculateStorageCost(
     sizeInBytes: number
-  ): Promise<CalculateStorageCostResult>;
+  ): Promise<CalculateStorageCostResult>
   checkAllowanceForStorage(
     sizeInBytes: number,
     withCDN: boolean,
     paymentsService: PaymentsService,
     lockupDays?: number
-  ): Promise<CheckAllowanceForStorageResult>;
+  ): Promise<CheckAllowanceForStorageResult>
 
   // Data Set Management
-  terminateDataSet(signer: ethers.Signer, dataSetId: number): Transaction;
+  terminateDataSet(signer: ethers.Signer, dataSetId: number): Transaction
   topUpCDNPaymentRails(
     signer: ethers.Signer,
     dataSetId: number,
     cdnAmountToAdd: bigint,
     cacheMissAmountToAdd: bigint
-  ): Transaction;
+  ): Transaction
 
-  getApprovedProviderIds(): Promise<number[]>;
-  isProviderIdApproved(providerId: number): Promise<boolean>;
+  getApprovedProviderIds(): Promise<number[]>
+  isProviderIdApproved(providerId: number): Promise<boolean>
 
   // Proving Period
-  getMaxProvingPeriod(): Promise<number>;
-  getChallengeWindow(): Promise<number>;
+  getMaxProvingPeriod(): Promise<number>
+  getChallengeWindow(): Promise<number>
 }
 ```
 
@@ -407,7 +407,7 @@ interface WarmStorageServiceAPI {
 **PDPVerifier Example**:
 
 ```ts twoslash
-import { PDPVerifier } from "@filoz/synapse-sdk";
+import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
 import { ethers } from "ethers";
 const provider = null as unknown as ethers.Provider;
 const pdpVerifierAddress = null as unknown as string;
@@ -444,10 +444,10 @@ This component is used internally by the SDK but exposed for developers who need
 
 ```ts twoslash
 import {
-  PDPAuthHelper,
   type MetadataEntry,
   type PieceCID,
 } from "@filoz/synapse-sdk";
+import { PDPAuthHelper } from "@filoz/synapse-sdk/pdp";
 import { ethers } from "ethers";
 const warmStorageAddress = null as unknown as string;
 const signer = null as unknown as ethers.Signer;
@@ -504,12 +504,11 @@ This component is used internally by the SDK but exposed for developers who need
 
 ```ts twoslash
 import {
-  PDPServer,
-  PDPAuthHelper,
   PieceCID,
   MetadataEntry,
   DataSetData,
 } from "@filoz/synapse-sdk";
+import { PDPServer, PDPAuthHelper } from "@filoz/synapse-sdk/pdp";
 import { ethers } from "ethers";
 const warmStorageAddress = null as unknown as string;
 const signer = null as unknown as ethers.Signer;

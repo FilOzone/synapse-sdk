@@ -116,37 +116,37 @@ Get pricing information and calculate the cost per epoch for your storage capaci
 ```ts twoslash
 import {
   Synapse,
-  WarmStorageService,
   SIZE_CONSTANTS,
-} from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+} from "@filoz/synapse-sdk"
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+const synapse = await Synapse.create({})
 // ---cut---
 // Get pricing structure
-const warmStorageAddress = await synapse.getWarmStorageAddress();
+const warmStorageAddress = await synapse.getWarmStorageAddress()
 const warmStorageService = await WarmStorageService.create(
   synapse.getProvider(),
   warmStorageAddress
-);
+)
 
 const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
-  await warmStorageService.getServicePrice();
+  await warmStorageService.getServicePrice()
 
 // Calculate base cost per month
-const bytesToStore = SIZE_CONSTANTS.GiB; // 1 GiB
+const bytesToStore = SIZE_CONSTANTS.GiB // 1 GiB
 let pricePerMonth =
   (pricePerTiBPerMonthNoCDN * BigInt(bytesToStore)) /
-  BigInt(SIZE_CONSTANTS.TiB);
+  BigInt(SIZE_CONSTANTS.TiB)
 
 // Apply minimum pricing if needed
 if (pricePerMonth < minimumPricePerMonth) {
-  pricePerMonth = minimumPricePerMonth;
+  pricePerMonth = minimumPricePerMonth
 }
 
 // Calculate per-epoch cost
-const pricePerEpoch = pricePerMonth / epochsPerMonth;
+const pricePerEpoch = pricePerMonth / epochsPerMonth
 
-console.log("Monthly cost:", pricePerMonth);
-console.log("Per-epoch cost:", pricePerEpoch);
+console.log("Monthly cost:", pricePerMonth)
+console.log("Per-epoch cost:", pricePerEpoch)
 ```
 
 ### Step 2: Calculate Required Allowances
