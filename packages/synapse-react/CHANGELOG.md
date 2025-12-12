@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.4...synapse-react-v0.1.5) (2025-12-12)
+
+
+### Chores
+
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.3...synapse-react-v0.1.4) (2025-12-04)
 
 
