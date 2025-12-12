@@ -10,13 +10,13 @@ This guide is for developers who need fine-grained control over storage operatio
 You'll learn about explicit provider selection, batch uploads, lifecycle management, and download strategies.
 
 **Audience**: Experienced developers building production applications
-**Prerequisites**: Complete the [Storage Operations Guide](./index) first
+**Prerequisites**: Complete the [Storage Operations Guide](/developer-guides/storage/storage-operations/) first
 **When to use this**: Batch operations, custom callbacks, specific provider requirements, advanced error handling
 :::
 
 ## Storage Context Overview
 
-A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](./index), contexts give you explicit control over these key capabilities:
+A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](/developer-guides/storage/storage-operations/), contexts give you explicit control over these key capabilities:
 
 - **Provider Selection**: Choose specific providers for your data
 - **Data Set Management**: Create, reuse, and manage data sets explicitly
@@ -24,7 +24,7 @@ A Storage Context represents a connection to a specific storage provider and dat
 - **Lifecycle Control**: Terminate data sets and delete pieces when needed
 - **Download Strategies**: Choose between SP-agnostic and SP-specific retrieval
 
-This guide assumes you've already completed the [Storage Operations Guide](./index) and understand the basics of uploading and downloading data.
+This guide assumes you've already completed the [Storage Operations Guide](/developer-guides/storage/storage-operations/) and understand the basics of uploading and downloading data.
 
 ### Creating a Storage Context
 
@@ -418,18 +418,18 @@ Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's m
 
 Now that you understand Storage Context and advanced operations:
 
-- **[Calculate Storage Costs →](./storage-costs)**
+- **[Calculate Storage Costs →](/developer-guides/storage/storage-costs/)**
   Plan your budget and fund your storage account.
   _Use the quick calculator to estimate monthly costs._
 
-- **[Storage Operations Basics →](./index)**
+- **[Storage Operations Basics →](/developer-guides/storage/storage-operations/)**
   Review fundamental storage concepts and auto-managed operations.
   _Good for a refresher on the simpler approach._
 
-- **[Component Architecture →](/developer-guides/components)**
+- **[Component Architecture →](/developer-guides/components/)**
   Understand how StorageContext fits into the SDK design.
   _Deep dive into the component architecture._
 
-- **[Payment Management →](/developer-guides/payments/)**
+- **[Payment Management →](/developer-guides/payments/payment-operations/)**
   Manage deposits, approvals, and payment rails.
   _Required before your first upload._

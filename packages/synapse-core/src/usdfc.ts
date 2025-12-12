@@ -1,12 +1,12 @@
 /**
- * Synapse Core - USDFC Contract Operations
+ * USDFC Contract Operations
  *
  * @example
  * ```ts
  * import * as USDFC from '@filoz/synapse-core/usdfc'
  * ```
  *
- * @packageDocumentation
+ * @module usdfc
  */
 
 import type { Account, Chain, Client, Transport } from 'viem'

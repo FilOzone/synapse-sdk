@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Service Provider HTTP Operations
+ * Service Provider HTTP Operations
  *
  * @example
  * ```ts
  * import * as SP from '@filoz/synapse-core/sp'
  * ```
  *
- * @packageDocumentation
+ * @module sp
  */
 
 import { HttpError, request, TimeoutError } from 'iso-web/http'

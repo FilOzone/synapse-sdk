@@ -28,6 +28,7 @@ catalog:
 minimumReleaseAge: 2880 # 2 days
 minimumReleaseAgeExclude:
   - iso-ledger
+  - '@hugomrdias/docs'
 
 trustPolicy: no-downgrade
 trustPolicyExclude:

@@ -71,7 +71,7 @@ The SDK is organized into three layers, each serving a specific purpose:
 
 **Purpose**: Main SDK entry point with simple, high-level API
 
-**API Reference**: [Synapse API Reference](/api/filoz/synapse-sdk/synapse/classes/synapse/)
+**API Reference**: [Synapse API Reference](/reference/filoz/synapse-sdk/synapse/classes/synapse/)
 
 **Synapse Interface**:
 
@@ -119,9 +119,9 @@ The PaymentsService provides direct access to the Filecoin Pay contract, enablin
 
 This is your primary interface for all payment-related operations in the SDK.
 
-**API Reference**: [PaymentsService API Reference](/api/filoz/synapse-sdk/synapse/classes/paymentsservice/)
+**API Reference**: [PaymentsService API Reference](/reference/filoz/synapse-sdk/payments/classes/paymentsservice/)
 
-Check out the [Payment Operations](/developer-guides/payments) guide for more details.
+Check out the [Payment Operations](/developer-guides/payments/payment-operations/) guide for more details.
 
 **Payments Service Interface**:
 
@@ -218,9 +218,9 @@ interface PaymentsServiceAPI {
 
 **Purpose**: High-level, auto-managed storage operations - upload and download data to and from the Filecoin Onchain Cloud.
 
-**API Reference**: [StorageManager API Reference](/api/filoz/synapse-sdk/synapse/classes/storagemanager/)
+**API Reference**: [StorageManager API Reference](/reference/filoz/synapse-sdk/storage/classes/storagemanager/)
 
-Check out the [Storage Operations](/developer-guides/storage) guide for more details.
+Check out the [Storage Operations](/developer-guides/storage/storage-operations/) guide for more details.
 
 **Storage Manager Interface**:
 
@@ -268,15 +268,15 @@ interface StorageManagerAPI {
 
 **Purpose**: Provider-specific storage operations - upload and download data to and from the Filecoin Onchain Cloud.
 
-**API Reference**: [StorageContext API Reference](/api/filoz/synapse-sdk/synapse/classes/storagecontext/)
+**API Reference**: [StorageContext API Reference](/reference/filoz/synapse-sdk/storage/classes/storagecontext/)
 
-Check out the [Storage Context](/developer-guides/storage/storage-context) guide for more details.
+Check out the [Storage Context](/developer-guides/storage/storage-context/) guide for more details.
 
 ### WarmStorageService
 
 **Purpose**: SDK client for storage coordination and pricing - storage pricing and cost calculations, data set management and queries, metadata operations (data sets and pieces), service provider approval management, contract address discovery, data set creation verification.
 
-**API Reference**: [WarmStorageService API Reference](/api/filoz/synapse-sdk/synapse/classes/warmstorageservice/)
+**API Reference**: [WarmStorageService API Reference](/reference/filoz/synapse-sdk/warmstorage/classes/warmstorageservice/)
 
 **WarmStorageService Interface**:
 
@@ -402,7 +402,7 @@ interface WarmStorageServiceAPI {
 
 **Purpose**: Client for PDPVerifier contract - get dataset and piece status, create data sets and add pieces.
 
-**API Reference**: [PDPVerifier API Reference](/api/filoz/synapse-sdk/synapse/classes/pdpverifier/)
+**API Reference**: [PDPVerifier API Reference](/reference/filoz/synapse-sdk/pdp/classes/pdpverifier/)
 
 **PDPVerifier Example**:
 
@@ -438,7 +438,7 @@ const extractedId = await pdpVerifier.extractDataSetIdFromReceipt(transactionRec
 This component is used internally by the SDK but exposed for developers who need explicit control over signature generation and authentication flows.
 :::
 
-**API Reference**: [PDPAuthHelper API Reference](/api/filoz/synapse-sdk/synapse/classes/pdpauthhelper/)
+**API Reference**: [PDPAuthHelper API Reference](/reference/filoz/synapse-sdk/pdp/classes/pdpauthhelper/)
 
 **PDPAuthHelper Example**:
 
@@ -498,7 +498,7 @@ const deleteDataSetSig = await authHelper.signDeleteDataSet(clientDataSetId);
 This component is used internally by the SDK but exposed for developers who need explicit control over provider communication and low-level storage operations.
 :::
 
-**API Reference**: [PDPServer API Reference](/api/filoz/synapse-sdk/synapse/classes/pdpserver/)
+**API Reference**: [PDPServer API Reference](/reference/filoz/synapse-sdk/pdp/classes/pdpserver/)
 
 **PDPServer Example**:
 
@@ -575,53 +575,7 @@ const dataSet = await pdpServer.getDataSet(dataSetId);
 console.log(`Dataset ${dataSet.id}: ${dataSet.pieces.length} pieces`);
 ```
 
-### PieceCID Utilities
-
-**Purpose**: Calculate PieceCIDs, convert between formats, and get the size of a specific piece.
-
-**API Reference**: [PieceCID Utilities API Reference](/api/filoz/synapse-sdk/piece/readme)
-
-**PieceCID Utilities Example**:
-
-```ts
-import {
-  calculate,
-  asPieceCID,
-  asLegacyPieceCID,
-  createPieceCIDStream,
-  getSizeFromPieceCID,
-} from "@filoz/synapse-sdk/piece";
-
-// Calculate PieceCID from data
-const data = new Uint8Array([1, 2, 3, 4]);
-const pieceCid = calculate(data);
-console.log(pieceCid.toString()); // bafkzcib...
-
-// Validate and convert PieceCID string
-const converted = asPieceCID(
-  "bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy"
-);
-if (converted !== null) {
-  console.log("Valid PieceCID:", converted.toString());
-}
-
-// Extract size from PieceCID
-const size = getSizeFromPieceCID(pieceCid);
-console.log(`Piece size: ${size} bytes`);
-
-// Stream-based PieceCID calculation (Web Streams API compatible)
-const { stream, getPieceCID } = createPieceCIDStream();
-// Pipe data through stream, then call getPieceCID() for result
-
-// Convert to LegacyPieceCID for compatibility with external Filecoin services
-const legacyPieceCid = asLegacyPieceCID(convertedPieceCid);
-if (legacyPieceCid !== null) {
-  console.log("Valid LegacyPieceCID:", legacyPieceCid.toString());
-  // Valid LegacyPieceCID: baga6ea4seaqdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy
-}
-```
-
-### Complete Data Flow
+## Complete Data Flow
 
 This sequence diagram shows the complete lifecycle of a file upload operation, from initialization through verification. Each step represents an actual blockchain transaction or API call.
 
@@ -682,14 +636,14 @@ Choose your learning path based on your immediate needs:
 
 Jump straight to code with the [**Getting Started Guide →**](/getting-started/)
 
-- [**Storage Operations →**](/developer-guides/storage) - Upload and download your first file
-- [**Storage Context →**](/developer-guides/storage/storage-context) - Advanced storage operations and batch uploads
-- [**Payment Operations →**](/developer-guides/payments) - Fund your account and manage payments
-- [**Rails & Settlement →**](/developer-guides/payments/rails-settlement) - Payment mechanics and settlement strategies
+- [**Storage Operations →**](/developer-guides/storage/storage-operations/) - Upload and download your first file
+- [**Storage Context →**](/developer-guides/storage/storage-context/) - Advanced storage operations and batch uploads
+- [**Payment Operations →**](/developer-guides/payments/payment-operations/) - Fund your account and manage payments
+- [**Rails & Settlement →**](/developer-guides/payments/rails-settlement/) - Payment mechanics and settlement strategies
 
 ### Want to Learn More?
 
 - [**Architecture →**](/core-concepts/architecture/) - Understanding how all components work together
-- [**PDP Overview →**](/core-concepts/pdp-overview) - Proof verification and data integrity
-- [**Filecoin Pay →**](/core-concepts/filecoin-pay-overview) - Payment rails and lockup mechanisms
-- [**Warm Storage Service →**](/core-concepts/fwss-overview) - Storage coordination and pricing model
+- [**PDP Overview →**](/core-concepts/pdp-overview/) - Proof verification and data integrity
+- [**Filecoin Pay →**](/core-concepts/filecoin-pay-overview/) - Payment rails and lockup mechanisms
+- [**Warm Storage Service →**](/core-concepts/fwss-overview/) - Storage coordination and pricing model

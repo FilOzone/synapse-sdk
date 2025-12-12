@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Chains
+ * Chains
  *
  * @example
  * ```ts
  * import * as Chains from '@filoz/synapse-core/chains'
  * ```
  *
- * @packageDocumentation
+ * @module chains
  */
 
 import type { Address, ChainContract, Chain as ViemChain } from 'viem'

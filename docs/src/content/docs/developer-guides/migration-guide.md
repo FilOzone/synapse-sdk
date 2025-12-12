@@ -1,10 +1,43 @@
 ---
-title: Migration guide
+title: Migration Guide
 description: Learn how to migrate to newer versions of the SDK.
 sidebar: 
   order: 0
 ---
 
+If you are coming from an earlier version of any of the Synapse packages, you will need to make sure to update the APIs listed below.
+
+---
+
+## `@filoz/synapse-sdk` 0.37.0
+
+<!-- Check out the [changelog](/changelog-sdk/version/0-37-0/) for more information. -->
+
+The main entrypoint `@filoz/synapse-sdk` no longer export all the other modules, from this version onwards it will only export the `Synapse` class, constants and types. Check [reference](/reference/filoz/synapse-sdk/synapse/) for the current exports.
+
+### Action: Change `import` statements
+
+```ts
+// before 
+import { 
+  PaymentService, 
+  PDPAuthHelper, 
+  PDPServer, 
+  PDPVerifier,
+  SessionKey,
+  StorageContext,
+  StorageManager,
+  WarmStorageService
+} from '@filoz/synapse-sdk'
+
+// after 
+import { PaymentService } from '@filoz/synapse-sdk/payments'
+import { PDPAuthHelper, PDPServer, PDPVerifier } from '@filoz/synapse-sdk/pdp'
+import { SessionKey } from '@filoz/synapse-sdk/session'
+import { StorageContext, StorageManager } from '@filoz/synapse-sdk/manager'
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
+
+```
 
 ## 0.24.0+
 
