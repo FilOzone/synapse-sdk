@@ -13,6 +13,7 @@ export type {
   PDPOffering,
   PDPServiceInfo,
   ProductType,
+  ProviderFilterOptions,
   ProviderInfo,
   ProviderRegistrationInfo,
   ServiceProduct,
