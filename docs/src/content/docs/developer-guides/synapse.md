@@ -173,5 +173,5 @@ try {
 - [Getting Started](/getting-started/) - Installation and setup guide
 - [Payment Operations Guide](/developer-guides/payments/payment-operations/) - Complete payment operations reference
 - [Storage Operations Guide](/developer-guides/storage/storage-operations/) - Complete storage operations reference
-- [API Reference](/reference/filoz/synapse-sdk/) - Full API documentation
+- [API Reference](/reference/filoz/synapse-sdk/toc/) - Full API documentation
 - [GitHub Repository](https://github.com/FilOzone/synapse-sdk) - Source code and examples

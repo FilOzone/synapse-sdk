@@ -13,7 +13,7 @@ If you are coming from an earlier version of any of the Synapse packages, you wi
 
 <!-- Check out the [changelog](/changelog-sdk/version/0-37-0/) for more information. -->
 
-The main entrypoint `@filoz/synapse-sdk` no longer export all the other modules, from this version onwards it will only export the `Synapse` class, constants and types. Check [reference](/reference/filoz/synapse-sdk/synapse/) for the current exports.
+The main entrypoint `@filoz/synapse-sdk` no longer export all the other modules, from this version onwards it will only export the `Synapse` class, constants and types. Check [reference](/reference/filoz/synapse-sdk/synapse/toc/) for the current exports.
 
 ### Action: Change `import` statements
 
