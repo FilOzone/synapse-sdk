@@ -11,12 +11,12 @@ catalog:
   '@types/node': ^24.9.1
   '@types/react': ^19.2.7
   '@types/react-dom': ^19.2.3
-  abitype: ~1.2.0
+  abitype: ^1.2.0
   ethers: ~6.16.0
   mocha: ^11.7.4
-  ox: ~0.10.0
+  ox: ^0.10.0
   typescript: 5.9.3
-  viem: ~2.41.2
+  viem: ^2.41.2
   wagmi: ^3.0.2
 
 minimumReleaseAge: 2880

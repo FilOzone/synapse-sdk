@@ -1,6 +1,6 @@
 # Docs website
 
-## 🚀 Project Structure helllo
+## 🚀 Project Structure
 
 Inside of your Astro + Starlight project, you'll see the following folders and files:
 
