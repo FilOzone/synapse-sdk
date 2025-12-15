@@ -547,9 +547,10 @@ export class StorageContext {
       return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
-    // Batch strategy: 1/3 of total datasets per batch (min 50) to balance latency vs RPC burst
+    // Batch strategy: 1/3 of total datasets per batch, with min & max, to balance latency vs RPC burst
     const MIN_BATCH_SIZE = 50
-    const BATCH_SIZE = Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3))
+    const MAX_BATCH_SIZE = 200
+    const BATCH_SIZE = Math.min(MAX_BATCH_SIZE, Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3), 1))
     let selectedDataSet: EvaluatedDataSet | null = null
 
     for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
