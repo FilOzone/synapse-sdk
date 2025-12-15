@@ -31,7 +31,13 @@ import type { PaymentsService } from '../payments/service.ts'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
-import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
+import {
+  CONTRACT_ADDRESSES,
+  METADATA_KEYS,
+  SIZE_CONSTANTS,
+  TIME_CONSTANTS,
+  TIMING_CONSTANTS,
+} from '../utils/constants.ts'
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
@@ -379,7 +385,7 @@ export class WarmStorageService {
           currentPieceCount: Number(nextPieceId),
           isLive,
           isManaged,
-          withCDN: base.cdnRailId > 0,
+          withCDN: base.cdnRailId > 0 && METADATA_KEYS.WITH_CDN in metadata,
           metadata,
         }
       } catch (error) {

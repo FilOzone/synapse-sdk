@@ -17,6 +17,6 @@
     "**/CHANGELOG.md",
     "**/dist/**/*.{md,mdx}",
     "**/node_modules/**/*.{md,mdx}",
-    "docs/src/content/docs/api/**/*.{md,mdx}"
+    "docs/src/content/docs/reference/**/*.{md,mdx}"
   ]
 }

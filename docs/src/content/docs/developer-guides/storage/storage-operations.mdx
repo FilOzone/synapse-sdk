@@ -16,7 +16,7 @@ You'll learn the fundamentals of uploading data, managing data sets, and retriev
 
 This guide explains the core storage concepts and provides examples of how to use the Synapse SDK to store, retrieve, and manage data on Filecoin On-Chain Cloud.
 
-### Key Concepts
+## Key Concepts
 
 **Data Set**: A logical container of pieces stored with one provider. When a data set is created, a payment rail is established with that provider. All pieces in the data set share this single payment rail and are verified together via PDP proofs.
 
@@ -31,7 +31,7 @@ This guide explains the core storage concepts and provides examples of how to us
 
 **Storage Context**: A connection to a specific storage provider and data set. Created explicitly for fine-grained control or automatically by StorageManager. Enables uploads and downloads with the specific storage provider.
 
-### Storage Approaches
+## Storage Approaches
 
 The SDK offers two ways to work with storage operations:
 
@@ -42,7 +42,7 @@ The SDK offers two ways to work with storage operations:
 
 **Recommendation**: Start with auto-managed, then explore explicit control only if needed.
 
-**Example 1: Quick Start (Auto-Managed)**
+### Example 1: Quick Start (Auto-Managed)
 
 Upload and download data with zero configuration - SDK automatically selects a provider and manages the data set:
 
@@ -59,7 +59,7 @@ console.log("Uploaded:", result.pieceCid);
 console.log("Downloaded:", downloaded.length, "bytes");
 ```
 
-**Example 2: With Metadata (Auto-Managed)**
+### Example 2: With Metadata (Auto-Managed)
 
 Add metadata to organize uploads and enable faster data set reuse - SDK will reuse any existing data set matching the metadata:
 
@@ -83,7 +83,7 @@ console.log("Uploaded:", result.pieceCid);
 :::tip[Need More Control?]
 The examples above use auto-managed storage where the SDK handles provider selection and data set creation.
 
-**For advanced use cases** like batch uploads, custom callbacks, or explicit provider selection, see the [Storage Context Guide](./storage-context).
+**For advanced use cases** like batch uploads, custom callbacks, or explicit provider selection, see the [Storage Context Guide](/developer-guides/storage/storage-context/).
 :::
 
 ## Data Set Management
@@ -144,7 +144,9 @@ console.log(`Found ${pieces.length} pieces`);
 Calculate total storage size by summing piece sizes extracted from PieceCIDs:
 
 ```ts twoslash
-import { Synapse, PDPVerifier } from "@filoz/synapse-sdk";
+import { Synapse } from "@filoz/synapse-sdk";
+import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
+
 const synapse = await Synapse.create({});
 const dataSetId = null as unknown as number;
 // ---cut---
@@ -163,7 +165,8 @@ console.log(`Data set size: ${sizeInBytes} bytes`);
 Access custom metadata attached to individual pieces for organization and filtering:
 
 ```ts twoslash
-import { Synapse, WarmStorageService } from "@filoz/synapse-sdk";
+import { Synapse } from "@filoz/synapse-sdk";
+import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
 const synapse = await Synapse.create({});
 const dataSetId = null as unknown as number;
 const piece = null as unknown as { pieceCid: string; pieceId: number };
@@ -177,7 +180,7 @@ const metadata = await warmStorage.getPieceMetadata(dataSetId, piece.pieceId);
 console.log("Piece metadata:", metadata);
 ```
 
-### Getting the size of a specific piece
+## Getting the size of a specific piece
 
 Calculate size of a specific piece by extracting the size from the PieceCID:
 
@@ -192,7 +195,7 @@ const size = getSizeFromPieceCID(pieceCid);
 console.log(`Piece size: ${size} bytes`);
 ```
 
-### Storage Information
+## Storage Information
 
 Query service-wide pricing, available providers, and network parameters:
 
@@ -213,14 +216,14 @@ console.log("PDP URL:", providerInfo.products.PDP!.data.serviceURL);
 
 **Ready to explore more?** Here's your learning path:
 
-- **[Advanced Operations →](./storage-context)**
+- **[Advanced Operations →](/developer-guides/storage/storage-context/)**
   Learn about batch uploads, lifecycle management, and download strategies.
   _For developers building production applications with specific provider requirements._
 
-- **[Plan Storage Costs →](./storage-costs)**
+- **[Plan Storage Costs →](/developer-guides/storage/storage-costs/)**
   Calculate your monthly costs and understand funding requirements.
   _Use the quick calculator to estimate costs in under 5 minutes._
 
-- **[Payment Management →](/developer-guides/payments/)**
+- **[Payment Management →](/developer-guides/payments/payment-operations/)**
   Manage deposits, approvals, and payment rails.
   _Required before your first upload._

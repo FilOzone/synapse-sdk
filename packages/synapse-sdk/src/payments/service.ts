@@ -1,8 +1,3 @@
-/**
- * PaymentsService - Consolidated interface for all Payments contract operations
- * along with some additional token related utilities.
- */
-
 import { ethers } from 'ethers'
 import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
 import {
@@ -13,7 +8,6 @@ import {
   EIP2612_PERMIT_TYPES,
   getCurrentEpoch,
   getFilecoinNetworkType,
-  SETTLEMENT_FEE,
   TIMING_CONSTANTS,
   TOKENS,
 } from '../utils/index.ts'
@@ -34,6 +28,9 @@ export interface DepositOptions {
   onDepositStarting?: () => void
 }
 
+/**
+ * PaymentsService - Filecoin Pay client for managing deposits, approvals, and payment rails
+ */
 export class PaymentsService {
   private readonly _provider: ethers.Provider
   private readonly _signer: ethers.Signer
@@ -861,7 +858,7 @@ export class PaymentsService {
 
   /**
    * Settle a payment rail up to a specific epoch (sends a transaction)
-   * Note: This method automatically includes the required network fee (FIL) for burning
+   *
    * @param railId - The rail ID to settle
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
    *                     Can be used for partial settlements to a past epoch.
@@ -881,9 +878,7 @@ export class PaymentsService {
     const paymentsContract = this._getPaymentsContract()
 
     // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {
-      value: SETTLEMENT_FEE, // Include the settlement fee (NETWORK_FEE in contract) as msg.value
-    }
+    const txOptions: any = {}
     if (this._disableNonceManager) {
       const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
       txOptions.nonce = currentNonce
@@ -904,7 +899,7 @@ export class PaymentsService {
 
   /**
    * Get the expected settlement amounts for a rail (read-only simulation)
-   * Note: The actual settlement will require a network fee (FIL) to be sent with the transaction
+   *
    * @param railId - The rail ID to check
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch; defaults to current).
    *                     Can be used to preview partial settlements to a past epoch.
@@ -921,7 +916,6 @@ export class PaymentsService {
 
     try {
       // Use staticCall to simulate the transaction and get the return values
-      // Include the settlement fee (NETWORK_FEE in contract) in the simulation
       const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint)
 
       return {
@@ -1026,7 +1020,7 @@ export class PaymentsService {
    * Automatically settle a rail, detecting whether it's terminated or active
    * This method checks the rail status and calls the appropriate settlement method:
    * - For terminated rails: calls settleTerminatedRail()
-   * - For active rails: calls settle() with optional untilEpoch (requires settlement fee)
+   * - For active rails: calls settle() with optional untilEpoch
    *
    * @param railId - The rail ID to settle
    * @param untilEpoch - The epoch to settle up to (must be <= current epoch for active rails; ignored for terminated rails)

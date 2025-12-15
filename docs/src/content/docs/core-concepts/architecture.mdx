@@ -15,18 +15,18 @@ Filecoin Onchain Cloud models both data operations and economic interactions as 
 
 Together, these entities define how information, proofs, and payments move through the system — forming the foundation of Filecoin’s verifiable cloud.
 
-| Concept	| Purpose |
-|---------|---------|
+| Concept | Purpose |
+| --------- | --------- |
 | **Piece** | Smallest data unit stored in the Filecoin network. |
-| **Data Set** |	Logical collection of stored data pieces with a shared lifecycle.|
-| **Proof Record**	| Verifiable claim proving continued possession of data. |
-| **Payment Rail** |	Economic channel defining how and when payments are released. |
+| **Data Set** | Logical collection of stored data pieces with a shared lifecycle. |
+| **Proof Record** | Verifiable claim proving continued possession of data. |
+| **Payment Rail** | Economic channel defining how and when payments are released. |
 
-#### **Piece**
+### Piece
 
 A Piece is the smallest unit of content stored in the Filecoin network. Each piece is identified by a **Content Identifier (CID)** and represents a verifiable reference to raw data, independent of its physical location.
 
-#### **Data Set**
+### Data Set
 
 A data set represents a logical grouping of one or more Pieces of content which will be stored and proved by PDP service providers.
 
@@ -38,7 +38,7 @@ Each data set becomes a persistent, onchain-tracked object — tied to:
 - its service provider,
 - and its proof schedule under PDP.
 
-#### **Proof Record**
+### Proof Record
 
 A Proof Record captures the cryptographic evidence that a PDP Service Provider still holds the data in a data set. Proofs are generated periodically using **Proof of Data Possession (PDP)** — a lightweight cryptographic protocol optimized for verifiable warm storage.
 
@@ -50,7 +50,7 @@ Each Proof Record:
 
 These records create a **public, immutable audit trail** of data set availability, enabling anyone to verify that data remains online without re-downloading it. Proof Records also act as **payment triggers**, signaling Filecoin Pay to settle balances once proofs succeed.
 
-#### **Payment Rail**
+### Payment Rail
 
 A Payment Rail defines the financial lifecycle of the Filecoin Onchain Cloud service agreement. It connects a **client** (who requests a service) with a **provider** (who delivers it), and governs how tokens move between them based on onchain verifiable conditions.
 
@@ -81,7 +81,7 @@ graph TB
 This modularity allows each layer to evolve independently while maintaining interoperability through onchain standards.
 
 | Layer | Function | Components |
-|-------|------------|----------|
+| ------- | ------------ | ---------- |
 | **Verification Layer** | Guarantees the correctness and transparency of all storage operations. | **Proof of Data Possession (PDP)** |
 | **Settlement Layer** | Handles programmable payments, rails settlement. | **Filecoin Pay** |
 | **Storage & Retrieval Service Layer** | Executes fast, retrievable, verifiable data operations. | **Filecoin Warm Storage Service (FWSS)**, **Filecoin Beam**. |
@@ -111,13 +111,13 @@ PDP is a cryptographic protocol that allows storage providers to prove they poss
 - Small proofs for large data
 - Continuous verification (not one-time)
 
-[Learn more about PDP →](/core-concepts/pdp-overview)
+[Learn more about PDP →](/core-concepts/pdp-overview/)
 
 ### Payment Rails and Lockup
 
 Payment rails are **automated payment channels** that stream tokens from clients to providers at a specified rate (e.g., 100 USDFC/epoch). The lockup mechanism ensures providers get paid even if clients abandon their accounts by reserving funds for a guaranteed period.
 
-[Learn more about Filecoin Pay →](/core-concepts/filecoin-pay-overview)
+[Learn more about Filecoin Pay →](/core-concepts/filecoin-pay-overview/)
 
 ### Filecoin Warm Storage Service
 
@@ -125,10 +125,10 @@ Filecoin Warm Storage Service is the **business logic layer** that combines PDP 
 
 Service providers run Curio nodes that store data, submit proofs, and provide HTTP APIs for upload/download.
 
-[Learn more about Filecoin Warm Storage Service →](/core-concepts/fwss-overview)
+[Learn more about Filecoin Warm Storage Service →](/core-concepts/fwss-overview/)
 
 ## Next Steps
 
 Now that you understand the architecture, you can start building on Filecoin Onchain Cloud.
 
-- [**Developer Guides**](/developer-guides) - Build with the SDK
+- [**Developer Guides**](/developer-guides/synapse/) - Build with the SDK

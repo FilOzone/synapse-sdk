@@ -11,11 +11,10 @@ sidebar:
 
 The SDK integrates with four key components of the Filecoin Onchain Cloud:
 
-- **PDPVerifier** : Proof verification contract powered by ([PDP](/core-concepts/pdp-overview))
-- **Filecoin Pay** : Payment layer contract powered by ([Filecoin Pay](/core-concepts/filecoin-pay-overview))
-- **Filecoin Warm Storage Service** : Business logic contract powered by ([WarmStorage](/core-concepts/fwss-overview))
+- **PDPVerifier** : Proof verification contract powered by ([PDP](/core-concepts/pdp-overview/))
+- **Filecoin Pay** : Payment layer contract powered by ([Filecoin Pay](/core-concepts/filecoin-pay-overview/))
+- **Filecoin Warm Storage Service** : Business logic contract powered by ([WarmStorage](/core-concepts/fwss-overview/))
 - **Service Providers** : Service providers are the actors that safeguard the data stored in the Filecoin Onchain Cloud powered by the [Curio Storage software](https://github.com/filecoin-project/curio)
-
 
 :::tip[New to Synapse SDK?]
 **Start building in 5 minutes!** Follow the [**Getting Started Guide →**](/getting-started/) to install the SDK, configure your environment, and upload your first file to Filecoin Onchain Cloud.
@@ -35,45 +34,46 @@ import {
   StorageInfo,
   ProviderInfo,
   FilecoinNetworkType,
-} from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-import type { PaymentsService, StorageManager } from "@filoz/synapse-sdk";
+} from "@filoz/synapse-sdk"
+import { ethers } from "ethers"
+import type { PaymentsService } from "@filoz/synapse-sdk/payments"
+import type { StorageManager } from "@filoz/synapse-sdk/storage"
 // ---cut---
 interface SynapseAPI {
   // Create a new Synapse instance
-  create(options: SynapseOptions): Promise<Synapse>;
+  create(options: SynapseOptions): Promise<Synapse>
   // Properties
-  payments: PaymentsService;
-  storage: StorageManager;
+  payments: PaymentsService
+  storage: StorageManager
   // Storage Information (pricing, providers, service parameters, allowances)
-  getStorageInfo(): Promise<StorageInfo>;
-  getProviderInfo(providerAddress: string): Promise<ProviderInfo>;
+  getStorageInfo(): Promise<StorageInfo>
+  getProviderInfo(providerAddress: string): Promise<ProviderInfo>
   // Network Information
-  getNetwork(): FilecoinNetworkType;
-  getChainId(): number;
+  getNetwork(): FilecoinNetworkType
+  getChainId(): number
   // Contract Addresses
-  getWarmStorageAddress(): string;
-  getPaymentsAddress(): string;
-  getPDPVerifierAddress(): string;
+  getWarmStorageAddress(): string
+  getPaymentsAddress(): string
+  getPDPVerifierAddress(): string
   // Ethers Helpers
-  getProvider(): ethers.Provider;
-  getSigner(): ethers.Signer;
+  getProvider(): ethers.Provider
+  getSigner(): ethers.Signer
 }
 ```
 
 ### Payment Operations
 
-Fund your account and manage payments for Filecoin storage services. 
+Fund your account and manage payments for Filecoin storage services.
 
-**When You Need This**:
+#### When You Need This
 
 - Required before uploading files (must fund account and approve operators)
 - To monitor account balance and health
 - If you're a service provider managing settlements
 
-[View Payment Operations Guide →](/developer-guides/payments) - _Learn the basics in less than 10 minutes_
+[View Payment Operations Guide →](/developer-guides/payments/payment-operations/) - _Learn the basics in less than 10 minutes_
 
-[View Rails & Settlement Guide →](/developer-guides/payments/rails-settlement) - _Learn the advanced payment concepts_
+[View Rails & Settlement Guide →](/developer-guides/payments/rails-settlement/) - _Learn the advanced payment concepts_
 
 ### Storage Operations
 
@@ -84,18 +84,18 @@ The SDK provides comprehensive storage capabilities through two main approaches:
 
 To understand these storage approaches, you'll need to be familiar with several key concepts:
 
-**Core Concepts**
+#### Core Concepts
 
 - **Storage Contexts**: Manage storage lifecycle and provider connections.
 - **Data Sets**: Organize related data pieces with shared payment rails.
 - **PieceCIDs**: Unique content-addressed identifiers for stored data.
 - **Service Providers**: Infrastructure for decentralized storage with cryptographic proofs.
 
-[View Storage Operations Guide →](/developer-guides/storage) - _Learn the basics in less than 10 minutes_
+[View Storage Operations Guide →](/developer-guides/storage/storage-operations/) - _Learn the basics in less than 10 minutes_
 
-[View Storage Context Guide →](/developer-guides/storage/storage-context) - _Learn the advanced storage concepts_
+[View Storage Context Guide →](/developer-guides/storage/storage-context/) - _Learn the advanced storage concepts_
 
-[View Storage Costs Guide →](/developer-guides/storage/storage-costs) - _Learn how to calculate your storage costs_
+[View Storage Costs Guide →](/developer-guides/storage/storage-costs/) - _Learn how to calculate your storage costs_
 
 ## Technical Constraints and Concepts
 
@@ -129,7 +129,7 @@ The storage service enforces the following size limits for uploads:
 Attempting to upload data outside these limits will result in an error.
 
 :::note
-These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). While the underlying Curio PDP service supports files up to 254 MiB, the SDK currently limits uploads to 200 MiB. Future versions will support larger files through chunking and aggregate PieceCIDs. 
+These limits are defined in the SDK constants (`SIZE_CONSTANTS.MIN_UPLOAD_SIZE` and `SIZE_CONSTANTS.MAX_UPLOAD_SIZE`). While the underlying Curio PDP service supports files up to 254 MiB, the SDK currently limits uploads to 200 MiB. Future versions will support larger files through chunking and aggregate PieceCIDs.
 
 See [this issue](https://github.com/FilOzone/synapse-sdk/issues/110) for details.
 :::
@@ -151,7 +151,7 @@ PieceCID is Filecoin's native content address identifier, a variant of [CID](htt
 
 PieceCID is also known as "CommP" or "Piece Commitment" in Filecoin documentation. The SDK exclusively uses PieceCID (v2 format) for all operations—you receive a PieceCID when uploading and use it for downloads.
 
-LegacyPieceCID (v1 format) conversion utilities are provided for interoperability with other Filecoin services that may still use the older format. See [PieceCID Utilities](#piececid-utilities) for conversion functions.
+LegacyPieceCID (v1 format) conversion utilities are provided for interoperability with other Filecoin services that may still use the older format.
 
 **Technical Reference:** See [FRC-0069](https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0069.md) for the complete specification of PieceCID ("v2 Piece CID") and its relationship to LegacyPieceCID ("v1 Piece CID"). Most Filecoin tooling currently uses v1, but the ecosystem is transitioning to v2.
 
@@ -171,7 +171,7 @@ try {
 ## Additional Resources
 
 - [Getting Started](/getting-started/) - Installation and setup guide
-- [Payment Operations Guide](/developer-guides/payments/) - Complete payment operations reference
-- [Storage Operations Guide](/developer-guides/storage/) - Complete storage operations reference
-- [API Reference](/api/filoz/synapse-sdk/readme/) - Full API documentation
+- [Payment Operations Guide](/developer-guides/payments/payment-operations/) - Complete payment operations reference
+- [Storage Operations Guide](/developer-guides/storage/storage-operations/) - Complete storage operations reference
+- [API Reference](/reference/filoz/synapse-sdk/toc/) - Full API documentation
 - [GitHub Repository](https://github.com/FilOzone/synapse-sdk) - Source code and examples

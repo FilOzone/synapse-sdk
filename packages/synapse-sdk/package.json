@@ -27,21 +27,33 @@
       "import": "./dist/src/index.js",
       "types": "./dist/src/index.d.ts"
     },
-    "./pdp": {
-      "import": "./dist/src/pdp/index.js",
-      "types": "./dist/src/pdp/index.d.ts"
-    },
     "./payments": {
       "import": "./dist/src/payments/index.js",
       "types": "./dist/src/payments/index.d.ts"
     },
-    "./warm-storage": {
-      "import": "./dist/src/warm-storage/index.js",
-      "types": "./dist/src/warm-storage/index.d.ts"
+    "./pdp": {
+      "import": "./dist/src/pdp/index.js",
+      "types": "./dist/src/pdp/index.d.ts"
+    },
+    "./session": {
+      "import": "./dist/src/session/index.js",
+      "types": "./dist/src/session/index.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/src/storage/index.js",
+      "types": "./dist/src/storage/index.d.ts"
     },
     "./subgraph": {
       "import": "./dist/src/subgraph/index.js",
       "types": "./dist/src/subgraph/index.d.ts"
+    },
+    "./telemetry": {
+      "import": "./dist/src/telemetry/index.js",
+      "types": "./dist/src/telemetry/index.d.ts"
+    },
+    "./warm-storage": {
+      "import": "./dist/src/warm-storage/index.js",
+      "types": "./dist/src/warm-storage/index.d.ts"
     },
     "./sp-registry": {
       "import": "./dist/src/sp-registry/index.js",
@@ -50,6 +62,37 @@
     "./filbeam": {
       "import": "./dist/src/filbeam/index.js",
       "types": "./dist/src/filbeam/index.d.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "payments": [
+        "./dist/src/payments"
+      ],
+      "pdp": [
+        "./dist/src/pdp"
+      ],
+      "session": [
+        "./dist/src/session"
+      ],
+      "storage": [
+        "./dist/src/storage"
+      ],
+      "subgraph": [
+        "./dist/src/subgraph"
+      ],
+      "telemetry": [
+        "./dist/src/telemetry"
+      ],
+      "warm-storage": [
+        "./dist/src/warm-storage"
+      ],
+      "sp-registry": [
+        "./dist/src/sp-registry"
+      ],
+      "filbeam": [
+        "./dist/src/filbeam"
+      ]
     }
   },
   "scripts": {
@@ -122,30 +165,29 @@
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
     "@web3-storage/data-segment": "^5.3.0",
-    "ethers": "^6.15.0",
     "multiformats": "^13.4.1",
-    "ox": "^0.9.12",
-    "viem": "^2.38.3"
+    "ox": "catalog:",
+    "viem": "catalog:"
   },
   "optionalDependencies": {
     "@sentry/browser": "^10.21.0",
     "@sentry/node": "^10.21.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
+    "@biomejs/biome": "catalog:",
     "@types/chai": "^5.2.3",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "^24.9.1",
-    "@wagmi/cli": "^2.7.0",
-    "abitype": "^1.1.1",
+    "@types/mocha": "catalog:",
+    "@types/node": "catalog:",
+    "abitype": "catalog:",
     "chai": "^6.2.0",
-    "iso-web": "^2.0.0",
-    "mocha": "^11.7.4",
+    "ethers": "catalog:",
+    "iso-web": "^2.1.0",
+    "mocha": "catalog:",
     "msw": "~2.12.4",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",
-    "typescript": "5.9.3"
+    "typescript": "catalog:"
   },
   "publishConfig": {
     "access": "public"
@@ -157,5 +199,8 @@
   },
   "browser": {
     "@sentry/node": "@sentry/browser"
+  },
+  "peerDependencies": {
+    "ethers": "6.x"
   }
 }

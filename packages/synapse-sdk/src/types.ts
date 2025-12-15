@@ -237,7 +237,7 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
   isManaged: boolean
-  /** Whether the data set is using CDN (derived from cdnRailId > 0) */
+  /** Whether the data set is using CDN (cdnRailId > 0 and withCDN metadata key present) */
   withCDN: boolean
   /** Metadata associated with this data set (key-value pairs) */
   metadata: Record<string, string>
@@ -396,23 +396,30 @@ export interface PreflightInfo {
 //    that combines context creation + upload in one call)
 // ============================================================================
 
-/**
- * Callbacks for tracking upload progress
- *
- * These callbacks provide visibility into the upload process stages:
- * 1. Upload completion (piece uploaded to provider)
- * 2. Piece addition (transaction submitted to chain)
- * 3. Confirmation (transaction confirmed on-chain)
- */
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
-  /** Called when the service provider has added the piece and submitted the transaction to the chain */
+  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
+  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void
+  /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void
-  /** Called when the service provider agrees that the piece addition is confirmed on-chain */
+  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
+  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void
+  /** @deprecated Use onPiecesConfirmed instead */
   onPieceConfirmed?: (pieceIds: number[]) => void
+}
+
+/**
+ * Canonical representation of a piece within a data set.
+ *
+ * This is used when reporting confirmed pieces and when iterating over pieces
+ * in a data set.
+ */
+export interface PieceRecord {
+  pieceId: number
+  pieceCid: PieceCID
 }
 
 /**

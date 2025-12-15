@@ -70,11 +70,19 @@ export const upload: Command = command(
         metadata: {
           name: path.basename(absolutePath),
         },
-        onPieceAdded(transactionHash) {
-          p.log.info(`Piece added, tx: ${transactionHash}`)
+        onPiecesAdded(transactionHash, pieces) {
+          p.log.info(`Pieces added in tx: ${transactionHash}`)
+          if (pieces?.length) {
+            p.log.info(
+              `PieceCIDs: ${pieces.map(({ pieceCid }) => pieceCid.toString()).join(', ')}`
+            )
+          }
         },
-        onPieceConfirmed(pieceIds) {
-          p.log.info(`Piece confirmed: ${pieceIds.join(', ')}`)
+        onPiecesConfirmed(dataSetId, pieces) {
+          p.log.info(`Data set ${dataSetId} confirmed`)
+          p.log.info(
+            `Piece IDs: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`
+          )
         },
         onUploadComplete(pieceCid) {
           p.log.info(`Upload complete! PieceCID: ${pieceCid}`)

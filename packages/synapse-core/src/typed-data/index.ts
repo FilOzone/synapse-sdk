@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Typed Data Operations
+ * Typed Data Operations
  *
  * @example
  * ```ts
  * import * as TypedData from '@filoz/synapse-core/typed-data'
  * ```
  *
- * @packageDocumentation
+ * @module typed-data
  */
 export * from './sign-add-pieces.ts'
 export * from './sign-create-dataset.ts'

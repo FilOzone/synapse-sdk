@@ -4,7 +4,7 @@
   "exclude": ["dist"],
   "references": [
     {
-      "path": "../packages/synapse-sdk"
+      "path": "../packages/synapse-sdk/tsconfig.json"
     }
   ]
 }

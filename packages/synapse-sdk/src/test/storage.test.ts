@@ -1166,7 +1166,13 @@ describe('StorageService', () => {
         PING(),
         http.post<Record<string, never>, { pieceCid: string }>('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.error()
-        })
+        }),
+        http.post<Record<string, never>, { pieceCid: string }>(
+          'https://pdp.example.com/pdp/piece/uploads',
+          async () => {
+            return HttpResponse.error()
+          }
+        )
       )
       const synapse = await Synapse.create({ signer })
       const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
@@ -1992,6 +1998,46 @@ describe('StorageService', () => {
       assert.isNull(status.dataSetLastProven)
       assert.isNull(status.dataSetNextProofDue)
       assert.isUndefined(status.pieceId)
+    })
+  })
+
+  describe('getScheduledRemovals', () => {
+    it('should return scheduled removals for the data set', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[1n, 2n, 5n]],
+          },
+        })
+      )
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [1, 2, 5])
+    })
+
+    it('should return an empty array when no data set is configured', async () => {
+      server.use(JSONRPC({ ...presets.basic }), PING())
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      ;(context as any)._dataSetId = undefined
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [])
     })
   })
 

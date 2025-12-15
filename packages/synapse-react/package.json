@@ -29,6 +29,17 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
+    },
+    "./filsnap": {
+      "types": "./dist/src/filsnap.d.ts",
+      "default": "./dist/src/filsnap.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "filsnap": [
+        "./dist/src/filsnap"
+      ]
     }
   },
   "files": [
@@ -73,10 +84,10 @@
     "@hugomrdias/filsnap-adapter": "^3.3.8"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
-    "@types/node": "^24.9.1",
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
     "type-fest": "^5.1.0",
-    "typescript": "5.9.3"
+    "typescript": "catalog:"
   },
   "publishConfig": {
     "access": "public"
@@ -88,7 +99,8 @@
   },
   "peerDependencies": {
     "@tanstack/react-query": "5.x",
+    "@wagmi/core": "3.x",
     "viem": "2.x",
-    "wagmi": "2.x"
+    "wagmi": "3.x"
   }
 }

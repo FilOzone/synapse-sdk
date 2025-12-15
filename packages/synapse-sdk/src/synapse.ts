@@ -1,14 +1,10 @@
-/**
- * Main Synapse class for interacting with Filecoin storage and other on-chain services
- */
-
 import { ethers } from 'ethers'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
 import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
-import type { StorageService } from './storage/index.ts'
+import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
 import type { TelemetryService } from './telemetry/service.ts'
@@ -26,6 +22,9 @@ import type {
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
+/**
+ * Class for interacting with Filecoin storage and other on-chain services
+ */
 export class Synapse {
   private readonly _signer: ethers.Signer
   private readonly _network: FilecoinNetworkType
@@ -401,7 +400,7 @@ export class Synapse {
    * })
    * ```
    */
-  async createStorage(options: StorageServiceOptions = {}): Promise<StorageService> {
+  async createStorage(options: StorageServiceOptions = {}): Promise<StorageContext> {
     // Use StorageManager to create context
     return await this._storageManager.createContext(options)
   }

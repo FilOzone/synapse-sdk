@@ -141,6 +141,7 @@ When the release PR is merged the release job is triggered to create a new tag, 
 ### How to merge the Release PRs?
 
 Overview:
+
 - Release PRs are created individually for each package in the mono repo.  
 - The merge order matters.  We start with `synapse-core`, then `synapse-sdk`, then `synapse-react`.
 - Only merge ONE release PR at a time and wait for `release-please` CI to finish before merging another.
@@ -149,9 +150,9 @@ Overview:
 Below are the specific steps to take.  They use the example of releasing `synapse-core=0.1.1`, `synapse-sdk=0.35.2`, and `synapse-react=0.1.1`.
 
 | # | Package | Step | Example |
-|---|---------|------|---------|
+| --- | --------- | ------ | --------- |
 | 1 | synapse-core | Find the `synapse-core` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/382) |
-| 2 | synapse-core | Squash and merge the PR |[example](https://github.com/FilOzone/synapse-sdk/commit/76853b64b2d5f1c9e42baf9ab6dc746d46aca5d5) |
+| 2 | synapse-core | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/76853b64b2d5f1c9e42baf9ab6dc746d46aca5d5) |
 | 3 | synapse-core | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044395310) |
 | 4 | synapse-sdk | Find the `synapse-sdk` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/380) |
 | 5 | synapse-sdk | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/380/commits/ca1b61b8c87e306609cd4b3c6216bfc8f8a40348) |
@@ -159,7 +160,7 @@ Below are the specific steps to take.  They use the example of releasing `synaps
 | 7 | synapse-sdk | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044573289) |
 | 8 | synapse-react | Find the `synapse-react` PR | [example](https://github.com/FilOzone/synapse-sdk/pull/381) |
 | 9 | synapse-react | Resolve conflicts by accepting incoming changes and then resetting the `synapse-sdk` version | [example](https://github.com/FilOzone/synapse-sdk/pull/381/commits/ad13bfc9aa16d9abb41c2028d738a60774b54e21) |
-| 10 | synapse-react | Squash and merge the PR |[example](https://github.com/FilOzone/synapse-sdk/commit/4b381d8a6e023315652a83c6782f18ac554dba2e) |
+| 10 | synapse-react | Squash and merge the PR | [example](https://github.com/FilOzone/synapse-sdk/commit/4b381d8a6e023315652a83c6782f18ac554dba2e) |
 | 11 | synapse-react | Ensure the `release-please` workflow completes | [example](https://github.com/FilOzone/synapse-sdk/actions/runs/19044833170) |
 
 ### How should I write my commits?
