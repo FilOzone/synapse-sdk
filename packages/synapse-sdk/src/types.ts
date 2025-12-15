@@ -237,7 +237,7 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
   isManaged: boolean
-  /** Whether the data set is using CDN (derived from cdnRailId > 0) */
+  /** Whether the data set is using CDN (cdnRailId > 0 and withCDN metadata key present) */
   withCDN: boolean
   /** Metadata associated with this data set (key-value pairs) */
   metadata: Record<string, string>

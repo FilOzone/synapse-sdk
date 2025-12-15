@@ -332,6 +332,92 @@ describe('WarmStorageService', () => {
       assert.isTrue(managedDataSets[0].isManaged)
     })
 
+    it('should set withCDN true when cdnRailId > 0 and withCDN metadata key present', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            clientDataSets: () => [[242n]],
+            getDataSet: () => [
+              {
+                pdpRailId: 48n,
+                cacheMissRailId: 50n,
+                cdnRailId: 51n, // CDN rail exists
+                payer: ADDRESSES.client1,
+                payee: ADDRESSES.payee1,
+                serviceProvider: ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 0n,
+                pdpEndEpoch: 0n,
+                providerId: 1n,
+                dataSetId: 242n,
+              },
+            ],
+            getAllDataSetMetadata: () => [
+              ['withCDN'], // withCDN key present
+              [''],
+            ],
+          },
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            dataSetLive: () => [true],
+            getNextPieceId: () => [2n],
+            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+
+      assert.lengthOf(detailedDataSets, 1)
+      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.isTrue(detailedDataSets[0].withCDN)
+    })
+
+    it('should set withCDN false when cdnRailId > 0 but withCDN metadata key missing (terminated)', async () => {
+      server.use(
+        JSONRPC({
+          ...presets.basic,
+          warmStorageView: {
+            ...presets.basic.warmStorageView,
+            clientDataSets: () => [[242n]],
+            getDataSet: () => [
+              {
+                pdpRailId: 48n,
+                cacheMissRailId: 50n,
+                cdnRailId: 51n, // CDN rail still exists
+                payer: ADDRESSES.client1,
+                payee: ADDRESSES.payee1,
+                serviceProvider: ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 0n,
+                pdpEndEpoch: 0n,
+                providerId: 1n,
+                dataSetId: 242n,
+              },
+            ],
+            getAllDataSetMetadata: () => [
+              [], // No metadata keys - CDN was terminated
+              [],
+            ],
+          },
+          pdpVerifier: {
+            ...presets.basic.pdpVerifier,
+            dataSetLive: () => [true],
+            getNextPieceId: () => [2n],
+            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+
+      assert.lengthOf(detailedDataSets, 1)
+      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.isFalse(detailedDataSets[0].withCDN) // CDN terminated, metadata cleared
+    })
+
     it('should throw error when contract calls fail', async () => {
       server.use(
         JSONRPC({
