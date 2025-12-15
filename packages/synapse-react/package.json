@@ -87,7 +87,8 @@
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
     "type-fest": "^5.1.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"

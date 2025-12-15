@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "erasableSyntaxOnly": false, // allow enums in deps
     "outDir": "./dist"
   },
   "include": ["src"],

@@ -205,7 +205,7 @@
     "@types/assert": "^1.5.11",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
-    "@wagmi/cli": "^2.7.0",
+    "@wagmi/cli": "^2.8.0",
     "abitype": "catalog:",
     "assert": "^2.1.0",
     "mocha": "catalog:",
