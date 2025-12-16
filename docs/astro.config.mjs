@@ -81,6 +81,21 @@ export default defineConfig({
             content: new URL('og2.jpg?v=1', site).href,
           },
         },
+        {
+          tag: 'script',
+          attrs: {
+            src: 'https://plausible.io/js/pa-rtmx1Y7w1rQg3O30eJD9U.js',
+            defer: true,
+            async: true,
+          },
+        },
+        {
+          tag: 'script',
+          content: `
+            window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+            plausible.init();
+          `,
+        },
       ],
       social: [
         {
