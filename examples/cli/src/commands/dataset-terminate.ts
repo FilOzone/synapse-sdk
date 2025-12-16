@@ -1,46 +1,30 @@
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
 import { getDataSets, terminateDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
-import config from '../config.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const datasetTerminate: Command = command(
   {
     name: 'dataset-terminate',
     description: 'Terminate a data set',
     alias: 'dt',
+    flags: {
+      ...globalFlags,
+    },
     help: {
       description: 'Terminate a data set',
     },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
-
-    const account = privateKeyToAccount(privateKey as Hex)
-    const client = createWalletClient({
-      account,
-      chain: calibration,
-      transport: http(),
-    })
+  async (argv) => {
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const spinner = p.spinner()
     spinner.start(`Fetching data sets...`)
     try {
-      const dataSets = await getDataSets(publicClient, {
-        address: account.address,
+      const dataSets = await getDataSets(client, {
+        address: client.account.address,
       })
       spinner.stop(`Fetching data sets complete`)
 
@@ -71,7 +55,7 @@ export const datasetTerminate: Command = command(
       })
 
       spinner.message(`Waiting for transaction to be mined...`)
-      await waitForTransactionReceipt(publicClient, {
+      await waitForTransactionReceipt(client, {
         hash: tx,
       })
 
