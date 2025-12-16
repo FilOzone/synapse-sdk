@@ -514,7 +514,7 @@ export class StorageManager {
 
       // Create SPRegistryService to get providers
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
+      const spRegistry = new SPRegistryService(this._synapse.getProvider(), this._synapse.getChainId(), registryAddress)
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
