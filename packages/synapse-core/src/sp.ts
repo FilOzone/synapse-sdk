@@ -10,6 +10,7 @@
  */
 
 import { HttpError, request, TimeoutError } from 'iso-web/http'
+import type { ToString } from 'multiformats'
 import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
 import {
@@ -627,6 +628,16 @@ export type AddPiecesOptions = {
   endpoint: string
   dataSetId: bigint
   pieces: PieceCID[]
+  extraData: Hex
+}
+
+export type AddPiecesRequest = {
+  pieces: {
+    pieceCid: ToString<PieceCID>
+    subPieces: {
+      subPieceCid: ToString<PieceCID>
+    }[]
+  }[]
   extraData: Hex
 }
 
