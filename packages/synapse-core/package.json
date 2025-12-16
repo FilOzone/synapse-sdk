@@ -79,6 +79,10 @@
     "./utils": {
       "types": "./dist/src/utils/index.d.ts",
       "default": "./dist/src/utils/index.js"
+    },
+    "./mocks": {
+      "types": "./dist/src/mocks/index.d.ts",
+      "default": "./dist/src/mocks/index.js"
     }
   },
   "typesVersions": {
@@ -121,6 +125,9 @@
       ],
       "utils": [
         "./dist/src/utils/index"
+      ],
+      "mocks": [
+        "./dist/src/mocks/index"
       ]
     }
   },
@@ -137,7 +144,8 @@
     "test:node": "wireit",
     "test:browser": "wireit",
     "lint": "wireit",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix ."
+    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
+    "update:msw": "pnpx msw init test/mocks/ --save"
   },
   "wireit": {
     "build": {
@@ -209,6 +217,7 @@
     "abitype": "catalog:",
     "assert": "^2.1.0",
     "mocha": "catalog:",
+    "msw": "catalog:",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",
     "typescript": "catalog:"
@@ -218,10 +227,11 @@
   },
   "msw": {
     "workerDirectory": [
-      "src/test/mocks"
+      "test/mocks"
     ]
   },
   "peerDependencies": {
+    "msw": "^2.12.4",
     "viem": "2.x"
   }
 }
