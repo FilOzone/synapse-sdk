@@ -15,6 +15,7 @@ import {
   LocationHeaderError,
   PostPieceError,
 } from '@filoz/synapse-core/errors'
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { asPieceCID, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
@@ -23,13 +24,6 @@ import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import type { PDPAddPiecesInput } from '../pdp/server.ts'
-import {
-  createAndAddPiecesHandler,
-  finalizePieceUploadHandler,
-  findPieceHandler,
-  postPieceUploadsHandler,
-  uploadPieceStreamingHandler,
-} from './mocks/pdp/handlers.ts'
 
 // mock server for testing
 const server = setup()
@@ -285,7 +279,7 @@ InvalidSignature(address expected, address actual)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
-      server.use(createAndAddPiecesHandler(mockTxHash))
+      server.use(Mocks.pdp.createAndAddPiecesHandler(mockTxHash))
 
       const result = await pdpServer.createAndAddPieces(
         0n,
@@ -641,7 +635,7 @@ Database error`
     it('should find a piece successfully', async () => {
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      server.use(findPieceHandler(mockPieceCid, true))
+      server.use(Mocks.pdp.findPieceHandler(mockPieceCid, true))
 
       const result = await pdpServer.findPiece(mockPieceCid)
       assert.strictEqual(result.pieceCid.toString(), mockPieceCid)
@@ -651,7 +645,7 @@ Database error`
       SP.setTimeout(100)
       const mockPieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 
-      server.use(findPieceHandler(mockPieceCid, false))
+      server.use(Mocks.pdp.findPieceHandler(mockPieceCid, false))
 
       try {
         await pdpServer.findPiece(mockPieceCid)
@@ -901,9 +895,9 @@ Database error`
       assert.isNotNull(mockPieceCid)
 
       server.use(
-        postPieceUploadsHandler(mockUuid),
-        uploadPieceStreamingHandler(mockUuid),
-        finalizePieceUploadHandler(mockUuid)
+        Mocks.pdp.postPieceUploadsHandler(mockUuid),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid)
       )
 
       await pdpServer.uploadPiece(testData)
@@ -918,8 +912,8 @@ Database error`
       let finalizedWithPieceCid: string | null = null
 
       server.use(
-        postPieceUploadsHandler(mockUuid),
-        uploadPieceStreamingHandler(mockUuid),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid),
         http.post<{ uuid: string }, { pieceCid: string }>(
           'http://pdp.local/pdp/piece/uploads/:uuid',
           async ({ request }) => {
