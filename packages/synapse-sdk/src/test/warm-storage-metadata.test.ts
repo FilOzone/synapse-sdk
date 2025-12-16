@@ -1,10 +1,11 @@
 /* globals describe it before after beforeEach */
+
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 describe('WarmStorageService Metadata', () => {
   let server: any
@@ -21,10 +22,10 @@ describe('WarmStorageService Metadata', () => {
 
   beforeEach(async () => {
     server.resetHandlers()
-    server.use(JSONRPC(presets.basic))
+    server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
     const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+    warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
   })
 
   describe('Data Set Metadata', () => {

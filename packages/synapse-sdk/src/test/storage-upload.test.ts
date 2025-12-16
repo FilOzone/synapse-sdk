@@ -4,6 +4,7 @@
  * Basic tests for Synapse class
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import type { AddPiecesSuccess } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -13,9 +14,6 @@ import type { Hex } from 'viem'
 import { Synapse } from '../synapse.ts'
 import type { PieceCID, PieceRecord } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import { findAnyPieceHandler, streamingUploadHandlers } from './mocks/pdp/handlers.ts'
-import { PING } from './mocks/ping.ts'
 
 // mock server for testing
 const server = setup()
@@ -33,11 +31,11 @@ describe('Storage Upload', () => {
   beforeEach(() => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
   })
 
   it('should enforce 127 byte minimum size limit', async () => {
-    server.use(JSONRPC({ ...presets.basic, debug: false }), PING({ debug: false }))
+    server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }), Mocks.PING({ debug: false }))
     const synapse = await Synapse.create({ signer })
     const context = await synapse.storage.createContext()
 
@@ -61,10 +59,10 @@ describe('Storage Upload', () => {
     let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -135,10 +133,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -207,10 +205,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -301,10 +299,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -354,10 +352,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -405,10 +403,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -462,10 +460,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -543,10 +541,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
