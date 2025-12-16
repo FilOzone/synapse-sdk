@@ -22,7 +22,7 @@ export type ServiceProvider = string
 /**
  * Supported Filecoin network types
  */
-export type FilecoinNetworkType = 'mainnet' | 'calibration'
+export type FilecoinNetworkType = 'mainnet' | 'calibration' | 'devnet'
 
 /**
  * Token identifier for balance queries
@@ -67,6 +67,17 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
+  /** Override Warm Storage view contract address (defaults to address discovered on-chain) */
+  warmStorageViewAddress?: string
+  /** Override PDPVerifier contract address (defaults to network's default) */
+  pdpVerifierAddress?: string
+  /** Override Multicall3 contract address (required for devnet) */
+  multicall3Address?: string
+  /** Override USDFC token address (required for devnet) */
+  usdfcAddress?: string
+  /** Override genesis timestamp for epoch calculations (recommended for devnet) */
+  genesisTimestamp?: number
+
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService

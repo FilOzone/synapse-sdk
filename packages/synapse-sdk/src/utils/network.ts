@@ -26,11 +26,13 @@ export async function getFilecoinNetworkType(provider: ethers.Provider): Promise
       return 'mainnet'
     } else if (chainId === CHAIN_IDS.calibration) {
       return 'calibration'
+    } else if (chainId === CHAIN_IDS.devnet) {
+      return 'devnet'
     } else {
       throw createError(
         'NetworkUtils',
         'getFilecoinNetworkType',
-        `Unsupported network: chain ID ${chainId}. Only Filecoin mainnet (${CHAIN_IDS.mainnet}) and calibration (${CHAIN_IDS.calibration}) are supported.`
+        `Unsupported network: chain ID ${chainId}. Only Filecoin mainnet (${CHAIN_IDS.mainnet}), calibration (${CHAIN_IDS.calibration}), and devnet (${CHAIN_IDS.devnet}) are supported.`
       )
     }
   } catch (error) {

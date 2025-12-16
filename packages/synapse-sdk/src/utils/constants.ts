@@ -21,6 +21,7 @@ export const TOKENS = {
 export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
   mainnet: 314,
   calibration: 314159,
+  devnet: 31415926,
 } as const
 
 /**
@@ -130,6 +131,10 @@ export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
    * Calibration testnet genesis: November 1, 2022 18:13:00 UTC
    */
   calibration: 1667326380,
+  /**
+   * Devnet genesis: Determined at runtime (placeholder value)
+   */
+  devnet: 0,
 } as const
 
 /**
@@ -314,6 +319,10 @@ export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: st
     http: 'https://api.calibration.node.glif.io/rpc/v1',
     websocket: 'wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1',
   },
+  devnet: {
+    http: 'http://localhost:1234/rpc/v1',
+    websocket: 'ws://localhost:1234/rpc/v1',
+  },
 } as const
 
 /**
@@ -323,23 +332,28 @@ export const CONTRACT_ADDRESSES = {
   /**
    * Warm Storage service contract addresses - the only address needed for SDK initialization
    * All other contract addresses are discovered from this contract
+   * Note: devnet addresses are determined at deployment time
    */
   WARM_STORAGE: {
     mainnet: '0x8408502033C418E1bbC97cE9ac48E5528F371A9f',
     calibration: '0x02925630df557F957f70E112bA06e50965417CA0',
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    // devnet: provided via options.warmStorageAddress
+  } as const satisfies Partial<Record<FilecoinNetworkType, string>>,
 
   /**
    * Multicall3 contract addresses - used for batching multiple contract calls
    * Same address across most EVM chains including Filecoin
+   * Note: devnet addresses are determined at deployment time
    */
   MULTICALL3: {
     mainnet: '0xcA11bde05977b3631167028862bE2a173976CA11',
     calibration: '0xcA11bde05977b3631167028862bE2a173976CA11',
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    // devnet: provided via options.multicall3Address
+  } as const satisfies Partial<Record<FilecoinNetworkType, string>>,
 
   USDFC: {
     mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
     calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    // devnet: provided via options.usdfcAddress
+  } as const satisfies Partial<Record<FilecoinNetworkType, string>>,
 } as const

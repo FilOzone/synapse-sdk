@@ -19,7 +19,13 @@ import type {
   SubgraphConfig,
   SynapseOptions,
 } from './types.ts'
-import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
+import {
+  CHAIN_IDS,
+  CONTRACT_ADDRESSES,
+  GENESIS_TIMESTAMPS,
+  getFilecoinNetworkType,
+  queryGenesisTimestamp,
+} from './utils/index.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 /**
@@ -37,6 +43,8 @@ export class Synapse {
   private readonly _storageManager: StorageManager
   private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
+  private readonly _genesisTimestamp: number
+  private readonly _multicall3Address: string
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -119,31 +127,59 @@ export class Synapse {
     }
 
     // Final network validation
-    if (network !== 'mainnet' && network !== 'calibration') {
-      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
+    if (network !== 'mainnet' && network !== 'calibration' && network !== 'devnet') {
+      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet', 'calibration', and 'devnet' are supported.`)
+    }
+
+    const genesisTimestamp =
+      options.genesisTimestamp ??
+      (network === 'devnet' ? await queryGenesisTimestamp(provider) : GENESIS_TIMESTAMPS[network])
+
+    const resolvedMulticall3Address =
+      options.multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[network as keyof typeof CONTRACT_ADDRESSES.MULTICALL3]
+    if (!resolvedMulticall3Address) {
+      throw new Error(
+        network === 'devnet'
+          ? 'multicall3Address is required when using devnet'
+          : `No Multicall3 address configured for network: ${network}`
+      )
     }
 
     // Create Warm Storage service with initialized addresses
-    const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
-    if (!warmStorageAddress) {
-      throw new Error(`No Warm Storage address configured for network: ${network}`)
+    const resolvedWarmStorageAddress =
+      options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network as keyof typeof CONTRACT_ADDRESSES.WARM_STORAGE]
+    if (!resolvedWarmStorageAddress) {
+      throw new Error(
+        network === 'devnet'
+          ? 'warmStorageAddress is required when using devnet'
+          : `No Warm Storage address configured for network: ${network}`
+      )
     }
-    const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+    const warmStorageService = await WarmStorageService.create(
+      provider,
+      resolvedWarmStorageAddress,
+      resolvedMulticall3Address,
+      options.warmStorageViewAddress ?? null
+    )
+
+    const withCDNEnabled = network !== 'devnet' && options.withCDN === true
+    const withIpniEnabled = network === 'devnet' ? false : options.withIpni
 
     // Create payments service with discovered addresses
     const paymentsAddress = warmStorageService.getPaymentsAddress()
-    const usdfcAddress = warmStorageService.getUSDFCTokenAddress()
+    const usdfcAddress = options.usdfcAddress ?? warmStorageService.getUSDFCTokenAddress()
     const payments = new PaymentsService(
       provider,
       signer,
       paymentsAddress,
       usdfcAddress,
-      options.disableNonceManager === true
+      options.disableNonceManager === true,
+      resolvedMulticall3Address
     )
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(provider, registryAddress)
+    const spRegistry = new SPRegistryService(provider, registryAddress, resolvedMulticall3Address)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -155,7 +191,7 @@ export class Synapse {
 
       // Check for subgraph option
       let baseRetriever: PieceRetriever = chainRetriever
-      if (options.subgraphConfig != null || options.subgraphService != null) {
+      if (withIpniEnabled !== false && (options.subgraphConfig != null || options.subgraphService != null)) {
         const subgraphService =
           options.subgraphService != null
             ? options.subgraphService
@@ -179,13 +215,15 @@ export class Synapse {
       provider,
       network,
       payments,
-      options.withCDN === true,
-      warmStorageAddress,
+      withCDNEnabled,
+      resolvedWarmStorageAddress,
       warmStorageService,
       pieceRetriever,
       filbeamService,
       options.dev === false,
-      options.withIpni
+      withIpniEnabled,
+      genesisTimestamp,
+      resolvedMulticall3Address
     )
   }
 
@@ -195,13 +233,14 @@ export class Synapse {
     network: FilecoinNetworkType,
     payments: PaymentsService,
     withCDN: boolean,
-
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
     filbeamService: FilBeamService,
     dev: boolean,
-    withIpni?: boolean
+    withIpni: boolean | undefined,
+    genesisTimestamp: number,
+    multicall3Address: string
   ) {
     this._signer = signer
     this._provider = provider
@@ -213,6 +252,8 @@ export class Synapse {
     this._warmStorageAddress = warmStorageAddress
     this._filbeamService = filbeamService
     this._session = null
+    this._genesisTimestamp = genesisTimestamp
+    this._multicall3Address = multicall3Address
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(
@@ -280,7 +321,8 @@ export class Synapse {
       this._provider,
       this._warmStorageService.getSessionKeyRegistryAddress(),
       sessionKeySigner,
-      this._signer
+      this._signer,
+      this._multicall3Address
     )
   }
 
@@ -321,7 +363,27 @@ export class Synapse {
    * @returns The numeric chain ID
    */
   getChainId(): number {
-    return this._network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration
+    return this._network === 'mainnet'
+      ? CHAIN_IDS.mainnet
+      : this._network === 'calibration'
+        ? CHAIN_IDS.calibration
+        : CHAIN_IDS.devnet
+  }
+
+  /**
+   * Gets the genesis timestamp for the current network
+   * @returns Genesis timestamp in seconds (Unix timestamp)
+   */
+  getGenesisTimestamp(): number {
+    return this._genesisTimestamp
+  }
+
+  /**
+   * Gets the Multicall3 contract address in use
+   * @returns The Multicall3 address as a string
+   */
+  getMulticall3Address(): string {
+    return this._multicall3Address
   }
 
   /**
@@ -346,6 +408,46 @@ export class Synapse {
    */
   getPDPVerifierAddress(): string {
     return this._warmStorageService.getPDPVerifierAddress()
+  }
+
+  /**
+   * Gets the USDFC token address for the current network
+   * @returns The USDFC token address
+   */
+  getUSDFCTokenAddress(): string {
+    return this._warmStorageService.getUSDFCTokenAddress()
+  }
+
+  /**
+   * Gets the Service Provider Registry address for the current network
+   * @returns The Service Provider Registry address
+   */
+  getServiceProviderRegistryAddress(): string {
+    return this._warmStorageService.getServiceProviderRegistryAddress()
+  }
+
+  /**
+   * Gets the Session Key Registry address for the current network
+   * @returns The Session Key Registry address
+   */
+  getSessionKeyRegistryAddress(): string {
+    return this._warmStorageService.getSessionKeyRegistryAddress()
+  }
+
+  /**
+   * Gets the Warm Storage View contract address for the current network
+   * @returns The Warm Storage View contract address
+   */
+  getWarmStorageViewAddress(): string {
+    return this._warmStorageService.getViewContractAddress()
+  }
+
+  /**
+   * Gets the FilBeam Beneficiary address for the current network
+   * @returns The FilBeam Beneficiary address
+   */
+  getFilBeamBeneficiaryAddress(): string {
+    return this._warmStorageService.getFilBeamBeneficiaryAddress()
   }
 
   /**
@@ -452,7 +554,7 @@ export class Synapse {
 
       // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._provider, registryAddress)
+      const spRegistry = new SPRegistryService(this._provider, registryAddress, this._multicall3Address)
 
       let providerInfo: ProviderInfo | null
       if (typeof providerAddress === 'string') {

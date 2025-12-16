@@ -164,7 +164,10 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         return warmStorageCallHandler(data as Hex, options)
       }
 
-      if (isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address)) {
+      if (
+        isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address) ||
+        isAddressEqual('0x1000000000000000000000000000000000000001' as Address, to as Address)
+      ) {
         return multicall3CallHandler(data as Hex, options)
       }
 
