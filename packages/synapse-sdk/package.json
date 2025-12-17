@@ -103,7 +103,8 @@
     "test:node": "wireit",
     "test:browser": "wireit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "pnpm run clean && pnpm run build"
+    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "update:msw": "pnpx msw init src/test/mocks/ --save"
   },
   "wireit": {
     "build": {
@@ -183,7 +184,7 @@
     "ethers": "catalog:",
     "iso-web": "^2.1.0",
     "mocha": "catalog:",
-    "msw": "~2.12.4",
+    "msw": "catalog:",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.1.0",

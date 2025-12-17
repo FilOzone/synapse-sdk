@@ -2,10 +2,10 @@
 
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type authorizationExpiry = ExtractAbiFunction<typeof CONTRACT_ABIS.SESSION_KEY_REGISTRY, 'authorizationExpiry'>
+export type authorizationExpiry = ExtractAbiFunction<typeof Abis.sessionKeyRegistry, 'authorizationExpiry'>
 
 export interface SessionKeyRegistryOptions {
   authorizationExpiry?: (args: AbiToType<authorizationExpiry['inputs']>) => AbiToType<authorizationExpiry['outputs']>
@@ -13,7 +13,7 @@ export interface SessionKeyRegistryOptions {
 
 export function sessionKeyRegistryCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.SESSION_KEY_REGISTRY,
+    abi: Abis.sessionKeyRegistry,
     data: data as Hex,
   })
 
@@ -27,8 +27,7 @@ export function sessionKeyRegistryCallHandler(data: Hex, options: JSONRPCOptions
         throw new Error('Service Provider Registry: authorizationExpiry is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SESSION_KEY_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'authorizationExpiry')!
-          .outputs,
+        Abis.sessionKeyRegistry.find((abi) => abi.type === 'function' && abi.name === 'authorizationExpiry')!.outputs,
         options.sessionKeyRegistry.authorizationExpiry(args)
       )
     }

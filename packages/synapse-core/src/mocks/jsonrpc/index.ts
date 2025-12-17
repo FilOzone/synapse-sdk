@@ -14,7 +14,7 @@ import {
   parseUnits,
   stringToHex,
 } from 'viem'
-import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
+import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
 import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
@@ -164,7 +164,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         return warmStorageCallHandler(data as Hex, options)
       }
 
-      if (isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address)) {
+      if (isAddressEqual(ADDRESSES.calibration.multicall3, to as Address)) {
         return multicall3CallHandler(data as Hex, options)
       }
 

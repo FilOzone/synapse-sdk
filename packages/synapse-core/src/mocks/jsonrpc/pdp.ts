@@ -2,19 +2,16 @@
 
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type getNextPieceId = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getNextPieceId'>
-export type dataSetLive = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'dataSetLive'>
-export type getDataSetListener = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getDataSetListener'>
-export type getActivePieces = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getActivePieces'>
-export type getDataSetStorageProvider = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.PDP_VERIFIER,
-  'getDataSetStorageProvider'
->
-export type getDataSetLeafCount = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getDataSetLeafCount'>
-export type getScheduledRemovals = ExtractAbiFunction<typeof CONTRACT_ABIS.PDP_VERIFIER, 'getScheduledRemovals'>
+export type getNextPieceId = ExtractAbiFunction<typeof Abis.pdp, 'getNextPieceId'>
+export type dataSetLive = ExtractAbiFunction<typeof Abis.pdp, 'dataSetLive'>
+export type getDataSetListener = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetListener'>
+export type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieces'>
+export type getDataSetStorageProvider = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetStorageProvider'>
+export type getDataSetLeafCount = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetLeafCount'>
+export type getScheduledRemovals = ExtractAbiFunction<typeof Abis.pdp, 'getScheduledRemovals'>
 
 export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>
@@ -33,7 +30,7 @@ export interface PDPVerifierOptions {
  */
 export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.PDP_VERIFIER,
+    abi: Abis.pdp,
     data: data as Hex,
   })
 
@@ -47,7 +44,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: dataSetLive is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'dataSetLive')!.outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'dataSetLive')!.outputs,
         options.pdpVerifier.dataSetLive(args)
       )
     }
@@ -57,7 +54,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getDataSetListener is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getDataSetListener')!.outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getDataSetListener')!.outputs,
         options.pdpVerifier.getDataSetListener(args)
       )
     case 'getNextPieceId':
@@ -65,7 +62,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getNextPieceId is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getNextPieceId')!.outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getNextPieceId')!.outputs,
         options.pdpVerifier.getNextPieceId(args)
       )
     case 'getActivePieces': {
@@ -73,7 +70,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getActivePieces is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getActivePieces')!.outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getActivePieces')!.outputs,
         options.pdpVerifier.getActivePieces(args)
       )
     }
@@ -82,8 +79,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getDataSetStorageProvider is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getDataSetStorageProvider')!
-          .outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getDataSetStorageProvider')!.outputs,
         options.pdpVerifier.getDataSetStorageProvider(args)
       )
     }
@@ -92,8 +88,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getDataSetLeafCount is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getDataSetLeafCount')!
-          .outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getDataSetLeafCount')!.outputs,
         options.pdpVerifier.getDataSetLeafCount(args)
       )
     }
@@ -102,8 +97,7 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('PDP Verifier: getScheduledRemovals is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PDP_VERIFIER.find((abi) => abi.type === 'function' && abi.name === 'getScheduledRemovals')!
-          .outputs,
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getScheduledRemovals')!.outputs,
         options.pdpVerifier.getScheduledRemovals(args)
       )
     }

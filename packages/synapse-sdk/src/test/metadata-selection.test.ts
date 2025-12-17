@@ -1,11 +1,12 @@
 /* globals describe it before after */
+
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { METADATA_KEYS } from '../utils/constants.ts'
 import { metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 describe('Metadata-based Data Set Selection', () => {
   describe('Metadata Utilities', () => {
@@ -127,9 +128,9 @@ describe('Metadata-based Data Set Selection', () => {
 
       // Create custom preset that returns different metadata for different data sets
       const customPreset: any = {
-        ...presets.basic,
+        ...Mocks.presets.basic,
         warmStorageView: {
-          ...presets.basic.warmStorageView,
+          ...Mocks.presets.basic.warmStorageView,
           clientDataSets: () => [[1n, 2n, 3n]],
           // Provide base dataset info per dataset id
           getDataSet: (args: any) => {
@@ -140,9 +141,9 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpRailId: 1n,
                   cacheMissRailId: 0n,
                   cdnRailId: 0n,
-                  payer: ADDRESSES.client1,
-                  payee: ADDRESSES.serviceProvider1,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   commissionBps: 100n,
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
@@ -158,9 +159,9 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpRailId: 2n,
                   cacheMissRailId: 0n,
                   cdnRailId: 100n,
-                  payer: ADDRESSES.client1,
-                  payee: ADDRESSES.serviceProvider1,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   commissionBps: 100n,
                   clientDataSetId: 1n,
                   pdpEndEpoch: 0n,
@@ -176,9 +177,9 @@ describe('Metadata-based Data Set Selection', () => {
                   pdpRailId: 3n,
                   cacheMissRailId: 0n,
                   cdnRailId: 0n,
-                  payer: ADDRESSES.client1,
-                  payee: ADDRESSES.serviceProvider2,
-                  serviceProvider: ADDRESSES.serviceProvider2,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider2,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider2,
                   commissionBps: 100n,
                   clientDataSetId: 2n,
                   pdpEndEpoch: 0n,
@@ -224,7 +225,7 @@ describe('Metadata-based Data Set Selection', () => {
           },
         },
         pdpVerifier: {
-          ...presets.basic.pdpVerifier,
+          ...Mocks.presets.basic.pdpVerifier,
           getNextPieceId: (args: any) => {
             const [dataSetId] = args
             if (dataSetId === 1n) return [5n] as const // Has pieces
@@ -235,14 +236,14 @@ describe('Metadata-based Data Set Selection', () => {
         },
       }
 
-      server.use(JSONRPC(customPreset))
+      server.use(Mocks.JSONRPC(customPreset))
 
       const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-      warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
     })
 
     it('should fetch metadata for each data set', async () => {
-      const dataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       assert.equal(dataSets.length, 3)
 
@@ -263,7 +264,7 @@ describe('Metadata-based Data Set Selection', () => {
     })
 
     it('should prefer data sets with matching metadata', async () => {
-      const dataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       // Filter for data sets with withIPFSIndexing
       const withIndexing = dataSets.filter((ds) =>
