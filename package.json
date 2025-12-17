@@ -18,7 +18,9 @@
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
     "check:repo": "pnpx sherif@latest -r root-package-manager-field",
     "check:knip": "knip --config .github/knip.jsonc",
-    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.wrangler}"
+    "update:msw": "pnpm -r --filter='./packages/*' --if-present run update:msw",
+    "clean": "rm -rf node_modules pnpm-lock.yaml package-lock.json packages/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} examples/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules} docs/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.astro} apps/*/{.wireit,pnpm-lock.yaml,package-lock.json,coverage,.nyc_output,dist,node_modules,.wrangler}",
+    "clean:cache": "rm -rf packages/*/{.wireit,coverage,.nyc_output,dist} examples/*/{.wireit,coverage,.nyc_output,dist} docs/{.wireit,coverage,.nyc_output,dist,.astro} apps/*/{.wireit,coverage,.nyc_output,dist,.wrangler}"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -32,5 +34,13 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "packageManager": "pnpm@10.26.0",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^24.8.0",
+      "onFail": "download"
+    }
   }
 }

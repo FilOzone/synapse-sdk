@@ -4,19 +4,19 @@
  * Tests for PDPVerifier class
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { calculate } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { PDPVerifier } from '../pdp/index.ts'
-import { ADDRESSES, JSONRPC, presets } from './mocks/jsonrpc/index.ts'
 
 const server = setup()
 
 describe('PDPVerifier', () => {
   let provider: ethers.Provider
   let pdpVerifier: PDPVerifier
-  const testAddress = ADDRESSES.calibration.pdpVerifier
+  const testAddress = Mocks.ADDRESSES.calibration.pdpVerifier
 
   before(async () => {
     await server.start()
@@ -28,7 +28,7 @@ describe('PDPVerifier', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    server.use(JSONRPC(presets.basic))
+    server.use(Mocks.JSONRPC(Mocks.presets.basic))
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
     pdpVerifier = new PDPVerifier(provider, testAddress)
   })
@@ -59,10 +59,10 @@ describe('PDPVerifier', () => {
   describe('getNextPieceId', () => {
     it('should get next piece ID', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getNextPieceId: () => [5n],
           },
         })
@@ -76,7 +76,7 @@ describe('PDPVerifier', () => {
   describe('getDataSetListener', () => {
     it('should get data set listener', async () => {
       const listener = await pdpVerifier.getDataSetListener(123)
-      assert.equal(listener.toLowerCase(), ADDRESSES.calibration.warmStorage.toLowerCase())
+      assert.equal(listener.toLowerCase(), Mocks.ADDRESSES.calibration.warmStorage.toLowerCase())
     })
   })
 
@@ -86,10 +86,10 @@ describe('PDPVerifier', () => {
       const proposedStorageProvider = '0xabcdef1234567890123456789012345678901234'
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getDataSetStorageProvider: () => [storageProvider, proposedStorageProvider],
           },
         })
@@ -104,10 +104,10 @@ describe('PDPVerifier', () => {
   describe('getDataSetLeafCount', () => {
     it('should get data set leaf count', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getDataSetLeafCount: () => [10n],
           },
         })
@@ -184,10 +184,10 @@ describe('PDPVerifier', () => {
       const pieceCidHex = ethers.hexlify(pieceCid.bytes)
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => [[{ data: pieceCidHex as `0x${string}` }], [1n], false],
           },
         })
@@ -211,10 +211,10 @@ describe('PDPVerifier', () => {
   describe('getScheduledRemovals', () => {
     it('should get scheduled removals for a data set', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getScheduledRemovals: () => [[1n, 2n, 5n]],
           },
         })
@@ -230,10 +230,10 @@ describe('PDPVerifier', () => {
 
     it('should return empty array when no removals scheduled', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getScheduledRemovals: () => [[]],
           },
         })

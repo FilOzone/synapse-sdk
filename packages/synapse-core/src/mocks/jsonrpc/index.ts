@@ -1,5 +1,5 @@
 import { HttpResponse, http } from 'msw'
-import { TransactionEnvelopeEip1559 } from 'ox'
+import { TxEnvelopeEip1559 } from 'ox'
 import type { RequiredDeep } from 'type-fest'
 import {
   type Address,
@@ -14,7 +14,7 @@ import {
   parseUnits,
   stringToHex,
 } from 'viem'
-import { CONTRACT_ADDRESSES, TIME_CONSTANTS } from '../../../utils/constants.ts'
+import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
 import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
@@ -164,7 +164,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
         return warmStorageCallHandler(data as Hex, options)
       }
 
-      if (isAddressEqual(CONTRACT_ADDRESSES.MULTICALL3.calibration, to as Address)) {
+      if (isAddressEqual(ADDRESSES.calibration.multicall3, to as Address)) {
         return multicall3CallHandler(data as Hex, options)
       }
 
@@ -336,15 +336,15 @@ export const presets = {
     eth_gasPrice: () => '0x09184e72a000',
     eth_maxPriorityFeePerGas: () => '0x5f5e100',
     eth_sendRawTransaction: (args) => {
-      const deserialized = TransactionEnvelopeEip1559.deserialize(args[0] as `0x02${string}`)
-      const envelope = TransactionEnvelopeEip1559.from(deserialized, {
+      const deserialized = TxEnvelopeEip1559.deserialize(args[0] as `0x02${string}`)
+      const envelope = TxEnvelopeEip1559.from(deserialized, {
         signature: {
           r: deserialized.r ?? 0n,
           s: deserialized.s ?? 0n,
           yParity: deserialized.yParity ?? 0,
         },
       })
-      const hash = TransactionEnvelopeEip1559.hash(envelope)
+      const hash = TxEnvelopeEip1559.hash(envelope)
 
       return hash
     },

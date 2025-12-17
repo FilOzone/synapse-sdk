@@ -36,8 +36,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v4
-        with:
-          version: latest
       - uses: actions/setup-node@v6
         with:
           node-version: lts/*
@@ -46,8 +44,6 @@ jobs:
       - run: pnpm run lint
       - run: pnpm run build
       - run: pnpm -r --filter './packages/**' publish --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
   docs:
     needs: release
     if: |

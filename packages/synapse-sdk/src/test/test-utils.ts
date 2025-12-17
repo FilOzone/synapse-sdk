@@ -1,6 +1,6 @@
+import * as Mocks from '@filoz/synapse-core/mocks'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { ADDRESSES } from './mocks/jsonrpc/index.ts'
 
 /**
  * Create a mock ProviderInfo object for testing
@@ -8,8 +8,8 @@ import { ADDRESSES } from './mocks/jsonrpc/index.ts'
 function createMockProviderInfo(overrides?: Partial<ProviderInfo>): ProviderInfo {
   const defaults: ProviderInfo = {
     id: 1,
-    serviceProvider: ADDRESSES.client1,
-    payee: ADDRESSES.client1, // Usually same as serviceProvider for tests
+    serviceProvider: Mocks.ADDRESSES.client1,
+    payee: Mocks.ADDRESSES.client1, // Usually same as serviceProvider for tests
     name: 'Test Provider',
     description: 'A test storage provider',
     active: true,
@@ -67,7 +67,7 @@ export function createSimpleProvider(props: {
   serviceURL: string
 }): ProviderInfo {
   return createMockProviderInfo({
-    serviceProvider: props.serviceProvider ?? props.address ?? ADDRESSES.client1,
+    serviceProvider: props.serviceProvider ?? props.address ?? Mocks.ADDRESSES.client1,
     products: {
       PDP: {
         type: 'PDP',

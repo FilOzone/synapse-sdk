@@ -1,5 +1,6 @@
 /* globals describe it before after beforeEach */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -8,12 +9,6 @@ import { PDPAuthHelper } from '../pdp/auth.ts'
 import { PDPServer } from '../pdp/server.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import {
-  addPiecesWithMetadataCapture,
-  createDataSetWithMetadataCapture,
-  type MetadataCapture,
-  type PieceMetadataCapture,
-} from './mocks/pdp/handlers.ts'
 
 // Mock server for testing
 const server = setup()
@@ -52,10 +47,10 @@ describe('Metadata Support', () => {
       ]
 
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      let capturedMetadata: MetadataCapture | null = null
+      let capturedMetadata: Mocks.pdp.MetadataCapture | null = null
 
       server.use(
-        createDataSetWithMetadataCapture(
+        Mocks.pdp.createDataSetWithMetadataCapture(
           mockTxHash,
           (metadata) => {
             capturedMetadata = metadata
@@ -90,10 +85,10 @@ describe('Metadata Support', () => {
 
       const dataSetId = 123
       const mockTxHash = '0x1234567890abcdef'
-      let capturedPieceMetadata: PieceMetadataCapture | null = null
+      let capturedPieceMetadata: Mocks.pdp.PieceMetadataCapture | null = null
 
       server.use(
-        addPiecesWithMetadataCapture(
+        Mocks.pdp.addPiecesWithMetadataCapture(
           dataSetId,
           mockTxHash,
           (metadata) => {
@@ -138,10 +133,10 @@ describe('Metadata Support', () => {
   describe('Backward Compatibility', () => {
     it('should convert withCDN boolean to metadata', async () => {
       const mockTxHash = '0xabcdef1234567890'
-      let capturedMetadata: MetadataCapture | null = null
+      let capturedMetadata: Mocks.pdp.MetadataCapture | null = null
 
       server.use(
-        createDataSetWithMetadataCapture(
+        Mocks.pdp.createDataSetWithMetadataCapture(
           mockTxHash,
           (metadata) => {
             capturedMetadata = metadata
