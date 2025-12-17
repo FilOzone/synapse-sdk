@@ -1,4 +1,5 @@
 import starlight from '@astrojs/starlight'
+import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
@@ -7,8 +8,6 @@ import rehypeExternalLinks from 'rehype-external-links'
 import starlightAutoSidebar from 'starlight-auto-sidebar'
 import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
 import starlightLinksValidator from 'starlight-links-validator'
-import starlightLlmsTxt from 'starlight-llms-txt'
-import starlightPageActions from 'starlight-page-actions'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
 
 const site = 'https://docs.filecoin.cloud'
@@ -81,6 +80,21 @@ export default defineConfig({
             property: 'og:image',
             content: new URL('og2.jpg?v=1', site).href,
           },
+        },
+        {
+          tag: 'script',
+          attrs: {
+            src: 'https://plausible.io/js/pa-rtmx1Y7w1rQg3O30eJD9U.js',
+            defer: true,
+            async: true,
+          },
+        },
+        {
+          tag: 'script',
+          content: `
+            window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+            plausible.init();
+          `,
         },
       ],
       social: [
@@ -184,8 +198,7 @@ export default defineConfig({
             plugin: ['typedoc-plugin-mdn-links'],
           },
         }),
-        starlightLlmsTxt(),
-        starlightPageActions(),
+        llmsPlugin(),
         starlightAutoSidebar(),
         starlightChangelogs(),
         starlightLinksValidator(),
