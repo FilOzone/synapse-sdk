@@ -1,10 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import type { Hex } from 'viem'
-import config from '../config.ts'
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const upload: Command = command(
   {
@@ -13,6 +13,7 @@ export const upload: Command = command(
     description: 'Upload a file to the warm storage',
     alias: 'u',
     flags: {
+      ...globalFlags,
       forceCreateDataSet: {
         type: Boolean,
         description: 'Force create a new data set',
@@ -34,12 +35,7 @@ export const upload: Command = command(
     },
   },
   async (argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+    const { privateKey, rpcURL } = privateKeyClient(argv.flags.chain)
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
@@ -47,8 +43,8 @@ export const upload: Command = command(
 
     try {
       const synapse = await Synapse.create({
-        privateKey: privateKey as Hex,
-        rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
+        privateKey,
+        rpcURL,
       })
 
       p.log.step('Creating context...')
