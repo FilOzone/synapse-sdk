@@ -20,14 +20,12 @@
 
 import { ethers } from 'ethers'
 import fsPromises from 'fs/promises'
+import { SIZE_CONSTANTS, Synapse, TIME_CONSTANTS } from '../packages/synapse-sdk/src/index.ts'
 import {
   ADD_PIECES_TYPEHASH,
   CREATE_DATA_SET_TYPEHASH,
   PDP_PERMISSION_NAMES,
-  SIZE_CONSTANTS,
-  Synapse,
-  TIME_CONSTANTS,
-} from '../packages/synapse-sdk/src/index.ts'
+} from '../packages/synapse-sdk/src/session/index.ts'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
@@ -82,10 +80,10 @@ async function main() {
       if (!stat.isFile()) {
         throw new Error(`Path is not a file: ${filePath}`)
       }
-      if (stat.size > SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES) {
+      if (stat.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new Error(
           `File exceeds maximum size of ${formatBytes(
-            SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES
+            SIZE_CONSTANTS.MAX_UPLOAD_SIZE
           )}: ${filePath} (${formatBytes(stat.size)})`
         )
       }
