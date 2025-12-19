@@ -6,6 +6,7 @@ import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
 export type getNextPieceId = ExtractAbiFunction<typeof Abis.pdp, 'getNextPieceId'>
+export type getActivePieceCount = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieceCount'>
 export type dataSetLive = ExtractAbiFunction<typeof Abis.pdp, 'dataSetLive'>
 export type getDataSetListener = ExtractAbiFunction<typeof Abis.pdp, 'getDataSetListener'>
 export type getActivePieces = ExtractAbiFunction<typeof Abis.pdp, 'getActivePieces'>
@@ -17,6 +18,7 @@ export interface PDPVerifierOptions {
   dataSetLive?: (args: AbiToType<dataSetLive['inputs']>) => AbiToType<dataSetLive['outputs']>
   getDataSetListener?: (args: AbiToType<getDataSetListener['inputs']>) => AbiToType<getDataSetListener['outputs']>
   getNextPieceId?: (args: AbiToType<getNextPieceId['inputs']>) => AbiToType<getNextPieceId['outputs']>
+  getActivePieceCount?: (args: AbiToType<getActivePieceCount['inputs']>) => AbiToType<getActivePieceCount['outputs']>
   getActivePieces?: (args: AbiToType<getActivePieces['inputs']>) => AbiToType<getActivePieces['outputs']>
   getDataSetStorageProvider?: (
     args: AbiToType<getDataSetStorageProvider['inputs']>
@@ -64,6 +66,14 @@ export function pdpVerifierCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       return encodeAbiParameters(
         Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getNextPieceId')!.outputs,
         options.pdpVerifier.getNextPieceId(args)
+      )
+    case 'getActivePieceCount':
+      if (!options.pdpVerifier?.getActivePieceCount) {
+        throw new Error('PDP Verifier: getActivePieceCount is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.pdp.find((abi) => abi.type === 'function' && abi.name === 'getActivePieceCount')!.outputs,
+        options.pdpVerifier.getActivePieceCount(args)
       )
     case 'getActivePieces': {
       if (!options.pdpVerifier?.getActivePieces) {

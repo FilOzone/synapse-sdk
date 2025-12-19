@@ -44,7 +44,7 @@ export class ChainRetriever implements PieceRetriever {
     const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
 
     // Filter for live data sets with pieces
-    const validDataSets = dataSets.filter((ds) => ds.isLive && ds.currentPieceCount > 0)
+    const validDataSets = dataSets.filter((ds) => ds.isLive && ds.activePieceCount > 0)
 
     if (validDataSets.length === 0) {
       throw createError('ChainRetriever', 'findProviders', `No active data sets with data found for client ${client}`)

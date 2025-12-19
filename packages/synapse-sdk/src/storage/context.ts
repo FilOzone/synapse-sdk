@@ -539,7 +539,7 @@ export class StorageContext {
     type EvaluatedDataSet = {
       dataSetId: number
       dataSetMetadata: Record<string, string>
-      currentPieceCount: number
+      activePieceCount: number
     }
 
     // Sort ascending by ID (oldest first) for deterministic selection
@@ -558,9 +558,9 @@ export class StorageContext {
         sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
           const dataSetId = Number(dataSet.dataSetId)
           try {
-            const [dataSetMetadata, currentPieceCount] = await Promise.all([
+            const [dataSetMetadata, activePieceCount] = await Promise.all([
               warmStorageService.getDataSetMetadata(dataSetId),
-              warmStorageService.getNextPieceId(dataSetId),
+              warmStorageService.getActivePieceCount(dataSetId),
               warmStorageService.validateDataSet(dataSetId),
             ])
 
@@ -571,7 +571,7 @@ export class StorageContext {
             return {
               dataSetId,
               dataSetMetadata,
-              currentPieceCount,
+              activePieceCount,
             }
           } catch (error) {
             console.warn(
@@ -587,7 +587,7 @@ export class StorageContext {
         if (result == null) continue
 
         // select the first dataset with pieces and break out of the inner loop
-        if (result.currentPieceCount > 0) {
+        if (result.activePieceCount > 0) {
           selectedDataSet = result
           break
         }
@@ -599,7 +599,7 @@ export class StorageContext {
       }
 
       // early exit if we found a dataset with pieces; break out of the outer loop
-      if (selectedDataSet != null && selectedDataSet.currentPieceCount > 0) {
+      if (selectedDataSet != null && selectedDataSet.activePieceCount > 0) {
         break
       }
     }
@@ -689,8 +689,8 @@ export class StorageContext {
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
       // Prefer data sets with pieces, sort by ID (older first)
       const sorted = managedDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
+        if (a.activePieceCount > 0 && b.activePieceCount === 0) return -1
+        if (b.activePieceCount > 0 && a.activePieceCount === 0) return 1
         return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
       })
 

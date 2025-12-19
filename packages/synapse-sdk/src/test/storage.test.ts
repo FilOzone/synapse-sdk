@@ -429,7 +429,7 @@ describe('StorageService', () => {
           ...Mocks.presets.basic,
           pdpVerifier: {
             ...Mocks.presets.basic.pdpVerifier,
-            getNextPieceId: (args) => {
+            getActivePieceCount: (args) => {
               const [dataSetId] = args
               if (dataSetId === 2n) {
                 return [2n]
