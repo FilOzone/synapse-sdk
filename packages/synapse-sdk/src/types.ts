@@ -229,10 +229,8 @@ export interface DataSetInfo {
 export interface EnhancedDataSetInfo extends DataSetInfo {
   /** PDPVerifier global data set ID */
   pdpVerifierDataSetId: number
-  /** Next piece ID to use when adding pieces */
-  nextPieceId: number
-  /** Current number of pieces in the data set */
-  currentPieceCount: number
+  /** Number of active pieces in the data set (excludes removed pieces) */
+  activePieceCount: number
   /** Whether the data set is live on-chain */
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
