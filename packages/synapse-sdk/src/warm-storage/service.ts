@@ -375,14 +375,13 @@ export class WarmStorageService {
           return null // Will be filtered out
         }
 
-        // Get next piece ID only if the data set is live
-        const nextPieceId = isLive ? await pdpVerifier.getNextPieceId(pdpVerifierDataSetId) : 0n
+        // Get active piece count only if the data set is live
+        const activePieceCount = isLive ? await pdpVerifier.getActivePieceCount(pdpVerifierDataSetId) : 0
 
         return {
           ...base,
           pdpVerifierDataSetId,
-          nextPieceId: Number(nextPieceId),
-          currentPieceCount: Number(nextPieceId),
+          activePieceCount,
           isLive,
           isManaged,
           withCDN: base.cdnRailId > 0 && METADATA_KEYS.WITH_CDN in metadata,
@@ -437,7 +436,7 @@ export class WarmStorageService {
   }
 
   /**
-   * Get the next piece ID for a dataset (effectively the current piece count)
+   * Get the next piece ID for a dataset (total pieces ever added; does not decrease when pieces are removed)
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The next piece ID as a number
    */
@@ -445,6 +444,16 @@ export class WarmStorageService {
     const pdpVerifier = this._getPDPVerifier()
     const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
     return nextPieceId
+  }
+
+  /**
+   * Get the count of active pieces in a dataset (excludes removed pieces)
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The number of active pieces
+   */
+  async getActivePieceCount(dataSetId: number): Promise<number> {
+    const pdpVerifier = this._getPDPVerifier()
+    return await pdpVerifier.getActivePieceCount(dataSetId)
   }
 
   /**

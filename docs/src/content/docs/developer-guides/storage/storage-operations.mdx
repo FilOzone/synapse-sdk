@@ -115,7 +115,7 @@ for (const ds of dataSets) {
   console.log(`Dataset ${ds.pdpVerifierDataSetId}:`, {
     live: ds.isLive,
     cdn: ds.withCDN,
-    pieces: ds.currentPieceCount,
+    pieces: ds.activePieceCount,
     metadata: ds.metadata
   });
 }
