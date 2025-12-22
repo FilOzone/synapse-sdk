@@ -6,6 +6,7 @@ import { ConnectSection } from './components/connect-section.tsx'
 import { PaymentsAccount } from './components/payments-account.tsx'
 import { Services } from './components/services.tsx'
 import { WalletMenu } from './components/wallet-menu.tsx'
+import github from './images/github.png'
 
 export function App() {
   const { isConnected } = useAccount()
@@ -28,6 +29,17 @@ export function App() {
           <div className="flex flex-row gap-2 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
+            <img src="" alt="" loading="lazy"/>  
+            <a
+              href="https://github.com/FilOzone/synapse-sdk"
+            >
+              <img
+                src={github}
+                alt="GitHub Repository"
+                loading="lazy"
+                style={{ width: '40px', height: '40px', cursor: 'pointer', borderRadius: '25px' }}
+              />
+            </a>
           </div>
         </nav>
       </header>
