@@ -1462,7 +1462,8 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getMaxProvingPeriod()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.maxProvingPeriod
       assert.equal(result, 2880)
     })
 
@@ -1477,7 +1478,8 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getChallengeWindow()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.challengeWindowSize
       assert.equal(result, 60)
     })
 
@@ -1496,7 +1498,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getMaxProvingPeriod()
+        await warmStorageService.getPDPConfig()
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Contract call failed')
