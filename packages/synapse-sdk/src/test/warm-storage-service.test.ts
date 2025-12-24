@@ -1450,7 +1450,7 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
+  describe('getPDPConfig().maxProvingPeriod and getPDPConfig().challengeWindowSize', () => {
     it('should return max proving period from WarmStorage contract', async () => {
       server.use(
         Mocks.JSONRPC({
