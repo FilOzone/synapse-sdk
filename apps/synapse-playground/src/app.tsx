@@ -6,7 +6,7 @@ import { ConnectSection } from './components/connect-section.tsx'
 import { PaymentsAccount } from './components/payments-account.tsx'
 import { Services } from './components/services.tsx'
 import { WalletMenu } from './components/wallet-menu.tsx'
-import github from './images/github.png'
+import github from '../public/github.png'
 
 export function App() {
   const { isConnected } = useAccount()
