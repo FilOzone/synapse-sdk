@@ -1313,8 +1313,12 @@ export class StorageContext {
       const [providerInfo, pdpConfig] = await Promise.all([
         // Get provider info for retrieval URL
         this.getProviderInfo().catch(() => null),
-        // Get PDP config (only if we have data set data)
-        dataSetData != null ? this._warmStorageService.getPDPConfig().catch(() => null) : Promise.resolve(null),
+        dataSetData != null
+          ? this._warmStorageService.getPDPConfig().catch((error) => {
+              console.debug('Failed to get PDP config:', error)
+              return null
+            })
+          : Promise.resolve(null),
       ])
 
       // Set retrieval URL if we have provider info

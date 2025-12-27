@@ -1064,11 +1064,12 @@ export class WarmStorageService {
     const viewContract = this._getWarmStorageViewContract()
     const [maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart] =
       await viewContract.getPDPConfig()
+
     return {
-      maxProvingPeriod,
-      challengeWindowSize,
-      challengesPerProof,
-      initChallengeWindowStart,
+      maxProvingPeriod: Number(maxProvingPeriod),
+      challengeWindowSize: Number(challengeWindowSize),
+      challengesPerProof: Number(challengesPerProof),
+      initChallengeWindowStart: Number(initChallengeWindowStart),
     }
   }
   /**
