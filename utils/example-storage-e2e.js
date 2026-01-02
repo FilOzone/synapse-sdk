@@ -27,13 +27,50 @@ import {
   PDP_PERMISSION_NAMES,
 } from '../packages/synapse-sdk/src/session/index.ts'
 
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2)
+  const options = { network: null, files: [] }
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--network' && args[i + 1]) {
+      options.network = args[i + 1]
+      i++
+    } else {
+      options.files.push(args[i])
+    }
+  }
+
+  return options
+}
+
+const args = parseArgs()
+const network = args.network || process.env.NETWORK || 'calibration'
+
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
+let RPC_URL = process.env.RPC_URL
+let WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
+
+// Set defaults based on network if not provided
+if (!RPC_URL) {
+  if (network === 'localnet') {
+    RPC_URL = process.env.LOCALNET_RPC_URL || 'http://127.0.0.1:5700/rpc/v1'
+  } else if (network === 'mainnet') {
+    RPC_URL = 'https://api.node.glif.io/rpc/v1'
+  } else {
+    RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1'
+  }
+}
+
+if (!WARM_STORAGE_ADDRESS && network === 'localnet') {
+  WARM_STORAGE_ADDRESS = process.env.LOCALNET_WARM_STORAGE_ADDRESS
+}
 
 function printUsageAndExit() {
-  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
+  console.error(
+    'Usage: PRIVATE_KEY=0x... node example-storage-e2e.js [--network <mainnet|calibration|localnet>] <file-path> [file-path2] ...'
+  )
   process.exit(1)
 }
 
@@ -43,7 +80,7 @@ if (!PRIVATE_KEY) {
   printUsageAndExit()
 }
 
-const filePaths = process.argv.slice(2)
+const filePaths = args.files
 if (filePaths.length === 0) {
   console.error('ERROR: At least one file path argument is required')
   printUsageAndExit()

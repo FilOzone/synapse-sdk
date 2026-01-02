@@ -118,6 +118,9 @@ function parseArgs() {
     if (args[i] === '--mode' && args[i + 1]) {
       options.mode = args[i + 1]
       i++
+    } else if (args[i] === '--network' && args[i + 1]) {
+      options.network = args[i + 1]
+      i++
     }
   }
 
@@ -125,6 +128,13 @@ function parseArgs() {
   const validModes = ['client', 'provider', 'both']
   if (options.mode && !validModes.includes(options.mode)) {
     error(`Invalid mode: ${options.mode}. Must be one of: ${validModes.join(', ')}`)
+    process.exit(1)
+  }
+
+  // Validate network
+  const validNetworks = ['mainnet', 'calibration', 'localnet']
+  if (options.network && !validNetworks.includes(options.network)) {
+    error(`Invalid network: ${options.network}. Must be one of: ${validNetworks.join(', ')}`)
     process.exit(1)
   }
 
@@ -339,9 +349,8 @@ async function setupClient(clientSigner, provider, warmStorage, warmStorageAddre
   // === Set up client payment approvals ===
   log('\n💰 Client Payment Setup')
 
-  // USDFC token address on calibration network
-  // This is a standard token address across all deployments
-  const usdfcAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
+  // Get USDFC token address from WarmStorage (auto-discovered)
+  const usdfcAddress = warmStorage.getUSDFCTokenAddress()
   log(`USDFC token address: ${usdfcAddress}`)
 
   // Create PaymentsService
@@ -429,14 +438,8 @@ async function main() {
     }
 
     // Common configuration
-    const network = process.env.NETWORK || 'calibration'
+    const network = args.network || process.env.NETWORK || 'calibration'
     const customRpcUrl = process.env.RPC_URL
-
-    // Validate network
-    if (network !== 'mainnet' && network !== 'calibration') {
-      error('NETWORK must be either "mainnet" or "calibration"')
-      process.exit(1)
-    }
 
     // Get RPC URL
     const rpcURL = customRpcUrl || RPC_URLS[network].http
@@ -444,9 +447,16 @@ async function main() {
     // Get WarmStorage address - use provided or default from constants
     let warmStorageAddress = process.env.WARM_STORAGE_CONTRACT_ADDRESS
     if (!warmStorageAddress) {
-      warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
+      // For localnet, check environment variable
+      if (network === 'localnet') {
+        warmStorageAddress = process.env.LOCALNET_WARM_STORAGE_ADDRESS
+      } else {
+        warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
+      }
       if (!warmStorageAddress) {
-        error(`No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS.`)
+        error(
+          `No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS${network === 'localnet' ? ' or LOCALNET_WARM_STORAGE_ADDRESS' : ''}.`
+        )
         process.exit(1)
       }
       log(`Using default Warm Storage address from constants.ts: ${warmStorageAddress}`)

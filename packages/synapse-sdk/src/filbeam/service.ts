@@ -59,12 +59,12 @@ export class FilBeamService {
   }
 
   private _validateNetworkType(network: FilecoinNetworkType) {
-    if (network === 'mainnet' || network === 'calibration') return
+    if (network === 'mainnet' || network === 'calibration' || network === 'localnet') return
 
     throw createError(
       'FilBeamService',
       'validateNetworkType',
-      'Unsupported network type: Only Filecoin mainnet and calibration networks are supported.'
+      'Unsupported network type: Only Filecoin mainnet, calibration, and localnet networks are supported.'
     )
   }
 

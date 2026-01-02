@@ -119,8 +119,10 @@ export class Synapse {
     }
 
     // Final network validation
-    if (network !== 'mainnet' && network !== 'calibration') {
-      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
+    if (network !== 'mainnet' && network !== 'calibration' && network !== 'localnet') {
+      throw new Error(
+        `Invalid network: ${String(network)}. Only 'mainnet', 'calibration', and 'localnet' are supported.`
+      )
     }
 
     // Create Warm Storage service with initialized addresses
@@ -321,7 +323,13 @@ export class Synapse {
    * @returns The numeric chain ID
    */
   getChainId(): number {
-    return this._network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration
+    if (this._network === 'mainnet') {
+      return CHAIN_IDS.mainnet
+    } else if (this._network === 'calibration') {
+      return CHAIN_IDS.calibration
+    } else {
+      return CHAIN_IDS.localnet
+    }
   }
 
   /**
