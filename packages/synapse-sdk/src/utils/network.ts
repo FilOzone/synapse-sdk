@@ -6,6 +6,7 @@ import type { ethers } from 'ethers'
 import type { FilecoinNetworkType } from '../types.ts'
 import { CHAIN_IDS } from './constants.ts'
 import { createError } from './index.ts'
+import { getLocalnetChainId } from './localnet-config.ts'
 
 /**
  * Extract and validate FilecoinNetworkType from an ethers Provider
@@ -26,11 +27,13 @@ export async function getFilecoinNetworkType(provider: ethers.Provider): Promise
       return 'mainnet'
     } else if (chainId === CHAIN_IDS.calibration) {
       return 'calibration'
+    } else if (chainId === getLocalnetChainId()) {
+      return 'localnet'
     } else {
       throw createError(
         'NetworkUtils',
         'getFilecoinNetworkType',
-        `Unsupported network: chain ID ${chainId}. Only Filecoin mainnet (${CHAIN_IDS.mainnet}) and calibration (${CHAIN_IDS.calibration}) are supported.`
+        `Unsupported network: chain ID ${chainId}. Only Filecoin mainnet (${CHAIN_IDS.mainnet}), calibration (${CHAIN_IDS.calibration}), and localnet (${getLocalnetChainId()}) are supported.`
       )
     }
   } catch (error) {
