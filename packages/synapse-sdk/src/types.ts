@@ -22,7 +22,7 @@ export type ServiceProvider = string
 /**
  * Supported Filecoin network types
  */
-export type FilecoinNetworkType = 'mainnet' | 'calibration'
+export type FilecoinNetworkType = 'mainnet' | 'calibration' | 'localnet'
 
 /**
  * Token identifier for balance queries
