@@ -6,10 +6,16 @@ on:
     paths:
       - "packages/**"
       - .github/workflows/ci.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
   pull_request:
     paths:
       - "packages/**"
       - .github/workflows/ci.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
 jobs:
   lint:
     runs-on: ubuntu-latest
