@@ -40,3 +40,5 @@ trustPolicyExclude:
   - semver@6.3.1
   - undici-types@6.19.8
   - langium@3.3.1
+  - '@reduxjs/toolkit@2.8.2'
+  - reselect@5.1.1
