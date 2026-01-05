@@ -29,7 +29,6 @@ export function App() {
           <div className="flex flex-row gap-2 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
-            <img src="" alt="" loading="lazy"/>  
             <a
               href="https://github.com/FilOzone/synapse-sdk"
             >
@@ -37,7 +36,7 @@ export function App() {
                 src={github}
                 alt="GitHub Repository"
                 loading="lazy"
-                style={{ width: '40px', height: '40px', cursor: 'pointer', borderRadius: '25px' }}
+                className="w-10 h-10 rounded-full"
               />
             </a>
           </div>
