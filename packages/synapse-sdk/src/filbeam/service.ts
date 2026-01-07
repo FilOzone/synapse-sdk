@@ -72,7 +72,7 @@ export class FilBeamService {
    * Get the base stats URL for the current network
    */
   private _getStatsBaseUrl(): string {
-    return this._network === 'mainnet' ? 'https://stats.filbeam.io' : 'https://calibration.stats.filbeam.io'
+    return this._network === 'mainnet' ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
   }
 
   /**
