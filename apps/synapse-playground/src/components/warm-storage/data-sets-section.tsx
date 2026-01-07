@@ -1,6 +1,6 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
 import { useDeletePiece } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, RefreshCw, Trash } from 'lucide-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, FolderSync, Globe, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatBytes, toastError } from '@/lib/utils.ts'
@@ -127,7 +127,7 @@ export function DataSetsSection({
                         {dataSet.egressQuota && (
                           <Tooltip>
                             <TooltipTrigger className="flex items-center gap-1">
-                              <RefreshCw className="w-4" />
+                              <FolderSync className="w-4" />
                               <span className="text-sm text-muted-foreground">
                                 {formatBytes(dataSet.egressQuota.cacheMissEgressQuota)}
                               </span>
