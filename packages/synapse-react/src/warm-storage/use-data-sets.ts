@@ -29,18 +29,15 @@ async function fetchDataSetEgressQuota(chainId: number, dataSetId: bigint): Prom
 
   try {
     const response = await fetch(url)
-
-    if (response.status === 404) {
-      return undefined
-    }
-
-    if (response.status !== 200) {
+    if (!response.ok) {
+      console.error(`Failed to fetch data set egress quota: ${response.status} ${response.statusText}`)
       return undefined
     }
 
     const data = (await response.json()) as Record<string, unknown>
 
     if (typeof data.cdnEgressQuota !== 'string' || typeof data.cacheMissEgressQuota !== 'string') {
+      console.error('Unexpected response body from FilBeam Stats API:', data)
       return undefined
     }
 
@@ -49,6 +46,7 @@ async function fetchDataSetEgressQuota(chainId: number, dataSetId: bigint): Prom
       cacheMissEgressQuota: BigInt(data.cacheMissEgressQuota),
     }
   } catch {
+    console.error('Cannot fetch data set egress quotas from FilBeam Stats API:', err)
     return undefined
   }
 }
