@@ -22,7 +22,7 @@ describe('FilBeamService', () => {
       const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
 
       const baseUrl = (service as any)._getStatsBaseUrl()
-      expect(baseUrl).to.equal('https://stats.filbeam.io')
+      expect(baseUrl).to.equal('https://stats.filbeam.com')
     })
 
     it('should use calibration URL for calibration network', () => {
@@ -32,7 +32,7 @@ describe('FilBeamService', () => {
       const service = new FilBeamService('calibration' as FilecoinNetworkType, mockFetch)
 
       const baseUrl = (service as any)._getStatsBaseUrl()
-      expect(baseUrl).to.equal('https://calibration.stats.filbeam.io')
+      expect(baseUrl).to.equal('https://calibration.stats.filbeam.com')
     })
   })
 
@@ -44,7 +44,7 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://stats.filbeam.io/data-set/test-dataset-id')
+        expect(input).to.equal('https://stats.filbeam.com/data-set/test-dataset-id')
         return {
           status: 200,
           statusText: 'OK',
@@ -68,7 +68,7 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://calibration.stats.filbeam.io/data-set/123')
+        expect(input).to.equal('https://calibration.stats.filbeam.com/data-set/123')
         return {
           status: 200,
           statusText: 'OK',
