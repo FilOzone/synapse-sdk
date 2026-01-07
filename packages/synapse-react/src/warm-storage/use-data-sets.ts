@@ -23,10 +23,7 @@ function getFilBeamStatsBaseUrl(chainId: number): string {
   return chainId === 314 ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
 }
 
-async function fetchDataSetEgressQuota(
-  chainId: number,
-  dataSetId: bigint
-): Promise<DataSetEgressQuota | undefined> {
+async function fetchDataSetEgressQuota(chainId: number, dataSetId: bigint): Promise<DataSetEgressQuota | undefined> {
   const baseUrl = getFilBeamStatsBaseUrl(chainId)
   const url = `${baseUrl}/data-set/${dataSetId}`
 
@@ -95,9 +92,7 @@ export function useDataSets(props: UseDataSetsProps) {
                 })
               )
 
-              const egressQuota = dataSet.cdn
-                ? await fetchDataSetEgressQuota(chainId, dataSet.dataSetId)
-                : undefined
+              const egressQuota = dataSet.cdn ? await fetchDataSetEgressQuota(chainId, dataSet.dataSetId) : undefined
 
               return {
                 ...dataSet,

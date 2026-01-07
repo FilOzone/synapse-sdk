@@ -49,7 +49,7 @@ export function formatBytes(bytes: bigint | number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const k = 1024
   const i = Math.floor(Math.log(num) / Math.log(k))
-  const value = num / Math.pow(k, i)
+  const value = num / k ** i
 
   return `${value.toFixed(2).replace(/\.?0+$/, '')} ${units[i]}`
 }
