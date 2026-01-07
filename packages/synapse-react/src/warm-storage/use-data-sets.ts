@@ -45,8 +45,8 @@ async function fetchDataSetEgressQuota(chainId: number, dataSetId: bigint): Prom
       cdnEgressQuota: BigInt(data.cdnEgressQuota),
       cacheMissEgressQuota: BigInt(data.cacheMissEgressQuota),
     }
-  } catch {
-    console.error('Cannot fetch data set egress quotas from FilBeam Stats API:', err)
+  } catch (err) {
+    console.error('Cannot fetch data set egress quotas from FilBeam Stats API', err)
     return undefined
   }
 }
