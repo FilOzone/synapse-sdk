@@ -1,9 +1,9 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
 import { useDeletePiece } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, RefreshCw, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { toastError } from '@/lib/utils.ts'
+import { formatBytes, toastError } from '@/lib/utils.ts'
 import { ButtonLoading } from '../custom-ui/button-loading.tsx'
 import { ExplorerLink } from '../explorer-link.tsx'
 import { PDPDatasetLink, PDPPieceLink, PDPProviderLink } from '../pdp-link.tsx'
@@ -110,14 +110,34 @@ export function DataSetsSection({
                       </TooltipContent>
                     </Tooltip>
                     {dataSet.cdn && (
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Globe className="w-4" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This data set is using CDN</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      <>
+                        <Tooltip>
+                          <TooltipTrigger className="flex items-center gap-1">
+                            <Globe className="w-4" />
+                            {dataSet.egressQuota && (
+                              <span className="text-sm text-muted-foreground">
+                                {formatBytes(dataSet.egressQuota.cdnEgressQuota)}
+                              </span>
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>CDN egress quota remaining</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        {dataSet.egressQuota && (
+                          <Tooltip>
+                            <TooltipTrigger className="flex items-center gap-1">
+                              <RefreshCw className="w-4" />
+                              <span className="text-sm text-muted-foreground">
+                                {formatBytes(dataSet.egressQuota.cacheMissEgressQuota)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Cache miss egress quota remaining</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </>
                     )}
                   </p>
 

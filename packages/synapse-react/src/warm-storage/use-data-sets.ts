@@ -9,8 +9,51 @@ import { useChainId, useConfig } from 'wagmi'
 
 export type PieceWithMetadata = Simplify<Piece & { metadata: MetadataObject }>
 
+export interface DataSetEgressQuota {
+  cdnEgressQuota: bigint
+  cacheMissEgressQuota: bigint
+}
+
 export interface DataSetWithPieces extends DataSet {
   pieces: PieceWithMetadata[]
+  egressQuota?: DataSetEgressQuota
+}
+
+function getFilBeamStatsBaseUrl(chainId: number): string {
+  return chainId === 314 ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
+}
+
+async function fetchDataSetEgressQuota(
+  chainId: number,
+  dataSetId: bigint
+): Promise<DataSetEgressQuota | undefined> {
+  const baseUrl = getFilBeamStatsBaseUrl(chainId)
+  const url = `${baseUrl}/data-set/${dataSetId}`
+
+  try {
+    const response = await fetch(url)
+
+    if (response.status === 404) {
+      return undefined
+    }
+
+    if (response.status !== 200) {
+      return undefined
+    }
+
+    const data = (await response.json()) as Record<string, unknown>
+
+    if (typeof data.cdnEgressQuota !== 'string' || typeof data.cacheMissEgressQuota !== 'string') {
+      return undefined
+    }
+
+    return {
+      cdnEgressQuota: BigInt(data.cdnEgressQuota),
+      cacheMissEgressQuota: BigInt(data.cacheMissEgressQuota),
+    }
+  } catch {
+    return undefined
+  }
 }
 
 export type UseDataSetsResult = DataSetWithPieces[]
@@ -52,9 +95,14 @@ export function useDataSets(props: UseDataSetsProps) {
                 })
               )
 
+              const egressQuota = dataSet.cdn
+                ? await fetchDataSetEgressQuota(chainId, dataSet.dataSetId)
+                : undefined
+
               return {
                 ...dataSet,
                 pieces: piecesWithMetadata,
+                egressQuota,
               }
             })
           )
