@@ -1370,17 +1370,14 @@ export class StorageContext {
 
     // If piece exists, get provider info for retrieval URL and proving params in parallel
     if (exists) {
-      const [providerInfo, provingParams] = await Promise.all([
+      const [providerInfo, pdpConfig] = await Promise.all([
         // Get provider info for retrieval URL
         this.getProviderInfo().catch(() => null),
-        // Get proving period configuration (only if we have data set data)
         dataSetData != null
-          ? Promise.all([this._warmStorageService.getMaxProvingPeriod(), this._warmStorageService.getChallengeWindow()])
-              .then(([maxProvingPeriod, challengeWindow]) => ({
-                maxProvingPeriod,
-                challengeWindow,
-              }))
-              .catch(() => null)
+          ? this._warmStorageService.getPDPConfig().catch((error) => {
+              console.debug('Failed to get PDP config:', error)
+              return null
+            })
           : Promise.resolve(null),
       ])
 
@@ -1396,8 +1393,8 @@ export class StorageContext {
         )}/piece/${parsedPieceCID.toString()}`
       }
 
-      // Process proof timing data if we have data set data and proving params
-      if (dataSetData != null && provingParams != null) {
+      // Process proof timing data if we have data set data and PDP config
+      if (dataSetData != null && pdpConfig != null) {
         // Check if this PieceCID is in the data set
         const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
 
@@ -1407,9 +1404,9 @@ export class StorageContext {
           // Calculate timing based on nextChallengeEpoch
           if (dataSetData.nextChallengeEpoch > 0) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
-            // The proving deadline is nextChallengeEpoch + challengeWindow
+            // The proving deadline is nextChallengeEpoch + challengeWindowSize
             const challengeWindowStart = dataSetData.nextChallengeEpoch
-            const provingDeadline = challengeWindowStart + provingParams.challengeWindow
+            const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
             // Calculate when the next proof is due (end of challenge window)
             nextProofDue = epochToDate(provingDeadline, network)
@@ -1417,7 +1414,7 @@ export class StorageContext {
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
               dataSetData.nextChallengeEpoch,
-              provingParams.maxProvingPeriod,
+              pdpConfig.maxProvingPeriod,
               network
             )
             if (lastProvenDate != null) {

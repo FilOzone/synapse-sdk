@@ -1072,26 +1072,26 @@ export class WarmStorageService {
     return signerAddress.toLowerCase() === ownerAddress.toLowerCase()
   }
 
-  // ========== Proving Period Operations ==========
-
   /**
-   * Get the maximum proving period from the WarmStorage contract
-   * @returns Maximum proving period in epochs
+   * Get the PDP config from the WarmStorage contract.
+   * Returns maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart
    */
-  async getMaxProvingPeriod(): Promise<number> {
+  async getPDPConfig(): Promise<{
+    maxProvingPeriod: number
+    challengeWindowSize: number
+    challengesPerProof: number
+    initChallengeWindowStart: number
+  }> {
     const viewContract = this._getWarmStorageViewContract()
-    const maxPeriod = await viewContract.getMaxProvingPeriod()
-    return Number(maxPeriod)
-  }
+    const [maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart] =
+      await viewContract.getPDPConfig()
 
-  /**
-   * Get the challenge window size from the WarmStorage contract
-   * @returns Challenge window size in epochs
-   */
-  async getChallengeWindow(): Promise<number> {
-    const viewContract = this._getWarmStorageViewContract()
-    const window = await viewContract.challengeWindow()
-    return Number(window)
+    return {
+      maxProvingPeriod: Number(maxProvingPeriod),
+      challengeWindowSize: Number(challengeWindowSize),
+      challengesPerProof: Number(challengesPerProof),
+      initChallengeWindowStart: Number(initChallengeWindowStart),
+    }
   }
   /**
    * Increments the fixed locked-up amounts for CDN payment rails.
