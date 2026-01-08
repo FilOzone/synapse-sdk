@@ -19,8 +19,7 @@ export type getDataSetMetadata = ExtractAbiFunction<typeof Abis.storageView, 'ge
 export type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getAllPieceMetadata'>
 export type getPieceMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getPieceMetadata'>
 export type clientNonces = ExtractAbiFunction<typeof Abis.storageView, 'clientNonces'>
-export type getMaxProvingPeriod = ExtractAbiFunction<typeof Abis.storageView, 'getMaxProvingPeriod'>
-export type challengeWindow = ExtractAbiFunction<typeof Abis.storageView, 'challengeWindow'>
+export type getPDPConfig = ExtractAbiFunction<typeof Abis.storageView, 'getPDPConfig'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -36,8 +35,7 @@ export interface WarmStorageViewOptions {
   getAllPieceMetadata?: (args: AbiToType<getAllPieceMetadata['inputs']>) => AbiToType<getAllPieceMetadata['outputs']>
   getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
   clientNonces?: (args: AbiToType<clientNonces['inputs']>) => AbiToType<clientNonces['outputs']>
-  getMaxProvingPeriod?: (args: AbiToType<getMaxProvingPeriod['inputs']>) => AbiToType<getMaxProvingPeriod['outputs']>
-  challengeWindow?: (args: AbiToType<challengeWindow['inputs']>) => AbiToType<challengeWindow['outputs']>
+  getPDPConfig?: (args: AbiToType<getPDPConfig['inputs']>) => AbiToType<getPDPConfig['outputs']>
 }
 
 /**
@@ -293,22 +291,13 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         options.warmStorageView.clientNonces(args)
       )
     }
-    case 'getMaxProvingPeriod': {
-      if (!options.warmStorageView?.getMaxProvingPeriod) {
-        throw new Error('Warm Storage View: getMaxProvingPeriod is not defined')
+    case 'getPDPConfig': {
+      if (!options.warmStorageView?.getPDPConfig) {
+        throw new Error('Warm Storage View: getPDPConfig is not defined')
       }
       return encodeAbiParameters(
-        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getMaxProvingPeriod')!.outputs,
-        options.warmStorageView.getMaxProvingPeriod(args)
-      )
-    }
-    case 'challengeWindow': {
-      if (!options.warmStorageView?.challengeWindow) {
-        throw new Error('Warm Storage View: challengeWindow is not defined')
-      }
-      return encodeAbiParameters(
-        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'challengeWindow')!.outputs,
-        options.warmStorageView.challengeWindow(args)
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getPDPConfig')!.outputs,
+        options.warmStorageView.getPDPConfig(args)
       )
     }
 

@@ -1456,7 +1456,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => [BigInt(2880)],
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
@@ -1472,7 +1472,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            challengeWindow: () => [BigInt(60)],
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
@@ -1488,7 +1488,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => {
+            getPDPConfig: () => {
               throw new Error('Contract call failed')
             },
           },

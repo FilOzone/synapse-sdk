@@ -464,11 +464,8 @@ export const presets = {
       clientNonces: () => {
         return [BigInt(0)]
       },
-      getMaxProvingPeriod: () => {
-        return [BigInt(2880)]
-      },
-      challengeWindow: () => {
-        return [BigInt(60)]
+      getPDPConfig: () => {
+        return [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)]
       },
     },
     pdpVerifier: {

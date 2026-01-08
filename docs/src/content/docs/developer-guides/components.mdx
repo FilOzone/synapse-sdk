@@ -390,9 +390,12 @@ interface WarmStorageServiceAPI {
   getApprovedProviderIds(): Promise<number[]>
   isProviderIdApproved(providerId: number): Promise<boolean>
 
-  // Proving Period
-  getMaxProvingPeriod(): Promise<number>
-  getChallengeWindow(): Promise<number>
+  getPDPConfig(): Promise<{
+    maxProvingPeriod: number
+    challengeWindowSize: number
+    challengesPerProof: number
+    initChallengeWindowStart: number
+  }>
 }
 ```
 
