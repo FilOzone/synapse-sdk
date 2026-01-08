@@ -572,7 +572,7 @@ describe('ChainRetriever', () => {
               return [dataSetId !== 1n] // Data set 1 not live
             },
             getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
-            getNextPieceId: (args) => {
+            getActivePieceCount: (args) => {
               const [dataSetId] = args
               return [dataSetId === 2n ? 0n : 1n] // Data set 2 has no pieces
             },
