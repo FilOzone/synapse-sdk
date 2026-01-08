@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.4...synapse-core-v0.2.0) (2026-01-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517))
+
+### refactor
+
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526)) ([a4956c7](https://github.com/FilOzone/synapse-sdk/commit/a4956c7d3aa6f78573ed87153da2fcd4b8dc8254))
+
+
+### Features
+
+* add the json rpc mock modules ([370b6ed](https://github.com/FilOzone/synapse-sdk/commit/370b6ed02950658a8fe4975565cf91f0ba2d029b))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517)) ([59fd863](https://github.com/FilOzone/synapse-sdk/commit/59fd8634c48df588460cf67b8518d81c4c171e4a))
+
+
+### Bug Fixes
+
+* treat status code 202 for findPiece as a retry ([6b9e03f](https://github.com/FilOzone/synapse-sdk/commit/6b9e03f06cd469a0f8365f725881cd87a71f41dc))
+
+
+### Chores
+
+* add docs build to packages ci ([810d7a8](https://github.com/FilOzone/synapse-sdk/commit/810d7a82a497bb9b2e788333d70a89a607e4db33)), closes [#468](https://github.com/FilOzone/synapse-sdk/issues/468)
+* improve documentation ([3d536ac](https://github.com/FilOzone/synapse-sdk/commit/3d536acc636229c15351295a7b6cc92f4b3c9484))
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* update msw ([#465](https://github.com/FilOzone/synapse-sdk/issues/465)) ([ea02a6d](https://github.com/FilOzone/synapse-sdk/commit/ea02a6dba86ad91a012c4ef6bb167c5fa774cc67))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.3...synapse-core-v0.1.4) (2025-12-02)
 
 
