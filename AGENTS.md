@@ -40,9 +40,19 @@ packages/synapse-sdk/src/
 
 **Data flow**: Client signs for FWSS → Curio HTTP API → PDPVerifier contract → FWSS callback → Payments contract.
 
+## Monorepo Package Structure
+
+**synapse-core** (`packages/synapse-core/`): Low-level utilities, types, chain definitions, and blockchain interactions using viem. Shared foundation for both synapse-react and synapse-sdk.
+
+**synapse-react** (`packages/synapse-react/`): React hooks wrapping synapse-core for React apps. Uses wagmi + @tanstack/react-query. Does NOT depend on synapse-sdk.
+
+**synapse-sdk** (`packages/synapse-sdk/`): High-level SDK using ethers.js. Includes services like FilBeamService. For Node.js and browser script usage.
+
+**synapse-playground** (`apps/synapse-playground/`): Vite-based React demo app using synapse-react hooks. Dev server runs at localhost:5173.
+
 ## Development
 
-**Monorepo**: pnpm workspace, packages in `packages/*`, examples in `examples/*`
+**Monorepo**: pnpm workspace, packages in `packages/*`, apps in `apps/*`, examples in `examples/*`
 
 **Commands**:
 
