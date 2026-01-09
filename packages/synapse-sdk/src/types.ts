@@ -360,6 +360,8 @@ export interface StorageServiceOptions {
   callbacks?: StorageContextCallbacks
   /** Custom metadata for the data set (key-value pairs) */
   metadata?: Record<string, string>
+  /** Optional HTTP logger for logging HTTP requests to PDP servers */
+  httpLogger?: import('@filoz/synapse-core').HTTPLogger | null
 }
 
 /**

@@ -9,6 +9,7 @@
  */
 
 export { PDPAuthHelper } from './auth.ts'
+export type { HTTPLogger } from './http-logger.ts'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,

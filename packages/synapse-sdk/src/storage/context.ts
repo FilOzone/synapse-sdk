@@ -22,6 +22,7 @@
  * ```
  */
 
+import type { HTTPLogger } from '@filoz/synapse-core'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
@@ -194,7 +195,7 @@ export class StorageContext {
     if (!provider.products.PDP?.data.serviceURL) {
       throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
     }
-    this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
+    this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL, options.httpLogger)
   }
 
   /**
@@ -826,7 +827,7 @@ export class StorageContext {
           // Skip providers without PDP products
           continue
         }
-        const providerPdpServer = new PDPServer(null, provider.products.PDP.data.serviceURL)
+        const providerPdpServer = new PDPServer(null, provider.products.PDP.data.serviceURL, null)
         await providerPdpServer.ping()
         return provider
       } catch (error) {
@@ -1073,7 +1074,10 @@ export class StorageContext {
           item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
-        const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
+        const addPiecesResponse = await SP.pollForAddPiecesStatus({
+          ...addPiecesResult,
+          httpLogger: this._pdpServer.getHttpLogger(),
+        })
 
         // Handle transaction tracking if available
         confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
@@ -1113,7 +1117,10 @@ export class StorageContext {
           item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
-        const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
+        const confirmedDataset = await SP.pollForDataSetCreationStatus({
+          ...createAndAddPiecesResult,
+          httpLogger: this._pdpServer.getHttpLogger(),
+        })
         this._dataSetId = confirmedDataset.dataSetId
 
         const confirmedPieces = await SP.pollForAddPiecesStatus({
@@ -1121,6 +1128,7 @@ export class StorageContext {
             `/pdp/data-sets/${confirmedDataset.dataSetId}/pieces/added/${confirmedDataset.createMessageHash}`,
             this._pdpServer.getServiceURL()
           ).toString(),
+          httpLogger: this._pdpServer.getHttpLogger(),
         })
 
         confirmedPieceIds.push(...(confirmedPieces.confirmedPieceIds ?? []))

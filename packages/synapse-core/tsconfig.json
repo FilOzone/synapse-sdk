@@ -3,8 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist"
   },
-  "include": ["src", "test"],
-  "exclude": ["node_modules", "dist"],
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "test", "src/mocks", "src/**/*.test.ts", "src/**/*.spec.ts"],
   "typedocOptions": {
     "entryPointStrategy": "resolve",
     "entryPoints": [

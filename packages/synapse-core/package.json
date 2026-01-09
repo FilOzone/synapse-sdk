@@ -80,6 +80,10 @@
       "types": "./dist/src/utils/index.d.ts",
       "default": "./dist/src/utils/index.js"
     },
+    "./http-logger": {
+      "types": "./dist/src/http-logger.d.ts",
+      "default": "./dist/src/http-logger.js"
+    },
     "./mocks": {
       "types": "./dist/src/mocks/index.d.ts",
       "default": "./dist/src/mocks/index.js"

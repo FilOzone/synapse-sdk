@@ -36,6 +36,7 @@ import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
 import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
 import { constructPieceUrl } from '../utils/piece.ts'
 import type { PDPAuthHelper } from './auth.ts'
+import type { HTTPLogger } from './http-logger.ts'
 import {
   validateDataSetCreationStatusResponse,
   validatePieceAdditionStatusResponse,
@@ -167,19 +168,47 @@ export interface PDPCreateAndAddInput {
 export class PDPServer {
   private readonly _serviceURL: string
   private readonly _authHelper: PDPAuthHelper | null
+  private readonly _httpLogger: HTTPLogger | null
 
   /**
    * Create a new PDPServer instance
    * @param authHelper - PDPAuthHelper instance for signing operations
    * @param serviceURL - The PDP service URL (e.g., https://pdp.provider.com)
+   * @param httpLogger - Optional HTTP logger for logging requests and responses
    */
-  constructor(authHelper: PDPAuthHelper | null, serviceURL: string) {
+  constructor(authHelper: PDPAuthHelper | null, serviceURL: string, httpLogger?: HTTPLogger | null) {
     if (serviceURL.trim() === '') {
       throw new Error('PDP service URL is required')
     }
     // Remove trailing slash from URL
     this._serviceURL = serviceURL.replace(/\/$/, '')
     this._authHelper = authHelper
+    this._httpLogger = httpLogger ?? null
+  }
+
+  /**
+   * Helper method to wrap fetch calls with HTTP logging
+   */
+  private async _fetchWithLogging(
+    url: string | URL,
+    init?: RequestInit
+  ): Promise<Response> {
+    const method = init?.method ?? 'GET'
+    const urlString = typeof url === 'string' ? url : url.toString()
+
+    // Log request
+    this._httpLogger?.logRequest(method, urlString)
+
+    try {
+      const response = await fetch(url, init)
+      // Log response
+      this._httpLogger?.logResponse(method, urlString, response.status)
+      return response
+    } catch (error) {
+      // Log error as 0 status code (network error)
+      this._httpLogger?.logResponse(method, urlString, 0)
+      throw error
+    }
   }
 
   /**
@@ -217,6 +246,7 @@ export class PDPServer {
       endpoint: this._serviceURL,
       recordKeeper: recordKeeper as Hex,
       extraData: `0x${extraData}`,
+      httpLogger: this._httpLogger,
     })
   }
 
@@ -286,6 +316,7 @@ export class PDPServer {
       recordKeeper: recordKeeper as Hex,
       extraData: encoded as Hex,
       pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
+      httpLogger: this._httpLogger,
     })
   }
 
@@ -372,6 +403,7 @@ export class PDPServer {
       dataSetId: BigInt(dataSetId),
       pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
       extraData: `0x${extraData}`,
+      httpLogger: this._httpLogger,
     })
     return {
       message: `Pieces added to data set ID ${dataSetId} successfully`,
@@ -386,7 +418,7 @@ export class PDPServer {
    * @returns Promise that resolves with the creation status
    */
   async getDataSetCreationStatus(txHash: string): Promise<DataSetCreationStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
+    const response = await this._fetchWithLogging(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -415,7 +447,7 @@ export class PDPServer {
    * @returns Promise that resolves with the addition status
    */
   async getPieceAdditionStatus(dataSetId: number, txHash: string): Promise<PieceAdditionStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`, {
+    const response = await this._fetchWithLogging(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -449,6 +481,7 @@ export class PDPServer {
     const piece = await SP.findPiece({
       endpoint: this._serviceURL,
       pieceCid: parsedPieceCid,
+      httpLogger: this._httpLogger,
     })
     return {
       pieceCid: piece,
@@ -470,7 +503,7 @@ export class PDPServer {
       throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
     }
 
-    const response = await fetch(`${this._serviceURL}/pdp/piece/${parsedPieceCid.toString()}/status`, {
+    const response = await this._fetchWithLogging(`${this._serviceURL}/pdp/piece/${parsedPieceCid.toString()}/status`, {
       method: 'GET',
       headers: {
         Accept: 'application/json',
@@ -524,6 +557,7 @@ export class PDPServer {
         onProgress: options?.onProgress,
         pieceCid: options?.pieceCid,
         signal: options?.signal,
+        httpLogger: this._httpLogger,
       })
     } else {
       // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
@@ -534,6 +568,7 @@ export class PDPServer {
         onProgress: options?.onProgress,
         pieceCid: options?.pieceCid,
         signal: options?.signal,
+        httpLogger: this._httpLogger,
       })
     }
   }
@@ -552,7 +587,7 @@ export class PDPServer {
     // Use the retrieval endpoint configured at construction time
     const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
 
-    const response = await fetch(downloadUrl)
+    const response = await this._fetchWithLogging(downloadUrl)
 
     // Use the shared download and validation function
     return await downloadAndValidate(response, parsedPieceCid)
@@ -567,6 +602,7 @@ export class PDPServer {
     const data = await SP.getDataSet({
       endpoint: this._serviceURL,
       dataSetId: BigInt(dataSetId),
+      httpLogger: this._httpLogger,
     })
 
     return {
@@ -599,6 +635,7 @@ export class PDPServer {
       dataSetId: BigInt(dataSetId),
       pieceId: BigInt(pieceID),
       extraData: ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [authData.signature]) as Hex,
+      httpLogger: this._httpLogger,
     })
     return txHash
   }
@@ -663,7 +700,7 @@ export class PDPServer {
    */
   async ping(): Promise<void> {
     const url = `${this._serviceURL}/pdp/ping`
-    const response = await fetch(url, {
+    const response = await this._fetchWithLogging(url, {
       method: 'GET',
       headers: {},
     })
@@ -680,6 +717,13 @@ export class PDPServer {
    */
   getServiceURL(): string {
     return this._serviceURL
+  }
+
+  /**
+   * Get the HTTP logger instance
+   */
+  getHttpLogger(): HTTPLogger | null {
+    return this._httpLogger
   }
 
   getAuthHelper(): PDPAuthHelper {

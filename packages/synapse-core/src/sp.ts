@@ -13,6 +13,7 @@ import { HttpError, request, TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
+import type { HTTPLogger } from './http-logger.js'
 import {
   AddPiecesError,
   CreateDataSetError,
@@ -104,6 +105,7 @@ export type PDPCreateDataSetOptions = {
   endpoint: string
   recordKeeper: Address
   extraData: Hex
+  httpLogger?: HTTPLogger | null
 }
 
 /**
@@ -119,7 +121,11 @@ export type PDPCreateDataSetOptions = {
  */
 export async function createDataSet(options: PDPCreateDataSetOptions) {
   // Send the create data set message to the PDP
-  const response = await request.post(new URL(`pdp/data-sets`, options.endpoint), {
+  const url = new URL(`pdp/data-sets`, options.endpoint)
+  const urlString = url.toString()
+  options.httpLogger?.logRequest('POST', urlString)
+
+  const response = await request.post(url, {
     body: JSON.stringify({
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
@@ -129,6 +135,9 @@ export async function createDataSet(options: PDPCreateDataSetOptions) {
     },
     timeout: TIMEOUT,
   })
+
+  const statusCode = response.error ? 0 : response.result.status
+  options.httpLogger?.logResponse('POST', urlString, statusCode)
 
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -151,6 +160,7 @@ export async function createDataSet(options: PDPCreateDataSetOptions) {
 
 export type PollForDataSetCreationStatusOptions = {
   statusUrl: string
+  httpLogger?: HTTPLogger | null
 }
 
 export type DataSetCreatedResponse =
@@ -179,9 +189,13 @@ export type DataSetCreateSuccess = {
  *
  * @param options - The options for the poll for data set creation status.
  * @param options.statusUrl - The status URL of the data set creation.
+ * @param options.httpLogger - Optional HTTP logger for logging requests and responses.
  * @returns The data set creation status.
  */
 export async function pollForDataSetCreationStatus(options: PollForDataSetCreationStatusOptions) {
+  const urlString = options.statusUrl
+  options.httpLogger?.logRequest('GET', urlString)
+
   const response = await request.json.get<DataSetCreatedResponse>(options.statusUrl, {
     async onResponse(response) {
       if (response.ok) {
@@ -202,6 +216,16 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
 
     timeout: TIMEOUT,
   })
+
+  // For request.json.get, result is the parsed JSON, not a Response object
+  // Get status code from error if present, otherwise assume 200 (success)
+  const statusCode = response.error
+    ? HttpError.is(response.error)
+      ? response.error.response.status
+      : 0
+    : 200
+  options.httpLogger?.logResponse('GET', urlString, statusCode)
+
   if (response.error) {
     if (HttpError.is(response.error)) {
       throw new PollDataSetCreationStatusError(await response.error.response.text())
@@ -217,6 +241,7 @@ export type PDPCreateDataSetAndAddPiecesOptions = {
   recordKeeper: Address
   extraData: Hex
   pieces: PieceCID[]
+  httpLogger?: HTTPLogger | null
 }
 
 /**
@@ -232,7 +257,11 @@ export type PDPCreateDataSetAndAddPiecesOptions = {
  */
 export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddPiecesOptions) {
   // Send the create data set message to the PDP
-  const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.endpoint), {
+  const url = new URL(`pdp/data-sets/create-and-add`, options.endpoint)
+  const urlString = url.toString()
+  options.httpLogger?.logRequest('POST', urlString)
+
+  const response = await request.post(url, {
     body: JSON.stringify({
       recordKeeper: options.recordKeeper,
       extraData: options.extraData,
@@ -246,6 +275,9 @@ export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddP
     },
     timeout: TIMEOUT,
   })
+
+  const statusCode = response.error ? 0 : response.result.status
+  options.httpLogger?.logResponse('POST', urlString, statusCode)
 
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -269,6 +301,7 @@ export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddP
 export type GetDataSetOptions = {
   endpoint: string
   dataSetId: bigint
+  httpLogger?: HTTPLogger | null
 }
 
 export type GetDataSetResponse = {
@@ -295,9 +328,20 @@ export type SPPiece = {
  * @returns The data set from the PDP API.
  */
 export async function getDataSet(options: GetDataSetOptions) {
-  const response = await request.json.get<GetDataSetResponse>(
-    new URL(`pdp/data-sets/${options.dataSetId}`, options.endpoint)
-  )
+  const url = new URL(`pdp/data-sets/${options.dataSetId}`, options.endpoint)
+  const urlString = url.toString()
+  options.httpLogger?.logRequest('GET', urlString)
+
+  const response = await request.json.get<GetDataSetResponse>(url)
+
+  // For request.json.get, result is the parsed JSON, not a Response object
+  // Get status code from error if present, otherwise assume 200 (success)
+  const statusCode = response.error
+    ? HttpError.is(response.error)
+      ? response.error.response.status
+      : 0
+    : 200
+  options.httpLogger?.logResponse('GET', urlString, statusCode)
   if (response.error) {
     if (HttpError.is(response.error)) {
       throw new GetDataSetError(await response.error.response.text())
@@ -429,6 +473,7 @@ export type UploadPieceStreamingOptions = {
   onProgress?: (bytesUploaded: number) => void
   pieceCid?: PieceCID
   signal?: AbortSignal
+  httpLogger?: HTTPLogger | null
 }
 
 /**
@@ -450,10 +495,17 @@ export type UploadPieceStreamingOptions = {
  */
 export async function uploadPieceStreaming(options: UploadPieceStreamingOptions): Promise<UploadPieceResponse> {
   // Create upload session (POST /pdp/piece/uploads)
-  const createResponse = await request.post(new URL('pdp/piece/uploads', options.endpoint), {
+  const createUrl = new URL('pdp/piece/uploads', options.endpoint)
+  const createUrlString = createUrl.toString()
+  options.httpLogger?.logRequest('POST', createUrlString)
+
+  const createResponse = await request.post(createUrl, {
     timeout: TIMEOUT,
     signal: options.signal,
   })
+
+  const createStatusCode = createResponse.error ? 0 : createResponse.result.status
+  options.httpLogger?.logResponse('POST', createUrlString, createStatusCode)
 
   if (createResponse.error) {
     if (HttpError.is(createResponse.error)) {
@@ -527,13 +579,20 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
     headers['Content-Length'] = options.size.toString()
   }
 
-  const uploadResponse = await request.put(new URL(`pdp/piece/uploads/${uploadUuid}`, options.endpoint), {
+  const uploadUrl = new URL(`pdp/piece/uploads/${uploadUuid}`, options.endpoint)
+  const uploadUrlString = uploadUrl.toString()
+  options.httpLogger?.logRequest('PUT', uploadUrlString)
+
+  const uploadResponse = await request.put(uploadUrl, {
     body: bodyStream,
     headers,
     timeout: false, // No timeout for streaming upload
     signal: options.signal,
     duplex: 'half', // Required for streaming request bodies
   } as Parameters<typeof request.put>[1] & { duplex: 'half' })
+
+  const uploadStatusCode = uploadResponse.error ? 0 : uploadResponse.result.status
+  options.httpLogger?.logResponse('PUT', uploadUrlString, uploadStatusCode)
 
   if (uploadResponse.error) {
     if (HttpError.is(uploadResponse.error)) {
@@ -586,6 +645,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
 export type FindPieceOptions = {
   endpoint: string
   pieceCid: PieceCID
+  httpLogger?: HTTPLogger | null
 }
 
 /**
@@ -596,20 +656,44 @@ export type FindPieceOptions = {
  * @param options - The options for the find piece.
  * @param options.endpoint - The endpoint of the PDP API.
  * @param options.pieceCid - The piece CID to find.
+ * @param options.httpLogger - Optional HTTP logger for logging requests and responses.
  * @returns
  */
 export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
   const { pieceCid, endpoint } = options
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
+  const url = new URL(`pdp/piece?${params.toString()}`, endpoint)
+  const urlString = url.toString()
 
-  const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
+  options.httpLogger?.logRequest('GET', urlString)
+
+  const response = await request.json.get<{ pieceCid: string }>(url, {
     retry: {
       statusCodes: [202, 404],
       retries: RETRIES,
       factor: FACTOR,
     },
     timeout: TIMEOUT,
+    async onResponse(response) {
+      // Log each retry attempt (including the first one)
+      options.httpLogger?.logResponse('GET', urlString, response.status)
+      // Continue with normal retry logic for 202/404
+      if (response.status === 202 || response.status === 404) {
+        return response // Retry
+      }
+      return response
+    },
   })
+
+  const statusCode = response.error
+    ? HttpError.is(response.error)
+      ? response.error.response.status
+      : 0
+    : 200
+  // Final response already logged in onResponse, but log again if there was an error
+  if (response.error) {
+    options.httpLogger?.logResponse('GET', urlString, statusCode)
+  }
 
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -629,6 +713,7 @@ export type AddPiecesOptions = {
   dataSetId: bigint
   pieces: PieceCID[]
   extraData: Hex
+  httpLogger?: HTTPLogger | null
 }
 
 export type AddPiecesRequest = {
@@ -655,7 +740,11 @@ export type AddPiecesRequest = {
  */
 export async function addPieces(options: AddPiecesOptions) {
   const { endpoint, dataSetId, pieces, extraData } = options
-  const response = await request.post(new URL(`pdp/data-sets/${dataSetId}/pieces`, endpoint), {
+  const url = new URL(`pdp/data-sets/${dataSetId}/pieces`, endpoint)
+  const urlString = url.toString()
+  options.httpLogger?.logRequest('POST', urlString)
+
+  const response = await request.post(url, {
     headers: {
       'Content-Type': 'application/json',
     },
@@ -668,6 +757,9 @@ export async function addPieces(options: AddPiecesOptions) {
     }),
     timeout: TIMEOUT,
   })
+
+  const statusCode = response.error ? 0 : response.result.status
+  options.httpLogger?.logResponse('POST', urlString, statusCode)
 
   if (response.error) {
     if (HttpError.is(response.error)) {
@@ -719,6 +811,7 @@ export type AddPiecesSuccess = {
 
 export type PollForAddPiecesStatusOptions = {
   statusUrl: string
+  httpLogger?: HTTPLogger | null
 }
 
 /**
@@ -728,9 +821,13 @@ export type PollForAddPiecesStatusOptions = {
  *
  * @param options - The options for the poll for add pieces status.
  * @param options.statusUrl - The status URL of the add pieces.
+ * @param options.httpLogger - Optional HTTP logger for logging requests and responses.
  * @returns The add pieces status.
  */
 export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOptions) {
+  const urlString = options.statusUrl
+  options.httpLogger?.logRequest('GET', urlString)
+
   const response = await request.json.get<AddPiecesResponse>(options.statusUrl, {
     async onResponse(response) {
       if (response.ok) {
@@ -750,6 +847,16 @@ export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOpti
     },
     timeout: 1000 * 60 * 5,
   })
+
+  // For request.json.get, result is the parsed JSON, not a Response object
+  // Get status code from error if present, otherwise assume 200 (success)
+  const statusCode = response.error
+    ? HttpError.is(response.error)
+      ? response.error.response.status
+      : 0
+    : 200
+  options.httpLogger?.logResponse('GET', urlString, statusCode)
+
   if (response.error) {
     if (HttpError.is(response.error)) {
       throw new PollForAddPiecesStatusError(await response.error.response.text())
@@ -764,6 +871,7 @@ export type DeletePieceOptions = {
   dataSetId: bigint
   pieceId: bigint
   extraData: Hex
+  httpLogger?: HTTPLogger | null
 }
 
 export type DeletePieceResponse = {
@@ -777,12 +885,22 @@ export type DeletePieceResponse = {
  */
 export async function deletePiece(options: DeletePieceOptions) {
   const { endpoint, dataSetId, pieceId, extraData } = options
-  const response = await request.json.delete<DeletePieceResponse>(
-    new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
-    {
-      body: { extraData },
-    }
-  )
+  const url = new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint)
+  const urlString = url.toString()
+  options.httpLogger?.logRequest('DELETE', urlString)
+
+  const response = await request.json.delete<DeletePieceResponse>(url, {
+    body: { extraData },
+  })
+
+  // For request.json.delete, result is the parsed JSON, not a Response object
+  // Get status code from error if present, otherwise assume 200 (success)
+  const statusCode = response.error
+    ? HttpError.is(response.error)
+      ? response.error.response.status
+      : 0
+    : 200
+  options.httpLogger?.logResponse('DELETE', urlString, statusCode)
 
   if (response.error) {
     if (HttpError.is(response.error)) {
