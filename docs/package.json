@@ -13,7 +13,7 @@
     "@filoz/synapse-sdk": "workspace:*",
     "ethers": "catalog:",
     "starlight-auto-sidebar": "^0.1.3",
-    "starlight-changelogs": "^0.2.3",
+    "starlight-changelogs": "^0.3.0",
     "starlight-links-validator": "^0.19.2"
   },
   "devDependencies": {
