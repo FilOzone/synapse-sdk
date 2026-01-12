@@ -6,14 +6,6 @@ import * as Abis from '@filoz/synapse-core/abis'
 import { MAX_UPLOAD_SIZE as CORE_MAX_UPLOAD_SIZE } from '@filoz/synapse-core/piece'
 import { erc20Abi, multicall3Abi } from 'viem'
 import type { FilecoinNetworkType } from '../types.ts'
-import {
-  getLocalnetChainId,
-  getLocalnetMulticall3Address,
-  getLocalnetRpcUrl,
-  getLocalnetUSDFCAddress,
-  getLocalnetWarmStorageAddress,
-  getLocalnetWsUrl,
-} from './localnet-config.ts'
 
 /**
  * Token identifiers
@@ -29,7 +21,7 @@ export const TOKENS = {
 export const CHAIN_IDS: Record<FilecoinNetworkType, number> = {
   mainnet: 314,
   calibration: 314159,
-  localnet: getLocalnetChainId(),
+  devnet: 31415926,
 } as const
 
 /**
@@ -140,9 +132,9 @@ export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
    */
   calibration: 1667326380,
   /**
-   * Localnet genesis: Use current time as localnet is ephemeral
+   * Devnet genesis: Provide via runtime configuration when needed
    */
-  localnet: Math.floor(Date.now() / 1000),
+  devnet: 0,
 } as const
 
 /**
@@ -327,9 +319,9 @@ export const RPC_URLS: Record<FilecoinNetworkType, { http: string; websocket: st
     http: 'https://api.calibration.node.glif.io/rpc/v1',
     websocket: 'wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1',
   },
-  localnet: {
-    http: getLocalnetRpcUrl(),
-    websocket: getLocalnetWsUrl(),
+  devnet: {
+    http: 'http://127.0.0.1:5700/rpc/v1',
+    websocket: 'ws://127.0.0.1:5700/rpc/v1',
   },
 } as const
 
@@ -344,10 +336,8 @@ export const CONTRACT_ADDRESSES = {
   WARM_STORAGE: {
     mainnet: '0x8408502033C418E1bbC97cE9ac48E5528F371A9f',
     calibration: '0x02925630df557F957f70E112bA06e50965417CA0',
-    get localnet() {
-      return getLocalnetWarmStorageAddress()
-    },
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    devnet: undefined,
+  } as const satisfies Record<FilecoinNetworkType, string | undefined>,
 
   /**
    * Multicall3 contract addresses - used for batching multiple contract calls
@@ -356,16 +346,12 @@ export const CONTRACT_ADDRESSES = {
   MULTICALL3: {
     mainnet: '0xcA11bde05977b3631167028862bE2a173976CA11',
     calibration: '0xcA11bde05977b3631167028862bE2a173976CA11',
-    get localnet() {
-      return getLocalnetMulticall3Address()
-    },
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    devnet: undefined,
+  } as const satisfies Record<FilecoinNetworkType, string | undefined>,
 
   USDFC: {
     mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
     calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
-    get localnet() {
-      return getLocalnetUSDFCAddress()
-    },
-  } as const satisfies Record<FilecoinNetworkType, string>,
+    devnet: undefined,
+  } as const satisfies Record<FilecoinNetworkType, string | undefined>,
 } as const

@@ -37,6 +37,7 @@ export class Synapse {
   private readonly _storageManager: StorageManager
   private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
+  private readonly _multicall3Address: string
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -119,33 +120,50 @@ export class Synapse {
     }
 
     // Final network validation
-    if (network !== 'mainnet' && network !== 'calibration' && network !== 'localnet') {
+    if (network !== 'mainnet' && network !== 'calibration' && network !== 'devnet') {
+      throw new Error(`Invalid network: ${String(network)}. Only 'mainnet', 'calibration', and 'devnet' are supported.`)
+    }
+
+    const multicall3Address = options.multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[network]
+    if (!multicall3Address) {
       throw new Error(
-        `Invalid network: ${String(network)}. Only 'mainnet', 'calibration', and 'localnet' are supported.`
+        network === 'devnet'
+          ? 'multicall3Address is required when using devnet'
+          : `No Multicall3 address configured for network: ${network}`
       )
     }
 
     // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
     if (!warmStorageAddress) {
-      throw new Error(`No Warm Storage address configured for network: ${network}`)
+      throw new Error(
+        network === 'devnet'
+          ? 'warmStorageAddress is required when using devnet'
+          : `No Warm Storage address configured for network: ${network}`
+      )
     }
-    const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress)
+    const warmStorageService = await WarmStorageService.create(
+      provider,
+      warmStorageAddress,
+      multicall3Address,
+      options.warmStorageViewAddress ?? null
+    )
 
     // Create payments service with discovered addresses
     const paymentsAddress = warmStorageService.getPaymentsAddress()
-    const usdfcAddress = warmStorageService.getUSDFCTokenAddress()
+    const usdfcAddress = options.usdfcAddress ?? warmStorageService.getUSDFCTokenAddress()
     const payments = new PaymentsService(
       provider,
       signer,
       paymentsAddress,
       usdfcAddress,
-      options.disableNonceManager === true
+      options.disableNonceManager === true,
+      multicall3Address
     )
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(provider, registryAddress)
+    const spRegistry = new SPRegistryService(provider, registryAddress, multicall3Address)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -187,7 +205,8 @@ export class Synapse {
       pieceRetriever,
       filbeamService,
       options.dev === false,
-      options.withIpni
+      options.withIpni,
+      multicall3Address
     )
   }
 
@@ -203,7 +222,8 @@ export class Synapse {
     pieceRetriever: PieceRetriever,
     filbeamService: FilBeamService,
     dev: boolean,
-    withIpni?: boolean
+    withIpni: boolean | undefined,
+    multicall3Address: string
   ) {
     this._signer = signer
     this._provider = provider
@@ -215,6 +235,7 @@ export class Synapse {
     this._warmStorageAddress = warmStorageAddress
     this._filbeamService = filbeamService
     this._session = null
+    this._multicall3Address = multicall3Address
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(
@@ -282,7 +303,8 @@ export class Synapse {
       this._provider,
       this._warmStorageService.getSessionKeyRegistryAddress(),
       sessionKeySigner,
-      this._signer
+      this._signer,
+      this._multicall3Address
     )
   }
 
@@ -327,9 +349,8 @@ export class Synapse {
       return CHAIN_IDS.mainnet
     } else if (this._network === 'calibration') {
       return CHAIN_IDS.calibration
-    } else {
-      return CHAIN_IDS.localnet
     }
+    return CHAIN_IDS.devnet
   }
 
   /**
@@ -460,7 +481,7 @@ export class Synapse {
 
       // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._provider, registryAddress)
+      const spRegistry = new SPRegistryService(this._provider, registryAddress, this._multicall3Address)
 
       let providerInfo: ProviderInfo | null
       if (typeof providerAddress === 'string') {

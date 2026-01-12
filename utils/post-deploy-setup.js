@@ -81,7 +81,7 @@
  *
  * - WARM_STORAGE_CONTRACT_ADDRESS: Warm Storage address (defaults to address in constants.ts for network)
  * - SP_REGISTRY_ADDRESS: ServiceProviderRegistry address (auto-discovered from WarmStorage if not provided)
- * - NETWORK: Either 'mainnet' or 'calibration' (default: calibration)
+ * - NETWORK: Either 'mainnet', 'calibration', or 'devnet' (default: calibration)
  * - RPC_URL: Custom RPC endpoint (overrides default network RPC)
  * - SP_NAME: Provider name (default: "Test Service Provider")
  * - SP_DESCRIPTION: Provider description (default: "Test provider for Warm Storage")
@@ -121,6 +121,21 @@ function parseArgs() {
     } else if (args[i] === '--network' && args[i + 1]) {
       options.network = args[i + 1]
       i++
+    } else if (args[i] === '--rpc-url' && args[i + 1]) {
+      options.rpcUrl = args[i + 1]
+      i++
+    } else if (args[i] === '--warm-storage' && args[i + 1]) {
+      options.warmStorageAddress = args[i + 1]
+      i++
+    } else if (args[i] === '--multicall3' && args[i + 1]) {
+      options.multicall3Address = args[i + 1]
+      i++
+    } else if (args[i] === '--usdfc' && args[i + 1]) {
+      options.usdfcAddress = args[i + 1]
+      i++
+    } else if (args[i] === '--sp-registry' && args[i + 1]) {
+      options.spRegistryAddress = args[i + 1]
+      i++
     }
   }
 
@@ -132,7 +147,7 @@ function parseArgs() {
   }
 
   // Validate network
-  const validNetworks = ['mainnet', 'calibration', 'localnet']
+  const validNetworks = ['mainnet', 'calibration', 'devnet']
   if (options.network && !validNetworks.includes(options.network)) {
     error(`Invalid network: ${options.network}. Must be one of: ${validNetworks.join(', ')}`)
     process.exit(1)
@@ -423,6 +438,7 @@ async function main() {
     const mode = args.mode || 'client' // Default to client mode
 
     log(`🚀 Running post-deploy setup in '${mode}' mode`)
+    log(`Arguments: ${JSON.stringify(args)}`)
 
     // Get environment variables based on mode
     let deployerPrivateKey, spPrivateKey, clientPrivateKey, spServiceUrl
@@ -439,13 +455,20 @@ async function main() {
 
     // Common configuration
     const network = args.network || process.env.NETWORK || 'calibration'
-    const customRpcUrl = process.env.RPC_URL
+    const customRpcUrl = args.rpcUrl || process.env.RPC_URL
 
     // Get RPC URL
     const rpcURL = customRpcUrl || RPC_URLS[network].http
 
+    // Get Multicall3 address - use provided or default from constants
+    const multicall3Address =
+      args.multicall3Address || process.env.MULTICALL3_ADDRESS || CONTRACT_ADDRESSES.MULTICALL3[network]
+
+    // Get USDFC address - use provided or default from constants (optional, can be null)
+    const _usdfcAddress = args.usdfcAddress || process.env.USDFC_ADDRESS || null
+
     // Get WarmStorage address - use provided or default from constants
-    let warmStorageAddress = process.env.WARM_STORAGE_CONTRACT_ADDRESS
+    let warmStorageAddress = args.warmStorageAddress || process.env.WARM_STORAGE_CONTRACT_ADDRESS
     if (!warmStorageAddress) {
       // For localnet, check environment variable
       if (network === 'localnet') {
@@ -464,6 +487,7 @@ async function main() {
 
     log(`Starting post-deployment setup for network: ${network}`)
     log(`Warm Storage contract address: ${warmStorageAddress}`)
+    log(`Multicall3 address: ${multicall3Address || 'auto-detect'}`)
     log(`Using RPC: ${rpcURL}`)
 
     // Create provider with extended timeout for Filecoin's 30s block time
@@ -477,7 +501,7 @@ async function main() {
     provider._getConnection().timeout = 120000 // 2 minutes
 
     // Create WarmStorage service
-    const warmStorage = await WarmStorageService.create(provider, warmStorageAddress)
+    const warmStorage = await WarmStorageService.create(provider, warmStorageAddress, multicall3Address)
 
     // Variables to track what was setup
     let providerId = null
@@ -515,7 +539,7 @@ async function main() {
       log(`  Storage Price: ${ethers.formatUnits(storagePricePerTibPerMonth, 18)} USDFC/TiB/month`)
 
       // Get registry address - use provided or discover from WarmStorage
-      let spRegistryAddress = process.env.SP_REGISTRY_ADDRESS
+      let spRegistryAddress = args.spRegistryAddress || process.env.SP_REGISTRY_ADDRESS
       if (spRegistryAddress) {
         log(`Using provided ServiceProviderRegistry address: ${spRegistryAddress}`)
       } else {
