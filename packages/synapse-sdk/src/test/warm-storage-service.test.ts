@@ -4,6 +4,7 @@
  * Tests for WarmStorageService class
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -12,10 +13,9 @@ import { PaymentsService } from '../payments/index.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('WarmStorageService', () => {
   let provider: ethers.Provider
@@ -24,11 +24,11 @@ describe('WarmStorageService', () => {
 
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
-    return await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+    return await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
   }
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
@@ -37,12 +37,12 @@ describe('WarmStorageService', () => {
 
   beforeEach(() => {
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
     paymentsService = new PaymentsService(
       provider,
       signer,
-      ADDRESSES.calibration.payments,
-      ADDRESSES.calibration.usdfcToken,
+      Mocks.ADDRESSES.calibration.payments,
+      Mocks.ADDRESSES.calibration.usdfcToken,
       false
     )
     server.resetHandlers()
@@ -50,7 +50,7 @@ describe('WarmStorageService', () => {
 
   describe('Instantiation', () => {
     it('should create instance with required parameters', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       assert.exists(warmStorageService)
       assert.isFunction(warmStorageService.getClientDataSets)
@@ -59,7 +59,7 @@ describe('WarmStorageService', () => {
 
   describe('getDataSet', () => {
     it('should return a single data set by ID', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 1
 
@@ -68,9 +68,9 @@ describe('WarmStorageService', () => {
       assert.equal(result?.pdpRailId, 1)
       assert.equal(result?.cacheMissRailId, 0)
       assert.equal(result?.cdnRailId, 0)
-      assert.equal(result?.payer, ADDRESSES.client1)
-      assert.equal(result?.payee, ADDRESSES.serviceProvider1)
-      assert.equal(result?.serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(result?.payer, Mocks.ADDRESSES.client1)
+      assert.equal(result?.payee, Mocks.ADDRESSES.serviceProvider1)
+      assert.equal(result?.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(result?.commissionBps, 100)
       assert.equal(result?.clientDataSetId, 0n)
       assert.equal(result?.pdpEndEpoch, 0)
@@ -79,7 +79,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should throw for non-existent data set', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       const dataSetId = 999
 
@@ -93,8 +93,8 @@ describe('WarmStorageService', () => {
 
     it('should handle contract revert gracefully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
             // @ts-expect-error - we want to test the error case
             getDataSet: () => {
@@ -118,23 +118,23 @@ describe('WarmStorageService', () => {
   describe('getClientDataSets', () => {
     it('should return empty array when client has no data sets', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
             getClientDataSets: () => [[]],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const dataSets = await warmStorageService.getClientDataSets(ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 0)
     })
 
     it('should return data sets for a client', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
             getClientDataSets: () => [
               [
@@ -142,9 +142,9 @@ describe('WarmStorageService', () => {
                   pdpRailId: 1n,
                   cacheMissRailId: 0n,
                   cdnRailId: 0n,
-                  payer: ADDRESSES.client1,
-                  payee: ADDRESSES.serviceProvider1,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   commissionBps: 100n,
                   clientDataSetId: 0n,
                   pdpEndEpoch: 0n,
@@ -156,9 +156,9 @@ describe('WarmStorageService', () => {
                   pdpRailId: 2n,
                   cacheMissRailId: 0n,
                   cdnRailId: 100n,
-                  payer: ADDRESSES.client1,
-                  payee: ADDRESSES.serviceProvider1,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   commissionBps: 200n,
                   clientDataSetId: 1n,
                   pdpEndEpoch: 0n,
@@ -173,23 +173,23 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const dataSets = await warmStorageService.getClientDataSets(ADDRESSES.client1)
+      const dataSets = await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
 
       assert.isArray(dataSets)
       assert.lengthOf(dataSets, 2)
 
       // Check first data set
       assert.equal(dataSets[0].pdpRailId, 1)
-      assert.equal(dataSets[0].payer, ADDRESSES.client1)
-      assert.equal(dataSets[0].payee, ADDRESSES.serviceProvider1)
+      assert.equal(dataSets[0].payer, Mocks.ADDRESSES.client1)
+      assert.equal(dataSets[0].payee, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(dataSets[0].commissionBps, 100)
       assert.equal(dataSets[0].clientDataSetId, 0n)
       assert.equal(dataSets[0].cdnRailId, 0)
 
       // Check second data set
       assert.equal(dataSets[1].pdpRailId, 2)
-      assert.equal(dataSets[1].payer, ADDRESSES.client1)
-      assert.equal(dataSets[1].payee, ADDRESSES.serviceProvider1)
+      assert.equal(dataSets[1].payer, Mocks.ADDRESSES.client1)
+      assert.equal(dataSets[1].payee, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(dataSets[1].commissionBps, 200)
       assert.equal(dataSets[1].clientDataSetId, 1n)
       assert.isAbove(dataSets[1].cdnRailId, 0)
@@ -198,8 +198,8 @@ describe('WarmStorageService', () => {
 
     it('should handle contract call errors gracefully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
             // @ts-expect-error - we want to test the error case
             getClientDataSets: () => null,
@@ -209,7 +209,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getClientDataSets(ADDRESSES.client1)
+        await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to get client data sets')
@@ -220,19 +220,19 @@ describe('WarmStorageService', () => {
   describe('getClientDataSetsWithDetails', () => {
     it('should enhance data sets with PDPVerifier details', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[242n]],
             getDataSet: () => [
               {
                 pdpRailId: 48n,
                 cacheMissRailId: 0n,
                 cdnRailId: 0n,
-                payer: ADDRESSES.client1,
-                payee: ADDRESSES.payee1,
-                serviceProvider: ADDRESSES.serviceProvider1,
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.payee1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 commissionBps: 100n,
                 clientDataSetId: 0n,
                 pdpEndEpoch: 0n,
@@ -242,31 +242,30 @@ describe('WarmStorageService', () => {
             ],
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
             getNextPieceId: () => [2n],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
+            getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       assert.lengthOf(detailedDataSets, 1)
       assert.equal(detailedDataSets[0].pdpRailId, 48)
       assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242)
-      assert.equal(detailedDataSets[0].nextPieceId, 2)
-      assert.equal(detailedDataSets[0].currentPieceCount, 2)
+      assert.equal(detailedDataSets[0].activePieceCount, 2)
       assert.isTrue(detailedDataSets[0].isLive)
       assert.isTrue(detailedDataSets[0].isManaged)
     })
 
     it('should filter unmanaged data sets when onlyManaged is true', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[242n, 243n]],
             getDataSet: (args) => {
               const [dataSetId] = args
@@ -276,9 +275,9 @@ describe('WarmStorageService', () => {
                     pdpRailId: 48n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: ADDRESSES.client1,
-                    payee: ADDRESSES.payee1,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.payee1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 0n,
                     pdpEndEpoch: 0n,
@@ -292,9 +291,9 @@ describe('WarmStorageService', () => {
                     pdpRailId: 49n,
                     cacheMissRailId: 0n,
                     cdnRailId: 0n,
-                    payer: ADDRESSES.client1,
-                    payee: ADDRESSES.payee1,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.payee1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                     commissionBps: 100n,
                     clientDataSetId: 1n,
                     pdpEndEpoch: 0n,
@@ -306,13 +305,13 @@ describe('WarmStorageService', () => {
             },
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
             getNextPieceId: () => [1n],
             getDataSetListener: (args) => {
               const [dataSetId] = args
               if (dataSetId === 242n) {
-                return [ADDRESSES.calibration.warmStorage] // Managed by us
+                return [Mocks.ADDRESSES.calibration.warmStorage] // Managed by us
               }
               return ['0x1234567890123456789012345678901234567890' as `0x${string}`] // Different address
             },
@@ -322,22 +321,108 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       // Get all data sets
-      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1, false)
+      const allDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1, false)
       assert.lengthOf(allDataSets, 2)
 
       // Get only managed data sets
-      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1, true)
+      const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1, true)
       assert.lengthOf(managedDataSets, 1)
       assert.equal(managedDataSets[0].pdpRailId, 48)
       assert.isTrue(managedDataSets[0].isManaged)
     })
 
+    it('should set withCDN true when cdnRailId > 0 and withCDN metadata key present', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            clientDataSets: () => [[242n]],
+            getDataSet: () => [
+              {
+                pdpRailId: 48n,
+                cacheMissRailId: 50n,
+                cdnRailId: 51n, // CDN rail exists
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.payee1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 0n,
+                pdpEndEpoch: 0n,
+                providerId: 1n,
+                dataSetId: 242n,
+              },
+            ],
+            getAllDataSetMetadata: () => [
+              ['withCDN'], // withCDN key present
+              [''],
+            ],
+          },
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            dataSetLive: () => [true],
+            getNextPieceId: () => [2n],
+            getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+
+      assert.lengthOf(detailedDataSets, 1)
+      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.isTrue(detailedDataSets[0].withCDN)
+    })
+
+    it('should set withCDN false when cdnRailId > 0 but withCDN metadata key missing (terminated)', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          warmStorageView: {
+            ...Mocks.presets.basic.warmStorageView,
+            clientDataSets: () => [[242n]],
+            getDataSet: () => [
+              {
+                pdpRailId: 48n,
+                cacheMissRailId: 50n,
+                cdnRailId: 51n, // CDN rail still exists
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.payee1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 0n,
+                pdpEndEpoch: 0n,
+                providerId: 1n,
+                dataSetId: 242n,
+              },
+            ],
+            getAllDataSetMetadata: () => [
+              [], // No metadata keys - CDN was terminated
+              [],
+            ],
+          },
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            dataSetLive: () => [true],
+            getNextPieceId: () => [2n],
+            getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
+          },
+        })
+      )
+      const warmStorageService = await createWarmStorageService()
+      const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
+
+      assert.lengthOf(detailedDataSets, 1)
+      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.isFalse(detailedDataSets[0].withCDN) // CDN terminated, metadata cleared
+    })
+
     it('should throw error when contract calls fail', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[242n]],
             getDataSet: () => {
               throw new Error('Contract call failed')
@@ -348,7 +433,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getClientDataSetsWithDetails(ADDRESSES.client1)
+        await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to get details for data set')
@@ -360,12 +445,12 @@ describe('WarmStorageService', () => {
   describe('validateDataSet', () => {
     it('should validate dataset successfully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
-            getDataSetListener: () => [ADDRESSES.calibration.warmStorage],
+            getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
           },
         })
       )
@@ -378,10 +463,10 @@ describe('WarmStorageService', () => {
 
     it('should throw error if data set is not managed by this WarmStorage', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
             getDataSetListener: () => ['0x1234567890123456789012345678901234567890' as Address], // Different address
           },
@@ -403,14 +488,14 @@ describe('WarmStorageService', () => {
     it('should verify successful data set creation', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
             return {
               hash: mockTxHash,
-              from: ADDRESSES.client1,
+              from: Mocks.ADDRESSES.client1,
               gas: '0x5208',
               value: '0x0',
               nonce: '0x444',
@@ -435,7 +520,7 @@ describe('WarmStorageService', () => {
             }
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
           },
         })
@@ -455,8 +540,8 @@ describe('WarmStorageService', () => {
     it('should handle transaction not mined yet', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
@@ -478,10 +563,10 @@ describe('WarmStorageService', () => {
   describe('Service Provider ID Operations', () => {
     it('should get list of approved provider IDs', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders: () => [[1n, 4n, 7n]],
           },
         })
@@ -496,10 +581,10 @@ describe('WarmStorageService', () => {
 
     it('should return empty array when no providers are approved', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders: () => [[]],
           },
         })
@@ -511,10 +596,10 @@ describe('WarmStorageService', () => {
 
     it('should check if a provider ID is approved', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             isProviderApproved: () => [true],
           },
         })
@@ -526,10 +611,10 @@ describe('WarmStorageService', () => {
 
     it('should check if a provider ID is not approved', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             isProviderApproved: () => [false],
           },
         })
@@ -542,10 +627,10 @@ describe('WarmStorageService', () => {
     it('should get owner address', async () => {
       const ownerAddress = '0xabcdef1234567890123456789012345678901234'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorage: {
-            ...presets.basic.warmStorage,
+            ...Mocks.presets.basic.warmStorage,
             owner: () => [ownerAddress as `0x${string}`],
           },
         })
@@ -558,10 +643,10 @@ describe('WarmStorageService', () => {
     it('should check if signer is owner', async () => {
       const signerAddress = '0x1234567890123456789012345678901234567890'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorage: {
-            ...presets.basic.warmStorage,
+            ...Mocks.presets.basic.warmStorage,
             owner: () => [signerAddress as `0x${string}`],
           },
         })
@@ -579,10 +664,10 @@ describe('WarmStorageService', () => {
       const signerAddress = '0x1234567890123456789012345678901234567890'
       const ownerAddress = '0xabcdef1234567890123456789012345678901234'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorage: {
-            ...presets.basic.warmStorage,
+            ...Mocks.presets.basic.warmStorage,
             owner: () => [ownerAddress as `0x${string}`],
           },
         })
@@ -597,17 +682,17 @@ describe('WarmStorageService', () => {
     })
 
     it('should get service provider registry address', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
       const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
       // The mock returns this default address for spRegistry
-      assert.equal(registryAddress, ADDRESSES.calibration.spRegistry)
+      assert.equal(registryAddress, Mocks.ADDRESSES.calibration.spRegistry)
     })
 
     it('should add approved provider (mock transaction)', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         })
       )
       const warmStorageService = await createWarmStorageService()
@@ -617,7 +702,7 @@ describe('WarmStorageService', () => {
     })
 
     it('should terminate dataset (mock tx)', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
 
       const tx = await warmStorageService.terminateDataSet(signer, 4)
@@ -626,10 +711,10 @@ describe('WarmStorageService', () => {
 
     it('should remove approved provider with correct index', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders: () => [[1n, 4n, 7n]],
           },
         })
@@ -642,10 +727,10 @@ describe('WarmStorageService', () => {
 
     it('should throw when removing non-existent provider', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders: () => [[1n, 4n, 7n]],
           },
         })
@@ -664,8 +749,8 @@ describe('WarmStorageService', () => {
     describe('calculateStorageCost', () => {
       it('should calculate storage costs correctly for 1 GiB', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -693,8 +778,8 @@ describe('WarmStorageService', () => {
 
       it('should scale costs linearly with size', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -718,10 +803,10 @@ describe('WarmStorageService', () => {
       it('should fetch pricing from WarmStorage contract', async () => {
         let getServicePriceCalled = false
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
             warmStorage: {
-              ...presets.basic.warmStorage,
+              ...Mocks.presets.basic.warmStorage,
               getServicePrice: () => {
                 getServicePriceCalled = true
                 return [
@@ -747,8 +832,8 @@ describe('WarmStorageService', () => {
     describe('checkAllowanceForStorage', () => {
       it('should check allowances for storage operations', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -786,10 +871,10 @@ describe('WarmStorageService', () => {
 
       it('should return sufficient when allowances are adequate', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
             payments: {
-              ...presets.basic.payments,
+              ...Mocks.presets.basic.payments,
               operatorApprovals: () => [true, parseUnits('100', 18), parseUnits('10000', 18), 0n, 0n, 0n],
             },
           })
@@ -817,8 +902,8 @@ describe('WarmStorageService', () => {
 
       it('should include depositAmountNeeded in response', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -843,8 +928,8 @@ describe('WarmStorageService', () => {
 
       it('should use custom lockup days when provided', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -877,8 +962,8 @@ describe('WarmStorageService', () => {
     describe('prepareStorageUpload', () => {
       it('should prepare storage upload with required actions', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -901,7 +986,7 @@ describe('WarmStorageService', () => {
             availableFunds: parseUnits('10000', 18),
           }),
           approveService: async (serviceAddress: string, rateAllowance: bigint, lockupAllowance: bigint) => {
-            assert.strictEqual(serviceAddress, ADDRESSES.calibration.warmStorage)
+            assert.strictEqual(serviceAddress, Mocks.ADDRESSES.calibration.warmStorage)
             assert.isTrue(rateAllowance > 0n)
             assert.isTrue(lockupAllowance > 0n)
             approveServiceCalled = true
@@ -939,8 +1024,8 @@ describe('WarmStorageService', () => {
 
       it('should include deposit action when balance insufficient', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -996,8 +1081,8 @@ describe('WarmStorageService', () => {
 
       it('should return no actions when everything is ready', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
           })
         )
         const warmStorageService = await createWarmStorageService()
@@ -1037,14 +1122,14 @@ describe('WarmStorageService', () => {
     it('should combine PDP server and chain verification status', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
             return {
               hash: mockTxHash,
-              from: ADDRESSES.client1,
+              from: Mocks.ADDRESSES.client1,
               gas: '0x5208',
               value: '0x0',
               nonce: '0x444',
@@ -1069,7 +1154,7 @@ describe('WarmStorageService', () => {
             }
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
           },
         })
@@ -1118,14 +1203,14 @@ describe('WarmStorageService', () => {
     it('should handle PDP server failure gracefully', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
             return {
               hash: mockTxHash,
-              from: ADDRESSES.client1,
+              from: Mocks.ADDRESSES.client1,
               gas: '0x5208',
               value: '0x0',
               nonce: '0x444',
@@ -1147,7 +1232,7 @@ describe('WarmStorageService', () => {
             }
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
           },
         })
@@ -1181,14 +1266,14 @@ describe('WarmStorageService', () => {
     it('should NOT mark as complete when server has not caught up yet', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
             return {
               hash: mockTxHash,
-              from: ADDRESSES.client1,
+              from: Mocks.ADDRESSES.client1,
               gas: '0x5208',
               value: '0x0',
               nonce: '0x444',
@@ -1210,7 +1295,7 @@ describe('WarmStorageService', () => {
             }
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
           },
         })
@@ -1272,14 +1357,14 @@ describe('WarmStorageService', () => {
       }
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionByHash: (params) => {
             const hash = params[0]
             assert.equal(hash, mockTxHash)
             return {
               hash: mockTxHash,
-              from: ADDRESSES.client1,
+              from: Mocks.ADDRESSES.client1,
               gas: '0x5208',
               value: '0x0',
               nonce: '0x444',
@@ -1306,7 +1391,7 @@ describe('WarmStorageService', () => {
             }
           },
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             dataSetLive: () => [true],
           },
         })
@@ -1328,8 +1413,8 @@ describe('WarmStorageService', () => {
     it('should timeout if data set takes too long', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_getTransactionReceipt: () => null,
         })
       )
@@ -1364,44 +1449,46 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
+  describe('getPDPConfig().maxProvingPeriod and getPDPConfig().challengeWindowSize', () => {
     it('should return max proving period from WarmStorage contract', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => [BigInt(2880)],
+            ...Mocks.presets.basic.warmStorageView,
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getMaxProvingPeriod()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.maxProvingPeriod
       assert.equal(result, 2880)
     })
 
     it('should return challenge window from WarmStorage contract', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
-            challengeWindow: () => [BigInt(60)],
+            ...Mocks.presets.basic.warmStorageView,
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getChallengeWindow()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.challengeWindowSize
       assert.equal(result, 60)
     })
 
     it('should handle contract call failures', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => {
+            ...Mocks.presets.basic.warmStorageView,
+            getPDPConfig: () => {
               throw new Error('Contract call failed')
             },
           },
@@ -1410,7 +1497,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getMaxProvingPeriod()
+        await warmStorageService.getPDPConfig()
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Contract call failed')
@@ -1421,8 +1508,8 @@ describe('WarmStorageService', () => {
   describe('CDN Operations', () => {
     it('should top up CDN payment rails (mock transaction)', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         })
       )
       const dataSetId = 49

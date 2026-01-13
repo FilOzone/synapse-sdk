@@ -31,7 +31,13 @@ import type { PaymentsService } from '../payments/service.ts'
 import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
-import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS, TIMING_CONSTANTS } from '../utils/constants.ts'
+import {
+  CONTRACT_ADDRESSES,
+  METADATA_KEYS,
+  SIZE_CONSTANTS,
+  TIME_CONSTANTS,
+  TIMING_CONSTANTS,
+} from '../utils/constants.ts'
 import { CONTRACT_ABIS, createError, getFilecoinNetworkType, TOKENS } from '../utils/index.ts'
 
 /**
@@ -325,6 +331,7 @@ export class WarmStorageService {
         clientDataSetId: ds.clientDataSetId,
         pdpEndEpoch: Number(ds.pdpEndEpoch),
         providerId: Number(ds.providerId),
+        dataSetId: Number(ds.dataSetId),
       }))
     } catch (error) {
       throw new Error(`Failed to get client data sets: ${error instanceof Error ? error.message : String(error)}`)
@@ -368,17 +375,16 @@ export class WarmStorageService {
           return null // Will be filtered out
         }
 
-        // Get next piece ID only if the data set is live
-        const nextPieceId = isLive ? await pdpVerifier.getNextPieceId(pdpVerifierDataSetId) : 0n
+        // Get active piece count only if the data set is live
+        const activePieceCount = isLive ? await pdpVerifier.getActivePieceCount(pdpVerifierDataSetId) : 0
 
         return {
           ...base,
           pdpVerifierDataSetId,
-          nextPieceId: Number(nextPieceId),
-          currentPieceCount: Number(nextPieceId),
+          activePieceCount,
           isLive,
           isManaged,
-          withCDN: base.cdnRailId > 0,
+          withCDN: base.cdnRailId > 0 && METADATA_KEYS.WITH_CDN in metadata,
           metadata,
         }
       } catch (error) {
@@ -427,6 +433,27 @@ export class WarmStorageService {
         }), managed by ${String(listener)}`
       )
     }
+  }
+
+  /**
+   * Get the next piece ID for a dataset (total pieces ever added; does not decrease when pieces are removed)
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The next piece ID as a number
+   */
+  async getNextPieceId(dataSetId: number): Promise<number> {
+    const pdpVerifier = this._getPDPVerifier()
+    const nextPieceId = await pdpVerifier.getNextPieceId(dataSetId)
+    return nextPieceId
+  }
+
+  /**
+   * Get the count of active pieces in a dataset (excludes removed pieces)
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The number of active pieces
+   */
+  async getActivePieceCount(dataSetId: number): Promise<number> {
+    const pdpVerifier = this._getPDPVerifier()
+    return await pdpVerifier.getActivePieceCount(dataSetId)
   }
 
   /**
@@ -1045,26 +1072,26 @@ export class WarmStorageService {
     return signerAddress.toLowerCase() === ownerAddress.toLowerCase()
   }
 
-  // ========== Proving Period Operations ==========
-
   /**
-   * Get the maximum proving period from the WarmStorage contract
-   * @returns Maximum proving period in epochs
+   * Get the PDP config from the WarmStorage contract.
+   * Returns maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart
    */
-  async getMaxProvingPeriod(): Promise<number> {
+  async getPDPConfig(): Promise<{
+    maxProvingPeriod: number
+    challengeWindowSize: number
+    challengesPerProof: number
+    initChallengeWindowStart: number
+  }> {
     const viewContract = this._getWarmStorageViewContract()
-    const maxPeriod = await viewContract.getMaxProvingPeriod()
-    return Number(maxPeriod)
-  }
+    const [maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart] =
+      await viewContract.getPDPConfig()
 
-  /**
-   * Get the challenge window size from the WarmStorage contract
-   * @returns Challenge window size in epochs
-   */
-  async getChallengeWindow(): Promise<number> {
-    const viewContract = this._getWarmStorageViewContract()
-    const window = await viewContract.challengeWindow()
-    return Number(window)
+    return {
+      maxProvingPeriod: Number(maxProvingPeriod),
+      challengeWindowSize: Number(challengeWindowSize),
+      challengesPerProof: Number(challengesPerProof),
+      initChallengeWindowStart: Number(initChallengeWindowStart),
+    }
   }
   /**
    * Increments the fixed locked-up amounts for CDN payment rails.

@@ -1,3 +1,4 @@
+import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
@@ -11,21 +12,9 @@ import { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
-import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
-import {
-  createAndAddPiecesHandler,
-  finalizePieceUploadHandler,
-  findPieceHandler,
-  postPieceHandler,
-  postPieceUploadsHandler,
-  uploadPieceHandler,
-  uploadPieceStreamingHandler,
-} from './mocks/pdp/handlers.ts'
-import { PING } from './mocks/ping.ts'
 
 // MSW server for JSONRPC mocking
-const server = setup([])
+const server = setup()
 
 function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
   return ethers.hexlify(bytes) as `0x${string}`
@@ -42,7 +31,7 @@ describe('StorageService', () => {
   before(async () => {
     // Set timeout to 100ms for testing
     SP.setTimeout(100)
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
@@ -52,73 +41,73 @@ describe('StorageService', () => {
   beforeEach(async () => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
   })
 
   describe('create() factory method', () => {
     it('should select a random provider when no providerId specified', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Should have selected one of the providers
       assert.isTrue(
-        service.serviceProvider === PROVIDERS.provider1.providerInfo.serviceProvider ||
-          service.serviceProvider === PROVIDERS.provider2.providerInfo.serviceProvider
+        service.serviceProvider === Mocks.PROVIDERS.provider1.providerInfo.serviceProvider ||
+          service.serviceProvider === Mocks.PROVIDERS.provider2.providerInfo.serviceProvider
       )
     })
 
     it('should select a random provider but filter allow IPNI providers', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.providerIPNI]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.providerIPNI]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.providerIPNI.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.providerIPNI.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       // Create storage service without specifying providerId
       const service = await StorageContext.create(synapse, warmStorageService, {
         withIpni: true,
       })
 
       // Should have selected one of the providers
-      assert.isTrue(service.serviceProvider === PROVIDERS.providerIPNI.providerInfo.serviceProvider)
+      assert.isTrue(service.serviceProvider === Mocks.PROVIDERS.providerIPNI.providerInfo.serviceProvider)
     })
 
     it.skip('should never select a dev provider by default', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Create storage service without specifying providerId
       // dev defaults to false, so dev providers should be filtered out
@@ -127,29 +116,29 @@ describe('StorageService', () => {
       })
 
       // Should have selected provider2 (non-dev), never provider1 (dev)
-      assert.equal(service.serviceProvider, PROVIDERS.provider2.providerInfo.serviceProvider)
+      assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
       assert.notEqual(
         service.serviceProvider,
-        PROVIDERS.provider1.providerInfo.serviceProvider,
+        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         'Should not select dev provider'
       )
     })
 
     it.skip('should include dev providers when dev option is true', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Create storage service with dev: true
       const service = await StorageContext.create(synapse, warmStorageService, {
@@ -158,26 +147,26 @@ describe('StorageService', () => {
 
       // Should be able to select from either provider, including the dev one
       assert.isTrue(
-        service.serviceProvider === PROVIDERS.provider1.providerInfo.serviceProvider ||
-          service.serviceProvider === PROVIDERS.provider2.providerInfo.serviceProvider
+        service.serviceProvider === Mocks.PROVIDERS.provider1.providerInfo.serviceProvider ||
+          service.serviceProvider === Mocks.PROVIDERS.provider2.providerInfo.serviceProvider
       )
     })
 
     it.skip('should filter providers with serviceStatus=dev when dev option is false', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Create storage service with dev: false (default)
       const service = await StorageContext.create(synapse, warmStorageService, {
@@ -187,71 +176,71 @@ describe('StorageService', () => {
       // Should only select the production provider, not the dev one
       assert.equal(
         service.serviceProvider.toLowerCase(),
-        PROVIDERS.provider2.providerInfo.serviceProvider.toLowerCase(),
+        Mocks.PROVIDERS.provider2.providerInfo.serviceProvider.toLowerCase(),
         'Should select production provider, not dev provider'
       )
       assert.notEqual(
         service.serviceProvider.toLowerCase(),
-        PROVIDERS.provider1.providerInfo.serviceProvider.toLowerCase(),
+        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider.toLowerCase(),
         'Should NOT select dev provider'
       )
     })
 
     it('should use specific provider when providerId specified', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Create storage service with specific providerId
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(PROVIDERS.provider1.providerId),
+        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
       })
 
-      assert.equal(service.serviceProvider, PROVIDERS.provider1.providerInfo.serviceProvider)
+      assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
     it('should skip existing datasets and return -1 with providerId when forceCreateDataSet is true', async () => {
       let fetchedDataSets = false
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               fetchedDataSets = true
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(PROVIDERS.provider1.providerId),
+        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
         forceCreateDataSet: true,
       })
 
       assert.equal(
         context.serviceProvider,
-        PROVIDERS.provider1.providerInfo.serviceProvider,
+        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         'Should select the requested provider'
       )
       assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
@@ -260,30 +249,30 @@ describe('StorageService', () => {
 
     it('should skip existing datasets and return -1 with providerAddress when forceCreateDataSet is true', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        providerAddress: PROVIDERS.provider1.providerInfo.serviceProvider,
+        providerAddress: Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         forceCreateDataSet: true,
       })
 
       assert.equal(
         context.serviceProvider,
-        PROVIDERS.provider1.providerInfo.serviceProvider,
+        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         'Should select the requested provider'
       )
       assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
@@ -291,40 +280,40 @@ describe('StorageService', () => {
 
     it('should reuse existing data set with providerId when forceCreateDataSet is not set', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(PROVIDERS.provider1.providerId),
+        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
       })
 
       // Should have reused existing data set (not created new one)
-      assert.equal(context.serviceProvider, PROVIDERS.provider1.providerInfo.serviceProvider)
+      assert.equal(context.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
       assert.equal(context.dataSetId, 1, 'Should not have a data set id when forceCreateDataSet is true')
     })
 
     it('should throw when no approved providers available', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getApprovedProviders() {
               return [[]]
             },
@@ -332,7 +321,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       try {
         await StorageContext.create(synapse, warmStorageService)
@@ -344,25 +333,25 @@ describe('StorageService', () => {
 
     it('should throw when specified provider not found', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       try {
         await StorageContext.create(synapse, warmStorageService, {
           providerId: 999,
@@ -375,28 +364,28 @@ describe('StorageService', () => {
 
     it('should select existing data set when available', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(PROVIDERS.provider1.providerId),
+        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
       })
 
       // Should use existing data set
@@ -410,12 +399,37 @@ describe('StorageService', () => {
     })
 
     it('should prefer data sets with existing pieces', async () => {
+      const expectedDataSetBase = {
+        cacheMissRailId: 0n,
+        cdnRailId: 0n,
+        clientDataSetId: 0n,
+        commissionBps: 100n,
+        dataSetId: 1n,
+        payee: Mocks.ADDRESSES.serviceProvider1,
+        payer: Mocks.ADDRESSES.client1,
+        pdpEndEpoch: 0n,
+        pdpRailId: 1n,
+        providerId: 1n,
+        serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+      }
+      const expectedDataSets = [
+        {
+          ...expectedDataSetBase,
+          dataSetId: 1n,
+          pdpRailId: 1n,
+        },
+        {
+          ...expectedDataSetBase,
+          dataSetId: 2n,
+          pdpRailId: 2n,
+        },
+      ]
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
-            getNextPieceId: (args) => {
+            ...Mocks.presets.basic.pdpVerifier,
+            getActivePieceCount: (args) => {
               const [dataSetId] = args
               if (dataSetId === 2n) {
                 return [2n]
@@ -425,53 +439,21 @@ describe('StorageService', () => {
             },
           },
           warmStorageView: {
-            ...presets.basic.warmStorageView,
-            clientDataSets: () => [[1n, 2n]],
+            ...Mocks.presets.basic.warmStorageView,
+            getClientDataSets: () => [expectedDataSets],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: (args) => {
               const [dataSetId] = args
-              if (dataSetId === 1n) {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 1n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 1n,
-                    providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
-                  },
-                ]
-              } else {
-                return [
-                  {
-                    cacheMissRailId: 0n,
-                    cdnRailId: 0n,
-                    clientDataSetId: 0n,
-                    commissionBps: 100n,
-                    dataSetId: 2n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
-                    pdpEndEpoch: 0n,
-                    pdpRailId: 2n,
-                    providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
-                  },
-                ]
-              }
+              return [expectedDataSets.find((ds) => ds.dataSetId === dataSetId) ?? ({} as (typeof expectedDataSets)[0])]
             },
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
         providerId: 1,
@@ -485,28 +467,28 @@ describe('StorageService', () => {
       let providerCallbackFired = false
       let dataSetCallbackFired = false
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(PROVIDERS.provider1.providerId),
+        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
         callbacks: {
           onProviderSelected: (provider) => {
-            assert.equal(provider.serviceProvider, PROVIDERS.provider1.providerInfo.serviceProvider)
+            assert.equal(provider.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
             providerCallbackFired = true
           },
           onDataSetResolved: (info) => {
@@ -523,10 +505,10 @@ describe('StorageService', () => {
 
     it('should select by explicit dataSetId', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n, 2n]],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: (args) => {
@@ -539,12 +521,12 @@ describe('StorageService', () => {
                     clientDataSetId: 0n,
                     commissionBps: 100n,
                     dataSetId: 1n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
                     pdpEndEpoch: 0n,
                     pdpRailId: 1n,
                     providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
               } else {
@@ -555,74 +537,74 @@ describe('StorageService', () => {
                     clientDataSetId: 0n,
                     commissionBps: 100n,
                     dataSetId: 2n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
                     pdpEndEpoch: 0n,
                     pdpRailId: 2n,
                     providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
               }
             },
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 2,
       })
       assert.equal(service.dataSetId, 2)
-      assert.equal(service.serviceProvider, PROVIDERS.provider1.providerInfo.serviceProvider)
+      assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
     it('should select by providerAddress', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerAddress: PROVIDERS.provider2.providerInfo.serviceProvider,
+        providerAddress: Mocks.PROVIDERS.provider2.providerInfo.serviceProvider,
       })
 
-      assert.equal(service.serviceProvider, PROVIDERS.provider2.providerInfo.serviceProvider)
+      assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
     })
 
     it('should throw when dataSetId not found', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
@@ -630,31 +612,31 @@ describe('StorageService', () => {
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 999 not found')
+        assert.include(error.message, 'Data set 999 does not exist')
       }
     })
 
     it('should throw when dataSetId conflicts with providerId', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             getAllDataSetMetadata() {
               return [[], []]
             },
           },
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }),
-        PING({
-          baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
@@ -670,13 +652,13 @@ describe('StorageService', () => {
 
     it('should throw when providerAddress not approved', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       try {
         await StorageContext.create(synapse, warmStorageService, {
           providerAddress: '0x6666666666666666666666666666666666666666',
@@ -689,10 +671,10 @@ describe('StorageService', () => {
 
     it('should filter by CDN setting in smart selection', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n, 2n]],
             getAllDataSetMetadata: (args) => {
               const [dataSetId] = args
@@ -714,12 +696,12 @@ describe('StorageService', () => {
                     clientDataSetId: 0n,
                     commissionBps: 100n,
                     dataSetId: 1n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
                     pdpEndEpoch: 0n,
                     pdpRailId: 1n,
                     providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
               } else {
@@ -730,22 +712,22 @@ describe('StorageService', () => {
                     clientDataSetId: 0n,
                     commissionBps: 100n,
                     dataSetId: 2n,
-                    payee: ADDRESSES.serviceProvider1,
-                    payer: ADDRESSES.client1,
+                    payee: Mocks.ADDRESSES.serviceProvider1,
+                    payer: Mocks.ADDRESSES.client1,
                     pdpEndEpoch: 0n,
                     pdpRailId: 2n,
                     providerId: 1n,
-                    serviceProvider: ADDRESSES.serviceProvider1,
+                    serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                   },
                 ]
               }
             },
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Test with CDN = false
       const serviceNoCDN = await StorageContext.create(synapse, warmStorageService, {
@@ -762,28 +744,28 @@ describe('StorageService', () => {
 
     it.skip('should handle data sets not managed by current WarmStorage', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       // Should create new data set since existing one is not managed
       const service = await StorageContext.create(synapse, warmStorageService, {})
 
       // Should have selected a provider but no existing data set
       assert.exists(service.serviceProvider)
-      assert.notEqual(service.serviceProvider, PROVIDERS.provider1.providerInfo.serviceProvider)
+      assert.notEqual(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
     it('should throw when data set belongs to non-approved provider', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: () => {
@@ -794,21 +776,21 @@ describe('StorageService', () => {
                   clientDataSetId: 0n,
                   commissionBps: 100n,
                   dataSetId: 1n,
-                  payee: ADDRESSES.serviceProvider1,
-                  payer: ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 3n,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
             },
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
@@ -823,13 +805,14 @@ describe('StorageService', () => {
 
     it('should handle data set not live', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
             dataSetLive: () => [false],
+            getDataSetListener: () => [Mocks.ADDRESSES.calibration.warmStorage],
           },
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: () => {
@@ -840,37 +823,37 @@ describe('StorageService', () => {
                   clientDataSetId: 0n,
                   commissionBps: 100n,
                   dataSetId: 1n,
-                  payee: ADDRESSES.serviceProvider1,
-                  payer: ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
             },
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       try {
         await StorageContext.create(synapse, warmStorageService, {
           dataSetId: 1,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Data set 1 not found')
+        assert.include(error.message, 'Data set 1 does not exist or is not live')
       }
     })
 
     it('should handle conflict between dataSetId and providerAddress', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: () => {
@@ -881,21 +864,21 @@ describe('StorageService', () => {
                   clientDataSetId: 0n,
                   commissionBps: 100n,
                   dataSetId: 1n,
-                  payee: ADDRESSES.serviceProvider1,
-                  payer: ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider1,
+                  payer: Mocks.ADDRESSES.client1,
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
             },
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
@@ -925,10 +908,10 @@ describe('StorageService', () => {
 
     it('should match providers by ID even when payee differs from serviceProvider', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorageView: {
-            ...presets.basic.warmStorageView,
+            ...Mocks.presets.basic.warmStorageView,
             clientDataSets: () => [[1n]],
             getAllDataSetMetadata: () => [[], []],
             getDataSet: () => {
@@ -939,45 +922,45 @@ describe('StorageService', () => {
                   clientDataSetId: 0n,
                   commissionBps: 100n,
                   dataSetId: 1n,
-                  payee: ADDRESSES.serviceProvider2,
-                  payer: ADDRESSES.client1,
+                  payee: Mocks.ADDRESSES.serviceProvider2,
+                  payer: Mocks.ADDRESSES.client1,
                   pdpEndEpoch: 0n,
                   pdpRailId: 1n,
                   providerId: 1n,
-                  serviceProvider: ADDRESSES.serviceProvider1,
+                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
                 },
               ]
             },
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
       const service = await StorageContext.create(synapse, warmStorageService, {})
 
       // Should successfully match by provider ID despite different payee
       assert.equal(service.dataSetId, 1)
       assert.equal(service.provider.id, 1)
-      assert.equal(service.provider.serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(service.provider.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
   })
 
   describe('preflightUpload', () => {
     it('should calculate costs without CDN', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           payments: {
-            ...presets.basic.payments,
+            ...Mocks.presets.basic.payments,
             operatorApprovals: () => [true, 2207579500n, 220757940000000n, 220757n, 220757n, 86400n],
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: false,
       })
@@ -992,17 +975,17 @@ describe('StorageService', () => {
 
     it('should calculate costs with CDN', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           payments: {
-            ...presets.basic.payments,
+            ...Mocks.presets.basic.payments,
             operatorApprovals: () => [true, 2207579500n, 220757940000000n, 220757n, 220757n, 86400n],
           },
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1018,13 +1001,13 @@ describe('StorageService', () => {
 
     it('should handle insufficient allowances', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1037,13 +1020,13 @@ describe('StorageService', () => {
 
     it('should enforce minimum size limit in preflightUpload', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1060,13 +1043,13 @@ describe('StorageService', () => {
 
     it('should enforce maximum size limit in preflightUpload', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1088,22 +1071,22 @@ describe('StorageService', () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
       const testPieceCID = calculate(testData).toString()
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
-        http.get(`https://${ADDRESSES.client1}.calibration.filbeam.io/:cid`, async () => {
+        Mocks.PING(),
+        http.get(`https://${Mocks.ADDRESSES.client1}.calibration.filbeam.io/:cid`, async () => {
           return HttpResponse.text('Not Found', {
             status: 404,
           })
         }),
-        findPieceHandler(testPieceCID, true, pdpOptions),
+        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1117,17 +1100,17 @@ describe('StorageService', () => {
       const testPieceCID = calculate(testData).toString()
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
-        findPieceHandler(testPieceCID, true, pdpOptions),
+        Mocks.PING(),
+        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.error()
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1143,17 +1126,17 @@ describe('StorageService', () => {
       const testPieceCID = calculate(testData).toString()
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
-        findPieceHandler(testPieceCID, true, pdpOptions),
+        Mocks.PING(),
+        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
         http.get('https://pdp.example.com/piece/:pieceCid', async () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Test with and without empty options object
@@ -1168,16 +1151,22 @@ describe('StorageService', () => {
   describe('upload', () => {
     it('should handle errors in batch processing gracefully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
+        Mocks.PING(),
         http.post<Record<string, never>, { pieceCid: string }>('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.error()
-        })
+        }),
+        http.post<Record<string, never>, { pieceCid: string }>(
+          'https://pdp.example.com/pdp/piece/uploads',
+          async () => {
+            return HttpResponse.error()
+          }
+        )
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Create 3 uploads
@@ -1209,13 +1198,13 @@ describe('StorageService', () => {
 
     it('should enforce 1 GiB size limit', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Create minimal data but mock length to simulate oversized data
@@ -1237,16 +1226,16 @@ describe('StorageService', () => {
     it.skip('should fail if new server verification fails', async () => {
       const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
+        Mocks.PING(),
         http.post<Record<string, never>, { pieceCid: string }>('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.error()
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1266,10 +1255,10 @@ describe('StorageService', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
+        Mocks.PING(),
         http.post('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.text('Created', {
             status: 201,
@@ -1278,11 +1267,11 @@ describe('StorageService', () => {
             },
           })
         }),
-        uploadPieceHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        createAndAddPiecesHandler(mockTxHash, pdpOptions),
+        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
@@ -1315,7 +1304,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1334,10 +1323,10 @@ describe('StorageService', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
+        Mocks.PING(),
         http.post('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.text('Created', {
             status: 201,
@@ -1346,11 +1335,11 @@ describe('StorageService', () => {
             },
           })
         }),
-        uploadPieceHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceHandler(mockUuid, pdpOptions),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.json({ pieceCid: testPieceCID })
         }),
-        createAndAddPiecesHandler(mockTxHash, pdpOptions),
+        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
         http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
           return HttpResponse.json(
             {
@@ -1383,7 +1372,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1399,17 +1388,17 @@ describe('StorageService', () => {
       const testPieceCID = Piece.calculate(testData).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
-        postPieceHandler(testPieceCID, mockUuid, pdpOptions),
+        Mocks.PING(),
+        Mocks.pdp.postPieceHandler(testPieceCID, mockUuid, pdpOptions),
         http.put('https://pdp.example.com/pdp/piece/upload/:uuid', async () => {
           return HttpResponse.error()
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1425,20 +1414,20 @@ describe('StorageService', () => {
       const testPieceCID = Piece.calculate(testData).toString()
       const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
-        postPieceUploadsHandler(mockUuid, pdpOptions),
-        uploadPieceStreamingHandler(mockUuid, pdpOptions),
-        finalizePieceUploadHandler(mockUuid, undefined, pdpOptions),
-        findPieceHandler(testPieceCID, true, pdpOptions),
+        Mocks.PING(),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, undefined, pdpOptions),
+        Mocks.pdp.findPieceHandler(testPieceCID, true, pdpOptions),
         http.post('https://pdp.example.com/pdp/data-sets/:id/pieces', () => {
           return HttpResponse.error()
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1456,41 +1445,41 @@ describe('StorageService', () => {
     describe('selectRandomProvider with ping validation', () => {
       it('should select first provider that responds to ping', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
-            serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
+            serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
           }),
-          http.get(`${PROVIDERS.provider1.products[0].offering.serviceURL}/pdp/ping`, async () => {
+          http.get(`${Mocks.PROVIDERS.provider1.products[0].offering.serviceURL}/pdp/ping`, async () => {
             return HttpResponse.error()
           }),
-          PING({
-            baseUrl: PROVIDERS.provider2.products[0].offering.serviceURL,
+          Mocks.PING({
+            baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
           })
         )
         const synapse = await Synapse.create({ signer })
-        const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+        const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
         const service = await StorageContext.create(synapse, warmStorageService)
         // Should have selected the second provider (first one failed ping)
-        assert.equal(service.serviceProvider, PROVIDERS.provider2.providerInfo.serviceProvider)
+        assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
       })
 
       // Test removed: selectRandomProvider no longer supports exclusion functionality
 
       it('should throw error when all providers fail ping', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
-            serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
+            serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
           }),
-          http.get(`${PROVIDERS.provider1.products[0].offering.serviceURL}/pdp/ping`, async () => {
+          http.get(`${Mocks.PROVIDERS.provider1.products[0].offering.serviceURL}/pdp/ping`, async () => {
             return HttpResponse.error()
           }),
-          http.get(`${PROVIDERS.provider2.products[0].offering.serviceURL}/pdp/ping`, async () => {
+          http.get(`${Mocks.PROVIDERS.provider2.products[0].offering.serviceURL}/pdp/ping`, async () => {
             return HttpResponse.error()
           })
         )
         const synapse = await Synapse.create({ signer })
-        const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+        const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
 
         try {
           await StorageContext.create(synapse, warmStorageService)
@@ -1506,16 +1495,16 @@ describe('StorageService', () => {
   describe('getProviderInfo', () => {
     it('should return provider info through WarmStorageService', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       const providerInfo = await service.getProviderInfo()
@@ -1593,20 +1582,20 @@ describe('StorageService', () => {
         return { data: cidBytesToContractHex(cid.bytes) }
       })
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => [piecesData, [101n, 102n], false],
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1621,20 +1610,20 @@ describe('StorageService', () => {
 
     it('should handle empty data set pieces', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => [[], [], false],
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1648,20 +1637,20 @@ describe('StorageService', () => {
     it('should handle invalid CID in response', async () => {
       const invalidCidBytes = cidBytesToContractHex(ethers.toUtf8Bytes('invalid-cid-format'))
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => [[{ data: invalidCidBytes }], [101n], false],
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1678,22 +1667,22 @@ describe('StorageService', () => {
 
     it('should handle PDP server errors', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => {
               throw new Error('Data set not found: 999')
             },
           },
         }),
-        PING({
-          baseUrl: PROVIDERS.provider1.products[0].offering.serviceURL,
+        Mocks.PING({
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1712,10 +1701,10 @@ describe('StorageService', () => {
     const mockPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
     it('should return exists=false when piece not found on provider', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1730,7 +1719,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1745,11 +1734,11 @@ describe('StorageService', () => {
 
     it('should return piece status with proof timing when piece exists', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(4000n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1767,7 +1756,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1784,11 +1773,11 @@ describe('StorageService', () => {
 
     it('should detect when in challenge window', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5030n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1801,10 +1790,10 @@ describe('StorageService', () => {
             nextChallengeEpoch: 5000,
           })
         }),
-        findPieceHandler(mockPieceCID, true, pdpOptions)
+        Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1818,11 +1807,11 @@ describe('StorageService', () => {
 
     it('should detect when proof is overdue', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5100n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1840,7 +1829,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1853,11 +1842,11 @@ describe('StorageService', () => {
 
     it('should handle data set with nextChallengeEpoch=0', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5100n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1875,7 +1864,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1890,11 +1879,11 @@ describe('StorageService', () => {
 
     it('should handle trailing slash in retrieval URL', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(5100n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1912,7 +1901,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1929,13 +1918,13 @@ describe('StorageService', () => {
 
     it('should handle invalid PieceCID', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
         }),
-        PING()
+        Mocks.PING()
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1950,11 +1939,11 @@ describe('StorageService', () => {
 
     it('should calculate hours until challenge window', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(4880n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.json({
             id: 1,
@@ -1972,7 +1961,7 @@ describe('StorageService', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -1986,18 +1975,18 @@ describe('StorageService', () => {
 
     it('should handle data set data fetch failure gracefully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_blockNumber: numberToHex(4880n),
         }),
-        PING(),
+        Mocks.PING(),
         http.get('https://pdp.example.com/pdp/data-sets/:id', async () => {
           return HttpResponse.error()
         }),
-        findPieceHandler(mockPieceCID, true, pdpOptions)
+        Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
       )
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const service = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -2013,6 +2002,46 @@ describe('StorageService', () => {
     })
   })
 
+  describe('getScheduledRemovals', () => {
+    it('should return scheduled removals for the data set', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          pdpVerifier: {
+            ...Mocks.presets.basic.pdpVerifier,
+            getScheduledRemovals: () => [[1n, 2n, 5n]],
+          },
+        })
+      )
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [1, 2, 5])
+    })
+
+    it('should return an empty array when no data set is configured', async () => {
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
+
+      const synapse = await Synapse.create({ signer })
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const context = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: 1,
+      })
+
+      ;(context as any)._dataSetId = undefined
+
+      const scheduledRemovals = await context.getScheduledRemovals()
+
+      assert.deepEqual(scheduledRemovals, [])
+    })
+  })
+
   describe('getPieces', () => {
     it('should get all active pieces with pagination', async () => {
       // Use actual valid PieceCIDs from test data
@@ -2022,11 +2051,11 @@ describe('StorageService', () => {
 
       // Mock getActivePieces to return paginated results
       server.use(
-        PING(),
-        JSONRPC({
-          ...presets.basic,
+        Mocks.PING(),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: (args) => {
               const offset = Number(args[1])
 
@@ -2049,7 +2078,7 @@ describe('StorageService', () => {
       )
 
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -2074,17 +2103,17 @@ describe('StorageService', () => {
     it('should handle empty results', async () => {
       // Mock getActivePieces to return no pieces
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => [[], [], false],
           },
         })
       )
 
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -2099,10 +2128,10 @@ describe('StorageService', () => {
     it('should handle AbortSignal in getPieces', async () => {
       const controller = new AbortController()
 
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -2127,10 +2156,10 @@ describe('StorageService', () => {
 
       // Mock getActivePieces to return paginated results
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: (args) => {
               const offset = Number(args[1])
 
@@ -2149,7 +2178,7 @@ describe('StorageService', () => {
       )
 
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })
@@ -2175,10 +2204,10 @@ describe('StorageService', () => {
       // Mock getActivePieces to return a result that triggers pagination
       let callCount = 0
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           pdpVerifier: {
-            ...presets.basic.pdpVerifier,
+            ...Mocks.presets.basic.pdpVerifier,
             getActivePieces: () => {
               callCount++
               // Only return data on first call, then abort
@@ -2193,7 +2222,7 @@ describe('StorageService', () => {
       )
 
       const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, ADDRESSES.calibration.warmStorage)
+      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
       const context = await StorageContext.create(synapse, warmStorageService, {
         dataSetId: 1,
       })

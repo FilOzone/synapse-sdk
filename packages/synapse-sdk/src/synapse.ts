@@ -1,13 +1,10 @@
-/**
- * Main Synapse class for interacting with Filecoin storage and other on-chain services
- */
-
 import { ethers } from 'ethers'
+import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
 import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
-import type { StorageService } from './storage/index.ts'
+import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import { SubgraphService } from './subgraph/service.ts'
 import type { TelemetryService } from './telemetry/service.ts'
@@ -25,6 +22,9 @@ import type {
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
+/**
+ * Class for interacting with Filecoin storage and other on-chain services
+ */
 export class Synapse {
   private readonly _signer: ethers.Signer
   private readonly _network: FilecoinNetworkType
@@ -35,6 +35,7 @@ export class Synapse {
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
+  private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
 
   /**
@@ -170,6 +171,9 @@ export class Synapse {
       pieceRetriever = new FilBeamRetriever(baseRetriever, network)
     }
 
+    // Create FilBeamService
+    const filbeamService = new FilBeamService(network)
+
     // Create and initialize the global TelemetryService.
     // If telemetry is disabled, this will do nothing.
     await initGlobalTelemetry(options.telemetry || {}, { filecoinNetwork: network })
@@ -183,6 +187,7 @@ export class Synapse {
       warmStorageAddress,
       warmStorageService,
       pieceRetriever,
+      filbeamService,
       options.dev === false,
       options.withIpni
     )
@@ -198,6 +203,7 @@ export class Synapse {
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
+    filbeamService: FilBeamService,
     dev: boolean,
     withIpni?: boolean
   ) {
@@ -209,6 +215,7 @@ export class Synapse {
     this._warmStorageService = warmStorageService
     this._pieceRetriever = pieceRetriever
     this._warmStorageAddress = warmStorageAddress
+    this._filbeamService = filbeamService
     this._session = null
 
     // Initialize StorageManager
@@ -363,6 +370,15 @@ export class Synapse {
   }
 
   /**
+   * Gets the FilBeam service instance
+   *
+   * @returns The FilBeam service for interacting with FilBeam infrastructure
+   */
+  get filbeam(): FilBeamService {
+    return this._filbeamService
+  }
+
+  /**
    * Create a storage service instance.
    *
    * Automatically selects the best available service provider and creates or reuses a data set.
@@ -388,7 +404,7 @@ export class Synapse {
    * })
    * ```
    */
-  async createStorage(options: StorageServiceOptions = {}): Promise<StorageService> {
+  async createStorage(options: StorageServiceOptions = {}): Promise<StorageContext> {
     // Use StorageManager to create context
     return await this._storageManager.createContext(options)
   }

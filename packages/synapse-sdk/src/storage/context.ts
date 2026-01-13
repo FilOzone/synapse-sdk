@@ -35,10 +35,11 @@ import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
   CreateContextsOptions,
+  DataSetInfo,
   DownloadOptions,
-  EnhancedDataSetInfo,
   MetadataEntry,
   PieceCID,
+  PieceRecord,
   PieceStatus,
   PreflightInfo,
   ProviderSelectionResult,
@@ -72,6 +73,7 @@ export class StorageContext {
   private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
   private _dataSetId: number | undefined
+  private _clientDataSetId: bigint | undefined
   private readonly _dataSetMetadata: Record<string, string>
 
   // AddPieces batching state
@@ -112,6 +114,23 @@ export class StorageContext {
   // Getter for data set ID
   get dataSetId(): number | undefined {
     return this._dataSetId
+  }
+
+  /**
+   * Get the client data set nonce ("clientDataSetId"), either from cache or by fetching from the chain
+   * @returns The client data set nonce
+   * @throws Error if data set nonce is not set
+   */
+  private async getClientDataSetId(): Promise<bigint> {
+    if (this._clientDataSetId !== undefined) {
+      return this._clientDataSetId
+    }
+    if (this.dataSetId == null) {
+      throw createError('StorageContext', 'getClientDataSetId', 'Data set not found')
+    }
+    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
+    this._clientDataSetId = dataSetInfo.clientDataSetId
+    return this._clientDataSetId
   }
 
   /**
@@ -391,49 +410,44 @@ export class StorageContext {
     dataSetId: number,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
-    signerAddress: string,
+    clientAddress: string,
     options: StorageServiceOptions
   ): Promise<ProviderSelectionResult> {
-    // Fetch data sets to find the specific one
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
-    const dataSet = dataSets.find((ds) => ds.pdpVerifierDataSetId === dataSetId)
+    const [dataSetInfo, dataSetMetadata] = await Promise.all([
+      warmStorageService.getDataSet(dataSetId).then(async (dataSetInfo) => {
+        await StorageContext.validateDataSetConsistency(dataSetInfo, options, spRegistry)
+        return dataSetInfo
+      }),
+      warmStorageService.getDataSetMetadata(dataSetId),
+      warmStorageService.validateDataSet(dataSetId),
+    ])
 
-    if (dataSet == null || !dataSet.isLive || !dataSet.isManaged) {
+    if (dataSetInfo.payer.toLowerCase() !== clientAddress.toLowerCase()) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Data set ${dataSetId} not found, not owned by ${signerAddress}, ` +
-          'or not managed by the current WarmStorage contract'
+        `Data set ${dataSetId} is not owned by ${clientAddress} (owned by ${dataSetInfo.payer})`
       )
     }
 
-    // Validate consistency with other parameters if provided
-    if (options.providerId != null || options.providerAddress != null) {
-      await StorageContext.validateDataSetConsistency(dataSet, options, spRegistry)
-    }
-
-    // Look up provider by ID from the data set
-    const provider = await spRegistry.getProvider(dataSet.providerId)
+    const provider = await spRegistry.getProvider(dataSetInfo.providerId)
     if (provider == null) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Provider ID ${dataSet.providerId} for data set ${dataSetId} not found in registry`
+        `Provider ID ${dataSetInfo.providerId} for data set ${dataSetId} not found in registry`
       )
     }
 
-    // Validate CDN settings match if specified
-    if (options.withCDN != null && dataSet.withCDN !== options.withCDN) {
+    const withCDN = dataSetInfo.cdnRailId > 0 && METADATA_KEYS.WITH_CDN in dataSetMetadata
+    if (options.withCDN != null && withCDN !== options.withCDN) {
       throw createError(
         'StorageContext',
         'resolveByDataSetId',
-        `Data set ${dataSetId} has CDN ${dataSet.withCDN ? 'enabled' : 'disabled'}, ` +
+        `Data set ${dataSetId} has CDN ${withCDN ? 'enabled' : 'disabled'}, ` +
           `but requested ${options.withCDN ? 'enabled' : 'disabled'}`
       )
     }
-
-    // Backfill data set metadata from chain
-    const dataSetMetadata = await warmStorageService.getDataSetMetadata(dataSetId)
 
     return {
       provider,
@@ -447,7 +461,7 @@ export class StorageContext {
    * Validate data set consistency with provided options
    */
   private static async validateDataSetConsistency(
-    dataSet: EnhancedDataSetInfo,
+    dataSet: DataSetInfo,
     options: StorageServiceOptions,
     spRegistry: SPRegistryService
   ): Promise<void> {
@@ -457,8 +471,7 @@ export class StorageContext {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ID ${dataSet.providerId}, ` +
-            `but provider ID ${options.providerId} was requested`
+          `Data set belongs to provider ID ${dataSet.providerId}, but provider ID ${options.providerId} was requested`
         )
       }
     }
@@ -474,18 +487,28 @@ export class StorageContext {
         throw createError(
           'StorageContext',
           'validateDataSetConsistency',
-          `Data set ${dataSet.pdpVerifierDataSetId} belongs to provider ${actualProvider?.serviceProvider ?? 'unknown'}, ` +
-            `but provider ${options.providerAddress} was requested`
+          `Data set belongs to provider ${actualProvider?.serviceProvider ?? 'unknown'}, but provider ${options.providerAddress} was requested`
         )
       }
     }
   }
 
   /**
-   * Resolve using a specific provider ID
+   * Resolve the best matching DataSet for a Provider using a specific provider ID
+   *
+   * Optimization Strategy:
+   * Uses `getClientDataSets` fetch followed by batched parallel checks to find
+   * the best matching data set while minimizing RPC calls.
+   *
+   * Selection Logic:
+   * 1. Filters for datasets belonging to this provider
+   * 2. Sorts by dataSetId ascending (oldest first)
+   * 3. Searches in batches (size dynamic based on total count) for metadata match
+   * 4. Prioritizes datasets with pieces > 0, then falls back to the oldest valid dataset
+   * 5. Exits early as soon as a non-empty matching dataset is found
    */
   private static async resolveByProviderId(
-    signerAddress: string,
+    clientAddress: string,
     providerId: number,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
@@ -495,14 +518,13 @@ export class StorageContext {
     // Fetch provider (always) and dataSets (only if not forcing) in parallel
     const [provider, dataSets] = await Promise.all([
       spRegistry.getProvider(providerId),
-      forceCreateDataSet ? Promise.resolve(null) : warmStorageService.getClientDataSetsWithDetails(signerAddress),
+      forceCreateDataSet ? Promise.resolve([]) : warmStorageService.getClientDataSets(clientAddress),
     ])
 
     if (provider == null) {
       throw createError('StorageContext', 'resolveByProviderId', `Provider ID ${providerId} not found in registry`)
     }
 
-    // If forcing creation, skip the search for existing data sets
     if (forceCreateDataSet === true) {
       return {
         provider,
@@ -512,35 +534,85 @@ export class StorageContext {
       }
     }
 
-    // dataSets is guaranteed non-null here since forceCreateDataSet is false
+    // Filter for this provider's active datasets
+    const providerDataSets = dataSets.filter(
+      (dataSet) => Number.isFinite(dataSet.dataSetId) && dataSet.providerId === provider.id && dataSet.pdpEndEpoch === 0
+    )
 
-    // Filter for this provider's data sets with matching metadata
-    const providerDataSets = (
-      dataSets as Awaited<ReturnType<typeof warmStorageService.getClientDataSetsWithDetails>>
-    ).filter((ps) => {
-      if (ps.providerId !== provider.id || !ps.isLive || !ps.isManaged || ps.pdpEndEpoch !== 0) {
-        return false
-      }
-      // Check if metadata matches
-      return metadataMatches(ps.metadata, requestedMetadata)
+    type EvaluatedDataSet = {
+      dataSetId: number
+      dataSetMetadata: Record<string, string>
+      activePieceCount: number
+    }
+
+    // Sort ascending by ID (oldest first) for deterministic selection
+    const sortedDataSets = providerDataSets.sort((a, b) => {
+      return Number(a.dataSetId) - Number(b.dataSetId)
     })
 
-    if (providerDataSets.length > 0) {
-      // Sort by preference: data sets with pieces first, then by ID
-      const sorted = providerDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
-        return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
-      })
+    // Batch strategy: 1/3 of total datasets per batch, with min & max, to balance latency vs RPC burst
+    const MIN_BATCH_SIZE = 50
+    const MAX_BATCH_SIZE = 200
+    const BATCH_SIZE = Math.min(MAX_BATCH_SIZE, Math.max(MIN_BATCH_SIZE, Math.ceil(sortedDataSets.length / 3), 1))
+    let selectedDataSet: EvaluatedDataSet | null = null
 
-      // Fetch metadata for existing data set
-      const dataSetMetadata = await warmStorageService.getDataSetMetadata(sorted[0].pdpVerifierDataSetId)
+    for (let i = 0; i < sortedDataSets.length; i += BATCH_SIZE) {
+      const batchResults: (EvaluatedDataSet | null)[] = await Promise.all(
+        sortedDataSets.slice(i, i + BATCH_SIZE).map(async (dataSet) => {
+          const dataSetId = Number(dataSet.dataSetId)
+          try {
+            const [dataSetMetadata, activePieceCount] = await Promise.all([
+              warmStorageService.getDataSetMetadata(dataSetId),
+              warmStorageService.getActivePieceCount(dataSetId),
+              warmStorageService.validateDataSet(dataSetId),
+            ])
 
+            if (!metadataMatches(dataSetMetadata, requestedMetadata)) {
+              return null
+            }
+
+            return {
+              dataSetId,
+              dataSetMetadata,
+              activePieceCount,
+            }
+          } catch (error) {
+            console.warn(
+              `Skipping data set ${dataSetId} for provider ${providerId}:`,
+              error instanceof Error ? error.message : String(error)
+            )
+            return null
+          }
+        })
+      )
+
+      for (const result of batchResults) {
+        if (result == null) continue
+
+        // select the first dataset with pieces and break out of the inner loop
+        if (result.activePieceCount > 0) {
+          selectedDataSet = result
+          break
+        }
+
+        // keep the first (oldest) dataset found so far (no pieces)
+        if (selectedDataSet == null) {
+          selectedDataSet = result
+        }
+      }
+
+      // early exit if we found a dataset with pieces; break out of the outer loop
+      if (selectedDataSet != null && selectedDataSet.activePieceCount > 0) {
+        break
+      }
+    }
+
+    if (selectedDataSet != null) {
       return {
         provider,
-        dataSetId: sorted[0].pdpVerifierDataSetId,
+        dataSetId: selectedDataSet.dataSetId,
         isExisting: true,
-        dataSetMetadata,
+        dataSetMetadata: selectedDataSet.dataSetMetadata,
       }
     }
 
@@ -560,7 +632,7 @@ export class StorageContext {
     providerAddress: string,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
-    signerAddress: string,
+    clientAddress: string,
     requestedMetadata: Record<string, string>,
     forceCreateDataSet?: boolean
   ): Promise<ProviderSelectionResult> {
@@ -576,7 +648,7 @@ export class StorageContext {
 
     // Use the providerId resolution logic
     return await StorageContext.resolveByProviderId(
-      signerAddress,
+      clientAddress,
       provider.id,
       requestedMetadata,
       warmStorageService,
@@ -590,7 +662,7 @@ export class StorageContext {
    * Prioritizes existing data sets and provider health
    */
   private static async smartSelectProvider(
-    signerAddress: string,
+    clientAddress: string,
     requestedMetadata: Record<string, string>,
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
@@ -605,7 +677,7 @@ export class StorageContext {
     // 2. If no existing data sets, find a healthy provider
 
     // Get client's data sets
-    const dataSets = await warmStorageService.getClientDataSetsWithDetails(signerAddress)
+    const dataSets = await warmStorageService.getClientDataSetsWithDetails(clientAddress)
 
     const skipProviderIds = new Set<number>(excludeProviderIds)
     // Filter for managed data sets with matching metadata
@@ -621,8 +693,8 @@ export class StorageContext {
     if (managedDataSets.length > 0 && !forceCreateDataSet) {
       // Prefer data sets with pieces, sort by ID (older first)
       const sorted = managedDataSets.sort((a, b) => {
-        if (a.currentPieceCount > 0 && b.currentPieceCount === 0) return -1
-        if (b.currentPieceCount > 0 && a.currentPieceCount === 0) return 1
+        if (a.activePieceCount > 0 && b.activePieceCount === 0) return -1
+        if (b.activePieceCount > 0 && a.activePieceCount === 0) return 1
         return a.pdpVerifierDataSetId - b.pdpVerifierDataSetId
       })
 
@@ -999,22 +1071,24 @@ export class StorageContext {
       const pieceCids: PieceCID[] = batch.map((item) => item.pieceCid)
       const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
       const confirmedPieceIds: number[] = []
+      const addedPieceRecords = pieceCids.map((pieceCid) => ({ pieceCid }))
 
       if (this.dataSetId) {
-        const [, dataSetInfo] = await Promise.all([
+        const [, clientDataSetId] = await Promise.all([
           this._warmStorageService.validateDataSet(this.dataSetId),
-          this._warmStorageService.getDataSet(this.dataSetId),
+          this.getClientDataSetId(),
         ])
         // Add pieces to the data set
         const addPiecesResult = await this._pdpServer.addPieces(
           this.dataSetId, // PDPVerifier data set ID
-          dataSetInfo.clientDataSetId, // Client's dataset ID
+          clientDataSetId, // Client's dataset nonce
           pieceCids,
           metadataArray
         )
 
         // Notify callbacks with transaction
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
         const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
@@ -1022,7 +1096,12 @@ export class StorageContext {
         // Handle transaction tracking if available
         confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
 
+        const confirmedPieceRecords: PieceRecord[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(this.dataSetId as number, confirmedPieceRecords)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       } else {
@@ -1049,6 +1128,7 @@ export class StorageContext {
           }
         )
         batch.forEach((item) => {
+          item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
         const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
@@ -1063,7 +1143,12 @@ export class StorageContext {
 
         confirmedPieceIds.push(...(confirmedPieces.confirmedPieceIds ?? []))
 
+        const confirmedPieceRecords: PieceRecord[] = confirmedPieceIds.map((pieceId, index) => ({
+          pieceId,
+          pieceCid: pieceCids[index],
+        }))
         batch.forEach((item) => {
+          item.callbacks?.onPiecesConfirmed?.(this.dataSetId as number, confirmedPieceRecords)
           item.callbacks?.onPieceConfirmed?.(confirmedPieceIds)
         })
       }
@@ -1143,6 +1228,25 @@ export class StorageContext {
   }
 
   /**
+   * Get pieces scheduled for removal from this data set
+   * @returns Array of piece IDs scheduled for removal
+   */
+  async getScheduledRemovals(): Promise<number[]> {
+    if (this._dataSetId == null) {
+      return []
+    }
+
+    const pdpVerifierAddress = this._warmStorageService.getPDPVerifierAddress()
+    const pdpVerifier = new PDPVerifier(this._synapse.getProvider(), pdpVerifierAddress)
+
+    try {
+      return await pdpVerifier.getScheduledRemovals(this._dataSetId)
+    } catch (error) {
+      throw createError('StorageContext', 'getScheduledRemovals', 'Failed to get scheduled removals', error)
+    }
+  }
+
+  /**
    * Get all active pieces for this data set as an async generator.
    * This provides lazy evaluation and better memory efficiency for large data sets.
    * @param options - Optional configuration object
@@ -1150,10 +1254,7 @@ export class StorageContext {
    * @param options.signal - Optional AbortSignal to cancel the operation
    * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
-  async *getPieces(options?: {
-    batchSize?: number
-    signal?: AbortSignal
-  }): AsyncGenerator<{ pieceCid: PieceCID; pieceId: number }> {
+  async *getPieces(options?: { batchSize?: number; signal?: AbortSignal }): AsyncGenerator<PieceRecord> {
     if (this._dataSetId == null) {
       return
     }
@@ -1215,9 +1316,9 @@ export class StorageContext {
       throw createError('StorageContext', 'deletePiece', 'Data set not found')
     }
     const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
-    const dataSetInfo = await this._warmStorageService.getDataSet(this.dataSetId)
+    const clientDataSetId = await this.getClientDataSetId()
 
-    return this._pdpServer.deletePiece(this.dataSetId, dataSetInfo.clientDataSetId, pieceId)
+    return this._pdpServer.deletePiece(this.dataSetId, clientDataSetId, pieceId)
   }
 
   /**
@@ -1287,17 +1388,14 @@ export class StorageContext {
 
     // If piece exists, get provider info for retrieval URL and proving params in parallel
     if (exists) {
-      const [providerInfo, provingParams] = await Promise.all([
+      const [providerInfo, pdpConfig] = await Promise.all([
         // Get provider info for retrieval URL
         this.getProviderInfo().catch(() => null),
-        // Get proving period configuration (only if we have data set data)
         dataSetData != null
-          ? Promise.all([this._warmStorageService.getMaxProvingPeriod(), this._warmStorageService.getChallengeWindow()])
-              .then(([maxProvingPeriod, challengeWindow]) => ({
-                maxProvingPeriod,
-                challengeWindow,
-              }))
-              .catch(() => null)
+          ? this._warmStorageService.getPDPConfig().catch((error) => {
+              console.debug('Failed to get PDP config:', error)
+              return null
+            })
           : Promise.resolve(null),
       ])
 
@@ -1313,8 +1411,8 @@ export class StorageContext {
         )}/piece/${parsedPieceCID.toString()}`
       }
 
-      // Process proof timing data if we have data set data and proving params
-      if (dataSetData != null && provingParams != null) {
+      // Process proof timing data if we have data set data and PDP config
+      if (dataSetData != null && pdpConfig != null) {
         // Check if this PieceCID is in the data set
         const pieceData = dataSetData.pieces.find((piece) => piece.pieceCid.toString() === parsedPieceCID.toString())
 
@@ -1324,9 +1422,9 @@ export class StorageContext {
           // Calculate timing based on nextChallengeEpoch
           if (dataSetData.nextChallengeEpoch > 0) {
             // nextChallengeEpoch is when the challenge window STARTS, not ends!
-            // The proving deadline is nextChallengeEpoch + challengeWindow
+            // The proving deadline is nextChallengeEpoch + challengeWindowSize
             const challengeWindowStart = dataSetData.nextChallengeEpoch
-            const provingDeadline = challengeWindowStart + provingParams.challengeWindow
+            const provingDeadline = challengeWindowStart + pdpConfig.challengeWindowSize
 
             // Calculate when the next proof is due (end of challenge window)
             nextProofDue = epochToDate(provingDeadline, network)
@@ -1334,7 +1432,7 @@ export class StorageContext {
             // Calculate last proven date (one proving period before next challenge)
             const lastProvenDate = calculateLastProofDate(
               dataSetData.nextChallengeEpoch,
-              provingParams.maxProvingPeriod,
+              pdpConfig.maxProvingPeriod,
               network
             )
             if (lastProvenDate != null) {

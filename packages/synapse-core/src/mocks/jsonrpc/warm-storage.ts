@@ -1,38 +1,25 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
 /**
  * Warm Storage View ABI types
  */
 
-export type isProviderApproved = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'isProviderApproved'>
-
-export type railToDataSet = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'railToDataSet'>
-
-export type getClientDataSets = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getClientDataSets'>
-
-export type clientDataSets = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'clientDataSets'>
-
-export type getDataSet = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getDataSet'>
-
-export type getApprovedProviders = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getApprovedProviders'>
-
-export type getAllDataSetMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getAllDataSetMetadata'>
-
-export type getDataSetMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getDataSetMetadata'>
-
-export type getAllPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getAllPieceMetadata'>
-
-export type getPieceMetadata = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getPieceMetadata'>
-
-export type clientNonces = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'clientNonces'>
-
-export type getMaxProvingPeriod = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'getMaxProvingPeriod'>
-
-export type challengeWindow = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE_VIEW, 'challengeWindow'>
+export type isProviderApproved = ExtractAbiFunction<typeof Abis.storageView, 'isProviderApproved'>
+export type railToDataSet = ExtractAbiFunction<typeof Abis.storageView, 'railToDataSet'>
+export type getClientDataSets = ExtractAbiFunction<typeof Abis.storageView, 'getClientDataSets'>
+export type clientDataSets = ExtractAbiFunction<typeof Abis.storageView, 'clientDataSets'>
+export type getDataSet = ExtractAbiFunction<typeof Abis.storageView, 'getDataSet'>
+export type getApprovedProviders = ExtractAbiFunction<typeof Abis.storageView, 'getApprovedProviders'>
+export type getAllDataSetMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getAllDataSetMetadata'>
+export type getDataSetMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getDataSetMetadata'>
+export type getAllPieceMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getAllPieceMetadata'>
+export type getPieceMetadata = ExtractAbiFunction<typeof Abis.storageView, 'getPieceMetadata'>
+export type clientNonces = ExtractAbiFunction<typeof Abis.storageView, 'clientNonces'>
+export type getPDPConfig = ExtractAbiFunction<typeof Abis.storageView, 'getPDPConfig'>
 
 export interface WarmStorageViewOptions {
   isProviderApproved?: (args: AbiToType<isProviderApproved['inputs']>) => AbiToType<isProviderApproved['outputs']>
@@ -48,34 +35,22 @@ export interface WarmStorageViewOptions {
   getAllPieceMetadata?: (args: AbiToType<getAllPieceMetadata['inputs']>) => AbiToType<getAllPieceMetadata['outputs']>
   getPieceMetadata?: (args: AbiToType<getPieceMetadata['inputs']>) => AbiToType<getPieceMetadata['outputs']>
   clientNonces?: (args: AbiToType<clientNonces['inputs']>) => AbiToType<clientNonces['outputs']>
-  getMaxProvingPeriod?: (args: AbiToType<getMaxProvingPeriod['inputs']>) => AbiToType<getMaxProvingPeriod['outputs']>
-  challengeWindow?: (args: AbiToType<challengeWindow['inputs']>) => AbiToType<challengeWindow['outputs']>
+  getPDPConfig?: (args: AbiToType<getPDPConfig['inputs']>) => AbiToType<getPDPConfig['outputs']>
 }
 
 /**
  * Warm Storage ABI types
  */
 
-export type pdpVerifierAddress = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'pdpVerifierAddress'>
-
-export type paymentsContractAddress = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'paymentsContractAddress'>
-
-export type usdfcTokenAddress = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'usdfcTokenAddress'>
-
-export type filBeamBeneficiaryAddress = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.WARM_STORAGE,
-  'filBeamBeneficiaryAddress'
->
-
-export type viewContractAddress = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'viewContractAddress'>
-
-export type serviceProviderRegistry = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'serviceProviderRegistry'>
-
-export type sessionKeyRegistry = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'sessionKeyRegistry'>
-
-export type getServicePrice = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'getServicePrice'>
-
-export type owner = ExtractAbiFunction<typeof CONTRACT_ABIS.WARM_STORAGE, 'owner'>
+export type pdpVerifierAddress = ExtractAbiFunction<typeof Abis.storage, 'pdpVerifierAddress'>
+export type paymentsContractAddress = ExtractAbiFunction<typeof Abis.storage, 'paymentsContractAddress'>
+export type usdfcTokenAddress = ExtractAbiFunction<typeof Abis.storage, 'usdfcTokenAddress'>
+export type filBeamBeneficiaryAddress = ExtractAbiFunction<typeof Abis.storage, 'filBeamBeneficiaryAddress'>
+export type viewContractAddress = ExtractAbiFunction<typeof Abis.storage, 'viewContractAddress'>
+export type serviceProviderRegistry = ExtractAbiFunction<typeof Abis.storage, 'serviceProviderRegistry'>
+export type sessionKeyRegistry = ExtractAbiFunction<typeof Abis.storage, 'sessionKeyRegistry'>
+export type getServicePrice = ExtractAbiFunction<typeof Abis.storage, 'getServicePrice'>
+export type owner = ExtractAbiFunction<typeof Abis.storage, 'owner'>
 
 export interface WarmStorageOptions {
   pdpVerifierAddress?: (args: AbiToType<pdpVerifierAddress['inputs']>) => AbiToType<pdpVerifierAddress['outputs']>
@@ -100,7 +75,7 @@ export interface WarmStorageOptions {
  */
 export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.WARM_STORAGE,
+    abi: Abis.storage,
     data: data as Hex,
   })
 
@@ -179,7 +154,7 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('Warm Storage: getServicePrice is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE.find((abi) => abi.type === 'function' && abi.name === 'getServicePrice')!.outputs,
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'getServicePrice')!.outputs,
         options.warmStorage.getServicePrice(args)
       )
     }
@@ -189,7 +164,7 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
         throw new Error('Warm Storage: owner is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE.find((abi) => abi.type === 'function' && abi.name === 'owner')!.outputs,
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'owner')!.outputs,
         options.warmStorage.owner(args)
       )
     }
@@ -205,7 +180,7 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
  */
 export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.WARM_STORAGE_VIEW,
+    abi: Abis.storageView,
     data: data as Hex,
   })
 
@@ -219,8 +194,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: isProviderApproved is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'isProviderApproved')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'isProviderApproved')!.outputs,
         options.warmStorageView.isProviderApproved(args)
       )
     }
@@ -229,8 +203,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getClientDataSets is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getClientDataSets')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getClientDataSets')!.outputs,
         options.warmStorageView.getClientDataSets(args)
       )
     }
@@ -240,8 +213,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: clientDataSets is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'clientDataSets')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'clientDataSets')!.outputs,
         options.warmStorageView.clientDataSets(args)
       )
     }
@@ -251,7 +223,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getDataSet is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getDataSet')!.outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getDataSet')!.outputs,
         options.warmStorageView.getDataSet(args)
       )
     }
@@ -261,7 +233,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: railToDataSet is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'railToDataSet')!.outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'railToDataSet')!.outputs,
         options.warmStorageView.railToDataSet(args)
       )
     }
@@ -270,8 +242,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getApprovedProviders is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getApprovedProviders')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getApprovedProviders')!.outputs,
         options.warmStorageView.getApprovedProviders(args)
       )
     }
@@ -280,8 +251,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getAllDataSetMetadata is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getAllDataSetMetadata')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getAllDataSetMetadata')!.outputs,
         options.warmStorageView.getAllDataSetMetadata(args)
       )
     }
@@ -290,8 +260,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getDataSetMetadata is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getDataSetMetadata')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getDataSetMetadata')!.outputs,
         options.warmStorageView.getDataSetMetadata(args)
       )
     }
@@ -300,8 +269,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getAllPieceMetadata is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getAllPieceMetadata')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getAllPieceMetadata')!.outputs,
         options.warmStorageView.getAllPieceMetadata(args)
       )
     }
@@ -310,8 +278,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getPieceMetadata is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getPieceMetadata')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getPieceMetadata')!.outputs,
         options.warmStorageView.getPieceMetadata(args)
       )
     }
@@ -320,28 +287,17 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: clientNonces is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'clientNonces')!.outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'clientNonces')!.outputs,
         options.warmStorageView.clientNonces(args)
       )
     }
-    case 'getMaxProvingPeriod': {
-      if (!options.warmStorageView?.getMaxProvingPeriod) {
-        throw new Error('Warm Storage View: getMaxProvingPeriod is not defined')
+    case 'getPDPConfig': {
+      if (!options.warmStorageView?.getPDPConfig) {
+        throw new Error('Warm Storage View: getPDPConfig is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'getMaxProvingPeriod')!
-          .outputs,
-        options.warmStorageView.getMaxProvingPeriod(args)
-      )
-    }
-    case 'challengeWindow': {
-      if (!options.warmStorageView?.challengeWindow) {
-        throw new Error('Warm Storage View: challengeWindow is not defined')
-      }
-      return encodeAbiParameters(
-        CONTRACT_ABIS.WARM_STORAGE_VIEW.find((abi) => abi.type === 'function' && abi.name === 'challengeWindow')!
-          .outputs,
-        options.warmStorageView.challengeWindow(args)
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getPDPConfig')!.outputs,
+        options.warmStorageView.getPDPConfig(args)
       )
     }
 

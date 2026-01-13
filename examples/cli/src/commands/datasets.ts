@@ -1,41 +1,31 @@
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
 import { getDataSets } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { createPublicClient, type Hex, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import config from '../config.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const datasets: Command = command(
   {
     name: 'datasets',
     description: 'List all data sets',
     alias: 'ds',
+    flags: {
+      ...globalFlags,
+    },
     help: {
       description: 'List all data sets',
       examples: ['synapse datasets', 'synapse datasets --help'],
     },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+  async (argv) => {
+    const { client } = privateKeyClient(argv.flags.chain)
 
-    const account = privateKeyToAccount(privateKey as Hex)
     const spinner = p.spinner()
 
     spinner.start('Listing data sets...')
     try {
-      const dataSets = await getDataSets(publicClient, {
-        address: account.address,
+      const dataSets = await getDataSets(client, {
+        address: client.account.address,
       })
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {

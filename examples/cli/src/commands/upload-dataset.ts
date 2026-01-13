@@ -1,21 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
+import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import {
   createDataSetAndAddPieces,
   readProviders,
 } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import config from '../config.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const uploadDataset: Command = command(
   {
@@ -23,7 +17,8 @@ export const uploadDataset: Command = command(
     parameters: ['<required path>', '<required providerId>'],
     description: 'Upload a file to a new data set',
     flags: {
-      withCDN: {
+      ...globalFlags,
+      cdn: {
         type: Boolean,
         description: 'Enable CDN',
         default: false,
@@ -34,19 +29,7 @@ export const uploadDataset: Command = command(
     },
   },
   async (argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
-    const account = privateKeyToAccount(privateKey as Hex)
-    const client = createWalletClient({
-      account,
-      chain: calibration,
-      transport: http(),
-    })
-
+    const { client } = privateKeyClient(argv.flags.chain)
     const spinner = p.spinner()
 
     const filePath = argv._.requiredPath
@@ -55,7 +38,7 @@ export const uploadDataset: Command = command(
 
     spinner.start(`Uploading file ${absolutePath}...`)
     try {
-      const providers = await readProviders(publicClient)
+      const providers = await readProviders(client)
       const provider = providers.find(
         (provider) => provider.id === BigInt(argv._.requiredProviderId)
       )
@@ -64,29 +47,33 @@ export const uploadDataset: Command = command(
         p.outro('Please try again')
         return
       }
-      const upload = await SP.uploadPiece({
+
+      const pieceCid = Piece.calculate(fileData)
+      await SP.uploadPiece({
         data: fileData,
         endpoint: provider.pdp.serviceURL,
+        pieceCid,
       })
 
       await SP.findPiece({
-        pieceCid: upload.pieceCid,
+        pieceCid,
         endpoint: provider.pdp.serviceURL,
       })
 
       const rsp = await createDataSetAndAddPieces(client, {
-        provider,
-        cdn: argv.flags.withCDN,
+        endpoint: provider.pdp.serviceURL,
+        payee: provider.payee,
+        cdn: argv.flags.cdn,
         pieces: [
           {
-            pieceCid: upload.pieceCid,
+            pieceCid,
             metadata: { name: path.basename(absolutePath) },
           },
         ],
       })
 
       await SP.pollForDataSetCreationStatus(rsp)
-      spinner.stop(`File uploaded ${upload.pieceCid}`)
+      spinner.stop(`File uploaded ${pieceCid}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)

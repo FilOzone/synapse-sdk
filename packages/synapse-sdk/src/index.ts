@@ -1,26 +1,14 @@
 /**
- * Synapse SDK - Main entry point
+ * **Synapse SDK - Main entry point**
+ *
+ * @module Synapse
  *
  * @example
- * ```ts
- * import { Synapse } from '@filoz/synapse-sdk'
+ * ```ts twoslash
+ * import { Synapse, RPC_URLS } from '@filoz/synapse-sdk'
  * ```
- *
- * @packageDocumentation
- * @module Synapse
  */
 
-/**
- * Synapse SDK main entry point
- */
-
-export * from './payments/index.ts'
-export * from './pdp/index.ts'
-export * from './session/index.ts'
-export * from './storage/index.ts'
-export * from './subgraph/index.ts'
 export { Synapse } from './synapse.ts'
-export * from './telemetry/index.ts'
 export * from './types.ts'
-export * from './utils/index.ts'
-export * from './warm-storage/index.ts'
+export * from './utils/constants.ts'

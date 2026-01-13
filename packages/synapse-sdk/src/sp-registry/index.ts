@@ -1,6 +1,11 @@
 /**
- * ServiceProviderRegistry module
- * @module sp-registry
+ * Service Provider Registry components
+ *
+ * @module SPRegistry
+ * @example
+ * ```ts
+ * import { SPRegistryService } from '@filoz/synapse-sdk/sp-registry'
+ * ```
  */
 
 export { SPRegistryService } from './service.ts'

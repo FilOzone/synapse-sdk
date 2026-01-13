@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Main Entry Point
+ * **Synapse Core - Main Entry Point**
  *
  * @example
  * ```ts
  * import * as core from '@filoz/synapse-core'
  * ```
  *
- * @packageDocumentation
+ * @module core
  */
 
 export * as abis from './abis/index.ts'

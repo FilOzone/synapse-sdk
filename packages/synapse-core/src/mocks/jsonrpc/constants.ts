@@ -1,5 +1,5 @@
-import type { Address } from 'viem'
-import { CONTRACT_ADDRESSES } from '../../../utils/constants.ts'
+import { type Address, zeroAddress } from 'viem'
+import { calibration, mainnet } from '../../chains.ts'
 
 export const PRIVATE_KEYS = {
   key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
@@ -7,25 +7,25 @@ export const PRIVATE_KEYS = {
 }
 export const ADDRESSES = {
   client1: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB' as Address,
-  zero: '0x0000000000000000000000000000000000000000' as Address,
+  zero: zeroAddress,
   serviceProvider1: '0x0000000000000000000000000000000000000001' as Address,
   serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
   payee1: '0x1000000000000000000000000000000000000001' as Address,
   mainnet: {
-    warmStorage: '0x1234567890123456789012345678901234567890' as Address,
-    multicall3: CONTRACT_ADDRESSES.MULTICALL3.mainnet,
-    pdpVerifier: '0x9876543210987654321098765432109876543210',
+    warmStorage: mainnet.contracts.storage.address,
+    multicall3: mainnet.contracts.multicall3.address,
+    pdpVerifier: mainnet.contracts.pdp.address,
   },
   calibration: {
-    warmStorage: CONTRACT_ADDRESSES.WARM_STORAGE.calibration as Address,
-    multicall3: CONTRACT_ADDRESSES.MULTICALL3.calibration,
-    pdpVerifier: '0x3ce3C62C4D405d69738530A6A65E4b13E8700C48' as Address,
-    payments: '0x80Df863d84eFaa0aaC8da2E9B08D14A7236ff4D0' as Address,
-    usdfcToken: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0' as Address,
-    filCDN: '0x0000000000000000000000000000000000000000' as Address,
-    viewContract: '0x1996B60838871D0bc7980Bc02DD6Eb920535bE54' as Address,
-    spRegistry: '0x0000000000000000000000000000000000000001' as Address,
-    sessionKeyRegistry: '0x518411c2062E119Aaf7A8B12A2eDf9a939347655' as Address,
+    warmStorage: calibration.contracts.storage.address,
+    multicall3: calibration.contracts.multicall3.address,
+    pdpVerifier: calibration.contracts.pdp.address,
+    payments: calibration.contracts.payments.address,
+    usdfcToken: calibration.contracts.usdfc.address,
+    filCDN: zeroAddress,
+    viewContract: calibration.contracts.storageView.address,
+    spRegistry: calibration.contracts.serviceProviderRegistry.address,
+    sessionKeyRegistry: calibration.contracts.sessionKeyRegistry.address,
   },
 }
 

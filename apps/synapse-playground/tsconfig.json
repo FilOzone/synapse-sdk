@@ -31,5 +31,8 @@
     }
   },
   "include": ["src"],
-  "references": [{ "path": "../../packages/synapse-core" }, { "path": "../../packages/synapse-react" }]
+  "references": [
+    { "path": "../../packages/synapse-core/tsconfig.json" },
+    { "path": "../../packages/synapse-react/tsconfig.json" }
+  ]
 }

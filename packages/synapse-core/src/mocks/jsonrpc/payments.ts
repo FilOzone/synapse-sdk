@@ -2,17 +2,17 @@
 
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type accounts = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'accounts'>
-export type operatorApprovals = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'operatorApprovals'>
-export type getRail = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'getRail'>
-export type getRailsForPayerAndToken = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'getRailsForPayerAndToken'>
-export type getRailsForPayeeAndToken = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'getRailsForPayeeAndToken'>
-export type settleRail = ExtractAbiFunction<typeof CONTRACT_ABIS.PAYMENTS, 'settleRail'>
+export type accounts = ExtractAbiFunction<typeof Abis.payments, 'accounts'>
+export type operatorApprovals = ExtractAbiFunction<typeof Abis.payments, 'operatorApprovals'>
+export type getRail = ExtractAbiFunction<typeof Abis.payments, 'getRail'>
+export type getRailsForPayerAndToken = ExtractAbiFunction<typeof Abis.payments, 'getRailsForPayerAndToken'>
+export type getRailsForPayeeAndToken = ExtractAbiFunction<typeof Abis.payments, 'getRailsForPayeeAndToken'>
+export type settleRail = ExtractAbiFunction<typeof Abis.payments, 'settleRail'>
 export type settleTerminatedRailWithoutValidation = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.PAYMENTS,
+  typeof Abis.payments,
   'settleTerminatedRailWithoutValidation'
 >
 
@@ -47,7 +47,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   }
 
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.PAYMENTS,
+    abi: Abis.payments,
     data: data as Hex,
   })
 
@@ -61,7 +61,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: operatorApprovals is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'operatorApprovals')!.outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'operatorApprovals')!.outputs,
         options.payments.operatorApprovals(args)
       )
     }
@@ -71,7 +71,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: accounts is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'accounts')!.outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'accounts')!.outputs,
         options.payments.accounts(args)
       )
     }
@@ -81,7 +81,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: getRail is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'getRail')!.outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'getRail')!.outputs,
         options.payments.getRail(args)
       )
     }
@@ -91,8 +91,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: getRailsForPayerAndToken is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'getRailsForPayerAndToken')!
-          .outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'getRailsForPayerAndToken')!.outputs,
         options.payments.getRailsForPayerAndToken(args)
       )
     }
@@ -102,8 +101,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: getRailsForPayeeAndToken is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'getRailsForPayeeAndToken')!
-          .outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'getRailsForPayeeAndToken')!.outputs,
         options.payments.getRailsForPayeeAndToken(args)
       )
     }
@@ -113,7 +111,7 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: settleRail is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find((abi) => abi.type === 'function' && abi.name === 'settleRail')!.outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'settleRail')!.outputs,
         options.payments.settleRail(args)
       )
     }
@@ -123,9 +121,8 @@ export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('Payments: settleTerminatedRailWithoutValidation is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.PAYMENTS.find(
-          (abi) => abi.type === 'function' && abi.name === 'settleTerminatedRailWithoutValidation'
-        )!.outputs,
+        Abis.payments.find((abi) => abi.type === 'function' && abi.name === 'settleTerminatedRailWithoutValidation')!
+          .outputs,
         options.payments.settleTerminatedRailWithoutValidation(args)
       )
     }

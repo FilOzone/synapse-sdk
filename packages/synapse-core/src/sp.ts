@@ -1,15 +1,16 @@
 /**
- * Synapse Core - Service Provider HTTP Operations
+ * Service Provider HTTP Operations
  *
  * @example
  * ```ts
  * import * as SP from '@filoz/synapse-core/sp'
  * ```
  *
- * @packageDocumentation
+ * @module sp
  */
 
 import { HttpError, request, TimeoutError } from 'iso-web/http'
+import type { ToString } from 'multiformats'
 import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
 import {
@@ -603,7 +604,7 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
 
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
     retry: {
-      statusCodes: [404],
+      statusCodes: [202, 404],
       retries: RETRIES,
       factor: FACTOR,
     },
@@ -627,6 +628,16 @@ export type AddPiecesOptions = {
   endpoint: string
   dataSetId: bigint
   pieces: PieceCID[]
+  extraData: Hex
+}
+
+export type AddPiecesRequest = {
+  pieces: {
+    pieceCid: ToString<PieceCID>
+    subPieces: {
+      subPieceCid: ToString<PieceCID>
+    }[]
+  }[]
   extraData: Hex
 }
 

@@ -46,11 +46,21 @@ export class PDPVerifier {
   /**
    * Get the next piece ID for a data set
    * @param dataSetId - The PDPVerifier data set ID
-   * @returns The next piece ID (which equals the current piece count)
+   * @returns The next piece ID to assign (total pieces ever added; does not decrease when pieces are removed)
    */
   async getNextPieceId(dataSetId: number): Promise<number> {
     const nextPieceId = await this._contract.getNextPieceId(dataSetId)
     return Number(nextPieceId)
+  }
+
+  /**
+   * Get the count of active pieces (non-zero leaf count) for a data set
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns The number of active pieces in the data set
+   */
+  async getActivePieceCount(dataSetId: number): Promise<number> {
+    const count = await this._contract.getActivePieceCount(dataSetId)
+    return Number(count)
   }
 
   /**
@@ -163,6 +173,16 @@ export class PDPVerifier {
       }),
       hasMore: Boolean(result[2]),
     }
+  }
+
+  /**
+   * Get pieces scheduled for removal from a data set
+   * @param dataSetId - The PDPVerifier data set ID
+   * @returns Array of piece IDs scheduled for removal
+   */
+  async getScheduledRemovals(dataSetId: number): Promise<number[]> {
+    const result = await this._contract.getScheduledRemovals(dataSetId)
+    return result.map((pieceId: bigint) => Number(pieceId))
   }
 
   /**

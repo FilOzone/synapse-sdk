@@ -6,6 +6,7 @@
  * and that the telemetry system doesn't "crash" Synapse when enabled.
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
@@ -13,10 +14,9 @@ import { HttpResponse, http } from 'msw'
 import { Synapse } from '../synapse.ts'
 import { removeGlobalTelemetry } from '../telemetry/singleton.ts'
 import { sanitizeUrlForSpan } from '../telemetry/utils.ts'
-import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // Mock server for testing
-const server = setup([])
+const server = setup()
 
 interface SentryRequest {
   request: Request
@@ -52,17 +52,17 @@ describe('Telemetry', () => {
   let signer: ethers.Signer
 
   beforeEach(async () => {
-    await server.start({ quiet: true })
-    server.use(JSONRPC(presets.basic))
+    await server.start()
+    server.use(Mocks.JSONRPC(Mocks.presets.basic))
     mockSentryRequests()
 
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
   })
 
   afterEach(async () => {
     try {
-      await synapse?.getProvider()?.destroy()
+      synapse?.getProvider()?.destroy()
     } catch {
       // ignore destroy errors
     }

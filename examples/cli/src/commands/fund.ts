@@ -1,48 +1,38 @@
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
 import { claimTokens, formatBalance } from '@filoz/synapse-core/utils'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import { createPublicClient, type Hex, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
-import config from '../config.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const fund: Command = command(
   {
     name: 'fund',
     description: 'Fund the wallet',
     alias: 'f',
+    flags: {
+      ...globalFlags,
+    },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+  async (argv) => {
+    const { client, privateKey, rpcURL } = privateKeyClient(argv.flags.chain)
 
     p.intro('Funding wallet...')
     const spinner = p.spinner()
-    const account = privateKeyToAccount(privateKey as Hex)
 
     spinner.start('Requesting faucets...')
     try {
-      const hashes = await claimTokens({ address: account.address })
+      const hashes = await claimTokens({ address: client.account.address })
 
       spinner.message(`Waiting for transactions to be mined...`)
-      await waitForTransactionReceipt(publicClient, {
+      await waitForTransactionReceipt(client, {
         hash: hashes[0].tx_hash,
       })
 
       const synapse = await Synapse.create({
-        privateKey: privateKey as Hex,
-        rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
+        privateKey,
+        rpcURL,
       })
 
       spinner.stop('Balances')

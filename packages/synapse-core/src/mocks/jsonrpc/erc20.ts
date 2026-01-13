@@ -2,16 +2,16 @@
 
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type balanceOf = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'balanceOf'>
-export type decimals = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'decimals'>
-export type allowance = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'allowance'>
-export type name = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'name'>
-export type approve = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'approve'>
-export type nonces = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'nonces'>
-export type version = ExtractAbiFunction<typeof CONTRACT_ABIS.ERC20_PERMIT, 'version'>
+export type balanceOf = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'balanceOf'>
+export type decimals = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'decimals'>
+export type allowance = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'allowance'>
+export type name = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'name'>
+export type approve = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'approve'>
+export type nonces = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'nonces'>
+export type version = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'version'>
 
 export interface ERC20Options {
   balanceOf?: (args: AbiToType<balanceOf['inputs']>) => AbiToType<balanceOf['outputs']>
@@ -32,7 +32,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
 
   try {
     const decoded = decodeFunctionData({
-      abi: CONTRACT_ABIS.ERC20_PERMIT,
+      abi: Abis.erc20WithPermit,
       data: data as Hex,
     })
     functionName = decoded.functionName
@@ -51,7 +51,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: balanceOf is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'balanceOf')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'balanceOf')!.outputs,
         options.erc20.balanceOf(args as AbiToType<balanceOf['inputs']>)
       )
     }
@@ -61,7 +61,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: decimals is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'decimals')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'decimals')!.outputs,
         options.erc20.decimals(args as AbiToType<decimals['inputs']>)
       )
     }
@@ -71,7 +71,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: allowance is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'allowance')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'allowance')!.outputs,
         options.erc20.allowance(args as AbiToType<allowance['inputs']>)
       )
     }
@@ -81,7 +81,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: name is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'name')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'name')!.outputs,
         options.erc20.name(args as AbiToType<name['inputs']>)
       )
     }
@@ -91,7 +91,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: approve is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'approve')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'approve')!.outputs,
         options.erc20.approve(args as AbiToType<approve['inputs']>)
       )
     }
@@ -101,7 +101,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: version is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'version')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'version')!.outputs,
         options.erc20.version(args as AbiToType<version['inputs']>)
       )
     }
@@ -111,7 +111,7 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
         throw new Error('ERC20: nonces is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.ERC20_PERMIT.find((abi) => abi.type === 'function' && abi.name === 'nonces')!.outputs,
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'nonces')!.outputs,
         options.erc20.nonces(args as AbiToType<nonces['inputs']>)
       )
     }

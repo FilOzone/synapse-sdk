@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Warm Storage Contract Operations
+ * Warm Storage Contract Operations
  *
  * @example
  * ```ts
  * import * as WarmStorage from '@filoz/synapse-core/warm-storage'
  * ```
  *
- * @packageDocumentation
+ * @module warm-storage
  */
 export * from './data-sets.ts'
 export * from './pieces.ts'

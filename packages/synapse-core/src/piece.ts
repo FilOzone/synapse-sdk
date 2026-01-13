@@ -2,6 +2,13 @@
  * PieceCID (Piece Commitment CID) utilities
  *
  * Helper functions for working with Filecoin Piece CIDs
+ *
+ * @example
+ * ```ts
+ * import * as Piece from '@filoz/synapse-core/piece'
+ * ```
+ *
+ * @module piece
  */
 
 import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'

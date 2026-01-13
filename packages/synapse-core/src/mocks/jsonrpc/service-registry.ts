@@ -5,44 +5,29 @@ import type { PDPOffering, ServiceProviderInfo } from '@filoz/synapse-core/warm-
 import type { ExtractAbiFunction } from 'abitype'
 import type { Hex } from 'viem'
 import { decodeFunctionData, encodeAbiParameters, isAddressEqual } from 'viem'
-import { CONTRACT_ABIS } from '../../../utils/constants.ts'
+import * as Abis from '../../abis/index.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
-export type getProviderByAddress = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
-  'getProviderByAddress'
->
+export type getProviderByAddress = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderByAddress'>
 
-export type getProvider = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProvider'>
+export type getProvider = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
 
-export type getProviderIdByAddress = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
-  'getProviderIdByAddress'
->
+export type getProviderIdByAddress = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderIdByAddress'>
 
-export type getProviderWithProduct = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
-  'getProviderWithProduct'
->
+export type getProviderWithProduct = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderWithProduct'>
 
 export type getProvidersByProductType = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+  typeof Abis.serviceProviderRegistry,
   'getProvidersByProductType'
 >
 
-export type getAllActiveProviders = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
-  'getAllActiveProviders'
->
+export type getAllActiveProviders = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getAllActiveProviders'>
 
-export type getProviderCount = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'getProviderCount'>
+export type getProviderCount = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderCount'>
 
-export type isProviderActive = ExtractAbiFunction<typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY, 'isProviderActive'>
+export type isProviderActive = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'isProviderActive'>
 
-export type isRegisteredProvider = ExtractAbiFunction<
-  typeof CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
-  'isRegisteredProvider'
->
+export type isRegisteredProvider = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'isRegisteredProvider'>
 
 export interface ServiceRegistryOptions {
   getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
@@ -236,7 +221,7 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
  */
 export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
-    abi: CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY,
+    abi: Abis.serviceProviderRegistry,
     data: data as Hex,
   })
 
@@ -250,9 +235,8 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getProviderByAddress is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'getProviderByAddress'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProviderByAddress')!
+          .outputs,
         options.serviceRegistry.getProviderByAddress(args)
       )
     }
@@ -261,9 +245,8 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getProviderIdByAddress is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'getProviderIdByAddress'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProviderIdByAddress')!
+          .outputs,
         options.serviceRegistry.getProviderIdByAddress(args)
       )
     }
@@ -272,8 +255,7 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getProvider is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find((abi) => abi.type === 'function' && abi.name === 'getProvider')!
-          .outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProvider')!.outputs,
         options.serviceRegistry.getProvider(args)
       )
     }
@@ -282,9 +264,8 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getProviderWithProduct is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'getProviderWithProduct'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProviderWithProduct')!
+          .outputs,
         options.serviceRegistry.getProviderWithProduct(args)
       )
     }
@@ -293,9 +274,8 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getAllActiveProviders is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'getAllActiveProviders'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getAllActiveProviders')!
+          .outputs,
         options.serviceRegistry.getAllActiveProviders(args)
       )
     }
@@ -304,9 +284,7 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: getProviderCount is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'getProviderCount'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProviderCount')!.outputs,
         options.serviceRegistry.getProviderCount(args)
       )
     }
@@ -315,9 +293,7 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: isProviderActive is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'isProviderActive'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'isProviderActive')!.outputs,
         options.serviceRegistry.isProviderActive(args)
       )
     }
@@ -326,9 +302,8 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: isRegisteredProvider is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'isRegisteredProvider'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'isRegisteredProvider')!
+          .outputs,
         options.serviceRegistry.isRegisteredProvider(args)
       )
     }
@@ -337,9 +312,7 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         throw new Error('Service Provider Registry: REGISTRATION_FEE is not defined')
       }
       return encodeAbiParameters(
-        CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY.find(
-          (abi) => abi.type === 'function' && abi.name === 'REGISTRATION_FEE'
-        )!.outputs,
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'REGISTRATION_FEE')!.outputs,
         [options.serviceRegistry.REGISTRATION_FEE()]
       )
     }

@@ -1,7 +1,6 @@
 /**
- * Exports the Subgraph components
+ * Subgraph components
  *
- * @packageDocumentation
  * @module Subgraph
  * @example
  * ```ts

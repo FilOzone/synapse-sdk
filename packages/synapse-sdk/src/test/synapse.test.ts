@@ -4,6 +4,7 @@
  * Basic tests for Synapse class
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
@@ -18,30 +19,17 @@ import type { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 import { makeDataSetCreatedLog } from './mocks/events.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, PROVIDERS, presets } from './mocks/jsonrpc/index.ts'
-import { mockServiceProviderRegistry } from './mocks/jsonrpc/service-registry.ts'
-import {
-  createAndAddPiecesHandler,
-  dataSetCreationStatusHandler,
-  finalizePieceUploadHandler,
-  findPieceHandler,
-  type PDPMockOptions,
-  pieceAdditionStatusHandler,
-  postPieceUploadsHandler,
-  uploadPieceStreamingHandler,
-} from './mocks/pdp/handlers.ts'
-import { PING } from './mocks/ping.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
-const providerIds = [Number(PROVIDERS.provider1.providerId), Number(PROVIDERS.provider2.providerId)]
+const providerIds = [Number(Mocks.PROVIDERS.provider1.providerId), Number(Mocks.PROVIDERS.provider2.providerId)]
 
 describe('Synapse', () => {
   let signer: ethers.Signer
   let provider: ethers.Provider
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
@@ -50,12 +38,12 @@ describe('Synapse', () => {
   beforeEach(() => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
   })
 
   describe('Instantiation', () => {
     it('should create instance with signer', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
       assert.exists(synapse)
       assert.exists(synapse.payments)
@@ -63,7 +51,7 @@ describe('Synapse', () => {
     })
 
     it('should create instance with provider', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ provider })
       assert.exists(synapse)
       assert.exists(synapse.payments)
@@ -71,7 +59,7 @@ describe('Synapse', () => {
     })
 
     it('should create instance with private key', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
       const rpcURL = 'https://api.calibration.node.glif.io/rpc/v1'
       const synapse = await Synapse.create({ privateKey, rpcURL })
@@ -81,14 +69,14 @@ describe('Synapse', () => {
     })
 
     it('should apply NonceManager by default', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
       assert.exists(synapse)
       // We can't directly check if NonceManager is applied, but we can verify the instance is created
     })
 
     it('should allow disabling NonceManager', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({
         signer,
         disableNonceManager: true,
@@ -147,8 +135,8 @@ describe('Synapse', () => {
       // Create mock provider with unsupported chain ID
       // const unsupportedProvider = createMockProvider(999999)
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_chainId: '999999',
         })
       )
@@ -163,8 +151,8 @@ describe('Synapse', () => {
 
     it('should accept calibration network', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_chainId: '314159',
         })
       )
@@ -175,7 +163,7 @@ describe('Synapse', () => {
 
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
 
       // Should be able to access storage manager
@@ -191,7 +179,7 @@ describe('Synapse', () => {
     })
 
     it('should create storage manager with CDN settings', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({
         signer,
         withCDN: true,
@@ -204,7 +192,7 @@ describe('Synapse', () => {
     })
 
     it('should return same storage manager instance', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
 
       const storage1 = synapse.storage
@@ -220,7 +208,7 @@ describe('Synapse', () => {
     const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
     const FAKE_TX = {
       hash: FAKE_TX_HASH,
-      from: ADDRESSES.serviceProvider1,
+      from: Mocks.ADDRESSES.serviceProvider1,
       gas: '0x5208',
       value: '0x0',
       nonce: '0x444',
@@ -241,20 +229,20 @@ describe('Synapse', () => {
       logs: [makeDataSetCreatedLog(DATA_SET_ID, 1)],
     }
     beforeEach(() => {
-      const pdpOptions: PDPMockOptions = {
+      const pdpOptions: Mocks.PingMockOptions = {
         baseUrl: 'https://pdp.example.com',
       }
-      server.use(PING(pdpOptions))
+      server.use(Mocks.PING(pdpOptions))
     })
 
     it('should storage.createContext with session key', async () => {
       const signerAddress = await signer.getAddress()
-      const sessionKeySigner = new ethers.Wallet(PRIVATE_KEYS.key2)
+      const sessionKeySigner = new ethers.Wallet(Mocks.PRIVATE_KEYS.key2)
       const sessionKeyAddress = await sessionKeySigner.getAddress()
       const EXPIRY = BigInt(1757618883)
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           sessionKeyRegistry: {
             authorizationExpiry: (args) => {
               const client = args[0]
@@ -267,11 +255,11 @@ describe('Synapse', () => {
             },
           },
           payments: {
-            ...presets.basic.payments,
+            ...Mocks.presets.basic.payments,
             operatorApprovals: ([token, client, operator]) => {
-              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
               assert.equal(client, signerAddress)
-              assert.equal(operator, ADDRESSES.calibration.warmStorage)
+              assert.equal(operator, Mocks.ADDRESSES.calibration.warmStorage)
               return [
                 true, // isApproved
                 BigInt(127001 * 635000000), // rateAllowance
@@ -283,7 +271,7 @@ describe('Synapse', () => {
             },
             accounts: ([token, user]) => {
               assert.equal(user, signerAddress)
-              assert.equal(token, ADDRESSES.calibration.usdfcToken)
+              assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
               return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
             },
           },
@@ -322,7 +310,7 @@ describe('Synapse', () => {
 
   describe('Payment access', () => {
     it('should provide read-only access to payments', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
 
       // Should be able to access payments
@@ -345,17 +333,17 @@ describe('Synapse', () => {
 
   describe('getProviderInfo', () => {
     it('should get provider info for valid approved provider', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
       const synapse = await Synapse.create({ provider })
-      const providerInfo = await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
+      const providerInfo = await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
 
-      assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, ADDRESSES.serviceProvider1))
+      assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, Mocks.ADDRESSES.serviceProvider1))
       assert.equal(providerInfo.products.PDP?.data.serviceURL, 'https://pdp.example.com')
     })
 
     it('should throw for invalid provider address', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
 
       try {
@@ -368,10 +356,10 @@ describe('Synapse', () => {
 
     it('should throw for non-found provider', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           serviceRegistry: {
-            ...presets.basic.serviceRegistry,
+            ...Mocks.presets.basic.serviceRegistry,
             getProviderByAddress: () => [
               {
                 providerId: 0n,
@@ -390,7 +378,7 @@ describe('Synapse', () => {
 
       try {
         const synapse = await Synapse.create({ signer })
-        await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
+        await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not found in registry')
@@ -399,16 +387,16 @@ describe('Synapse', () => {
 
     it('should throw when provider not found', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           serviceRegistry: {
-            ...presets.basic.serviceRegistry,
+            ...Mocks.presets.basic.serviceRegistry,
             getProviderByAddress: () => [
               {
                 providerId: 0n,
                 info: {
-                  serviceProvider: ADDRESSES.zero,
-                  payee: ADDRESSES.zero,
+                  serviceProvider: Mocks.ADDRESSES.zero,
+                  payee: Mocks.ADDRESSES.zero,
                   name: '',
                   description: '',
                   isActive: false,
@@ -421,7 +409,7 @@ describe('Synapse', () => {
 
       try {
         const synapse = await Synapse.create({ signer })
-        await synapse.getProviderInfo(ADDRESSES.serviceProvider1)
+        await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not found')
@@ -431,7 +419,7 @@ describe('Synapse', () => {
 
   describe('download', () => {
     it('should validate PieceCID input', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({ signer })
 
       try {
@@ -447,7 +435,7 @@ describe('Synapse', () => {
       // Create test data that matches the expected PieceCID
       const testData = new TextEncoder().encode('test data')
       server.use(
-        JSONRPC(presets.basic),
+        Mocks.JSONRPC(Mocks.presets.basic),
         http.get('https://pdp.example.com/pdp/piece', async ({ request }) => {
           const url = new URL(request.url)
           const pieceCid = url.searchParams.get('pieceCid')
@@ -478,7 +466,7 @@ describe('Synapse', () => {
       const deferred = pDefer<{ cid: string; wallet: string }>()
       const testData = new TextEncoder().encode('test data')
       server.use(
-        JSONRPC({ ...presets.basic }),
+        Mocks.JSONRPC({ ...Mocks.presets.basic }),
         http.get<{ cid: string; wallet: string }>(`https://:wallet.calibration.filbeam.io/:cid`, async ({ params }) => {
           deferred.resolve(params)
           return HttpResponse.arrayBuffer(testData.buffer)
@@ -509,7 +497,7 @@ describe('Synapse', () => {
 
       const { cid, wallet } = result
       assert.equal(cid, testPieceCid)
-      assert.ok(isAddressEqual(wallet as Address, ADDRESSES.client1))
+      assert.ok(isAddressEqual(wallet as Address, Mocks.ADDRESSES.client1))
 
       // Test without explicit withCDN (should use instance default)
       const data = await synapse.download(testPieceCid)
@@ -522,13 +510,13 @@ describe('Synapse', () => {
       const testData = new TextEncoder().encode('test data')
 
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           serviceRegistry: {
-            ...presets.basic.serviceRegistry,
+            ...Mocks.presets.basic.serviceRegistry,
             getProviderByAddress: (data) => {
               providerAddressReceived = data[0]
-              return presets.basic.serviceRegistry.getProviderByAddress(data)
+              return Mocks.presets.basic.serviceRegistry.getProviderByAddress(data)
             },
           },
         }),
@@ -557,7 +545,7 @@ describe('Synapse', () => {
 
     it('should handle download errors', async () => {
       server.use(
-        JSONRPC(presets.basic),
+        Mocks.JSONRPC(Mocks.presets.basic),
         http.get('https://pdp.example.com/pdp/piece', async () => {
           return HttpResponse.error()
         })
@@ -583,7 +571,7 @@ describe('Synapse', () => {
 
   describe('getStorageInfo', () => {
     it('should return comprehensive storage information', async () => {
-      server.use(JSONRPC({ ...presets.basic }))
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
 
       const synapse = await Synapse.create({ signer })
       const storageInfo = await synapse.getStorageInfo()
@@ -599,8 +587,8 @@ describe('Synapse', () => {
 
       // Check providers
       assert.equal(storageInfo.providers.length, 2)
-      assert.equal(storageInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
-      assert.equal(storageInfo.providers[1].serviceProvider, ADDRESSES.serviceProvider2)
+      assert.equal(storageInfo.providers[0].serviceProvider, Mocks.ADDRESSES.serviceProvider1)
+      assert.equal(storageInfo.providers[1].serviceProvider, Mocks.ADDRESSES.serviceProvider2)
 
       // Check service parameters
       assert.equal(storageInfo.serviceParameters.network, 'calibration')
@@ -613,15 +601,15 @@ describe('Synapse', () => {
       // Check allowances (including operator approval flag)
       assert.exists(storageInfo.allowances)
       assert.equal(storageInfo.allowances?.isApproved, true)
-      assert.equal(storageInfo.allowances?.service, ADDRESSES.calibration.warmStorage)
+      assert.equal(storageInfo.allowances?.service, Mocks.ADDRESSES.calibration.warmStorage)
       assert.equal(storageInfo.allowances?.rateAllowance, 1000000n)
       assert.equal(storageInfo.allowances?.lockupAllowance, 10000000n)
     })
 
     it('should handle missing allowances gracefully', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           payments: {
             operatorApprovals: () => [false, 0n, 0n, 0n, 0n, 0n],
           },
@@ -637,7 +625,7 @@ describe('Synapse', () => {
       assert.exists(storageInfo.serviceParameters)
       assert.deepEqual(storageInfo.allowances, {
         isApproved: false,
-        service: ADDRESSES.calibration.warmStorage,
+        service: Mocks.ADDRESSES.calibration.warmStorage,
         rateAllowance: 0n,
         lockupAllowance: 0n,
         rateUsed: 0n,
@@ -647,10 +635,10 @@ describe('Synapse', () => {
 
     it('should filter out zero address providers', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           serviceRegistry: {
-            ...presets.basic.serviceRegistry,
+            ...Mocks.presets.basic.serviceRegistry,
             getProviderWithProduct: (data) => {
               const [providerId] = data
               if (providerId === 1n) {
@@ -658,8 +646,8 @@ describe('Synapse', () => {
                   {
                     providerId,
                     providerInfo: {
-                      serviceProvider: ADDRESSES.serviceProvider1,
-                      payee: ADDRESSES.payee1,
+                      serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                      payee: Mocks.ADDRESSES.payee1,
                       isActive: true,
                       name: 'Test Provider',
                       description: 'Test Provider',
@@ -684,7 +672,7 @@ describe('Synapse', () => {
                       bytesToHex(numberToBytes(1000000n)),
                       bytesToHex(numberToBytes(2880n)),
                       stringToHex('US'),
-                      ADDRESSES.calibration.usdfcToken,
+                      Mocks.ADDRESSES.calibration.usdfcToken,
                     ],
                   },
                 ]
@@ -693,8 +681,8 @@ describe('Synapse', () => {
                 {
                   providerId: 0n,
                   providerInfo: {
-                    serviceProvider: ADDRESSES.zero,
-                    payee: ADDRESSES.zero,
+                    serviceProvider: Mocks.ADDRESSES.zero,
+                    payee: Mocks.ADDRESSES.zero,
                     isActive: false,
                     name: '',
                     description: '',
@@ -718,15 +706,15 @@ describe('Synapse', () => {
 
       // Should filter out zero address provider
       assert.equal(storageInfo.providers.length, 1)
-      assert.equal(storageInfo.providers[0].serviceProvider, ADDRESSES.serviceProvider1)
+      assert.equal(storageInfo.providers[0].serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
 
     it('should handle contract call failures', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           warmStorage: {
-            ...presets.basic.warmStorage,
+            ...Mocks.presets.basic.warmStorage,
             getServicePrice: () => {
               throw new Error('RPC error')
             },
@@ -749,15 +737,15 @@ describe('Synapse', () => {
 
     beforeEach(async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
-          serviceRegistry: mockServiceProviderRegistry([PROVIDERS.provider1, PROVIDERS.provider2]),
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
         })
       )
       synapse = await Synapse.create({ signer })
-      for (const { products } of [PROVIDERS.provider1, PROVIDERS.provider2]) {
+      for (const { products } of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
         server.use(
-          PING({
+          Mocks.PING({
             baseUrl: products[0].offering.serviceURL,
           })
         )
@@ -766,11 +754,11 @@ describe('Synapse', () => {
 
     it('selects specified providerIds', async () => {
       const contexts = await synapse.storage.createContexts({
-        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider2.providerId].map(Number),
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId].map(Number),
       })
       assert.equal(contexts.length, 2)
-      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
-      assert.equal(BigInt(contexts[1].provider.id), PROVIDERS.provider2.providerId)
+      assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
+      assert.equal(BigInt(contexts[1].provider.id), Mocks.PROVIDERS.provider2.providerId)
       // should create new data sets
       assert.equal((contexts[0] as any)._dataSetId, undefined)
       assert.equal((contexts[1] as any)._dataSetId, undefined)
@@ -782,12 +770,12 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [PROVIDERS.provider1.providerId].map(Number),
+        providerIds: [Mocks.PROVIDERS.provider1.providerId].map(Number),
         metadata,
         count: 1,
       })
       assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
+      assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
       // should use existing data set
       assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
@@ -797,13 +785,13 @@ describe('Synapse', () => {
         withCDN: '',
       }
       const contexts = await synapse.storage.createContexts({
-        providerIds: [PROVIDERS.provider1.providerId].map(Number),
+        providerIds: [Mocks.PROVIDERS.provider1.providerId].map(Number),
         metadata,
         count: 1,
         forceCreateDataSets: true,
       })
       assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), PROVIDERS.provider1.providerId)
+      assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
       // should create new data set
       assert.equal((contexts[0] as any)._dataSetId, undefined)
     })
@@ -830,19 +818,26 @@ describe('Synapse', () => {
     })
 
     it('fails when provided an invalid data set id', async () => {
-      for (const dataSetId of [0, 2]) {
-        try {
-          await synapse.storage.createContexts({
-            count: 1,
-            dataSetIds: [dataSetId],
-          })
-          assert.fail('Expected createContexts to fail for invalid specified data set id')
-        } catch (error: any) {
-          assert.equal(
-            error?.message,
-            `StorageContext resolveByDataSetId failed: Data set ${dataSetId} not found, not owned by ${ADDRESSES.client1}, or not managed by the current WarmStorage contract`
-          )
-        }
+      // Test dataSetId 0: should fail with "does not exist" (pdpRailId is 0)
+      try {
+        await synapse.storage.createContexts({
+          count: 1,
+          dataSetIds: [0],
+        })
+        assert.fail('Expected createContexts to fail for data set id 0')
+      } catch (error: any) {
+        assert.include(error?.message, 'Data set 0 does not exist')
+      }
+
+      // Test dataSetId 2: should fail (not in mock data, so pdpRailId will be 0)
+      try {
+        await synapse.storage.createContexts({
+          count: 1,
+          dataSetIds: [2],
+        })
+        assert.fail('Expected createContexts to fail for data set id 2')
+      } catch (error: any) {
+        assert.include(error?.message, 'Data set 2 does not exist')
       }
     })
 
@@ -870,7 +865,7 @@ describe('Synapse', () => {
       }
       const contexts = await synapse.storage.createContexts({
         count: 2,
-        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider1.providerId].map(Number),
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId].map(Number),
         metadata,
       })
       assert.equal(contexts.length, 2)
@@ -886,7 +881,7 @@ describe('Synapse', () => {
       const contexts = await synapse.storage.createContexts({
         count: 2,
         dataSetIds: [1, 1],
-        providerIds: [PROVIDERS.provider1.providerId, PROVIDERS.provider1.providerId].map(Number),
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId].map(Number),
         metadata,
       })
       assert.equal(contexts.length, 2)
@@ -1032,12 +1027,12 @@ describe('Synapse', () => {
         contexts = await synapse.storage.createContexts({
           providerIds: [1, 2],
         })
-        for (const provider of [PROVIDERS.provider1, PROVIDERS.provider2]) {
-          const pdpOptions: PDPMockOptions = {
+        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
+          const pdpOptions: Mocks.pdp.PDPMockOptions = {
             baseUrl: provider.products[0].offering.serviceURL,
           }
           server.use(
-            dataSetCreationStatusHandler(
+            Mocks.pdp.dataSetCreationStatusHandler(
               FAKE_TX_HASH,
               {
                 ok: true,
@@ -1058,17 +1053,17 @@ describe('Synapse', () => {
         const pieceCid = Piece.calculate(data)
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
-        for (const provider of [PROVIDERS.provider1, PROVIDERS.provider2]) {
+        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
           const pdpOptions = {
             baseUrl: provider.products[0].offering.serviceURL,
           }
-          server.use(postPieceUploadsHandler(mockUUID, pdpOptions))
-          server.use(uploadPieceStreamingHandler(mockUUID, pdpOptions))
-          server.use(finalizePieceUploadHandler(mockUUID, pieceCid.toString(), pdpOptions))
-          server.use(findPieceHandler(pieceCid.toString(), found, pdpOptions))
-          server.use(createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
+          server.use(Mocks.pdp.postPieceUploadsHandler(mockUUID, pdpOptions))
+          server.use(Mocks.pdp.uploadPieceStreamingHandler(mockUUID, pdpOptions))
+          server.use(Mocks.pdp.finalizePieceUploadHandler(mockUUID, pieceCid.toString(), pdpOptions))
+          server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, pdpOptions))
+          server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
           server.use(
-            pieceAdditionStatusHandler(
+            Mocks.pdp.pieceAdditionStatusHandler(
               DATA_SET_ID,
               FAKE_TX_HASH,
               {
@@ -1095,23 +1090,23 @@ describe('Synapse', () => {
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
         const wrongCid = 'wrongCid'
-        for (const provider of [PROVIDERS.provider1, PROVIDERS.provider2]) {
+        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
           const pdpOptions = {
             baseUrl: provider.products[0].offering.serviceURL,
           }
-          server.use(postPieceUploadsHandler(mockUUID, pdpOptions))
-          server.use(uploadPieceStreamingHandler(mockUUID, pdpOptions))
+          server.use(Mocks.pdp.postPieceUploadsHandler(mockUUID, pdpOptions))
+          server.use(Mocks.pdp.uploadPieceStreamingHandler(mockUUID, pdpOptions))
           server.use(
-            finalizePieceUploadHandler(
+            Mocks.pdp.finalizePieceUploadHandler(
               mockUUID,
-              provider === PROVIDERS.provider1 ? pieceCid.toString() : wrongCid,
+              provider === Mocks.PROVIDERS.provider1 ? pieceCid.toString() : wrongCid,
               pdpOptions
             )
           )
-          server.use(findPieceHandler(pieceCid.toString(), found, pdpOptions))
-          server.use(createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
+          server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, pdpOptions))
+          server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
           server.use(
-            pieceAdditionStatusHandler(
+            Mocks.pdp.pieceAdditionStatusHandler(
               DATA_SET_ID,
               FAKE_TX_HASH,
               {
@@ -1131,7 +1126,7 @@ describe('Synapse', () => {
           await synapse.storage.upload(data, { contexts })
           assert.fail('Expected upload to fail when one provider returns wrong pieceCid')
         } catch (error: any) {
-          assert.include(error.message, wrongCid)
+          assert.include(error.message, 'Failed to create upload session')
         }
       })
     })

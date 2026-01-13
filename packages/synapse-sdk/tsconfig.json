@@ -7,17 +7,22 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../synapse-core"
+      "path": "../synapse-core/tsconfig.json"
     }
   ],
   "typedocOptions": {
     "entryPointStrategy": "resolve",
     "entryPoints": [
       "src/index.ts",
-      "src/piece/index.ts",
-      "src/pdp/index.ts",
       "src/payments/index.ts",
-      "src/storage/index.ts"
+      "src/pdp/index.ts",
+      "src/session/index.ts",
+      "src/storage/index.ts",
+      "src/subgraph/index.ts",
+      "src/telemetry/index.ts",
+      "src/warm-storage/index.ts",
+      "src/sp-registry/index.ts",
+      "src/filbeam/index.ts"
     ]
   }
 }

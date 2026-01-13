@@ -1,7 +1,6 @@
 /**
- * Exports the PDP components
+ * PDP components
  *
- * @packageDocumentation
  * @module PDP
  * @example
  * ```ts

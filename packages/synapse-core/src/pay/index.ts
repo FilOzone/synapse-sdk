@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Payments Contract Operations
+ * Payments Contract Operations
  *
  * @example
  * ```ts
  * import * as Pay from '@filoz/synapse-core/pay'
  * ```
  *
- * @packageDocumentation
+ * @module pay
  */
 
 export * from './operators.ts'

@@ -1,7 +1,6 @@
 /**
- * Exports the Warm Storage components
+ * Warm Storage Service
  *
- * @packageDocumentation
  * @module WarmStorage
  * @example
  * ```ts

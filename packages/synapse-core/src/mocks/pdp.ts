@@ -4,11 +4,10 @@
  * These handlers can be used to mock PDP Server HTTP responses in tests
  */
 
-import { assert } from 'chai'
-import { ethers } from 'ethers'
+import assert from 'assert'
 import { HttpResponse, http } from 'msw'
-import type { Hex } from 'viem'
-import type { PDPAddPiecesInput } from '../../../pdp/server.ts'
+import { decodeAbiParameters, type Hex } from 'viem'
+import type { AddPiecesRequest } from '../sp.ts'
 
 export interface PDPMockOptions {
   baseUrl?: string
@@ -16,13 +15,13 @@ export interface PDPMockOptions {
 }
 
 export interface MetadataCapture {
-  keys: string[]
-  values: string[]
+  keys: readonly string[]
+  values: readonly string[]
 }
 
 export interface PieceMetadataCapture {
-  keys: string[][]
-  values: string[][]
+  keys: readonly (readonly string[])[]
+  values: readonly (readonly string[])[]
 }
 
 export function createAndAddPiecesHandler(txHash: Hex, options: PDPMockOptions = {}) {
@@ -124,10 +123,9 @@ export function postPieceHandler(pieceCid: string, uuid?: string, options: PDPMo
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
   return http.post<Record<string, never>, { pieceCid: string }>(`${baseUrl}/pdp/piece`, async ({ request }) => {
     const body = await request.json()
-    assert.isDefined(body)
-    assert.isNotNull(body)
-    assert.exists(body.pieceCid)
-    assert.equal(body.pieceCid, pieceCid)
+    assert(body != null, 'Body should be defined')
+    assert(body.pieceCid != null, 'PieceCID should be defined')
+    assert.strictEqual(body.pieceCid, pieceCid, 'PieceCID should match expected value')
     if (uuid == null) {
       // parked piece found
       return HttpResponse.json({
@@ -253,12 +251,14 @@ export function streamingUploadHandlers(options: PDPMockOptions = {}) {
 /**
  * Helper to decode metadata from extraData
  */
-export function decodeMetadataFromCreateDataSetExtraData(extraData: string): MetadataCapture {
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  const decoded = abiCoder.decode(['address', 'uint256', 'string[]', 'string[]', 'bytes'], extraData)
+export function decodeMetadataFromCreateDataSetExtraData(extraData: Hex): MetadataCapture {
+  const decoded = decodeAbiParameters(
+    [{ type: 'address' }, { type: 'uint256' }, { type: 'string[]' }, { type: 'string[]' }, { type: 'bytes' }],
+    extraData
+  )
   return {
-    keys: decoded[2] as string[],
-    values: decoded[3] as string[],
+    keys: decoded[2],
+    values: decoded[3],
   }
 }
 
@@ -266,12 +266,14 @@ export function decodeMetadataFromCreateDataSetExtraData(extraData: string): Met
  * Helper to decode piece metadata from extraData
  * Format: (uint256 nonce, string[][] keys, string[][] values, bytes signature)
  */
-export function decodePieceMetadataFromExtraData(extraData: string): PieceMetadataCapture {
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  const decoded = abiCoder.decode(['uint256', 'string[][]', 'string[][]', 'bytes'], extraData)
+export function decodePieceMetadataFromExtraData(extraData: Hex): PieceMetadataCapture {
+  const decoded = decodeAbiParameters(
+    [{ type: 'uint256' }, { type: 'string[][]' }, { type: 'string[][]' }, { type: 'bytes' }],
+    extraData
+  )
   return {
-    keys: decoded[1] as string[][],
-    values: decoded[2] as string[][],
+    keys: decoded[1],
+    values: decoded[2],
   }
 }
 
@@ -330,7 +332,7 @@ export function addPiecesWithMetadataCapture(
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.post<{ id: string }, PDPAddPiecesInput>(
+  return http.post<{ id: string }, AddPiecesRequest>(
     `${baseUrl}/pdp/data-sets/:id/pieces`,
     async ({ params, request }) => {
       if (params.id !== dataSetId.toString()) {

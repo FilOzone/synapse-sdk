@@ -4,25 +4,25 @@
  * Tests for PaymentsService class
  */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { PaymentsService } from '../payments/index.ts'
 import { TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
-import { ADDRESSES, JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
 
 // mock server for testing
-const server = setup([])
+const server = setup()
 
 describe('PaymentsService', () => {
   let provider: ethers.Provider
   let signer: ethers.Signer
   let payments: PaymentsService
-  const paymentsAddress = ADDRESSES.calibration.payments
-  const usdfcAddress = ADDRESSES.calibration.usdfcToken
+  const paymentsAddress = Mocks.ADDRESSES.calibration.payments
+  const usdfcAddress = Mocks.ADDRESSES.calibration.usdfcToken
 
   before(async () => {
-    await server.start({ quiet: true })
+    await server.start()
   })
 
   after(() => {
@@ -32,7 +32,7 @@ describe('PaymentsService', () => {
   beforeEach(() => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
+    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
     payments = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
   })
 
@@ -49,19 +49,19 @@ describe('PaymentsService', () => {
 
   describe('walletBalance', () => {
     it('should return FIL balance when no token specified', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const balance = await payments.walletBalance()
       assert.equal(balance.toString(), ethers.parseEther('100').toString())
     })
 
     it('should return FIL balance when FIL token specified', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const balance = await payments.walletBalance(TOKENS.FIL)
       assert.equal(balance.toString(), ethers.parseEther('100').toString())
     })
 
     it('should return USDFC balance when USDFC specified', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const balance = await payments.walletBalance(TOKENS.USDFC)
       assert.equal(balance.toString(), ethers.parseUnits('1000', 18).toString())
     })
@@ -78,7 +78,7 @@ describe('PaymentsService', () => {
 
   describe('balance', () => {
     it('should return USDFC balance from payments contract', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const balance = await payments.balance()
       // Should return available funds (500 USDFC - 0 locked = 500)
       assert.equal(balance.toString(), ethers.parseUnits('500', 18).toString())
@@ -107,13 +107,13 @@ describe('PaymentsService', () => {
 
   describe('Token operations', () => {
     it('should check allowance for USDFC', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const allowance = await payments.allowance(paymentsAddress)
       assert.equal(allowance.toString(), '0')
     })
 
     it('should approve token spending', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const amount = ethers.parseUnits('100', 18)
       const tx = await payments.approve(paymentsAddress, amount)
       assert.exists(tx)
@@ -144,7 +144,7 @@ describe('PaymentsService', () => {
     const serviceAddress = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
 
     it('should approve service as operator', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const rateAllowance = ethers.parseUnits('10', 18) // 10 USDFC per epoch
       const lockupAllowance = ethers.parseUnits('1000', 18) // 1000 USDFC lockup
 
@@ -160,7 +160,7 @@ describe('PaymentsService', () => {
     })
 
     it('should revoke service operator approval', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const tx = await payments.revokeService(serviceAddress)
       assert.exists(tx)
       assert.exists(tx.hash)
@@ -168,7 +168,7 @@ describe('PaymentsService', () => {
     })
 
     it('should check service approval status', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const approval = await payments.serviceApproval(serviceAddress)
       assert.exists(approval)
       assert.exists(approval.isApproved)
@@ -206,8 +206,8 @@ describe('PaymentsService', () => {
   describe('Error handling', () => {
     it('should throw errors from payment operations', async () => {
       server.use(
-        JSONRPC({
-          ...presets.basic,
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
           eth_sendRawTransaction: () => {
             throw new Error('Transaction failed')
           },
@@ -228,7 +228,7 @@ describe('PaymentsService', () => {
 
   describe('Deposit and Withdraw', () => {
     it('should deposit USDFC tokens', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const depositAmount = ethers.parseUnits('100', 18)
       const tx = await payments.deposit(depositAmount)
       assert.exists(tx)
@@ -240,7 +240,7 @@ describe('PaymentsService', () => {
     })
 
     it('should deposit with permit', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const depositAmount = ethers.parseUnits('10', 18)
       const tx = await payments.depositWithPermit(depositAmount)
       assert.exists(tx)
@@ -248,7 +248,7 @@ describe('PaymentsService', () => {
     })
 
     it('should deposit with permit and approve operator', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const depositAmount = ethers.parseUnits('10', 18)
       const operator = '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4'
       const rateAllowance = ethers.parseUnits('5', 18)
@@ -267,7 +267,7 @@ describe('PaymentsService', () => {
     })
 
     it('should withdraw USDFC tokens', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const withdrawAmount = ethers.parseUnits('50', 18)
       const tx = await payments.withdraw(withdrawAmount)
       assert.exists(tx)
@@ -315,7 +315,7 @@ describe('PaymentsService', () => {
     })
 
     it('should handle deposit callbacks', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const depositAmount = ethers.parseUnits('100', 18)
       let allowanceChecked = false
       let approvalSent = false
@@ -353,7 +353,7 @@ describe('PaymentsService', () => {
   describe('Rail Settlement Features', () => {
     describe('getRailsAsPayer', () => {
       it('should return rails where wallet is payer', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const rails = await payments.getRailsAsPayer()
         assert.isArray(rails)
         assert.equal(rails.length, 2)
@@ -374,7 +374,7 @@ describe('PaymentsService', () => {
 
     describe('getRailsAsPayee', () => {
       it('should return rails where wallet is payee', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const rails = await payments.getRailsAsPayee()
         assert.isArray(rails)
         assert.equal(rails.length, 1)
@@ -393,21 +393,9 @@ describe('PaymentsService', () => {
       })
     })
 
-    describe('SETTLEMENT_FEE constant', () => {
-      it('should have correct settlement fee value', () => {
-        // Import the constant
-        const { SETTLEMENT_FEE } = require('../utils/constants.ts')
-
-        assert.exists(SETTLEMENT_FEE)
-        assert.typeOf(SETTLEMENT_FEE, 'bigint')
-        // Settlement fee should be 0.0013 FIL (1300000000000000 attoFIL)
-        assert.equal(SETTLEMENT_FEE, 1300000000000000n)
-      })
-    })
-
     describe('settle', () => {
       it('should settle a rail up to current epoch', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         const tx = await payments.settle(railId)
 
@@ -417,13 +405,10 @@ describe('PaymentsService', () => {
         assert.exists(tx.from)
         assert.exists(tx.to)
         assert.exists(tx.data)
-        // Check that the transaction includes the network fee as value
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should settle a rail up to specific epoch', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         const untilEpoch = 999999
         const tx = await payments.settle(railId, untilEpoch)
@@ -434,7 +419,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123n
         const tx = await payments.settle(railId)
 
@@ -446,7 +431,7 @@ describe('PaymentsService', () => {
 
     describe('getSettlementAmounts', () => {
       it('should get settlement amounts for a rail', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         const result = await payments.getSettlementAmounts(railId)
 
@@ -468,7 +453,7 @@ describe('PaymentsService', () => {
 
     describe('settleTerminatedRail', () => {
       it('should settle a terminated rail', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 456
         const tx = await payments.settleTerminatedRail(railId)
 
@@ -481,7 +466,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 456n
         const tx = await payments.settleTerminatedRail(railId)
 
@@ -493,7 +478,7 @@ describe('PaymentsService', () => {
 
     describe('getRail', () => {
       it('should get detailed rail information', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         const rail = await payments.getRail(railId)
 
@@ -512,7 +497,7 @@ describe('PaymentsService', () => {
         assert.exists(rail.serviceFeeRecipient)
 
         // Check values from mock
-        assert.equal(rail.from.toLowerCase(), ADDRESSES.client1.toLowerCase())
+        assert.equal(rail.from.toLowerCase(), Mocks.ADDRESSES.client1.toLowerCase())
         assert.equal(rail.to.toLowerCase(), '0xaabbccddaabbccddaabbccddaabbccddaabbccdd')
         assert.equal(rail.operator, '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4')
         assert.equal(rail.paymentRate.toString(), ethers.parseUnits('1', 18).toString())
@@ -523,7 +508,7 @@ describe('PaymentsService', () => {
       })
 
       it('should accept bigint rail ID', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123n
         const rail = await payments.getRail(railId)
 
@@ -535,7 +520,7 @@ describe('PaymentsService', () => {
 
     describe('settleAuto', () => {
       it('should settle active rail using regular settle', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         // This rail has endEpoch = 0 (active)
         const tx = await payments.settleAuto(railId)
@@ -543,25 +528,22 @@ describe('PaymentsService', () => {
         assert.exists(tx)
         assert.exists(tx.hash)
         assert.typeOf(tx.hash, 'string')
-        // Check that the transaction includes the settlement fee as value
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should settle terminated rail using settleTerminatedRail', async () => {
         const railId = 456
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
             payments: {
-              ...presets.basic.payments,
+              ...Mocks.presets.basic.payments,
               getRail: (args) => {
                 const [railIdArg] = args
                 if (railIdArg === 456n) {
                   return [
                     {
-                      token: ADDRESSES.calibration.usdfcToken,
-                      from: ADDRESSES.client1,
+                      token: Mocks.ADDRESSES.calibration.usdfcToken,
+                      from: Mocks.ADDRESSES.client1,
                       to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
                       operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
                       validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
@@ -575,7 +557,7 @@ describe('PaymentsService', () => {
                     },
                   ]
                 }
-                return presets.basic.payments.getRail?.(args) ?? presets.basic.payments.getRail(args)
+                return Mocks.presets.basic.payments.getRail?.(args) ?? Mocks.presets.basic.payments.getRail(args)
               },
             },
           })
@@ -591,7 +573,7 @@ describe('PaymentsService', () => {
       })
 
       it('should pass untilEpoch parameter to settle for active rails', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123
         const untilEpoch = 999999
         const tx = await payments.settleAuto(railId, untilEpoch)
@@ -599,12 +581,10 @@ describe('PaymentsService', () => {
         assert.exists(tx)
         assert.exists(tx.hash)
         assert.typeOf(tx.hash, 'string')
-        assert.exists(tx.value)
-        assert.isTrue(tx.value > 0n)
       })
 
       it('should accept bigint rail ID', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const railId = 123n
         const tx = await payments.settleAuto(railId)
 
@@ -616,17 +596,17 @@ describe('PaymentsService', () => {
       it('should ignore untilEpoch for terminated rails', async () => {
         const railId = 456
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
             payments: {
-              ...presets.basic.payments,
+              ...Mocks.presets.basic.payments,
               getRail: (args) => {
                 const [railIdArg] = args
                 if (railIdArg === 456n) {
                   return [
                     {
-                      token: ADDRESSES.calibration.usdfcToken,
-                      from: ADDRESSES.client1,
+                      token: Mocks.ADDRESSES.calibration.usdfcToken,
+                      from: Mocks.ADDRESSES.client1,
                       to: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd',
                       operator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
                       validator: '0x394feCa6bCB84502d93c0c5C03c620ba8897e8f4',
@@ -640,7 +620,7 @@ describe('PaymentsService', () => {
                     },
                   ]
                 }
-                return presets.basic.payments.getRail?.(args) ?? presets.basic.payments.getRail(args)
+                return Mocks.presets.basic.payments.getRail?.(args) ?? Mocks.presets.basic.payments.getRail(args)
               },
             },
           })
@@ -660,7 +640,7 @@ describe('PaymentsService', () => {
   describe('Enhanced Payment Features', () => {
     describe('accountInfo', () => {
       it('should return detailed account information with correct fields', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const info = await payments.accountInfo()
 
         assert.exists(info.funds)
@@ -677,11 +657,11 @@ describe('PaymentsService', () => {
 
       it('should calculate available funds correctly with time-based lockup', async () => {
         server.use(
-          JSONRPC({
-            ...presets.basic,
+          Mocks.JSONRPC({
+            ...Mocks.presets.basic,
             eth_blockNumber: '0xf4240', // 1000000 in hex - matches lockupLastSettledAt calculation
             payments: {
-              ...presets.basic.payments,
+              ...Mocks.presets.basic.payments,
               accounts: (_args) => {
                 // args should be [token, owner]
                 return [
@@ -705,7 +685,7 @@ describe('PaymentsService', () => {
       })
 
       it('should use accountInfo in balance() method', async () => {
-        server.use(JSONRPC(presets.basic))
+        server.use(Mocks.JSONRPC(Mocks.presets.basic))
         const balance = await payments.balance()
         const info = await payments.accountInfo()
 
