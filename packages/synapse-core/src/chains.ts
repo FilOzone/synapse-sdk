@@ -46,6 +46,10 @@ export interface Chain extends ViemChain {
       address: Address
       abi: typeof Abis.pdp
     }
+    endorsements: {
+      address: Address
+      abi: typeof Abis.providerIdSet
+    }
   }
 }
 
@@ -120,6 +124,10 @@ export const mainnet: Chain = {
       address: Abis.generated.pdpVerifierAddress['314'],
       abi: Abis.pdp,
     },
+    endorsements: {
+      address: Abis.generated.providerIdSetAddress['314'],
+      abi: Abis.providerIdSet,
+    },
   },
 }
 
@@ -193,6 +201,10 @@ export const calibration: Chain = {
     pdp: {
       address: Abis.generated.pdpVerifierAddress['314159'],
       abi: Abis.pdp,
+    },
+    endorsements: {
+      address: Abis.generated.providerIdSetAddress['314159'],
+      abi: Abis.providerIdSet,
     },
   },
   testnet: true,

@@ -73,6 +73,11 @@ export const CONTRACT_ABIS = {
    * SessionKeyRegistry ABI - for session key management
    */
   SESSION_KEY_REGISTRY: Abis.sessionKeyRegistry,
+
+  /**
+   * Endorsements ABI - for querying endorsed storage providers
+   */
+  ENDORSEMENTS: Abis.providerIdSet,
 } as const
 
 /**
@@ -325,8 +330,8 @@ export const CONTRACT_ADDRESSES = {
    * All other contract addresses are discovered from this contract
    */
   WARM_STORAGE: {
-    mainnet: '0x8408502033C418E1bbC97cE9ac48E5528F371A9f',
-    calibration: '0x02925630df557F957f70E112bA06e50965417CA0',
+    mainnet: Abis.generated.filecoinWarmStorageServiceAddress['314'],
+    calibration: Abis.generated.filecoinWarmStorageServiceAddress['314159'],
   } as const satisfies Record<FilecoinNetworkType, string>,
 
   /**
@@ -341,5 +346,10 @@ export const CONTRACT_ADDRESSES = {
   USDFC: {
     mainnet: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
     calibration: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
+  } as const satisfies Record<FilecoinNetworkType, string>,
+
+  ENDORSEMENTS: {
+    mainnet: Abis.generated.providerIdSetAddress['314'],
+    calibration: Abis.generated.providerIdSetAddress['314159'],
   } as const satisfies Record<FilecoinNetworkType, string>,
 } as const
