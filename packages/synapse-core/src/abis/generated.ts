@@ -147,15 +147,6 @@ export const errorsAbi = [
     type: 'error',
     inputs: [
       { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientFundsForMinimumRate',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
       { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
@@ -166,6 +157,15 @@ export const errorsAbi = [
       },
     ],
     name: 'InsufficientLockupAllowance',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupFunds',
   },
   {
     type: 'error',
@@ -417,6 +417,15 @@ export const errorsAbi = [
     type: 'error',
     inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
     name: 'RailNotAssociated',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
+      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'RailNotFullySettled',
   },
   { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
   {
@@ -2887,15 +2896,6 @@ export const filecoinWarmStorageServiceAbi = [
     type: 'error',
     inputs: [
       { name: 'payer', internalType: 'address', type: 'address' },
-      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
-      { name: 'available', internalType: 'uint256', type: 'uint256' },
-    ],
-    name: 'InsufficientFundsForMinimumRate',
-  },
-  {
-    type: 'error',
-    inputs: [
-      { name: 'payer', internalType: 'address', type: 'address' },
       { name: 'operator', internalType: 'address', type: 'address' },
       { name: 'lockupAllowance', internalType: 'uint256', type: 'uint256' },
       { name: 'lockupUsage', internalType: 'uint256', type: 'uint256' },
@@ -2906,6 +2906,15 @@ export const filecoinWarmStorageServiceAbi = [
       },
     ],
     name: 'InsufficientLockupAllowance',
+  },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'payer', internalType: 'address', type: 'address' },
+      { name: 'minimumRequired', internalType: 'uint256', type: 'uint256' },
+      { name: 'available', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'InsufficientLockupFunds',
   },
   {
     type: 'error',
@@ -3132,6 +3141,15 @@ export const filecoinWarmStorageServiceAbi = [
     inputs: [{ name: 'railId', internalType: 'uint256', type: 'uint256' }],
     name: 'RailNotAssociated',
   },
+  {
+    type: 'error',
+    inputs: [
+      { name: 'railId', internalType: 'uint256', type: 'uint256' },
+      { name: 'settledUpTo', internalType: 'uint256', type: 'uint256' },
+      { name: 'endEpoch', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'RailNotFullySettled',
+  },
   { type: 'error', inputs: [], name: 'ServiceContractMustTerminateRail' },
   {
     type: 'error',
@@ -3200,13 +3218,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
   },
   {
     type: 'function',
-    inputs: [],
-    name: 'challengeWindow',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     inputs: [{ name: 'payer', internalType: 'address', type: 'address' }],
     name: 'clientDataSets',
     outputs: [
@@ -3272,13 +3283,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
     name: 'getApprovedProvidersLength',
     outputs: [{ name: 'count', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getChallengesPerProof',
-    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
-    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -3373,13 +3377,6 @@ export const filecoinWarmStorageServiceStateViewAbi = [
         type: 'uint8',
       },
     ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    inputs: [],
-    name: 'getMaxProvingPeriod',
-    outputs: [{ name: '', internalType: 'uint64', type: 'uint64' }],
     stateMutability: 'view',
   },
   {
@@ -4282,6 +4279,124 @@ export const pdpVerifierConfig = {
 } as const
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ProviderIdSet
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84)
+ */
+export const providerIdSetAbi = [
+  { type: 'constructor', inputs: [], stateMutability: 'nonpayable' },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'addProviderId',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'containsProviderId',
+    outputs: [{ name: '', internalType: 'bool', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'getProviderIds',
+    outputs: [{ name: '', internalType: 'uint256[]', type: 'uint256[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'owner',
+    outputs: [{ name: '', internalType: 'address', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'removeProviderId',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'renounceOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
+    name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'previousOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+      {
+        name: 'newOwner',
+        internalType: 'address',
+        type: 'address',
+        indexed: true,
+      },
+    ],
+    name: 'OwnershipTransferred',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
+    name: 'OwnableInvalidOwner',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'account', internalType: 'address', type: 'address' }],
+    name: 'OwnableUnauthorizedAccount',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderIdNotFound',
+  },
+  {
+    type: 'error',
+    inputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
+    name: 'ProviderIdTooLarge',
+  },
+] as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84)
+ */
+export const providerIdSetAddress = {
+  314: '0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b',
+  314159: '0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84',
+} as const
+
+/**
+ * - [__View Contract on Filecoin Mainnet Filfox__](https://filfox.info/en/address/0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b)
+ * - [__View Contract on Filecoin Calibration Filscan__](https://calibration.filscan.io/address/0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84)
+ */
+export const providerIdSetConfig = {
+  address: providerIdSetAddress,
+  abi: providerIdSetAbi,
+} as const
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ServiceProviderRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -4376,6 +4491,27 @@ export const serviceProviderRegistryAbi = [
     name: 'addressToProviderId',
     outputs: [{ name: 'providerId', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct ServiceProviderRegistry.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+      },
+    ],
+    name: 'announcePlannedUpgrade',
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -4750,6 +4886,16 @@ export const serviceProviderRegistryAbi = [
   {
     type: 'function',
     inputs: [],
+    name: 'nextUpgrade',
+    outputs: [
+      { name: 'nextImplementation', internalType: 'address', type: 'address' },
+      { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
     name: 'owner',
     outputs: [{ name: '', internalType: 'address', type: 'address' }],
     stateMutability: 'view',
@@ -5119,6 +5265,27 @@ export const serviceProviderRegistryAbi = [
       },
     ],
     name: 'ProviderRemoved',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'plannedUpgrade',
+        internalType: 'struct ServiceProviderRegistry.PlannedUpgrade',
+        type: 'tuple',
+        components: [
+          {
+            name: 'nextImplementation',
+            internalType: 'address',
+            type: 'address',
+          },
+          { name: 'afterEpoch', internalType: 'uint96', type: 'uint96' },
+        ],
+        indexed: false,
+      },
+    ],
+    name: 'UpgradeAnnounced',
   },
   {
     type: 'event',
