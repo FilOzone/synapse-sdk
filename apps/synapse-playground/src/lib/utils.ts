@@ -46,7 +46,7 @@ export function formatBytes(bytes: bigint | number): string {
   const num = typeof bytes === 'bigint' ? Number(bytes) : bytes
   if (num === 0) return '0 B'
 
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
   const k = 1024
   const i = Math.floor(Math.log(num) / Math.log(k))
   const value = num / k ** i

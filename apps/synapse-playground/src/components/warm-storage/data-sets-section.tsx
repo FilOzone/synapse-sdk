@@ -1,6 +1,6 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
 import { useDeletePiece } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, FolderSync, Globe, Info, Trash } from 'lucide-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatBytes, toastError } from '@/lib/utils.ts'
@@ -110,34 +110,22 @@ export function DataSetsSection({
                       </TooltipContent>
                     </Tooltip>
                     {dataSet.cdn && (
-                      <>
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Tooltip>
-                          <TooltipTrigger className="flex items-center gap-1">
+                          <TooltipTrigger>
                             <Globe className="w-4" />
-                            {dataSet.egressQuota && (
-                              <span className="text-sm text-muted-foreground">
-                                {formatBytes(dataSet.egressQuota.cdnEgressQuota)}
-                              </span>
-                            )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>CDN egress quota remaining</p>
+                            <p>This data set is using CDN</p>
                           </TooltipContent>
                         </Tooltip>
                         {dataSet.egressQuota && (
-                          <Tooltip>
-                            <TooltipTrigger className="flex items-center gap-1">
-                              <FolderSync className="w-4" />
-                              <span className="text-sm text-muted-foreground">
-                                {formatBytes(dataSet.egressQuota.cacheMissEgressQuota)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Cache miss egress quota remaining</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <>
+                            Egress remaining: {formatBytes(dataSet.egressQuota.cdnEgressQuota)} delivery {' · '}
+                            {formatBytes(dataSet.egressQuota.cacheMissEgressQuota)} cache-miss
+                          </>
                         )}
-                      </>
+                      </span>
                     )}
                   </p>
 
