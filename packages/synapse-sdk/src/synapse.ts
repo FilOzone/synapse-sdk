@@ -143,11 +143,7 @@ export class Synapse {
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(
-      provider,
-      network === 'mainnet' ? CHAIN_IDS.mainnet : CHAIN_IDS.calibration,
-      registryAddress
-    )
+    const spRegistry = new SPRegistryService(provider, registryAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -456,7 +452,7 @@ export class Synapse {
 
       // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._provider, this.getChainId(), registryAddress)
+      const spRegistry = new SPRegistryService(this._provider, registryAddress)
 
       let providerInfo: ProviderInfo | null
       if (typeof providerAddress === 'string') {

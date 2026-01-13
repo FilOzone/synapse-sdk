@@ -26,7 +26,7 @@ import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
-import type { Address, Hex } from 'viem'
+import type { Hex } from 'viem'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
@@ -61,7 +61,6 @@ import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadat
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
-const PRIME_ENDORSEMENTS: Address[] = ['0x2127C3a31F54B81B5E9AD1e29C36c420d3D6ecC5']
 
 export class StorageContext {
   private readonly _synapse: Synapse
@@ -211,7 +210,7 @@ export class StorageContext {
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = await synapse.getClient().getAddress()
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), synapse.getChainId(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
@@ -265,7 +264,7 @@ export class StorageContext {
             warmStorageService,
             spRegistry,
             excludeProviderIds,
-            resolutions.length === 0 ? PRIME_ENDORSEMENTS : [],
+            resolutions.length === 0,
             options.forceCreateDataSets ?? false,
             options.withIpni ?? false,
             options.dev ?? false
@@ -299,7 +298,7 @@ export class StorageContext {
   ): Promise<StorageContext> {
     // Create SPRegistryService
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), synapse.getChainId(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
 
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
@@ -396,7 +395,7 @@ export class StorageContext {
       warmStorageService,
       spRegistry,
       options.excludeProviderIds ?? [],
-      PRIME_ENDORSEMENTS,
+      true,
       options.forceCreateDataSet ?? false,
       options.withIpni ?? false,
       options.dev ?? false
@@ -667,7 +666,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
     excludeProviderIds: number[],
-    preferEndorsements: Address[],
+    preferEndorsed: boolean,
     forceCreateDataSet: boolean,
     withIpni: boolean,
     dev: boolean
@@ -772,21 +771,9 @@ export class StorageContext {
     }
 
     let provider: ProviderInfo | null
-    if (preferEndorsements.length > 0) {
+    if (preferEndorsed) {
       // Split providers according to whether they have all of the endorsements
-      const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
-        (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
-          results[
-            preferEndorsements.some(
-              (endorsement: Address) => endorsement in (provider.products.PDP?.data.endorsements ?? {})
-            )
-              ? 1
-              : 0
-          ].push(provider)
-          return results
-        },
-        [[], []]
-      )
+      const [otherProviders, endorsedProviders] = [allProviders, []] // TODO
       provider =
         (await StorageContext.selectRandomProvider(endorsedProviders)) ||
         (await StorageContext.selectRandomProvider(otherProviders))

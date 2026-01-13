@@ -28,13 +28,13 @@ describe('SPRegistryService', () => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
     signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
-    service = new SPRegistryService(provider, 314159, Mocks.ADDRESSES.calibration.spRegistry)
+    service = new SPRegistryService(provider, Mocks.ADDRESSES.calibration.spRegistry)
   })
 
   describe('Constructor', () => {
     it('should create instance with provider and address', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const instance = new SPRegistryService(provider, 314159, Mocks.ADDRESSES.calibration.spRegistry)
+      const instance = new SPRegistryService(provider, Mocks.ADDRESSES.calibration.spRegistry)
       assert.exists(instance)
     })
   })

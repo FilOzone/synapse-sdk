@@ -1528,8 +1528,6 @@ describe('StorageService', () => {
               minProvingPeriodInEpochs: '0x1e',
               location: '0x75732d65617374',
               paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
-              endorsement0:
-                '0x00000000ffffffff00000000ffffffff1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b',
             },
             data: {
               serviceURL: 'https://provider1.example.com',
@@ -1541,14 +1539,6 @@ describe('StorageService', () => {
               minProvingPeriodInEpochs: 30n,
               location: 'us-east',
               paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
-              endorsements: {
-                '0x50724807600e804Fe842439860D5b62baa26aFff': {
-                  nonce: 4294967295n,
-                  notAfter: 4294967295n,
-                  signature:
-                    '0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b',
-                },
-              },
             },
           },
         },
