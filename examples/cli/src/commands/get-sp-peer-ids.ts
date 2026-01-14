@@ -7,8 +7,6 @@ import { readContract } from 'viem/actions'
 import { publicClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
-const IPNI_PEER_ID_KEY = 'IPNIPeerID'
-
 interface ProviderPeerId {
   providerId: bigint
   name: string
@@ -81,7 +79,7 @@ async function fetchProviderPeerIds(
 
     for (const provider of result.providers) {
       const peerIdIndex =
-        provider.product.capabilityKeys.indexOf(IPNI_PEER_ID_KEY)
+        provider.product.capabilityKeys.indexOf('IPNIPeerID')
       if (peerIdIndex === -1) continue
 
       const peerIdHex = provider.productCapabilityValues[peerIdIndex] as Hex
