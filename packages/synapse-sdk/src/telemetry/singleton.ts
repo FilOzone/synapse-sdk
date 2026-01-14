@@ -45,12 +45,21 @@ export async function initGlobalTelemetry(
   telemetryConfig: TelemetryConfig,
   telemetryContext: TelemetryRuntimeContext
 ): Promise<void> {
-  if (!shouldEnableTelemetry(telemetryConfig, telemetryContext)) {
+  if (!shouldEnableTelemetry(telemetryConfig)) {
     return
   }
 
   telemetryInstance = new TelemetryService()
-  await telemetryInstance.initSentry(telemetryConfig, telemetryContext)
+  await telemetryInstance.initSentry(
+    {
+      ...telemetryConfig,
+      sentryInitOptions: {
+        ...(telemetryConfig.sentryInitOptions || {}),
+        enabled: true,
+      },
+    },
+    telemetryContext
+  )
   wrapFetch()
   setupShutdownHooks()
 }
@@ -85,7 +94,7 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
  * @param telemetryContext - Runtime context for telemetry, including network info.
  * @returns True if telemetry should be enabled
  */
-function shouldEnableTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): boolean {
+function shouldEnableTelemetry(telemetryConfig: TelemetryConfig): boolean {
   // If explicitly enabled by user config, respect that
   if (telemetryConfig?.sentryInitOptions?.enabled === true) {
     return true
