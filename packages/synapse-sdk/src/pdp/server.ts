@@ -29,7 +29,7 @@
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { randU256 } from '@filoz/synapse-core/utils'
+import { randU256, SIZE_CONSTANTS, uint8ArrayToAsyncIterable } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
@@ -508,14 +508,14 @@ export class PDPServer {
   ): Promise<SP.UploadPieceResponse> {
     if (data instanceof Uint8Array) {
       // Check hard limit
-      if (data.length > Piece.MAX_UPLOAD_SIZE) {
+      if (data.length > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new Error(
-          `Upload size ${data.length} exceeds maximum ${Piece.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`
+          `Upload size ${data.length} exceeds maximum ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`
         )
       }
 
       // Convert to async iterable with chunking
-      const iterable = Piece.uint8ArrayToAsyncIterable(data)
+      const iterable = uint8ArrayToAsyncIterable(data)
 
       return SP.uploadPieceStreaming({
         endpoint: this._serviceURL,

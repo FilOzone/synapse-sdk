@@ -1073,7 +1073,7 @@ export class StorageContext {
           item.callbacks?.onPiecesAdded?.(addPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(addPiecesResult.txHash as Hex)
         })
-        const addPiecesResponse = await SP.pollForAddPiecesStatus(addPiecesResult)
+        const addPiecesResponse = await SP.waitForAddPiecesStatus(addPiecesResult)
 
         // Handle transaction tracking if available
         confirmedPieceIds.push(...(addPiecesResponse.confirmedPieceIds ?? []))
@@ -1113,10 +1113,10 @@ export class StorageContext {
           item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, addedPieceRecords)
           item.callbacks?.onPieceAdded?.(createAndAddPiecesResult.txHash as Hex)
         })
-        const confirmedDataset = await SP.pollForDataSetCreationStatus(createAndAddPiecesResult)
+        const confirmedDataset = await SP.waitForDataSetCreationStatus(createAndAddPiecesResult)
         this._dataSetId = confirmedDataset.dataSetId
 
-        const confirmedPieces = await SP.pollForAddPiecesStatus({
+        const confirmedPieces = await SP.waitForAddPiecesStatus({
           statusUrl: new URL(
             `/pdp/data-sets/${confirmedDataset.dataSetId}/pieces/added/${confirmedDataset.createMessageHash}`,
             this._pdpServer.getServiceURL()
