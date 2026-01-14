@@ -47,7 +47,7 @@ function parseBigInt(value: string, fieldName: string): bigint {
 /**
  * Validates the response from FilBeam stats API and returns DataSetStats
  */
-function validateStatsResponse(data: unknown): DataSetStats {
+export function validateStatsResponse(data: unknown): DataSetStats {
   if (typeof data !== 'object' || data === null) {
     throw new GetDataSetStatsError('Invalid response format', 'Response is not an object')
   }

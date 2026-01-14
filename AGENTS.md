@@ -63,6 +63,47 @@ packages/synapse-sdk/src/
 
 **Tests**: Mocha + Chai, `src/test/`, run with `pnpm test`
 
+When working on a single package, run the tests for that package only. For
+example:
+
+```bash
+pnpm -F ./packages/synapse-core test
+```
+
+**Test assertions**: Use `assert.deepStrictEqual` for comparing objects instead of multiple `assert.equal` calls:
+
+```typescript
+// Bad
+assert.equal(result.cdnEgressQuota, 1000000n)
+assert.equal(result.cacheMissEgressQuota, 500000n)
+
+// Good
+assert.deepStrictEqual(result, { cdnEgressQuota: 1000000n, cacheMissEgressQuota: 500000n })
+```
+
+**Parameterized tests**: When testing multiple similar cases, use a single loop with descriptive names instead of multiple `it()` blocks with repeated assertions. One assertion per test, with names describing the specific input condition:
+
+```typescript
+// Bad - multiple assertions in one test
+it('should throw error when input is invalid', () => {
+  assert.throws(() => validate(null), isError)
+  assert.throws(() => validate('string'), isError)
+  assert.throws(() => validate(123), isError)
+})
+
+// Good - parameterized tests with descriptive names
+const invalidInputCases: Record<string, unknown> = {
+  'input is null': null,
+  'input is a string': 'string',
+  'input is a number': 123,
+}
+for (const [name, input] of Object.entries(invalidInputCases)) {
+  it(`should throw error when ${name}`, () => {
+    assert.throws(() => validate(input), isError)
+  })
+}
+```
+
 ## Biome Linting (Critical)
 
 **NO** `!` operator → use `?.` or explicit checks
