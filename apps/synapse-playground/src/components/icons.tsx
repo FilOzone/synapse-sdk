@@ -60,7 +60,7 @@ export function Filecoin(props: React.SVGProps<SVGSVGElement>) {
   )
 }
 
-export function Github(props: SVGProps<SVGSVGElement>) {
+export function Github(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg height={24} viewBox="0 0 24 24" width={24} xmlns="http://www.w3.org/2000/svg" {...props}>
       <title>Github</title>
