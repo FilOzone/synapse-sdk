@@ -778,4 +778,3 @@ export const presets = {
     },
   } as RequiredDeep<JSONRPCOptions>,
 }
- 

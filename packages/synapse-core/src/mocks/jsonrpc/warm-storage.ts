@@ -310,9 +310,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: getMaxProvingPeriod is not defined')
       }
       return encodeAbiParameters(
-        Abis.storageView.find(
-          (abi) => abi.type === 'function' && abi.name === 'getMaxProvingPeriod'
-        )!.outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'getMaxProvingPeriod')!.outputs,
         options.warmStorageView.getMaxProvingPeriod(args)
       )
     }
@@ -322,8 +320,7 @@ export function warmStorageViewCallHandler(data: Hex, options: JSONRPCOptions): 
         throw new Error('Warm Storage View: challengeWindow is not defined')
       }
       return encodeAbiParameters(
-        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'challengeWindow')!
-          .outputs,
+        Abis.storageView.find((abi) => abi.type === 'function' && abi.name === 'challengeWindow')!.outputs,
         options.warmStorageView.challengeWindow(args)
       )
     }
