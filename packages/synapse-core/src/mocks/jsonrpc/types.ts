@@ -10,6 +10,7 @@ import type {
   RpcTransaction,
   TransactionRequest,
 } from 'viem'
+import type { EndorsementsOptions } from './endorsements.ts'
 import type { ERC20Options } from './erc20.ts'
 import type { PaymentsOptions } from './payments.ts'
 import type { PDPVerifierOptions } from './pdp.ts'
@@ -62,6 +63,7 @@ export interface JSONRPCOptions {
   serviceRegistry?: ServiceRegistryOptions
   sessionKeyRegistry?: SessionKeyRegistryOptions
   erc20?: ERC20Options
+  endorsements?: EndorsementsOptions
 }
 
 /**

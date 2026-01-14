@@ -777,7 +777,7 @@ export class StorageContext {
       // Split providers according to whether they have all of the endorsements
       const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
         (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
-          results[provider.id in endorsedProviderIds ? 1 : 0].push(provider)
+          results[endorsedProviderIds.has(provider.id) ? 1 : 0].push(provider)
           return results
         },
         [[], []]

@@ -20,10 +20,8 @@ export class EndorsementsService {
   async getEndorsedProviderIds(): Promise<Set<number>> {
     if (this._endorsedProviderIds == null) {
       const endorsedProviderIds = await this._endorsementsContract.getProviderIds()
-      this._endorsedProviderIds = new Set(endorsedProviderIds)
-      return endorsedProviderIds
-    } else {
-      return this._endorsedProviderIds
+      this._endorsedProviderIds = new Set(endorsedProviderIds.map(Number))
     }
+    return this._endorsedProviderIds
   }
 }

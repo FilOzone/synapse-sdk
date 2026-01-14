@@ -733,12 +733,17 @@ describe('Synapse', () => {
 
   describe('createContexts', () => {
     let synapse: Synapse
+    const endorsedProviderIds: bigint[] = []
 
     beforeEach(async () => {
+      endorsedProviderIds.length = 0
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+          endorsements: {
+            getProviderIds: () => [endorsedProviderIds],
+          },
         })
       )
       synapse = await Synapse.create({ signer })
@@ -944,10 +949,12 @@ describe('Synapse', () => {
 
     providerIds.forEach((endorsedProviderId, index) => {
       describe(`when endorsing providers[${index}]`, async () => {
-        // TODO mock provider endorsements
+        beforeEach(() => {
+          endorsedProviderIds.push(BigInt(endorsedProviderId))
+        })
 
         for (const count of [1, 2]) {
-          it.skip(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
+          it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
             const counts: Record<number, number> = {}
             for (const providerId of providerIds) {
               counts[providerId] = 0

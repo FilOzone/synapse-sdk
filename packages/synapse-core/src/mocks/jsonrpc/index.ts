@@ -16,6 +16,7 @@ import {
 } from 'viem'
 import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
+import { endorsementsCallHandler } from './endorsements.ts'
 import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
@@ -174,6 +175,13 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
 
       if (isAddressEqual(ADDRESSES.calibration.sessionKeyRegistry, to as Address)) {
         return sessionKeyRegistryCallHandler(data as Hex, options)
+      }
+
+      if (
+        isAddressEqual(ADDRESSES.calibration.endorsements, to as Address) ||
+        isAddressEqual(ADDRESSES.mainnet.endorsements, to as Address)
+      ) {
+        return endorsementsCallHandler(data as Hex, options)
       }
 
       if (isAddressEqual(ADDRESSES.calibration.viewContract, to as Address)) {
@@ -698,6 +706,9 @@ export const presets = {
     },
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],
+    },
+    endorsements: {
+      getProviderIds: () => [[]],
     },
     erc20: {
       balanceOf: () => [parseUnits('1000', 18)],
