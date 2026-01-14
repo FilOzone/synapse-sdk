@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts'
 import { getDataSets } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
+import { getBlockNumber } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
@@ -22,6 +23,8 @@ export const datasets: Command = command(
 
     const spinner = p.spinner()
 
+    const blockNumber = await getBlockNumber(client)
+
     spinner.start('Listing data sets...')
     try {
       const dataSets = await getDataSets(client, {
@@ -30,10 +33,11 @@ export const datasets: Command = command(
       spinner.stop('Data sets:')
       dataSets.forEach(async (dataSet) => {
         p.log.info(
-          `#${dataSet.dataSetId} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''}`
+          `#${dataSet.dataSetId} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''} ${dataSet.live ? 'Live' : ''} ${dataSet.managed ? 'Managed' : ''}`
         )
-        console.log(dataSet)
+        // console.log(dataSet)
       })
+      p.log.warn(`Block number: ${blockNumber}`)
     } catch (error) {
       spinner.stop()
       console.error(error)
