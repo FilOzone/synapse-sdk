@@ -6,7 +6,6 @@ import { ConnectSection } from './components/connect-section.tsx'
 import { PaymentsAccount } from './components/payments-account.tsx'
 import { Services } from './components/services.tsx'
 import { WalletMenu } from './components/wallet-menu.tsx'
-import github from '../public/github.png'
 
 export function App() {
   const { isConnected } = useAccount()
@@ -26,18 +25,11 @@ export function App() {
             </a>
             <span className="text-xl font-bold">Filecoin Onchain Cloud</span>
           </div>
-          <div className="flex flex-row gap-2 items-center">
+          <div className="flex flex-row gap-3 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
-            <a
-              href="https://github.com/FilOzone/synapse-sdk"
-            >
-              <img
-                src={github}
-                alt="GitHub Repository"
-                loading="lazy"
-                className="w-10 h-10 rounded-full"
-              />
+            <a href="https://github.com/FilOzone/synapse-sdk">
+              <Icons.Github />
             </a>
           </div>
         </nav>
