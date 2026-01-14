@@ -11,7 +11,7 @@ export function createPieceUrl(cid: string, cdn: boolean, address: Address, chai
   }
 }
 
-function createPieceUrlPDP(cid: string, pdpUrl: string) {
+export function createPieceUrlPDP(cid: string, pdpUrl: string) {
   const endpoint = pdpUrl
   const url = `piece/${cid}`
   return new URL(url, endpoint).toString()
