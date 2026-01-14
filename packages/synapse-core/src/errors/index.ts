@@ -11,5 +11,6 @@
 export * from './base.ts'
 export * from './chains.ts'
 export * from './erc20.ts'
+export * from './filbeam.ts'
 export * from './pay.ts'
 export * from './pdp.ts'

@@ -1,5 +1,5 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
-import { useDeletePiece } from '@filoz/synapse-react'
+import { useDeletePiece, useEgressQuota } from '@filoz/synapse-react'
 import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -13,6 +13,21 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle }
 import { Skeleton } from '../ui/skeleton.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.tsx'
 import { CreateDataSetDialog } from './create-data-set.tsx'
+
+function EgressQuotaDisplay({ dataSetId }: { dataSetId: bigint }) {
+  const { data: egressQuota } = useEgressQuota({ dataSetId })
+
+  if (!egressQuota) {
+    return null
+  }
+
+  return (
+    <>
+      Egress remaining: {formatBytes(egressQuota.cdnEgressQuota)} delivery {' · '}
+      {formatBytes(egressQuota.cacheMissEgressQuota)} cache-miss
+    </>
+  )
+}
 
 export function DataSetsSection({
   dataSets,
@@ -119,12 +134,7 @@ export function DataSetsSection({
                             <p>This data set is using CDN</p>
                           </TooltipContent>
                         </Tooltip>
-                        {dataSet.egressQuota && (
-                          <>
-                            Egress remaining: {formatBytes(dataSet.egressQuota.cdnEgressQuota)} delivery {' · '}
-                            {formatBytes(dataSet.egressQuota.cacheMissEgressQuota)} cache-miss
-                          </>
-                        )}
+                        <EgressQuotaDisplay dataSetId={dataSet.dataSetId} />
                       </span>
                     )}
                   </p>

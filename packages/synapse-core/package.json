@@ -72,6 +72,10 @@
       "types": "./dist/src/errors/index.d.ts",
       "default": "./dist/src/errors/index.js"
     },
+    "./filbeam": {
+      "types": "./dist/src/filbeam/index.d.ts",
+      "default": "./dist/src/filbeam/index.js"
+    },
     "./piece": {
       "types": "./dist/src/piece.d.ts",
       "default": "./dist/src/piece.js"
@@ -119,6 +123,9 @@
       ],
       "errors": [
         "./dist/src/errors/index"
+      ],
+      "filbeam": [
+        "./dist/src/filbeam/index"
       ],
       "piece": [
         "./dist/src/piece"
