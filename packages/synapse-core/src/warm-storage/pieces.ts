@@ -7,6 +7,7 @@ import type { PieceCID } from '../piece.ts'
 import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-removals.ts'
+import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { randU256 } from '../utils/rand.ts'
@@ -108,10 +109,10 @@ export async function pollForDeletePieceStatus(
         return transaction
       },
       {
-        factor: 1,
-        minTimeout: 4000,
-        retries: Infinity,
-        maxRetryTime: 180000,
+        factor: RETRY_CONSTANTS.FACTOR,
+        minTimeout: RETRY_CONSTANTS.DELAY_TIME,
+        retries: RETRY_CONSTANTS.RETRIES,
+        maxRetryTime: RETRY_CONSTANTS.MAX_RETRY_TIME,
       }
     )
   } catch {

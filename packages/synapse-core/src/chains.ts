@@ -11,6 +11,7 @@
 
 import type { Address, ChainContract, Chain as ViemChain } from 'viem'
 import * as Abis from './abis/index.ts'
+import { UnsupportedChainError } from './errors/chains.ts'
 
 /**
  * Viem compatible chain interface with all the FOC contracts addresses and ABIs
@@ -296,4 +297,22 @@ export function getChain(id?: number): Chain {
     default:
       throw new Error(`Chain with id ${id} not found`)
   }
+}
+
+/**
+ * Convert a viem chain to a filecoin chain.
+ * @param chain - The viem chain.
+ * @returns The filecoin chain.
+ * @throws Errors {@link asChain.ErrorType}
+ */
+export function asChain(chain: ViemChain): Chain {
+  if (chain.contracts && 'payments' in chain.contracts) {
+    return chain as Chain
+  }
+  throw new UnsupportedChainError(chain.id)
+}
+
+// biome-ignore lint/style/noNamespace: namespaced types
+export namespace asChain {
+  export type ErrorType = UnsupportedChainError
 }

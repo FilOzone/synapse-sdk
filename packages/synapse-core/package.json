@@ -211,11 +211,13 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/assert": "^1.5.11",
+    "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "@wagmi/cli": "^2.7.0",
     "abitype": "catalog:",
     "assert": "^2.1.0",
+    "chai": "^6.2.1",
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^14.1.12",
