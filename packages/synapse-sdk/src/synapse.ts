@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
@@ -123,6 +124,8 @@ export class Synapse {
       throw new Error(`Invalid network: ${String(network)}. Only 'mainnet' and 'calibration' are supported.`)
     }
 
+    const endorsementsService = new EndorsementsService(provider, CONTRACT_ADDRESSES.ENDORSEMENTS[network])
+
     // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
     if (!warmStorageAddress) {
@@ -184,6 +187,7 @@ export class Synapse {
       warmStorageService,
       pieceRetriever,
       filbeamService,
+      endorsementsService,
       options.dev === false,
       options.withIpni
     )
@@ -200,6 +204,7 @@ export class Synapse {
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
     filbeamService: FilBeamService,
+    endorsementsService: EndorsementsService,
     dev: boolean,
     withIpni?: boolean
   ) {
@@ -218,6 +223,7 @@ export class Synapse {
     this._storageManager = new StorageManager(
       this,
       this._warmStorageService,
+      endorsementsService,
       this._pieceRetriever,
       this._withCDN,
       dev,

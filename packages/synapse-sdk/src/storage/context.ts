@@ -27,6 +27,7 @@ import * as SP from '@filoz/synapse-core/sp'
 import { randIndex, randU256 } from '@filoz/synapse-core/utils'
 import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
+import { EndorsementsService } from '../endorsements/index.ts'
 import type { PaymentsService } from '../payments/index.ts'
 import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
@@ -204,6 +205,7 @@ export class StorageContext {
   static async createContexts(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
+    endorsementsService: EndorsementsService,
     options: CreateContextsOptions
   ): Promise<StorageContext[]> {
     const count = options?.count ?? 2
@@ -264,7 +266,7 @@ export class StorageContext {
             warmStorageService,
             spRegistry,
             excludeProviderIds,
-            resolutions.length === 0,
+            resolutions.length === 0 ? await endorsementsService.getEndorsedProviderIds() : new Set<number>(),
             options.forceCreateDataSets ?? false,
             options.withIpni ?? false,
             options.dev ?? false
@@ -395,7 +397,7 @@ export class StorageContext {
       warmStorageService,
       spRegistry,
       options.excludeProviderIds ?? [],
-      true,
+      new Set<number>(),
       options.forceCreateDataSet ?? false,
       options.withIpni ?? false,
       options.dev ?? false
@@ -666,7 +668,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
     excludeProviderIds: number[],
-    preferEndorsed: boolean,
+    endorsedProviderIds: Set<number>,
     forceCreateDataSet: boolean,
     withIpni: boolean,
     dev: boolean
@@ -771,9 +773,15 @@ export class StorageContext {
     }
 
     let provider: ProviderInfo | null
-    if (preferEndorsed) {
+    if (endorsedProviderIds.size > 0) {
       // Split providers according to whether they have all of the endorsements
-      const [otherProviders, endorsedProviders] = [allProviders, []] // TODO
+      const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
+        (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
+          results[provider.id in endorsedProviderIds ? 1 : 0].push(provider)
+          return results
+        },
+        [[], []]
+      )
       provider =
         (await StorageContext.selectRandomProvider(endorsedProviders)) ||
         (await StorageContext.selectRandomProvider(otherProviders))
