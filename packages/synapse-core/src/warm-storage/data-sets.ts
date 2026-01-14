@@ -1,21 +1,13 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  encodeAbiParameters,
-  isAddressEqual,
-  type Transport,
-} from 'viem'
+import { type Account, type Address, type Chain, type Client, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
-import { getChain } from '../chains.ts'
+import { asChain, getChain } from '../chains.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
-import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
+import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import {
   datasetMetadataObjectToEntry,
@@ -256,60 +248,59 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
 export type CreateDataSetAndAddPiecesOptions = {
   /**
+   * The address that will pay for the storage (client). If not provided, the default is the client address.
+   *
    * If client is from a session key this should be set to the actual payer address
    */
   payer?: Address
+  /** The endpoint of the PDP API. */
   endpoint: string
+  /** The address that will receive payments (service provider). */
   payee: Address
+  /** Whether the data set should use CDN. */
   cdn: boolean
+  /** The metadata for the data set. */
   metadata?: MetadataObject
+  /** The pieces and metadata to add to the data set. */
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+}
+
+// biome-ignore lint/style/noNamespace: namespaced types
+export namespace createDataSetAndAddPieces {
+  export type OptionsType = CreateDataSetAndAddPiecesOptions
+  export type ReturnType = SP.createDataSetAndAddPieces.ReturnType
+  export type ErrorType = SP.createDataSetAndAddPieces.ErrorType | asChain.ErrorType
 }
 
 /**
  * Create a data set and add pieces to it
  *
  * @param client - The client to use to create the data set.
- * @param options - The options for the create data set.
- * @param options.payer - The address that will pay for the storage (client).
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.payee - The address that will receive payments (service provider).
- * @param options.cdn - Whether the data set should use CDN.
- * @param options.metadata - The metadata for the data set.
- * @returns The response from the create data set on PDP API.
+ * @param options - {@link CreateDataSetAndAddPiecesOptions}
+ * @returns The response from the create data set on PDP API. {@link createDataSetAndAddPieces.ReturnType}
+ * @throws Errors {@link createDataSetAndAddPieces.ErrorType}
  */
 export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
-) {
-  const chain = getChain(client.chain.id)
-  const clientDataSetId = randU256()
-  // Sign and encode the create data set message
-  const dataSetExtraData = await signCreateDataSet(client, {
-    clientDataSetId,
-    payee: options.payee,
-    payer: options.payer,
-    metadata: datasetMetadataObjectToEntry(options.metadata, {
-      cdn: options.cdn,
-    }),
-  })
-
-  // Sign and encode the add pieces message
-  const addPiecesExtraData = await signAddPieces(client, {
-    clientDataSetId,
-    nonce: randU256(),
-    pieces: options.pieces.map((piece) => ({
-      pieceCid: piece.pieceCid,
-      metadata: pieceMetadataObjectToEntry(piece.metadata),
-    })),
-  })
-
-  const extraData = encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [dataSetExtraData, addPiecesExtraData])
+): Promise<createDataSetAndAddPieces.ReturnType> {
+  const chain = asChain(client.chain)
 
   return SP.createDataSetAndAddPieces({
     endpoint: options.endpoint,
     recordKeeper: chain.contracts.storage.address,
-    extraData,
+    extraData: await signCreateDataSetAndAddPieces(client, {
+      clientDataSetId: randU256(),
+      payee: options.payee,
+      payer: options.payer,
+      metadata: datasetMetadataObjectToEntry(options.metadata, {
+        cdn: options.cdn,
+      }),
+      pieces: options.pieces.map((piece) => ({
+        pieceCid: piece.pieceCid,
+        metadata: pieceMetadataObjectToEntry(piece.metadata),
+      })),
+    }),
     pieces: options.pieces.map((piece) => piece.pieceCid),
   })
 }

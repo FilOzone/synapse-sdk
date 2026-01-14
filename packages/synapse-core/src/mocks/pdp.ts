@@ -7,7 +7,7 @@
 import assert from 'assert'
 import { HttpResponse, http } from 'msw'
 import { decodeAbiParameters, type Hex } from 'viem'
-import type { AddPiecesRequest } from '../sp.ts'
+import type { addPieces } from '../sp.ts'
 
 export interface PDPMockOptions {
   baseUrl?: string
@@ -332,7 +332,7 @@ export function addPiecesWithMetadataCapture(
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.post<{ id: string }, AddPiecesRequest>(
+  return http.post<{ id: string }, addPieces.RequestBody>(
     `${baseUrl}/pdp/data-sets/:id/pieces`,
     async ({ params, request }) => {
       if (params.id !== dataSetId.toString()) {
