@@ -14,7 +14,7 @@ There are multiple ways to enable Synapse telemetry:
 ```ts
 const synapse = await Synapse.create({
   /* ...existing options... */
-  telemetry : { sentryInitOptions : { enabled: false } },
+  telemetry : { sentryInitOptions : { enabled: true } },
 })
 ```
 
