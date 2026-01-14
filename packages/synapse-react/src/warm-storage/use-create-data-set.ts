@@ -48,7 +48,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
       props?.onHash?.(txHash)
 
-      const dataSet = await SP.pollForDataSetCreationStatus({ statusUrl })
+      const dataSet = await SP.waitForDataSetCreationStatus({ statusUrl })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],
