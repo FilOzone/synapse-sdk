@@ -86,43 +86,28 @@ export function removeGlobalTelemetry(flush: boolean = true): void {
  * @returns True if telemetry should be enabled
  */
 function shouldEnableTelemetry(telemetryConfig: TelemetryConfig, telemetryContext: TelemetryRuntimeContext): boolean {
-  // If explicitly disabled by user config, respect that
-  if (telemetryConfig?.sentryInitOptions?.enabled === false) {
-    return false
-  }
-
-  // If disabled by `SYNAPSE_TELEMETRY_DISABLED` environment/global variable, respect that
-  if (isTelemetryDisabledByEnv()) {
-    return false
-  }
-
-  // If in test environment, disable telemetry unless explicitly enabled by user config
-  if (telemetryConfig?.sentryInitOptions?.enabled === undefined) {
-    // we use playwright-test, which sets globalThis.PW_TEST in browser, and NODE_ENV in node
-    if (globalThis.process?.env?.NODE_ENV === 'test' || (globalThis as any).PW_TEST != null) {
-      return false
-    }
-  }
-
   // If explicitly enabled by user config, respect that
   if (telemetryConfig?.sentryInitOptions?.enabled === true) {
     return true
   }
 
-  // At this point we haven't been given a clear signal to enable or disable.
-  // In this case, we enable telemetry if we're on the calibration network.
-  return telemetryContext.filecoinNetwork === 'calibration'
+  // If enabled by `SYNAPSE_TELEMETRY_DISABLED` environment/global variable, respect that
+  if (isTelemetryEnabledByEnv()) {
+    return true
+  }
+
+  return false
 }
 
 /**
  * Check if telemetry is explicitly disabled via global variable or environment
  * Uses globalThis for consistent cross-platform access
  */
-function isTelemetryDisabledByEnv(): boolean {
+function isTelemetryEnabledByEnv(): boolean {
   // Check for global disable flag (universal)
   if (typeof globalThis !== 'undefined') {
     // Check for explicit disable flag
-    if ((globalThis as any).SYNAPSE_TELEMETRY_DISABLED === true) {
+    if ((globalThis as any).SYNAPSE_TELEMETRY_ENABLED === true) {
       return true
     }
 
@@ -130,8 +115,8 @@ function isTelemetryDisabledByEnv(): boolean {
     if ('process' in globalThis) {
       const process = (globalThis as any).process
       if (process?.env) {
-        const disabled = process.env.SYNAPSE_TELEMETRY_DISABLED
-        if (typeof disabled === 'string' && disabled.trim().toLowerCase() === 'true') {
+        const enabled = process.env.SYNAPSE_TELEMETRY_ENABLED
+        if (typeof enabled === 'string' && enabled.trim().toLowerCase() === 'true') {
           return true
         }
       }

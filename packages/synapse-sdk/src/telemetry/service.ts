@@ -120,6 +120,7 @@ export class TelemetryService {
       tracesSampleRate: 1.0, // Capture 100% of transactions for development (adjust in production)
       integrations,
       defaultIntegrations: false,
+      enabled: false,
       ...config.sentryInitOptions,
       beforeSend: this.createBeforeSend(config),
       beforeSendSpan: this.createBeforeSendSpan(config, globalTags),
