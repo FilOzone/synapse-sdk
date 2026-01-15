@@ -11,22 +11,15 @@
  *
  * Required environment variables:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
- * - RPC_URL: Filecoin RPC endpoint (optional, defaults per network; required for devnet)
- * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (optional for mainnet/calibration; required for devnet)
- * - MULTICALL3_ADDRESS: Multicall3 address (optional for mainnet/calibration; required for devnet)
+ * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
+ *
+ * Optional environment variables (for devnet):
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (uses default for network)
+ * - MULTICALL3_ADDRESS: Multicall3 address (required for devnet)
  * - USDFC_ADDRESS: USDFC token address (optional)
- * - WARM_STORAGE_VIEW_ADDRESS: Warm Storage view contract address (optional)
  *
  * Usage:
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] [file-path3] ...
- *
- * CLI flags:
- *   --network <mainnet|calibration|devnet>
- *   --rpc-url <rpcUrl>
- *   --warm-storage <address>
- *   --multicall3 <address>
- *   --usdfc <address>
- *   --warm-storage-view <address>
  */
 
 import { ethers } from 'ethers'
@@ -38,76 +31,15 @@ import {
   PDP_PERMISSION_NAMES,
 } from '../packages/synapse-sdk/src/session/index.ts'
 
-// Parse command line arguments
-function parseArgs() {
-  const args = process.argv.slice(2)
-  const options = {
-    files: [],
-    multicall3Address: null,
-    network: null,
-    rpcUrl: null,
-    usdfcAddress: null,
-    warmStorageAddress: null,
-    warmStorageViewAddress: null,
-  }
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--network' && args[i + 1]) {
-      options.network = args[i + 1]
-      i++
-    } else if (args[i] === '--rpc-url' && args[i + 1]) {
-      options.rpcUrl = args[i + 1]
-      i++
-    } else if (args[i] === '--warm-storage' && args[i + 1]) {
-      options.warmStorageAddress = args[i + 1]
-      i++
-    } else if (args[i] === '--multicall3' && args[i + 1]) {
-      options.multicall3Address = args[i + 1]
-      i++
-    } else if (args[i] === '--usdfc' && args[i + 1]) {
-      options.usdfcAddress = args[i + 1]
-      i++
-    } else if (args[i] === '--warm-storage-view' && args[i + 1]) {
-      options.warmStorageViewAddress = args[i + 1]
-      i++
-    } else {
-      options.files.push(args[i])
-    }
-  }
-
-  return options
-}
-
-const args = parseArgs()
-const network = args.network || process.env.NETWORK || 'calibration'
-const allowedNetworks = ['mainnet', 'calibration', 'devnet']
-
-if (!allowedNetworks.includes(network)) {
-  console.error(`ERROR: Unsupported network '${network}'. Use mainnet, calibration, or devnet.`)
-  process.exit(1)
-}
-
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-let RPC_URL = args.rpcUrl || process.env.RPC_URL
-const WARM_STORAGE_ADDRESS = args.warmStorageAddress || process.env.WARM_STORAGE_ADDRESS
-const MULTICALL3_ADDRESS = args.multicall3Address || process.env.MULTICALL3_ADDRESS
-const USDFC_ADDRESS = args.usdfcAddress || process.env.USDFC_ADDRESS
-const WARM_STORAGE_VIEW_ADDRESS = args.warmStorageViewAddress || process.env.WARM_STORAGE_VIEW_ADDRESS
-
-// Set defaults based on network if not provided
-if (!RPC_URL) {
-  if (network === 'mainnet') {
-    RPC_URL = 'https://api.node.glif.io/rpc/v1'
-  } else if (network === 'calibration') {
-    RPC_URL = 'https://api.calibration.node.glif.io/rpc/v1'
-  }
-}
+const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
+const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
+const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
 
 function printUsageAndExit() {
-  console.error(
-    'Usage: PRIVATE_KEY=0x... node example-storage-e2e.js [--network <mainnet|calibration|devnet>] [--rpc-url <rpcUrl>] [--warm-storage <address>] [--multicall3 <address>] [--usdfc <address>] [--warm-storage-view <address>] <file-path> [file-path2] ...'
-  )
+  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
   process.exit(1)
 }
 
@@ -117,24 +49,7 @@ if (!PRIVATE_KEY) {
   printUsageAndExit()
 }
 
-const isDevnet = network === 'devnet'
-
-if (!RPC_URL) {
-  console.error('ERROR: RPC_URL is required for the selected network')
-  printUsageAndExit()
-}
-
-if (isDevnet) {
-  const missing = []
-  if (!WARM_STORAGE_ADDRESS) missing.push('--warm-storage')
-  if (!MULTICALL3_ADDRESS) missing.push('--multicall3')
-  if (missing.length > 0) {
-    console.error(`ERROR: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} required for devnet`)
-    printUsageAndExit()
-  }
-}
-
-const filePaths = args.files
+const filePaths = process.argv.slice(2)
 if (filePaths.length === 0) {
   console.error('ERROR: At least one file path argument is required')
   printUsageAndExit()
@@ -194,7 +109,6 @@ async function main() {
       rpcURL: RPC_URL,
       usdfcAddress: USDFC_ADDRESS,
       warmStorageAddress: WARM_STORAGE_ADDRESS,
-      warmStorageViewAddress: WARM_STORAGE_VIEW_ADDRESS,
     }
 
     if (WARM_STORAGE_ADDRESS) {
@@ -205,9 +119,6 @@ async function main() {
     }
     if (USDFC_ADDRESS) {
       console.log(`USDFC Address: ${USDFC_ADDRESS}`)
-    }
-    if (WARM_STORAGE_VIEW_ADDRESS) {
-      console.log(`Warm Storage View Address: ${WARM_STORAGE_VIEW_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)

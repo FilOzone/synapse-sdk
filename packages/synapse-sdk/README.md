@@ -38,33 +38,6 @@ pnpm install @filoz/synapse-sdk ethers
 
 Note: `ethers` v6 is a peer dependency and must be installed separately.
 
-## Quickstart (mainnet, calibration, devnet)
-
-```ts
-import { Synapse } from '@filoz/synapse-sdk'
-
-const synapse = await Synapse.create({
-	// One of privateKey, provider, or signer (privateKey shown here)
-	privateKey: process.env.PRIVATE_KEY ?? '',
-	// Defaults: mainnet and calibration auto-discover addresses; devnet requires explicit values
-	rpcURL: process.env.RPC_URL ?? 'https://api.calibration.node.glif.io/rpc/v1',
-	// Devnet-only (required): provide your deployment addresses
-	warmStorageAddress: process.env.WARM_STORAGE_ADDRESS,
-	multicall3Address: process.env.MULTICALL3_ADDRESS,
-	// Optional: override USDFC or view contract addresses when testing
-	usdfcAddress: process.env.USDFC_ADDRESS,
-	warmStorageViewAddress: process.env.WARM_STORAGE_VIEW_ADDRESS,
-})
-
-const file = new TextEncoder().encode('hello from synapse')
-const result = await synapse.storage.upload(file)
-console.log('pieceCid:', result.pieceCid)
-```
-
-- Networks supported: `mainnet`, `calibration`, `devnet`
-- Devnet requires `rpcURL`, `warmStorageAddress`, and `multicall3Address` to be provided
-- For session keys, payments, and registry access, services auto-discover addresses on mainnet/calibration
-
 ## Docs
 
 Check the documentation [website](https://synapse.filecoin.services/)

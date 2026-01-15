@@ -132,9 +132,11 @@ export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
    */
   calibration: 1667326380,
   /**
-   * Devnet genesis: Provide via runtime configuration when needed
+   * Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions (epochToDate,
+   * dateToEpoch) will return incorrect results on devnet. Core contract operations
+   * are unaffected as they use epochs directly.
    */
-  devnet: 0,
+  devnet: 0, // TODO: Consider adding override in SynapseOptions if/when this is a problem
 } as const
 
 /**

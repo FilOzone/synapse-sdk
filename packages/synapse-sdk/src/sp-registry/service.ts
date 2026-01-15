@@ -44,11 +44,7 @@ export class SPRegistryService {
   /**
    * Constructor for SPRegistryService
    */
-  constructor(
-    provider: ethers.Provider,
-    registryAddress: string,
-    multicall3Address: string | null = CONTRACT_ADDRESSES.MULTICALL3.mainnet
-  ) {
+  constructor(provider: ethers.Provider, registryAddress: string, multicall3Address: string | null = null) {
     this._provider = provider
     this._registryAddress = registryAddress
     this._multicall3Address = multicall3Address

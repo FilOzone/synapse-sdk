@@ -59,7 +59,7 @@ export class PaymentsService {
     paymentsAddress: string,
     usdfcAddress: string,
     disableNonceManager: boolean,
-    multicall3Address: string | null = CONTRACT_ADDRESSES.MULTICALL3.mainnet
+    multicall3Address: string | null
   ) {
     this._provider = provider
     this._signer = signer

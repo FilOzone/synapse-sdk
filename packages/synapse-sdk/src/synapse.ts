@@ -142,12 +142,7 @@ export class Synapse {
           : `No Warm Storage address configured for network: ${network}`
       )
     }
-    const warmStorageService = await WarmStorageService.create(
-      provider,
-      warmStorageAddress,
-      multicall3Address,
-      options.warmStorageViewAddress ?? null
-    )
+    const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress, multicall3Address)
 
     // Create payments service with discovered addresses
     const paymentsAddress = warmStorageService.getPaymentsAddress()

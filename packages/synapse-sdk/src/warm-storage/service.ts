@@ -149,8 +149,7 @@ export class WarmStorageService {
   static async create(
     provider: ethers.Provider,
     warmStorageAddress: string,
-    multicall3Address: string | null = CONTRACT_ADDRESSES.MULTICALL3.mainnet,
-    overrideViewAddress: string | null = null
+    multicall3Address: string | null = null
   ): Promise<WarmStorageService> {
     // Get network from provider and validate it's a supported Filecoin network
     const networkName = await getFilecoinNetworkType(provider)
@@ -214,7 +213,7 @@ export class WarmStorageService {
       payments: iface.decodeFunctionResult('paymentsContractAddress', results[1].returnData)[0],
       usdfcToken: iface.decodeFunctionResult('usdfcTokenAddress', results[2].returnData)[0],
       filBeamBeneficiary: iface.decodeFunctionResult('filBeamBeneficiaryAddress', results[3].returnData)[0],
-      viewContract: overrideViewAddress ?? iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
+      viewContract: iface.decodeFunctionResult('viewContractAddress', results[4].returnData)[0],
       serviceProviderRegistry: iface.decodeFunctionResult('serviceProviderRegistry', results[5].returnData)[0],
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
     }

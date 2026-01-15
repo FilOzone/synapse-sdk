@@ -60,7 +60,7 @@ export class SessionKey {
     sessionKeyRegistryAddress: string,
     signer: ethers.Signer,
     owner: ethers.Signer,
-    multicall3Address: string | null = CONTRACT_ADDRESSES.MULTICALL3.mainnet
+    multicall3Address: string | null
   ) {
     this._provider = provider
     this._registry = new ethers.Contract(sessionKeyRegistryAddress, CONTRACT_ABIS.SESSION_KEY_REGISTRY, owner)

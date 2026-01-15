@@ -71,8 +71,6 @@ export interface SynapseOptions {
   multicall3Address?: string
   /** Override USDFC token address (optional, useful for devnet) */
   usdfcAddress?: string
-  /** Override Warm Storage view contract address (optional) */
-  warmStorageViewAddress?: string
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService

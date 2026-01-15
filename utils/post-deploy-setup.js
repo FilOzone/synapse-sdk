@@ -360,17 +360,31 @@ async function setupProvider(deployerSigner, spSigner, provider, warmStorage, sp
 }
 
 // Setup client function
-async function setupClient(clientSigner, provider, warmStorage, warmStorageAddress) {
+async function setupClient(
+  clientSigner,
+  provider,
+  warmStorage,
+  warmStorageAddress,
+  usdfcAddressOverride = null,
+  multicall3Address = null
+) {
   // === Set up client payment approvals ===
   log('\n💰 Client Payment Setup')
 
-  // Get USDFC token address from WarmStorage (auto-discovered)
-  const usdfcAddress = warmStorage.getUSDFCTokenAddress()
-  log(`USDFC token address: ${usdfcAddress}`)
+  // Get USDFC token address (use override if provided, otherwise auto-discover from WarmStorage)
+  const usdfcAddress = usdfcAddressOverride ?? warmStorage.getUSDFCTokenAddress()
+  log(`USDFC token address: ${usdfcAddress}${usdfcAddressOverride ? ' (override)' : ' (auto-discovered)'}`)
 
   // Create PaymentsService
   const paymentsAddress = await warmStorage.getPaymentsAddress()
-  const paymentsService = new PaymentsService(provider, clientSigner, paymentsAddress, usdfcAddress)
+  const paymentsService = new PaymentsService(
+    provider,
+    clientSigner,
+    paymentsAddress,
+    usdfcAddress,
+    false,
+    multicall3Address
+  )
 
   // Check client's USDFC balance
   const clientBalance = await paymentsService.walletBalance(TOKENS.USDFC)
@@ -464,21 +478,21 @@ async function main() {
     const multicall3Address =
       args.multicall3Address || process.env.MULTICALL3_ADDRESS || CONTRACT_ADDRESSES.MULTICALL3[network]
 
-    // Get USDFC address - use provided or default from constants (optional, can be null)
-    const _usdfcAddress = args.usdfcAddress || process.env.USDFC_ADDRESS || null
+    // Get USDFC address override (optional, will auto-discover from WarmStorage if not provided)
+    const usdfcAddressOverride = args.usdfcAddress || process.env.USDFC_ADDRESS || null
 
     // Get WarmStorage address - use provided or default from constants
     let warmStorageAddress = args.warmStorageAddress || process.env.WARM_STORAGE_CONTRACT_ADDRESS
     if (!warmStorageAddress) {
-      // For localnet, check environment variable
-      if (network === 'localnet') {
-        warmStorageAddress = process.env.LOCALNET_WARM_STORAGE_ADDRESS
+      // For devnet, check environment variable
+      if (network === 'devnet') {
+        warmStorageAddress = process.env.DEVNET_WARM_STORAGE_ADDRESS
       } else {
         warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
       }
       if (!warmStorageAddress) {
         error(
-          `No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS${network === 'localnet' ? ' or LOCALNET_WARM_STORAGE_ADDRESS' : ''}.`
+          `No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS${network === 'devnet' ? ' or DEVNET_WARM_STORAGE_ADDRESS' : ''}.`
         )
         process.exit(1)
       }
@@ -579,7 +593,14 @@ async function main() {
 
       log(`\nClient address: ${clientAddress}`)
 
-      await setupClient(clientSigner, provider, warmStorage, warmStorageAddress)
+      await setupClient(
+        clientSigner,
+        provider,
+        warmStorage,
+        warmStorageAddress,
+        usdfcAddressOverride,
+        multicall3Address
+      )
     }
 
     // === Summary ===
