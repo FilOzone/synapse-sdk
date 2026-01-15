@@ -43,7 +43,8 @@ describe('WarmStorageService', () => {
       signer,
       Mocks.ADDRESSES.calibration.payments,
       Mocks.ADDRESSES.calibration.usdfcToken,
-      false
+      false,
+      null
     )
     server.resetHandlers()
   })
