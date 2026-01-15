@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: testing */
+
 import type { ExtractAbiFunction } from 'abitype'
 import { decodeFunctionData, encodeAbiParameters, type Hex } from 'viem'
 import * as Abis from '../../abis/index.ts'
