@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { intro, log, outro, text } from '@clack/prompts'
 import { type Command, command } from 'cleye'
 import { generatePrivateKey } from 'viem/accounts'
@@ -13,6 +14,9 @@ export const init: Command = command(
       auto: {
         type: Boolean,
       },
+      keystore: {
+        type: String,
+      },
     },
     help: {
       description: 'Initialize a new service provider',
@@ -20,6 +24,18 @@ export const init: Command = command(
     },
   },
   async (argv) => {
+    if (argv.flags.keystore) {
+      if (existsSync(argv.flags.keystore)) {
+        config.set('keystore', argv.flags.keystore)
+        config.delete('privateKey')
+        outro(`You're all set!`)
+        return
+      } else {
+        log.error(`Keystore file not found: ${argv.flags.keystore}`)
+        process.exit(1)
+      }
+    }
+
     const privateKey = config.get('privateKey')
     if (privateKey) {
       log.success(`Private key: ${privateKey}`)
