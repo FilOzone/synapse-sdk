@@ -10,6 +10,7 @@ import {
   text,
 } from '@clack/prompts'
 import { getChain } from '@filoz/synapse-core/chains'
+import { getProvider } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import type { Address, Hash } from 'viem'
 import { readContract, simulateContract, writeContract } from 'viem/actions'
@@ -81,11 +82,21 @@ export const endorse: Command = command(
         endorsements.owner(),
         endorsements.getProviderIds(),
       ])
+      const serviceUrls = (
+        await Promise.all(
+          endorsed.map((providerId) => getProvider(client, { providerId }))
+        )
+      ).reduce((serviceUrls, providerWithProduct) => {
+        serviceUrls[providerWithProduct.id] = providerWithProduct.pdp.serviceURL
+        return serviceUrls
+      }, {})
       const lines = [
         `Current User: ${client.account.address}`,
         `Owner: ${owner}`,
         `Endorsements: ${endorsed.length}`,
-        ...endorsed.map((providerId) => `- ${providerId}`),
+        ...endorsed.map(
+          (providerId) => `- [${providerId}] ${serviceUrls[providerId]}`
+        ),
       ]
       log.info(lines.join('\n'))
 
@@ -116,12 +127,13 @@ export const endorse: Command = command(
         }
         case 'removeProvider': {
           const providerId = await select({
-            message: '',
+            message: 'Remove which provider?',
             options: [
               { value: 'go back' },
               ...endorsed.map((providerId) => {
                 return {
-                  value: String(providerId),
+                  value: `${providerId}`,
+                  hint: `${serviceUrls[providerId]}`,
                 }
               }),
             ],
@@ -130,7 +142,7 @@ export const endorse: Command = command(
             cancel(`Canceled`)
           } else if (providerId !== 'go back') {
             const confirmed = await confirm({
-              message: `Remove provider ${providerId}?`,
+              message: `Remove provider ${providerId} (${serviceUrls[providerId]})?`,
             })
             if (isCancel(confirmed)) {
               cancel(`Canceled`)
@@ -151,7 +163,8 @@ export const endorse: Command = command(
         }
         case 'addProvider': {
           const providerId = await text({
-            message: '',
+            message: 'Add which provider?',
+            placeholder: `^C to cancel`,
             validate(value) {
               const number = Number(value)
               if (!Number.isInteger(number) || number <= 0) {
@@ -162,8 +175,11 @@ export const endorse: Command = command(
           if (isCancel(providerId)) {
             cancel(`Canceled`)
           } else {
+            const providerWithProduct = await getProvider(client, {
+              providerId,
+            })
             const confirmed = await confirm({
-              message: `Add provider ${providerId}?`,
+              message: `Add provider ${providerId} (${providerWithProduct.pdp.serviceURL})?`,
             })
             if (isCancel(confirmed)) {
               cancel(`Canceled`)
