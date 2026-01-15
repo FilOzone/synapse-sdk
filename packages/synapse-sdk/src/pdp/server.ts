@@ -78,6 +78,7 @@ export namespace PDPServer {
     /** The PDP service URL (e.g., https://pdp.provider.com). */
     endpoint: string
   }
+  export type ErrorType = Error
 }
 
 export class PDPServer {
@@ -167,7 +168,7 @@ export class PDPServer {
   ): Promise<AddPiecesResponse> {
     const { txHash, statusUrl } = await addPieces(this._client, {
       endpoint: this._endpoint,
-      dataSetId,
+      dataSetId: BigInt(dataSetId),
       clientDataSetId,
       pieces,
     })
@@ -233,7 +234,7 @@ export class PDPServer {
   async getDataSet(dataSetId: bigint): Promise<DataSetData> {
     const data = await SP.getDataSet({
       endpoint: this._endpoint,
-      dataSetId,
+      dataSetId: BigInt(dataSetId),
     })
 
     return {
