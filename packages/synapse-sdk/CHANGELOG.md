@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.37.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.1...synapse-sdk-v0.37.0) (2026-01-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517))
+* change to only export Synapse from the main entrypoint
+
+### refactor
+
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526)) ([a4956c7](https://github.com/FilOzone/synapse-sdk/commit/a4956c7d3aa6f78573ed87153da2fcd4b8dc8254))
+
+
+### Features
+
+* Add API for querying remaining egress ([#430](https://github.com/FilOzone/synapse-sdk/issues/430)) ([c40d6b8](https://github.com/FilOzone/synapse-sdk/commit/c40d6b8df748f9e401b035d04a85f00353cc3c0c))
+* add devnet support ([#527](https://github.com/FilOzone/synapse-sdk/issues/527)) ([773551b](https://github.com/FilOzone/synapse-sdk/commit/773551bf1e9cf4cdc49aeb63a47a81f8dc5cb9e1))
+* change to only export Synapse from the main entrypoint ([4c0cc47](https://github.com/FilOzone/synapse-sdk/commit/4c0cc4721500e3a857982cb5fb0c63c2f1834413)), closes [#232](https://github.com/FilOzone/synapse-sdk/issues/232)
+* move ethers to peer dependencies ([242a2c1](https://github.com/FilOzone/synapse-sdk/commit/242a2c1ba7779147532ff33e995b84033cd058dc))
+* **storage:** rename "pieces" callbacks, add piece info & dataSetId ([#439](https://github.com/FilOzone/synapse-sdk/issues/439)) ([f1bd585](https://github.com/FilOzone/synapse-sdk/commit/f1bd58599c6dc6902c0543a36fb1249c5e66e2b6))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517)) ([59fd863](https://github.com/FilOzone/synapse-sdk/commit/59fd8634c48df588460cf67b8518d81c4c171e4a))
+
+
+### Bug Fixes
+
+* cache clientDataSetId in StorageContext ([#489](https://github.com/FilOzone/synapse-sdk/issues/489)) ([ec1345a](https://github.com/FilOzone/synapse-sdk/commit/ec1345abfee27a9732f8deb0f1ab443ae10cd0b4))
+* change FilBeam URL to stats.filbeam.com ([#539](https://github.com/FilOzone/synapse-sdk/issues/539)) ([87ac7a8](https://github.com/FilOzone/synapse-sdk/commit/87ac7a8327cc1f93944333e43b7e405f938881f6))
+* createStorageContext without getClientDataSetsWithDetails ([#438](https://github.com/FilOzone/synapse-sdk/issues/438)) ([76e2439](https://github.com/FilOzone/synapse-sdk/commit/76e24391ebada6d70014f0bfa08d4474b04043df))
+* expose getScheduledRemovals on storageContext ([#490](https://github.com/FilOzone/synapse-sdk/issues/490)) ([6a3b5cc](https://github.com/FilOzone/synapse-sdk/commit/6a3b5cc496c60fe59fe6cc754fa53ac47cc139e4))
+* remove settlement fee ([#502](https://github.com/FilOzone/synapse-sdk/issues/502)) ([8c7537e](https://github.com/FilOzone/synapse-sdk/commit/8c7537e72cba9230036a6debf307e724572d4745)), closes [#243](https://github.com/FilOzone/synapse-sdk/issues/243)
+* resolveByProviderId doesnt use getClientDataSetsWithDetails ([1049c05](https://github.com/FilOzone/synapse-sdk/commit/1049c05bfb05354968ccaa02fe535cdd7beabb32))
+* treat status code 202 for findPiece as a retry ([6b9e03f](https://github.com/FilOzone/synapse-sdk/commit/6b9e03f06cd469a0f8365f725881cd87a71f41dc))
+* **warm-storage:** check metadata withCDN key in addition to cdnRailId for CDN status ([#505](https://github.com/FilOzone/synapse-sdk/issues/505)) ([db234e5](https://github.com/FilOzone/synapse-sdk/commit/db234e5c988708df0b4cd3691901d8c221b8e0c7))
+
+
+### Chores
+
+* add docs build to packages ci ([810d7a8](https://github.com/FilOzone/synapse-sdk/commit/810d7a82a497bb9b2e788333d70a89a607e4db33)), closes [#468](https://github.com/FilOzone/synapse-sdk/issues/468)
+* fix test that randomly fails ([9752c76](https://github.com/FilOzone/synapse-sdk/commit/9752c76e5ea336a5705cb95589c25904078adcbf))
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* remove only from tests ([3d6293b](https://github.com/FilOzone/synapse-sdk/commit/3d6293bb224747f42402fd83bbabdc6b10649517))
+* rename signerAddress to clientAddress ([#488](https://github.com/FilOzone/synapse-sdk/issues/488)) ([552d6fd](https://github.com/FilOzone/synapse-sdk/commit/552d6fd32083b462bd19cfd8fe4dd42b6b6fc01c))
+* update msw ([#465](https://github.com/FilOzone/synapse-sdk/issues/465)) ([ea02a6d](https://github.com/FilOzone/synapse-sdk/commit/ea02a6dba86ad91a012c4ef6bb167c5fa774cc67))
+* update ox and ensure pnpm version ([#510](https://github.com/FilOzone/synapse-sdk/issues/510)) ([caef545](https://github.com/FilOzone/synapse-sdk/commit/caef545bd26a2996cbde28de52ae2ba86bac48d9))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+* use json rpc mocks from core ([a7b3913](https://github.com/FilOzone/synapse-sdk/commit/a7b3913a79fa02b8516ae958d50feeada3961d53))
+
 ## [0.36.1](https://github.com/FilOzone/synapse-sdk/compare/synapse-sdk-v0.36.0...synapse-sdk-v0.36.1) (2025-12-04)
 
 
