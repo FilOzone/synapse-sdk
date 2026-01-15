@@ -1,5 +1,3 @@
-/* globals describe it */
-
 import { fallbackRandIndex, fallbackRandU256, randIndex, randU256 } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 

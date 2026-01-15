@@ -45,7 +45,7 @@ export function useUpload(props: UseUploadProps) {
       })
 
       props?.onHash?.(uploadRsp.txHash)
-      const rsp = await SP.pollForAddPiecesStatus(uploadRsp)
+      const rsp = await SP.waitForAddPiecesStatus(uploadRsp)
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],

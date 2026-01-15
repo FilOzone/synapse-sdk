@@ -29,18 +29,18 @@ export class CreateDataSetError extends SynapseError {
   }
 }
 
-export class PollDataSetCreationStatusError extends SynapseError {
-  override name: 'PollDataSetCreationStatusError' = 'PollDataSetCreationStatusError'
+export class WaitDataSetCreationStatusError extends SynapseError {
+  override name: 'WaitDataSetCreationStatusError' = 'WaitDataSetCreationStatusError'
 
   constructor(error: string) {
     const decodedError = decodePDPError(error)
-    super(`Failed to check data set creation status.`, {
+    super(`Failed to wait for data set creation status.`, {
       details: decodedError,
     })
   }
 
-  static override is(value: unknown): value is PollDataSetCreationStatusError {
-    return isSynapseError(value) && value.name === 'PollDataSetCreationStatusError'
+  static override is(value: unknown): value is WaitDataSetCreationStatusError {
+    return isSynapseError(value) && value.name === 'WaitDataSetCreationStatusError'
   }
 }
 
@@ -118,18 +118,18 @@ export class AddPiecesError extends SynapseError {
   }
 }
 
-export class PollForAddPiecesStatusError extends SynapseError {
-  override name: 'PollForAddPiecesStatusError' = 'PollForAddPiecesStatusError'
+export class WaitForAddPiecesStatusError extends SynapseError {
+  override name: 'WaitForAddPiecesStatusError' = 'WaitForAddPiecesStatusError'
 
   constructor(error: string) {
     const decodedError = decodePDPError(error)
-    super(`Failed to poll for add pieces status.`, {
+    super(`Failed to wait for add pieces status.`, {
       details: decodedError,
     })
   }
 
-  static override is(value: unknown): value is PollForAddPiecesStatusError {
-    return isSynapseError(value) && value.name === 'PollForAddPiecesStatusError'
+  static override is(value: unknown): value is WaitForAddPiecesStatusError {
+    return isSynapseError(value) && value.name === 'WaitForAddPiecesStatusError'
   }
 }
 
@@ -153,7 +153,25 @@ export class InvalidUploadSizeError extends SynapseError {
 
   constructor(size: number) {
     super(`Invalid upload size.`, {
-      details: `Size ${size} bytes is below minimum allowed size of ${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes or exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes`,
+      details: `Size ${size} bytes is below minimum allowed size of ${SIZE_CONSTANTS.MIN_UPLOAD_SIZE} bytes or exceeds maximum allowed size of ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`,
     })
+  }
+
+  static override is(value: unknown): value is InvalidUploadSizeError {
+    return isSynapseError(value) && value.name === 'InvalidUploadSizeError'
+  }
+}
+
+export class DownloadPieceError extends SynapseError {
+  override name: 'DownloadPieceError' = 'DownloadPieceError'
+
+  constructor(error: string) {
+    super(`Failed to download piece.`, {
+      details: error,
+    })
+  }
+
+  static override is(value: unknown): value is DownloadPieceError {
+    return isSynapseError(value) && value.name === 'DownloadPieceError'
   }
 }

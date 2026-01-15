@@ -1,6 +1,6 @@
 import { type Account, type Chain, type Client, encodeAbiParameters, type Transport } from 'viem'
 import { signTypedData } from 'viem/actions'
-import { getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
 import { EIP712Types, getStorageDomain } from './type-definitions.ts'
 
 export type SignSchedulePieceRemovalsOptions = {
@@ -18,7 +18,7 @@ export async function signSchedulePieceRemovals(
   client: Client<Transport, Chain, Account>,
   options: SignSchedulePieceRemovalsOptions
 ) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
   const signature = await signTypedData(client, {
     account: client.account,
     domain: getStorageDomain({ chain }),

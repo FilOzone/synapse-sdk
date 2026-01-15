@@ -72,7 +72,7 @@ export const uploadDataset: Command = command(
         ],
       })
 
-      await SP.pollForDataSetCreationStatus(rsp)
+      await SP.waitForDataSetCreationStatus(rsp)
       spinner.stop(`File uploaded ${pieceCid}`)
     } catch (error) {
       spinner.stop()

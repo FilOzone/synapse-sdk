@@ -1,5 +1,3 @@
-/* globals describe it */
-
 /**
  * Basic tests for PieceCID utilities
  */
@@ -16,8 +14,8 @@ import {
 import type { API } from '@web3-storage/data-segment'
 import { Size, toLink } from '@web3-storage/data-segment/piece'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { CID } from 'multiformats/cid'
+import { bytesToHex } from 'viem/utils'
 
 // https://github.com/filecoin-project/go-fil-commp-hashhash/blob/master/testdata/zero.txt
 const zeroPieceCidFixture = `
@@ -347,7 +345,7 @@ describe('PieceCID utilities', () => {
 
         // Convert PieceCID to hex (simulating what comes from contract)
         const cidBytes = pieceCid.bytes
-        const hex = ethers.hexlify(cidBytes)
+        const hex = bytesToHex(cidBytes)
 
         // Use hexToPieceCID to convert back
         const result = hexToPieceCID(hex)
@@ -376,7 +374,7 @@ describe('PieceCID utilities', () => {
       // This will pass CID.decode() but fail isValidPieceCID()
       const validCid = CID.parse(invalidCidString)
       const cidBytes = validCid.bytes
-      const hex = ethers.hexlify(cidBytes)
+      const hex = bytesToHex(cidBytes)
 
       assert.throws(
         () => {
