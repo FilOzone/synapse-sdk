@@ -12,48 +12,49 @@ import {
 import { getChain } from '@filoz/synapse-core/chains'
 import { getProvider } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import type { Address, Hash } from 'viem'
+import type { Address, Chain, Client, Hash, Transport } from 'viem'
 import { readContract, simulateContract, writeContract } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
 class EndorsementsContract {
-  constructor(client) {
+  private readonly client: Client<Transport, Chain>
+  private readonly contract
+  constructor(client: Client<Transport, Chain>) {
     this.client = client
 
     const chain = getChain(client.chain.id)
     this.contract = chain.contracts.endorsements
   }
 
-  async getProviderIds(): number[] {
-    const providerIds = await readContract(this.client, {
+  async getProviderIds(): Promise<readonly bigint[]> {
+    return await readContract(this.client, {
       ...this.contract,
       functionName: 'getProviderIds',
     })
-    return providerIds.map(Number)
   }
 
-  async removeProviderId(providerId: number): Hash {
+  async removeProviderId(providerId: number): Promise<Hash> {
     const { request } = await simulateContract(this.client, {
       ...this.contract,
       account: this.client.account,
       functionName: 'removeProviderId',
-      args: [providerId],
+      args: [BigInt(providerId)],
     })
     return await writeContract(this.client, request)
   }
 
-  async addProviderId(providerId: number): Hash {
+  async addProviderId(providerId: number): Promise<Hash> {
     const { request } = await simulateContract(this.client, {
       ...this.contract,
       account: this.client.account,
       functionName: 'addProviderId',
-      args: [providerId],
+      args: [BigInt(providerId)],
     })
     return await writeContract(this.client, request)
   }
 
-  async owner(): Address {
+  async owner(): Promise<Address> {
     return await readContract(this.client, {
       ...this.contract,
       functionName: 'owner',
@@ -86,8 +87,9 @@ export const endorse: Command = command(
         await Promise.all(
           endorsed.map((providerId) => getProvider(client, { providerId }))
         )
-      ).reduce((serviceUrls, providerWithProduct) => {
-        serviceUrls[providerWithProduct.id] = providerWithProduct.pdp.serviceURL
+      ).reduce<Record<number, string>>((serviceUrls, providerWithProduct) => {
+        serviceUrls[Number(providerWithProduct.id)] =
+          providerWithProduct.pdp.serviceURL
         return serviceUrls
       }, {})
       const lines = [
@@ -95,20 +97,21 @@ export const endorse: Command = command(
         `Owner: ${owner}`,
         `Endorsements: ${endorsed.length}`,
         ...endorsed.map(
-          (providerId) => `- [${providerId}] ${serviceUrls[providerId]}`
+          (providerId) => `- [${providerId}] ${serviceUrls[Number(providerId)]}`
         ),
       ]
       log.info(lines.join('\n'))
 
       const isOwner = client.account.address === owner
+      const requiresOwner = isOwner ? undefined : '(not owner)'
 
       const action = await select({
         message: 'Select an action',
         options: [
           { value: 'refresh' },
-          { value: 'addProvider', disabled: !isOwner },
-          { value: 'removeProvider', disabled: !isOwner },
-          { value: 'transferOwnership', disabled: !isOwner },
+          { value: 'addProvider', hint: requiresOwner },
+          { value: 'removeProvider', hint: requiresOwner },
+          { value: 'transferOwnership', hint: requiresOwner },
           { value: 'exit' },
         ],
       })
@@ -133,7 +136,7 @@ export const endorse: Command = command(
               ...endorsed.map((providerId) => {
                 return {
                   value: `${providerId}`,
-                  hint: `${serviceUrls[providerId]}`,
+                  hint: `${serviceUrls[Number(providerId)]}`,
                 }
               }),
             ],
@@ -142,7 +145,7 @@ export const endorse: Command = command(
             cancel(`Canceled`)
           } else if (providerId !== 'go back') {
             const confirmed = await confirm({
-              message: `Remove provider ${providerId} (${serviceUrls[providerId]})?`,
+              message: `Remove provider ${providerId} (${serviceUrls[Number(providerId)]})?`,
             })
             if (isCancel(confirmed)) {
               cancel(`Canceled`)
@@ -155,7 +158,9 @@ export const endorse: Command = command(
                 )
                 txSpin.stop(`Transaction submitted: ${txHash}`)
               } catch (error) {
-                txSpin.stop(`Failed to remove ${providerId}: ${error.message}`)
+                txSpin.stop(
+                  `Failed to remove ${providerId}: ${(error as Error).message}`
+                )
               }
             }
           }
@@ -176,7 +181,7 @@ export const endorse: Command = command(
             cancel(`Canceled`)
           } else {
             const providerWithProduct = await getProvider(client, {
-              providerId,
+              providerId: BigInt(providerId),
             })
             const confirmed = await confirm({
               message: `Add provider ${providerId} (${providerWithProduct.pdp.serviceURL})?`,
@@ -192,7 +197,9 @@ export const endorse: Command = command(
                 )
                 txSpin.stop(`Transaction submitted: ${txHash}`)
               } catch (error) {
-                txSpin.stop(`Failed to remove ${providerId}: ${error.message}`)
+                txSpin.stop(
+                  `Failed to remove ${providerId}: ${(error as Error).message}`
+                )
               }
             }
           }
