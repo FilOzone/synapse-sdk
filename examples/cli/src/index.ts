@@ -5,6 +5,7 @@ import { datasetTerminate } from './commands/dataset-terminate.ts'
 import { datasets } from './commands/datasets.ts'
 import { deposit } from './commands/deposit.ts'
 import { fund } from './commands/fund.ts'
+import { getSpPeerIds } from './commands/get-sp-peer-ids.ts'
 import { init } from './commands/init.ts'
 import { pay } from './commands/pay.ts'
 import { pieces } from './commands/pieces.ts'
@@ -25,6 +26,7 @@ const argv = cli({
     datasetTerminate,
     pieces,
     uploadDataset,
+    getSpPeerIds,
   ],
 })
 

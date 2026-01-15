@@ -18,6 +18,7 @@
     "@filoz/synapse-sdk": "workspace:^",
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
+    "multiformats": "^13.4.1",
     "viem": "catalog:"
   },
   "devDependencies": {
