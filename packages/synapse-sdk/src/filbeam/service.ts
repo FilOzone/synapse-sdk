@@ -78,7 +78,10 @@ export class FilBeamService {
   /**
    * Validates the response from FilBeam stats API
    */
-  private _validateStatsResponse(data: unknown): { cdnEgressQuota: string; cacheMissEgressQuota: string } {
+  private _validateStatsResponse(data: unknown): {
+    cdnEgressQuota: string
+    cacheMissEgressQuota: string
+  } {
     if (typeof data !== 'object' || data === null) {
       throw createError('FilBeamService', 'validateStatsResponse', 'Response is not an object')
     }
@@ -106,8 +109,8 @@ export class FilBeamService {
    * track how many bytes can still be retrieved through FilBeam's trusted measurement layer
    * before needing to add more credits:
    *
-   * - **CDN Egress Quota**: Remaining bytes that can be served from FilBeam's cache (fast, direct delivery)
-   * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (triggers caching)
+   * - **CDN Egress Quota**: Remaining bytes that can be served by FilBeam (both cache-hit and cache-miss requests)
+   * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (cache-miss requests to origin)
    *
    * Both types of egress are billed based on volume. Query current pricing via
    * {@link WarmStorageService.getServicePrice} or see https://docs.filbeam.com for rates.
