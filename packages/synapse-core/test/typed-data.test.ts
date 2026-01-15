@@ -1,10 +1,11 @@
 import { assert } from 'chai'
-import { type Address, createWalletClient, decodeAbiParameters, type Hex, http } from 'viem'
+import { type Address, createWalletClient, decodeAbiParameters, type Hex, http, parseSignature } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { Chain } from '../src/chains.ts'
 import * as Chains from '../src/chains.ts'
 import * as Piece from '../src/piece.ts'
 import * as TypedData from '../src/typed-data/index.ts'
+import { getStorageDomain } from '../src/typed-data/type-definitions.ts'
 
 // Test fixtures generated from Solidity reference implementation
 // These signatures are verified against WarmStorage contract
@@ -67,10 +68,7 @@ describe('Typed Data', () => {
       'CreateDataSet signature should match Solidity reference'
     )
 
-    const decoded = decodeAbiParameters(
-      [{ type: 'address' }, { type: 'uint256' }, { type: 'string[]' }, { type: 'string[]' }, { type: 'bytes' }],
-      signatureActual
-    )
+    const decoded = decodeAbiParameters(TypedData.signCreateDataSetAbiParameters, signatureActual)
 
     assert.strictEqual(decoded[0], account.address)
     assert.strictEqual(decoded[1], FIXTURES.signatures.createDataSet.clientDataSetId)
@@ -98,10 +96,7 @@ describe('Typed Data', () => {
       FIXTURES.signatures.addPieces.extraData,
       'AddPieces extraData should match Solidity reference'
     )
-    const decoded = decodeAbiParameters(
-      [{ type: 'uint256' }, { type: 'string[][]' }, { type: 'string[][]' }, { type: 'bytes' }],
-      extraDataActual
-    )
+    const decoded = decodeAbiParameters(TypedData.signAddPiecesAbiParameters, extraDataActual)
 
     assert.strictEqual(decoded[0], FIXTURES.signatures.addPieces.nonce)
     assert.deepStrictEqual(decoded[1], [[], []])
@@ -118,10 +113,7 @@ describe('Typed Data', () => {
       })),
     })
 
-    const decoded = decodeAbiParameters(
-      [{ type: 'uint256' }, { type: 'string[][]' }, { type: 'string[][]' }, { type: 'bytes' }],
-      extraDataActual
-    )
+    const decoded = decodeAbiParameters(TypedData.signAddPiecesAbiParameters, extraDataActual)
 
     assert.strictEqual(decoded[0], FIXTURES.signatures.addPieces.nonce)
     assert.deepStrictEqual(decoded[1], [['title'], ['title']])
@@ -139,5 +131,96 @@ describe('Typed Data', () => {
       FIXTURES.signatures.schedulePieceRemovals.extraData,
       'SchedulePieceRemovals extraData should match Solidity reference'
     )
+  })
+
+  it('should sign create data set and add pieces', async () => {
+    const extraDataActual = await TypedData.signCreateDataSetAndAddPieces(client, {
+      clientDataSetId: FIXTURES.signatures.createDataSet.clientDataSetId,
+      payee: FIXTURES.signatures.createDataSet.payee,
+      metadata: FIXTURES.signatures.createDataSet.metadata,
+      nonce: FIXTURES.signatures.addPieces.nonce,
+      pieces: PIECE_DATA.map((piece) => ({
+        pieceCid: Piece.parse(piece),
+      })),
+    })
+
+    // Decode the combined extra data (two nested bytes)
+    const decoded = decodeAbiParameters(TypedData.signcreateDataSetAndAddPiecesAbiParameters, extraDataActual)
+
+    // First bytes should be createDataSet extraData
+    const createDataSetDecoded = decodeAbiParameters(TypedData.signCreateDataSetAbiParameters, decoded[0])
+    assert.strictEqual(createDataSetDecoded[0], account.address)
+    assert.strictEqual(createDataSetDecoded[1], FIXTURES.signatures.createDataSet.clientDataSetId)
+
+    // Second bytes should be addPieces extraData
+    const addPiecesDecoded = decodeAbiParameters(TypedData.signAddPiecesAbiParameters, decoded[1])
+    assert.strictEqual(addPiecesDecoded[0], FIXTURES.signatures.addPieces.nonce)
+  })
+
+  it('should sign erc20 permit', async () => {
+    const amount = 1000n
+    const nonce = 0n
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
+
+    const signature = await TypedData.signErc20Permit(client, {
+      amount,
+      nonce,
+      deadline,
+      name: 'USDFC',
+      version: '1',
+    })
+
+    // Verify signature is valid hex
+    assert.match(signature, /^0x[0-9a-fA-F]+$/)
+
+    // Parse signature to verify it has correct structure (r, s, v)
+    const parsed = parseSignature(signature)
+    assert.isDefined(parsed.r)
+    assert.isDefined(parsed.s)
+    assert.isDefined(parsed.v)
+  })
+
+  it('should sign erc20 permit with custom token and spender', async () => {
+    const customToken = '0x1234567890123456789012345678901234567890' as Address
+    const customSpender = '0x0987654321098765432109876543210987654321' as Address
+    const amount = 500n
+    const nonce = 1n
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 7200)
+
+    const signature = await TypedData.signErc20Permit(client, {
+      token: customToken,
+      spender: customSpender,
+      amount,
+      nonce,
+      deadline,
+      name: 'CustomToken',
+      version: '2',
+    })
+
+    assert.match(signature, /^0x[0-9a-fA-F]+$/)
+    const parsed = parseSignature(signature)
+    assert.isDefined(parsed.r)
+    assert.isDefined(parsed.s)
+  })
+})
+
+describe('getStorageDomain', () => {
+  it('should return domain with default verifying contract', () => {
+    const domain = getStorageDomain({ chain })
+
+    assert.strictEqual(domain.name, 'FilecoinWarmStorageService')
+    assert.strictEqual(domain.version, '1')
+    assert.strictEqual(domain.chainId, chain.id)
+    assert.strictEqual(domain.verifyingContract, chain.contracts.storage.address)
+  })
+
+  it('should return domain with custom verifying contract', () => {
+    const customContract = '0xCustomContractAddress1234567890123456789012' as Address
+    const domain = getStorageDomain({ chain, verifyingContract: customContract })
+
+    assert.strictEqual(domain.name, 'FilecoinWarmStorageService')
+    assert.strictEqual(domain.version, '1')
+    assert.strictEqual(domain.chainId, chain.id)
+    assert.strictEqual(domain.verifyingContract, customContract)
   })
 })
