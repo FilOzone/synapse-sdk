@@ -8,6 +8,8 @@ pnpm-lock.yaml
 FilOzone-*/
 filecoin-project-*/
 
+.claude/settings.local.json
+
 # VIM
 *.swp
 .env

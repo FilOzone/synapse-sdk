@@ -46,21 +46,21 @@ packages/synapse-sdk/src/
 
 **Commands**:
 
-- Root: `pnpm run fix` (Biome auto-fix all), `pnpm run build` (all packages), `pnpm test`
-- Package: `pnpm run lint:fix`, `pnpm run build`, `pnpm test` (from `packages/synapse-sdk/`)
+- Root: `pnpm run lint:fix` (Biome auto-fix all), `pnpm run build` (all packages), `pnpm test`
+- Single package: `pnpm -F ./packages/synapse-sdk test` (run tests in synapse-sdk only)
 
 **Build**: TypeScript → `dist/` (in package), ES modules with `.js` extensions, strict mode, NodeNext resolution
 
 **Tests**: Mocha + Chai, `src/test/`, run with `pnpm test`
 
-## Biome Linting (Critical)
+## Biome Linting & Formatting (Critical)
 
 **NO** `!` operator → use `?.` or explicit checks
 **MUST** use `.js` extensions in imports (`import {x} from './y.js'` even for .ts)
 **NO** semicolons at line end (`semicolons: "asNeeded"`)
 **MUST** use kebab-case filenames
 
-Run `pnpm run fix` before commits.
+**Formatting**: Biome handles both linting and formatting. Match existing code patterns - prefer single-line statements when they fit. Run `pnpm run lint:fix` to auto-format and fix lint issues before commits.
 
 ## Key Components
 
