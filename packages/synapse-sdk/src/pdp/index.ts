@@ -8,7 +8,6 @@
  * ```
  */
 
-export { PDPAuthHelper } from './auth.ts'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
