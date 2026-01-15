@@ -12,3 +12,4 @@
 export { Synapse } from './synapse.ts'
 export * from './types.ts'
 export * from './utils/constants.ts'
+export { calculatePieceCID } from './utils/piece.ts'

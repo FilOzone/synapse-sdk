@@ -1,11 +1,12 @@
 /**
- * Piece URL construction utilities
+ * Piece utilities
  *
- * These utilities help construct URLs for interacting with PDP servers
- * for piece discovery and retrieval operations.
+ * Provides URL construction utilities for PDP servers and a unified
+ * PieceCID calculation function that handles both Uint8Array and
+ * AsyncIterable inputs.
  */
 
-import type { PieceCID } from '../types.ts'
+import { calculateFromIterable, calculate as calculateSync, type PieceCID } from '@filoz/synapse-core/piece'
 
 /**
  * Construct a piece retrieval URL
@@ -28,4 +29,76 @@ export function constructFindPieceUrl(apiEndpoint: string, pieceCid: PieceCID): 
   const endpoint = apiEndpoint.replace(/\/$/, '')
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
   return `${endpoint}/pdp/piece?${params.toString()}`
+}
+
+/**
+ * Calculate the PieceCID for the given Piece payload.
+ *
+ * - For small data that fits in memory, pass a `Uint8Array`.
+ * - For large data or streaming scenarios, pass an `AsyncIterable<Uint8Array>`.
+ *
+ * @returns Promise resolving to the calculated PieceCID
+ *
+ * @example
+ * ```typescript
+ * import { calculatePieceCID } from '@filoz/synapse-sdk'
+ *
+ * // From Uint8Array
+ * const data = new Uint8Array([1, 2, 3, 4])
+ * const pieceCid = await calculatePieceCID(data)
+ *
+ * // From async generator
+ * async function* generateChunks() {
+ *   yield new Uint8Array([1, 2])
+ *   yield new Uint8Array([3, 4])
+ * }
+ * const pieceCid = await calculatePieceCID(generateChunks())
+ * ```
+ */
+export async function calculatePieceCID(data: Uint8Array | AsyncIterable<Uint8Array>): Promise<PieceCID> {
+  // Check for Uint8Array first (before async iterable, since Uint8Array has Symbol.iterator)
+  if (isUint8Array(data)) {
+    return calculateSync(data)
+  }
+
+  if (isAsyncIterable<Uint8Array>(data)) {
+    return calculateFromIterable(data)
+  }
+
+  throw new Error(
+    `calculatePieceCID: Invalid input type. Expected Uint8Array or AsyncIterable<Uint8Array>, got ${getTypeName(data)}`
+  )
+}
+
+/**
+ * Type guard to check if a value is a Uint8Array
+ */
+function isUint8Array(data: unknown): data is Uint8Array {
+  return data instanceof Uint8Array
+}
+
+/**
+ * Type guard to check if a value implements the AsyncIterable protocol
+ */
+function isAsyncIterable<T>(data: unknown): data is AsyncIterable<T> {
+  return (
+    data != null &&
+    typeof data === 'object' &&
+    Symbol.asyncIterator in data &&
+    typeof (data as AsyncIterable<T>)[Symbol.asyncIterator] === 'function'
+  )
+}
+
+/**
+ * Get a descriptive type name for error messages
+ */
+function getTypeName(value: unknown): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+
+  const type = typeof value
+  if (type !== 'object') return type
+
+  // At this point we know it's a non-null object without Symbol.asyncIterator
+  return 'object (missing Symbol.asyncIterator)'
 }
