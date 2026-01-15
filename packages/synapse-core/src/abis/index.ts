@@ -21,6 +21,7 @@ export {
   filecoinPayV1Abi as payments,
   filecoinWarmStorageServiceStateViewAbi as storageView,
   pdpVerifierAbi as pdp,
+  providerIdSetAbi as providerIdSet,
   serviceProviderRegistryAbi as serviceProviderRegistry,
   sessionKeyRegistryAbi as sessionKeyRegistry,
 } from './generated.ts'
