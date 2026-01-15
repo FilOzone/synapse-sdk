@@ -60,6 +60,7 @@ export const init: Command = command(
       },
     })
     config.set('privateKey', privateKeyInput)
+    config.delete('keystore')
     outro(`You're all set!`)
   }
 )
