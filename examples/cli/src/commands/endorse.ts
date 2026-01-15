@@ -1,6 +1,8 @@
 import {
+  cancel,
   confirm,
   intro,
+  isCancel,
   log,
   outro,
   select,
@@ -99,6 +101,10 @@ export const endorse: Command = command(
           { value: 'exit' },
         ],
       })
+      if (isCancel(action)) {
+        cancel('Got interrupt, exiting')
+        process.exit(0)
+      }
       switch (action) {
         case 'refresh': {
           continue
@@ -120,8 +126,15 @@ export const endorse: Command = command(
               }),
             ],
           })
-          if (providerId !== 'go back') {
-            if (await confirm({ message: `Remove provider ${providerId}?` })) {
+          if (isCancel(providerId)) {
+            cancel(`Canceled`)
+          } else if (providerId !== 'go back') {
+            const confirmed = await confirm({
+              message: `Remove provider ${providerId}?`,
+            })
+            if (isCancel(confirmed)) {
+              cancel(`Canceled`)
+            } else if (confirmed) {
               const txSpin = spinner()
               txSpin.start(`Submitting transaction`)
               try {
@@ -146,16 +159,25 @@ export const endorse: Command = command(
               }
             },
           })
-          if (await confirm({ message: `Add provider ${providerId}?` })) {
-            const txSpin = spinner()
-            txSpin.start(`Submitting transaction`)
-            try {
-              const txHash = await endorsements.addProviderId(
-                Number(providerId)
-              )
-              txSpin.stop(`Transaction submitted: ${txHash}`)
-            } catch (error) {
-              txSpin.stop(`Failed to remove ${providerId}: ${error.message}`)
+          if (isCancel(providerId)) {
+            cancel(`Canceled`)
+          } else {
+            const confirmed = await confirm({
+              message: `Add provider ${providerId}?`,
+            })
+            if (isCancel(confirmed)) {
+              cancel(`Canceled`)
+            } else if (confirmed) {
+              const txSpin = spinner()
+              txSpin.start(`Submitting transaction`)
+              try {
+                const txHash = await endorsements.addProviderId(
+                  Number(providerId)
+                )
+                txSpin.stop(`Transaction submitted: ${txHash}`)
+              } catch (error) {
+                txSpin.stop(`Failed to remove ${providerId}: ${error.message}`)
+              }
             }
           }
           break
