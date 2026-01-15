@@ -57,7 +57,7 @@ export function constructFindPieceUrl(apiEndpoint: string, pieceCid: PieceCID): 
  */
 export async function calculatePieceCID(data: Uint8Array | AsyncIterable<Uint8Array>): Promise<PieceCID> {
   // Check for Uint8Array first (before async iterable, since Uint8Array has Symbol.iterator)
-  if (isUint8Array(data)) {
+  if (data instanceof Uint8Array) {
     return calculateSync(data)
   }
 
@@ -68,13 +68,6 @@ export async function calculatePieceCID(data: Uint8Array | AsyncIterable<Uint8Ar
   throw new Error(
     `calculatePieceCID: Invalid input type. Expected Uint8Array or AsyncIterable<Uint8Array>, got ${getTypeName(data)}`
   )
-}
-
-/**
- * Type guard to check if a value is a Uint8Array
- */
-function isUint8Array(data: unknown): data is Uint8Array {
-  return data instanceof Uint8Array
 }
 
 /**
