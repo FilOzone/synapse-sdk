@@ -1,11 +1,10 @@
 import Conf from 'conf'
-
-const packageJson = {
-  name: 'synapse-cli',
-  version: '1.0.0',
-}
+import packageJson from '../package.json' with { type: 'json' }
 
 const schema = {
+  keystore: {
+    type: 'string',
+  },
   privateKey: {
     type: 'string',
   },
