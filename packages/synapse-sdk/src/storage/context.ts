@@ -24,12 +24,13 @@
 
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { randIndex, randU256 } from '@filoz/synapse-core/utils'
+import { type MetadataObject, randIndex, randU256 } from '@filoz/synapse-core/utils'
+import { deletePiece } from '@filoz/synapse-core/warm-storage'
 import type { ethers } from 'ethers'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import type { EndorsementsService } from '../endorsements/index.ts'
 import type { PaymentsService } from '../payments/index.ts'
-import { PDPAuthHelper, PDPServer } from '../pdp/index.ts'
+import { PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { ProviderInfo } from '../sp-registry/types.ts'
@@ -38,7 +39,6 @@ import type {
   CreateContextsOptions,
   DataSetInfo,
   DownloadOptions,
-  MetadataEntry,
   PieceCID,
   PieceRecord,
   PieceStatus,
@@ -58,7 +58,7 @@ import {
   SIZE_CONSTANTS,
   timeUntilEpoch,
 } from '../utils/index.ts'
-import { combineMetadata, metadataMatches, objectToEntries, validatePieceMetadata } from '../utils/metadata.ts'
+import { combineMetadata, metadataMatches, validatePieceMetadata } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
 const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers available'
@@ -66,11 +66,10 @@ const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers avai
 export class StorageContext {
   private readonly _synapse: Synapse
   private readonly _provider: ProviderInfo
+  private readonly _pdpEndpoint: string
   private readonly _pdpServer: PDPServer
   private readonly _warmStorageService: WarmStorageService
-  private readonly _warmStorageAddress: string
   private readonly _withCDN: boolean
-  private readonly _signer: ethers.Signer
   private readonly _uploadBatchSize: number
   private _dataSetId: number | undefined
   private _clientDataSetId: bigint | undefined
@@ -82,7 +81,7 @@ export class StorageContext {
     resolve: (pieceId: number) => void
     reject: (error: Error) => void
     callbacks?: UploadCallbacks
-    metadata?: MetadataEntry[]
+    metadata?: MetadataObject
   }> = []
 
   private _isProcessing: boolean = false
@@ -176,7 +175,6 @@ export class StorageContext {
     this._synapse = synapse
     this._provider = provider
     this._withCDN = options.withCDN ?? false
-    this._signer = synapse.getSigner()
     this._warmStorageService = warmStorageService
     this._uploadBatchSize = Math.max(1, options.uploadBatchSize ?? SIZE_CONSTANTS.DEFAULT_UPLOAD_BATCH_SIZE)
     this._dataSetMetadata = dataSetMetadata
@@ -185,17 +183,15 @@ export class StorageContext {
     this._dataSetId = dataSetId
     this.serviceProvider = provider.serviceProvider
 
-    // Get WarmStorage address from Synapse (which already handles override)
-    this._warmStorageAddress = synapse.getWarmStorageAddress()
-
-    // Create PDPAuthHelper for signing operations
-    const authHelper = new PDPAuthHelper(this._warmStorageAddress, this._signer, BigInt(synapse.getChainId()))
-
     // Create PDPServer instance with provider URL from PDP product
     if (!provider.products.PDP?.data.serviceURL) {
       throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
     }
-    this._pdpServer = new PDPServer(authHelper, provider.products.PDP.data.serviceURL)
+    this._pdpEndpoint = provider.products.PDP.data.serviceURL
+    this._pdpServer = new PDPServer({
+      client: synapse.connectorClient,
+      endpoint: this._pdpEndpoint,
+    })
   }
 
   /**
@@ -848,8 +844,8 @@ export class StorageContext {
           // Skip providers without PDP products
           continue
         }
-        const providerPdpServer = new PDPServer(null, provider.products.PDP.data.serviceURL)
-        await providerPdpServer.ping()
+
+        await SP.ping(provider.products.PDP.data.serviceURL)
         return provider
       } catch (error) {
         console.warn(
@@ -970,7 +966,11 @@ export class StorageContext {
 
       // Poll for piece to be "parked" (ready)
       performance.mark('synapse:findPiece-start')
-      await this._pdpServer.findPiece(uploadResult.pieceCid)
+
+      await SP.findPiece({
+        endpoint: this._pdpEndpoint,
+        pieceCid: uploadResult.pieceCid,
+      })
       performance.mark('synapse:findPiece-end')
       performance.measure('synapse:findPiece', 'synapse:findPiece-start', 'synapse:findPiece-end')
 
@@ -996,7 +996,7 @@ export class StorageContext {
           resolve,
           reject,
           callbacks: options,
-          metadata: options?.metadata ? objectToEntries(options.metadata) : undefined,
+          metadata: options?.metadata,
         })
 
         // Debounce: defer processing to next event loop tick
@@ -1064,7 +1064,6 @@ export class StorageContext {
     try {
       // Create piece data array and metadata from the batch
       const pieceCids: PieceCID[] = batch.map((item) => item.pieceCid)
-      const metadataArray: MetadataEntry[][] = batch.map((item) => item.metadata ?? [])
       const confirmedPieceIds: number[] = []
       const addedPieceRecords = pieceCids.map((pieceCid) => ({ pieceCid }))
 
@@ -1077,8 +1076,7 @@ export class StorageContext {
         const addPiecesResult = await this._pdpServer.addPieces(
           this.dataSetId, // PDPVerifier data set ID
           clientDataSetId, // Client's dataset nonce
-          pieceCids,
-          metadataArray
+          batch.map((item) => ({ pieceCid: item.pieceCid, metadata: item.metadata }))
         )
 
         // Notify callbacks with transaction
@@ -1108,19 +1106,14 @@ export class StorageContext {
             ? { ...baseMetadataObj, [METADATA_KEYS.WITH_CDN]: '' }
             : baseMetadataObj
 
-        // Convert to MetadataEntry[] for PDP operations (requires ordered array)
-        const finalMetadata = objectToEntries(metadataObj)
         // Create a new data set and add pieces to it
         const createAndAddPiecesResult = await this._pdpServer.createAndAddPieces(
           randU256(),
-          this._provider.payee,
-          payer,
-          this._synapse.getWarmStorageAddress(),
-          pieceCids,
-          {
-            dataset: finalMetadata,
-            pieces: metadataArray,
-          }
+          this._provider.serviceProvider as Address,
+          payer as Address,
+          this._synapse.getWarmStorageAddress() as Address,
+          batch.map((item) => ({ pieceCid: item.pieceCid, metadata: item.metadata })),
+          metadataObj
         )
         batch.forEach((item) => {
           item.callbacks?.onPiecesAdded?.(createAndAddPiecesResult.txHash as Hex, addedPieceRecords)
@@ -1132,7 +1125,7 @@ export class StorageContext {
         const confirmedPieces = await SP.waitForAddPiecesStatus({
           statusUrl: new URL(
             `/pdp/data-sets/${confirmedDataset.dataSetId}/pieces/added/${confirmedDataset.createMessageHash}`,
-            this._pdpServer.getServiceURL()
+            this._pdpEndpoint
           ).toString(),
         })
 
@@ -1313,7 +1306,14 @@ export class StorageContext {
     const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
     const clientDataSetId = await this.getClientDataSetId()
 
-    return this._pdpServer.deletePiece(this.dataSetId, clientDataSetId, pieceId)
+    const { txHash } = await deletePiece(this._synapse.connectorClient, {
+      endpoint: this._pdpEndpoint,
+      dataSetId: BigInt(this.dataSetId),
+      pieceId: BigInt(pieceId),
+      clientDataSetId: clientDataSetId,
+    })
+
+    return txHash
   }
 
   /**
@@ -1328,7 +1328,10 @@ export class StorageContext {
     }
 
     try {
-      await this._pdpServer.findPiece(parsedPieceCID)
+      await SP.findPiece({
+        endpoint: this._pdpEndpoint,
+        pieceCid: parsedPieceCID,
+      })
       return true
     } catch {
       return false

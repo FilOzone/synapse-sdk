@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import type { Account, Chain, Client, Transport } from 'viem'
 import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
@@ -19,6 +20,7 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
+import { signerToConnectorClient } from './utils/viem.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 /**
@@ -37,6 +39,8 @@ export class Synapse {
   private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
   private readonly _multicall3Address: string
+
+  connectorClient: Client<Transport, Chain, Account>
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -200,6 +204,7 @@ export class Synapse {
       network,
       payments,
       options.withCDN === true,
+      await signerToConnectorClient(signer, provider),
       warmStorageAddress,
       warmStorageService,
       pieceRetriever,
@@ -217,7 +222,7 @@ export class Synapse {
     network: FilecoinNetworkType,
     payments: PaymentsService,
     withCDN: boolean,
-
+    connectorClient: Client<Transport, Chain, Account>,
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
@@ -239,6 +244,7 @@ export class Synapse {
     this._session = null
     this._multicall3Address = multicall3Address
 
+    this.connectorClient = connectorClient
     // Initialize StorageManager
     this._storageManager = new StorageManager(
       this,

@@ -21,14 +21,14 @@
  * ```
  */
 
+import { SESSION_KEY_PERMISSIONS } from '@filoz/synapse-core/session-key'
 import { ethers } from 'ethers'
-import { EIP712_TYPE_HASHES } from '../utils/eip712.ts'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from '../utils/index.ts'
 
-export const CREATE_DATA_SET_TYPEHASH = EIP712_TYPE_HASHES.CreateDataSet
-export const ADD_PIECES_TYPEHASH = EIP712_TYPE_HASHES.AddPieces
-export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = EIP712_TYPE_HASHES.SchedulePieceRemovals
-export const DELETE_DATA_SET_TYPEHASH = EIP712_TYPE_HASHES.DeleteDataSet
+export const CREATE_DATA_SET_TYPEHASH = SESSION_KEY_PERMISSIONS.CreateDataSet
+export const ADD_PIECES_TYPEHASH = SESSION_KEY_PERMISSIONS.AddPieces
+export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = SESSION_KEY_PERMISSIONS.SchedulePieceRemovals
+export const DELETE_DATA_SET_TYPEHASH = SESSION_KEY_PERMISSIONS.DeleteDataSet
 
 // These are the PDP-related permissions that can be granted to a session key.
 // They are bytes32 hex strings that can be supplied to fetchExpiries, login, and revoke.

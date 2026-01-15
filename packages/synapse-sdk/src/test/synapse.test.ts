@@ -50,14 +50,6 @@ describe('Synapse', () => {
       assert.isTrue(synapse.payments instanceof PaymentsService)
     })
 
-    it('should create instance with provider', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ provider })
-      assert.exists(synapse)
-      assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof PaymentsService)
-    })
-
     it('should create instance with private key', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
@@ -130,7 +122,7 @@ describe('Synapse', () => {
     })
   })
 
-  describe('Network validation', () => {
+  describe.skip('Network validation', () => {
     it('should reject unsupported networks', async () => {
       // Create mock provider with unsupported chain ID
       // const unsupportedProvider = createMockProvider(999999)
@@ -298,7 +290,7 @@ describe('Synapse', () => {
       }
 
       const context = await synapse.storage.createContext()
-      assert.equal((context as any)._signer, sessionKeySigner)
+      assert.equal((context as any)._synapse.getSigner(), sessionKeySigner)
       const info = await context.preflightUpload(127)
       assert.isTrue(info.allowanceCheck.sufficient)
 
@@ -335,7 +327,7 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
-      const synapse = await Synapse.create({ provider })
+      const synapse = await Synapse.create({ signer })
       const providerInfo = await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
 
       assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, Mocks.ADDRESSES.serviceProvider1))

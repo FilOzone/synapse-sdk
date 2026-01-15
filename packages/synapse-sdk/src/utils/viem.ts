@@ -55,6 +55,10 @@ export async function signerToConnectorClient(
   let transport: Transport
   let account: Account | Address
 
+  if (signer instanceof ethers.NonceManager) {
+    signer = signer.signer
+  }
+
   if ((signer as any).privateKey) {
     account = privateKeyToAccount((signer as any).privateKey)
   } else if (_provider instanceof ethers.BrowserProvider) {
