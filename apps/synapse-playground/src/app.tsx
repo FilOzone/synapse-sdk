@@ -25,9 +25,12 @@ export function App() {
             </a>
             <span className="text-xl font-bold">Filecoin Onchain Cloud</span>
           </div>
-          <div className="flex flex-row gap-2 items-center">
+          <div className="flex flex-row gap-3 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
+            <a href="https://github.com/FilOzone/synapse-sdk">
+              <Icons.Github />
+            </a>
           </div>
         </nav>
       </header>
