@@ -203,35 +203,38 @@ export async function getDataSetMetadata(client: Client<Transport, Chain>, dataS
 }
 
 export type CreateDataSetOptions = {
+  /** Whether the data set should use CDN. */
   cdn: boolean
+  /** The address that will receive payments (service provider). */
   payee: Address
   /**
+   * The address that will pay for the storage (client). If not provided, the default is the client address.
    * If client is from a session key this should be set to the actual payer address
    */
   payer?: Address
+  /** The endpoint of the PDP API. */
   endpoint: string
+  /** The metadata for the data set. */
   metadata?: MetadataObject
+  /** The client data set id to use for the signature. Must be unique for each data set. */
+  clientDataSetId?: bigint
+  /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
+  recordKeeper?: Address
 }
 
 /**
  * Create a data set
  *
  * @param client - The client to use to create the data set.
- * @param options - The options for the create data set.
- * @param options.payee - The address that will receive payments (service provider).
- * @param options.payer - The address that will pay for the storage (client).
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.cdn - Whether the data set should use CDN.
- * @param options.metadata - The metadata for the data set.
+ * @param options - {@link CreateDataSetOptions}
  * @returns The response from the create data set on PDP API.
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
   const chain = getChain(client.chain.id)
-  const nonce = randU256()
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
-    clientDataSetId: nonce,
+    clientDataSetId: options.clientDataSetId ?? randU256(),
     payee: options.payee,
     payer: options.payer,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
@@ -241,12 +244,16 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
   return SP.createDataSet({
     endpoint: options.endpoint,
-    recordKeeper: chain.contracts.storage.address,
+    recordKeeper: options.recordKeeper ?? chain.contracts.storage.address,
     extraData,
   })
 }
 
 export type CreateDataSetAndAddPiecesOptions = {
+  /** The client data set id to use for the signature. Must be unique for each data set. */
+  clientDataSetId?: bigint
+  /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
+  recordKeeper?: Address
   /**
    * The address that will pay for the storage (client). If not provided, the default is the client address.
    *
@@ -288,9 +295,9 @@ export async function createDataSetAndAddPieces(
 
   return SP.createDataSetAndAddPieces({
     endpoint: options.endpoint,
-    recordKeeper: chain.contracts.storage.address,
+    recordKeeper: options.recordKeeper ?? chain.contracts.storage.address,
     extraData: await signCreateDataSetAndAddPieces(client, {
-      clientDataSetId: randU256(),
+      clientDataSetId: options.clientDataSetId ?? randU256(),
       payee: options.payee,
       payer: options.payer,
       metadata: datasetMetadataObjectToEntry(options.metadata, {

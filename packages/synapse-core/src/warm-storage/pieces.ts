@@ -3,6 +3,7 @@ import pRetry from 'p-retry'
 import { type Account, type Address, type Chain, type Client, type Hex, hexToBytes, type Transport } from 'viem'
 import { getTransaction, readContract, waitForTransactionReceipt } from 'viem/actions'
 import { getChain } from '../chains.ts'
+import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
 import type { PieceCID } from '../piece.ts'
 import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -10,14 +11,19 @@ import { signSchedulePieceRemovals } from '../typed-data/sign-schedule-piece-rem
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
-import { randU256 } from '../utils/rand.ts'
 import type { DataSet } from './data-sets.ts'
+
+export type PieceInputWithMetadata = {
+  pieceCid: PieceCID
+  metadata?: MetadataObject
+}
 
 export type AddPiecesOptions = {
   dataSetId: bigint
   clientDataSetId: bigint
   endpoint: string
-  pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+  pieces: PieceInputWithMetadata[]
+  nonce?: bigint
 }
 
 /**
@@ -32,14 +38,16 @@ export type AddPiecesOptions = {
  * @returns The response from the add pieces operation.
  */
 export async function addPieces(client: Client<Transport, Chain, Account>, options: AddPiecesOptions) {
-  const nonce = randU256()
+  if (options.pieces.length === 0) {
+    throw new AtLeastOnePieceRequiredError()
+  }
   return PDP.addPieces({
     endpoint: options.endpoint,
     dataSetId: options.dataSetId,
     pieces: options.pieces.map((piece) => piece.pieceCid),
     extraData: await signAddPieces(client, {
       clientDataSetId: options.clientDataSetId,
-      nonce,
+      nonce: options.nonce,
       pieces: options.pieces.map((piece) => ({
         pieceCid: piece.pieceCid,
         metadata: pieceMetadataObjectToEntry(piece.metadata),
@@ -79,23 +87,23 @@ export async function deletePiece(client: Client<Transport, Chain, Account>, opt
   })
 }
 
-export type PollForDeletePieceStatusOptions = {
+export type WaitForDeletePieceStatusOptions = {
   txHash: Hex
 }
 
 /**
- * Poll for the delete piece status.
+ * Wait for the delete piece status.
  *
  * Waits for the transaction to be mined and then polls for the transaction receipt.
  *
- * @param client - The client to use to poll for the delete piece status.
- * @param options - The options for the poll for the delete piece status.
+ * @param client - The client to use to wait for the delete piece status.
+ * @param options - The options for the wait for the delete piece status.
  * @param options.txHash - The hash of the transaction to poll for.
  * @returns
  */
-export async function pollForDeletePieceStatus(
+export async function waitForDeletePieceStatus(
   client: Client<Transport, Chain>,
-  options: PollForDeletePieceStatusOptions
+  options: WaitForDeletePieceStatusOptions
 ) {
   try {
     await pRetry(
