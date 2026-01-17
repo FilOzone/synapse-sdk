@@ -82,10 +82,22 @@ export const upload: Command = command(
         },
         onUploadComplete(pieceCid) {
           p.log.info(`Upload complete! PieceCID: ${pieceCid}`)
+          const serviceURL = context.provider.products.PDP?.data.serviceURL
+          if (serviceURL) {
+            p.log.info(
+              `Retrieval URL: ${serviceURL.replace(/\/$/, '')}/piece/${pieceCid}`
+            )
+          }
         },
       })
 
       p.log.success(`File uploaded ${upload.pieceId}`)
+      const serviceURL = context.provider.products.PDP?.data.serviceURL
+      if (serviceURL) {
+        p.log.info(
+          `Retrieval URL: ${serviceURL.replace(/\/$/, '')}/piece/${upload.pieceCid}`
+        )
+      }
     } catch (error) {
       p.log.error((error as Error).message)
       p.outro('Please try again')
