@@ -13,7 +13,7 @@ interface ProviderEntry {
 export const getSpPeerIds: Command = command(
   {
     name: 'get-sp-peer-ids',
-    description: 'Get IPNI peer IDs of all active PDP service providers',
+    description: 'Get IPNI peer IDs of all approved PDP service providers',
     flags: {
       ...globalFlags,
       json: {
