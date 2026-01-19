@@ -9,7 +9,6 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { ProviderInfo } from './sp-registry/types.ts'
-import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
@@ -22,7 +21,7 @@ export type ServiceProvider = string
 /**
  * Supported Filecoin network types
  */
-export type FilecoinNetworkType = 'mainnet' | 'calibration'
+export type FilecoinNetworkType = 'mainnet' | 'calibration' | 'devnet'
 
 /**
  * Token identifier for balance queries
@@ -67,15 +66,15 @@ export interface SynapseOptions {
   disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
   warmStorageAddress?: string
+  /** Override Multicall3 contract address (required for devnet) */
+  multicall3Address?: string
+  /** Override USDFC token address (optional, useful for devnet) */
+  usdfcAddress?: string
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
   subgraphConfig?: SubgraphConfig
-
-  // Telemetry Configuration
-  /** Telemetry configuration for error tracking and debugging (enabled by default) */
-  telemetry?: TelemetryConfig
 }
 
 /**

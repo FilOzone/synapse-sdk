@@ -81,7 +81,7 @@
  *
  * - WARM_STORAGE_CONTRACT_ADDRESS: Warm Storage address (defaults to address in constants.ts for network)
  * - SP_REGISTRY_ADDRESS: ServiceProviderRegistry address (auto-discovered from WarmStorage if not provided)
- * - NETWORK: Either 'mainnet' or 'calibration' (default: calibration)
+ * - NETWORK: Either 'mainnet', 'calibration', or 'devnet' (default: calibration)
  * - RPC_URL: Custom RPC endpoint (overrides default network RPC)
  * - SP_NAME: Provider name (default: "Test Service Provider")
  * - SP_DESCRIPTION: Provider description (default: "Test provider for Warm Storage")
@@ -118,6 +118,24 @@ function parseArgs() {
     if (args[i] === '--mode' && args[i + 1]) {
       options.mode = args[i + 1]
       i++
+    } else if (args[i] === '--network' && args[i + 1]) {
+      options.network = args[i + 1]
+      i++
+    } else if (args[i] === '--rpc-url' && args[i + 1]) {
+      options.rpcUrl = args[i + 1]
+      i++
+    } else if (args[i] === '--warm-storage' && args[i + 1]) {
+      options.warmStorageAddress = args[i + 1]
+      i++
+    } else if (args[i] === '--multicall3' && args[i + 1]) {
+      options.multicall3Address = args[i + 1]
+      i++
+    } else if (args[i] === '--usdfc' && args[i + 1]) {
+      options.usdfcAddress = args[i + 1]
+      i++
+    } else if (args[i] === '--sp-registry' && args[i + 1]) {
+      options.spRegistryAddress = args[i + 1]
+      i++
     }
   }
 
@@ -125,6 +143,13 @@ function parseArgs() {
   const validModes = ['client', 'provider', 'both']
   if (options.mode && !validModes.includes(options.mode)) {
     error(`Invalid mode: ${options.mode}. Must be one of: ${validModes.join(', ')}`)
+    process.exit(1)
+  }
+
+  // Validate network
+  const validNetworks = ['mainnet', 'calibration', 'devnet']
+  if (options.network && !validNetworks.includes(options.network)) {
+    error(`Invalid network: ${options.network}. Must be one of: ${validNetworks.join(', ')}`)
     process.exit(1)
   }
 
@@ -335,18 +360,31 @@ async function setupProvider(deployerSigner, spSigner, provider, warmStorage, sp
 }
 
 // Setup client function
-async function setupClient(clientSigner, provider, warmStorage, warmStorageAddress) {
+async function setupClient(
+  clientSigner,
+  provider,
+  warmStorage,
+  warmStorageAddress,
+  usdfcAddressOverride = null,
+  multicall3Address = null
+) {
   // === Set up client payment approvals ===
   log('\n💰 Client Payment Setup')
 
-  // USDFC token address on calibration network
-  // This is a standard token address across all deployments
-  const usdfcAddress = '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0'
-  log(`USDFC token address: ${usdfcAddress}`)
+  // Get USDFC token address (use override if provided, otherwise auto-discover from WarmStorage)
+  const usdfcAddress = usdfcAddressOverride ?? warmStorage.getUSDFCTokenAddress()
+  log(`USDFC token address: ${usdfcAddress}${usdfcAddressOverride ? ' (override)' : ' (auto-discovered)'}`)
 
   // Create PaymentsService
   const paymentsAddress = await warmStorage.getPaymentsAddress()
-  const paymentsService = new PaymentsService(provider, clientSigner, paymentsAddress, usdfcAddress)
+  const paymentsService = new PaymentsService(
+    provider,
+    clientSigner,
+    paymentsAddress,
+    usdfcAddress,
+    false,
+    multicall3Address
+  )
 
   // Check client's USDFC balance
   const clientBalance = await paymentsService.walletBalance(TOKENS.USDFC)
@@ -414,6 +452,7 @@ async function main() {
     const mode = args.mode || 'client' // Default to client mode
 
     log(`🚀 Running post-deploy setup in '${mode}' mode`)
+    log(`Arguments: ${JSON.stringify(args)}`)
 
     // Get environment variables based on mode
     let deployerPrivateKey, spPrivateKey, clientPrivateKey, spServiceUrl
@@ -429,24 +468,32 @@ async function main() {
     }
 
     // Common configuration
-    const network = process.env.NETWORK || 'calibration'
-    const customRpcUrl = process.env.RPC_URL
-
-    // Validate network
-    if (network !== 'mainnet' && network !== 'calibration') {
-      error('NETWORK must be either "mainnet" or "calibration"')
-      process.exit(1)
-    }
+    const network = args.network || process.env.NETWORK || 'calibration'
+    const customRpcUrl = args.rpcUrl || process.env.RPC_URL
 
     // Get RPC URL
     const rpcURL = customRpcUrl || RPC_URLS[network].http
 
+    // Get Multicall3 address - use provided or default from constants
+    const multicall3Address =
+      args.multicall3Address || process.env.MULTICALL3_ADDRESS || CONTRACT_ADDRESSES.MULTICALL3[network]
+
+    // Get USDFC address override (optional, will auto-discover from WarmStorage if not provided)
+    const usdfcAddressOverride = args.usdfcAddress || process.env.USDFC_ADDRESS || null
+
     // Get WarmStorage address - use provided or default from constants
-    let warmStorageAddress = process.env.WARM_STORAGE_CONTRACT_ADDRESS
+    let warmStorageAddress = args.warmStorageAddress || process.env.WARM_STORAGE_CONTRACT_ADDRESS
     if (!warmStorageAddress) {
-      warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
+      // For devnet, check environment variable
+      if (network === 'devnet') {
+        warmStorageAddress = process.env.DEVNET_WARM_STORAGE_ADDRESS
+      } else {
+        warmStorageAddress = CONTRACT_ADDRESSES.WARM_STORAGE[network]
+      }
       if (!warmStorageAddress) {
-        error(`No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS.`)
+        error(
+          `No default Warm Storage address for ${network} network. Please provide WARM_STORAGE_CONTRACT_ADDRESS${network === 'devnet' ? ' or DEVNET_WARM_STORAGE_ADDRESS' : ''}.`
+        )
         process.exit(1)
       }
       log(`Using default Warm Storage address from constants.ts: ${warmStorageAddress}`)
@@ -454,6 +501,7 @@ async function main() {
 
     log(`Starting post-deployment setup for network: ${network}`)
     log(`Warm Storage contract address: ${warmStorageAddress}`)
+    log(`Multicall3 address: ${multicall3Address || 'auto-detect'}`)
     log(`Using RPC: ${rpcURL}`)
 
     // Create provider with extended timeout for Filecoin's 30s block time
@@ -467,7 +515,7 @@ async function main() {
     provider._getConnection().timeout = 120000 // 2 minutes
 
     // Create WarmStorage service
-    const warmStorage = await WarmStorageService.create(provider, warmStorageAddress)
+    const warmStorage = await WarmStorageService.create(provider, warmStorageAddress, multicall3Address)
 
     // Variables to track what was setup
     let providerId = null
@@ -505,7 +553,7 @@ async function main() {
       log(`  Storage Price: ${ethers.formatUnits(storagePricePerTibPerMonth, 18)} USDFC/TiB/month`)
 
       // Get registry address - use provided or discover from WarmStorage
-      let spRegistryAddress = process.env.SP_REGISTRY_ADDRESS
+      let spRegistryAddress = args.spRegistryAddress || process.env.SP_REGISTRY_ADDRESS
       if (spRegistryAddress) {
         log(`Using provided ServiceProviderRegistry address: ${spRegistryAddress}`)
       } else {
@@ -545,7 +593,14 @@ async function main() {
 
       log(`\nClient address: ${clientAddress}`)
 
-      await setupClient(clientSigner, provider, warmStorage, warmStorageAddress)
+      await setupClient(
+        clientSigner,
+        provider,
+        warmStorage,
+        warmStorageAddress,
+        usdfcAddressOverride,
+        multicall3Address
+      )
     }
 
     // === Summary ===

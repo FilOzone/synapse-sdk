@@ -774,7 +774,6 @@ export const presets = {
         999999n, // finalSettledEpoch
         'Terminated rail settlement', // note
       ],
-      NETWORK_FEE: () => parseUnits('0.0013', 18), // 0.0013 FIL
     },
   } as RequiredDeep<JSONRPCOptions>,
 }

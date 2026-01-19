@@ -30,22 +30,12 @@ export interface PaymentsOptions {
   settleTerminatedRailWithoutValidation?: (
     args: AbiToType<settleTerminatedRailWithoutValidation['inputs']>
   ) => AbiToType<settleTerminatedRailWithoutValidation['outputs']>
-  NETWORK_FEE?: () => bigint
 }
 
 /**
  * Handle payments contract calls
  */
 export function paymentsCallHandler(data: Hex, options: JSONRPCOptions): Hex {
-  // Check for NETWORK_FEE constant (function selector: 0x9be5c024) - constants are accessed as functions but may not be in ABI
-  if (data.startsWith('0x9be5c024')) {
-    if (!options.payments?.NETWORK_FEE) {
-      throw new Error('Payments: NETWORK_FEE is not defined')
-    }
-    const fee = options.payments.NETWORK_FEE()
-    return encodeAbiParameters([{ type: 'uint256' }], [fee])
-  }
-
   const { functionName, args } = decodeFunctionData({
     abi: Abis.payments,
     data: data as Hex,
