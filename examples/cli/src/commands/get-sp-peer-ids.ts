@@ -7,7 +7,7 @@ import { globalFlags } from '../flags.ts'
 interface ProviderEntry {
   providerId: bigint
   name: string
-  ipniPeerID: string
+  ipniPeerID?: string
 }
 
 export const getSpPeerIds: Command = command(
@@ -27,7 +27,7 @@ export const getSpPeerIds: Command = command(
       examples: [
         'synapse get-sp-peer-ids',
         'synapse get-sp-peer-ids --json',
-        "synapse get-sp-peer-ids --json | jq -r '.[].ipniPeerID'",
+        "synapse get-sp-peer-ids --json | jq -r '.[] | select(.ipniPeerID != null) | .ipniPeerID'",
         'synapse get-sp-peer-ids --chain 314',
       ],
     },
@@ -80,7 +80,7 @@ function outputResults(
 
   for (const provider of providers) {
     p.log.info(
-      `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID}`
+      `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID ?? '<not provided>'}`
     )
   }
 }
