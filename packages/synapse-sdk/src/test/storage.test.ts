@@ -1535,7 +1535,7 @@ describe('StorageService', () => {
               maxPieceSizeInBytes: 34359738368n,
               ipniPiece: false,
               ipniIpfs: false,
-              ipniPeerID: '',
+              ipniPeerID: undefined,
               storagePricePerTibPerDay: 1000000n,
               minProvingPeriodInEpochs: 30n,
               location: 'us-east',
