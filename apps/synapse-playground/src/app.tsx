@@ -28,9 +28,11 @@ export function App() {
           <div className="flex flex-row gap-3 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
-            <a href="https://github.com/FilOzone/synapse-sdk">
-              <Icons.Github />
-            </a>
+            <button type="button">
+              <a href="https://github.com/FilOzone/synapse-sdk">
+                <Icons.Github />
+              </a>
+            </button>
           </div>
         </nav>
       </header>
