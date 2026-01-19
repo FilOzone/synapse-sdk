@@ -1,5 +1,6 @@
+import { base58btc } from 'multiformats/bases/base58'
 import type { Hex } from 'viem'
-import { bytesToHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
+import { bytesToHex, fromHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
 import type { PDPOffering } from '../warm-storage/providers.ts'
 import { decodeAddressCapability } from './capabilities.ts'
 
@@ -25,6 +26,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
     ipniPiece: 'ipniPiece' in capabilities,
     ipniIpfs: 'ipniIpfs' in capabilities,
+    ipniPeerID: base58btc.encode(fromHex(capabilities.IPNIPeerID, 'bytes')),
     storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
