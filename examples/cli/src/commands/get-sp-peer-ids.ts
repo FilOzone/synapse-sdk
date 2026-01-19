@@ -21,19 +21,13 @@ export const getSpPeerIds: Command = command(
         description: 'Output as JSON',
         default: false,
       },
-      'peer-ids-only': {
-        type: Boolean,
-        description: 'Output only peer IDs, one per line',
-        default: false,
-      },
     },
     help: {
       description: 'Get IPNI peer IDs of all active PDP service providers',
       examples: [
         'synapse get-sp-peer-ids',
         'synapse get-sp-peer-ids --json',
-        'synapse get-sp-peer-ids --peer-ids-only',
-        'synapse get-sp-peer-ids --json --peer-ids-only',
+        'synapse get-sp-peer-ids --json | jq -r ".[].ipniPeerID"',
         'synapse get-sp-peer-ids --chain 314',
       ],
     },
@@ -41,7 +35,6 @@ export const getSpPeerIds: Command = command(
   async (argv) => {
     const client = publicClient(argv.flags.chain)
     const isJson = argv.flags.json
-    const peerIdsOnly = argv.flags['peer-ids-only']
 
     const spinner = isJson ? null : p.spinner()
     spinner?.start('Fetching service providers...')
@@ -49,7 +42,7 @@ export const getSpPeerIds: Command = command(
     try {
       const providers = await fetchProviderPeerIds(client)
       spinner?.stop('Service providers:')
-      outputResults(providers, { isJson, peerIdsOnly })
+      outputResults(providers, { isJson })
     } catch (error) {
       spinner?.stop()
       console.error(error)
@@ -71,29 +64,23 @@ async function fetchProviderPeerIds(
 }
 function outputResults(
   providers: ProviderEntry[],
-  options: { isJson: boolean; peerIdsOnly: boolean }
+  options: { isJson: boolean }
 ): void {
-  const { isJson, peerIdsOnly } = options
+  const { isJson } = options
 
   if (isJson) {
-    const output = peerIdsOnly
-      ? providers.map((p) => p.ipniPeerID)
-      : providers.map((p) => ({
-          providerId: Number(p.providerId),
-          name: p.name,
-          peerId: p.ipniPeerID,
-        }))
+    const output = providers.map((p) => ({
+      providerId: Number(p.providerId),
+      name: p.name,
+      ipniPeerID: p.ipniPeerID,
+    }))
     console.log(JSON.stringify(output))
     return
   }
 
   for (const provider of providers) {
-    if (peerIdsOnly) {
-      console.log(provider.ipniPeerID)
-    } else {
-      p.log.info(
-        `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID}`
-      )
-    }
+    p.log.info(
+      `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID}`
+    )
   }
 }
