@@ -23,11 +23,11 @@ export const getSpPeerIds: Command = command(
       },
     },
     help: {
-      description: 'Get IPNI peer IDs of all active PDP service providers',
+      description: 'Get IPNI peer IDs of all approved PDP service providers',
       examples: [
         'synapse get-sp-peer-ids',
         'synapse get-sp-peer-ids --json',
-        'synapse get-sp-peer-ids --json | jq -r ".[].ipniPeerID"',
+        "synapse get-sp-peer-ids --json | jq -r '.[].ipniPeerID'",
         'synapse get-sp-peer-ids --chain 314',
       ],
     },

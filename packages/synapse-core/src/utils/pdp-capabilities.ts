@@ -14,6 +14,7 @@ export const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
 export const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
 export const CAP_LOCATION = 'location'
 export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
+export const CAP_IPNI_PEER_ID = 'IPNIPeerID'
 
 /**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
@@ -26,7 +27,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
     ipniPiece: 'ipniPiece' in capabilities,
     ipniIpfs: 'ipniIpfs' in capabilities,
-    ipniPeerID: base58btc.encode(fromHex(capabilities.IPNIPeerID, 'bytes')),
+    ipniPeerID: base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')),
     storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
