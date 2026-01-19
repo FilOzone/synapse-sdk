@@ -1,7 +1,8 @@
 const possibleChains = [314159, 314] as const
 type Chains = (typeof possibleChains)[number]
 
-const Chain = (chain: Chains) => {
+const Chain = (chainStr: string) => {
+  const chain = Number(chainStr) as Chains
   if (!possibleChains.includes(chain)) {
     throw new Error(
       `Invalid chain: ${chain}. Must be one of: ${possibleChains.join(', ')}`
