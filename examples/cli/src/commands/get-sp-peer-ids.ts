@@ -1,16 +1,13 @@
 import * as p from '@clack/prompts'
-import { getChain } from '@filoz/synapse-core/chains'
+import { readProviders } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import { base58btc } from 'multiformats/bases/base58'
-import { fromHex, type Hex } from 'viem'
-import { readContract } from 'viem/actions'
 import { publicClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
-interface ProviderPeerId {
+interface ProviderEntry {
   providerId: bigint
   name: string
-  peerId: string
+  ipniPeerID: string
 }
 
 export const getSpPeerIds: Command = command(
@@ -64,51 +61,27 @@ export const getSpPeerIds: Command = command(
 
 async function fetchProviderPeerIds(
   client: ReturnType<typeof publicClient>
-): Promise<ProviderPeerId[]> {
-  const chain = getChain(client.chain.id)
-  const providers: ProviderPeerId[] = []
-  const limit = 100n
-
-  for (let offset = 0n; ; offset += limit) {
-    const result = await readContract(client, {
-      address: chain.contracts.serviceProviderRegistry.address,
-      abi: chain.contracts.serviceProviderRegistry.abi,
-      functionName: 'getProvidersByProductType',
-      args: [0, true, offset, limit], // productType (PDP=0), onlyActive, offset, limit
-    })
-
-    for (const provider of result.providers) {
-      const peerIdIndex =
-        provider.product.capabilityKeys.indexOf('IPNIPeerID')
-      if (peerIdIndex === -1) continue
-
-      const peerIdHex = provider.productCapabilityValues[peerIdIndex] as Hex
-      providers.push({
-        providerId: provider.providerId,
-        name: provider.providerInfo.name,
-        peerId: base58btc.encode(fromHex(peerIdHex, 'bytes')),
-      })
-    }
-
-    if (result.providers.length < Number(limit)) break
-  }
-
-  return providers
+): Promise<ProviderEntry[]> {
+  const pdpProviders = await readProviders(client)
+  return pdpProviders.map<ProviderEntry>((provider) => ({
+    providerId: provider.id,
+    name: provider.name,
+    ipniPeerID: provider.pdp.ipniPeerID,
+  }))
 }
-
 function outputResults(
-  providers: ProviderPeerId[],
+  providers: ProviderEntry[],
   options: { isJson: boolean; peerIdsOnly: boolean }
 ): void {
   const { isJson, peerIdsOnly } = options
 
   if (isJson) {
     const output = peerIdsOnly
-      ? providers.map((p) => p.peerId)
+      ? providers.map((p) => p.ipniPeerID)
       : providers.map((p) => ({
           providerId: Number(p.providerId),
           name: p.name,
-          peerId: p.peerId,
+          peerId: p.ipniPeerID,
         }))
     console.log(JSON.stringify(output))
     return
@@ -116,10 +89,10 @@ function outputResults(
 
   for (const provider of providers) {
     if (peerIdsOnly) {
-      console.log(provider.peerId)
+      console.log(provider.ipniPeerID)
     } else {
       p.log.info(
-        `Provider ${provider.providerId} (${provider.name}): ${provider.peerId}`
+        `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID}`
       )
     }
   }
