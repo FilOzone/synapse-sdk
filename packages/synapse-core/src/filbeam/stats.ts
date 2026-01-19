@@ -20,9 +20,9 @@ import { GetDataSetStatsError } from '../errors/filbeam.ts'
  * represent how many bytes can still be retrieved before needing to add more credits.
  */
 export interface DataSetStats {
-  /** The remaining CDN egress quota for cache hits (data served directly from FilBeam's cache) in bytes */
+  /** The remaining quota for all requests served by FilBeam (both cache-hit and cache-miss) in bytes */
   cdnEgressQuota: bigint
-  /** The remaining egress quota for cache misses (data retrieved from storage providers) in bytes */
+  /** The remaining quota for cache-miss requests served by the Storage Provider in bytes */
   cacheMissEgressQuota: bigint
 }
 
@@ -82,8 +82,8 @@ export interface GetDataSetStatsOptions {
  * track how many bytes can still be retrieved through FilBeam's trusted measurement layer
  * before needing to add more credits:
  *
- * - **CDN Egress Quota**: Remaining bytes that can be served from FilBeam's cache (fast, direct delivery)
- * - **Cache Miss Egress Quota**: Remaining bytes that can be retrieved from storage providers (triggers caching)
+ * - **CDN Egress Quota**: Remaining bytes for all requests served by FilBeam (both cache-hit and cache-miss)
+ * - **Cache Miss Egress Quota**: Remaining bytes for cache-miss requests served by the Storage Provider
  *
  * @param options - The options for fetching data set stats
  * @returns A promise that resolves to the data set statistics with remaining quotas as BigInt values

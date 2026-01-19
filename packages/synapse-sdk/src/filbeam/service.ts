@@ -19,8 +19,8 @@ import { createError } from '../utils/errors.ts'
  * represent how many bytes can still be retrieved before needing to add more credits.
  *
  * @interface DataSetStats
- * @property {bigint} cdnEgressQuota - The remaining CDN egress quota for cache hits (data served directly from FilBeam's cache) in bytes
- * @property {bigint} cacheMissEgressQuota - The remaining egress quota for cache misses (data retrieved from storage providers) in bytes
+ * @property {bigint} cdnEgressQuota - The remaining quota for all requests served by FilBeam (both cache-hit and cache-miss) in bytes
+ * @property {bigint} cacheMissEgressQuota - The remaining quota for cache-miss requests served by the Storage Provider in bytes
  */
 export interface DataSetStats {
   cdnEgressQuota: bigint
@@ -39,7 +39,7 @@ export interface DataSetStats {
  * // Monitor remaining pay-per-byte quotas
  * const service = new FilBeamService('mainnet')
  * const stats = await service.getDataSetStats(12345)
- * console.log('Remaining CDN Egress (cache hits):', stats.cdnEgressQuota)
+ * console.log('Remaining CDN Egress:', stats.cdnEgressQuota)
  * console.log('Remaining Cache Miss Egress:', stats.cacheMissEgressQuota)
  * ```
  *
