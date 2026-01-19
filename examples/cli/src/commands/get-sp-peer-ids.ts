@@ -69,10 +69,10 @@ function outputResults(
   const { isJson } = options
 
   if (isJson) {
-    const output = providers.map((p) => ({
-      providerId: Number(p.providerId),
-      name: p.name,
-      ipniPeerID: p.ipniPeerID,
+    const output = providers.map((provider) => ({
+      providerId: Number(provider.providerId),
+      name: provider.name,
+      ipniPeerID: provider.ipniPeerID,
     }))
     console.log(JSON.stringify(output))
     return
