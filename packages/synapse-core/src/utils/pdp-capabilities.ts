@@ -27,7 +27,8 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
     ipniPiece: 'ipniPiece' in capabilities,
     ipniIpfs: 'ipniIpfs' in capabilities,
-    ipniPeerID: base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')),
+    ipniPeerID:
+      CAP_IPNI_PEER_ID in capabilities ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')) : undefined,
     storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
