@@ -70,6 +70,9 @@ function outputResults(
 
   if (isJson) {
     const output = providers.map((provider) => ({
+      // While converting BigInt to Number can lose precision, it's unlikely
+      // that we will have more than 2^53-1 providers. We can afford to represent
+      // providerId value as a number in the JSON output.
       providerId: Number(provider.providerId),
       name: provider.name,
       ipniPeerID: provider.ipniPeerID,
