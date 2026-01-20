@@ -1,7 +1,7 @@
 import { useAccount } from 'wagmi'
 import * as Icons from '@/components/icons.tsx'
-import { Button } from '@/components/ui/button.tsx'
 import { NetworkSelector } from '@/components/network-selector.tsx'
+import { Button } from '@/components/ui/button.tsx'
 import { Toaster } from '@/components/ui/sonner.tsx'
 import { ConnectSection } from './components/connect-section.tsx'
 import { PaymentsAccount } from './components/payments-account.tsx'
@@ -29,8 +29,8 @@ export function App() {
           <div className="flex flex-row gap-3 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
-            <Button variant="ghost" size="icon" asChild>
-              <a href="https://github.com/FilOzone/synapse-sdk" target="_blank" rel="noopener noreferrer">
+            <Button asChild size="icon" variant="ghost">
+              <a href="https://github.com/FilOzone/synapse-sdk" rel="noopener noreferrer" target="_blank">
                 <Icons.Github />
               </a>
             </Button>
