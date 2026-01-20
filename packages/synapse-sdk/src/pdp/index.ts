@@ -11,20 +11,6 @@
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
-  DataSetCreationStatusResponse,
-  FindPieceResponse,
-  PieceAdditionStatusResponse,
 } from './server.ts'
 export { PDPServer } from './server.ts'
-// Export validation utilities for advanced use
-export {
-  asDataSetData,
-  asDataSetPieceData,
-  isDataSetCreationStatusResponse,
-  isFindPieceResponse,
-  isPieceAdditionStatusResponse,
-  validateDataSetCreationStatusResponse,
-  validateFindPieceResponse,
-  validatePieceAdditionStatusResponse,
-} from './validation.ts'
 export { PDPVerifier } from './verifier.ts'

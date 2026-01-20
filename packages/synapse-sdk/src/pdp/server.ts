@@ -49,24 +49,6 @@ export interface CreateDataSetResponse {
 }
 
 /**
- * Response from checking data set creation status
- */
-export interface DataSetCreationStatusResponse {
-  /** Transaction hash that created the data set */
-  createMessageHash: string
-  /** Whether the data set has been created on-chain */
-  dataSetCreated: boolean
-  /** Service label that created the data set */
-  service: string
-  /** Transaction status (pending, confirmed, failed) */
-  txStatus: string
-  /** Whether the transaction was successful (null if still pending) */
-  ok: boolean | null
-  /** The server's reported ID for this data set (only available after creation) */
-  dataSetId?: number
-}
-
-/**
  * Response from adding pieces to a data set
  */
 export interface AddPiecesResponse {
@@ -76,55 +58,6 @@ export interface AddPiecesResponse {
   txHash: string
   /** URL to check piece addition status (optional - new servers only) */
   statusUrl: string
-}
-
-/**
- * Response from finding a piece
- */
-export interface FindPieceResponse {
-  /** The piece CID that was found */
-  pieceCid: PieceCID
-}
-
-/**
- * Response from checking piece indexing and IPNI status
- */
-export interface PieceStatusResponse {
-  /** The piece CID */
-  pieceCid: string
-  /** Current processing status */
-  status: string
-  /** Whether the piece has been indexed */
-  indexed: boolean
-  /** Whether the piece has been advertised to IPNI */
-  advertised: boolean
-  /**
-   * Whether the piece has been retrieved
-   * This does not necessarily mean it was retrieved by a particular indexer,
-   * only that the PDP server witnessed a retrieval event. Care should be
-   * taken when interpreting this field.
-   */
-  retrieved: boolean
-  /** Timestamp when the piece was retrieved (optional) */
-  retrievedAt?: string
-}
-
-/**
- * Response from checking piece addition status
- */
-export interface PieceAdditionStatusResponse {
-  /** Transaction hash for the piece addition */
-  txHash: string
-  /** Transaction status (pending, confirmed, failed) */
-  txStatus: string
-  /** The data set ID */
-  dataSetId: number
-  /** Number of pieces being added */
-  pieceCount: number
-  /** Whether the add message was successful (null if pending) */
-  addMessageOk: boolean | null
-  /** Piece IDs assigned after confirmation */
-  confirmedPieceIds?: number[]
 }
 
 /**
@@ -139,35 +72,12 @@ export interface UploadPieceOptions {
   signal?: AbortSignal
 }
 
-/**
- * Input for adding pieces to a data set
- */
-export interface PDPAddPiecesInput {
-  pieces: PDPPieces[]
-  extraData: string
-}
-
-export interface PDPPieces {
-  pieceCid: string
-  subPieces: {
-    subPieceCid: string
-  }[]
-}
-
-export interface PDPCreateAndAddInput {
-  recordKeeper: string
-  pieces: PDPPieces[]
-  extraData: string
-}
-
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace PDPServer {
   export type OptionsType = {
     client: Client<Transport, Chain, Account>
     /** The PDP service URL (e.g., https://pdp.provider.com). */
     endpoint: string
   }
-  export type ErrorType = Error
 }
 
 export class PDPServer {
