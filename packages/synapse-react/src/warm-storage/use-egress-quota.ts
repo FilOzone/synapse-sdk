@@ -39,7 +39,7 @@ export function useEgressQuota(props: UseEgressQuotaProps) {
 
   return useQuery({
     ...props.query,
-    queryKey: ['synapse-filbeam-egress-quota', chainId, dataSetId?.toString()],
+    queryKey: ['synapse-filbeam-egress-quotas', chainId, dataSetId?.toString()],
     queryFn: dataSetId != null ? () => getDataSetStats({ chainId, dataSetId }) : skipToken,
   })
 }
