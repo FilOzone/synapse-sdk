@@ -1,5 +1,6 @@
 import { useAccount } from 'wagmi'
 import * as Icons from '@/components/icons.tsx'
+import { Button } from '@/components/ui/button.tsx'
 import { NetworkSelector } from '@/components/network-selector.tsx'
 import { Toaster } from '@/components/ui/sonner.tsx'
 import { ConnectSection } from './components/connect-section.tsx'
@@ -28,11 +29,11 @@ export function App() {
           <div className="flex flex-row gap-3 items-center">
             {isConnected && <WalletMenu />}
             <NetworkSelector />
-            <button type="button">
-              <a href="https://github.com/FilOzone/synapse-sdk">
+            <Button variant="ghost" size="icon" asChild>
+              <a href="https://github.com/FilOzone/synapse-sdk" target="_blank" rel="noopener noreferrer">
                 <Icons.Github />
               </a>
-            </button>
+            </Button>
           </div>
         </nav>
       </header>
