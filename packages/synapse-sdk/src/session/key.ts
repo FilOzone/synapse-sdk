@@ -53,17 +53,20 @@ export class SessionKey {
   private readonly _registry: ethers.Contract
   private readonly _signer: ethers.Signer
   private readonly _owner: ethers.Signer
+  private readonly _multicall3Address: string | null
 
   public constructor(
     provider: ethers.Provider,
     sessionKeyRegistryAddress: string,
     signer: ethers.Signer,
-    owner: ethers.Signer
+    owner: ethers.Signer,
+    multicall3Address: string | null
   ) {
     this._provider = provider
     this._registry = new ethers.Contract(sessionKeyRegistryAddress, CONTRACT_ABIS.SESSION_KEY_REGISTRY, owner)
     this._signer = signer
     this._owner = owner
+    this._multicall3Address = multicall3Address
   }
 
   getSigner(): ethers.Signer {
@@ -77,12 +80,12 @@ export class SessionKey {
    */
   async fetchExpiries(permissions: string[] = PDP_PERMISSIONS): Promise<Record<string, bigint>> {
     const network = await getFilecoinNetworkType(this._provider)
+    const multicall3Address = this._multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[network]
+    if (!multicall3Address) {
+      throw new Error(`No Multicall3 address available for network: ${network}`)
+    }
 
-    const multicall = new ethers.Contract(
-      CONTRACT_ADDRESSES.MULTICALL3[network],
-      CONTRACT_ABIS.MULTICALL3,
-      this._provider
-    )
+    const multicall = new ethers.Contract(multicall3Address, CONTRACT_ABIS.MULTICALL3, this._provider)
     const registryInterface = new ethers.Interface(CONTRACT_ABIS.SESSION_KEY_REGISTRY)
 
     const [ownerAddress, signerAddress, registryAddress] = await Promise.all([

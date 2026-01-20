@@ -107,6 +107,7 @@ export class WarmStorageService {
   private _warmStorageContract: ethers.Contract | null = null
   private _warmStorageViewContract: ethers.Contract | null = null
   private _pdpVerifier: PDPVerifier | null = null
+  private readonly _multicall3Address: string
 
   // All discovered addresses
   private readonly _addresses: {
@@ -125,6 +126,7 @@ export class WarmStorageService {
   private constructor(
     provider: ethers.Provider,
     warmStorageAddress: string,
+    multicall3Address: string,
     addresses: {
       pdpVerifier: string
       payments: string
@@ -137,22 +139,32 @@ export class WarmStorageService {
   ) {
     this._provider = provider
     this._warmStorageAddress = warmStorageAddress
+    this._multicall3Address = multicall3Address
     this._addresses = addresses
   }
 
   /**
    * Create a new WarmStorageService instance with initialized addresses
    */
-  static async create(provider: ethers.Provider, warmStorageAddress: string): Promise<WarmStorageService> {
+  static async create(
+    provider: ethers.Provider,
+    warmStorageAddress: string,
+    multicall3Address: string | null = null
+  ): Promise<WarmStorageService> {
     // Get network from provider and validate it's a supported Filecoin network
     const networkName = await getFilecoinNetworkType(provider)
 
+    const resolvedMulticallAddress = multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[networkName]
+    if (!resolvedMulticallAddress) {
+      throw createError(
+        'WarmStorageService',
+        'create',
+        `No Multicall3 address configured for network: ${networkName}. Provide multicall3Address when initializing.`
+      )
+    }
+
     // Initialize all contract addresses using Multicall3
-    const multicall = new ethers.Contract(
-      CONTRACT_ADDRESSES.MULTICALL3[networkName],
-      CONTRACT_ABIS.MULTICALL3,
-      provider
-    )
+    const multicall = new ethers.Contract(resolvedMulticallAddress, CONTRACT_ABIS.MULTICALL3, provider)
 
     const iface = new ethers.Interface(CONTRACT_ABIS.WARM_STORAGE)
 
@@ -206,7 +218,11 @@ export class WarmStorageService {
       sessionKeyRegistry: iface.decodeFunctionResult('sessionKeyRegistry', results[6].returnData)[0],
     }
 
-    return new WarmStorageService(provider, warmStorageAddress, addresses)
+    return new WarmStorageService(provider, warmStorageAddress, resolvedMulticallAddress, addresses)
+  }
+
+  getMulticall3Address(): string {
+    return this._multicall3Address
   }
 
   getPDPVerifierAddress(): string {
@@ -1092,6 +1108,28 @@ export class WarmStorageService {
       challengesPerProof: Number(challengesPerProof),
       initChallengeWindowStart: Number(initChallengeWindowStart),
     }
+  }
+
+  // ========== Proving Period Operations ==========
+
+  /**
+   * Get the maximum proving period from the WarmStorage contract
+   * @returns Maximum proving period in epochs
+   */
+  async getMaxProvingPeriod(): Promise<number> {
+    const viewContract = this._getWarmStorageViewContract()
+    const maxPeriod = await viewContract.getMaxProvingPeriod()
+    return Number(maxPeriod)
+  }
+
+  /**
+   * Get the challenge window size from the WarmStorage contract
+   * @returns Challenge window size in epochs
+   */
+  async getChallengeWindow(): Promise<number> {
+    const viewContract = this._getWarmStorageViewContract()
+    const window = await viewContract.challengeWindow()
+    return Number(window)
   }
   /**
    * Increments the fixed locked-up amounts for CDN payment rails.
