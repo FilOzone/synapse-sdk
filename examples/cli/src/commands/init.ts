@@ -13,14 +13,20 @@ export const init: Command = command(
     flags: {
       auto: {
         type: Boolean,
+        description: 'Generate a new private key',
       },
       keystore: {
         type: String,
+        description: 'Path specifying a foundry keystore (requires foundry)',
       },
     },
     help: {
       description: 'Initialize a new service provider',
-      examples: ['synapse init', 'synapse init --auto'],
+      examples: [
+        'synapse init',
+        'synapse init --auto',
+        'synapse init --keystore ~/.foundry/keystores/alice',
+      ],
     },
   },
   async (argv) => {

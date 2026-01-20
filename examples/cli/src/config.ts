@@ -10,7 +10,10 @@ const schema = {
   },
 }
 
-const config = new Conf<{ privateKey: string }>({
+const config = new Conf<{
+  privateKey: string
+  keystore: string
+}>({
   projectName: packageJson.name,
   projectVersion: packageJson.version,
   schema,
