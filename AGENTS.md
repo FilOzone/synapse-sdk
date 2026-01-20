@@ -165,3 +165,9 @@ Only commit when explicitly asked. Draft messages for user review.
 ## Blockchain Tools
 
 **RPC endpoints**: Calibration `https://api.calibration.node.glif.io/rpc/v1`, Mainnet `https://api.node.glif.io/rpc/v1`
+
+## Developing examples CLI
+
+Run typescript files in `examples/cli` directory directly using `node`, e.g. `node examples/cli/src/index.ts`. Do not use wrappers like `tsx`.
+
+Remember to rebuild dependencies before running any `examples/cli` commands if you made changes to `packages/*` files.
