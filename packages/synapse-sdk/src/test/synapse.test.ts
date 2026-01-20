@@ -22,7 +22,8 @@ import { makeDataSetCreatedLog } from './mocks/events.ts'
 // mock server for testing
 const server = setup()
 
-const providerIds = [Number(Mocks.PROVIDERS.provider1.providerId), Number(Mocks.PROVIDERS.provider2.providerId)]
+const providers = [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]
+const providerIds = providers.map((provider) => Number(provider.providerId))
 
 describe('Synapse', () => {
   let signer: ethers.Signer
@@ -758,7 +759,7 @@ describe('Synapse', () => {
 
     it('selects specified providerIds', async () => {
       const contexts = await synapse.storage.createContexts({
-        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId].map(Number),
+        providerIds,
       })
       assert.equal(contexts.length, 2)
       assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
@@ -951,6 +952,24 @@ describe('Synapse', () => {
       describe(`when endorsing providers[${index}]`, async () => {
         beforeEach(() => {
           endorsedProviderIds.push(BigInt(endorsedProviderId))
+        })
+
+        it('falls back to other provider when endorsed provider fails ping', async () => {
+          // mock ping to fail for endorsed provider
+          const endorsedProvider = providers[index]
+          server.use(
+            http.get(`${endorsedProvider.products[0].offering.serviceURL}/pdp/ping`, () => HttpResponse.error())
+          )
+
+          const contexts = await synapse.storage.createContexts({
+            count: 1,
+            forceCreateDataSets: true,
+          })
+          assert.equal(contexts.length, 1)
+          assert.equal((contexts[0] as any)._dataSetId, undefined)
+
+          const otherProviderId = providerIds[providers.length - index - 1]
+          assert.equal(contexts[0].provider.id, otherProviderId)
         })
 
         for (const count of [1, 2]) {
