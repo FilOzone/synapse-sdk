@@ -39,7 +39,9 @@ export function getStatsBaseUrl(chainId: number): string {
 function parseBigInt(value: string, fieldName: string): bigint {
   // Check if the string is a valid integer format (optional minus sign followed by digits)
   if (!/^-?\d+$/.test(value)) {
-    throw new GetDataSetStatsError('Invalid response format', `${fieldName} is not a valid integer: "${value}"`)
+    throw new GetDataSetStatsError('Invalid response format', {
+      details: `${fieldName} is not a valid integer: "${value}"`,
+    })
   }
   return BigInt(value)
 }
@@ -49,17 +51,17 @@ function parseBigInt(value: string, fieldName: string): bigint {
  */
 export function validateStatsResponse(data: unknown): DataSetStats {
   if (typeof data !== 'object' || data === null) {
-    throw new GetDataSetStatsError('Invalid response format', 'Response is not an object')
+    throw new GetDataSetStatsError('Invalid response format', { details: 'Response is not an object' })
   }
 
   const response = data as Record<string, unknown>
 
   if (typeof response.cdnEgressQuota !== 'string') {
-    throw new GetDataSetStatsError('Invalid response format', 'cdnEgressQuota must be a string')
+    throw new GetDataSetStatsError('Invalid response format', { details: 'cdnEgressQuota must be a string' })
   }
 
   if (typeof response.cacheMissEgressQuota !== 'string') {
-    throw new GetDataSetStatsError('Invalid response format', 'cacheMissEgressQuota must be a string')
+    throw new GetDataSetStatsError('Invalid response format', { details: 'cacheMissEgressQuota must be a string' })
   }
 
   return {
@@ -73,6 +75,8 @@ export interface GetDataSetStatsOptions {
   chainId: number
   /** The data set ID to query */
   dataSetId: bigint | number | string
+  /** Optional override for request.json.get (for testing) */
+  requestGetJson?: typeof request.json.get
 }
 
 /**
@@ -100,22 +104,23 @@ export interface GetDataSetStatsOptions {
 export async function getDataSetStats(options: GetDataSetStatsOptions): Promise<DataSetStats> {
   const baseUrl = getStatsBaseUrl(options.chainId)
   const url = `${baseUrl}/data-set/${options.dataSetId}`
+  const requestGetJson = options.requestGetJson ?? request.json.get
 
-  const response = await request.json.get<unknown>(url)
+  const response = await requestGetJson<unknown>(url)
 
   if (response.error) {
     if (HttpError.is(response.error)) {
       const status = response.error.response.status
       if (status === 404) {
-        throw new GetDataSetStatsError(`Data set not found: ${options.dataSetId}`)
+        throw new GetDataSetStatsError(`Data set not found: ${options.dataSetId}`, { cause: response.error })
       }
       const errorText = await response.error.response.text().catch(() => 'Unknown error')
-      throw new GetDataSetStatsError(
-        `Failed to fetch data set stats`,
-        `HTTP ${status} ${response.error.response.statusText}: ${errorText}`
-      )
+      throw new GetDataSetStatsError(`Failed to fetch data set stats`, {
+        details: `HTTP ${status} ${response.error.response.statusText}: ${errorText}`,
+        cause: response.error,
+      })
     }
-    throw response.error
+    throw new GetDataSetStatsError('Unexpected error', { cause: response.error })
   }
 
   return validateStatsResponse(response.result)

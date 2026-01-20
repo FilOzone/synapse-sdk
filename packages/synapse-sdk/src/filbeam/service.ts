@@ -8,24 +8,13 @@
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
+import { getDataSetStats as coreGetDataSetStats, type DataSetStats } from '@filoz/synapse-core/filbeam'
+import type { request } from 'iso-web/http'
 import type { FilecoinNetworkType } from '../types.ts'
+import { CHAIN_IDS } from '../utils/constants.ts'
 import { createError } from '../utils/errors.ts'
 
-/**
- * Data set statistics from FilBeam.
- *
- * These quotas represent the remaining pay-per-byte allocation available for data retrieval
- * through FilBeam's trusted measurement layer. The values decrease as data is served and
- * represent how many bytes can still be retrieved before needing to add more credits.
- *
- * @interface DataSetStats
- * @property {bigint} cdnEgressQuota - The remaining quota for all requests served by FilBeam (both cache-hit and cache-miss) in bytes
- * @property {bigint} cacheMissEgressQuota - The remaining quota for cache-miss requests served by the Storage Provider in bytes
- */
-export interface DataSetStats {
-  cdnEgressQuota: bigint
-  cacheMissEgressQuota: bigint
-}
+export type { DataSetStats }
 
 /**
  * Service for interacting with FilBeam infrastructure and APIs.
@@ -50,12 +39,12 @@ export interface DataSetStats {
  */
 export class FilBeamService {
   private readonly _network: FilecoinNetworkType
-  private readonly _fetch: typeof fetch
+  private readonly _requestGetJson: typeof request.json.get | undefined
 
-  constructor(network: FilecoinNetworkType, fetchImpl: typeof fetch = globalThis.fetch) {
+  constructor(network: FilecoinNetworkType, requestGetJson?: typeof request.json.get) {
     this._validateNetworkType(network)
     this._network = network
-    this._fetch = fetchImpl
+    this._requestGetJson = requestGetJson
   }
 
   private _validateNetworkType(network: FilecoinNetworkType) {
@@ -66,40 +55,6 @@ export class FilBeamService {
       'validateNetworkType',
       'Unsupported network type: Only Filecoin mainnet, calibration, and devnet networks are supported.'
     )
-  }
-
-  /**
-   * Get the base stats URL for the current network
-   */
-  private _getStatsBaseUrl(): string {
-    return this._network === 'mainnet' ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
-  }
-
-  /**
-   * Validates the response from FilBeam stats API
-   */
-  private _validateStatsResponse(data: unknown): {
-    cdnEgressQuota: string
-    cacheMissEgressQuota: string
-  } {
-    if (typeof data !== 'object' || data === null) {
-      throw createError('FilBeamService', 'validateStatsResponse', 'Response is not an object')
-    }
-
-    const response = data as Record<string, unknown>
-
-    if (typeof response.cdnEgressQuota !== 'string') {
-      throw createError('FilBeamService', 'validateStatsResponse', 'cdnEgressQuota must be a string')
-    }
-
-    if (typeof response.cacheMissEgressQuota !== 'string') {
-      throw createError('FilBeamService', 'validateStatsResponse', 'cacheMissEgressQuota must be a string')
-    }
-
-    return {
-      cdnEgressQuota: response.cdnEgressQuota,
-      cacheMissEgressQuota: response.cacheMissEgressQuota,
-    }
   }
 
   /**
@@ -137,35 +92,11 @@ export class FilBeamService {
    * ```
    */
   async getDataSetStats(dataSetId: string | number): Promise<DataSetStats> {
-    const baseUrl = this._getStatsBaseUrl()
-    const url = `${baseUrl}/data-set/${dataSetId}`
-
-    const response = await this._fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const chainId = CHAIN_IDS[this._network]
+    return coreGetDataSetStats({
+      chainId,
+      dataSetId,
+      requestGetJson: this._requestGetJson,
     })
-
-    if (response.status === 404) {
-      throw createError('FilBeamService', 'getDataSetStats', `Data set not found: ${dataSetId}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw createError(
-        'FilBeamService',
-        'getDataSetStats',
-        `HTTP ${response.status} ${response.statusText}: ${errorText}`
-      )
-    }
-
-    const data = await response.json()
-    const validated = this._validateStatsResponse(data)
-
-    return {
-      cdnEgressQuota: BigInt(validated.cdnEgressQuota),
-      cacheMissEgressQuota: BigInt(validated.cacheMissEgressQuota),
-    }
   }
 }
