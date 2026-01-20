@@ -26,50 +26,6 @@ export interface DataSetStats {
   cacheMissEgressQuota: bigint
 }
 
-/**
- * Get the base stats URL for a given chain ID
- */
-export function getStatsBaseUrl(chainId: number): string {
-  return chainId === 314 ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
-}
-
-/**
- * Validates that a string can be converted to a valid BigInt
- */
-function parseBigInt(value: string, fieldName: string): bigint {
-  // Check if the string is a valid integer format (optional minus sign followed by digits)
-  if (!/^-?\d+$/.test(value)) {
-    throw new GetDataSetStatsError('Invalid response format', {
-      details: `${fieldName} is not a valid integer: "${value}"`,
-    })
-  }
-  return BigInt(value)
-}
-
-/**
- * Validates the response from FilBeam stats API and returns DataSetStats
- */
-export function validateStatsResponse(data: unknown): DataSetStats {
-  if (typeof data !== 'object' || data === null) {
-    throw new GetDataSetStatsError('Invalid response format', { details: 'Response is not an object' })
-  }
-
-  const response = data as Record<string, unknown>
-
-  if (typeof response.cdnEgressQuota !== 'string') {
-    throw new GetDataSetStatsError('Invalid response format', { details: 'cdnEgressQuota must be a string' })
-  }
-
-  if (typeof response.cacheMissEgressQuota !== 'string') {
-    throw new GetDataSetStatsError('Invalid response format', { details: 'cacheMissEgressQuota must be a string' })
-  }
-
-  return {
-    cdnEgressQuota: parseBigInt(response.cdnEgressQuota, 'cdnEgressQuota'),
-    cacheMissEgressQuota: parseBigInt(response.cacheMissEgressQuota, 'cacheMissEgressQuota'),
-  }
-}
-
 export interface GetDataSetStatsOptions {
   /** The chain ID (314 for mainnet, 314159 for calibration) */
   chainId: number
@@ -112,7 +68,9 @@ export async function getDataSetStats(options: GetDataSetStatsOptions): Promise<
     if (HttpError.is(response.error)) {
       const status = response.error.response.status
       if (status === 404) {
-        throw new GetDataSetStatsError(`Data set not found: ${options.dataSetId}`, { cause: response.error })
+        throw new GetDataSetStatsError(`Data set not found: ${options.dataSetId}`, {
+          cause: response.error,
+        })
       }
       const errorText = await response.error.response.text().catch(() => 'Unknown error')
       throw new GetDataSetStatsError(`Failed to fetch data set stats`, {
@@ -124,4 +82,54 @@ export async function getDataSetStats(options: GetDataSetStatsOptions): Promise<
   }
 
   return validateStatsResponse(response.result)
+}
+
+/**
+ * Get the base stats URL for a given chain ID
+ */
+export function getStatsBaseUrl(chainId: number): string {
+  return chainId === 314 ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
+}
+
+/**
+ * Validates that a string can be converted to a valid BigInt
+ */
+function parseBigInt(value: string, fieldName: string): bigint {
+  // Check if the string is a valid integer format (optional minus sign followed by digits)
+  if (!/^-?\d+$/.test(value)) {
+    throw new GetDataSetStatsError('Invalid response format', {
+      details: `${fieldName} is not a valid integer: "${value}"`,
+    })
+  }
+  return BigInt(value)
+}
+
+/**
+ * Validates the response from FilBeam stats API and returns DataSetStats
+ */
+export function validateStatsResponse(data: unknown): DataSetStats {
+  if (typeof data !== 'object' || data === null) {
+    throw new GetDataSetStatsError('Invalid response format', {
+      details: 'Response is not an object',
+    })
+  }
+
+  const response = data as Record<string, unknown>
+
+  if (typeof response.cdnEgressQuota !== 'string') {
+    throw new GetDataSetStatsError('Invalid response format', {
+      details: 'cdnEgressQuota must be a string',
+    })
+  }
+
+  if (typeof response.cacheMissEgressQuota !== 'string') {
+    throw new GetDataSetStatsError('Invalid response format', {
+      details: 'cacheMissEgressQuota must be a string',
+    })
+  }
+
+  return {
+    cdnEgressQuota: parseBigInt(response.cdnEgressQuota, 'cdnEgressQuota'),
+    cacheMissEgressQuota: parseBigInt(response.cacheMissEgressQuota, 'cacheMissEgressQuota'),
+  }
 }
