@@ -170,10 +170,6 @@
     "ox": "catalog:",
     "viem": "catalog:"
   },
-  "optionalDependencies": {
-    "@sentry/browser": "^10.21.0",
-    "@sentry/node": "^10.21.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/chai": "^5.2.3",
@@ -197,9 +193,6 @@
     "workerDirectory": [
       "src/test/mocks"
     ]
-  },
-  "browser": {
-    "@sentry/node": "@sentry/browser"
   },
   "peerDependencies": {
     "ethers": "6.x"

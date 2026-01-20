@@ -43,7 +43,8 @@ describe('WarmStorageService', () => {
       signer,
       Mocks.ADDRESSES.calibration.payments,
       Mocks.ADDRESSES.calibration.usdfcToken,
-      false
+      false,
+      null
     )
     server.resetHandlers()
   })
@@ -1449,19 +1450,20 @@ describe('WarmStorageService', () => {
     })
   })
 
-  describe('getMaxProvingPeriod() and getChallengeWindow()', () => {
+  describe('getPDPConfig().maxProvingPeriod and getPDPConfig().challengeWindowSize', () => {
     it('should return max proving period from WarmStorage contract', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => [BigInt(2880)],
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getMaxProvingPeriod()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.maxProvingPeriod
       assert.equal(result, 2880)
     })
 
@@ -1471,12 +1473,13 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            challengeWindow: () => [BigInt(60)],
+            getPDPConfig: () => [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)],
           },
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.getChallengeWindow()
+      const pdpConfig = await warmStorageService.getPDPConfig()
+      const result = pdpConfig.challengeWindowSize
       assert.equal(result, 60)
     })
 
@@ -1486,7 +1489,7 @@ describe('WarmStorageService', () => {
           ...Mocks.presets.basic,
           warmStorageView: {
             ...Mocks.presets.basic.warmStorageView,
-            getMaxProvingPeriod: () => {
+            getPDPConfig: () => {
               throw new Error('Contract call failed')
             },
           },
@@ -1495,7 +1498,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
 
       try {
-        await warmStorageService.getMaxProvingPeriod()
+        await warmStorageService.getPDPConfig()
         assert.fail('Should have thrown error')
       } catch (error: any) {
         assert.include(error.message, 'Contract call failed')
