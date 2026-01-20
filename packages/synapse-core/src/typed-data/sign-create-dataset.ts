@@ -69,7 +69,6 @@ export async function signCreateDataSet(client: Client<Transport, Chain, Account
   return extraData
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace signCreateDataSet {
   /** The options for the create data set. */
   export type OptionsType = signCreateDataSetOptions

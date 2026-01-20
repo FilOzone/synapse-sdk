@@ -73,7 +73,7 @@
         "useImportExtensions": "error"
       },
       "style": {
-        "noNamespace": "error",
+        "noNamespace": "off",
         "noNegationElse": "error",
         "noNonNullAssertion": "error",
         "noParameterAssign": "off",
