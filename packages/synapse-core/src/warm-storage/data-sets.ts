@@ -272,7 +272,6 @@ export type CreateDataSetAndAddPiecesOptions = {
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace createDataSetAndAddPieces {
   export type OptionsType = CreateDataSetAndAddPiecesOptions
   export type ReturnType = SP.createDataSetAndAddPieces.ReturnType

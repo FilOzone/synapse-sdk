@@ -32,7 +32,6 @@ export async function signCreateDataSetAndAddPieces(
   return encodeAbiParameters(signcreateDataSetAndAddPiecesAbiParameters, [dataSetExtraData, addPiecesExtraData])
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace signCreateDataSetAndAddPieces {
   export type OptionsType = {
     /** The client data set id to use for the signature. */

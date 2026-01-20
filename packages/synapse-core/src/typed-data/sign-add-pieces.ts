@@ -79,7 +79,6 @@ export async function signAddPieces(
   return extraData
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace signAddPieces {
   export type OptionsType = SignAddPiecesOptions
   /** The extra data for the add pieces. */
