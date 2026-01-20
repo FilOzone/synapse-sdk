@@ -12,55 +12,9 @@ import {
 import { getChain } from '@filoz/synapse-core/chains'
 import { getProvider } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
-import type { Address, Chain, Client, Hash, Transport } from 'viem'
-import { readContract, simulateContract, writeContract } from 'viem/actions'
+import { getContract } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
-
-class EndorsementsContract {
-  private readonly client: Client<Transport, Chain>
-  private readonly contract
-  constructor(client: Client<Transport, Chain>) {
-    this.client = client
-
-    const chain = getChain(client.chain.id)
-    this.contract = chain.contracts.endorsements
-  }
-
-  async getProviderIds(): Promise<readonly bigint[]> {
-    return await readContract(this.client, {
-      ...this.contract,
-      functionName: 'getProviderIds',
-    })
-  }
-
-  async removeProviderId(providerId: number): Promise<Hash> {
-    const { request } = await simulateContract(this.client, {
-      ...this.contract,
-      account: this.client.account,
-      functionName: 'removeProviderId',
-      args: [BigInt(providerId)],
-    })
-    return await writeContract(this.client, request)
-  }
-
-  async addProviderId(providerId: number): Promise<Hash> {
-    const { request } = await simulateContract(this.client, {
-      ...this.contract,
-      account: this.client.account,
-      functionName: 'addProviderId',
-      args: [BigInt(providerId)],
-    })
-    return await writeContract(this.client, request)
-  }
-
-  async owner(): Promise<Address> {
-    return await readContract(this.client, {
-      ...this.contract,
-      functionName: 'owner',
-    })
-  }
-}
 
 export const endorse: Command = command(
   {
@@ -76,12 +30,15 @@ export const endorse: Command = command(
     log.info('Loading account')
     const { client } = privateKeyClient(argv.flags.chain)
 
-    const endorsements = new EndorsementsContract(client)
+    const endorsements = getContract({
+      ...getChain(client.chain.id).contracts.endorsements,
+      client,
+    })
 
     while (true) {
       const [owner, endorsed] = await Promise.all([
-        endorsements.owner(),
-        endorsements.getProviderIds(),
+        endorsements.read.owner(),
+        endorsements.read.getProviderIds(),
       ])
       const serviceUrls = (
         await Promise.all(
@@ -153,9 +110,9 @@ export const endorse: Command = command(
               const txSpin = spinner()
               txSpin.start(`Submitting transaction`)
               try {
-                const txHash = await endorsements.removeProviderId(
-                  Number(providerId)
-                )
+                const txHash = await endorsements.write.removeProviderId([
+                  BigInt(providerId),
+                ])
                 txSpin.stop(`Transaction submitted: ${txHash}`)
               } catch (error) {
                 txSpin.stop(
@@ -192,9 +149,9 @@ export const endorse: Command = command(
               const txSpin = spinner()
               txSpin.start(`Submitting transaction`)
               try {
-                const txHash = await endorsements.addProviderId(
-                  Number(providerId)
-                )
+                const txHash = await endorsements.write.addProviderId([
+                  BigInt(providerId),
+                ])
                 txSpin.stop(`Transaction submitted: ${txHash}`)
               } catch (error) {
                 txSpin.stop(
