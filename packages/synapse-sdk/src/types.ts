@@ -9,7 +9,6 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
 import type { ProviderInfo } from './sp-registry/types.ts'
-import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
@@ -78,10 +77,6 @@ export interface SynapseOptions {
   subgraphService?: SubgraphRetrievalService
   /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
   subgraphConfig?: SubgraphConfig
-
-  // Telemetry Configuration
-  /** Telemetry configuration for error tracking and debugging (enabled by default) */
-  telemetry?: TelemetryConfig
 }
 
 /**

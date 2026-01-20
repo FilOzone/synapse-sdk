@@ -19,6 +19,7 @@ export interface PDPOffering {
   maxPieceSizeInBytes: bigint
   ipniPiece: boolean
   ipniIpfs: boolean
+  ipniPeerID?: string
   storagePricePerTibPerDay: bigint
   minProvingPeriodInEpochs: bigint
   location: string
