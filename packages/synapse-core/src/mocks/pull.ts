@@ -1,33 +1,33 @@
 /**
- * MSW HTTP handlers for SP Fetch endpoints
+ * MSW HTTP handlers for SP Pull endpoints
  *
- * These handlers can be used to mock SP-to-SP fetch HTTP responses in tests
+ * These handlers can be used to mock SP-to-SP pull HTTP responses in tests
  */
 
 import { HttpResponse, http } from 'msw'
-import type { SPFetchPieceInput, SPFetchResponse, SPFetchStatus } from '../sp-fetch.ts'
+import type { PullPieceInput, PullResponse, PullStatus } from '../pull.ts'
 
-export interface SPFetchMockOptions {
+export interface PullMockOptions {
   baseUrl?: string
   debug?: boolean
 }
 
-export interface SPFetchRequestCapture {
+export interface PullRequestCapture {
   extraData: string
   recordKeeper: string
   dataSetId?: number
-  pieces: SPFetchPieceInput[]
+  pieces: PullPieceInput[]
 }
 
 /**
  * Creates a handler for the fetch pieces endpoint that returns a fixed response
  */
-export function fetchPiecesHandler(response: SPFetchResponse, options: SPFetchMockOptions = {}) {
+export function fetchPiecesHandler(response: PullResponse, options: PullMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.post(`${baseUrl}/pdp/piece/fetch`, async () => {
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
     if (options.debug) {
-      console.debug('SP Fetch Mock: returning response', response)
+      console.debug('SP Pull Mock: returning response', response)
     }
     return HttpResponse.json(response, { status: 200 })
   })
@@ -37,19 +37,19 @@ export function fetchPiecesHandler(response: SPFetchResponse, options: SPFetchMo
  * Creates a handler that captures the request body and returns a response
  */
 export function fetchPiecesWithCaptureHandler(
-  response: SPFetchResponse,
-  captureCallback: (request: SPFetchRequestCapture) => void,
-  options: SPFetchMockOptions = {}
+  response: PullResponse,
+  captureCallback: (request: PullRequestCapture) => void,
+  options: PullMockOptions = {}
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.post(`${baseUrl}/pdp/piece/fetch`, async ({ request }) => {
-    const body = (await request.json()) as SPFetchRequestCapture
+  return http.post(`${baseUrl}/pdp/piece/pull`, async ({ request }) => {
+    const body = (await request.json()) as PullRequestCapture
 
     captureCallback(body)
 
     if (options.debug) {
-      console.debug('SP Fetch Mock: captured request', body)
+      console.debug('SP Pull Mock: captured request', body)
     }
 
     return HttpResponse.json(response, { status: 200 })
@@ -59,12 +59,12 @@ export function fetchPiecesWithCaptureHandler(
 /**
  * Creates a handler that returns an error response
  */
-export function fetchPiecesErrorHandler(errorMessage: string, statusCode = 500, options: SPFetchMockOptions = {}) {
+export function fetchPiecesErrorHandler(errorMessage: string, statusCode = 500, options: PullMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
 
-  return http.post(`${baseUrl}/pdp/piece/fetch`, async () => {
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
     if (options.debug) {
-      console.debug('SP Fetch Mock: returning error', errorMessage)
+      console.debug('SP Pull Mock: returning error', errorMessage)
     }
     return HttpResponse.text(errorMessage, { status: statusCode })
   })
@@ -76,13 +76,13 @@ export function fetchPiecesErrorHandler(errorMessage: string, statusCode = 500, 
  */
 export function fetchPiecesPollingHandler(
   pendingCount: number,
-  finalResponse: SPFetchResponse,
-  options: SPFetchMockOptions = {}
+  finalResponse: PullResponse,
+  options: PullMockOptions = {}
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
   let callCount = 0
 
-  return http.post(`${baseUrl}/pdp/piece/fetch`, async () => {
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
     callCount++
 
     if (options.debug) {
@@ -91,11 +91,11 @@ export function fetchPiecesPollingHandler(
 
     if (callCount <= pendingCount) {
       // Return pending status
-      const pendingResponse: SPFetchResponse = {
+      const pendingResponse: PullResponse = {
         status: 'pending',
         pieces: finalResponse.pieces.map((p) => ({
           pieceCid: p.pieceCid,
-          status: 'pending' as SPFetchStatus,
+          status: 'pending' as PullStatus,
         })),
       }
       return HttpResponse.json(pendingResponse, { status: 200 })
@@ -110,14 +110,14 @@ export function fetchPiecesPollingHandler(
  * Creates a handler that simulates a progression through statuses
  */
 export function fetchPiecesProgressionHandler(
-  statusProgression: SPFetchStatus[],
+  statusProgression: PullStatus[],
   pieces: Array<{ pieceCid: string }>,
-  options: SPFetchMockOptions = {}
+  options: PullMockOptions = {}
 ) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
   let callCount = 0
 
-  return http.post(`${baseUrl}/pdp/piece/fetch`, async () => {
+  return http.post(`${baseUrl}/pdp/piece/pull`, async () => {
     const statusIndex = Math.min(callCount, statusProgression.length - 1)
     const currentStatus = statusProgression[statusIndex]
     callCount++
@@ -126,7 +126,7 @@ export function fetchPiecesProgressionHandler(
       console.debug(`SP Fetch Mock: returning status ${currentStatus} (call ${callCount})`)
     }
 
-    const response: SPFetchResponse = {
+    const response: PullResponse = {
       status: currentStatus,
       pieces: pieces.map((p) => ({
         pieceCid: p.pieceCid,
@@ -139,12 +139,12 @@ export function fetchPiecesProgressionHandler(
 }
 
 /**
- * Helper to create a complete SPFetchResponse
+ * Helper to create a complete PullResponse
  */
-export function createFetchResponse(
-  status: SPFetchStatus,
-  pieces: Array<{ pieceCid: string; status?: SPFetchStatus }>
-): SPFetchResponse {
+export function createPullResponse(
+  status: PullStatus,
+  pieces: Array<{ pieceCid: string; status?: PullStatus }>
+): PullResponse {
   return {
     status,
     pieces: pieces.map((p) => ({

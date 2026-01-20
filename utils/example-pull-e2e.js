@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Example: SP-to-SP Piece Fetch End-to-End Test
+ * Example: SP-to-SP Piece Pull End-to-End Test
  *
- * This example demonstrates the SP-to-SP fetch functionality:
+ * This example demonstrates the SP-to-SP pull functionality:
  * 1. Upload a piece to SP1 (providerId=1) using low-level park API (no AddPieces)
  * 2. Wait for SP1 to park the piece
- * 3. Request SP2 (providerId=2) to fetch the piece from SP1
- * 4. Poll until the fetch completes
+ * 3. Request SP2 (providerId=2) to pull the piece from SP1
+ * 4. Poll until the pull completes
  * 5. Verify SP2 can serve the piece
  *
  * This tests:
- * - curio: POST /pdp/piece/fetch endpoint
- * - synapse-sdk: sp-fetch module
+ * - curio: POST /pdp/piece/pull endpoint
+ * - synapse-core: warm-storage/pull module (high-level with signing)
  *
  * Required environment variables:
  * - PRIVATE_KEY: Your private key (with 0x prefix)
@@ -24,7 +24,7 @@
  * - USDFC_ADDRESS: USDFC token address
  *
  * Usage:
- *   PRIVATE_KEY=0x... node example-sp-fetch-e2e.js <file-path>
+ *   PRIVATE_KEY=0x... node example-pull-e2e.js <file-path>
  *
  * With foc-devnet:
  *   RUN_ID=$(jq -r '.run_id' ~/.foc-devnet/state/current_runid.json)
@@ -34,16 +34,16 @@
  *   MULTICALL3_ADDRESS=$(jq -r '.contracts.multicall' ~/.foc-devnet/state/latest/contract_addresses.json) \
  *   USDFC_ADDRESS=$(jq -r '.contracts.usdfc' ~/.foc-devnet/state/latest/contract_addresses.json) \
  *   SP_REGISTRY_ADDRESS=$(jq -r '.foc_contracts.service_provider_registry_proxy' ~/.foc-devnet/state/latest/contract_addresses.json) \
- *   node utils/example-sp-fetch-e2e.js test-file.txt
+ *   node utils/example-pull-e2e.js test-file.txt
  */
 
-import { ethers } from 'ethers'
 import fsPromises from 'fs/promises'
+import { createWalletClient, http, publicActions } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { devnet } from '../packages/synapse-core/src/chains.ts'
 import * as SP from '../packages/synapse-core/src/sp.ts'
-import * as spFetch from '../packages/synapse-core/src/sp-fetch.ts'
-import { randU256 } from '../packages/synapse-core/src/utils/rand.ts'
+import { waitForPullStatus } from '../packages/synapse-core/src/warm-storage/pull.ts'
 import { Synapse } from '../packages/synapse-sdk/src/index.ts'
-import { PDPAuthHelper } from '../packages/synapse-sdk/src/pdp/auth.ts'
 import { SPRegistryService } from '../packages/synapse-sdk/src/sp-registry/service.ts'
 
 // Configuration from environment
@@ -55,7 +55,7 @@ const USDFC_ADDRESS = process.env.USDFC_ADDRESS
 const SP_REGISTRY_ADDRESS = process.env.SP_REGISTRY_ADDRESS
 
 function printUsageAndExit() {
-  console.error('Usage: PRIVATE_KEY=0x... node example-sp-fetch-e2e.js <file-path>')
+  console.error('Usage: PRIVATE_KEY=0x... node example-pull-e2e.js <file-path>')
   process.exit(1)
 }
 
@@ -86,47 +86,9 @@ function formatUSDFC(amount) {
   return `${usdfc.toFixed(6)} USDFC`
 }
 
-/**
- * Encode CreateDataSet extra data for the fetch API (when dataSetId=0)
- * Format: (address payer, uint256 clientDataSetId, string[] keys, string[] values, bytes signature)
- */
-function encodeCreateDataSetExtraData(payer, clientDataSetId, metadata, signature) {
-  const sig = signature.startsWith('0x') ? signature : `0x${signature}`
-  const keys = metadata.map((entry) => entry.key)
-  const values = metadata.map((entry) => entry.value)
-
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  return abiCoder.encode(
-    ['address', 'uint256', 'string[]', 'string[]', 'bytes'],
-    [payer, clientDataSetId, keys, values, sig]
-  )
-}
-
-/**
- * Encode AddPieces extra data for the fetch API
- * Format: (uint256 nonce, string[][] metadataKeys, string[][] metadataValues, bytes signature)
- */
-function encodeAddPiecesExtraData(nonce, metadata, signature) {
-  const sig = signature.startsWith('0x') ? signature : `0x${signature}`
-  const keys = metadata.map((item) => item.map((entry) => entry.key))
-  const values = metadata.map((item) => item.map((entry) => entry.value))
-
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  return abiCoder.encode(['uint256', 'string[][]', 'string[][]', 'bytes'], [nonce, keys, values, sig])
-}
-
-/**
- * Encode combined extraData for creating a new data set with pieces (dataSetId=0)
- * Format: abi.encode(bytes createPayload, bytes addPayload)
- */
-function encodeCombinedExtraData(createExtraData, addExtraData) {
-  const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-  return abiCoder.encode(['bytes', 'bytes'], [createExtraData, addExtraData])
-}
-
 async function main() {
   try {
-    console.log('=== SP-to-SP Fetch E2E Test ===\n')
+    console.log('=== SP-to-SP Pull E2E Test ===\n')
     console.log(`Processing ${filePaths.length} file(s)...`)
 
     // Read all files and get their stats
@@ -141,7 +103,7 @@ async function main() {
       })
     )
 
-    // Create Synapse instance
+    // Create Synapse instance (still needed for provider discovery and balance checks)
     console.log('\n--- Initializing Synapse SDK ---')
     console.log(`RPC URL: ${RPC_URL}`)
 
@@ -163,10 +125,30 @@ async function main() {
     const synapse = await Synapse.create(synapseOptions)
     console.log('Synapse instance created')
 
-    // Get wallet info
-    const signer = synapse.getSigner()
-    const address = await signer.getAddress()
-    console.log(`Wallet address: ${address}`)
+    // Create viem wallet client for signing (required by pullPieces)
+    // Use devnet chain template and override with actual contract addresses from deployment
+    const account = privateKeyToAccount(PRIVATE_KEY)
+    const chain = {
+      ...devnet,
+      rpcUrls: {
+        default: { http: [RPC_URL] },
+      },
+      contracts: {
+        ...devnet.contracts,
+        // Override with actual devnet deployment addresses
+        storage: {
+          ...devnet.contracts.storage,
+          address: synapse.getWarmStorageAddress(),
+        },
+      },
+    }
+    const viemClient = createWalletClient({
+      account,
+      chain,
+      transport: http(RPC_URL),
+    }).extend(publicActions)
+
+    console.log(`Wallet address: ${account.address}`)
 
     // Check balances
     console.log('\n--- Checking Balances ---')
@@ -214,8 +196,8 @@ async function main() {
         })
         await fileHandle.close()
 
-        const pieceCid = result.pieceCid.toString()
-        console.log(`    ${filePath} -> ${pieceCid.slice(0, 30)}... (${formatBytes(result.size)})`)
+        const pieceCid = result.pieceCid
+        console.log(`    ${filePath} -> ${pieceCid.toString().slice(0, 30)}... (${formatBytes(result.size)})`)
         return { filePath, pieceCid, size: result.size }
       })
     )
@@ -230,7 +212,7 @@ async function main() {
           endpoint: sp1Url,
           pieceCid: pieceCid,
         })
-        console.log(`  Parked: ${pieceCid.slice(0, 30)}...`)
+        console.log(`  Parked: ${pieceCid.toString().slice(0, 30)}...`)
       })
     )
     console.log('All pieces parked on SP1')
@@ -239,70 +221,33 @@ async function main() {
     const fwssAddress = synapse.getWarmStorageAddress()
     console.log(`\nFWSS Address (recordKeeper): ${fwssAddress}`)
 
-    // Prepare extraData for fetch request
-    console.log('\n--- Preparing Fetch Request ---')
-
-    // For dataSetId=0 (create new), we need both CreateDataSet and AddPieces signatures
-    const authHelper = new PDPAuthHelper(fwssAddress, signer, BigInt(synapse.getChainId()))
-    const clientDataSetId = 0n // New dataset
-    const nonce = randU256()
-    const pieceCids = uploadResults.map((r) => r.pieceCid)
-    const datasetMetadata = [] // Empty metadata for dataset
-    const pieceMetadata = uploadResults.map(() => []) // Empty metadata for each piece
-
-    console.log(`Client: ${address}`)
+    // Initiate pull from SP2 using high-level API
+    console.log('\n--- Initiating Pull to SP2 ---')
+    console.log(`Target SP2 URL: ${sp2Url}`)
+    console.log(`Requesting SP2 to pull ${uploadResults.length} piece(s) from SP1...`)
+    console.log(`Client: ${account.address}`)
     console.log(`Payee (SP2): ${sp2Info.serviceProvider}`)
-    console.log(`Client Dataset ID: ${clientDataSetId}`)
-    console.log(`Nonce: ${nonce}`)
-    console.log(`PieceCIDs: ${pieceCids.length} pieces`)
-    for (const cid of pieceCids) {
-      console.log(`  - ${cid.slice(0, 40)}...`)
+    console.log(`PieceCIDs: ${uploadResults.length} pieces`)
+    for (const { pieceCid } of uploadResults) {
+      console.log(`  - ${pieceCid.toString().slice(0, 40)}...`)
     }
 
-    // Sign CreateDataSet (authorizes creating a new dataset with SP2 as payee)
-    console.log(`\nSigning CreateDataSet...`)
-    const createAuthData = await authHelper.signCreateDataSet(clientDataSetId, sp2Info.serviceProvider, datasetMetadata)
-    console.log(`  CreateDataSet signature: ${createAuthData.signature.slice(0, 20)}...`)
-
-    // Sign AddPieces (authorizes adding these pieces to the dataset)
-    console.log(`Signing AddPieces...`)
-    const addAuthData = await authHelper.signAddPieces(clientDataSetId, nonce, pieceCids, pieceMetadata)
-    console.log(`  AddPieces signature: ${addAuthData.signature.slice(0, 20)}...`)
-
-    // Encode CreateDataSet extraData
-    const createExtraData = encodeCreateDataSetExtraData(
-      address, // payer
-      clientDataSetId,
-      datasetMetadata,
-      createAuthData.signature
-    )
-
-    // Encode AddPieces extraData
-    const addExtraData = encodeAddPiecesExtraData(nonce, pieceMetadata, addAuthData.signature)
-
-    // Combine for dataSetId=0 case
-    const extraData = encodeCombinedExtraData(createExtraData, addExtraData)
-    console.log(`  Combined extraData encoded (${extraData.length} chars)`)
-
-    // Initiate fetch from SP2
-    console.log('\n--- Initiating Fetch from SP2 ---')
-    console.log(`Target SP2 URL: ${sp2Url}`)
-    console.log(`Requesting SP2 to fetch ${uploadResults.length} piece(s) from SP1...`)
-
     // Build pieces array with source URLs for each piece
-    const piecesToFetch = uploadResults.map(({ pieceCid }) => ({
+    const piecesToPull = uploadResults.map(({ pieceCid }) => ({
       pieceCid: pieceCid,
-      sourceUrl: `${sp1Url}/piece/${pieceCid}`,
+      sourceUrl: `${sp1Url}/piece/${pieceCid.toString()}`,
     }))
 
-    const fetchResult = await spFetch.pollStatus({
+    // Use high-level pullPieces with automatic signing
+    // dataSetId omitted = create new dataset
+    // recordKeeper is explicitly provided for devnet (custom chain ID not in chain registry)
+    const pullResult = await waitForPullStatus(viemClient, {
       endpoint: sp2Url,
+      payee: sp2Info.serviceProvider,
       recordKeeper: fwssAddress,
-      extraData: extraData,
-      dataSetId: 0n, // Create new (for validation only)
-      pieces: piecesToFetch,
+      pieces: piecesToPull,
       onStatus: (response) => {
-        console.log(`  Fetch status: ${response.status}`)
+        console.log(`  Pull status: ${response.status}`)
         for (const piece of response.pieces) {
           console.log(`    ${piece.pieceCid.slice(0, 20)}...: ${piece.status}`)
         }
@@ -310,15 +255,15 @@ async function main() {
       minTimeout: 2000, // Poll every 2 seconds
     })
 
-    console.log(`\nFetch completed with status: ${fetchResult.status}`)
+    console.log(`\nPull completed with status: ${pullResult.status}`)
 
-    if (fetchResult.status === 'complete') {
+    if (pullResult.status === 'complete') {
       console.log('\n--- Verifying SP2 has all pieces ---')
 
       let allMatched = true
       for (const { filePath, pieceCid } of uploadResults) {
-        const sp2PieceUrl = `${sp2Url}/piece/${pieceCid}`
-        console.log(`\nDownloading ${pieceCid.slice(0, 30)}... from SP2`)
+        const sp2PieceUrl = `${sp2Url}/piece/${pieceCid.toString()}`
+        console.log(`\nDownloading ${pieceCid.toString().slice(0, 30)}... from SP2`)
 
         const downloadResponse = await fetch(sp2PieceUrl)
         if (downloadResponse.ok) {
@@ -349,15 +294,15 @@ async function main() {
         console.error('\nERROR: Some pieces did not match!')
         process.exit(1)
       }
-    } else if (fetchResult.status === 'failed') {
-      console.error('\nERROR: Fetch failed!')
-      for (const piece of fetchResult.pieces) {
+    } else if (pullResult.status === 'failed') {
+      console.error('\nERROR: Pull failed!')
+      for (const piece of pullResult.pieces) {
         console.error(`  ${piece.pieceCid}: ${piece.status}`)
       }
       process.exit(1)
     }
 
-    console.log('\n=== SP-to-SP Fetch Test Complete ===')
+    console.log('\n=== SP-to-SP Pull Test Complete ===')
   } catch (error) {
     console.error('\nERROR:', error.message)
     if (error.cause) {

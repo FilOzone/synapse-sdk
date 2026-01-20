@@ -1,29 +1,29 @@
 /* globals describe it before after beforeEach */
 
 /**
- * SP Fetch tests
+ * Pull tests
  *
- * Tests the SP-to-SP piece fetch functionality
+ * Tests the SP-to-SP piece pull functionality
  */
 
 import assert from 'assert'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { SPFetchError } from '../src/errors/sp-fetch.ts'
+import { PullError } from '../src/errors/pull.ts'
 import * as Mocks from '../src/mocks/index.ts'
-import * as spFetch from '../src/sp-fetch.ts'
+import * as Pull from '../src/pull.ts'
 
 // Mock server for testing
 const server = setup()
 
-describe('spFetch', () => {
+describe('Pull', () => {
   const TEST_ENDPOINT = 'http://pdp.local'
   const TEST_RECORD_KEEPER = '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f' as const
   const TEST_EXTRA_DATA = '0x1234567890abcdef' as const
   const TEST_PIECE_CID = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
   const TEST_SOURCE_URL = `https://other-sp.example.com/piece/${TEST_PIECE_CID}`
 
-  const baseOptions = (): spFetch.SPFetchPiecesOptions => ({
+  const baseOptions = (): Pull.fetchPieces.OptionsType => ({
     endpoint: TEST_ENDPOINT,
     recordKeeper: TEST_RECORD_KEEPER,
     extraData: TEST_EXTRA_DATA,
@@ -40,16 +40,16 @@ describe('spFetch', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    spFetch.setTimeout(1000) // Short timeout for tests
+    Pull.setTimeout(1000) // Short timeout for tests
   })
 
   describe('fetchPieces', () => {
-    it('should handle successful fetch request', async () => {
-      const mockResponse = Mocks.spFetch.createFetchResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
+    it('should handle successful pull request', async () => {
+      const mockResponse = Mocks.pull.createPullResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
 
-      server.use(Mocks.spFetch.fetchPiecesHandler(mockResponse))
+      server.use(Mocks.pull.fetchPiecesHandler(mockResponse))
 
-      const result = await spFetch.fetchPieces(baseOptions())
+      const result = await Pull.fetchPieces(baseOptions())
 
       assert.strictEqual(result.status, 'pending')
       assert.strictEqual(result.pieces.length, 1)
@@ -58,16 +58,16 @@ describe('spFetch', () => {
     })
 
     it('should send correct request body', async () => {
-      let capturedRequest: Mocks.spFetch.SPFetchRequestCapture | undefined
-      const mockResponse = Mocks.spFetch.createFetchResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
+      let capturedRequest: Mocks.pull.PullRequestCapture | undefined
+      const mockResponse = Mocks.pull.createPullResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
 
       server.use(
-        Mocks.spFetch.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
+        Mocks.pull.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
           capturedRequest = req
         })
       )
 
-      await spFetch.fetchPieces(baseOptions())
+      await Pull.fetchPieces(baseOptions())
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.recordKeeper, TEST_RECORD_KEEPER)
@@ -78,61 +78,61 @@ describe('spFetch', () => {
     })
 
     it('should include dataSetId when provided', async () => {
-      let capturedRequest: Mocks.spFetch.SPFetchRequestCapture | undefined
-      const mockResponse = Mocks.spFetch.createFetchResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
+      let capturedRequest: Mocks.pull.PullRequestCapture | undefined
+      const mockResponse = Mocks.pull.createPullResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
 
       server.use(
-        Mocks.spFetch.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
+        Mocks.pull.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
           capturedRequest = req
         })
       )
 
-      await spFetch.fetchPieces({ ...baseOptions(), dataSetId: 123n })
+      await Pull.fetchPieces({ ...baseOptions(), dataSetId: 123n })
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.dataSetId, 123)
     })
 
     it('should not include dataSetId when zero', async () => {
-      let capturedRequest: Mocks.spFetch.SPFetchRequestCapture | undefined
-      const mockResponse = Mocks.spFetch.createFetchResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
+      let capturedRequest: Mocks.pull.PullRequestCapture | undefined
+      const mockResponse = Mocks.pull.createPullResponse('pending', [{ pieceCid: TEST_PIECE_CID }])
 
       server.use(
-        Mocks.spFetch.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
+        Mocks.pull.fetchPiecesWithCaptureHandler(mockResponse, (req) => {
           capturedRequest = req
         })
       )
 
-      await spFetch.fetchPieces({ ...baseOptions(), dataSetId: 0n })
+      await Pull.fetchPieces({ ...baseOptions(), dataSetId: 0n })
 
       assert.ok(capturedRequest, 'Request should have been captured')
       assert.strictEqual(capturedRequest.dataSetId, undefined)
     })
 
     it('should handle server errors', async () => {
-      server.use(Mocks.spFetch.fetchPiecesErrorHandler('extraData validation failed: invalid signature', 400))
+      server.use(Mocks.pull.fetchPiecesErrorHandler('extraData validation failed: invalid signature', 400))
 
       try {
-        await spFetch.fetchPieces(baseOptions())
+        await Pull.fetchPieces(baseOptions())
         assert.fail('Should have thrown error')
       } catch (error) {
-        assert.ok(error instanceof SPFetchError, 'Error should be SPFetchError')
+        assert.ok(error instanceof PullError, 'Error should be PullError')
         assert.ok(
-          (error as SPFetchError).message.includes('Failed to fetch pieces'),
-          'Error message should mention fetch failure'
+          (error as PullError).message.includes('Failed to pull pieces'),
+          'Error message should mention pull failure'
         )
       }
     })
 
     it('should handle network errors', async () => {
       server.use(
-        http.post('http://pdp.local/pdp/piece/fetch', () => {
+        http.post('http://pdp.local/pdp/piece/pull', () => {
           return HttpResponse.error()
         })
       )
 
       try {
-        await spFetch.fetchPieces(baseOptions())
+        await Pull.fetchPieces(baseOptions())
         assert.fail('Should have thrown error')
       } catch (error) {
         assert.ok((error as Error).message.includes('Failed to fetch'), 'Error message should mention fetch failure')
@@ -141,7 +141,7 @@ describe('spFetch', () => {
 
     it('should handle mixed piece statuses', async () => {
       const pieceCid2 = 'bafkzcibdy4hapci46px57mg3znrwydsv7x7rxisg7l7ti245wxwwfmiftgmdmbqk'
-      const mockResponse: spFetch.SPFetchResponse = {
+      const mockResponse: Pull.PullResponse = {
         status: 'inProgress',
         pieces: [
           { pieceCid: TEST_PIECE_CID, status: 'complete' },
@@ -149,9 +149,9 @@ describe('spFetch', () => {
         ],
       }
 
-      server.use(Mocks.spFetch.fetchPiecesHandler(mockResponse))
+      server.use(Mocks.pull.fetchPiecesHandler(mockResponse))
 
-      const result = await spFetch.fetchPieces({
+      const result = await Pull.fetchPieces({
         ...baseOptions(),
         pieces: [
           { pieceCid: TEST_PIECE_CID, sourceUrl: TEST_SOURCE_URL },
@@ -165,14 +165,14 @@ describe('spFetch', () => {
     })
   })
 
-  describe('pollStatus', () => {
+  describe('waitForFetchStatus', () => {
     it('should poll until complete', async () => {
-      const mockResponse = Mocks.spFetch.createFetchResponse('complete', [{ pieceCid: TEST_PIECE_CID }])
+      const mockResponse = Mocks.pull.createPullResponse('complete', [{ pieceCid: TEST_PIECE_CID }])
 
-      server.use(Mocks.spFetch.fetchPiecesPollingHandler(2, mockResponse))
+      server.use(Mocks.pull.fetchPiecesPollingHandler(2, mockResponse))
 
-      const statusUpdates: spFetch.SPFetchStatus[] = []
-      const result = await spFetch.pollStatus({
+      const statusUpdates: Pull.PullStatus[] = []
+      const result = await Pull.waitForFetchStatus({
         ...baseOptions(),
         minTimeout: 10,
         onStatus: (response) => statusUpdates.push(response.status),
@@ -183,25 +183,22 @@ describe('spFetch', () => {
     })
 
     it('should stop polling on failed status', async () => {
-      const mockResponse = Mocks.spFetch.createFetchResponse('failed', [{ pieceCid: TEST_PIECE_CID }])
+      const mockResponse = Mocks.pull.createPullResponse('failed', [{ pieceCid: TEST_PIECE_CID }])
 
-      server.use(Mocks.spFetch.fetchPiecesPollingHandler(1, mockResponse))
+      server.use(Mocks.pull.fetchPiecesPollingHandler(1, mockResponse))
 
-      const result = await spFetch.pollStatus({ ...baseOptions(), minTimeout: 10 })
+      const result = await Pull.waitForFetchStatus({ ...baseOptions(), minTimeout: 10 })
 
       assert.strictEqual(result.status, 'failed')
     })
 
     it('should call onStatus callback for each poll', async () => {
       server.use(
-        Mocks.spFetch.fetchPiecesProgressionHandler(
-          ['pending', 'inProgress', 'complete'],
-          [{ pieceCid: TEST_PIECE_CID }]
-        )
+        Mocks.pull.fetchPiecesProgressionHandler(['pending', 'inProgress', 'complete'], [{ pieceCid: TEST_PIECE_CID }])
       )
 
-      const statusUpdates: spFetch.SPFetchStatus[] = []
-      await spFetch.pollStatus({
+      const statusUpdates: Pull.PullStatus[] = []
+      await Pull.waitForFetchStatus({
         ...baseOptions(),
         minTimeout: 10,
         onStatus: (response) => statusUpdates.push(response.status),
@@ -214,27 +211,27 @@ describe('spFetch', () => {
     })
 
     it('should handle server errors during polling', async () => {
-      server.use(Mocks.spFetch.fetchPiecesErrorHandler('Internal server error', 500))
+      server.use(Mocks.pull.fetchPiecesErrorHandler('Internal server error', 500))
 
       try {
-        await spFetch.pollStatus({ ...baseOptions(), minTimeout: 10 })
+        await Pull.waitForFetchStatus({ ...baseOptions(), minTimeout: 10 })
         assert.fail('Should have thrown error')
       } catch (error) {
-        assert.ok(error instanceof SPFetchError, 'Error should be SPFetchError')
+        assert.ok(error instanceof PullError, 'Error should be PullError')
       }
     })
   })
 
-  describe('SPFetchError', () => {
+  describe('PullError', () => {
     it('should have correct error name', () => {
-      const error = new SPFetchError('test error')
-      assert.strictEqual(error.name, 'SPFetchError')
+      const error = new PullError('test error')
+      assert.strictEqual(error.name, 'PullError')
     })
 
     it('should have static is() type guard', () => {
-      const error = new SPFetchError('test error')
-      assert.strictEqual(SPFetchError.is(error), true)
-      assert.strictEqual(SPFetchError.is(new Error('not sp fetch error')), false)
+      const error = new PullError('test error')
+      assert.strictEqual(PullError.is(error), true)
+      assert.strictEqual(PullError.is(new Error('not pull error')), false)
     })
   })
 })
