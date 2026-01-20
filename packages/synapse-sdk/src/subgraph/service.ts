@@ -410,6 +410,7 @@ export class SubgraphService implements SubgraphRetrievalService {
         maxPieceSizeInBytes: 0n,
         ipniPiece: false,
         ipniIpfs: false,
+        ipniPeerID: undefined,
         storagePricePerTibPerDay: 0n,
         minProvingPeriodInEpochs: 0n,
         location: '',

@@ -464,6 +464,9 @@ export const presets = {
       clientNonces: () => {
         return [BigInt(0)]
       },
+      getPDPConfig: () => {
+        return [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)]
+      },
       getMaxProvingPeriod: () => {
         return [BigInt(2880)]
       },
@@ -771,7 +774,6 @@ export const presets = {
         999999n, // finalSettledEpoch
         'Terminated rail settlement', // note
       ],
-      NETWORK_FEE: () => parseUnits('0.0013', 18), // 0.0013 FIL
     },
   } as RequiredDeep<JSONRPCOptions>,
 }

@@ -38,14 +38,16 @@ import type {
 export class SPRegistryService {
   private readonly _provider: ethers.Provider
   private readonly _registryAddress: string
+  private readonly _multicall3Address: string | null
   private _registryContract: ethers.Contract | null = null
 
   /**
    * Constructor for SPRegistryService
    */
-  constructor(provider: ethers.Provider, registryAddress: string) {
+  constructor(provider: ethers.Provider, registryAddress: string, multicall3Address: string | null = null) {
     this._provider = provider
     this._registryAddress = registryAddress
+    this._multicall3Address = multicall3Address
   }
 
   /**
@@ -453,7 +455,10 @@ export class SPRegistryService {
    */
   private async _getProvidersWithMulticall(providerIds: number[]): Promise<ProviderInfo[]> {
     const network = await getFilecoinNetworkType(this._provider)
-    const multicall3Address = CONTRACT_ADDRESSES.MULTICALL3[network]
+    const multicall3Address = this._multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[network]
+    if (!multicall3Address) {
+      throw new Error(`No Multicall3 address available for network: ${network}`)
+    }
     const multicall = new ethers.Contract(multicall3Address, CONTRACT_ABIS.MULTICALL3, this._provider)
     const iface = new ethers.Interface(CONTRACT_ABIS.SERVICE_PROVIDER_REGISTRY)
 

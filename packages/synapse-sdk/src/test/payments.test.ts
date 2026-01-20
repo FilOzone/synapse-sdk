@@ -33,7 +33,7 @@ describe('PaymentsService', () => {
     server.resetHandlers()
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
     signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
-    payments = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false)
+    payments = new PaymentsService(provider, signer, paymentsAddress, usdfcAddress, false, null)
   })
 
   describe('Instantiation', () => {

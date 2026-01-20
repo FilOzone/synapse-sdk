@@ -199,6 +199,68 @@ export const calibration: Chain = {
 }
 
 /**
+ * Filecoin Devnet
+ *
+ * Local development network. Contract addresses must be provided by the devnet deployment.
+ */
+export const devnet: Chain = {
+  id: 31415926,
+  name: 'Filecoin - Devnet',
+  nativeCurrency: {
+    name: 'Filecoin',
+    symbol: 'FIL',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:5700/rpc/v1'],
+      webSocket: ['ws://127.0.0.1:5700/rpc/v1'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Local Blockscout',
+      url: 'http://localhost:8080',
+    },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 0,
+    },
+    usdfc: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.erc20WithPermit,
+    },
+    payments: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.payments,
+    },
+    storage: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.storage,
+    },
+    storageView: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.storageView,
+    },
+    serviceProviderRegistry: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.serviceProviderRegistry,
+    },
+    sessionKeyRegistry: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.sessionKeyRegistry,
+    },
+    pdp: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.pdp,
+    },
+  },
+  testnet: true,
+}
+
+/**
  * Get a chain by id
  *
  * @param [id] - The chain id. Defaults to mainnet.
@@ -213,6 +275,8 @@ export function getChain(id?: number): Chain {
       return mainnet
     case 314159:
       return calibration
+    case 31415926:
+      return devnet
     default:
       throw new Error(`Chain with id ${id} not found`)
   }
