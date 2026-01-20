@@ -22,6 +22,9 @@ import { makeDataSetCreatedLog } from './mocks/events.ts'
 // mock server for testing
 const server = setup()
 
+const providers = [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]
+const providerIds = providers.map((provider) => Number(provider.providerId))
+
 describe('Synapse', () => {
   let signer: ethers.Signer
   let provider: ethers.Provider
@@ -731,12 +734,17 @@ describe('Synapse', () => {
 
   describe('createContexts', () => {
     let synapse: Synapse
+    const endorsedProviderIds: bigint[] = []
 
     beforeEach(async () => {
+      endorsedProviderIds.length = 0
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+          endorsements: {
+            getProviderIds: () => [endorsedProviderIds],
+          },
         })
       )
       synapse = await Synapse.create({ signer })
@@ -751,7 +759,7 @@ describe('Synapse', () => {
 
     it('selects specified providerIds', async () => {
       const contexts = await synapse.storage.createContexts({
-        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId].map(Number),
+        providerIds,
       })
       assert.equal(contexts.length, 2)
       assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
@@ -938,6 +946,57 @@ describe('Synapse', () => {
       // should return the same contexts when invoked again
       const defaultContexts = await synapse.storage.createContexts()
       assert.isTrue(defaultContexts === contexts)
+    })
+
+    providerIds.forEach((endorsedProviderId, index) => {
+      describe(`when endorsing providers[${index}]`, async () => {
+        beforeEach(() => {
+          endorsedProviderIds.push(BigInt(endorsedProviderId))
+        })
+
+        it('falls back to other provider when endorsed provider fails ping', async () => {
+          // mock ping to fail for endorsed provider
+          const endorsedProvider = providers[index]
+          server.use(
+            http.get(`${endorsedProvider.products[0].offering.serviceURL}/pdp/ping`, () => HttpResponse.error())
+          )
+
+          const contexts = await synapse.storage.createContexts({
+            count: 1,
+            forceCreateDataSets: true,
+          })
+          assert.equal(contexts.length, 1)
+          assert.equal((contexts[0] as any)._dataSetId, undefined)
+
+          const otherProviderId = providerIds[providers.length - index - 1]
+          assert.equal(contexts[0].provider.id, otherProviderId)
+        })
+
+        for (const count of [1, 2]) {
+          it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
+            const counts: Record<number, number> = {}
+            for (const providerId of providerIds) {
+              counts[providerId] = 0
+            }
+            for (let i = 0; i < 5; i++) {
+              const contexts = await synapse.storage.createContexts({
+                count,
+                forceCreateDataSets: true, // This prevents the defaultContexts caching
+              })
+              assert.equal(contexts.length, count)
+              assert.equal((contexts[0] as any)._dataSetId, undefined)
+              counts[contexts[0].provider.id]++
+              if (count > 1) {
+                assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
+                assert.equal((contexts[1] as any)._dataSetId, undefined)
+              }
+            }
+            for (const providerId of providerIds) {
+              assert.equal(counts[providerId], providerId === endorsedProviderId ? 5 : 0)
+            }
+          })
+        }
+      })
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {

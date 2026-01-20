@@ -24,6 +24,7 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
+import type { EndorsementsService } from '../endorsements/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
@@ -95,6 +96,7 @@ interface StorageManagerDownloadOptions extends DownloadOptions {
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
+  private readonly _endorsementsService: EndorsementsService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
   private readonly _dev: boolean
@@ -104,6 +106,7 @@ export class StorageManager {
   constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
+    endorsementsService: EndorsementsService,
     pieceRetriever: PieceRetriever,
     withCDN: boolean,
     dev: boolean,
@@ -111,6 +114,7 @@ export class StorageManager {
   ) {
     this._synapse = synapse
     this._warmStorageService = warmStorageService
+    this._endorsementsService = endorsementsService
     this._pieceRetriever = pieceRetriever
     this._withCDN = withCDN
     this._dev = dev
@@ -318,8 +322,6 @@ export class StorageManager {
    * For automatic selection, existing datasets matching the `metadata` are reused unless
    * `forceCreateDataSets` is true. Providers are randomly chosen to distribute across the network.
    *
-   * @param synapse - Synapse instance
-   * @param warmStorageService - Warm storage service instance
    * @param options - Configuration options
    * @param options.count - Maximum number of contexts to create (default: 2)
    * @param options.dataSetIds - Specific dataset IDs to include
@@ -375,12 +377,17 @@ export class StorageManager {
       }
     }
 
-    const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
-      ...options,
-      withCDN,
-      withIpni: options?.withIpni ?? this._withIpni,
-      dev: options?.dev ?? this._dev,
-    })
+    const contexts = await StorageContext.createContexts(
+      this._synapse,
+      this._warmStorageService,
+      this._endorsementsService,
+      {
+        ...options,
+        withCDN,
+        withIpni: options?.withIpni ?? this._withIpni,
+        dev: options?.dev ?? this._dev,
+      }
+    )
 
     if (canUseDefault) {
       this._defaultContexts = contexts

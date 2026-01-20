@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
@@ -131,6 +132,16 @@ export class Synapse {
       )
     }
 
+    const endorsementsAddress = options.endorsementsAddress ?? CONTRACT_ADDRESSES.ENDORSEMENTS[network]
+    if (!endorsementsAddress) {
+      throw new Error(
+        network === 'devnet'
+          ? 'endorsements is required when using devnet'
+          : `No Endorsements address configured for network: ${network}`
+      )
+    }
+    const endorsementsService = new EndorsementsService(provider, endorsementsAddress)
+
     // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
     if (!warmStorageAddress) {
@@ -193,6 +204,7 @@ export class Synapse {
       warmStorageService,
       pieceRetriever,
       filbeamService,
+      endorsementsService,
       options.dev === false,
       options.withIpni,
       multicall3Address
@@ -210,6 +222,7 @@ export class Synapse {
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
     filbeamService: FilBeamService,
+    endorsementsService: EndorsementsService,
     dev: boolean,
     withIpni: boolean | undefined,
     multicall3Address: string
@@ -230,6 +243,7 @@ export class Synapse {
     this._storageManager = new StorageManager(
       this,
       this._warmStorageService,
+      endorsementsService,
       this._pieceRetriever,
       this._withCDN,
       dev,

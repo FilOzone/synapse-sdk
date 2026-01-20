@@ -1109,28 +1109,6 @@ export class WarmStorageService {
       initChallengeWindowStart: Number(initChallengeWindowStart),
     }
   }
-
-  // ========== Proving Period Operations ==========
-
-  /**
-   * Get the maximum proving period from the WarmStorage contract
-   * @returns Maximum proving period in epochs
-   */
-  async getMaxProvingPeriod(): Promise<number> {
-    const viewContract = this._getWarmStorageViewContract()
-    const maxPeriod = await viewContract.getMaxProvingPeriod()
-    return Number(maxPeriod)
-  }
-
-  /**
-   * Get the challenge window size from the WarmStorage contract
-   * @returns Challenge window size in epochs
-   */
-  async getChallengeWindow(): Promise<number> {
-    const viewContract = this._getWarmStorageViewContract()
-    const window = await viewContract.challengeWindow()
-    return Number(window)
-  }
   /**
    * Increments the fixed locked-up amounts for CDN payment rails.
    *

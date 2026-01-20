@@ -4,6 +4,7 @@ import { cli } from 'cleye'
 import { datasetTerminate } from './commands/dataset-terminate.ts'
 import { datasets } from './commands/datasets.ts'
 import { deposit } from './commands/deposit.ts'
+import { endorse } from './commands/endorse.ts'
 import { fund } from './commands/fund.ts'
 import { getSpPeerIds } from './commands/get-sp-peer-ids.ts'
 import { init } from './commands/init.ts'
@@ -21,6 +22,7 @@ const argv = cli({
     pay,
     fund,
     deposit,
+    endorse,
     upload,
     datasets,
     datasetTerminate,
