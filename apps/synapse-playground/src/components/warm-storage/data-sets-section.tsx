@@ -1,9 +1,9 @@
 import type { DataSetWithPieces, UseProvidersResult } from '@filoz/synapse-react'
-import { useDeletePiece, useEgressQuota } from '@filoz/synapse-react'
-import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Globe, Info, Trash } from 'lucide-react'
+import { useDeletePiece } from '@filoz/synapse-react'
+import { CloudDownload, FileAudio, FileCode, FilePlay, FileText, Info, Trash } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { formatBytes, toastError } from '@/lib/utils.ts'
+import { toastError } from '@/lib/utils.ts'
 import { ButtonLoading } from '../custom-ui/button-loading.tsx'
 import { ExplorerLink } from '../explorer-link.tsx'
 import { PDPDatasetLink, PDPPieceLink, PDPProviderLink } from '../pdp-link.tsx'
@@ -12,22 +12,8 @@ import { Button } from '../ui/button.tsx'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item.tsx'
 import { Skeleton } from '../ui/skeleton.tsx'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip.tsx'
+import { CdnDetails } from './cdn-details.tsx'
 import { CreateDataSetDialog } from './create-data-set.tsx'
-
-function EgressQuotaDisplay({ dataSetId }: { dataSetId: bigint }) {
-  const { data: egressQuota } = useEgressQuota({ dataSetId })
-
-  if (!egressQuota) {
-    return null
-  }
-
-  return (
-    <>
-      Egress remaining: {formatBytes(egressQuota.cdnEgressQuota)} delivery {' · '}
-      {formatBytes(egressQuota.cacheMissEgressQuota)} cache-miss
-    </>
-  )
-}
 
 export function DataSetsSection({
   dataSets,
@@ -124,19 +110,7 @@ export function DataSetsSection({
                         ))}
                       </TooltipContent>
                     </Tooltip>
-                    {dataSet.cdn && (
-                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Globe className="w-4" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>This data set is using CDN</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <EgressQuotaDisplay dataSetId={dataSet.dataSetId} />
-                      </span>
-                    )}
+                    {dataSet.cdn && <CdnDetails dataSetId={dataSet.dataSetId} />}
                   </p>
 
                   {dataSet.pieces.map((piece) => (
