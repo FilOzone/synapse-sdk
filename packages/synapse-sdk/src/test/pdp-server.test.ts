@@ -16,13 +16,14 @@ import {
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
+import type { addPieces } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import type { Address } from 'viem'
+
 import { PDPServer } from '../pdp/index.ts'
-import type { PDPAddPiecesInput } from '../pdp/server.ts'
 import { signerToConnectorClient } from '../utils/viem.ts'
 
 // mock server for testing
@@ -292,7 +293,7 @@ InvalidSignature(address expected, address actual)
       const validPieceCid = ['bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy']
 
       server.use(
-        http.post<{ id: string }, PDPAddPiecesInput>(
+        http.post<{ id: string }, addPieces.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             try {
@@ -366,7 +367,7 @@ Invalid piece CID`
       const multiplePieceCid = [pieceCid1, pieceCid2]
 
       server.use(
-        http.post<{ id: string }, PDPAddPiecesInput>(
+        http.post<{ id: string }, addPieces.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             try {

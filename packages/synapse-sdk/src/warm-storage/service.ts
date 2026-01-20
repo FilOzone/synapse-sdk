@@ -28,7 +28,6 @@
 
 import { ethers } from 'ethers'
 import type { PaymentsService } from '../payments/service.ts'
-import type { DataSetCreationStatusResponse, PDPServer } from '../pdp/server.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import {
@@ -76,29 +75,6 @@ export interface DataSetCreationVerification {
   gasUsed?: bigint
   /** Error message if something went wrong */
   error?: string
-}
-
-/**
- * Combined status information from both PDP server and chain
- */
-export interface ComprehensiveDataSetStatus {
-  /** Transaction hash */
-  txHash: string
-  /** Server-side status */
-  serverStatus: DataSetCreationStatusResponse | null
-  /** Chain verification status */
-  chainStatus: DataSetCreationVerification
-  /** Combined status summary */
-  summary: {
-    /** Whether creation is complete and successful, both on chain and on the server */
-    isComplete: boolean
-    /** Whether data set is live on chain */
-    isLive: boolean
-    /** Final data set ID if available */
-    dataSetId: number | null
-    /** Any error messages */
-    error: string | null
-  }
 }
 
 export class WarmStorageService {
