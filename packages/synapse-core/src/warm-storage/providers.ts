@@ -83,7 +83,7 @@ export async function getProvider(client: Client<Transport, Chain>, options: Get
   return {
     id: provider.providerId,
     ...provider.providerInfo,
-    pdp: await decodePDPCapabilities(
+    pdp: decodePDPCapabilities(
       capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
     ),
   }
