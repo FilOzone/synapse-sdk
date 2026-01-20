@@ -42,18 +42,24 @@ export function toastError(error: Error, id: string, title?: string) {
   })
 }
 
+const UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
+
 export function formatBytes(bytes: bigint | number): string {
-  const num = typeof bytes === 'bigint' ? Number(bytes) : bytes
-  if (num === 0) return '0 B'
+  const isNegative = bytes < 0
+  let num = isNegative ? -BigInt(bytes) : BigInt(bytes)
+  if (num === 0n) return '0 B'
 
-  const isNegative = num < 0
-  const absNum = Math.abs(num)
+  const kBig = 1024n
+  let i = 0
+  while (num >= kBig && i < UNITS.length - 1) {
+    num /= kBig
+    i++
+  }
 
-  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
-  const k = 1024
-  const i = Math.floor(Math.log(absNum) / Math.log(k))
-  const value = absNum / k ** i
-  const formatted = `${value.toFixed(2).replace(/\.?0+$/, '')} ${units[i]}`
-
-  return isNegative ? `-${formatted}` : formatted
+  const sign = isNegative ? '-' : ''
+  const value = Number(num)
+    .toFixed(2)
+    .replace(/\.?0+$/, '')
+  const unit = UNITS[i]
+  return `${sign}${value} ${unit}`
 }
