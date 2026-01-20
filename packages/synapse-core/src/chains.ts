@@ -312,7 +312,6 @@ export function asChain(chain: ViemChain): Chain {
   throw new UnsupportedChainError(chain.id)
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace asChain {
   export type ErrorType = UnsupportedChainError
 }

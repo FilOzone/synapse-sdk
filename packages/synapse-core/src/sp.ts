@@ -49,7 +49,6 @@ export function resetTimeout() {
 
 export { AbortError, NetworkError, TimeoutError } from 'iso-web/http'
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace createDataSet {
   /**
    * The options for the create data set on PDP API.
@@ -136,7 +135,6 @@ export type DataSetCreateSuccess = {
   dataSetId: number
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace waitForDataSetCreationStatus {
   export type OptionsType = {
     statusUrl: string
@@ -186,7 +184,6 @@ export async function waitForDataSetCreationStatus(
   return response.result as waitForDataSetCreationStatus.ReturnType
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace createDataSetAndAddPieces {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -269,7 +266,6 @@ export type SPPiece = {
   subPieceOffset: number
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace getDataSet {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -314,7 +310,6 @@ export type SPPieceWithUrl = Simplify<
   }
 >
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace getPiecesForDataSet {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -354,7 +349,6 @@ export async function getPiecesForDataSet(
   return pieces
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace uploadPiece {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -596,7 +590,6 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
   }
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace findPiece {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -642,7 +635,6 @@ export async function findPiece(options: findPiece.OptionsType): Promise<findPie
   return Piece.parse(data.pieceCid)
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace addPieces {
   export type OptionsType = {
     /** The endpoint of the PDP API. */
@@ -743,7 +735,6 @@ export type AddPiecesSuccess = {
   txStatus: 'confirmed'
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace waitForAddPiecesStatus {
   export type OptionsType = {
     statusUrl: string
@@ -793,7 +784,6 @@ export async function waitForAddPiecesStatus(
   return response.result as AddPiecesSuccess
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace deletePiece {
   export type OptionsType = {
     endpoint: string
@@ -852,7 +842,6 @@ export async function ping(endpoint: string) {
   return response.result
 }
 
-// biome-ignore lint/style/noNamespace: namespaced types
 export namespace downloadPiece {
   export type OptionsType = {
     endpoint: string
