@@ -35,7 +35,6 @@ export const datasets: Command = command(
         p.log.info(
           `#${dataSet.dataSetId} ${dataSet.cdn ? 'CDN' : ''} ${dataSet.pdp.serviceURL} ${dataSet.pdpEndEpoch > 0n ? `Terminating at epoch ${dataSet.pdpEndEpoch}` : ''} ${dataSet.live ? 'Live' : ''} ${dataSet.managed ? 'Managed' : ''}`
         )
-        // console.log(dataSet)
       })
       p.log.warn(`Block number: ${blockNumber}`)
     } catch (error) {
