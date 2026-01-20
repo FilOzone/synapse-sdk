@@ -14,7 +14,7 @@ import { asChain } from '../chains.ts'
 import { EIP712Types, getStorageDomain, type MetadataEntry } from './type-definitions.ts'
 
 export type signCreateDataSetOptions = {
-  /** The client data set id. */
+  /** The client data set id (nonce). */
   clientDataSetId: bigint
   /** The payee address. */
   payee: Address

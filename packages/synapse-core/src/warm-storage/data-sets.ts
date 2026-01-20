@@ -216,7 +216,7 @@ export type CreateDataSetOptions = {
   endpoint: string
   /** The metadata for the data set. */
   metadata?: MetadataObject
-  /** The client data set id to use for the signature. Must be unique for each data set. */
+  /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
   clientDataSetId?: bigint
   /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
   recordKeeper?: Address
@@ -250,7 +250,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 }
 
 export type CreateDataSetAndAddPiecesOptions = {
-  /** The client data set id to use for the signature. Must be unique for each data set. */
+  /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
   clientDataSetId?: bigint
   /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
   recordKeeper?: Address
