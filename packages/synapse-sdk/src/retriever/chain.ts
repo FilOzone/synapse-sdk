@@ -5,6 +5,7 @@
  * that have the requested piece, then attempts to download from them.
  */
 
+import type { Address } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.ts'
 import { createError } from '../utils/index.ts'
@@ -28,7 +29,7 @@ export class ChainRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of provider info
    */
-  private async findProviders(client: string, providerAddress?: string): Promise<ProviderInfo[]> {
+  private async findProviders(client: Address, providerAddress?: string): Promise<ProviderInfo[]> {
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
       const provider = await this.spRegistry.getProviderByAddress(providerAddress)
@@ -72,9 +73,9 @@ export class ChainRetriever implements PieceRetriever {
 
   async fetchPiece(
     pieceCid: PieceCID,
-    client: string,
+    client: Address,
     options?: {
-      providerAddress?: string
+      providerAddress?: Address
       withCDN?: boolean
       signal?: AbortSignal
     }
