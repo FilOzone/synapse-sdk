@@ -24,6 +24,7 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
+import type { Address, Hash } from 'viem'
 import type { EndorsementsService } from '../endorsements/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -89,7 +90,7 @@ export interface StorageManagerUploadOptions extends StorageServiceOptions {
 
 interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
-  providerAddress?: string
+  providerAddress?: Address
   withCDN?: boolean
 }
 
@@ -269,7 +270,7 @@ export class StorageManager {
       }
     }
 
-    const clientAddress = await this._synapse.getClient().getAddress()
+    const clientAddress = (await this._synapse.getClient().getAddress()) as Address
 
     // Use piece retriever to fetch
     const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
@@ -477,8 +478,8 @@ export class StorageManager {
    * @param clientAddress - Optional client address, defaults to current signer
    * @returns Array of enhanced data set information including management status
    */
-  async findDataSets(clientAddress?: string): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? (await this._synapse.getClient().getAddress())
+  async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
+    const address = clientAddress ?? this._synapse.connectorClient.account.address
     return await this._warmStorageService.getClientDataSetsWithDetails(address)
   }
 
@@ -486,10 +487,10 @@ export class StorageManager {
    * Terminate a data set with given ID that belongs to the synapse signer.
    * This will also result in the removal of all pieces in the data set.
    * @param dataSetId - The ID of the data set to terminate
-   * @returns Transaction response
+   * @returns Transaction hash
    */
-  async terminateDataSet(dataSetId: number): Promise<ethers.TransactionResponse> {
-    return this._warmStorageService.terminateDataSet(this._synapse.getSigner(), dataSetId)
+  async terminateDataSet(dataSetId: bigint): Promise<Hash> {
+    return this._warmStorageService.terminateDataSet(this._synapse.connectorClient, dataSetId)
   }
 
   /**
