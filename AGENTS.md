@@ -46,7 +46,7 @@ packages/synapse-sdk/src/
 
 **synapse-react** (`packages/synapse-react/`): React hooks wrapping synapse-core for React apps. Uses wagmi + @tanstack/react-query. Does NOT depend on synapse-sdk.
 
-**synapse-sdk** (`packages/synapse-sdk/`): High-level SDK using ethers.js. Includes services like FilBeamService. For Node.js and browser script usage.
+**synapse-sdk** (`packages/synapse-sdk/` `@filoz/synapse-sdk`): Stateful service classes. DX-focused golden path (_don't make me care about your junk_).
 
 **synapse-playground** (`apps/synapse-playground/`): Vite-based React demo app using synapse-react hooks. Dev server runs at localhost:5173.
 
