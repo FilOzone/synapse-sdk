@@ -3,6 +3,7 @@
  */
 
 import type { PDPOffering } from '@filoz/synapse-core/warm-storage'
+import type { Address } from 'viem'
 
 export type { PDPOffering }
 
@@ -18,9 +19,9 @@ export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
  * Decoded provider info for SDK use
  */
 export interface ProviderInfo {
-  id: number
-  serviceProvider: string // TODO Hex
-  payee: string
+  id: bigint
+  serviceProvider: Address
+  payee: Address
   name: string
   description: string
   active: boolean
@@ -42,7 +43,7 @@ export interface ServiceProduct {
  * Provider registration info for new providers
  */
 export interface ProviderRegistrationInfo {
-  payee: string
+  payee: Address
   name: string
   description: string
   pdpOffering: PDPOffering
