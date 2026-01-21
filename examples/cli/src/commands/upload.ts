@@ -25,7 +25,7 @@ export const upload: Command = command(
         default: false,
       },
       dataSetId: {
-        type: Number,
+        type: BigInt,
         description: 'The data set ID to use',
         default: undefined,
       },
