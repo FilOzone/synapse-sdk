@@ -5,6 +5,7 @@ import type * as Abis from '../abis/index.ts'
 import { getChain } from '../chains.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
+import { getApprovedProviders } from './get-approved-providers.ts'
 
 export type getProviderType = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProvider'>
 
@@ -39,12 +40,7 @@ export interface PDPProvider extends ServiceProviderInfo {
  */
 export async function readProviders(client: Client<Transport, Chain>): Promise<PDPProvider[]> {
   const chain = getChain(client.chain.id)
-  const providersIds = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
-    functionName: 'getApprovedProviders',
-    args: [0n, 1000n], // offset, limit
-  })
+  const providersIds = await getApprovedProviders(client)
 
   const p = await readContract(client, {
     address: chain.contracts.serviceProviderRegistry.address,

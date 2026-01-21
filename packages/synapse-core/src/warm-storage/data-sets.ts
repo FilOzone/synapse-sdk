@@ -4,19 +4,16 @@ import { multicall, readContract, simulateContract, writeContract } from 'viem/a
 import type * as Abis from '../abis/index.ts'
 import { asChain, getChain } from '../chains.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
+import { dataSetLiveCall, getDataSetListenerCall } from '../pdp-verifier/index.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
-import {
-  datasetMetadataObjectToEntry,
-  type MetadataObject,
-  metadataArrayToObject,
-  pieceMetadataObjectToEntry,
-} from '../utils/metadata.ts'
+import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
+import { formatAllDataSetMetadata, getAllDataSetMetadataCall } from './get-all-data-set-metadata.ts'
 import type { PDPOffering } from './providers.ts'
 
 /**
@@ -64,24 +61,18 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
     const [live, listener, metadata, pdpOffering] = await multicall(client, {
       allowFailure: false,
       contracts: [
-        {
-          abi: chain.contracts.pdp.abi,
-          address: chain.contracts.pdp.address,
-          functionName: 'dataSetLive',
-          args: [dataSet.dataSetId],
-        },
-        {
-          abi: chain.contracts.pdp.abi,
-          address: chain.contracts.pdp.address,
-          functionName: 'getDataSetListener',
-          args: [dataSet.dataSetId],
-        },
-        {
-          address: chain.contracts.storageView.address,
-          abi: chain.contracts.storageView.abi,
-          functionName: 'getAllDataSetMetadata',
-          args: [dataSet.dataSetId],
-        },
+        dataSetLiveCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
+        getDataSetListenerCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
+        getAllDataSetMetadataCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
         {
           address: chain.contracts.serviceProviderRegistry.address,
           abi: chain.contracts.serviceProviderRegistry.abi,
@@ -100,7 +91,7 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
       live,
       managed: isAddressEqual(listener, chain.contracts.storage.address),
       cdn: dataSet.cdnRailId !== 0n,
-      metadata: metadataArrayToObject(metadata),
+      metadata: formatAllDataSetMetadata(metadata),
       pdp: pdpCaps,
     }
   })
@@ -142,24 +133,18 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   const [live, listener, metadata, pdpOffering] = await multicall(client, {
     allowFailure: false,
     contracts: [
-      {
-        abi: chain.contracts.pdp.abi,
-        address: chain.contracts.pdp.address,
-        functionName: 'dataSetLive',
-        args: [options.dataSetId],
-      },
-      {
-        abi: chain.contracts.pdp.abi,
-        address: chain.contracts.pdp.address,
-        functionName: 'getDataSetListener',
-        args: [options.dataSetId],
-      },
-      {
-        address: chain.contracts.storageView.address,
-        abi: chain.contracts.storageView.abi,
-        functionName: 'getAllDataSetMetadata',
-        args: [options.dataSetId],
-      },
+      dataSetLiveCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
+      getDataSetListenerCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
+      getAllDataSetMetadataCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
       {
         address: chain.contracts.serviceProviderRegistry.address,
         abi: chain.contracts.serviceProviderRegistry.abi,
@@ -179,27 +164,9 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     live,
     managed: isAddressEqual(listener, chain.contracts.storage.address),
     cdn: dataSet.cdnRailId !== 0n,
-    metadata: metadataArrayToObject(metadata),
+    metadata: formatAllDataSetMetadata(metadata),
     pdp: pdpCaps,
   }
-}
-
-/**
- * Get the metadata for a data set
- *
- * @param client
- * @param dataSetId
- * @returns
- */
-export async function getDataSetMetadata(client: Client<Transport, Chain>, dataSetId: bigint) {
-  const chain = getChain(client.chain.id)
-  const metadata = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
-    functionName: 'getAllDataSetMetadata',
-    args: [dataSetId],
-  })
-  return metadataArrayToObject(metadata)
 }
 
 export type CreateDataSetOptions = {
@@ -319,7 +286,7 @@ export type TerminateDataSetOptions = {
 }
 
 export async function terminateDataSet(client: Client<Transport, Chain, Account>, options: TerminateDataSetOptions) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
 
   const { request } = await simulateContract(client, {
     address: chain.contracts.storage.address,
