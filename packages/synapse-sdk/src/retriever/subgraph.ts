@@ -2,6 +2,7 @@
  * SubgraphRetriever - Uses a SubgraphService to find and retrieve pieces.
  */
 
+import type { Address } from 'viem'
 import type { PieceCID, PieceRetriever, ProviderInfo, SubgraphRetrievalService } from '../types.ts'
 import { createError } from '../utils/errors.ts'
 import { fetchPiecesFromProviders } from './utils.ts'
@@ -21,7 +22,7 @@ export class SubgraphRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of approved provider info
    */
-  async findProviders(pieceCid: PieceCID, providerAddress?: string): Promise<ProviderInfo[]> {
+  async findProviders(pieceCid: PieceCID, providerAddress?: Address): Promise<ProviderInfo[]> {
     if (providerAddress != null) {
       const provider = await this.subgraphService.getProviderByAddress(providerAddress)
       return provider !== null ? [provider] : []
@@ -31,8 +32,8 @@ export class SubgraphRetriever implements PieceRetriever {
 
   async fetchPiece(
     pieceCid: PieceCID,
-    client: string,
-    options?: { providerAddress?: string; signal?: AbortSignal }
+    client: Address,
+    options?: { providerAddress?: Address; signal?: AbortSignal }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
     const tryChildOrThrow = async (reason: string): Promise<Response> => {
