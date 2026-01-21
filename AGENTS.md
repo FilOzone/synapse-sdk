@@ -42,7 +42,7 @@ packages/synapse-sdk/src/
 
 ## Monorepo Package Structure
 
-**synapse-core** (`packages/synapse-core/`): Low-level utilities, types, chain definitions, and blockchain interactions using viem. Shared foundation for both synapse-react and synapse-sdk.
+**synapse-core** (`packages/synapse-core/` `@filoz/synapse-core`): Stateless, low-level library of pure functions. Includes utilities, types, chain definitions, and blockchain interactions using viem. Shared foundation for both synapse-react and synapse-sdk.
 
 **synapse-react** (`packages/synapse-react/`): React hooks wrapping synapse-core for React apps. Uses wagmi + @tanstack/react-query. Does NOT depend on synapse-sdk.
 
