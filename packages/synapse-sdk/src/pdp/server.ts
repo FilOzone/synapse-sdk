@@ -161,13 +161,13 @@ export class PDPServer {
    * @throws Error if any CID is invalid
    */
   async addPieces(
-    dataSetId: number,
+    dataSetId: bigint,
     clientDataSetId: bigint,
     pieces: PieceInputWithMetadata[]
   ): Promise<AddPiecesResponse> {
     const { txHash, statusUrl } = await addPieces(this._client, {
       endpoint: this._endpoint,
-      dataSetId: BigInt(dataSetId),
+      dataSetId,
       clientDataSetId,
       pieces,
     })
@@ -230,10 +230,10 @@ export class PDPServer {
    * @param dataSetId - The ID of the data set to fetch
    * @returns Promise that resolves with data set data
    */
-  async getDataSet(dataSetId: number): Promise<DataSetData> {
+  async getDataSet(dataSetId: bigint): Promise<DataSetData> {
     const data = await SP.getDataSet({
       endpoint: this._endpoint,
-      dataSetId: BigInt(dataSetId),
+      dataSetId,
     })
 
     return {
