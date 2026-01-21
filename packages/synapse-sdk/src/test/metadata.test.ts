@@ -11,7 +11,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { PDPServer } from '../pdp/server.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { signerToConnectorClient } from '../utils/viem.ts'
 
 // Mock server for testing
 const server = setup()
