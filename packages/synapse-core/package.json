@@ -36,6 +36,10 @@
       "types": "./dist/src/sp.d.ts",
       "default": "./dist/src/sp.js"
     },
+    "./pdp-verifier": {
+      "types": "./dist/src/pdp-verifier/index.d.ts",
+      "default": "./dist/src/pdp-verifier/index.js"
+    },
     "./erc20": {
       "types": "./dist/src/erc20.d.ts",
       "default": "./dist/src/erc20.js"
@@ -92,6 +96,9 @@
       ],
       "sp": [
         "./dist/src/sp"
+      ],
+      "pdp-verifier": [
+        "./dist/src/pdp-verifier/index"
       ],
       "erc20": [
         "./dist/src/erc20"
