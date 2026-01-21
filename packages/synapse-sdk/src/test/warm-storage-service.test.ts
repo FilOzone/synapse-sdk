@@ -4,18 +4,24 @@
  * Tests for WarmStorageService class
  */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
-import { type Address, parseUnits } from 'viem'
+import { type Address, createWalletClient, parseUnits, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
 import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
-import { makeDataSetCreatedLog } from './mocks/events.ts'
 
 // mock server for testing
 const server = setup()
+const walletClient = createWalletClient({
+  chain: calibration,
+  transport: viemHttp(),
+  account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
+})
 
 describe('WarmStorageService', () => {
   let provider: ethers.Provider
@@ -24,7 +30,7 @@ describe('WarmStorageService', () => {
 
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
-    return await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+    return await WarmStorageService.create(walletClient)
   }
 
   before(async () => {
@@ -62,27 +68,27 @@ describe('WarmStorageService', () => {
     it('should return a single data set by ID', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 1
+      const dataSetId = 1n
 
       const result = await warmStorageService.getDataSet(dataSetId)
       assert.exists(result)
-      assert.equal(result?.pdpRailId, 1)
-      assert.equal(result?.cacheMissRailId, 0)
-      assert.equal(result?.cdnRailId, 0)
+      assert.equal(result?.pdpRailId, 1n)
+      assert.equal(result?.cacheMissRailId, 0n)
+      assert.equal(result?.cdnRailId, 0n)
       assert.equal(result?.payer, Mocks.ADDRESSES.client1)
       assert.equal(result?.payee, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(result?.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(result?.commissionBps, 100)
+      assert.equal(result?.commissionBps, 100n)
       assert.equal(result?.clientDataSetId, 0n)
-      assert.equal(result?.pdpEndEpoch, 0)
-      assert.equal(result?.providerId, 1)
-      assert.equal(result?.dataSetId, 1)
+      assert.equal(result?.pdpEndEpoch, 0n)
+      assert.equal(result?.providerId, 1n)
+      assert.equal(result?.dataSetId, 1n)
     })
 
     it('should throw for non-existent data set', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 999
+      const dataSetId = 999n
 
       try {
         await warmStorageService.getDataSet(dataSetId)
@@ -105,13 +111,13 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 999
+      const dataSetId = 999n
 
       try {
         await warmStorageService.getDataSet(dataSetId)
         assert.fail('Should have thrown error for contract revert')
       } catch (error: any) {
-        assert.include(error.message, 'execution reverted')
+        assert.include(error.message, 'contract reverted')
       }
     })
   })
@@ -180,21 +186,21 @@ describe('WarmStorageService', () => {
       assert.lengthOf(dataSets, 2)
 
       // Check first data set
-      assert.equal(dataSets[0].pdpRailId, 1)
+      assert.equal(dataSets[0].pdpRailId, 1n)
       assert.equal(dataSets[0].payer, Mocks.ADDRESSES.client1)
       assert.equal(dataSets[0].payee, Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(dataSets[0].commissionBps, 100)
+      assert.equal(dataSets[0].commissionBps, 100n)
       assert.equal(dataSets[0].clientDataSetId, 0n)
-      assert.equal(dataSets[0].cdnRailId, 0)
+      assert.equal(dataSets[0].cdnRailId, 0n)
 
       // Check second data set
-      assert.equal(dataSets[1].pdpRailId, 2)
+      assert.equal(dataSets[1].pdpRailId, 2n)
       assert.equal(dataSets[1].payer, Mocks.ADDRESSES.client1)
       assert.equal(dataSets[1].payee, Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(dataSets[1].commissionBps, 200)
+      assert.equal(dataSets[1].commissionBps, 200n)
       assert.equal(dataSets[1].clientDataSetId, 1n)
-      assert.isAbove(dataSets[1].cdnRailId, 0)
-      assert.equal(dataSets[1].cdnRailId, 100)
+      assert.isAbove(Number(dataSets[1].cdnRailId), 0)
+      assert.equal(dataSets[1].cdnRailId, 100n)
     })
 
     it('should handle contract call errors gracefully', async () => {
@@ -213,7 +219,7 @@ describe('WarmStorageService', () => {
         await warmStorageService.getClientDataSets(Mocks.ADDRESSES.client1)
         assert.fail('Should have thrown error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to get client data sets')
+        assert.include(error.message, 'contract reverted')
       }
     })
   })
@@ -254,9 +260,9 @@ describe('WarmStorageService', () => {
       const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       assert.lengthOf(detailedDataSets, 1)
-      assert.equal(detailedDataSets[0].pdpRailId, 48)
-      assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242)
-      assert.equal(detailedDataSets[0].activePieceCount, 2)
+      assert.equal(detailedDataSets[0].pdpRailId, 48n)
+      assert.equal(detailedDataSets[0].pdpVerifierDataSetId, 242n)
+      assert.equal(detailedDataSets[0].activePieceCount, 2n)
       assert.isTrue(detailedDataSets[0].isLive)
       assert.isTrue(detailedDataSets[0].isManaged)
     })
@@ -328,7 +334,7 @@ describe('WarmStorageService', () => {
       // Get only managed data sets
       const managedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1, true)
       assert.lengthOf(managedDataSets, 1)
-      assert.equal(managedDataSets[0].pdpRailId, 48)
+      assert.equal(managedDataSets[0].pdpRailId, 48n)
       assert.isTrue(managedDataSets[0].isManaged)
     })
 
@@ -371,7 +377,7 @@ describe('WarmStorageService', () => {
       const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       assert.lengthOf(detailedDataSets, 1)
-      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.equal(detailedDataSets[0].cdnRailId, 51n)
       assert.isTrue(detailedDataSets[0].withCDN)
     })
 
@@ -414,7 +420,7 @@ describe('WarmStorageService', () => {
       const detailedDataSets = await warmStorageService.getClientDataSetsWithDetails(Mocks.ADDRESSES.client1)
 
       assert.lengthOf(detailedDataSets, 1)
-      assert.equal(detailedDataSets[0].cdnRailId, 51)
+      assert.equal(detailedDataSets[0].cdnRailId, 51n)
       assert.isFalse(detailedDataSets[0].withCDN) // CDN terminated, metadata cleared
     })
 
@@ -456,7 +462,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 48
+      const dataSetId = 48n
 
       // Should not throw
       await warmStorageService.validateDataSet(dataSetId)
@@ -474,7 +480,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const dataSetId = 48
+      const dataSetId = 48n
 
       try {
         await warmStorageService.validateDataSet(dataSetId)
@@ -482,82 +488,6 @@ describe('WarmStorageService', () => {
       } catch (error: any) {
         assert.include(error.message, 'is not managed by this WarmStorage contract')
       }
-    })
-  })
-
-  describe('verifyDataSetCreation', () => {
-    it('should verify successful data set creation', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          eth_getTransactionByHash: (params) => {
-            const hash = params[0]
-            assert.equal(hash, mockTxHash)
-            return {
-              hash: mockTxHash,
-              from: Mocks.ADDRESSES.client1,
-              gas: '0x5208',
-              value: '0x0',
-              nonce: '0x444',
-              input: '0x',
-              v: '0x01',
-              r: '0x4e2eef88cc6f2dc311aa3b1c8729b6485bd606960e6ae01522298278932c333a',
-              s: '0x5d0e08d8ecd6ed8034aa956ff593de9dc1d392e73909ef0c0f828918b58327c9',
-            }
-          },
-          eth_getTransactionReceipt: (params) => {
-            const hash = params[0]
-            assert.equal(hash, mockTxHash)
-            return {
-              transactionHash: mockTxHash,
-              transactionIndex: '0x10',
-              blockHash: '0xb91b7314248aaae06f080ad427dbae78b8c5daf72b2446cf843739aef80c6417',
-              status: '0x1',
-              blockNumber: '0x3039', // 12345
-              cumulativeGasUsed: '0x52080',
-              gasUsed: '0x186a0', // 100000
-              logs: [makeDataSetCreatedLog(123, 1)],
-            }
-          },
-          pdpVerifier: {
-            ...Mocks.presets.basic.pdpVerifier,
-            dataSetLive: () => [true],
-          },
-        })
-      )
-      const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
-
-      assert.isTrue(result.transactionMined)
-      assert.isTrue(result.transactionSuccess)
-      assert.equal(result.dataSetId, 123)
-      assert.exists(result.dataSetId)
-      assert.isTrue(result.dataSetLive)
-      assert.exists(result.blockNumber)
-      assert.exists(result.gasUsed)
-    })
-
-    it('should handle transaction not mined yet', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          eth_getTransactionByHash: (params) => {
-            const hash = params[0]
-            assert.equal(hash, mockTxHash)
-            return null
-          },
-          eth_getTransactionReceipt: () => null,
-        })
-      )
-      const warmStorageService = await createWarmStorageService()
-      const result = await warmStorageService.verifyDataSetCreation(mockTxHash)
-
-      assert.isFalse(result.transactionMined)
-      assert.isFalse(result.transactionSuccess)
-      assert.isUndefined(result.dataSetId)
-      assert.isFalse(result.dataSetLive)
     })
   })
 
@@ -575,9 +505,9 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
       const providerIds = await warmStorageService.getApprovedProviderIds()
       assert.lengthOf(providerIds, 3)
-      assert.equal(providerIds[0], 1)
-      assert.equal(providerIds[1], 4)
-      assert.equal(providerIds[2], 7)
+      assert.equal(providerIds[0], 1n)
+      assert.equal(providerIds[1], 4n)
+      assert.equal(providerIds[2], 7n)
     })
 
     it('should return empty array when no providers are approved', async () => {
@@ -606,7 +536,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const isApproved = await warmStorageService.isProviderIdApproved(4)
+      const isApproved = await warmStorageService.isProviderIdApproved(4n)
       assert.isTrue(isApproved)
     })
 
@@ -621,7 +551,7 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const isApproved = await warmStorageService.isProviderIdApproved(99)
+      const isApproved = await warmStorageService.isProviderIdApproved(99n)
       assert.isFalse(isApproved)
     })
 
@@ -653,11 +583,8 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const mockSigner = {
-        getAddress: async () => signerAddress,
-      } as any
 
-      const isOwner = await warmStorageService.isOwner(mockSigner)
+      const isOwner = await warmStorageService.isOwner(signerAddress)
       assert.isTrue(isOwner)
     })
 
@@ -674,11 +601,8 @@ describe('WarmStorageService', () => {
         })
       )
       const warmStorageService = await createWarmStorageService()
-      const mockSigner = {
-        getAddress: async () => signerAddress,
-      } as any
 
-      const isOwner = await warmStorageService.isOwner(mockSigner)
+      const isOwner = await warmStorageService.isOwner(signerAddress)
       assert.isFalse(isOwner)
     })
 
@@ -698,16 +622,16 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.addApprovedProvider(signer, 4)
-      assert.equal(tx.hash, '0x7696bafeeb480986a9f2409a9b7bdb18703c5833c8b38b94e71c1c9c49b6cace')
+      const tx = await warmStorageService.addApprovedProvider(walletClient, 4n)
+      assert.equal(tx, '0x43471ce4a501b1701aab800e10ea29882944dc1b4bfb85aa3fab7a82c5dba343')
     })
 
     it('should terminate dataset (mock tx)', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
+      server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }))
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.terminateDataSet(signer, 4)
-      assert.equal(tx.hash, '0x571f6e23f644237c0765c5904db5140acedb56cc170568c8fa364c435c7f82c4')
+      const tx = await warmStorageService.terminateDataSet(walletClient, 4n)
+      assert.equal(tx, '0xe1a356b6152a11ea58ac7bfb00498d1f9dbf47d6755207a5691a3a8f4a7f6d35')
     })
 
     it('should remove approved provider with correct index', async () => {
@@ -722,8 +646,8 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.removeApprovedProvider(signer, 4)
-      assert.equal(tx.hash, '0xfabcd114dfa1fe3fe802756baa1db7b915a20a64baf693ea614f17b1f28b36e4')
+      const tx = await warmStorageService.removeApprovedProvider(walletClient, 4n)
+      assert.equal(tx, '0xfa867814246175591c887b2fc918c006f258ce141128c9a3fbcdde5a64de1e89')
     })
 
     it('should throw when removing non-existent provider', async () => {
@@ -738,7 +662,7 @@ describe('WarmStorageService', () => {
       )
       const warmStorageService = await createWarmStorageService()
       try {
-        await warmStorageService.removeApprovedProvider(signer, 99)
+        await warmStorageService.removeApprovedProvider(walletClient, 99n)
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Provider 99 is not in the approved list')
@@ -1133,7 +1057,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
       const pdpConfig = await warmStorageService.getPDPConfig()
       const result = pdpConfig.maxProvingPeriod
-      assert.equal(result, 2880)
+      assert.equal(result, 2880n)
     })
 
     it('should return challenge window from WarmStorage contract', async () => {
@@ -1149,7 +1073,7 @@ describe('WarmStorageService', () => {
       const warmStorageService = await createWarmStorageService()
       const pdpConfig = await warmStorageService.getPDPConfig()
       const result = pdpConfig.challengeWindowSize
-      assert.equal(result, 60)
+      assert.equal(result, 60n)
     })
 
     it('should handle contract call failures', async () => {
@@ -1180,13 +1104,14 @@ describe('WarmStorageService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: true,
         })
       )
-      const dataSetId = 49
+      const dataSetId = 49n
       const warmStorageService = await createWarmStorageService()
 
-      const tx = await warmStorageService.topUpCDNPaymentRails(signer, dataSetId, 1n, 1n)
-      assert.equal(tx.hash, '0x5ecec136ca6818e5d8a1d46c6efe2cbbdd615e9b74353957d01fbe6f8c67d0f3')
+      const tx = await warmStorageService.topUpCDNPaymentRails(walletClient, dataSetId, 1n, 1n)
+      assert.equal(tx, '0x8a743df561386558f7e9468beb4538cd0afc41297e54959359cb96e3ca36b822')
     })
   })
 })

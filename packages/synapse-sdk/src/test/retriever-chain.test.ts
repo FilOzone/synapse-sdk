@@ -1,9 +1,11 @@
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
+import { createPublicClient, http as viemHttp } from 'viem'
 import { ChainRetriever } from '../retriever/chain.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
@@ -44,7 +46,11 @@ describe('ChainRetriever', () => {
     // Set up basic JSON-RPC handler before creating services
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
     provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    warmStorage = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+    const publicClient = createPublicClient({
+      chain: calibration,
+      transport: viemHttp(),
+    })
+    warmStorage = await WarmStorageService.create(publicClient)
     spRegistry = await SPRegistryService.create(provider, Mocks.ADDRESSES.calibration.spRegistry)
   })
 
