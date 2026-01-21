@@ -1,9 +1,10 @@
 import { CID } from 'multiformats'
 import pRetry from 'p-retry'
 import { type Account, type Address, type Chain, type Client, type Hex, hexToBytes, type Transport } from 'viem'
-import { getTransaction, readContract, waitForTransactionReceipt } from 'viem/actions'
+import { getTransaction, multicall, waitForTransactionReceipt } from 'viem/actions'
 import { getChain } from '../chains.ts'
 import { AtLeastOnePieceRequiredError } from '../errors/warm-storage.ts'
+import { getActivePiecesCall, getScheduledRemovalsCall } from '../pdp-verifier/index.ts'
 import type { PieceCID } from '../piece.ts'
 import * as PDP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -156,21 +157,25 @@ export type Piece = {
 export async function getPieces(client: Client<Transport, Chain>, options: GetPiecesOptions) {
   const chain = getChain(client.chain.id)
   const address = options.address
-  const [data, ids, hasMore] = await readContract(client, {
-    address: chain.contracts.pdp.address,
-    abi: chain.contracts.pdp.abi,
-    functionName: 'getActivePieces',
-    args: [options.dataSet.dataSetId, 0n, 100n],
+
+  const [activePiecesResult, removalsResult] = await multicall(client, {
+    contracts: [
+      getActivePiecesCall({
+        chain: client.chain,
+        dataSetId: options.dataSet.dataSetId,
+        address: options.address,
+      }),
+      getScheduledRemovalsCall({
+        chain: client.chain,
+        dataSetId: options.dataSet.dataSetId,
+        address: options.address,
+      }),
+    ],
+    allowFailure: false,
   })
 
-  const removals = await readContract(client, {
-    address: chain.contracts.pdp.address,
-    abi: chain.contracts.pdp.abi,
-    functionName: 'getScheduledRemovals',
-    args: [options.dataSet.dataSetId],
-  })
-
-  const removalsDeduped = Array.from(new Set(removals))
+  const [data, ids, hasMore] = activePiecesResult
+  const removals = Array.from(new Set(removalsResult))
 
   return {
     pieces: data
@@ -182,7 +187,7 @@ export async function getPieces(client: Client<Transport, Chain>, options: GetPi
           url: createPieceUrl(cid.toString(), options.dataSet.cdn, address, chain.id, options.dataSet.pdp.serviceURL),
         }
       })
-      .filter((piece) => !removalsDeduped.includes(piece.id)),
+      .filter((piece) => !removals.includes(piece.id)),
     hasMore,
   }
 }
