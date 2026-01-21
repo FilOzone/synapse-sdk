@@ -4,17 +4,17 @@
  * Tests for PDPVerifier class
  */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { calculate } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import { bytesToHex, createPublicClient, http as viemHttp } from 'viem'
 import { PDPVerifier } from '../pdp/index.ts'
 
 const server = setup()
 
 describe('PDPVerifier', () => {
-  let provider: ethers.Provider
   let pdpVerifier: PDPVerifier
   const testAddress = Mocks.ADDRESSES.calibration.pdpVerifier
 
@@ -29,8 +29,11 @@ describe('PDPVerifier', () => {
   beforeEach(() => {
     server.resetHandlers()
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    pdpVerifier = new PDPVerifier(provider, testAddress)
+    const publicClient = createPublicClient({
+      chain: calibration,
+      transport: viemHttp(),
+    })
+    pdpVerifier = new PDPVerifier({ client: publicClient })
   })
 
   describe('Instantiation', () => {
@@ -42,7 +45,11 @@ describe('PDPVerifier', () => {
 
     it('should create instance with custom address', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
-      const customVerifier = new PDPVerifier(provider, customAddress)
+      const publicClient = createPublicClient({
+        chain: calibration,
+        transport: viemHttp(),
+      })
+      const customVerifier = new PDPVerifier({ client: publicClient, address: customAddress })
       assert.exists(customVerifier)
       assert.isFunction(customVerifier.dataSetLive)
       assert.isFunction(customVerifier.getNextPieceId)
@@ -51,7 +58,7 @@ describe('PDPVerifier', () => {
 
   describe('dataSetLive', () => {
     it('should check if data set is live', async () => {
-      const isLive = await pdpVerifier.dataSetLive(123)
+      const isLive = await pdpVerifier.dataSetLive(123n)
       assert.isTrue(isLive)
     })
   })
@@ -68,14 +75,14 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const nextPieceId = await pdpVerifier.getNextPieceId(123)
-      assert.equal(nextPieceId, 5)
+      const nextPieceId = await pdpVerifier.getNextPieceId(123n)
+      assert.equal(nextPieceId, 5n)
     })
   })
 
   describe('getDataSetListener', () => {
     it('should get data set listener', async () => {
-      const listener = await pdpVerifier.getDataSetListener(123)
+      const listener = await pdpVerifier.getDataSetListener(123n)
       assert.equal(listener.toLowerCase(), Mocks.ADDRESSES.calibration.warmStorage.toLowerCase())
     })
   })
@@ -95,7 +102,7 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const result = await pdpVerifier.getDataSetStorageProvider(123)
+      const result = await pdpVerifier.getDataSetStorageProvider(123n)
       assert.equal(result.storageProvider.toLowerCase(), storageProvider.toLowerCase())
       assert.equal(result.proposedStorageProvider.toLowerCase(), proposedStorageProvider.toLowerCase())
     })
@@ -113,52 +120,8 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const leafCount = await pdpVerifier.getDataSetLeafCount(123)
-      assert.equal(leafCount, 10)
-    })
-  })
-
-  describe('extractDataSetIdFromReceipt', () => {
-    it('should extract data set ID from receipt', () => {
-      const mockReceipt = {
-        logs: [
-          {
-            topics: [
-              '0x1234567890123456789012345678901234567890123456789012345678901234', // Event signature
-              ethers.zeroPadValue('0x7b', 32), // Data set ID = 123
-            ],
-            data: `0x${'0'.repeat(64)}`,
-          },
-        ],
-      } as any
-
-      // Mock the interface to parse logs
-      ;(pdpVerifier as any)._contract.interface.parseLog = (log: any) => {
-        if (log.topics[0] === '0x1234567890123456789012345678901234567890123456789012345678901234') {
-          return {
-            name: 'DataSetCreated',
-            args: {
-              setId: BigInt(123),
-            },
-            fragment: {} as any,
-            signature: 'DataSetCreated(uint256)',
-            topic: log.topics[0],
-          } as any
-        }
-        return null
-      }
-
-      const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(mockReceipt)
-      assert.equal(dataSetId, 123)
-    })
-
-    it('should return null if no DataSetCreated event found', () => {
-      const mockReceipt = {
-        logs: [],
-      } as any
-
-      const dataSetId = pdpVerifier.extractDataSetIdFromReceipt(mockReceipt)
-      assert.isNull(dataSetId)
+      const leafCount = await pdpVerifier.getDataSetLeafCount(123n)
+      assert.equal(leafCount, 10n)
     })
   })
 
@@ -168,7 +131,7 @@ describe('PDPVerifier', () => {
       controller.abort()
 
       try {
-        await pdpVerifier.getActivePieces(123, { signal: controller.signal })
+        await pdpVerifier.getActivePieces(123n, { signal: controller.signal })
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.equal(error.message, 'Operation aborted')
@@ -181,7 +144,7 @@ describe('PDPVerifier', () => {
       // Create a valid PieceCID for testing
       const testData = new Uint8Array(100).fill(42)
       const pieceCid = calculate(testData)
-      const pieceCidHex = ethers.hexlify(pieceCid.bytes)
+      const pieceCidHex = bytesToHex(pieceCid.bytes)
 
       server.use(
         Mocks.JSONRPC({
@@ -193,9 +156,9 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const result = await pdpVerifier.getActivePieces(123)
+      const result = await pdpVerifier.getActivePieces(123n)
       assert.equal(result.pieces.length, 1)
-      assert.equal(result.pieces[0].pieceId, 1)
+      assert.equal(result.pieces[0].pieceId, 1n)
       assert.equal(result.hasMore, false)
       assert.equal(result.pieces[0].pieceCid.toString(), pieceCid.toString())
     })
@@ -220,12 +183,12 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123n)
       assert.isArray(scheduledRemovals)
       assert.equal(scheduledRemovals.length, 3)
-      assert.equal(scheduledRemovals[0], 1)
-      assert.equal(scheduledRemovals[1], 2)
-      assert.equal(scheduledRemovals[2], 5)
+      assert.equal(scheduledRemovals[0], 1n)
+      assert.equal(scheduledRemovals[1], 2n)
+      assert.equal(scheduledRemovals[2], 5n)
     })
 
     it('should return empty array when no removals scheduled', async () => {
@@ -239,7 +202,7 @@ describe('PDPVerifier', () => {
         })
       )
 
-      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123)
+      const scheduledRemovals = await pdpVerifier.getScheduledRemovals(123n)
       assert.isArray(scheduledRemovals)
       assert.equal(scheduledRemovals.length, 0)
     })

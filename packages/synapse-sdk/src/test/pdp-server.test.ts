@@ -6,6 +6,7 @@
  * Tests the PDPServer class for creating data sets and adding pieces via HTTP API
  */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import {
   AddPiecesError,
   CreateDataSetError,
@@ -18,22 +19,19 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import type { addPieces } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import type { Address } from 'viem'
-
+import { type Chain, type Client, createWalletClient, type Transport, http as viemHttp } from 'viem'
+import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { PDPServer } from '../pdp/index.ts'
-import { signerToConnectorClient } from '../utils/viem.ts'
 
 // mock server for testing
 const server = setup()
 
 describe('PDPServer', () => {
   let pdpServer: PDPServer
-  let signer: ethers.Wallet
   let serverUrl: string
-
+  let walletClient: Client<Transport, Chain, Account>
   const TEST_PRIVATE_KEY = '0x1234567890123456789012345678901234567890123456789012345678901234'
   const TEST_CONTRACT_ADDRESS = '0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f'
 
@@ -48,16 +46,19 @@ describe('PDPServer', () => {
   beforeEach(async () => {
     server.resetHandlers()
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    // Create test signer and auth helper
-    signer = new ethers.Wallet(TEST_PRIVATE_KEY)
 
     // Start mock server
     serverUrl = 'http://pdp.local'
 
+    walletClient = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(TEST_PRIVATE_KEY),
+    })
+
     // Create PDPServer instance
     pdpServer = new PDPServer({
-      client: await signerToConnectorClient(new ethers.Wallet(TEST_PRIVATE_KEY), provider),
+      client: walletClient,
       endpoint: serverUrl,
     })
   })
@@ -79,7 +80,7 @@ describe('PDPServer', () => {
       const result = await pdpServer.createDataSet(
         0n, // clientDataSetId
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-        (await signer.getAddress()) as Address, // payer
+        walletClient.account.address, // payer
         {}, // metadata (empty for no CDN)
         TEST_CONTRACT_ADDRESS // recordKeeper
       )
@@ -101,7 +102,7 @@ describe('PDPServer', () => {
         await pdpServer.createDataSet(
           0n, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          (await signer.getAddress()) as Address, // payer
+          walletClient.account.address, // payer
           {}, // metadata (empty for no CDN)
           TEST_CONTRACT_ADDRESS // recordKeeper
         )
@@ -124,7 +125,7 @@ describe('PDPServer', () => {
         await pdpServer.createDataSet(
           0n, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          (await signer.getAddress()) as Address, // payer
+          walletClient.account.address, // payer
           {}, // metadata (empty for no CDN)
           TEST_CONTRACT_ADDRESS // recordKeeper
         )
@@ -157,7 +158,7 @@ describe('PDPServer', () => {
         await pdpServer.createDataSet(
           0n, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          (await signer.getAddress()) as Address, // payer
+          walletClient.account.address, // payer
           {}, // metadata (empty for no CDN)
           TEST_CONTRACT_ADDRESS // recordKeeper
         )
@@ -196,7 +197,7 @@ invariant failure: insufficient funds to cover lockup after function execution`
         await pdpServer.createDataSet(
           0n, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          (await signer.getAddress()) as Address, // payer
+          walletClient.account.address, // payer
           {}, // metadata (empty for no CDN)
           TEST_CONTRACT_ADDRESS // recordKeeper
         )
@@ -236,7 +237,7 @@ InvalidSignature(address expected, address actual)
         await pdpServer.createDataSet(
           0n, // clientDataSetId
           '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-          (await signer.getAddress()) as Address, // payer
+          walletClient.account.address, // payer
           {}, // metadata (empty for no CDN)
           TEST_CONTRACT_ADDRESS // recordKeeper
         )
@@ -267,7 +268,7 @@ InvalidSignature(address expected, address actual)
       const result = await pdpServer.createAndAddPieces(
         0n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-        (await signer.getAddress()) as Address,
+        walletClient.account.address,
         TEST_CONTRACT_ADDRESS,
         [{ pieceCid: Piece.parse(validPieceCid[0]) }],
         {}
@@ -282,7 +283,7 @@ InvalidSignature(address expected, address actual)
     it('should validate input parameters', async () => {
       // Test empty piece entries
       try {
-        await pdpServer.addPieces(1, 0n, [])
+        await pdpServer.addPieces(1n, 0n, [])
         assert.fail('Should have thrown error for empty piece entries')
       } catch (error) {
         assert.include((error as Error).message, 'At least one piece must be provided')
@@ -320,7 +321,7 @@ InvalidSignature(address expected, address actual)
       )
 
       // Should not throw
-      const result = await pdpServer.addPieces(1, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
+      const result = await pdpServer.addPieces(1n, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
       assert.isDefined(result)
       assert.isDefined(result.message)
     })
@@ -338,7 +339,7 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await pdpServer.addPieces(1, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
+        await pdpServer.addPieces(1n, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.instanceOf(error, AddPiecesError)
@@ -393,7 +394,7 @@ Invalid piece CID`
         )
       )
       const result = await pdpServer.addPieces(
-        1,
+        1n,
         0n,
         multiplePieceCid.map((pieceCid) => ({ pieceCid }))
       )
@@ -416,7 +417,7 @@ Invalid piece CID`
         })
       )
 
-      const result = await pdpServer.addPieces(1, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
+      const result = await pdpServer.addPieces(1n, 0n, [{ pieceCid: Piece.parse(validPieceCid[0]) }])
       assert.isDefined(result)
       assert.isDefined(result.message)
       assert.strictEqual(result.txHash, mockTxHash)
@@ -527,7 +528,7 @@ Failed to create upload session: Database error`
         })
       )
 
-      const result = await pdpServer.getDataSet(292)
+      const result = await pdpServer.getDataSet(292n)
       assert.equal(result.id, mockDataSetData.id)
       assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
       assert.equal(result.pieces.length, mockDataSetData.pieces.length)
@@ -545,7 +546,7 @@ Failed to create upload session: Database error`
       )
 
       try {
-        await pdpServer.getDataSet(999)
+        await pdpServer.getDataSet(999n)
         assert.fail('Should have thrown error for not found data set')
       } catch (error) {
         assert.instanceOf(error, GetDataSetError)
@@ -563,7 +564,7 @@ Failed to create upload session: Database error`
       )
 
       try {
-        await pdpServer.getDataSet(292)
+        await pdpServer.getDataSet(292n)
         assert.fail('Should have thrown error for server error')
       } catch (error) {
         assert.instanceOf(error, GetDataSetError)
@@ -587,7 +588,7 @@ Failed to create upload session: Database error`
         })
       )
 
-      const result = await pdpServer.getDataSet(292)
+      const result = await pdpServer.getDataSet(292n)
       assert.deepStrictEqual(result, emptyDataSetData)
       assert.isArray(result.pieces)
       assert.equal(result.pieces.length, 0)
@@ -616,7 +617,7 @@ Failed to create upload session: Database error`
       )
 
       try {
-        await pdpServer.getDataSet(292)
+        await pdpServer.getDataSet(292n)
         assert.fail('Should have thrown error for invalid CID in response')
       } catch (error) {
         assert.include((error as Error).message, 'Invalid CID string: invalid-cid-format')

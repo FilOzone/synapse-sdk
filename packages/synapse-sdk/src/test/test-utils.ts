@@ -1,4 +1,5 @@
 import * as Mocks from '@filoz/synapse-core/mocks'
+import type { Address } from 'viem'
 import type { ProviderInfo } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
@@ -7,7 +8,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
  */
 function createMockProviderInfo(overrides?: Partial<ProviderInfo>): ProviderInfo {
   const defaults: ProviderInfo = {
-    id: 1,
+    id: 1n,
     serviceProvider: Mocks.ADDRESSES.client1,
     payee: Mocks.ADDRESSES.client1, // Usually same as serviceProvider for tests
     name: 'Test Provider',
@@ -63,8 +64,8 @@ function createMockProviderInfo(overrides?: Partial<ProviderInfo>): ProviderInfo
  * @TODO: REMOVE THIS once we figure out what to do with retriever-subgraph.test.ts
  */
 export function createSimpleProvider(props: {
-  address?: string
-  serviceProvider?: string
+  address?: Address
+  serviceProvider?: Address
   serviceURL: string
 }): ProviderInfo {
   return createMockProviderInfo({

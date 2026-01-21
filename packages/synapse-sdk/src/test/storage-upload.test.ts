@@ -121,7 +121,7 @@ describe('Storage Upload', () => {
     const resultPieceIds = results.map((r) => r.pieceId)
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-    assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
+    assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
     assert.strictEqual(addPiecesCount, 3, 'addPieces should be called 3 times')
     assert.strictEqual(uploadCompleteCount, 3, 'uploadComplete should be called 3 times')
   })
@@ -288,7 +288,7 @@ describe('Storage Upload', () => {
     const resultPieceIds = results.map((r) => r.pieceId)
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-    assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
+    assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
     assert.strictEqual(addPiecesCalls, 3, 'addPieces should be called 2 times')
   })
 
@@ -392,7 +392,7 @@ describe('Storage Upload', () => {
     const expectedSize = 127
     const upload = await context.upload(new Uint8Array(expectedSize))
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 127')
   })
 
@@ -444,7 +444,7 @@ describe('Storage Upload', () => {
     const upload = await context.upload(new Uint8Array(expectedSize).fill(1))
 
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 200 MiB')
   })
 
@@ -452,7 +452,7 @@ describe('Storage Upload', () => {
     let pieceAddedCallbackFired = false
     let pieceConfirmedCallbackFired = false
     let piecesAddedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } | null = null
-    let piecesConfirmedArgs: { dataSetId?: number; pieces?: PieceRecord[] } | null = null
+    let piecesConfirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } | null = null
     let uploadCompleteCallbackFired = false
     let resolvedDataSetId: number | undefined
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
@@ -501,7 +501,7 @@ describe('Storage Upload', () => {
       onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
         piecesAddedArgs = { transaction, pieces }
       },
-      onPiecesConfirmed(dataSetId: number, pieces: PieceRecord[]) {
+      onPiecesConfirmed(dataSetId: bigint, pieces: PieceRecord[]) {
         piecesConfirmedArgs = { dataSetId, pieces }
       },
       onPieceAdded() {
@@ -524,15 +524,20 @@ describe('Storage Upload', () => {
       throw new Error('Callbacks should have been called')
     }
     const addedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } = piecesAddedArgs
-    const confirmedArgs: { dataSetId?: number; pieces?: PieceRecord[] } = piecesConfirmedArgs
+    const confirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } = piecesConfirmedArgs
     assert.strictEqual(addedArgs.transaction, txHash, 'onPiecesAdded should receive transaction hash')
     assert.strictEqual(
       addedArgs.pieces?.[0].pieceCid.toString(),
       uploadResult.pieceCid.toString(),
       'onPiecesAdded should provide matching pieceCid'
     )
-    assert.strictEqual(confirmedArgs.dataSetId, resolvedDataSetId, 'onPiecesConfirmed should provide the dataset id')
-    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0, 'onPiecesConfirmed should include piece IDs')
+    assert.isDefined(resolvedDataSetId, 'resolvedDataSetId should be defined')
+    assert.strictEqual(
+      confirmedArgs.dataSetId,
+      BigInt(resolvedDataSetId),
+      'onPiecesConfirmed should provide the dataset id'
+    )
+    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0n, 'onPiecesConfirmed should include piece IDs')
   })
 
   it('should handle ArrayBuffer input', async () => {
@@ -578,7 +583,7 @@ describe('Storage Upload', () => {
 
     const buffer = new Uint8Array(1024)
     const upload = await context.upload(buffer)
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')
   })
 })

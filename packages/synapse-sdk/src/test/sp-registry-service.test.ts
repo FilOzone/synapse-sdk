@@ -4,6 +4,7 @@ import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import type { Address } from 'viem'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -42,9 +43,9 @@ describe('SPRegistryService', () => {
   describe('Provider Read Operations', () => {
     it('should get provider by ID', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
-      assert.equal(provider?.id, 1)
+      assert.equal(provider?.id, 1n)
       assert.equal(provider?.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(provider?.name, 'Test Provider')
       assert.equal(provider?.description, 'Test Provider')
@@ -72,7 +73,7 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const provider = await service.getProvider(999)
+      const provider = await service.getProvider(999n)
       assert.isNull(provider)
     })
 
@@ -80,7 +81,7 @@ describe('SPRegistryService', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const provider = await service.getProviderByAddress(Mocks.ADDRESSES.serviceProvider1)
       assert.exists(provider)
-      assert.equal(provider.id, 1)
+      assert.equal(provider.id, 1n)
       assert.equal(provider.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
 
@@ -176,7 +177,7 @@ describe('SPRegistryService', () => {
     it('should register new provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const tx = await service.registerProvider(signer, {
-        payee: await signer.getAddress(),
+        payee: (await signer.getAddress()) as Address,
         name: 'New Provider',
         description: 'Description',
         pdpOffering: {
@@ -214,7 +215,7 @@ describe('SPRegistryService', () => {
   describe('Product Operations', () => {
     it('should get provider products', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
       assert.exists(provider?.products)
       assert.exists(provider?.products.PDP)
@@ -227,7 +228,7 @@ describe('SPRegistryService', () => {
 
     it('should decode PDP product data', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       const product = provider?.products.PDP
 
       assert.exists(product)
@@ -294,13 +295,13 @@ describe('SPRegistryService', () => {
   describe('Batch Operations', () => {
     it('should get multiple providers in batch', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const providers = await service.getProviders([1, 2, 3])
+      const providers = await service.getProviders([1n, 2n, 3n])
       assert.isArray(providers)
       assert.equal(providers.length, 2) // Only IDs 1 and 2 exist in our mock
       assert.exists(providers[0]) // ID 1 exists
-      assert.equal(providers[0].id, 1)
+      assert.equal(providers[0].id, 1n)
       assert.exists(providers[1]) // ID 2 exists
-      assert.equal(providers[1].id, 2)
+      assert.equal(providers[1].id, 2n)
     })
 
     it('should handle empty provider ID list', async () => {
@@ -314,7 +315,7 @@ describe('SPRegistryService', () => {
   describe('Provider Info Conversion', () => {
     it('should extract serviceURL from first PDP product', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
       assert.equal(provider?.products.PDP?.data.serviceURL, 'https://pdp.example.com')
     })
@@ -327,7 +328,7 @@ describe('SPRegistryService', () => {
         })
       )
 
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
       assert.isUndefined(provider?.products.PDP)
     })
@@ -348,7 +349,7 @@ describe('SPRegistryService', () => {
       )
 
       try {
-        const provider = await service.getProvider(1)
+        const provider = await service.getProvider(1n)
         assert.isNull(provider)
       } catch (error: any) {
         assert.include((error as Error).message, 'Contract call failed')
@@ -383,7 +384,7 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
       assert.exists(provider?.products)
       assert.isUndefined(provider?.products.PDP) // Product decoding failed, so no PDP product

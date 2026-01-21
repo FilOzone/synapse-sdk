@@ -1,15 +1,16 @@
 /* globals describe it before after beforeEach */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { PDPServer } from '../pdp/server.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { signerToConnectorClient } from '../utils/viem.ts'
 
 // Mock server for testing
 const server = setup()
@@ -32,10 +33,15 @@ describe('Metadata Support', () => {
   beforeEach(async () => {
     server.resetHandlers()
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
+
+    const walletClient = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(TEST_PRIVATE_KEY),
+    })
     // Create fresh instances for each test
     pdpServer = new PDPServer({
-      client: await signerToConnectorClient(new ethers.Wallet(TEST_PRIVATE_KEY), provider),
+      client: walletClient,
       endpoint: SERVER_URL,
     })
   })
@@ -81,7 +87,7 @@ describe('Metadata Support', () => {
         version: '1.0.0',
       }
 
-      const dataSetId = 123
+      const dataSetId = 123n
       const mockTxHash = '0x1234567890abcdef'
       let capturedPieceMetadata: Mocks.pdp.PieceMetadataCapture | null = null
 
