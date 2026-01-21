@@ -7,16 +7,15 @@
 
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { ethers } from 'ethers'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import type { ProviderInfo } from './sp-registry/types.ts'
 
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
 export type PrivateKey = string
-export type Address = string
 export type TokenAmount = number | bigint
-export type DataSetId = string
-export type ServiceProvider = string
+export type DataSetId = bigint
+export type ServiceProvider = Address
 
 /**
  * Supported Filecoin network types
@@ -123,9 +122,9 @@ export interface PieceRetriever {
    */
   fetchPiece: (
     pieceCid: PieceCID, // Internal interface uses PieceCID type for validation
-    client: string,
+    client: Address,
     options?: {
-      providerAddress?: string // Restrict to specific provider
+      providerAddress?: Address // Restrict to specific provider
       withCDN?: boolean // Enable CDN retrieval attempts
       signal?: AbortSignal // Optional AbortSignal for request cancellation
     }
@@ -175,7 +174,7 @@ export interface SubgraphRetrievalService {
    * @param address - The unique address (ID) of the provider.
    * @returns A promise that resolves to `ProviderInfo` if found, otherwise `null`.
    */
-  getProviderByAddress: (address: string) => Promise<ProviderInfo | null>
+  getProviderByAddress: (address: Address) => Promise<ProviderInfo | null>
 }
 
 /**
@@ -199,29 +198,29 @@ export interface AuthSignature {
  */
 export interface DataSetInfo {
   /** ID of the PDP payment rail */
-  pdpRailId: number
+  pdpRailId: bigint
   /** For CDN add-on: ID of the cache miss payment rail */
-  cacheMissRailId: number
+  cacheMissRailId: bigint
   /** For CDN add-on: ID of the CDN payment rail */
-  cdnRailId: number
+  cdnRailId: bigint
   /** Address paying for storage */
-  payer: string
+  payer: Address
   /** SP's beneficiary address */
-  payee: string
+  payee: Address
   /** Service provider address (operator) */
-  serviceProvider: string
+  serviceProvider: Address
   /** Commission rate in basis points (dynamic based on CDN usage) */
-  commissionBps: number
+  commissionBps: bigint
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: bigint
   /** Epoch when PDP payments end (0 if not terminated) */
-  pdpEndEpoch: number
+  pdpEndEpoch: bigint
   /** Provider ID from the ServiceProviderRegistry */
-  providerId: number
+  providerId: bigint
   // Legacy alias for backward compatibility
-  paymentEndEpoch?: number
+  paymentEndEpoch?: bigint
   /** PDP Data Set ID */
-  dataSetId: bigint | number
+  dataSetId: bigint
 }
 
 /**
@@ -229,9 +228,9 @@ export interface DataSetInfo {
  */
 export interface EnhancedDataSetInfo extends DataSetInfo {
   /** PDPVerifier global data set ID */
-  pdpVerifierDataSetId: number
+  pdpVerifierDataSetId: bigint
   /** Number of active pieces in the data set (excludes removed pieces) */
-  activePieceCount: number
+  activePieceCount: bigint
   /** Whether the data set is live on-chain */
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
@@ -296,7 +295,7 @@ export interface StorageContextCallbacks {
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ProviderInfo }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: ProviderInfo }) => void
 }
 
 export interface CreateContextsOptions {
@@ -305,13 +304,13 @@ export interface CreateContextsOptions {
   /**
    * Specific data set IDs to use
    */
-  dataSetIds?: number[]
+  dataSetIds?: bigint[]
   /**
    * Specific provider IDs to use
    */
-  providerIds?: number[]
+  providerIds?: bigint[]
   /** Do not select any of these providers */
-  excludeProviderIds?: number[]
+  excludeProviderIds?: bigint[]
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
@@ -341,13 +340,13 @@ export interface CreateContextsOptions {
  */
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
-  providerId?: number
+  providerId?: bigint
   /** Do not select any of these providers */
-  excludeProviderIds?: number[]
+  excludeProviderIds?: bigint[]
   /** Specific provider address to use (optional) */
-  providerAddress?: string
+  providerAddress?: Address
   /** Specific data set ID to use (optional) */
-  dataSetId?: number
+  dataSetId?: bigint
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
@@ -405,9 +404,9 @@ export interface UploadCallbacks {
   /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void
+  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void
   /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: number[]) => void
+  onPieceConfirmed?: (pieceIds: bigint[]) => void
 }
 
 /**
@@ -417,7 +416,7 @@ export interface UploadCallbacks {
  * in a data set.
  */
 export interface PieceRecord {
-  pieceId: number
+  pieceId: bigint
   pieceCid: PieceCID
 }
 
@@ -445,7 +444,7 @@ export interface UploadResult {
   /** Size of the original data */
   size: number
   /** Piece ID in the data set */
-  pieceId?: number
+  pieceId?: bigint
 }
 
 /**
@@ -577,7 +576,7 @@ export interface ProviderSelectionResult {
   /** Selected service provider */
   provider: ProviderInfo
   /** Selected data set ID */
-  dataSetId: number
+  dataSetId: bigint
   /** Whether this is an existing data set */
   isExisting?: boolean
   /** Data set metadata */
