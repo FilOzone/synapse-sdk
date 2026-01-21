@@ -56,7 +56,6 @@ packages/synapse-sdk/src/
 ## Biome Linting (Critical)
 
 **NO** `!` operator → use `?.` or explicit checks
-**MUST** use `.js` extensions in imports (`import {x} from './y.js'` even for .ts)
 **NO** semicolons at line end (`semicolons: "asNeeded"`)
 **MUST** use kebab-case filenames
 
