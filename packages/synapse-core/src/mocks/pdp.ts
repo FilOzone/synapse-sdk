@@ -325,7 +325,7 @@ export function createDataSetWithMetadataCapture(
  * @param options - Additional options
  */
 export function addPiecesWithMetadataCapture(
-  dataSetId: number,
+  dataSetId: bigint,
   txHash: Hex,
   captureCallback: (metadata: PieceMetadataCapture) => void,
   options: PDPMockOptions = {}
