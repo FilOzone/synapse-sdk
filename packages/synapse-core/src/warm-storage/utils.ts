@@ -1,5 +1,5 @@
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import type { ServicePriceResult } from './service-price.ts'
+import type { getServicePrice } from './get-service-price.ts'
 
 export interface CalculateStorageCostsResult {
   storagePerMonth: bigint
@@ -15,7 +15,10 @@ export interface CalculateStorageCostsResult {
  * storagePerMonth is calculated for a 30-day month based on 2880 epochs per day.
  * Egress costs are per TiB of data transferred and are charged separately.
  */
-export function calculateStorageCosts(sizeInBytes: bigint, prices: ServicePriceResult): CalculateStorageCostsResult {
+export function calculateStorageCosts(
+  sizeInBytes: bigint,
+  prices: getServicePrice.OutputType
+): CalculateStorageCostsResult {
   const { pricePerTiBPerMonthNoCDN, pricePerTiBCdnEgress, pricePerTiBCacheMissEgress, minimumPricePerMonth } = prices
 
   // Calculate base storage cost per month for the given size

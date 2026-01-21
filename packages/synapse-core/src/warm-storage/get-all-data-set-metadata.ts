@@ -1,0 +1,135 @@
+import type {
+  Address,
+  Chain,
+  Client,
+  ContractFunctionParameters,
+  ContractFunctionReturnType,
+  ReadContractErrorType,
+  Transport,
+} from 'viem'
+import { readContract } from 'viem/actions'
+import type { storageView as storageViewAbi } from '../abis/index.ts'
+import { asChain } from '../chains.ts'
+import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
+
+export function formatAllDataSetMetadata(data: getAllDataSetMetadata.ContractOutputType): MetadataObject {
+  return metadataArrayToObject(data)
+}
+
+export namespace getAllDataSetMetadata {
+  export type OptionsType = {
+    /** The ID of the data set to get metadata for. */
+    dataSetId: bigint
+    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
+    address?: Address
+  }
+  export type ContractOutputType = ContractFunctionReturnType<
+    typeof storageViewAbi,
+    'pure' | 'view',
+    'getAllDataSetMetadata'
+  >
+
+  export type OutputType = MetadataObject
+
+  export type ErrorType = asChain.ErrorType | ReadContractErrorType
+}
+
+/**
+ * Get all metadata for a data set formatted as a MetadataObject
+ *
+ * @param client - The client to use to get the data set metadata.
+ * @param options - {@link getAllDataSetMetadata.OptionsType}
+ * @returns The metadata formatted as a MetadataObject {@link getAllDataSetMetadata.OutputType}
+ * @throws Errors {@link getAllDataSetMetadata.ErrorType}
+ *
+ * @example
+ * ```ts twoslash
+ * import { getAllDataSetMetadata } from '@filoz/synapse-core/warm-storage'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const metadata = await getAllDataSetMetadata(client, {
+ *   dataSetId: 1n,
+ * })
+ *
+ * console.log(metadata)
+ * ```
+ */
+export async function getAllDataSetMetadata(
+  client: Client<Transport, Chain>,
+  options: getAllDataSetMetadata.OptionsType
+): Promise<getAllDataSetMetadata.OutputType> {
+  const data = await readContract(
+    client,
+    getAllDataSetMetadataCall({
+      chain: client.chain,
+      dataSetId: options.dataSetId,
+      address: options.address,
+    })
+  )
+  return formatAllDataSetMetadata(data)
+}
+
+export namespace getAllDataSetMetadataCall {
+  export type OptionsType = {
+    /** The ID of the data set to get metadata for. */
+    dataSetId: bigint
+    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
+    address?: Address
+    /** The chain to use to get the data set metadata. */
+    chain: Chain
+  }
+
+  export type ErrorType = asChain.ErrorType
+  export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllDataSetMetadata'>
+}
+
+/**
+ * Create a call to the getAllDataSetMetadata function
+ *
+ * This function is used to create a call to the getAllDataSetMetadata function for use with the multicall or readContract function.
+ *
+ * Use {@link formatAllDataSetMetadata} to format the output into a MetadataObject.
+ *
+ * @param options - {@link getAllDataSetMetadataCall.OptionsType}
+ * @returns The call to the getAllDataSetMetadata function {@link getAllDataSetMetadataCall.OutputType}
+ * @throws Errors {@link getAllDataSetMetadataCall.ErrorType}
+ *
+ * @example
+ * ```ts twoslash
+ * import { getAllDataSetMetadataCall } from '@filoz/synapse-core/warm-storage'
+ * import { createPublicClient, http } from 'viem'
+ * import { multicall } from 'viem/actions'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const results = await multicall(client, {
+ *   contracts: [
+ *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 1n }),
+ *     getAllDataSetMetadataCall({ chain: calibration, dataSetId: 2n }),
+ *   ],
+ * })
+ *
+ * const formattedMetadata = results.map(formatAllDataSetMetadata)
+ *
+ * console.log(formattedMetadata)
+ * ```
+ */
+export function getAllDataSetMetadataCall(options: getAllDataSetMetadataCall.OptionsType) {
+  const chain = asChain(options.chain)
+  return {
+    abi: chain.contracts.storageView.abi,
+    address: options.address ?? chain.contracts.storageView.address,
+    functionName: 'getAllDataSetMetadata',
+    args: [options.dataSetId],
+  } satisfies getAllDataSetMetadataCall.OutputType
+}
