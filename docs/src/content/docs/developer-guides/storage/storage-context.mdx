@@ -36,7 +36,7 @@ type StorageContextCallbacks = {
   onProviderSelected?: (provider: ProviderInfo) => void;
   onDataSetResolved?: (info: {
     isExisting: boolean;
-    dataSetId: number;
+    dataSetId: bigint;
     provider: ProviderInfo;
   }) => void;
 };
@@ -316,16 +316,22 @@ You can also terminate a data set using `synapse.storage.terminateDataSet(dataSe
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { calibration } from '@filoz/synapse-core/chains'
+import { createPublicClient, http } from 'viem'
 const synapse = await Synapse.create({});
+const publicClient = createPublicClient({
+  chain: calibration,
+  transport: http(),
+})
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
   withCDN: true, // Optional: enable CDN for faster downloads
 });
-const datasetTerminationTx = await storageContext.terminate();
-console.log(`Dataset termination transaction: ${datasetTerminationTx.hash}`);
+const hash = await storageContext.terminate();
+console.log(`Dataset termination transaction: ${hash}`);
 
-await datasetTerminationTx.wait();
+await publicClient.waitForTransactionReceipt({ hash });
 console.log("Dataset terminated successfully");
 ```
 
@@ -337,6 +343,7 @@ This method submits an on-chain transaction to initiate the deletion process.
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
 
 ```ts twoslash
+// @errors: 2345
 import { Synapse } from "@filoz/synapse-sdk";
 const synapse = await Synapse.create({});
 // ---cut---

@@ -13,6 +13,7 @@ export type { PDPOffering }
 export const PRODUCTS = {
   PDP: 0,
 } as const
+
 export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
 
 /**

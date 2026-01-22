@@ -128,7 +128,7 @@ export class PDPServer {
    * @param payee - Address that will receive payments (service provider)
    * @param payer - Address that will pay for the storage (client)
    * @param recordKeeper - Address of the Warm Storage contract
-   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
+   * @param pieces - Array of pieces to add to the data set. {@link PieceInputWithMetadata}
    * @param metadata - Optional metadata for dataset and each of the pieces.
    * @returns Promise that resolves with transaction hash and status URL
    */
@@ -187,7 +187,7 @@ export class PDPServer {
    * documentation for detailed guidance.
    *
    * @param data - The data to upload (Uint8Array, AsyncIterable, or ReadableStream)
-   * @param options - Optional upload options
+   * @param options - Optional upload options {@link UploadPieceOptions}
    */
   async uploadPiece(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
@@ -237,11 +237,11 @@ export class PDPServer {
     })
 
     return {
-      id: data.id,
+      id: BigInt(data.id),
       pieces: data.pieces.map((piece) => {
         const pieceCid = Piece.parse(piece.pieceCid)
         return {
-          pieceId: piece.pieceId,
+          pieceId: BigInt(piece.pieceId),
           pieceCid: pieceCid,
           subPieceCid: pieceCid,
           subPieceOffset: piece.subPieceOffset,

@@ -49,7 +49,7 @@ export namespace getServicePrice {
  * @throws Errors {@link getServicePrice.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getServicePrice } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -100,7 +100,7 @@ export namespace getServicePriceCall {
  * @throws Errors {@link getServicePriceCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getServicePriceCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'

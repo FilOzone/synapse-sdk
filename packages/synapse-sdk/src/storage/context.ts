@@ -1279,7 +1279,7 @@ export class StorageContext {
       offset += batchSize
     }
   }
-  private async _getPieceIdByCID(pieceCid: string | PieceCID): Promise<number> {
+  private async _getPieceIdByCID(pieceCid: string | PieceCID): Promise<bigint> {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'getPieceIdByCID', 'Data set not found')
     }
@@ -1301,17 +1301,17 @@ export class StorageContext {
    * @param piece - The PieceCID identifier or a piece number to delete by pieceID
    * @returns Transaction hash of the delete operation
    */
-  async deletePiece(piece: string | PieceCID | number): Promise<string> {
+  async deletePiece(piece: string | PieceCID | bigint): Promise<Hash> {
     if (this.dataSetId == null) {
       throw createError('StorageContext', 'deletePiece', 'Data set not found')
     }
-    const pieceId = typeof piece === 'number' ? piece : await this._getPieceIdByCID(piece)
+    const pieceId = typeof piece === 'bigint' ? piece : await this._getPieceIdByCID(piece)
     const clientDataSetId = await this.getClientDataSetId()
 
     const { txHash } = await deletePiece(this._synapse.connectorClient, {
       endpoint: this._pdpEndpoint,
-      dataSetId: BigInt(this.dataSetId),
-      pieceId: BigInt(pieceId),
+      dataSetId: this.dataSetId,
+      pieceId: pieceId,
       clientDataSetId: clientDataSetId,
     })
 
@@ -1379,7 +1379,7 @@ export class StorageContext {
 
     // Initialize return values
     let retrievalUrl: string | null = null
-    let pieceId: number | undefined
+    let pieceId: bigint | undefined
     let lastProven: Date | null = null
     let nextProofDue: Date | null = null
     let inChallengeWindow = false

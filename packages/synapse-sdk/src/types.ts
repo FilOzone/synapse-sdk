@@ -524,7 +524,7 @@ export interface StorageInfo {
  */
 export interface DataSetData {
   /** The data set ID */
-  id: number
+  id: bigint
   /** Array of piece data in the data set */
   pieces: DataSetPieceData[]
   /** Next challenge epoch */
@@ -536,7 +536,7 @@ export interface DataSetData {
  */
 export interface DataSetPieceData {
   /** Piece ID within the data set */
-  pieceId: number
+  pieceId: bigint
   /** The piece CID */
   pieceCid: PieceCID
   /** Sub-piece CID (usually same as pieceCid) */
@@ -560,7 +560,7 @@ export interface PieceStatus {
   /** URL where the piece can be retrieved (null if not available) */
   retrievalUrl: string | null
   /** The piece ID if the piece is in the data set */
-  pieceId?: number
+  pieceId?: bigint
   /** Whether the data set is currently in a challenge window */
   inChallengeWindow?: boolean
   /** Time until the data set enters the challenge window (in hours) */

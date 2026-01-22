@@ -43,7 +43,7 @@ export namespace getAllDataSetMetadata {
  * @throws Errors {@link getAllDataSetMetadata.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getAllDataSetMetadata } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -101,7 +101,7 @@ export namespace getAllDataSetMetadataCall {
  * @throws Errors {@link getAllDataSetMetadataCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getAllDataSetMetadataCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'

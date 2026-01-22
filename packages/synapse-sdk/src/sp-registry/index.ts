@@ -12,6 +12,7 @@ export { SPRegistryService } from './service.ts'
 export type {
   PDPOffering,
   PDPServiceInfo,
+  PRODUCTS,
   ProductType,
   ProviderInfo,
   ProviderRegistrationInfo,

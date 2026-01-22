@@ -17,7 +17,7 @@ catalog:
   msw: 2.12.7
   ox: ^0.11.1
   typescript: 5.9.3
-  viem: ^2.41.2
+  viem: 2.44.4
   wagmi: ^3.0.2
 
 minimumReleaseAge: 2880

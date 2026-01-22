@@ -529,10 +529,10 @@ Failed to create upload session: Database error`
       )
 
       const result = await pdpServer.getDataSet(292n)
-      assert.equal(result.id, mockDataSetData.id)
+      assert.equal(result.id, BigInt(mockDataSetData.id))
       assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
       assert.equal(result.pieces.length, mockDataSetData.pieces.length)
-      assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
+      assert.equal(result.pieces[0].pieceId, BigInt(mockDataSetData.pieces[0].pieceId))
       assert.equal(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
     })
 
@@ -589,7 +589,11 @@ Failed to create upload session: Database error`
       )
 
       const result = await pdpServer.getDataSet(292n)
-      assert.deepStrictEqual(result, emptyDataSetData)
+      assert.deepStrictEqual(result, {
+        id: BigInt(292),
+        pieces: [],
+        nextChallengeEpoch: 1500,
+      })
       assert.isArray(result.pieces)
       assert.equal(result.pieces.length, 0)
     })
