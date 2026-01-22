@@ -195,7 +195,6 @@ describe('Synapse', () => {
   })
 
   describe('Session Keys', () => {
-    const DATA_SET_ID = 7n
     const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
     const FAKE_TX = {
       hash: FAKE_TX_HASH,
