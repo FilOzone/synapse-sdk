@@ -24,7 +24,9 @@ export namespace getDataSetStorageProvider {
    * - `storageProvider`: The storage provider address
    * - `proposedStorageProvider`: The proposed storage provider address
    */
-  export type OutputType = ContractFunctionReturnType<
+  export type OutputType = readonly [`0x${string}`, `0x${string}`]
+
+  export type ContractOutputType = ContractFunctionReturnType<
     typeof pdpVerifierAbi,
     'pure' | 'view',
     'getDataSetStorageProvider'
@@ -37,7 +39,7 @@ export namespace getDataSetStorageProvider {
  * Get the storage provider addresses for a data set
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getDataSetStorageProvider } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'
@@ -96,7 +98,7 @@ export namespace getDataSetStorageProviderCall {
  * This function is used to create a call to the getDataSetStorageProvider function for use with the multicall or readContract function.
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getDataSetStorageProviderCall } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'

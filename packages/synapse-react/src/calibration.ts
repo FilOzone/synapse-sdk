@@ -5,7 +5,7 @@ import { waitForTransactionReceipt } from 'viem/actions'
 import { useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-interface UseFundWalletProps {
+export interface UseFundWalletProps {
   /**
    * The mutation options.
    */
@@ -19,10 +19,8 @@ interface UseFundWalletProps {
 /**
  * Fund the wallet with USDFC and FIL.
  *
- * @param props - The props for the fund wallet.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
- * @returns
+ * @param props - The props for the fund wallet. {@link UseFundWalletProps}
+ * @returns The mutation to fund the wallet.
  */
 export function useFundWallet(props?: UseFundWalletProps) {
   const config = useConfig()

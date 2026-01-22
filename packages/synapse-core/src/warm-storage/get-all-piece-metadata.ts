@@ -45,7 +45,7 @@ export function formatAllPieceMetadata(data: getAllPieceMetadata.ContractOutputT
  * @throws Errors {@link getAllPieceMetadata.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getAllPieceMetadata } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -107,7 +107,7 @@ export namespace getAllPieceMetadataCall {
  * @throws Errors {@link getAllPieceMetadataCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { formatAllPieceMetadata, getAllPieceMetadataCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'

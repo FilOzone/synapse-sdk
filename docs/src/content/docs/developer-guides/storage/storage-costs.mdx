@@ -124,8 +124,7 @@ const synapse = await Synapse.create({})
 // Get pricing structure
 const warmStorageAddress = await synapse.getWarmStorageAddress()
 const warmStorageService = await WarmStorageService.create(
-  synapse.getProvider(),
-  warmStorageAddress
+  synapse.connectorClient
 )
 
 const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
@@ -169,7 +168,7 @@ const pricePerEpoch = null as unknown as bigint;
 const warmStorageAddress = await synapse.getWarmStorageAddress();
 // ---cut---
 // Define storage duration in months (minimum 1 month)
-const persistencePeriodInMonths = 12;
+const persistencePeriodInMonths = 12n;
 
 // Check if creating a new CDN dataset (creates context to determine if one exists)
 const storageContext = await synapse.storage.createContext({
@@ -182,7 +181,7 @@ const warmStorageDefaultLockupPeriod = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS; // 30
 
 // Calculate total cost and lockup needed for THIS storage addition
 const cdnDataSetCreationCost = 10n ** 18n; // 1 USDFC
-let totalCostNeeded = pricePerMonth * BigInt(persistencePeriodInMonths);
+let totalCostNeeded = pricePerMonth * persistencePeriodInMonths;
 let lockupNeeded = pricePerMonth * warmStorageDefaultLockupPeriod;
 if (newCDNDataSetNeeded) {
   lockupNeeded += cdnDataSetCreationCost;

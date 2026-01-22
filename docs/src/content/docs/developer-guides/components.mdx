@@ -411,13 +411,15 @@ interface WarmStorageServiceAPI {
 
 ```ts twoslash
 import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
-import { ethers } from "ethers";
-const provider = null as unknown as ethers.Provider;
-const pdpVerifierAddress = null as unknown as string;
-const dataSetId = null as unknown as number;
-const transactionReceipt = null as unknown as ethers.TransactionReceipt;
+import { calibration } from '@filoz/synapse-core/chains'
+import { createPublicClient, http } from 'viem'
+const dataSetId = 1n;
 // ---cut---
-const pdpVerifier = new PDPVerifier(provider, pdpVerifierAddress);
+const publicClient = createPublicClient({
+  chain: calibration,
+  transport: http(),
+})
+const pdpVerifier = new PDPVerifier({ client: publicClient });
 
 // Check if data set is live
 const isLive = await pdpVerifier.dataSetLive(dataSetId);
@@ -428,9 +430,6 @@ const listener = await pdpVerifier.getDataSetListener(dataSetId);
 const storageProvider = await pdpVerifier.getDataSetStorageProvider(dataSetId);
 const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId);
 const activePieces = await pdpVerifier.getActivePieces(dataSetId);
-
-// Extract data set ID from transaction receipt
-const extractedId = await pdpVerifier.extractDataSetIdFromReceipt(transactionReceipt);
 ```
 
 ## Complete Data Flow

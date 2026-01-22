@@ -12,8 +12,8 @@
     "removeComments": true,
 
     // Language and Environment
-    "lib": ["ES2022"],
-    "target": "ES2022",
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
     "moduleDetection": "force",
 
     // Modules

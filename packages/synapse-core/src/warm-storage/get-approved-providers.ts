@@ -45,7 +45,7 @@ export namespace getApprovedProviders {
  * @throws Errors {@link getApprovedProviders.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getApprovedProviders } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -109,7 +109,7 @@ export namespace getApprovedProvidersCall {
  * @throws Errors {@link getApprovedProvidersCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getApprovedProvidersCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
