@@ -266,16 +266,6 @@ export class WarmStorageService {
   }
 
   /**
-   * Get the next piece ID for a dataset (total pieces ever added; does not decrease when pieces are removed)
-   * @param dataSetId - The PDPVerifier data set ID
-   * @returns The next piece ID as a number
-   */
-  async getNextPieceId(dataSetId: bigint): Promise<bigint> {
-    const nextPieceId = await this._pdpVerifier.getNextPieceId(dataSetId)
-    return nextPieceId
-  }
-
-  /**
    * Get the count of active pieces in a dataset (excludes removed pieces)
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces
