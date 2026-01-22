@@ -55,7 +55,7 @@ import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
 // Combined callbacks type that can include both creation and upload callbacks
-type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
+export type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
 
 /**
  * Upload options for StorageManager.upload() - the all-in-one upload method
@@ -88,7 +88,7 @@ export interface StorageManagerUploadOptions extends StorageServiceOptions {
   signal?: AbortSignal
 }
 
-interface StorageManagerDownloadOptions extends DownloadOptions {
+export interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
   providerAddress?: Address
   withCDN?: boolean
@@ -323,7 +323,7 @@ export class StorageManager {
    * For automatic selection, existing datasets matching the `metadata` are reused unless
    * `forceCreateDataSets` is true. Providers are randomly chosen to distribute across the network.
    *
-   * @param options - Configuration options
+   * @param options - Configuration options {@link CreateContextsOptions}
    * @param options.count - Maximum number of contexts to create (default: 2)
    * @param options.dataSetIds - Specific dataset IDs to include
    * @param options.providerIds - Specific provider IDs to use

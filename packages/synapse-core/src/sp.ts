@@ -408,7 +408,7 @@ export async function uploadPiece(options: uploadPiece.OptionsType): Promise<voi
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/upload/${uploadUuid}`, options.endpoint), {
-    body: options.data,
+    body: options.data as BufferSource,
     headers: {
       'Content-Type': 'application/octet-stream',
       'Content-Length': options.data.length.toString(),

@@ -20,7 +20,7 @@ export namespace getDataSetLeafCount {
  * Get the leaf count for a data set
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getDataSetLeafCount } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'
@@ -73,7 +73,7 @@ export namespace getDataSetLeafCountCall {
  * This function is used to create a call to the getDataSetLeafCount function for use with the multicall or readContract function.
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getDataSetLeafCountCall } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'

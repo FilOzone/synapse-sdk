@@ -240,7 +240,7 @@ const synapse = await Synapse.create({});
 // ---cut---
 // Create a storage context with specific provider
 const context = await synapse.storage.createContext({
-  providerId: 1, // Use specific provider
+  providerId: 1n, // Use specific provider
   withCDN: true, // Enable CDN for faster retrieval
   metadata: {
     category: "documents",

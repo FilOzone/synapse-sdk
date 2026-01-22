@@ -6,7 +6,7 @@ import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { createPieceUrl } from '../utils/piece-url.ts'
 import { type DataSet, getDataSet } from './data-sets.ts'
 
-interface Events {
+export interface Events {
   pieceUploaded: {
     pieceCid: Piece.PieceCID
     dataSet: DataSet

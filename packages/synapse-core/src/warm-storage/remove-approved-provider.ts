@@ -44,7 +44,7 @@ export namespace removeApprovedProvider {
  * @throws Errors {@link removeApprovedProvider.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { removeApprovedProvider, getApprovedProviders } from '@filoz/synapse-core/warm-storage'
  * import { createWalletClient, createPublicClient, http } from 'viem'
  * import { privateKeyToAccount } from 'viem/accounts'
@@ -124,7 +124,7 @@ export namespace removeApprovedProviderCall {
  * @throws Errors {@link removeApprovedProviderCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { removeApprovedProviderCall, getApprovedProvidersCall } from '@filoz/synapse-core/warm-storage'
  * import { createWalletClient, createPublicClient, http } from 'viem'
  * import { privateKeyToAccount } from 'viem/accounts'

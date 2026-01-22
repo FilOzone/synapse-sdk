@@ -11,6 +11,7 @@
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
+  UploadPieceOptions,
 } from './server.ts'
 export { PDPServer } from './server.ts'
 export { PDPVerifier } from './verifier.ts'

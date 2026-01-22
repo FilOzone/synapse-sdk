@@ -127,7 +127,7 @@ List all pieces stored in a specific data set by iterating through the context:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-const dataSetId = null as unknown as number;
+const dataSetId = 1n;
 const synapse = await Synapse.create({});
 // ---cut---
 const context = await synapse.storage.createContext({ dataSetId });
@@ -148,15 +148,14 @@ import { Synapse } from "@filoz/synapse-sdk";
 import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
 
 const synapse = await Synapse.create({});
-const dataSetId = null as unknown as number;
+const dataSetId = 1n;
 // ---cut---
-const pdpVerifier = new PDPVerifier(
-  synapse.getProvider(),
-  synapse.getPDPVerifierAddress()
-);
+const pdpVerifier = new PDPVerifier({
+  client: synapse.connectorClient
+});
 
 const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId);
-const sizeInBytes = leafCount * 32; // Each leaf is 32 bytes
+const sizeInBytes = leafCount * 32n; // Each leaf is 32 bytes
 console.log(`Data set size: ${sizeInBytes} bytes`);
 ```
 
@@ -168,12 +167,11 @@ Access custom metadata attached to individual pieces for organization and filter
 import { Synapse } from "@filoz/synapse-sdk";
 import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
 const synapse = await Synapse.create({});
-const dataSetId = null as unknown as number;
-const piece = null as unknown as { pieceCid: string; pieceId: number };
+const dataSetId = 1n;
+const piece = null as unknown as { pieceCid: string; pieceId: bigint };
 // ---cut---
 const warmStorage = await WarmStorageService.create(
-  synapse.getProvider(),
-  synapse.getWarmStorageAddress()
+  synapse.connectorClient
 );
 
 const metadata = await warmStorage.getPieceMetadata(dataSetId, piece.pieceId);

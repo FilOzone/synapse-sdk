@@ -52,7 +52,9 @@ export function asyncIterableToReadableStream(iterable: AsyncIterable<Uint8Array
   // Use native ReadableStream.from() if available
   // See https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static for latest
   // support matrix, as of late 2025 this is still "Experimental"
+  // @ts-expect-error - ReadableStream.from is not typed
   if (typeof ReadableStream.from === 'function') {
+    // @ts-expect-error - ReadableStream.from is not typed
     return ReadableStream.from(iterable)
   }
 

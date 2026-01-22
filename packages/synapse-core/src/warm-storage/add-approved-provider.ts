@@ -37,7 +37,7 @@ export namespace addApprovedProvider {
  * @throws Errors {@link addApprovedProvider.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { addApprovedProvider } from '@filoz/synapse-core/warm-storage'
  * import { createWalletClient, http } from 'viem'
  * import { privateKeyToAccount } from 'viem/accounts'
@@ -98,7 +98,7 @@ export namespace addApprovedProviderCall {
  * @throws Errors {@link addApprovedProviderCall.ErrorType}
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { addApprovedProviderCall } from '@filoz/synapse-core/warm-storage'
  * import { createWalletClient, http } from 'viem'
  * import { privateKeyToAccount } from 'viem/accounts'

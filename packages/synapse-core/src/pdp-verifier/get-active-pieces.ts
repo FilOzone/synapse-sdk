@@ -29,7 +29,12 @@ export namespace getActivePieces {
    * - `pieceIds`: Piece IDs
    * - `hasMore`: Whether there are more pieces to fetch
    */
-  export type OutputType = ContractFunctionReturnType<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
+  export type OutputType = readonly [
+    pieceData: readonly { data: `0x${string}` }[],
+    pieceIds: readonly bigint[],
+    hasMore: boolean,
+  ]
+  export type ContractOutputType = ContractFunctionReturnType<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
 
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
@@ -38,7 +43,7 @@ export namespace getActivePieces {
  * Get active pieces for a data set with pagination
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getActivePieces } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'
@@ -99,7 +104,7 @@ export namespace getActivePiecesCall {
  * This function is used to create a call to the getActivePieces function for use with the multicall or readContract function.
  *
  * @example
- * ```ts twoslash
+ * ```ts
  * import { getActivePiecesCall } from '@filoz/synapse-core/pdp-verifier'
  * import { calibration } from '@filoz/synapse-core/chains'
  * import { createPublicClient, http } from 'viem'

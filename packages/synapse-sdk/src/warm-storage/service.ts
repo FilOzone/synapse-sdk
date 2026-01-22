@@ -603,7 +603,7 @@ export class WarmStorageService {
 
   /**
    * Remove an approved provider by ID (owner only)
-   * @param signer - Signer with owner permissions
+   * @param client - Wallet client to remove the approved provider
    * @param providerId - Provider ID from registry
    * @returns Transaction response
    */
