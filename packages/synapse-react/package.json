@@ -68,7 +68,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check --fix .",
       "files": [
         "src/**/*.ts",
         "../../biome.json"

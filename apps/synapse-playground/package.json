@@ -4,7 +4,6 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "format": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
     "dev": "wireit",
     "build": "wireit",
     "lint": "wireit",
@@ -26,7 +25,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check --fix .",
       "files": [
         "src/**/*.{tsx,ts}",
         "tsconfig.json",
