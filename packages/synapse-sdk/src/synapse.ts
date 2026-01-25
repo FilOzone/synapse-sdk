@@ -160,16 +160,7 @@ export class Synapse {
     const warmStorageService = await WarmStorageService.create(connectorClient)
 
     // Create payments service with discovered addresses
-    const paymentsAddress = warmStorageService.getPaymentsAddress()
-    const usdfcAddress = options.usdfcAddress ?? warmStorageService.getUSDFCTokenAddress()
-    const payments = new PaymentsService(
-      provider,
-      signer,
-      paymentsAddress,
-      usdfcAddress,
-      options.disableNonceManager === true,
-      multicall3Address
-    )
+    const payments = new PaymentsService(connectorClient)
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()

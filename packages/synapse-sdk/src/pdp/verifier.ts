@@ -53,7 +53,7 @@ export class PDPVerifier {
    * @returns Whether the data set exists and is live
    */
   async dataSetLive(dataSetId: bigint): Promise<boolean> {
-    return await Verifier.dataSetLive(this._client, { dataSetId, address: this._address })
+    return await Verifier.dataSetLive(this._client, { dataSetId, contractAddress: this._address })
   }
 
   /**
@@ -62,7 +62,7 @@ export class PDPVerifier {
    * @returns The next piece ID to assign (total pieces ever added; does not decrease when pieces are removed)
    */
   async getNextPieceId(dataSetId: bigint): Promise<bigint> {
-    return await Verifier.getNextPieceId(this._client, { dataSetId, address: this._address })
+    return await Verifier.getNextPieceId(this._client, { dataSetId, contractAddress: this._address })
   }
 
   /**
@@ -71,7 +71,7 @@ export class PDPVerifier {
    * @returns The number of active pieces in the data set
    */
   async getActivePieceCount(dataSetId: bigint): Promise<bigint> {
-    return await Verifier.getActivePieceCount(this._client, { dataSetId, address: this._address })
+    return await Verifier.getActivePieceCount(this._client, { dataSetId, contractAddress: this._address })
   }
 
   /**
@@ -80,7 +80,7 @@ export class PDPVerifier {
    * @returns The address of the listener contract
    */
   async getDataSetListener(dataSetId: bigint): Promise<Address> {
-    return await Verifier.getDataSetListener(this._client, { dataSetId, address: this._address })
+    return await Verifier.getDataSetListener(this._client, { dataSetId, contractAddress: this._address })
   }
 
   /**
@@ -93,7 +93,7 @@ export class PDPVerifier {
   ): Promise<{ storageProvider: Address; proposedStorageProvider: Address }> {
     const [storageProvider, proposedStorageProvider] = await Verifier.getDataSetStorageProvider(this._client, {
       dataSetId,
-      address: this._address,
+      contractAddress: this._address,
     })
     return { storageProvider, proposedStorageProvider }
   }
@@ -104,7 +104,7 @@ export class PDPVerifier {
    * @returns The number of leaves in the data set
    */
   async getDataSetLeafCount(dataSetId: bigint): Promise<bigint> {
-    return await Verifier.getDataSetLeafCount(this._client, { dataSetId, address: this._address })
+    return await Verifier.getDataSetLeafCount(this._client, { dataSetId, contractAddress: this._address })
   }
 
   /**
@@ -137,7 +137,7 @@ export class PDPVerifier {
       dataSetId,
       offset: options?.offset,
       limit: options?.limit,
-      address: this._address,
+      contractAddress: this._address,
     })
 
     return {
@@ -166,7 +166,7 @@ export class PDPVerifier {
    * @returns Array of piece IDs scheduled for removal
    */
   async getScheduledRemovals(dataSetId: bigint): Promise<Verifier.getScheduledRemovals.OutputType> {
-    const result = await Verifier.getScheduledRemovals(this._client, { dataSetId, address: this._address })
+    const result = await Verifier.getScheduledRemovals(this._client, { dataSetId, contractAddress: this._address })
     return result
   }
 

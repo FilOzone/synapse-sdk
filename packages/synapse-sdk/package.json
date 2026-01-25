@@ -91,7 +91,6 @@
   "scripts": {
     "build": "wireit",
     "lint": "wireit",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "test": "wireit",
     "test:node": "wireit",
     "test:browser": "wireit",
@@ -115,7 +114,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check --fix .",
       "files": [
         "src/**/*.ts",
         "../../biome.json"
