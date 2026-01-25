@@ -20,6 +20,7 @@
  * ```
  */
 
+import { asChain } from '@filoz/synapse-core/chains'
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
@@ -499,20 +500,20 @@ export class StorageManager {
    * @returns Complete storage service information
    */
   async getStorageInfo(): Promise<StorageInfo> {
+    const chain = asChain(this._synapse.connectorClient.chain)
     try {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
-          const warmStorageAddress = this._synapse.getWarmStorageAddress()
-          const approval = await this._synapse.payments.serviceApproval(warmStorageAddress, TOKENS.USDFC)
+          const approval = await this._synapse.payments.serviceApproval(chain.contracts.storage.address, TOKENS.USDFC)
           return {
-            service: warmStorageAddress,
+            service: chain.contracts.storage.address,
             // Forward whether operator is approved so callers can react accordingly
             isApproved: approval.isApproved,
             rateAllowance: approval.rateAllowance,
             lockupAllowance: approval.lockupAllowance,
-            rateUsed: approval.rateUsed,
-            lockupUsed: approval.lockupUsed,
+            rateUsed: approval.rateUsage,
+            lockupUsed: approval.lockupUsage,
           }
         } catch {
           // Return null if wallet not connected or any error occurs

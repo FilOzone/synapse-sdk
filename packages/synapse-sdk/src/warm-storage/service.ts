@@ -38,7 +38,6 @@ import {
   removeApprovedProvider,
   terminateDataSet,
 } from '@filoz/synapse-core/warm-storage'
-import type { ethers } from 'ethers'
 import { type Account, type Address, type Chain, type Client, type Hash, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { PaymentsService } from '../payments/service.ts'
@@ -420,8 +419,8 @@ export class WarmStorageService {
     const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
-    const totalRateNeeded = BigInt(approval.rateUsed) + rateNeeded
-    const totalLockupNeeded = BigInt(approval.lockupUsed) + lockupNeeded
+    const totalRateNeeded = approval.rateUsage + rateNeeded
+    const totalLockupNeeded = approval.lockupUsage + lockupNeeded
 
     // Check if allowances are sufficient
     const sufficient = approval.rateAllowance >= totalRateNeeded && approval.lockupAllowance >= totalLockupNeeded
@@ -451,8 +450,8 @@ export class WarmStorageService {
       lockupAllowanceNeeded,
       currentRateAllowance: approval.rateAllowance,
       currentLockupAllowance: approval.lockupAllowance,
-      currentRateUsed: approval.rateUsed,
-      currentLockupUsed: approval.lockupUsed,
+      currentRateUsed: approval.rateUsage,
+      currentLockupUsed: approval.lockupUsage,
       sufficient,
       message,
       costs: selectedCosts,
@@ -511,7 +510,7 @@ export class WarmStorageService {
     actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
       description: string
-      execute: () => Promise<ethers.TransactionResponse>
+      execute: () => Promise<Hash>
     }>
   }> {
     // Parallelize cost calculation and allowance check
@@ -526,7 +525,7 @@ export class WarmStorageService {
     const actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
       description: string
-      execute: () => Promise<ethers.TransactionResponse>
+      execute: () => Promise<Hash>
     }> = []
 
     // Check if deposit is needed

@@ -13,7 +13,7 @@ import type { ProviderInfo } from './sp-registry/types.ts'
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
 export type PrivateKey = string
-export type TokenAmount = number | bigint
+export type TokenAmount = bigint
 export type DataSetId = bigint
 export type ServiceProvider = Address
 
@@ -246,11 +246,11 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
  */
 export interface RailInfo {
   /** Rail ID */
-  railId: number
+  railId: bigint
   /** Whether the rail is terminated */
   isTerminated: boolean
   /** End epoch (0 if not terminated) */
-  endEpoch: number
+  endEpoch: bigint
 }
 
 /**
