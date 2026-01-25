@@ -151,7 +151,6 @@
     "test:node": "wireit",
     "test:browser": "wireit",
     "lint": "wireit",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
     "update:msw": "pnpx msw init test/mocks/ --save"
   },
   "wireit": {
@@ -195,7 +194,7 @@
       "output": []
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check --fix .",
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
@@ -213,7 +212,8 @@
     "iso-web": "^2.1.0",
     "multiformats": "^13.4.1",
     "ox": "catalog:",
-    "p-retry": "^7.1.0"
+    "p-retry": "^7.1.0",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

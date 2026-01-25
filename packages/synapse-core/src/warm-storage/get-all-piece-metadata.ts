@@ -18,8 +18,8 @@ export namespace getAllPieceMetadata {
     dataSetId: bigint
     /** The ID of the piece to get metadata for. */
     pieceId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
   }
   export type ContractOutputType = ContractFunctionReturnType<
     typeof storageViewAbi,
@@ -73,7 +73,7 @@ export async function getAllPieceMetadata(
       chain: client.chain,
       dataSetId: options.dataSetId,
       pieceId: options.pieceId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return formatAllPieceMetadata(data)
@@ -85,8 +85,8 @@ export namespace getAllPieceMetadataCall {
     dataSetId: bigint
     /** The ID of the piece to get metadata for. */
     pieceId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the piece metadata. */
     chain: Chain
   }
@@ -134,7 +134,7 @@ export function getAllPieceMetadataCall(options: getAllPieceMetadataCall.Options
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storageView.abi,
-    address: options.address ?? chain.contracts.storageView.address,
+    address: options.contractAddress ?? chain.contracts.storageView.address,
     functionName: 'getAllPieceMetadata',
     args: [options.dataSetId, options.pieceId],
   } satisfies getAllPieceMetadataCall.OutputType

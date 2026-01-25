@@ -163,12 +163,12 @@ export async function getPieces(client: Client<Transport, Chain>, options: GetPi
       getActivePiecesCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        address: options.address,
+        contractAddress: options.address,
       }),
       getScheduledRemovalsCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        address: options.address,
+        contractAddress: options.address,
       }),
     ],
     allowFailure: false,

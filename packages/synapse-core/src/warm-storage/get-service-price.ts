@@ -13,8 +13,8 @@ import { asChain } from '../chains.ts'
 
 export namespace getServicePrice {
   export type OptionsType = {
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type ContractOutputType = ContractFunctionReturnType<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>
@@ -72,7 +72,7 @@ export async function getServicePrice(
     client,
     getServicePriceCall({
       chain: client.chain,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return data
@@ -80,8 +80,8 @@ export async function getServicePrice(
 
 export namespace getServicePriceCall {
   export type OptionsType = {
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the service price. */
     chain: Chain
   }
@@ -124,7 +124,7 @@ export function getServicePriceCall(options: getServicePriceCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storage.abi,
-    address: options.address ?? chain.contracts.storage.address,
+    address: options.contractAddress ?? chain.contracts.storage.address,
     functionName: 'getServicePrice',
     args: [],
   } satisfies getServicePriceCall.OutputType

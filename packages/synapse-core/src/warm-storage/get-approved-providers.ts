@@ -17,8 +17,8 @@ export namespace getApprovedProviders {
     offset?: bigint
     /** Maximum number of providers to return. Use 0 to get all remaining providers. Defaults to 0. */
     limit?: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type ContractOutputType = ContractFunctionReturnType<
@@ -75,7 +75,7 @@ export async function getApprovedProviders(
       chain: client.chain,
       offset: options.offset,
       limit: options.limit,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return data as getApprovedProviders.OutputType
@@ -87,8 +87,8 @@ export namespace getApprovedProvidersCall {
     offset?: bigint
     /** Maximum number of providers to return. Use 0 to get all remaining providers. Defaults to 1000. */
     limit?: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the approved providers. */
     chain: Chain
   }
@@ -135,7 +135,7 @@ export function getApprovedProvidersCall(options: getApprovedProvidersCall.Optio
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storageView.abi,
-    address: options.address ?? chain.contracts.storageView.address,
+    address: options.contractAddress ?? chain.contracts.storageView.address,
     functionName: 'getApprovedProviders',
     args: [options.offset ?? 0n, options.limit ?? 0n],
   } satisfies getApprovedProvidersCall.OutputType

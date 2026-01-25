@@ -7,8 +7,8 @@ export namespace dataSetLive {
   export type OptionsType = {
     /** The ID of the data set to check if it is live. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = boolean
@@ -33,6 +33,7 @@ export async function dataSetLive(
     dataSetLiveCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
+      contractAddress: options.contractAddress,
     })
   )
   return data
@@ -42,8 +43,8 @@ export namespace dataSetLiveCall {
   export type OptionsType = {
     /** The ID of the data set to check if it is live. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to check if the data set is live. */
     chain: Chain
   }
@@ -65,7 +66,7 @@ export function dataSetLiveCall(options: dataSetLiveCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.pdp.abi,
-    address: options.address ?? chain.contracts.pdp.address,
+    address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'dataSetLive',
     args: [options.dataSetId],
   } satisfies dataSetLiveCall.OutputType

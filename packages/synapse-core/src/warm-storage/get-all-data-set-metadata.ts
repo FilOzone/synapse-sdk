@@ -20,8 +20,8 @@ export namespace getAllDataSetMetadata {
   export type OptionsType = {
     /** The ID of the data set to get metadata for. */
     dataSetId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
   }
   export type ContractOutputType = ContractFunctionReturnType<
     typeof storageViewAbi,
@@ -69,7 +69,7 @@ export async function getAllDataSetMetadata(
     getAllDataSetMetadataCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return formatAllDataSetMetadata(data)
@@ -79,8 +79,8 @@ export namespace getAllDataSetMetadataCall {
   export type OptionsType = {
     /** The ID of the data set to get metadata for. */
     dataSetId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the data set metadata. */
     chain: Chain
   }
@@ -128,7 +128,7 @@ export function getAllDataSetMetadataCall(options: getAllDataSetMetadataCall.Opt
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storageView.abi,
-    address: options.address ?? chain.contracts.storageView.address,
+    address: options.contractAddress ?? chain.contracts.storageView.address,
     functionName: 'getAllDataSetMetadata',
     args: [options.dataSetId],
   } satisfies getAllDataSetMetadataCall.OutputType

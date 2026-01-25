@@ -21,6 +21,7 @@ import {
   type WriteContractErrorType,
 } from 'viem'
 import { multicall, simulateContract, writeContract } from 'viem/actions'
+import * as Abis from './abis/index.ts'
 import { getChain } from './chains.ts'
 import { AllowanceAmountError } from './errors/erc20.ts'
 
@@ -47,8 +48,8 @@ export type ERC20BalanceResult = {
  * Get the balance, decimals, symbol, and allowance of an ERC20 token.
  *
  * @param client - The client to use.
- * @param options - The props to use.
- * @returns The balance, decimals, symbol, and allowance.
+ * @param options - The props to use. {@link ERC20BalanceOptions}
+ * @returns The balance, decimals, symbol, and allowance. {@link ERC20BalanceResult}
  * @throws - {@link MulticallErrorType} if the multicall fails.
  */
 export async function balance(
@@ -94,6 +95,76 @@ export async function balance(
   }
 }
 
+export type ERC20BalanceForPermitOptions = {
+  /**
+   * The address of the ERC20 token to query.
+   * If not provided, the USDFC token address will be used.
+   */
+  token?: Address
+  /**
+   * The address of the account to query.
+   */
+  address: Address
+}
+
+export type ERC20BalanceForPermitResult = {
+  value: bigint
+  name: string
+  nonce: bigint
+  version: string
+}
+
+/**
+ * Get the balance, name, nonce, and version of an ERC20 token.
+ *
+ * @param client - The client to use.
+ * @param options - The props to use. {@link ERC20BalanceOptions}
+ * @returns The balance, name, nonce, and version. {@link ERC20BalanceResult}
+ * @throws - {@link MulticallErrorType} if the multicall fails.
+ */
+export async function balanceForPermit(
+  client: Client<Transport, Chain>,
+  options: ERC20BalanceForPermitOptions
+): Promise<ERC20BalanceForPermitResult> {
+  const chain = getChain(client.chain.id)
+  const token = options.token ?? chain.contracts.usdfc.address
+
+  const result = await multicall(client, {
+    allowFailure: false,
+    contracts: [
+      {
+        address: token,
+        abi: Abis.erc20WithPermit,
+        functionName: 'balanceOf',
+        args: [options.address],
+      },
+      {
+        address: token,
+        abi: Abis.erc20WithPermit,
+        functionName: 'name',
+      },
+      {
+        address: token,
+        abi: Abis.erc20WithPermit,
+        functionName: 'nonces',
+        args: [options.address],
+      },
+      {
+        address: token,
+        abi: Abis.erc20WithPermit,
+        functionName: 'version',
+      },
+    ],
+  })
+
+  return {
+    value: result[0],
+    name: result[1],
+    nonce: result[2],
+    version: result[3],
+  }
+}
+
 export type ERC20ApproveAllowanceOptions = {
   /**
    * The address of the ERC20 token to query.
@@ -105,6 +176,11 @@ export type ERC20ApproveAllowanceOptions = {
    * The amount to approve.
    */
   amount: bigint
+
+  /**
+   * The address of the spender to approve.
+   */
+  spender?: Address
 }
 
 /**
@@ -122,7 +198,7 @@ export async function approveAllowance(
 ) {
   const chain = getChain(client.chain.id)
   const token = options.token ?? chain.contracts.usdfc.address
-
+  const spender = options.spender ?? chain.contracts.payments.address
   if (options.amount < 0n) {
     throw new AllowanceAmountError(options.amount)
   }
@@ -132,7 +208,7 @@ export async function approveAllowance(
     address: token,
     abi: erc20Abi,
     functionName: 'approve',
-    args: [chain.contracts.payments.address, options.amount],
+    args: [spender, options.amount],
   })
   const approve = await writeContract(client, request)
   return approve

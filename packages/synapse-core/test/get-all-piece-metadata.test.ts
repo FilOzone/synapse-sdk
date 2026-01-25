@@ -53,7 +53,7 @@ describe('getAllPieceMetadata', () => {
         chain: calibration,
         dataSetId: 1n,
         pieceId: 2n,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

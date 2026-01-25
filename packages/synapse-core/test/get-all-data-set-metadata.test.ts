@@ -50,7 +50,7 @@ describe('getAllDataSetMetadata', () => {
       const call = getAllDataSetMetadataCall({
         chain: calibration,
         dataSetId: 789n,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

@@ -5,20 +5,24 @@ import type {
   Client,
   ContractFunctionParameters,
   Hash,
+  Log,
   SimulateContractErrorType,
   Transport,
+  WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
-import { simulateContract, writeContract } from 'viem/actions'
+import { parseEventLogs } from 'viem'
+import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import type { storage as storageAbi } from '../abis/index.ts'
+import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
 export namespace addApprovedProvider {
   export type OptionsType = {
     /** The ID of the provider to approve. */
     providerId: bigint
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = Hash
@@ -66,7 +70,7 @@ export async function addApprovedProvider(
     addApprovedProviderCall({
       chain: client.chain,
       providerId: options.providerId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
 
@@ -74,12 +78,81 @@ export async function addApprovedProvider(
   return hash
 }
 
+export namespace addApprovedProviderSync {
+  export type OptionsType = addApprovedProvider.OptionsType & {
+    /** Callback function called with the transaction hash before waiting for the receipt. */
+    onHash?: (hash: Hash) => void
+  }
+
+  export type OutputType = {
+    /** The transaction receipt */
+    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
+    /** The extracted ProviderApproved event */
+    event: ReturnType<typeof extractAddApprovedProviderEvent>
+  }
+
+  export type ErrorType =
+    | addApprovedProviderCall.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
+    | WaitForTransactionReceiptErrorType
+}
+
+/**
+ * Add an approved provider for the client and wait for confirmation
+ *
+ * This function approves a provider so that the client can create data sets with them.
+ * Waits for the transaction to be confirmed and returns the receipt with the event.
+ *
+ * @param client - The client to use to add the approved provider.
+ * @param options - {@link addApprovedProviderSync.OptionsType}
+ * @returns The transaction receipt and extracted event {@link addApprovedProviderSync.OutputType}
+ * @throws Errors {@link addApprovedProviderSync.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { addApprovedProviderSync } from '@filoz/synapse-core/warm-storage'
+ * import { createWalletClient, http } from 'viem'
+ * import { privateKeyToAccount } from 'viem/accounts'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const account = privateKeyToAccount('0x...')
+ * const client = createWalletClient({
+ *   account,
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const { receipt, event } = await addApprovedProviderSync(client, {
+ *   providerId: 1n,
+ *   onHash: (hash) => console.log('Transaction sent:', hash),
+ * })
+ *
+ * console.log('Provider ID:', event.args.providerId)
+ * ```
+ */
+export async function addApprovedProviderSync(
+  client: Client<Transport, Chain, Account>,
+  options: addApprovedProviderSync.OptionsType
+): Promise<addApprovedProviderSync.OutputType> {
+  const hash = await addApprovedProvider(client, options)
+
+  if (options.onHash) {
+    options.onHash(hash)
+  }
+
+  const receipt = await waitForTransactionReceipt(client, { hash })
+  const event = extractAddApprovedProviderEvent(receipt.logs)
+
+  return { receipt, event }
+}
+
 export namespace addApprovedProviderCall {
   export type OptionsType = {
     /** The ID of the provider to approve. */
     providerId: bigint
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to add the approved provider. */
     chain: Chain
   }
@@ -91,7 +164,8 @@ export namespace addApprovedProviderCall {
 /**
  * Create a call to the addApprovedProvider function
  *
- * This function is used to create a call to the addApprovedProvider function for use with simulateContract.
+ * This function is used to create a call to the addApprovedProvider function for use with
+ * sendCalls, sendTransaction, multicall, estimateContractGas, or simulateContract.
  *
  * @param options - {@link addApprovedProviderCall.OptionsType}
  * @returns The call to the addApprovedProvider function {@link addApprovedProviderCall.OutputType}
@@ -125,8 +199,26 @@ export function addApprovedProviderCall(options: addApprovedProviderCall.Options
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storage.abi,
-    address: options.address ?? chain.contracts.storage.address,
+    address: options.contractAddress ?? chain.contracts.storage.address,
     functionName: 'addApprovedProvider',
     args: [options.providerId],
   } satisfies addApprovedProviderCall.OutputType
+}
+
+/**
+ * Extracts the ProviderApproved event from transaction logs
+ *
+ * @param logs - The transaction logs
+ * @returns The ProviderApproved event
+ * @throws Error if the event is not found in the logs
+ */
+export function extractAddApprovedProviderEvent(logs: Log[]) {
+  const [log] = parseEventLogs({
+    abi: Abis.storage,
+    logs,
+    eventName: 'ProviderApproved',
+    strict: true,
+  })
+  if (!log) throw new Error('`ProviderApproved` event not found.')
+  return log
 }
