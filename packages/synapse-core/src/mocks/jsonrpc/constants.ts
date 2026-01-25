@@ -11,6 +11,7 @@ export const ADDRESSES = {
   serviceProvider1: '0x0000000000000000000000000000000000000001' as Address,
   serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
   payee1: '0x1000000000000000000000000000000000000001' as Address,
+  customToken: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd' as Address,
   mainnet: {
     warmStorage: mainnet.contracts.storage.address,
     multicall3: mainnet.contracts.multicall3.address,

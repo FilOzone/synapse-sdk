@@ -51,7 +51,7 @@ describe('addApprovedProvider', () => {
       const call = addApprovedProviderCall({
         chain: calibration,
         providerId: 1n,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

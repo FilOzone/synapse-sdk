@@ -7,8 +7,8 @@ export namespace getDataSetLeafCount {
   export type OptionsType = {
     /** The ID of the data set to get the leaf count for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = bigint
@@ -47,7 +47,7 @@ export async function getDataSetLeafCount(
     getDataSetLeafCountCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return data
@@ -57,8 +57,8 @@ export namespace getDataSetLeafCountCall {
   export type OptionsType = {
     /** The ID of the data set to get the leaf count for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the data set leaf count. */
     chain: Chain
   }
@@ -100,7 +100,7 @@ export function getDataSetLeafCountCall(options: getDataSetLeafCountCall.Options
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.pdp.abi,
-    address: options.address ?? chain.contracts.pdp.address,
+    address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'getDataSetLeafCount',
     args: [options.dataSetId],
   } satisfies getDataSetLeafCountCall.OutputType
