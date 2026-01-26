@@ -24,7 +24,7 @@ describe('accounts', () => {
     it('should create call with calibration chain defaults', () => {
       const call = accountsCall({
         chain: calibration,
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'accounts')
@@ -36,7 +36,7 @@ describe('accounts', () => {
     it('should create call with mainnet chain defaults', () => {
       const call = accountsCall({
         chain: mainnet,
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'accounts')
@@ -49,7 +49,7 @@ describe('accounts', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = accountsCall({
         chain: calibration,
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         contractAddress: customAddress,
       })
 
@@ -60,7 +60,7 @@ describe('accounts', () => {
       const customToken = '0xaabbccddaabbccddaabbccddaabbccddaabbccdd'
       const call = accountsCall({
         chain: calibration,
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         token: customToken,
       })
 
@@ -96,7 +96,7 @@ describe('accounts', () => {
       })
 
       const accountInfo = await accounts(client, {
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(typeof accountInfo.funds, 'bigint')
@@ -114,7 +114,7 @@ describe('accounts', () => {
       })
 
       const accountInfo = await accounts(client, {
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(accountInfo.funds, parseUnits('500', 18))
@@ -146,7 +146,7 @@ describe('accounts', () => {
       })
 
       const accountInfo = await accounts(client, {
-        owner: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         token: customToken,
       })
 
