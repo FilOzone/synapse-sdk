@@ -196,8 +196,8 @@ const [approval, accountInfo] = await Promise.all([
 
 // Calculate cumulative allowances: existing usage + new requirements
 // This ensures the operator can spend for ALL your datasets
-const lockupAllowanceNeeded = approval.lockupUsed + lockupNeeded;
-const rateAllowanceNeeded = approval.rateUsed + pricePerEpoch;
+const lockupAllowanceNeeded = approval.lockupUsage + lockupNeeded;
+const rateAllowanceNeeded = approval.rateUsage + pricePerEpoch;
 
 console.log("New lockup needed:", lockupNeeded);
 console.log("Cumulative lockup allowance needed:", lockupAllowanceNeeded);
