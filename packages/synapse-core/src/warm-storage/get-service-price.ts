@@ -30,7 +30,7 @@ export namespace getServicePrice {
     /** Cache miss egress price per TiB (usage-based, in base units) */
     pricePerTiBCacheMissEgress: bigint
     /** Token address for payments */
-    tokenAddress: string
+    tokenAddress: Address
     /** Number of epochs per month */
     epochsPerMonth: bigint
     /** Minimum monthly charge for any dataset size (in base units) */
