@@ -71,7 +71,7 @@ export async function withdraw(
   options: withdraw.OptionsType
 ): Promise<Hash> {
   const account = await accounts(client, {
-    owner: client.account.address,
+    address: client.account.address,
     token: options.token,
     contractAddress: options.contractAddress,
   })

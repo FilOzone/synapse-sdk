@@ -16,7 +16,7 @@ export namespace operatorApprovals {
     /** The address of the ERC20 token to query. If not provided, the USDFC token address will be used. */
     token?: Address
     /** The address of the account (client) to query approvals for. */
-    client: Address
+    address: Address
     /** The address of the operator to query. If not provided, the Warm Storage contract address will be used. */
     operator?: Address
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
@@ -69,7 +69,7 @@ export namespace operatorApprovals {
  * })
  *
  * const approval = await operatorApprovals(client, {
- *   client: '0x1234567890123456789012345678901234567890',
+ *   address: '0x1234567890123456789012345678901234567890',
  * })
  *
  * console.log(approval.isApproved)
@@ -86,7 +86,7 @@ export async function operatorApprovals(
     operatorApprovalsCall({
       chain: client.chain,
       token: options.token,
-      client: options.client,
+      address: options.address,
       operator: options.operator,
       contractAddress: options.contractAddress,
     })
@@ -99,8 +99,8 @@ export namespace operatorApprovalsCall {
   export type OptionsType = {
     /** The address of the ERC20 token to query. If not provided, the USDFC token address will be used. */
     token?: Address
-    /** The address of the account (client) to query approvals for. */
-    client: Address
+    /** The address of the account to query approvals for. */
+    address: Address
     /** The address of the operator to query. If not provided, the Warm Storage contract address will be used. */
     operator?: Address
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
@@ -139,7 +139,7 @@ export namespace operatorApprovalsCall {
  *   contracts: [
  *     operatorApprovalsCall({
  *       chain: calibration,
- *       client: '0x1234567890123456789012345678901234567890',
+ *       address: '0x1234567890123456789012345678901234567890',
  *     }),
  *   ],
  * })
@@ -159,7 +159,7 @@ export function operatorApprovalsCall(options: operatorApprovalsCall.OptionsType
     abi: chain.contracts.payments.abi,
     address: options.contractAddress ?? chain.contracts.payments.address,
     functionName: 'operatorApprovals',
-    args: [token, options.client, operator],
+    args: [token, options.address, operator],
   } satisfies operatorApprovalsCall.OutputType
 }
 

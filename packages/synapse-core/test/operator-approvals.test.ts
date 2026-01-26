@@ -24,7 +24,7 @@ describe('operatorApprovals', () => {
     it('should create call with calibration chain defaults', () => {
       const call = operatorApprovalsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'operatorApprovals')
@@ -40,7 +40,7 @@ describe('operatorApprovals', () => {
     it('should create call with mainnet chain defaults', () => {
       const call = operatorApprovalsCall({
         chain: mainnet,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(call.functionName, 'operatorApprovals')
@@ -57,7 +57,7 @@ describe('operatorApprovals', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = operatorApprovalsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         contractAddress: customAddress,
       })
 
@@ -68,7 +68,7 @@ describe('operatorApprovals', () => {
       const customToken = '0xaabbccddaabbccddaabbccddaabbccddaabbccdd'
       const call = operatorApprovalsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         token: customToken,
       })
 
@@ -79,7 +79,7 @@ describe('operatorApprovals', () => {
       const customOperator = '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
       const call = operatorApprovalsCall({
         chain: calibration,
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         operator: customOperator,
       })
 
@@ -132,7 +132,7 @@ describe('operatorApprovals', () => {
       })
 
       const approval = await operatorApprovals(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(typeof approval.isApproved, 'boolean')
@@ -152,7 +152,7 @@ describe('operatorApprovals', () => {
       })
 
       const approval = await operatorApprovals(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
       })
 
       assert.equal(approval.isApproved, true)
@@ -186,7 +186,7 @@ describe('operatorApprovals', () => {
       })
 
       const approval = await operatorApprovals(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         token: customToken,
       })
 
@@ -217,7 +217,7 @@ describe('operatorApprovals', () => {
       })
 
       const approval = await operatorApprovals(client, {
-        client: ADDRESSES.client1,
+        address: ADDRESSES.client1,
         operator: customOperator,
       })
 

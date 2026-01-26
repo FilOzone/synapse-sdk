@@ -15,8 +15,10 @@ export namespace accounts {
   export type OptionsType = {
     /** The address of the ERC20 token to query. If not provided, the USDFC token address will be used. */
     token?: Address
-    /** The address of the account owner to query. */
-    owner: Address
+    /** The address of the account to query. */
+    address: Address
+    /** The block number to get the account info at. */
+    blockNumber?: bigint
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
     contractAddress?: Address
   }
@@ -65,7 +67,7 @@ export namespace accounts {
  * })
  *
  * const accountInfo = await accounts(client, {
- *   owner: '0x1234567890123456789012345678901234567890',
+ *   address: '0x1234567890123456789012345678901234567890',
  * })
  *
  * console.log(accountInfo.funds)
@@ -76,15 +78,17 @@ export async function accounts(
   client: Client<Transport, Chain>,
   options: accounts.OptionsType
 ): Promise<accounts.OutputType> {
-  const currentEpoch = await getBlockNumber(client, {
-    cacheTime: 0,
-  })
+  const currentEpoch =
+    options.blockNumber ??
+    (await getBlockNumber(client, {
+      cacheTime: 0,
+    }))
   const data = await readContract(
     client,
     accountsCall({
       chain: client.chain,
       token: options.token,
-      owner: options.owner,
+      address: options.address,
       contractAddress: options.contractAddress,
     })
   )
@@ -96,8 +100,8 @@ export namespace accountsCall {
   export type OptionsType = {
     /** The address of the ERC20 token to query. If not provided, the USDFC token address will be used. */
     token?: Address
-    /** The address of the account owner to query. */
-    owner: Address
+    /** The address of the account to query. */
+    address: Address
     /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
     contractAddress?: Address
     /** The chain to use to get the account info. */
@@ -133,7 +137,7 @@ export namespace accountsCall {
  *   contracts: [
  *     accountsCall({
  *       chain: calibration,
- *       owner: '0x1234567890123456789012345678901234567890',
+ *       address: '0x1234567890123456789012345678901234567890',
  *     }),
  *   ],
  * })
@@ -149,7 +153,7 @@ export function accountsCall(options: accountsCall.OptionsType) {
     abi: chain.contracts.payments.abi,
     address: options.contractAddress ?? chain.contracts.payments.address,
     functionName: 'accounts',
-    args: [token, options.owner],
+    args: [token, options.address],
   } satisfies accountsCall.OutputType
 }
 
