@@ -31,7 +31,7 @@ export const endorse: Command = command(
     const { client } = privateKeyClient(argv.flags.chain)
 
     const endorsements = getContract({
-      ...getChain(client.chain.id).contracts.endorsements,
+      ...getChain(client.chain.id).contracts.providerIdSet,
       client,
     })
 
