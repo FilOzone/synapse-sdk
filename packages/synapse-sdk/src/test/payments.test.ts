@@ -4,12 +4,13 @@
  * Tests for PaymentsService class
  */
 
+import * as Abis from '@filoz/synapse-core/abis'
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
-import { createWalletClient, parseUnits, http as viemHttp } from 'viem'
+import { createWalletClient, encodeAbiParameters, encodeEventTopics, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
 import { TIME_CONSTANTS, TOKENS } from '../utils/index.ts'
@@ -318,9 +319,35 @@ describe('PaymentsService', () => {
 
     it('should handle deposit callbacks', async () => {
       let callCount = 0
+
+      const topics = encodeEventTopics({
+        abi: Abis.erc20WithPermit,
+        eventName: 'Approval',
+        args: {
+          owner: Mocks.ADDRESSES.client1,
+          spender: calibration.contracts.payments.address,
+        },
+      })
+      const eventData = encodeAbiParameters([{ name: 'amount', type: 'uint256' }], [parseUnits('100', 18)])
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          eth_getTransactionReceipt: (params) => {
+            const [hash] = params
+            return {
+              hash,
+              from: Mocks.ADDRESSES.client1,
+              to: calibration.contracts.payments.address,
+              logs: [
+                {
+                  address: calibration.contracts.payments.address,
+                  topics,
+                  data: eventData,
+                },
+              ],
+              status: '0x1',
+            }
+          },
           erc20: {
             ...Mocks.presets.basic.erc20,
             balanceOf: () => [parseUnits('100', 18)],

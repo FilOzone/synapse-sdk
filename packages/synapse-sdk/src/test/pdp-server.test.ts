@@ -17,6 +17,7 @@ import {
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
+import type { addPieces } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
