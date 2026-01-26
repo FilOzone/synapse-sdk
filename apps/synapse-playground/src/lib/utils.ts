@@ -26,7 +26,7 @@ export function truncateMiddle(str: string, startLen: number, endLen: number): s
   return `${str.slice(0, startLen)}...${str.slice(-endLen)}`
 }
 
-export function formatErrorForToast(error: Error, title?: string) {
+function formatErrorForToast(error: Error, title?: string) {
   return {
     title: title ?? (error instanceof BaseError ? error.name : 'Error'),
     description: error instanceof BaseError ? (error.details ?? error.message) : error.message,
