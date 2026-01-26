@@ -18,9 +18,15 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
   - [source code](https://github.com/FilOzone/filecoin-services)
   - folder: `/src/warm-storage`
 
-## Formating and Linting
+## Packages Scripts
 
-Always run `pnpm run lint:fix` at the end to make sure all the changes are formatted and linted.
+Scripts use `wireit` to manage dependencies and caching.
+
+- Linting and formatting: It uses biome, `pnpm run lint` or `biome check --fix .` to skip `wireit`. Depends on `pnpm run build`.
+- Building: It uses typescript, `pnpm run build` or `tsc --build --pretty` to skip `wireit`
+- Testing: It uses `playwright-test`, `pnpm run test` to run node and browser test
+  - Use or `pnpm run test:node` or `pnpm run test:browser` when want to run separatly
+  - To skip `wireit` and just run for specific files use `pnpm exec playwright-test "test/**/*.test.ts" --mode node`
 
 ## Generating an new action
 
@@ -327,7 +333,6 @@ When encountering situations that require judgment:
 
 - Action names should match contract function names (in camelCase)
 - Event names in Extract Event function should match contract event names exactly
-- Namespace components should be exported within the action's namespace
 
 ## Testing
 

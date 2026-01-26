@@ -6,7 +6,7 @@ import {
   writeContract,
 } from 'viem/actions'
 import { getChain } from '../chains.ts'
-import * as erc20 from '../erc20.ts'
+import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { DepositAmountError, InsufficientBalanceError } from '../errors/pay.ts'
 import { signErc20Permit } from '../typed-data/sign-erc20-permit.ts'
