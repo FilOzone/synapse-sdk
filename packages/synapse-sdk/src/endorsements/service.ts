@@ -7,7 +7,7 @@ import { CONTRACT_ABIS } from '../utils/index.ts'
  */
 export class EndorsementsService {
   private readonly _endorsementsContract: ethers.Contract
-  private _endorsedProviderIds: Set<number> | null = null
+  private _endorsedProviderIds: Set<bigint> | null = null
 
   constructor(provider: ethers.Provider, endorsementsAddress: string) {
     this._endorsementsContract = new ethers.Contract(endorsementsAddress, CONTRACT_ABIS.ENDORSEMENTS, provider)
@@ -17,10 +17,10 @@ export class EndorsementsService {
    *
    * @returns Array of endorsed storage provider ids
    */
-  async getEndorsedProviderIds(): Promise<Set<number>> {
+  async getEndorsedProviderIds(): Promise<Set<bigint>> {
     if (this._endorsedProviderIds == null) {
       const endorsedProviderIds = await this._endorsementsContract.getProviderIds()
-      this._endorsedProviderIds = new Set(endorsedProviderIds.map(Number))
+      this._endorsedProviderIds = new Set(endorsedProviderIds.map(BigInt))
     }
     return this._endorsedProviderIds
   }
