@@ -157,9 +157,7 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "@web3-storage/data-segment": "^5.3.0",
     "multiformats": "^13.4.1",
-    "ox": "catalog:",
     "viem": "catalog:"
   },
   "devDependencies": {
@@ -167,15 +165,13 @@
     "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
-    "abitype": "catalog:",
-    "chai": "^6.2.0",
+    "chai": "^6.2.1",
     "ethers": "catalog:",
     "iso-web": "^2.1.0",
     "mocha": "catalog:",
     "msw": "catalog:",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.1.0",
     "typescript": "catalog:"
   },
   "publishConfig": {

@@ -46,24 +46,6 @@ import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/constants.ts'
 import { createError } from '../utils/index.ts'
 
-/**
- * Service price information
- */
-export interface ServicePriceInfo {
-  /** Price per TiB per month without CDN (in base units) */
-  pricePerTiBPerMonthNoCDN: bigint
-  /** CDN egress price per TiB (usage-based, in base units) */
-  pricePerTiBCdnEgress: bigint
-  /** Cache miss egress price per TiB (usage-based, in base units) */
-  pricePerTiBCacheMissEgress: bigint
-  /** Token address for payments */
-  tokenAddress: string
-  /** Number of epochs per month */
-  epochsPerMonth: bigint
-  /** Minimum monthly charge for any dataset size (in base units) */
-  minimumPricePerMonth: bigint
-}
-
 export class WarmStorageService {
   private readonly _client: Client<Transport, Chain>
   private readonly _pdpVerifier: PDPVerifier
