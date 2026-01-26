@@ -81,7 +81,7 @@ export class PaymentsService {
     }
 
     return await Pay.accounts(this._client, {
-      owner: this._client.account.address,
+      address: this._client.account.address,
     })
   }
 
@@ -288,7 +288,7 @@ export class PaymentsService {
 
     try {
       const approval = await Pay.operatorApprovals(this._client, {
-        client: this._client.account.address,
+        address: this._client.account.address,
         operator: service,
       })
       return approval
