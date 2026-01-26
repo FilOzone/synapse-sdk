@@ -22,7 +22,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 const providers = [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]
-const providerIds = providers.map((provider) => Number(provider.providerId))
+const providerIds = providers.map((provider) => provider.providerId)
 
 describe('Synapse', () => {
   let signer: ethers.Signer
@@ -964,9 +964,9 @@ describe('Synapse', () => {
 
         for (const count of [1, 2]) {
           it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
-            const counts: Record<number, number> = {}
+            const counts: Record<string, number> = {}
             for (const providerId of providerIds) {
-              counts[providerId] = 0
+              counts[providerId.toString()] = 0
             }
             for (let i = 0; i < 5; i++) {
               const contexts = await synapse.storage.createContexts({
@@ -975,14 +975,14 @@ describe('Synapse', () => {
               })
               assert.equal(contexts.length, count)
               assert.equal((contexts[0] as any)._dataSetId, undefined)
-              counts[contexts[0].provider.id]++
+              counts[contexts[0].provider.id.toString()]++
               if (count > 1) {
                 assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
                 assert.equal((contexts[1] as any)._dataSetId, undefined)
               }
             }
             for (const providerId of providerIds) {
-              assert.equal(counts[providerId], providerId === endorsedProviderId ? 5 : 0)
+              assert.equal(counts[providerId.toString()], providerId === endorsedProviderId ? 5 : 0)
             }
           })
         }
