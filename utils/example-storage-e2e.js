@@ -37,6 +37,7 @@ const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
 const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
 const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
+const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS // Required for devnet
 
 function printUsageAndExit() {
   console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
@@ -109,6 +110,7 @@ async function main() {
       rpcURL: RPC_URL,
       usdfcAddress: USDFC_ADDRESS,
       warmStorageAddress: WARM_STORAGE_ADDRESS,
+      endorsementsAddress: ENDORSEMENTS_ADDRESS,
     }
 
     if (WARM_STORAGE_ADDRESS) {
@@ -119,6 +121,9 @@ async function main() {
     }
     if (USDFC_ADDRESS) {
       console.log(`USDFC Address: ${USDFC_ADDRESS}`)
+    }
+    if (ENDORSEMENTS_ADDRESS) {
+      console.log(`Endorsements Address: ${ENDORSEMENT_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)
