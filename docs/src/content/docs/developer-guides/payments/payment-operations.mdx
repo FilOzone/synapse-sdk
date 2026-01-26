@@ -28,9 +28,7 @@ Monitor your account balance to ensure you have sufficient funds for storage ope
 import { Synapse } from "@filoz/synapse-sdk";
 const synapse = await Synapse.create({});
 // ---cut---
-import { TOKENS } from "@filoz/synapse-sdk";
-
-const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
+const walletBalance = await synapse.payments.walletBalance();
 const accountInfo = await synapse.payments.accountInfo();
 
 console.log("Available:", accountInfo.availableFunds);
@@ -42,14 +40,24 @@ console.log("Spending rate:", accountInfo.lockupRate, "per epoch");
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
 // ---cut---
-import { ethers } from "ethers";
 import { TOKENS } from "@filoz/synapse-sdk";
 
-const amount = ethers.parseUnits("100", 18);
-const tx = await synapse.payments.depositWithPermit(amount, TOKENS.USDFC);
-await tx.wait();
+const amount = parseUnits("100", 18);
+const hash = await synapse.payments.depositWithPermit(amount);
+await waitForTransactionReceipt( client, { hash });
 ```
 
 <details>
@@ -160,13 +168,13 @@ console.log(
   "Rate allowance:",
   approval.rateAllowance,
   "used:",
-  approval.rateUsed
+  approval.rateUsage
 );
 console.log(
   "Lockup allowance:",
   approval.lockupAllowance,
   "used:",
-  approval.lockupUsed
+  approval.lockupUsage
 );
 console.log("Max lockup period:", approval.maxLockupPeriod);
 ```

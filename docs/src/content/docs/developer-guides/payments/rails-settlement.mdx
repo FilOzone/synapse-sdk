@@ -108,7 +108,7 @@ For detailed information about a specific rail:
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = null as unknown as bigint;
 // ---cut---
 const railInfo = await synapse.payments.getRail(railId);
 console.log("Rail details:", {
@@ -138,17 +138,28 @@ The simplest way to settle a rail is using `settleAuto()`, which automatically d
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = 1n;
 // ---cut---
 // Automatically handles both active and terminated rails
-const settleAutoTx = await synapse.payments.settleAuto(railId);
-await settleAutoTx.wait();
+const hash1 = await synapse.payments.settleAuto(railId);
+await waitForTransactionReceipt( client, { hash: hash1 });
 console.log("Rail settled successfully");
 
 // For active rails, you can specify the epoch to settle up to
-const settleAutoUpToEpochTx = await synapse.payments.settleAuto(railId, 1000);
-await settleAutoUpToEpochTx.wait();
+const hash2 = await synapse.payments.settleAuto(railId, 1000n);
+await waitForTransactionReceipt( client, { hash: hash2 });
 console.log("Rail settled successfully up to epoch 1000");
 ```
 
@@ -162,12 +173,23 @@ Settle up to the current epoch:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = 1n;
 // ---cut---
 // Settle a specific rail (requires settlement fee)
-const tx = await synapse.payments.settle(railId);
-await tx.wait();
+const hash = await synapse.payments.settle(railId);
+await waitForTransactionReceipt( client, { hash });
 console.log("Rail settled successfully");
 ```
 
@@ -181,14 +203,24 @@ Settle up to a specific past epoch (partial settlement):
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = 1n;
 // ---cut---
 const provider = synapse.getProvider();
-const currentEpoch = await provider.getBlockNumber();
-const targetEpoch = Math.min(1000, currentEpoch); // Ensure it's not in the future
-const tx = await synapse.payments.settle(railId, targetEpoch);
-await tx.wait();
+const targetEpoch = 1000n; // Ensure it's not in the future
+const hash = await synapse.payments.settle(railId, targetEpoch);
+await waitForTransactionReceipt( client, { hash });
 ```
 
 **Important**: The `untilEpoch` parameter:
@@ -204,16 +236,27 @@ When a rail is terminated, use the specific method for terminated rails:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = 1n;
 // ---cut---
 // Check if rail is terminated
 const railInfo = await synapse.payments.getRail(railId);
 if (railInfo.endEpoch > 0) {
   console.log(`Rail terminated at epoch ${railInfo.endEpoch}`);
   // Settle the terminated rail
-  const tx = await synapse.payments.settleTerminatedRail(railId);
-  await tx.wait();
+  const hash = await synapse.payments.settleTerminatedRail(railId);
+  await waitForTransactionReceipt( client, { hash });
   console.log("Terminated rail settled and closed");
 }
 ```
@@ -227,7 +270,7 @@ if (railInfo.endEpoch > 0) {
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
 const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+const railId = 1n;
 import { ethers } from "ethers";
 // ---cut---
 // Preview settlement to current epoch
@@ -248,7 +291,7 @@ console.log(`  Settled up to epoch: ${finalSettledEpoch}`);
 console.log(`  Note: ${note}`);
 
 // Preview partial settlement to a specific past epoch
-const targetEpoch = 1000; // Must be less than or equal to current epoch
+const targetEpoch = 1000n; // Must be less than or equal to current epoch
 const partialAmounts = await synapse.payments.getSettlementAmounts(
   railId,
   targetEpoch
@@ -271,7 +314,17 @@ Service providers (payees) should settle regularly to receive accumulated earnin
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
 // ---cut---
 // Example: Settle all incoming rails using settleAuto
@@ -284,13 +337,13 @@ async function settleAllIncomingRails() {
       const amounts = await synapse.payments.getSettlementAmounts(rail.railId);
 
       // Only settle if amount exceeds threshold (e.g., $10)
-      const threshold = ethers.parseUnits("10", 18); // 10 USDFC
+      const threshold = parseUnits("10", 18); // 10 USDFC
       if (amounts.totalNetPayeeAmount > threshold) {
         // settleAuto handles both active and terminated rails
-        const tx = await synapse.payments.settleAuto(rail.railId);
-        await tx.wait();
+        const hash = await synapse.payments.settleAuto(rail.railId);
+        await waitForTransactionReceipt( client, { hash });
         console.log(
-          `Settled rail ${rail.railId} for ${ethers.formatUnits(amounts.totalNetPayeeAmount, 18)} USDFC`
+          `Settled rail ${rail.railId} for ${formatUnits(amounts.totalNetPayeeAmount, 18)} USDFC`
         );
       }
     } catch (error) {
@@ -309,8 +362,18 @@ Clients (payers) typically don't need to settle unless:
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 const synapse = await Synapse.create({});
-import { ethers } from "ethers";
 // ---cut---
 // Example: Settle before withdrawal
 async function prepareForWithdrawal() {
@@ -318,15 +381,15 @@ async function prepareForWithdrawal() {
 
   // Settle all rails to update balance (settleAuto handles both active and terminated)
   for (const rail of rails) {
-    const tx = await synapse.payments.settleAuto(rail.railId);
-    await tx.wait();
+    const hash = await synapse.payments.settleAuto(rail.railId);
+    await waitForTransactionReceipt( client, { hash });
   }
 
   // Now withdrawal will reflect accurate balance
   const availableBalance = (await synapse.payments.accountInfo())
     .availableFunds;
   console.log(
-    `Available for withdrawal: ${ethers.formatUnits(availableBalance, 18)} USDFC`
+    `Available for withdrawal: ${formatUnits(availableBalance, 18)} USDFC`
   );
 }
 ```
