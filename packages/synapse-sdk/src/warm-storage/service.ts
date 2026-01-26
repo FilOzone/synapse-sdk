@@ -71,23 +71,23 @@ export class WarmStorageService {
     return this._chain.contracts.pdp.address
   }
 
-  getPaymentsAddress(): string {
+  getPaymentsAddress(): Address {
     return this._chain.contracts.payments.address
   }
 
-  getUSDFCTokenAddress(): string {
+  getUSDFCTokenAddress(): Address {
     return this._chain.contracts.usdfc.address
   }
 
-  getViewContractAddress(): string {
+  getViewContractAddress(): Address {
     return this._chain.contracts.storageView.address
   }
 
-  getServiceProviderRegistryAddress(): string {
+  getServiceProviderRegistryAddress(): Address {
     return this._chain.contracts.serviceProviderRegistry.address
   }
 
-  getSessionKeyRegistryAddress(): string {
+  getSessionKeyRegistryAddress(): Address {
     return this._chain.contracts.sessionKeyRegistry.address
   }
 
