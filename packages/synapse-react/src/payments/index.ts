@@ -111,11 +111,7 @@ export interface UseDepositProps extends Omit<deposit.OptionsType, 'amount'> {
 /**
  * Deposit ERC20 tokens into the payments contract.
  *
- * @param props - The props for the deposit.
- * @param props.address - The address of the account to deposit from.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link UseDepositProps}
  * @returns The deposit mutation.
  */
 export function useDeposit(props?: UseDepositProps) {
