@@ -261,7 +261,7 @@ export class StorageContext {
             warmStorageService,
             spRegistry,
             excludeProviderIds,
-            resolutions.length === 0 ? await endorsementsService.getEndorsedProviderIds() : new Set<number>(),
+            resolutions.length === 0 ? await endorsementsService.getEndorsedProviderIds() : new Set<bigint>(),
             options.forceCreateDataSets ?? false,
             options.withIpni ?? false,
             options.dev ?? false
@@ -392,7 +392,7 @@ export class StorageContext {
       warmStorageService,
       spRegistry,
       options.excludeProviderIds ?? [],
-      new Set<number>(),
+      new Set<bigint>(),
       options.forceCreateDataSet ?? false,
       options.withIpni ?? false,
       options.dev ?? false
@@ -663,7 +663,7 @@ export class StorageContext {
     warmStorageService: WarmStorageService,
     spRegistry: SPRegistryService,
     excludeProviderIds: bigint[],
-    endorsedProviderIds: Set<number>,
+    endorsedProviderIds: Set<bigint>,
     forceCreateDataSet: boolean,
     withIpni: boolean,
     dev: boolean
