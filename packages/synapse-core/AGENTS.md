@@ -17,6 +17,8 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
   - [design document](https://github.com/FilOzone/filecoin-services/blob/main/SPEC.md)
   - [source code](https://github.com/FilOzone/filecoin-services)
   - folder: `/src/warm-storage`
+- Session Key Registry: Session keys are disposable keys for dapps to perform actions on the user's behalf. Session keys are scoped to constrain the actions they can take.
+  - [source code](https://github.com/FilOzone/SessionKeyRegistry)
 
 ## Packages Scripts
 
@@ -290,7 +292,7 @@ For state-changing functions, both variants MUST be implemented:
 - MUST use Extract Event function to get return values (not simulateContract)
 - MUST have an extra option called `onHash` that is a callback function to be called with the hash before waiting for the receipt.
 
-### Extract Event function (for write mutate based actions)
+#### Extract Event function (for write mutate based actions)
 
 Should use the contract function name and not the event name, like `extractSetOperatorApprovalEvent` not `extractOperatorApprovalUpdatedEvent`
 
