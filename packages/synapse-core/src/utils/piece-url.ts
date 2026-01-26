@@ -1,9 +1,9 @@
 import type { Address } from 'viem'
+import type { Chain } from '../chains.ts'
 
-export function createPieceUrl(cid: string, cdn: boolean, address: Address, chainId: number, pdpUrl: string) {
+export function createPieceUrl(cid: string, cdn: boolean, address: Address, chain: Chain, pdpUrl: string) {
   if (cdn) {
-    const endpoint = chainId === 314 ? `https://${address}.filbeam.io` : `https://${address}.calibration.filbeam.io`
-
+    const endpoint = `https://${address}.${chain.filbeam.retrievalDomainName}`
     const url = new URL(`/${cid}`, endpoint)
     return url.toString()
   } else {
