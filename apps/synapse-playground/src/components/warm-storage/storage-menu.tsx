@@ -53,7 +53,7 @@ export function StorageMenu() {
           <span>Rate</span>
           <span className="text-muted-foreground">
             {formatFraction({
-              value: operatorApprovals?.rateUsed,
+              value: operatorApprovals?.rateUsage,
               digits: 12,
             })}
           </span>
@@ -62,7 +62,7 @@ export function StorageMenu() {
           <span>Lockup </span>
           <span className="text-muted-foreground">
             {formatFraction({
-              value: operatorApprovals?.lockupUsed,
+              value: operatorApprovals?.lockupUsage,
             })}
           </span>
         </DropdownMenuLabel>
