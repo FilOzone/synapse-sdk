@@ -144,9 +144,9 @@ export class Synapse {
           : `No Endorsements address configured for network: ${network}`
       )
     }
-    const endorsementsService = new EndorsementsService(provider, endorsementsAddress)
 
     const connectorClient = await signerToConnectorClient(signer, provider)
+    const endorsementsService = new EndorsementsService(connectorClient)
 
     // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
@@ -259,18 +259,6 @@ export class Synapse {
   }
 
   /**
-   * Gets the signer instance, possibly a session key
-   * @returns The ethers signer
-   */
-  getSigner(): ethers.Signer {
-    if (this._session == null) {
-      return this._signer
-    } else {
-      return this._session.getSigner()
-    }
-  }
-
-  /**
    * Gets the client signer instance
    * @returns the ethers signer
    */
@@ -283,14 +271,8 @@ export class Synapse {
    * @param sessionKeySigner The signer for the session key
    * @returns The SessionKey object for this signer
    */
-  createSessionKey(sessionKeySigner: ethers.Signer): SessionKey {
-    return new SessionKey(
-      this._provider,
-      this._warmStorageService.getSessionKeyRegistryAddress(),
-      sessionKeySigner,
-      this._signer,
-      this._multicall3Address
-    )
+  createSessionKey(account: Account): SessionKey {
+    return new SessionKey(this.connectorClient, account)
   }
 
   /**
