@@ -43,7 +43,21 @@
     "packages/synapse-core": {
       "entry": [
         "src/index.ts",
-        "src/{chains,sp,pdp-verifier,erc20,usdfc,abis,auction,pay,warm-storage,typed-data,session-key,errors,piece,utils,mocks}/index.ts"
+        "src/sp.ts",
+        "src/chains.ts",
+        "src/piece.ts",
+        "src/usdfc.ts",
+        "src/abis/index.ts",
+        "src/auction/index.ts",
+        "src/erc20/index.ts",
+        "src/errors/index.ts",
+        "src/mocks/index.ts",
+        "src/pay/index.ts",
+        "src/pdp-verifier/index.ts",
+        "src/session-key/index.ts",
+        "src/typed-data/index.ts",
+        "src/utils/index.ts",
+        "src/warm-storage/index.ts"
       ],
       "ignoreFiles": ["wagmi.config.ts"]
     },
