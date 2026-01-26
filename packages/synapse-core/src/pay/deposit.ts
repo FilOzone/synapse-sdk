@@ -16,7 +16,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { payments as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
-import * as erc20 from '../erc20.ts'
+import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAllowanceError, InsufficientBalanceError } from '../errors/pay.ts'
 

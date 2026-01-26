@@ -42,8 +42,8 @@
       "default": "./dist/src/pdp-verifier/index.js"
     },
     "./erc20": {
-      "types": "./dist/src/erc20.d.ts",
-      "default": "./dist/src/erc20.js"
+      "types": "./dist/src/erc20/index.d.ts",
+      "default": "./dist/src/erc20/index.js"
     },
     "./usdfc": {
       "types": "./dist/src/usdfc.d.ts",
@@ -102,7 +102,7 @@
         "./dist/src/pdp-verifier/index"
       ],
       "erc20": [
-        "./dist/src/erc20"
+        "./dist/src/erc20/index"
       ],
       "usdfc": [
         "./dist/src/usdfc"
