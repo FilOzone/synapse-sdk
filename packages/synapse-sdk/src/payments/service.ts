@@ -12,7 +12,7 @@ import {
   type TransactionReceipt,
   type Transport,
 } from 'viem'
-import { getBalance, getBlockNumber, simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
+import { getBalance, getBlockNumber, simulateContract, writeContract } from 'viem/actions'
 import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
 import { createError, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
 
@@ -180,7 +180,7 @@ export class PaymentsService {
     }
 
     try {
-      const approveTx = await ERC20.approveAllowance(this._client, {
+      const approveTx = await ERC20.approve(this._client, {
         spender: spender,
         amount,
       })
@@ -333,17 +333,13 @@ export class PaymentsService {
 
     if (currentAllowance < amount) {
       // Golden path: automatically approve the exact amount needed
-      const approveTx = await this.approve(chain.contracts.payments.address, amount, token)
-
-      options?.onApprovalTransaction?.(approveTx)
-
-      // Wait for approval to be mined before proceeding
-      const approvalReceipt = await waitForTransactionReceipt(this._client, {
-        hash: approveTx,
+      const { receipt } = await ERC20.approveSync(this._client, {
+        spender: chain.contracts.payments.address,
+        amount,
+        onHash: options?.onApprovalTransaction,
       })
-      if (approvalReceipt != null) {
-        options?.onApprovalConfirmed?.(approvalReceipt)
-      }
+
+      options?.onApprovalConfirmed?.(receipt)
     }
 
     // Check if account has sufficient available balance (no frozen account check needed for deposits)
