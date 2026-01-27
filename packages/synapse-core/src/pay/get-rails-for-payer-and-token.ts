@@ -141,6 +141,8 @@ export namespace getRailsForPayerAndTokenCall {
  *
  * This function is used to create a call to the getRailsForPayerAndToken function for use with the multicall or readContract function.
  *
+ * To get the same output type as the action, use {@link parseGetRailsForPayerAndToken} to transform the contract output.
+ *
  * @param options - {@link getRailsForPayerAndTokenCall.OptionsType}
  * @returns The call to the getRailsForPayerAndToken function {@link getRailsForPayerAndTokenCall.OutputType}
  * @throws Errors {@link getRailsForPayerAndTokenCall.ErrorType}
