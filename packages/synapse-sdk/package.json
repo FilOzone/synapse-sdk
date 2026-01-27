@@ -91,6 +91,7 @@
   "scripts": {
     "build": "wireit",
     "lint": "wireit",
+    "lint:fix": "biome check --fix .",
     "test": "wireit",
     "test:node": "wireit",
     "test:browser": "wireit",
@@ -114,7 +115,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --fix .",
+      "command": "biome check .",
       "files": [
         "src/**/*.ts",
         "../../biome.json"

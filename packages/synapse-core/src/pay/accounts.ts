@@ -117,6 +117,8 @@ export namespace accountsCall {
  *
  * This function is used to create a call to the accounts function for use with the multicall or readContract function.
  *
+ * To get the same output type as the action, use {@link parseAccounts} to transform the contract output.
+ *
  * @param options - {@link accountsCall.OptionsType}
  * @returns The call to the accounts function {@link accountsCall.OutputType}
  * @throws Errors {@link accountsCall.ErrorType}
