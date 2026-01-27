@@ -23,8 +23,8 @@ export class EndorsementsService {
   async getEndorsedProviderIds(): Promise<Set<bigint>> {
     if (this._endorsedProviderIds == null) {
       const endorsedProviderIds = await readContract(this._client, {
-        address: this._chain.contracts.providerIdSet.address,
-        abi: this._chain.contracts.providerIdSet.abi,
+        address: this._chain.contracts.endorsements.address,
+        abi: this._chain.contracts.endorsements.abi,
         functionName: 'getProviderIds',
       })
       this._endorsedProviderIds = new Set(endorsedProviderIds.map(BigInt))
