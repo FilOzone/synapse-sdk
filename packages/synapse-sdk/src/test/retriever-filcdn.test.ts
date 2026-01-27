@@ -1,9 +1,13 @@
 /* globals describe it */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { FilBeamRetriever } from '../retriever/filbeam.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
+
+const calibrationChain = { filbeam: { retrievalDomain: 'calibration.filbeam.io' } } as unknown as Chain
+const mainnetChain = { filbeam: { retrievalDomain: 'filbeam.io' } } as unknown as Chain
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
@@ -30,7 +34,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: false,
         })
@@ -61,7 +65,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'mainnet')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, mainnetChain)
         await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           signal: controller.signal,
           withCDN: false,
@@ -95,7 +99,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -130,7 +134,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -164,7 +168,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -202,7 +206,7 @@ describe('FilBeamRetriever', () => {
       }
 
       try {
-        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
         const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
           withCDN: true,
         })
@@ -216,24 +220,22 @@ describe('FilBeamRetriever', () => {
     })
   })
 
-  describe('network handling', () => {
-    it('should accept mainnet network', () => {
+  describe('chain handling', () => {
+    it('should use retrieval domain from mainnet chain', () => {
       const mockBaseRetriever: PieceRetriever = {
         fetchPiece: async () => new Response(),
       }
 
-      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'mainnet')
-      assert.exists(cdnRetriever)
+      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, mainnetChain)
       assert.strictEqual(cdnRetriever.hostname(), 'filbeam.io')
     })
 
-    it('should accept calibration network', () => {
+    it('should use retrieval domain from calibration chain', () => {
       const mockBaseRetriever: PieceRetriever = {
         fetchPiece: async () => new Response(),
       }
 
-      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, 'calibration')
-      assert.exists(cdnRetriever)
+      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
       assert.strictEqual(cdnRetriever.hostname(), 'calibration.filbeam.io')
     })
   })
