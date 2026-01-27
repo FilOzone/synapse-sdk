@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -18,7 +19,7 @@ export namespace getAllPieceMetadata {
     dataSetId: bigint
     /** The ID of the piece to get metadata for. */
     pieceId: bigint
-    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
+    /** FilecoinWarmStorage contract address. If not provided, the default is the storage view contract address for the chain. */
     contractAddress?: Address
   }
   export type ContractOutputType = ContractFunctionReturnType<
@@ -80,16 +81,12 @@ export async function getAllPieceMetadata(
 }
 
 export namespace getAllPieceMetadataCall {
-  export type OptionsType = {
-    /** The ID of the data set the piece belongs to. */
-    dataSetId: bigint
-    /** The ID of the piece to get metadata for. */
-    pieceId: bigint
-    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the piece metadata. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getAllPieceMetadata.OptionsType & {
+      /** The chain to use to get the piece metadata. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllPieceMetadata'>

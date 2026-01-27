@@ -38,7 +38,7 @@ export namespace deposit {
 /**
  * Deposit funds into the Filecoin Pay contract
  *
- * Deposits ERC20 tokens into the payments contract for the specified recipient.
+ * Deposits ERC20 tokens into the Filecoin Pay contract for the specified recipient.
  * The deposit must be approved on the token contract before calling this function.
  *
  * @param client - The viem client with account to use for the transaction.
