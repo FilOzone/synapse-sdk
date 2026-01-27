@@ -41,3 +41,25 @@ export function toastError(error: Error, id: string, title?: string) {
     id,
   })
 }
+
+const UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
+
+export function formatBytes(bytes: bigint | number): string {
+  const isNegative = bytes < 0
+  let num = isNegative ? -BigInt(bytes) : BigInt(bytes)
+  if (num === 0n) return '0 B'
+
+  const kBig = 1024n
+  let i = 0
+  while (num >= kBig && i < UNITS.length - 1) {
+    num /= kBig
+    i++
+  }
+
+  const sign = isNegative ? '-' : ''
+  const value = Number(num)
+    .toFixed(2)
+    .replace(/\.?0+$/, '')
+  const unit = UNITS[i]
+  return `${sign}${value} ${unit}`
+}
