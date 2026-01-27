@@ -3,7 +3,7 @@ import type { Chain } from '../chains.ts'
 
 export function createPieceUrl(cid: string, cdn: boolean, address: Address, chain: Chain, pdpUrl: string) {
   if (cdn) {
-    const endpoint = `https://${address}.${chain.filbeam.retrievalDomainName}`
+    const endpoint = `https://${address}.${chain.filbeam.retrievalDomain}`
     const url = new URL(`/${cid}`, endpoint)
     return url.toString()
   } else {

@@ -53,7 +53,7 @@ export interface Chain extends ViemChain {
     }
   }
   filbeam: {
-    retrievalDomainName: string
+    retrievalDomain: string
   }
 }
 
@@ -134,7 +134,7 @@ export const mainnet: Chain = {
     },
   },
   filbeam: {
-    retrievalDomainName: 'filbeam.io',
+    retrievalDomain: 'filbeam.io',
   },
 }
 
@@ -215,7 +215,7 @@ export const calibration: Chain = {
     },
   },
   filbeam: {
-    retrievalDomainName: 'calibration.filbeam.io',
+    retrievalDomain: 'calibration.filbeam.io',
   },
   testnet: true,
 }
@@ -284,7 +284,7 @@ export const devnet: Chain = {
     },
   },
   filbeam: {
-    retrievalDomainName: 'localhost:8080',
+    retrievalDomain: 'localhost:8080',
   },
   testnet: true,
 }
