@@ -52,6 +52,9 @@ export interface Chain extends ViemChain {
       abi: typeof Abis.providerIdSet
     }
   }
+  filbeam: {
+    retrievalDomain: string
+  }
 }
 
 /**
@@ -129,6 +132,9 @@ export const mainnet: Chain = {
       address: Abis.generated.providerIdSetAddress['314'],
       abi: Abis.providerIdSet,
     },
+  },
+  filbeam: {
+    retrievalDomain: 'filbeam.io',
   },
 }
 
@@ -208,6 +214,9 @@ export const calibration: Chain = {
       abi: Abis.providerIdSet,
     },
   },
+  filbeam: {
+    retrievalDomain: 'calibration.filbeam.io',
+  },
   testnet: true,
 }
 
@@ -273,6 +282,9 @@ export const devnet: Chain = {
       address: '0x0000000000000000000000000000000000000000',
       abi: Abis.providerIdSet,
     },
+  },
+  filbeam: {
+    retrievalDomain: 'localhost:8080',
   },
   testnet: true,
 }
