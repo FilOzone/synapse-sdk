@@ -5,20 +5,21 @@
  * to the base retriever.
  */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import type { Address } from 'viem'
-import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.ts'
+import type { PieceCID, PieceRetriever } from '../types.ts'
 
 export class FilBeamRetriever implements PieceRetriever {
   private readonly baseRetriever: PieceRetriever
-  private readonly network: FilecoinNetworkType
+  private readonly chain: Chain
 
-  constructor(baseRetriever: PieceRetriever, network: FilecoinNetworkType) {
+  constructor(baseRetriever: PieceRetriever, chain: Chain) {
     this.baseRetriever = baseRetriever
-    this.network = network
+    this.chain = chain
   }
 
   hostname(): string {
-    return this.network === 'mainnet' ? 'filbeam.io' : 'calibration.filbeam.io'
+    return this.chain.filbeam.retrievalDomain
   }
 
   async fetchPiece(
