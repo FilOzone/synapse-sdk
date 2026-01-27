@@ -15,7 +15,7 @@ import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-interface UseERC20BalanceProps extends SetOptional<ERC20BalanceOptions, 'address'> {
+export interface UseERC20BalanceProps extends SetOptional<ERC20BalanceOptions, 'address'> {
   query?: Omit<UseQueryOptions<ERC20BalanceResult>, 'queryKey' | 'queryFn'>
 }
 
@@ -48,9 +48,9 @@ export function useERC20Balance(props: UseERC20BalanceProps) {
   return result
 }
 
-type UseApproveAllowanceVariables = Pick<erc20.ERC20ApproveAllowanceOptions, 'amount'>
+export type UseApproveAllowanceVariables = Pick<erc20.ERC20ApproveAllowanceOptions, 'amount'>
 
-interface UseApproveAllowanceProps extends Omit<erc20.ERC20ApproveAllowanceOptions, 'amount'> {
+export interface UseApproveAllowanceProps extends Omit<erc20.ERC20ApproveAllowanceOptions, 'amount'> {
   /**
    * The mutation options.
    */
@@ -64,7 +64,7 @@ interface UseApproveAllowanceProps extends Omit<erc20.ERC20ApproveAllowanceOptio
 /**
  * Approve the allowance of the ERC20 token to the payments contract.
  *
- * @param props - The props to use.
+ * @param props - The props to use. {@link UseApproveAllowanceProps}
  * @returns The mutation to approve the allowance of the ERC20 token to the payments contract.
  */
 export function useApproveAllowance(props?: UseApproveAllowanceProps) {

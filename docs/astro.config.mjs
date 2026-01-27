@@ -175,8 +175,8 @@ export default defineConfig({
           ecTwoSlash({
             twoslashOptions: {
               compilerOptions: {
-                allowUmdGlobalAccess: true,
-                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
+                lib: ['ESNext', 'DOM'],
+                composite: true,
               },
             },
           }),
@@ -191,10 +191,10 @@ export default defineConfig({
             entryPointStrategy: 'packages',
             entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
-            useCodeBlocks: true,
+            useCodeBlocks: false,
             parametersFormat: 'table',
             indexFormat: 'table',
-            groupOrder: ['classes', 'functions', 'variables', 'types', '*'],
+            groupOrder: ['classes', 'functions', 'variables', 'types', 'namespaces', '*'],
             plugin: ['typedoc-plugin-mdn-links'],
           },
         }),

@@ -131,6 +131,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
       return options.eth_estimateGas(params)
     }
+    case 'eth_fillTransaction': {
+      if (!options.eth_fillTransaction) {
+        throw new Error('eth_fillTransaction is not defined')
+      }
+      return options.eth_fillTransaction(params)
+    }
     case 'eth_getBlockByNumber': {
       if (!options.eth_getBlockByNumber) {
         throw new Error('eth_getBlockByNumber is not defined')
@@ -340,6 +346,9 @@ export const presets = {
       }
     },
     eth_estimateGas: () => '0x1',
+    eth_fillTransaction: () => {
+      throw new Error('eth_fillTransaction not implemented')
+    },
     eth_getTransactionCount: () => '0x1',
     eth_gasPrice: () => '0x09184e72a000',
     eth_maxPriorityFeePerGas: () => '0x5f5e100',
@@ -357,6 +366,8 @@ export const presets = {
       return hash
     },
     warmStorage: {
+      addApprovedProvider: () => [],
+      removeApprovedProvider: () => [],
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
       usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
@@ -375,6 +386,8 @@ export const presets = {
         },
       ],
       owner: () => [ADDRESSES.client1],
+      terminateService: () => [],
+      topUpCDNPaymentRails: () => [],
     },
     warmStorageView: {
       isProviderApproved: () => [true],

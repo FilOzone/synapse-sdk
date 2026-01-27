@@ -58,10 +58,18 @@ export const SIZE_CONSTANTS = {
   PiB: 1n << 50n,
 
   /**
-   * Maximum upload size (200 MiB)
-   * Current limitation for PDP uploads
+   * Maximum upload size currently supported by PDP servers.
+   *
+   * 1 GiB adjusted for fr32 expansion: 1 GiB * (127/128) = 1,065,353,216 bytes
+   *
+   * Fr32 encoding adds 2 bits of padding per 254 bits of data, resulting in 128 bytes
+   * of padded data for every 127 bytes of raw data.
+   *
+   * Note: While it's technically possible to upload pieces this large as Uint8Array,
+   * streaming via AsyncIterable is strongly recommended for non-trivial sizes.
+   * See SIZE_CONSTANTS.MAX_UPLOAD_SIZE in synapse-sdk for detailed guidance.
    */
-  MAX_UPLOAD_SIZE: 200 * 1024 * 1024,
+  MAX_UPLOAD_SIZE: 1_065_353_216, // 1 GiB * 127/128
 
   /**
    * Minimum upload size (127 bytes)
@@ -77,3 +85,10 @@ export const SIZE_CONSTANTS = {
 } as const
 
 export const LOCKUP_PERIOD = 30n * TIME_CONSTANTS.EPOCHS_PER_DAY
+
+export const RETRY_CONSTANTS = {
+  FACTOR: 1,
+  DELAY_TIME: 4000, // 4 seconds in milliseconds between retries
+  RETRIES: Infinity,
+  MAX_RETRY_TIME: 1000 * 60 * 5, // 5 minutes in milliseconds
+} as const

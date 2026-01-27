@@ -36,6 +36,10 @@
       "types": "./dist/src/sp.d.ts",
       "default": "./dist/src/sp.js"
     },
+    "./pdp-verifier": {
+      "types": "./dist/src/pdp-verifier/index.d.ts",
+      "default": "./dist/src/pdp-verifier/index.js"
+    },
     "./erc20": {
       "types": "./dist/src/erc20.d.ts",
       "default": "./dist/src/erc20.js"
@@ -92,6 +96,9 @@
       ],
       "sp": [
         "./dist/src/sp"
+      ],
+      "pdp-verifier": [
+        "./dist/src/pdp-verifier/index"
       ],
       "erc20": [
         "./dist/src/erc20"
@@ -211,11 +218,13 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/assert": "^1.5.11",
+    "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "@wagmi/cli": "^2.7.0",
     "abitype": "catalog:",
     "assert": "^2.1.0",
+    "chai": "^6.2.1",
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^14.1.12",

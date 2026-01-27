@@ -160,7 +160,7 @@ export class SPRegistryService {
    * @param providerId - Provider ID
    * @returns Provider info with decoded products
    */
-  async getProvider(providerId: number): Promise<ProviderInfo | null> {
+  async getProvider(providerId: bigint): Promise<ProviderInfo | null> {
     try {
       const contract = this._getRegistryContract()
       // TODO: use getProviderWithProduct
@@ -198,8 +198,8 @@ export class SPRegistryService {
       }
 
       // Get products for this provider and convert to ProviderInfo
-      const products = await this._getProviderProducts(Number(provider.providerId))
-      return this._convertToProviderInfo(Number(provider.providerId), provider.info, products)
+      const products = await this._getProviderProducts(provider.providerId)
+      return this._convertToProviderInfo(provider.providerId, provider.info, products)
     } catch (error) {
       console.warn('Error fetching provider by address:', error)
       return null
@@ -390,7 +390,7 @@ export class SPRegistryService {
    * @param providerId - Provider ID
    * @returns PDP service info or null if not found
    */
-  async getPDPService(providerId: number): Promise<PDPServiceInfo | null> {
+  async getPDPService(providerId: bigint): Promise<PDPServiceInfo | null> {
     try {
       const contract = this._getRegistryContract()
       const result = await contract.getProviderWithProduct(providerId, 0) // 0 = ProductType.PDP
@@ -418,7 +418,7 @@ export class SPRegistryService {
    * @param productType - Product type to check
    * @returns Whether provider has the product
    */
-  async providerHasProduct(providerId: number, productType: ProductType): Promise<boolean> {
+  async providerHasProduct(providerId: bigint, productType: ProductType): Promise<boolean> {
     const contract = this._getRegistryContract()
     return await contract.providerHasProduct(providerId, productType)
   }
@@ -430,7 +430,7 @@ export class SPRegistryService {
    * @param providerIds - Array of provider IDs
    * @returns Array of provider info
    */
-  async getProviders(providerIds: number[]): Promise<ProviderInfo[]> {
+  async getProviders(providerIds: bigint[]): Promise<ProviderInfo[]> {
     if (providerIds.length === 0) {
       return []
     }
@@ -453,7 +453,7 @@ export class SPRegistryService {
   /**
    * Get providers using Multicall3 for batch efficiency
    */
-  private async _getProvidersWithMulticall(providerIds: number[]): Promise<ProviderInfo[]> {
+  private async _getProvidersWithMulticall(providerIds: bigint[]): Promise<ProviderInfo[]> {
     const network = await getFilecoinNetworkType(this._provider)
     const multicall3Address = this._multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[network]
     if (!multicall3Address) {
@@ -476,7 +476,7 @@ export class SPRegistryService {
    * Prepare calls for Multicall3 batch
    */
   private _prepareMulticallCalls(
-    providerIds: number[],
+    providerIds: bigint[],
     iface: ethers.Interface
   ): Array<{ target: string; allowFailure: boolean; callData: string }> {
     const calls: Array<{ target: string; allowFailure: boolean; callData: string }> = []
@@ -496,7 +496,7 @@ export class SPRegistryService {
   /**
    * Process Multicall3 results into ProviderInfo array
    */
-  private _processMulticallResults(providerIds: number[], results: any[], iface: ethers.Interface): ProviderInfo[] {
+  private _processMulticallResults(providerIds: bigint[], results: any[], iface: ethers.Interface): ProviderInfo[] {
     const providers: ProviderInfo[] = []
 
     for (let i = 0; i < providerIds.length; i++) {
@@ -535,7 +535,7 @@ export class SPRegistryService {
   /**
    * Fallback method to get providers individually
    */
-  private async _getProvidersIndividually(providerIds: number[]): Promise<ProviderInfo[]> {
+  private async _getProvidersIndividually(providerIds: bigint[]): Promise<ProviderInfo[]> {
     const providers: ProviderInfo[] = []
     const promises = providerIds.map((id) => this.getProvider(id))
     const results = await Promise.all(promises)
@@ -556,7 +556,7 @@ export class SPRegistryService {
    * @param providerId - Provider ID
    * @returns Array of decoded service products
    */
-  private async _getProviderProducts(providerId: number): Promise<ServiceProduct[]> {
+  private async _getProviderProducts(providerId: bigint): Promise<ServiceProduct[]> {
     const products: ServiceProduct[] = []
 
     // Get PDP product directly - getPDPService returns null if product doesn't exist
@@ -578,7 +578,7 @@ export class SPRegistryService {
   /**
    * Convert raw provider data to ProviderInfo
    */
-  private _convertToProviderInfo(providerId: number, providerInfo: any, productsArray: ServiceProduct[]): ProviderInfo {
+  private _convertToProviderInfo(providerId: bigint, providerInfo: any, productsArray: ServiceProduct[]): ProviderInfo {
     // Convert products array to Record for direct access by type
     const products: Partial<Record<'PDP', ServiceProduct>> = {}
 

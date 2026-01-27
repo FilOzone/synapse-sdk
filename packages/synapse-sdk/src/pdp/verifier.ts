@@ -18,20 +18,33 @@
  * ```
  */
 
+import { asChain } from '@filoz/synapse-core/chains'
+import * as Verifier from '@filoz/synapse-core/pdp-verifier'
 import { hexToPieceCID } from '@filoz/synapse-core/piece'
-import { ethers } from 'ethers'
+import type { Address, Chain, Client, Transport } from 'viem'
 import type { PieceCID } from '../types.ts'
-import { CONTRACT_ABIS, createError } from '../utils/index.ts'
+import { createError } from '../utils/index.ts'
+
+export namespace PDPVerifier {
+  export type OptionsType = {
+    /** The client to use to interact with the PDPVerifier contract. */
+    client: Client<Transport, Chain>
+    /** The address of the PDPVerifier contract. If not provided, the default is the PDPVerifier contract address for the chain. */
+    address?: Address
+  }
+}
 
 export class PDPVerifier {
-  private readonly _provider: ethers.Provider
-  private readonly _contractAddress: string
-  private readonly _contract: ethers.Contract
+  private readonly _client: Client<Transport, Chain>
+  private readonly _address: Address
 
-  constructor(provider: ethers.Provider, contractAddress: string) {
-    this._provider = provider
-    this._contractAddress = contractAddress
-    this._contract = new ethers.Contract(this._contractAddress, CONTRACT_ABIS.PDP_VERIFIER, this._provider)
+  /**
+   * Create a new PDPVerifier instance
+   * @param options - {@link PDPVerifier.OptionsType}
+   */
+  constructor(options: PDPVerifier.OptionsType) {
+    this._client = options.client
+    this._address = options.address ?? asChain(options.client.chain).contracts.pdp.address
   }
 
   /**
@@ -39,8 +52,8 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns Whether the data set exists and is live
    */
-  async dataSetLive(dataSetId: number): Promise<boolean> {
-    return await this._contract.dataSetLive(dataSetId)
+  async dataSetLive(dataSetId: bigint): Promise<boolean> {
+    return await Verifier.dataSetLive(this._client, { dataSetId, address: this._address })
   }
 
   /**
@@ -48,9 +61,8 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The next piece ID to assign (total pieces ever added; does not decrease when pieces are removed)
    */
-  async getNextPieceId(dataSetId: number): Promise<number> {
-    const nextPieceId = await this._contract.getNextPieceId(dataSetId)
-    return Number(nextPieceId)
+  async getNextPieceId(dataSetId: bigint): Promise<bigint> {
+    return await Verifier.getNextPieceId(this._client, { dataSetId, address: this._address })
   }
 
   /**
@@ -58,9 +70,8 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The number of active pieces in the data set
    */
-  async getActivePieceCount(dataSetId: number): Promise<number> {
-    const count = await this._contract.getActivePieceCount(dataSetId)
-    return Number(count)
+  async getActivePieceCount(dataSetId: bigint): Promise<bigint> {
+    return await Verifier.getActivePieceCount(this._client, { dataSetId, address: this._address })
   }
 
   /**
@@ -68,8 +79,8 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The address of the listener contract
    */
-  async getDataSetListener(dataSetId: number): Promise<string> {
-    return await this._contract.getDataSetListener(dataSetId)
+  async getDataSetListener(dataSetId: bigint): Promise<Address> {
+    return await Verifier.getDataSetListener(this._client, { dataSetId, address: this._address })
   }
 
   /**
@@ -78,9 +89,12 @@ export class PDPVerifier {
    * @returns Object with current storage provider and proposed storage provider
    */
   async getDataSetStorageProvider(
-    dataSetId: number
-  ): Promise<{ storageProvider: string; proposedStorageProvider: string }> {
-    const [storageProvider, proposedStorageProvider] = await this._contract.getDataSetStorageProvider(dataSetId)
+    dataSetId: bigint
+  ): Promise<{ storageProvider: Address; proposedStorageProvider: Address }> {
+    const [storageProvider, proposedStorageProvider] = await Verifier.getDataSetStorageProvider(this._client, {
+      dataSetId,
+      address: this._address,
+    })
     return { storageProvider, proposedStorageProvider }
   }
 
@@ -89,40 +103,8 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns The number of leaves in the data set
    */
-  async getDataSetLeafCount(dataSetId: number): Promise<number> {
-    const leafCount = await this._contract.getDataSetLeafCount(dataSetId)
-    return Number(leafCount)
-  }
-
-  /**
-   * Extract data set ID from a transaction receipt by looking for DataSetCreated events
-   * @param receipt - Transaction receipt
-   * @returns Data set ID if found, null otherwise
-   */
-  extractDataSetIdFromReceipt(receipt: ethers.TransactionReceipt): number | null {
-    try {
-      // Parse logs looking for DataSetCreated event
-      for (const log of receipt.logs) {
-        try {
-          const parsedLog = this._contract.interface.parseLog({
-            topics: log.topics,
-            data: log.data,
-          })
-
-          if (parsedLog != null && parsedLog.name === 'DataSetCreated') {
-            return Number(parsedLog.args.setId)
-          }
-        } catch {
-          // ignore error
-        }
-      }
-
-      return null
-    } catch (error) {
-      throw new Error(
-        `Failed to extract data set ID from receipt: ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
+  async getDataSetLeafCount(dataSetId: bigint): Promise<bigint> {
+    return await Verifier.getDataSetLeafCount(this._client, { dataSetId, address: this._address })
   }
 
   /**
@@ -135,32 +117,35 @@ export class PDPVerifier {
    * @returns Object containing pieces, piece IDs, raw sizes, and hasMore flag
    */
   async getActivePieces(
-    dataSetId: number,
+    dataSetId: bigint,
     options?: {
-      offset?: number
-      limit?: number
+      offset?: bigint
+      limit?: bigint
       signal?: AbortSignal
     }
   ): Promise<{
-    pieces: Array<{ pieceCid: PieceCID; pieceId: number }>
+    pieces: Array<{ pieceCid: PieceCID; pieceId: bigint }>
     hasMore: boolean
   }> {
-    const offset = options?.offset ?? 0
-    const limit = options?.limit ?? 100
     const signal = options?.signal
 
     if (signal?.aborted) {
       throw new Error('Operation aborted')
     }
 
-    const result = await this._contract.getActivePieces(dataSetId, offset, limit)
+    const result = await Verifier.getActivePieces(this._client, {
+      dataSetId,
+      offset: options?.offset,
+      limit: options?.limit,
+      address: this._address,
+    })
 
     return {
-      pieces: result[0].map((piece: { data: string }, index: number) => {
+      pieces: result[0].map((piece, index) => {
         try {
           return {
             pieceCid: hexToPieceCID(piece.data),
-            pieceId: Number(result[1][index]),
+            pieceId: result[1][index],
           }
         } catch (error) {
           throw createError(
@@ -171,7 +156,7 @@ export class PDPVerifier {
           )
         }
       }),
-      hasMore: Boolean(result[2]),
+      hasMore: result[2],
     }
   }
 
@@ -180,15 +165,15 @@ export class PDPVerifier {
    * @param dataSetId - The PDPVerifier data set ID
    * @returns Array of piece IDs scheduled for removal
    */
-  async getScheduledRemovals(dataSetId: number): Promise<number[]> {
-    const result = await this._contract.getScheduledRemovals(dataSetId)
-    return result.map((pieceId: bigint) => Number(pieceId))
+  async getScheduledRemovals(dataSetId: bigint): Promise<Verifier.getScheduledRemovals.OutputType> {
+    const result = await Verifier.getScheduledRemovals(this._client, { dataSetId, address: this._address })
+    return result
   }
 
   /**
    * Get the PDPVerifier contract address for the current network
    */
-  getContractAddress(): string {
-    return this._contract.target as string
+  getContractAddress(): Address {
+    return this._address
   }
 }

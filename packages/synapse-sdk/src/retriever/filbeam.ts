@@ -5,6 +5,7 @@
  * to the base retriever.
  */
 
+import type { Address } from 'viem'
 import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.ts'
 
 export class FilBeamRetriever implements PieceRetriever {
@@ -22,9 +23,9 @@ export class FilBeamRetriever implements PieceRetriever {
 
   async fetchPiece(
     pieceCid: PieceCID,
-    client: string,
+    client: Address,
     options?: {
-      providerAddress?: string
+      providerAddress?: Address
       withCDN?: boolean
       signal?: AbortSignal
     }

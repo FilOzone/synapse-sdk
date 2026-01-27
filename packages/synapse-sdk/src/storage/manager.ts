@@ -24,6 +24,7 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
+import type { Address, Hash } from 'viem'
 import type { EndorsementsService } from '../endorsements/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -54,7 +55,7 @@ import type { WarmStorageService } from '../warm-storage/index.ts'
 import { StorageContext } from './context.ts'
 
 // Combined callbacks type that can include both creation and upload callbacks
-type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
+export type CombinedCallbacks = StorageContextCallbacks & UploadCallbacks
 
 /**
  * Upload options for StorageManager.upload() - the all-in-one upload method
@@ -87,9 +88,9 @@ export interface StorageManagerUploadOptions extends StorageServiceOptions {
   signal?: AbortSignal
 }
 
-interface StorageManagerDownloadOptions extends DownloadOptions {
+export interface StorageManagerDownloadOptions extends DownloadOptions {
   context?: StorageContext
-  providerAddress?: string
+  providerAddress?: Address
   withCDN?: boolean
 }
 
@@ -269,7 +270,7 @@ export class StorageManager {
       }
     }
 
-    const clientAddress = await this._synapse.getClient().getAddress()
+    const clientAddress = (await this._synapse.getClient().getAddress()) as Address
 
     // Use piece retriever to fetch
     const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
@@ -322,7 +323,7 @@ export class StorageManager {
    * For automatic selection, existing datasets matching the `metadata` are reused unless
    * `forceCreateDataSets` is true. Providers are randomly chosen to distribute across the network.
    *
-   * @param options - Configuration options
+   * @param options - Configuration options {@link CreateContextsOptions}
    * @param options.count - Maximum number of contexts to create (default: 2)
    * @param options.dataSetIds - Specific dataset IDs to include
    * @param options.providerIds - Specific provider IDs to use
@@ -477,8 +478,8 @@ export class StorageManager {
    * @param clientAddress - Optional client address, defaults to current signer
    * @returns Array of enhanced data set information including management status
    */
-  async findDataSets(clientAddress?: string): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? (await this._synapse.getClient().getAddress())
+  async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
+    const address = clientAddress ?? this._synapse.connectorClient.account.address
     return await this._warmStorageService.getClientDataSetsWithDetails(address)
   }
 
@@ -486,10 +487,10 @@ export class StorageManager {
    * Terminate a data set with given ID that belongs to the synapse signer.
    * This will also result in the removal of all pieces in the data set.
    * @param dataSetId - The ID of the data set to terminate
-   * @returns Transaction response
+   * @returns Transaction hash
    */
-  async terminateDataSet(dataSetId: number): Promise<ethers.TransactionResponse> {
-    return this._warmStorageService.terminateDataSet(this._synapse.getSigner(), dataSetId)
+  async terminateDataSet(dataSetId: bigint): Promise<Hash> {
+    return this._warmStorageService.terminateDataSet(this._synapse.connectorClient, dataSetId)
   }
 
   /**

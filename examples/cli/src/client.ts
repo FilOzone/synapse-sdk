@@ -52,6 +52,7 @@ export function privateKeyClient(chainId: number) {
     client,
     privateKey: privateKey as Hex,
     rpcURL: chain.rpcUrls.default.http[0],
+    chain,
   }
 }
 

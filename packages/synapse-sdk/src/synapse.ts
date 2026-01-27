@@ -1,4 +1,5 @@
 import { ethers } from 'ethers'
+import type { Account, Address, Chain, Client, Transport } from 'viem'
 import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
@@ -19,6 +20,7 @@ import type {
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
+import { signerToConnectorClient } from './utils/viem.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 /**
@@ -37,6 +39,8 @@ export class Synapse {
   private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
   private readonly _multicall3Address: string
+
+  connectorClient: Client<Transport, Chain, Account>
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -142,6 +146,8 @@ export class Synapse {
     }
     const endorsementsService = new EndorsementsService(provider, endorsementsAddress)
 
+    const connectorClient = await signerToConnectorClient(signer, provider)
+
     // Create Warm Storage service with initialized addresses
     const warmStorageAddress = options.warmStorageAddress ?? CONTRACT_ADDRESSES.WARM_STORAGE[network]
     if (!warmStorageAddress) {
@@ -151,7 +157,7 @@ export class Synapse {
           : `No Warm Storage address configured for network: ${network}`
       )
     }
-    const warmStorageService = await WarmStorageService.create(provider, warmStorageAddress, multicall3Address)
+    const warmStorageService = await WarmStorageService.create(connectorClient)
 
     // Create payments service with discovered addresses
     const paymentsAddress = warmStorageService.getPaymentsAddress()
@@ -200,6 +206,7 @@ export class Synapse {
       network,
       payments,
       options.withCDN === true,
+      connectorClient,
       warmStorageAddress,
       warmStorageService,
       pieceRetriever,
@@ -217,7 +224,7 @@ export class Synapse {
     network: FilecoinNetworkType,
     payments: PaymentsService,
     withCDN: boolean,
-
+    connectorClient: Client<Transport, Chain, Account>,
     warmStorageAddress: string,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
@@ -239,6 +246,7 @@ export class Synapse {
     this._session = null
     this._multicall3Address = multicall3Address
 
+    this.connectorClient = connectorClient
     // Initialize StorageManager
     this._storageManager = new StorageManager(
       this,
@@ -441,7 +449,7 @@ export class Synapse {
   async download(
     pieceCid: string | PieceCID,
     options?: {
-      providerAddress?: string
+      providerAddress?: Address
       withCDN?: boolean
     }
   ): Promise<Uint8Array> {
@@ -454,7 +462,7 @@ export class Synapse {
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
-  async getProviderInfo(providerAddress: string | number): Promise<ProviderInfo> {
+  async getProviderInfo(providerAddress: Address | bigint): Promise<ProviderInfo> {
     try {
       // Validate address format if string provided
       if (typeof providerAddress === 'string') {

@@ -43,7 +43,7 @@ export function useDataSets(props: UseDataSetsProps) {
                     address: chain.contracts.storageView.address,
                     abi: chain.contracts.storageView.abi,
                     functionName: 'getAllPieceMetadata',
-                    args: [dataSet.dataSetId, BigInt(piece.id)],
+                    args: [dataSet.dataSetId, piece.id],
                   })
                   return {
                     ...piece,

@@ -36,6 +36,10 @@ export interface JSONRPCOptions {
   eth_getBalance?: (params: [address: Address, block: BlockNumber | BlockTag]) => Hex
   eth_getTransactionByHash?: (params: any) => any
   eth_getTransactionReceipt?: (params: any) => any
+  eth_fillTransaction?: (params: [transaction: TransactionRequest]) => {
+    raw: Hex
+    tx: RpcTransaction
+  }
   eth_signTypedData_v4?: (params: any) => string
   eth_getTransactionCount?: (params: [address: Address, block: BlockNumber | BlockTag | BlockIdentifier]) => Hex
   eth_estimateGas?: (

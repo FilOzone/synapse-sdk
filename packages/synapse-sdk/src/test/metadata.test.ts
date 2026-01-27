@@ -1,11 +1,13 @@
 /* globals describe it before after beforeEach */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
-import { asPieceCID } from '@filoz/synapse-core/piece'
+import * as Piece from '@filoz/synapse-core/piece'
+import type { MetadataObject } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
-import { PDPAuthHelper } from '../pdp/auth.ts'
+import { createWalletClient, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { PDPServer } from '../pdp/server.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
@@ -16,10 +18,8 @@ const server = setup()
 describe('Metadata Support', () => {
   const TEST_PRIVATE_KEY = '0x0101010101010101010101010101010101010101010101010101010101010101'
   const TEST_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890'
-  const TEST_CHAIN_ID = 1n
   const SERVER_URL = 'http://pdp.local'
 
-  let authHelper: PDPAuthHelper
   let pdpServer: PDPServer
 
   before(async () => {
@@ -30,22 +30,24 @@ describe('Metadata Support', () => {
     server.stop()
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     server.resetHandlers()
+    server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
+    const walletClient = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(TEST_PRIVATE_KEY),
+    })
     // Create fresh instances for each test
-    authHelper = new PDPAuthHelper(TEST_CONTRACT_ADDRESS, new ethers.Wallet(TEST_PRIVATE_KEY), TEST_CHAIN_ID)
-    pdpServer = new PDPServer(authHelper, SERVER_URL)
+    pdpServer = new PDPServer({
+      client: walletClient,
+      endpoint: SERVER_URL,
+    })
   })
 
   describe('PDPServer', () => {
     it('should handle metadata in createDataSet', async () => {
-      const dataSetMetadata: MetadataEntry[] = [
-        { key: 'project', value: 'my-project' },
-        { key: 'environment', value: 'production' },
-        { key: METADATA_KEYS.WITH_CDN, value: '' },
-      ]
-
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let capturedMetadata: Mocks.pdp.MetadataCapture | null = null
 
@@ -63,27 +65,29 @@ describe('Metadata Support', () => {
         1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        dataSetMetadata,
+        {
+          project: 'my-project',
+          environment: 'production',
+          [METADATA_KEYS.WITH_CDN]: '',
+        },
         TEST_CONTRACT_ADDRESS
       )
 
       assert.equal(result.txHash, mockTxHash)
       assert.exists(capturedMetadata)
       assert.isNotNull(capturedMetadata)
-      assert.deepEqual((capturedMetadata as any).keys, ['project', 'environment', METADATA_KEYS.WITH_CDN])
-      assert.deepEqual((capturedMetadata as any).values, ['my-project', 'production', ''])
+      assert.deepEqual((capturedMetadata as any).keys, ['environment', 'project', METADATA_KEYS.WITH_CDN])
+      assert.deepEqual((capturedMetadata as any).values, ['production', 'my-project', ''])
     })
 
     it('should handle metadata in addPieces', async () => {
-      const pieces = [asPieceCID('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy') as any]
-      const metadata: MetadataEntry[][] = [
-        [
-          { key: 'contentType', value: 'application/json' },
-          { key: 'version', value: '1.0.0' },
-        ],
-      ]
+      const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
+      const metadata: MetadataObject = {
+        contentType: 'application/json',
+        version: '1.0.0',
+      }
 
-      const dataSetId = 123
+      const dataSetId = 123n
       const mockTxHash = '0x1234567890abcdef'
       let capturedPieceMetadata: Mocks.pdp.PieceMetadataCapture | null = null
 
@@ -99,29 +103,16 @@ describe('Metadata Support', () => {
       )
 
       // Test with matching metadata
-      const result = await pdpServer.addPieces(dataSetId, 1n, pieces, metadata)
+      const result = await pdpServer.addPieces(dataSetId, 1n, [{ pieceCid, metadata }])
       assert.equal(result.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)
       assert.deepEqual((capturedPieceMetadata as any).keys[0], ['contentType', 'version'])
       assert.deepEqual((capturedPieceMetadata as any).values[0], ['application/json', '1.0.0'])
 
-      // Test with metadata length mismatch - should throw
-      const mismatchedMetadata: MetadataEntry[][] = [
-        [{ key: 'contentType', value: 'application/json' }],
-        [{ key: 'version', value: '1.0.0' }],
-      ]
-
-      try {
-        await pdpServer.addPieces(dataSetId, 1n, pieces, mismatchedMetadata)
-        assert.fail('Should have thrown an error')
-      } catch (error: any) {
-        assert.match(error.message, /Metadata length \(2\) must match pieces length \(1\)/)
-      }
-
       // Test without metadata (should create empty arrays)
       capturedPieceMetadata = null
-      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, pieces)
+      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, [{ pieceCid }])
       assert.equal(resultNoMetadata.txHash, mockTxHash)
       assert.exists(capturedPieceMetadata)
       assert.isNotNull(capturedPieceMetadata)
@@ -145,17 +136,14 @@ describe('Metadata Support', () => {
         )
       )
 
-      // Test with metadata that includes withCDN
-      const metadataWithCDN: MetadataEntry[] = [
-        { key: 'project', value: 'test' },
-        { key: METADATA_KEYS.WITH_CDN, value: '' },
-      ]
-
       await pdpServer.createDataSet(
         1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        metadataWithCDN,
+        {
+          project: 'test',
+          [METADATA_KEYS.WITH_CDN]: '',
+        },
         TEST_CONTRACT_ADDRESS
       )
       assert.isNotNull(capturedMetadata)
@@ -164,13 +152,14 @@ describe('Metadata Support', () => {
 
       // Test with metadata that doesn't include withCDN
       capturedMetadata = null
-      const metadataWithoutCDN: MetadataEntry[] = [{ key: 'project', value: 'test' }]
 
       await pdpServer.createDataSet(
         1n,
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
         '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        metadataWithoutCDN,
+        {
+          project: 'test',
+        },
         TEST_CONTRACT_ADDRESS
       )
       assert.isNotNull(capturedMetadata)

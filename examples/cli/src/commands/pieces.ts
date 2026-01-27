@@ -129,7 +129,7 @@ export const pieces: Command = command(
           rpcURL: RPC_URLS.calibration.http,
         })
         const context = await synapse.storage.createContext({
-          dataSetId: Number(group.dataSetId),
+          dataSetId: group.dataSetId,
         })
         const txHash = await context.deletePiece(piece.cid)
         spinner.message('Waiting for transaction to be mined...')

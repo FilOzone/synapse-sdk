@@ -42,6 +42,8 @@ export interface WarmStorageViewOptions {
  * Warm Storage ABI types
  */
 
+export type addApprovedProvider = ExtractAbiFunction<typeof Abis.storage, 'addApprovedProvider'>
+export type removeApprovedProvider = ExtractAbiFunction<typeof Abis.storage, 'removeApprovedProvider'>
 export type pdpVerifierAddress = ExtractAbiFunction<typeof Abis.storage, 'pdpVerifierAddress'>
 export type paymentsContractAddress = ExtractAbiFunction<typeof Abis.storage, 'paymentsContractAddress'>
 export type usdfcTokenAddress = ExtractAbiFunction<typeof Abis.storage, 'usdfcTokenAddress'>
@@ -51,8 +53,14 @@ export type serviceProviderRegistry = ExtractAbiFunction<typeof Abis.storage, 's
 export type sessionKeyRegistry = ExtractAbiFunction<typeof Abis.storage, 'sessionKeyRegistry'>
 export type getServicePrice = ExtractAbiFunction<typeof Abis.storage, 'getServicePrice'>
 export type owner = ExtractAbiFunction<typeof Abis.storage, 'owner'>
+export type terminateService = ExtractAbiFunction<typeof Abis.storage, 'terminateService'>
+export type topUpCDNPaymentRails = ExtractAbiFunction<typeof Abis.storage, 'topUpCDNPaymentRails'>
 
 export interface WarmStorageOptions {
+  addApprovedProvider?: (args: AbiToType<addApprovedProvider['inputs']>) => AbiToType<addApprovedProvider['outputs']>
+  removeApprovedProvider?: (
+    args: AbiToType<removeApprovedProvider['inputs']>
+  ) => AbiToType<removeApprovedProvider['outputs']>
   pdpVerifierAddress?: (args: AbiToType<pdpVerifierAddress['inputs']>) => AbiToType<pdpVerifierAddress['outputs']>
   paymentsContractAddress?: (
     args: AbiToType<paymentsContractAddress['inputs']>
@@ -68,6 +76,8 @@ export interface WarmStorageOptions {
   sessionKeyRegistry?: (args: AbiToType<sessionKeyRegistry['inputs']>) => AbiToType<sessionKeyRegistry['outputs']>
   getServicePrice?: (args: AbiToType<getServicePrice['inputs']>) => AbiToType<getServicePrice['outputs']>
   owner?: (args: AbiToType<owner['inputs']>) => AbiToType<owner['outputs']>
+  terminateService?: (args: AbiToType<terminateService['inputs']>) => AbiToType<terminateService['outputs']>
+  topUpCDNPaymentRails?: (args: AbiToType<topUpCDNPaymentRails['inputs']>) => AbiToType<topUpCDNPaymentRails['outputs']>
 }
 
 /**
@@ -83,6 +93,24 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
     console.debug('Warm Storage: calling function', functionName, 'with args', args)
   }
   switch (functionName) {
+    case 'addApprovedProvider': {
+      if (!options.warmStorage?.addApprovedProvider) {
+        throw new Error('Warm Storage: addApprovedProvider is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'addApprovedProvider')!.outputs,
+        options.warmStorage.addApprovedProvider(args)
+      )
+    }
+    case 'removeApprovedProvider': {
+      if (!options.warmStorage?.removeApprovedProvider) {
+        throw new Error('Warm Storage: removeApprovedProvider is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'removeApprovedProvider')!.outputs,
+        options.warmStorage.removeApprovedProvider(args)
+      )
+    }
     case 'pdpVerifierAddress': {
       if (!options.warmStorage?.pdpVerifierAddress) {
         throw new Error('Warm Storage: pdpVerifierAddress is not defined')
@@ -169,6 +197,24 @@ export function warmStorageCallHandler(data: Hex, options: JSONRPCOptions): Hex 
       )
     }
 
+    case 'terminateService': {
+      if (!options.warmStorage?.terminateService) {
+        throw new Error('Warm Storage: terminateService is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'terminateService')!.outputs,
+        options.warmStorage.terminateService(args)
+      )
+    }
+    case 'topUpCDNPaymentRails': {
+      if (!options.warmStorage?.topUpCDNPaymentRails) {
+        throw new Error('Warm Storage: topUpCDNPaymentRails is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.storage.find((abi) => abi.type === 'function' && abi.name === 'topUpCDNPaymentRails')!.outputs,
+        options.warmStorage.topUpCDNPaymentRails(args)
+      )
+    }
     default: {
       throw new Error(`Warm Storage: unknown function: ${functionName} with args: ${args}`)
     }

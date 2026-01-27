@@ -1,5 +1,6 @@
 /* globals describe it beforeEach afterEach */
 
+import * as Mocks from '@filoz/synapse-core/mocks'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
 import { SubgraphRetriever } from '../retriever/subgraph.ts'
@@ -117,7 +118,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'piece data')
@@ -128,7 +129,7 @@ describe('SubgraphRetriever', () => {
       // No fetch mock needed if child is fully mocked and service returns no providers
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -149,7 +150,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')
@@ -182,7 +183,7 @@ describe('SubgraphRetriever', () => {
       }
 
       const retriever = new SubgraphRetriever(mockService)
-      await retriever.fetchPiece(mockPieceCID, 'client1', {
+      await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
         providerAddress: mockProvider.serviceProvider,
       })
 
@@ -199,7 +200,7 @@ describe('SubgraphRetriever', () => {
 
       const retriever = new SubgraphRetriever(mockService)
       try {
-        await retriever.fetchPiece(mockPieceCID, 'client1')
+        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -212,7 +213,7 @@ describe('SubgraphRetriever', () => {
 
       const retriever = new SubgraphRetriever(mockService) // No child retriever
       try {
-        await retriever.fetchPiece(mockPieceCID, 'client1')
+        await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
         assert.fail('Should have thrown an error')
       } catch (error: any) {
         assert.include(error.message, 'Failed to retrieve piece')
@@ -225,7 +226,7 @@ describe('SubgraphRetriever', () => {
       const mockService = createMockSubgraphService([])
 
       const retriever = new SubgraphRetriever(mockService, mockChildRetriever)
-      const response = await retriever.fetchPiece(mockPieceCID, 'client1')
+      const response = await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1)
 
       assert.equal(response.status, 200)
       assert.equal(await response.text(), 'data from child')

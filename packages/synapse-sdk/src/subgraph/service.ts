@@ -28,6 +28,7 @@
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { fromHex, toHex } from 'multiformats/bytes'
 import { CID } from 'multiformats/cid'
+import type { Address } from 'viem'
 import { type PDPOffering, PRODUCTS, type ProductType, type ServiceProduct } from '../sp-registry/types.ts'
 import type { PieceCID, ProviderInfo, SubgraphConfig, SubgraphRetrievalService } from '../types.ts'
 import { createError } from '../utils/errors.ts'
@@ -517,7 +518,7 @@ export class SubgraphService implements SubgraphRetrievalService {
    * @param address - The wallet address of the provider to search for.
    * @returns A promise that resolves to an `ProviderInfo` object if the provider is found, or `null` otherwise.
    */
-  async getProviderByAddress(address: string): Promise<ProviderInfo | null> {
+  async getProviderByAddress(address: Address): Promise<ProviderInfo | null> {
     const data = await this.executeQuery<{ provider: any | null }>(
       QUERIES.GET_PROVIDER_BY_ADDRESS,
       { serviceProvider: address },

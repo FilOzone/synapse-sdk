@@ -3,7 +3,7 @@
  */
 
 import * as Abis from '@filoz/synapse-core/abis'
-import { MAX_UPLOAD_SIZE as CORE_MAX_UPLOAD_SIZE } from '@filoz/synapse-core/piece'
+import { SIZE_CONSTANTS as CORE_SIZE_CONSTANTS } from '@filoz/synapse-core/utils'
 import { erc20Abi, multicall3Abi } from 'viem'
 import type { FilecoinNetworkType } from '../types.ts'
 
@@ -193,7 +193,7 @@ export const SIZE_CONSTANTS = {
    *
    * Imported from @filoz/synapse-core/piece
    */
-  MAX_UPLOAD_SIZE: CORE_MAX_UPLOAD_SIZE,
+  MAX_UPLOAD_SIZE: CORE_SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
 
   /**
    * Minimum upload size (127 bytes)

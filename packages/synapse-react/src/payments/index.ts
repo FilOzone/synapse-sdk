@@ -26,7 +26,7 @@ import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useBlock, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-interface UseAccountInfoProps extends SetOptional<AccountInfoOptions, 'address'> {
+export interface UseAccountInfoProps extends SetOptional<AccountInfoOptions, 'address'> {
   /**
    * Whether to watch blocks.
    * @default false
@@ -109,8 +109,8 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
   return result
 }
 
-type UseDepositVariables = Pick<DepositOptions, 'amount'>
-interface UseDepositProps extends Omit<DepositOptions, 'amount'> {
+export type UseDepositVariables = Pick<DepositOptions, 'amount'>
+export interface UseDepositProps extends Omit<DepositOptions, 'amount'> {
   /**
    * The mutation options.
    */
@@ -170,8 +170,8 @@ export function useDeposit(props?: UseDepositProps) {
   })
 }
 
-type UseWithdrawVariables = Pick<WithdrawOptions, 'amount'>
-type UseWithdrawProps = Omit<WithdrawOptions, 'amount'> & {
+export type UseWithdrawVariables = Pick<WithdrawOptions, 'amount'>
+export type UseWithdrawProps = Omit<WithdrawOptions, 'amount'> & {
   mutation?: Omit<MutateOptions<TransactionReceipt, Error, UseWithdrawVariables>, 'mutationFn'>
   onHash?: (hash: string) => void
 }
@@ -219,7 +219,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
   })
 }
 
-type ApproveOperatorProps =
+export type ApproveOperatorProps =
   | {
       /**
        * The address of the operator to approve.
@@ -242,11 +242,7 @@ type ApproveOperatorProps =
 /**
  * Approve a service contract to act as an operator for payment rails.
  *
- * @param props - The props for the deposit.
- * @param props.operator - The address of the operator to approve.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link ApproveOperatorProps}
  * @returns The deposit mutation.
  */
 export function useApproveOperator(props?: ApproveOperatorProps) {
@@ -288,7 +284,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
   })
 }
 
-type RevokeOperatorProps =
+export type RevokeOperatorProps =
   | {
       /**
        * The address of the operator to revoke.
@@ -304,6 +300,9 @@ type RevokeOperatorProps =
        * The mutation options.
        */
       mutation?: Omit<MutateOptions<TransactionReceipt, Error>, 'mutationFn'>
+      /**
+       * The callback to call when the hash is available.
+       */
       onHash?: (hash: string) => void
     }
   | undefined
@@ -311,11 +310,7 @@ type RevokeOperatorProps =
 /**
  * Revoke the operator to deposit and withdraw ERC20 tokens from the payments contract.
  *
- * @param props - The props for the deposit.
- * @param props.operator - The address of the operator to approve.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link RevokeOperatorProps}
  * @returns The deposit mutation.
  */
 export function useRevokeOperator(props?: RevokeOperatorProps) {
