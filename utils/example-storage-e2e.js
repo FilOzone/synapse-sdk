@@ -123,7 +123,7 @@ async function main() {
       console.log(`USDFC Address: ${USDFC_ADDRESS}`)
     }
     if (ENDORSEMENTS_ADDRESS) {
-      console.log(`Endorsements Address: ${ENDORSEMENT_ADDRESS}`)
+      console.log(`Endorsements Address: ${ENDORSEMENTS_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)
