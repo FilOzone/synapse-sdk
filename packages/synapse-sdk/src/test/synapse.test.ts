@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
-import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
+import { type Address, isAddressEqual, parseUnits } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
 import type { StorageContext } from '../storage/context.ts'
@@ -334,7 +334,7 @@ describe('Synapse', () => {
       const providerInfo = await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
 
       assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, Mocks.ADDRESSES.serviceProvider1))
-      assert.equal(providerInfo.products.PDP?.data.serviceURL, 'https://pdp.example.com')
+      assert.equal(providerInfo.pdp.serviceURL, 'https://pdp.example.com')
     })
 
     it('should throw for invalid provider address', async () => {
@@ -354,27 +354,16 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: true,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
-            getProviderByAddress: () => [
-              {
-                providerId: 0n,
-                info: {
-                  serviceProvider: ethers.ZeroAddress as `0x${string}`,
-                  payee: ethers.ZeroAddress as `0x${string}`,
-                  name: '',
-                  description: '',
-                  isActive: false,
-                },
-              },
-            ],
           },
         })
       )
 
       try {
         const synapse = await Synapse.create({ signer })
-        await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
+        await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not found in registry')
@@ -387,25 +376,13 @@ describe('Synapse', () => {
           ...Mocks.presets.basic,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
-            getProviderByAddress: () => [
-              {
-                providerId: 0n,
-                info: {
-                  serviceProvider: Mocks.ADDRESSES.zero,
-                  payee: Mocks.ADDRESSES.zero,
-                  name: '',
-                  description: '',
-                  isActive: false,
-                },
-              },
-            ],
           },
         })
       )
 
       try {
         const synapse = await Synapse.create({ signer })
-        await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
+        await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
         assert.include(error.message, 'not found')
@@ -508,11 +485,12 @@ describe('Synapse', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
-            getProviderByAddress: (data) => {
+            getProviderIdByAddress: (data) => {
               providerAddressReceived = data[0]
-              return Mocks.presets.basic.serviceRegistry.getProviderByAddress(data)
+              return [1n]
             },
           },
         }),
@@ -627,82 +605,6 @@ describe('Synapse', () => {
         rateUsed: 0n,
         lockupUsed: 0n,
       })
-    })
-
-    it('should filter out zero address providers', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: {
-            ...Mocks.presets.basic.serviceRegistry,
-            getProviderWithProduct: (data) => {
-              const [providerId] = data
-              if (providerId === 1n) {
-                return [
-                  {
-                    providerId,
-                    providerInfo: {
-                      serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                      payee: Mocks.ADDRESSES.payee1,
-                      isActive: true,
-                      name: 'Test Provider',
-                      description: 'Test Provider',
-                    },
-                    product: {
-                      productType: 0,
-                      capabilityKeys: [
-                        'serviceURL',
-                        'minPieceSizeInBytes',
-                        'maxPieceSizeInBytes',
-                        'storagePricePerTibPerDay',
-                        'minProvingPeriodInEpochs',
-                        'location',
-                        'paymentTokenAddress',
-                      ],
-                      isActive: true,
-                    },
-                    productCapabilityValues: [
-                      stringToHex('https://pdp.example.com'),
-                      bytesToHex(numberToBytes(1024n)),
-                      bytesToHex(numberToBytes(1024n)),
-                      bytesToHex(numberToBytes(1000000n)),
-                      bytesToHex(numberToBytes(2880n)),
-                      stringToHex('US'),
-                      Mocks.ADDRESSES.calibration.usdfcToken,
-                    ],
-                  },
-                ]
-              }
-              return [
-                {
-                  providerId: 0n,
-                  providerInfo: {
-                    serviceProvider: Mocks.ADDRESSES.zero,
-                    payee: Mocks.ADDRESSES.zero,
-                    isActive: false,
-                    name: '',
-                    description: '',
-                    providerId: 0n,
-                  },
-                  product: {
-                    productType: 0,
-                    capabilityKeys: [],
-                    isActive: false,
-                  },
-                  productCapabilityValues: [] as Hex[],
-                },
-              ]
-            },
-          },
-        })
-      )
-
-      const synapse = await Synapse.create({ signer })
-      const storageInfo = await synapse.getStorageInfo()
-
-      // Should filter out zero address provider
-      assert.equal(storageInfo.providers.length, 1)
-      assert.equal(storageInfo.providers[0].serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
 
     it('should handle contract call failures', async () => {
