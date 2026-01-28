@@ -2,7 +2,8 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { PieceCID, ProviderInfo } from '../types.ts'
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import type { PieceCID } from '../types.ts'
 import { createError } from '../utils/errors.ts'
 import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
 
@@ -21,7 +22,7 @@ interface ProviderAttemptResult {
  * @returns The first successful response
  */
 export async function fetchPiecesFromProviders(
-  providers: ProviderInfo[],
+  providers: PDPProvider[],
   pieceCid: PieceCID,
   retrieverName: string,
   signal?: AbortSignal
@@ -55,10 +56,10 @@ export async function fetchPiecesFromProviders(
 
     try {
       // Phase 1: Check if provider has the piece
-      if (!provider.products.PDP?.data.serviceURL) {
+      if (!provider.pdp.serviceURL) {
         throw new Error(`Provider ${provider.id} does not have PDP product with serviceURL`)
       }
-      const findUrl = constructFindPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
+      const findUrl = constructFindPieceUrl(provider.pdp.serviceURL, pieceCid)
       const findResponse = await fetch(findUrl, {
         signal: controller.signal,
       })
@@ -73,7 +74,7 @@ export async function fetchPiecesFromProviders(
       }
 
       // Phase 2: Provider has piece, download it
-      const downloadUrl = constructPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
+      const downloadUrl = constructPieceUrl(provider.pdp.serviceURL, pieceCid)
       const response = await fetch(downloadUrl, {
         signal: controller.signal,
       })

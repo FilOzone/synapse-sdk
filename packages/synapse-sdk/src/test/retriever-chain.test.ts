@@ -51,7 +51,7 @@ describe('ChainRetriever', () => {
       transport: viemHttp(),
     })
     warmStorage = await WarmStorageService.create(publicClient)
-    spRegistry = await SPRegistryService.create(provider, Mocks.ADDRESSES.calibration.spRegistry)
+    spRegistry = await SPRegistryService.create(publicClient, provider, Mocks.ADDRESSES.calibration.spRegistry)
   })
 
   describe('fetchPiece with specific provider', () => {
@@ -121,6 +121,7 @@ describe('ChainRetriever', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
             getProviderByAddress: () => [
@@ -143,11 +144,11 @@ describe('ChainRetriever', () => {
 
       try {
         await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
-          providerAddress: '0xNotApproved',
+          providerAddress: Mocks.ADDRESSES.client1,
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider 0xNotApproved not found in registry')
+        assert.include(error.message, `Provider ${Mocks.ADDRESSES.client1} not found in registry`)
       }
     })
   })
