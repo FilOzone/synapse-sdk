@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts'
-import { readProviders } from '@filoz/synapse-core/warm-storage'
+import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
 import { publicClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
@@ -55,8 +55,8 @@ export const getSpPeerIds: Command = command(
 async function fetchProviderPeerIds(
   client: ReturnType<typeof publicClient>
 ): Promise<ProviderEntry[]> {
-  const pdpProviders = await readProviders(client)
-  return pdpProviders.map<ProviderEntry>((provider) => ({
+  const result = await getPDPProviders(client)
+  return result.providers.map<ProviderEntry>((provider) => ({
     providerId: provider.id,
     name: provider.name,
     ipniPeerID: provider.pdp.ipniPeerID,
