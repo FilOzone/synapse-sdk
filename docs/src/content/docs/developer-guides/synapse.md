@@ -32,7 +32,7 @@ import {
   Synapse,
   SynapseOptions,
   StorageInfo,
-  ProviderInfo,
+  PDPProvider,
   FilecoinNetworkType,
 } from "@filoz/synapse-sdk"
 import { ethers } from "ethers"
@@ -47,7 +47,7 @@ interface SynapseAPI {
   storage: StorageManager
   // Storage Information (pricing, providers, service parameters, allowances)
   getStorageInfo(): Promise<StorageInfo>
-  getProviderInfo(providerAddress: string): Promise<ProviderInfo>
+  getProviderInfo(providerAddress: string): Promise<PDPProvider>
   // Network Information
   getNetwork(): FilecoinNetworkType
   getChainId(): number
