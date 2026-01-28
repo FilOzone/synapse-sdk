@@ -152,6 +152,7 @@
     "test:node": "wireit",
     "test:browser": "wireit",
     "lint": "wireit",
+    "lint:fix": "biome check --fix .",
     "update:msw": "pnpx msw init test/mocks/ --save"
   },
   "wireit": {
@@ -195,7 +196,7 @@
       "output": []
     },
     "lint": {
-      "command": "biome check --fix .",
+      "command": "biome check .",
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",

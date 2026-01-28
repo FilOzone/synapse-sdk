@@ -25,6 +25,11 @@ export namespace balance {
      * The address of the account to query.
      */
     address: Address
+    /**
+     * The address of the spender to query.
+     * If not provided, the Filcoin Pay contract address will be used.
+     */
+    spender?: Address
   }
 
   export type OutputType = {
@@ -75,7 +80,7 @@ export async function balance(
         address: token,
         abi: erc20Abi,
         functionName: 'allowance',
-        args: [options.address, chain.contracts.payments.address],
+        args: [options.address, options.spender ?? chain.contracts.payments.address],
       },
     ],
   })

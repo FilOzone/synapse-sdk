@@ -21,7 +21,7 @@ import { createError, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
  */
 export interface DepositOptions {
   /** Optional recipient address (defaults to signer address if not provided) */
-  to?: string
+  to?: Address
   /** Called when checking current allowance */
   onAllowanceCheck?: (current: bigint, required: bigint) => void
   /** Called when approval transaction is sent */
@@ -150,7 +150,8 @@ export class PaymentsService {
 
     try {
       const balance = await ERC20.balance(this._client, {
-        address: spender,
+        address: this._client.account.address,
+        spender,
       })
       return balance.allowance
     } catch (error) {
@@ -275,9 +276,12 @@ export class PaymentsService {
    * Get the operator approval status and allowances for a service
    * @param service - The service contract address to check
    * @param token - The token to check approval for (defaults to USDFC)
-   * @returns Approval status and allowances
+   * @returns Approval status and allowances {@link Pay.operatorApprovals.OutputType}
    */
-  async serviceApproval(service: Address, token: TokenIdentifier = TOKENS.USDFC) {
+  async serviceApproval(
+    service: Address,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<Pay.operatorApprovals.OutputType> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -349,6 +353,7 @@ export class PaymentsService {
 
     const depositTx = await Pay.deposit(this._client, {
       amount,
+      to: options?.to,
     })
 
     return depositTx
@@ -515,17 +520,23 @@ export class PaymentsService {
    * @throws Error if untilEpoch is in the future (contract reverts with CannotSettleFutureEpochs)
    */
   async settle(railId: bigint, untilEpoch?: bigint): Promise<Hash> {
+    const _untilEpoch =
+      untilEpoch ??
+      (await getBlockNumber(this._client, {
+        cacheTime: 0,
+      }))
+
     try {
       const hash = await Pay.settleRail(this._client, {
         railId,
-        untilEpoch,
+        untilEpoch: _untilEpoch,
       })
       return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
         'settle',
-        `Failed to settle rail ${railId.toString()} up to epoch ${untilEpoch?.toString()}`,
+        `Failed to settle rail ${railId.toString()} up to epoch ${_untilEpoch.toString()}`,
         error
       )
     }
@@ -540,16 +551,19 @@ export class PaymentsService {
    * @returns Settlement result with amounts and details
    */
   async getSettlementAmounts(railId: bigint, untilEpoch?: bigint): Promise<SettlementResult> {
-    const currentEpoch = await getBlockNumber(this._client, {
-      cacheTime: 0,
-    })
+    const _untilEpoch =
+      untilEpoch ??
+      (await getBlockNumber(this._client, {
+        cacheTime: 0,
+      }))
+
     try {
       // Use staticCall to simulate the transaction and get the return values
       const { result } = await simulateContract(
         this._client,
         Pay.settleRailCall({
           railId,
-          untilEpoch: untilEpoch ?? currentEpoch,
+          untilEpoch: _untilEpoch,
           chain: this._client.chain,
         })
       )
@@ -566,7 +580,7 @@ export class PaymentsService {
       throw createError(
         'PaymentsService',
         'getSettlementAmounts',
-        `Failed to get settlement amounts for rail ${railId.toString()} up to epoch ${untilEpoch?.toString()}`,
+        `Failed to get settlement amounts for rail ${railId.toString()} up to epoch ${_untilEpoch.toString()}`,
         error
       )
     }
