@@ -11,6 +11,7 @@ import {
   multicall3Abi,
   numberToBytes,
   numberToHex,
+  parseEther,
   parseUnits,
   stringToHex,
 } from 'viem'
@@ -162,7 +163,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       return options.eth_sendRawTransaction(params)
     }
     case 'eth_call': {
-      const { to, data } = params[0]
+      const { to, data, value, from } = params[0]
 
       if (
         isAddressEqual(ADDRESSES.calibration.warmStorage, to as Address) ||
@@ -176,7 +177,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
 
       if (isAddressEqual(ADDRESSES.calibration.spRegistry, to as Address)) {
-        return serviceProviderRegistryCallHandler(data as Hex, options)
+        return serviceProviderRegistryCallHandler(data as Hex, value as Hex, from as Address, options)
       }
 
       if (isAddressEqual(ADDRESSES.calibration.sessionKeyRegistry, to as Address)) {
@@ -503,6 +504,12 @@ export const presets = {
       getScheduledRemovals: () => [[]],
     },
     serviceRegistry: {
+      registerProvider: () => [1n],
+      updateProviderInfo: () => [],
+      removeProvider: () => [],
+      addProduct: () => [],
+      updateProduct: () => [],
+      removeProduct: () => [],
       getProviderByAddress: (data) => [
         {
           providerId: 1n,
@@ -515,7 +522,16 @@ export const presets = {
           },
         },
       ],
-      getProviderIdByAddress: () => [1n],
+      getProviderIdByAddress: (data) => {
+        const address = data[0]
+        if (address.toLowerCase() === ADDRESSES.serviceProvider1.toLowerCase()) {
+          return [1n]
+        }
+        if (address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase()) {
+          return [2n]
+        }
+        return [0n]
+      },
       getProvider: (data) => {
         if (data[0] === 1n) {
           return [
@@ -560,6 +576,7 @@ export const presets = {
       },
       getAllActiveProviders: () => [[1n, 2n], false],
       getProviderCount: () => [2n],
+      activeProviderCount: () => [2n],
       isProviderActive: (data) => {
         const providerId = data[0]
         return [providerId === 1n || providerId === 2n]
@@ -571,7 +588,7 @@ export const presets = {
             address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase(),
         ]
       },
-      REGISTRATION_FEE: () => 0n,
+      REGISTRATION_FEE: () => parseEther('5'),
       getProvidersByProductType: () => [
         {
           providers: [
@@ -669,26 +686,7 @@ export const presets = {
             description: 'Test Provider',
           }
         } else {
-          // TODO throw if !providerExists
-          providerInfo = {
-            serviceProvider: ADDRESSES.zero,
-            payee: ADDRESSES.zero,
-            name: '',
-            description: '',
-            isActive: false,
-          }
-          return [
-            {
-              providerId,
-              providerInfo,
-              product: {
-                productType: 0,
-                capabilityKeys: [],
-                isActive: false,
-              },
-              productCapabilityValues: [] as Hex[],
-            },
-          ]
+          throw new Error('Provider not found')
         }
         return [
           {
