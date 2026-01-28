@@ -13,9 +13,12 @@ import type { ProviderInfo } from './sp-registry/types.ts'
 // Re-export PieceCID and ProviderInfo types
 export type { PieceCID, ProviderInfo }
 export type PrivateKey = string
-export type TokenAmount = number | bigint
+export type TokenAmount = bigint
 export type DataSetId = bigint
 export type ServiceProvider = Address
+
+export type { RailInfo } from '@filoz/synapse-core/pay'
+export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
 
 /**
  * Supported Filecoin network types
@@ -64,13 +67,13 @@ export interface SynapseOptions {
   /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
   disableNonceManager?: boolean
   /** Override Warm Storage service contract address (defaults to network's default) */
-  warmStorageAddress?: string
+  warmStorageAddress?: Address
   /** Override Multicall3 contract address (required for devnet) */
-  multicall3Address?: string
+  multicall3Address?: Address
   /** Override USDFC token address (optional, useful for devnet) */
-  usdfcAddress?: string
+  usdfcAddress?: Address
   /** Override Endorsements contract address (required for devnet) */
-  endorsementsAddress?: string
+  endorsementsAddress?: Address
   // Subgraph Integration (provide ONE of these options)
   /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
   subgraphService?: SubgraphRetrievalService
@@ -239,18 +242,6 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   withCDN: boolean
   /** Metadata associated with this data set (key-value pairs) */
   metadata: Record<string, string>
-}
-
-/**
- * Information about a payment rail
- */
-export interface RailInfo {
-  /** Rail ID */
-  railId: number
-  /** Whether the rail is terminated */
-  isTerminated: boolean
-  /** End epoch (0 if not terminated) */
-  endEpoch: number
 }
 
 /**
@@ -472,7 +463,7 @@ export interface StorageInfo {
       perTiBPerEpoch: bigint
     }
     /** Token contract address */
-    tokenAddress: string
+    tokenAddress: Address
     /** Token symbol (always USDFC for now) */
     tokenSymbol: string
   }
@@ -495,11 +486,11 @@ export interface StorageInfo {
     /** Maximum allowed upload size in bytes */
     maxUploadSize: number
     /** Warm Storage service contract address */
-    warmStorageAddress: string
+    warmStorageAddress: Address
     /** Payments contract address */
-    paymentsAddress: string
+    paymentsAddress: Address
     /** PDP Verifier contract address */
-    pdpVerifierAddress: string
+    pdpVerifierAddress: Address
   }
 
   /** Current user allowances (null if wallet not connected) */
@@ -507,7 +498,7 @@ export interface StorageInfo {
     /** Whether the service operator is approved to act on behalf of the wallet */
     isApproved: boolean
     /** Service contract address */
-    service: string
+    service: Address
     /** Maximum payment rate per epoch allowed */
     rateAllowance: bigint
     /** Maximum lockup amount allowed */
@@ -581,9 +572,4 @@ export interface ProviderSelectionResult {
   isExisting?: boolean
   /** Data set metadata */
   dataSetMetadata: Record<string, string>
-}
-
-export type MetadataEntry = {
-  key: string
-  value: string
 }

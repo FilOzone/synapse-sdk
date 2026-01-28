@@ -32,13 +32,13 @@ export class Synapse {
   private readonly _withCDN: boolean
   private readonly _payments: PaymentsService
   private readonly _provider: ethers.Provider
-  private readonly _warmStorageAddress: string
+  private readonly _warmStorageAddress: Address
   private readonly _warmStorageService: WarmStorageService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _storageManager: StorageManager
   private readonly _filbeamService: FilBeamService
   private _session: SessionKey | null = null
-  private readonly _multicall3Address: string
+  private readonly _multicall3Address: Address
 
   connectorClient: Client<Transport, Chain, Account>
 
@@ -160,16 +160,7 @@ export class Synapse {
     const warmStorageService = await WarmStorageService.create(connectorClient)
 
     // Create payments service with discovered addresses
-    const paymentsAddress = warmStorageService.getPaymentsAddress()
-    const usdfcAddress = options.usdfcAddress ?? warmStorageService.getUSDFCTokenAddress()
-    const payments = new PaymentsService(
-      provider,
-      signer,
-      paymentsAddress,
-      usdfcAddress,
-      options.disableNonceManager === true,
-      multicall3Address
-    )
+    const payments = new PaymentsService(connectorClient)
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
@@ -225,14 +216,14 @@ export class Synapse {
     payments: PaymentsService,
     withCDN: boolean,
     connectorClient: Client<Transport, Chain, Account>,
-    warmStorageAddress: string,
+    warmStorageAddress: Address,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,
     filbeamService: FilBeamService,
     endorsementsService: EndorsementsService,
     dev: boolean,
     withIpni: boolean | undefined,
-    multicall3Address: string
+    multicall3Address: Address
   ) {
     this._signer = signer
     this._provider = provider
@@ -351,7 +342,7 @@ export class Synapse {
    * Gets the Warm Storage service address for the current network
    * @returns The Warm Storage service address
    */
-  getWarmStorageAddress(): string {
+  getWarmStorageAddress(): Address {
     return this._warmStorageAddress
   }
 
@@ -359,7 +350,7 @@ export class Synapse {
    * Gets the Payments contract address for the current network
    * @returns The Payments contract address
    */
-  getPaymentsAddress(): string {
+  getPaymentsAddress(): Address {
     return this._warmStorageService.getPaymentsAddress()
   }
 
@@ -367,7 +358,7 @@ export class Synapse {
    * Gets the PDPVerifier contract address for the current network
    * @returns The PDPVerifier contract address
    */
-  getPDPVerifierAddress(): string {
+  getPDPVerifierAddress(): Address {
     return this._warmStorageService.getPDPVerifierAddress()
   }
 

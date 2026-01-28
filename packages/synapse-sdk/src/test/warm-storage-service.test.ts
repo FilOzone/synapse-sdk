@@ -7,7 +7,6 @@
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { type Address, createWalletClient, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -24,8 +23,6 @@ const walletClient = createWalletClient({
 })
 
 describe('WarmStorageService', () => {
-  let provider: ethers.Provider
-  let signer: ethers.Signer
   let paymentsService: PaymentsService
 
   // Helper to create WarmStorageService with factory pattern
@@ -42,16 +39,7 @@ describe('WarmStorageService', () => {
   })
 
   beforeEach(() => {
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
-    paymentsService = new PaymentsService(
-      provider,
-      signer,
-      Mocks.ADDRESSES.calibration.payments,
-      Mocks.ADDRESSES.calibration.usdfcToken,
-      false,
-      null
-    )
+    paymentsService = new PaymentsService(walletClient)
     server.resetHandlers()
   })
 
@@ -900,8 +888,8 @@ describe('WarmStorageService', () => {
             isApproved: false,
             rateAllowance: 0n,
             lockupAllowance: 0n,
-            rateUsed: 0n,
-            lockupUsed: 0n,
+            rateUsage: 0n,
+            lockupUsage: 0n,
           }),
           accountInfo: async () => ({
             funds: parseUnits('10000', 18),
@@ -962,8 +950,8 @@ describe('WarmStorageService', () => {
             isApproved: false,
             rateAllowance: 0n,
             lockupAllowance: 0n,
-            rateUsed: 0n,
-            lockupUsed: 0n,
+            rateUsage: 0n,
+            lockupUsage: 0n,
           }),
           accountInfo: async () => ({
             funds: parseUnits('0.001', 18), // Very low balance
@@ -1017,8 +1005,8 @@ describe('WarmStorageService', () => {
             isApproved: true,
             rateAllowance: parseUnits('1000', 18),
             lockupAllowance: parseUnits('100000', 18),
-            rateUsed: 0n,
-            lockupUsed: 0n,
+            rateUsage: 0n,
+            lockupUsage: 0n,
           }),
           accountInfo: async () => ({
             funds: parseUnits('10000', 18),

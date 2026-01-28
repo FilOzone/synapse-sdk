@@ -1,4 +1,5 @@
 import type { Account, Chain, Client, Transport } from 'viem'
+import { asChain } from '../chains.ts'
 import * as Piece from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
@@ -28,6 +29,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
   const dataSet = await getDataSet(client, {
     dataSetId: options.dataSetId,
   })
+  const chain = asChain(client.chain)
 
   const uploadResponses = await Promise.all(
     options.data.map(async (file: File) => {
@@ -37,7 +39,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
         pieceCid.toString(),
         dataSet.cdn,
         client.account.address,
-        client.chain.id,
+        chain,
         dataSet.pdp.serviceURL
       )
 

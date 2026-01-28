@@ -6,7 +6,7 @@
   "private": true,
   "main": "src/index.ts",
   "scripts": {
-    "lint": "tsc && biome check --no-errors-on-unmatched .",
+    "lint": "tsc && biome check --fix .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

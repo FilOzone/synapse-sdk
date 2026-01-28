@@ -7,8 +7,8 @@ export namespace getActivePieceCount {
   export type OptionsType = {
     /** The ID of the data set to get the active piece count for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = bigint
@@ -33,7 +33,7 @@ export async function getActivePieceCount(
     getActivePieceCountCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return data
@@ -43,8 +43,8 @@ export namespace getActivePieceCountCall {
   export type OptionsType = {
     /** The ID of the data set to get the active piece count for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the active piece count. */
     chain: Chain
   }
@@ -66,7 +66,7 @@ export function getActivePieceCountCall(options: getActivePieceCountCall.Options
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.pdp.abi,
-    address: options.address ?? chain.contracts.pdp.address,
+    address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'getActivePieceCount',
     args: [options.dataSetId],
   } satisfies getActivePieceCountCall.OutputType

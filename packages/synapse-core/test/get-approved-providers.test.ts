@@ -57,7 +57,7 @@ describe('getApprovedProviders', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = getApprovedProvidersCall({
         chain: calibration,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

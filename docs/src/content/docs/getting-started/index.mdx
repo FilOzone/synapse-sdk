@@ -70,7 +70,17 @@ Get started with storage in just a few lines of code.
 
 ```ts twoslash
 import { Synapse, RPC_URLS, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk"
-import { ethers } from "ethers"
+import { createWalletClient, http, parseUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
 
 async function main() {
   // 1) Initialize the Synapse SDK
@@ -82,15 +92,11 @@ async function main() {
   })
 
   // 2) Fund & approve (single tx)
-  const depositAmount = ethers.parseUnits("2.5", 18)
-  const tx = await synapse.payments.depositWithPermitAndApproveOperator(
+  const depositAmount = parseUnits("2.5", 18)
+  const hash = await synapse.payments.depositWithPermitAndApproveOperator(
     depositAmount, // 2.5 USDFC (covers 1TiB of storage for 30 days)
-    synapse.getWarmStorageAddress(),
-    ethers.MaxUint256,
-    ethers.MaxUint256,
-    TIME_CONSTANTS.EPOCHS_PER_MONTH,
   )
-  await tx.wait()
+  await waitForTransactionReceipt(client, { hash })
   console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 
   // 3) Upload
@@ -155,30 +161,32 @@ To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduct
 
 ```ts twoslash
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
 import { TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
+import { createWalletClient, http, parseUnits, formatUnits} from 'viem'
+import { waitForTransactionReceipt } from 'viem/actions'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration } from '@filoz/synapse-core/chains'
+
+const account = privateKeyToAccount('0x...')
+const client = createWalletClient({
+  account,
+  chain: calibration,
+  transport: http(),
+})
+
+const synapse = await Synapse.create({});
+
 // ---cut---
 // Check current USDFC balance
 const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
-const formattedBalance = ethers.formatUnits(walletBalance, 18);
-
-const depositAmount = ethers.parseUnits("2.5", 18) // 2.5 USDFC
-
-// Validate sufficient balance before proceeding
-if (walletBalance < depositAmount) {
-  throw new Error("Insufficient USDFC balance in wallet");
-}
+const formattedBalance = formatUnits(walletBalance, 18);
+const depositAmount = parseUnits("2.5", 18) // 2.5 USDFC
 
 // Deposit USDFC for payment and approve Warm Storage service
-const tx = await synapse.payments.depositWithPermitAndApproveOperator(
+const hash = await synapse.payments.depositWithPermitAndApproveOperator(
   depositAmount, // Deposit amount: 2.5 USDFC (covers 1TiB of storage for 30 days)
-  synapse.getWarmStorageAddress(), // Warm Storage service address
-  ethers.MaxUint256, // Rate allowance: Always max (only in Warm Storage service) permisionless audited service
-  ethers.MaxUint256, // Lockup allowance: Always max (only in Warm Storage service) permissionless audited service
-  TIME_CONSTANTS.EPOCHS_PER_MONTH, // Max lockup period: 30 days (in epochs)
 );
-await tx.wait();
+await waitForTransactionReceipt(client, { hash });
 console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 ```
 

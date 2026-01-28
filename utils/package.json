@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "lint": "biome check --no-errors-on-unmatched --files-ignore-unknown=true ."
+    "lint": "biome check --fix ."
   },
   "dependencies": {
     "@filoz/synapse-sdk": "workspace:*",

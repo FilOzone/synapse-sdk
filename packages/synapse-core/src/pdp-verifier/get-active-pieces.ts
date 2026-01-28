@@ -19,8 +19,8 @@ export namespace getActivePieces {
     offset?: bigint
     /** The limit for pagination. @default 100n */
     limit?: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
   }
 
   /**
@@ -74,7 +74,7 @@ export async function getActivePieces(
       dataSetId: options.dataSetId,
       offset: options.offset,
       limit: options.limit,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return [piecesData, pieceIds, hasMore]
@@ -88,8 +88,8 @@ export namespace getActivePiecesCall {
     offset?: bigint
     /** The limit for pagination. @default 100n */
     limit?: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the active pieces. */
     chain: Chain
   }
@@ -131,7 +131,7 @@ export function getActivePiecesCall(options: getActivePiecesCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.pdp.abi,
-    address: options.address ?? chain.contracts.pdp.address,
+    address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'getActivePieces',
     args: [options.dataSetId, options.offset ?? 0n, options.limit ?? 100n],
   } satisfies getActivePiecesCall.OutputType

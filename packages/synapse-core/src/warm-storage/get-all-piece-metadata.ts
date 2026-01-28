@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -18,8 +19,8 @@ export namespace getAllPieceMetadata {
     dataSetId: bigint
     /** The ID of the piece to get metadata for. */
     pieceId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
+    /** FilecoinWarmStorage contract address. If not provided, the default is the storage view contract address for the chain. */
+    contractAddress?: Address
   }
   export type ContractOutputType = ContractFunctionReturnType<
     typeof storageViewAbi,
@@ -73,23 +74,19 @@ export async function getAllPieceMetadata(
       chain: client.chain,
       dataSetId: options.dataSetId,
       pieceId: options.pieceId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return formatAllPieceMetadata(data)
 }
 
 export namespace getAllPieceMetadataCall {
-  export type OptionsType = {
-    /** The ID of the data set the piece belongs to. */
-    dataSetId: bigint
-    /** The ID of the piece to get metadata for. */
-    pieceId: bigint
-    /** The address of the storage view contract. If not provided, the default is the storage view contract address for the chain. */
-    address?: Address
-    /** The chain to use to get the piece metadata. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getAllPieceMetadata.OptionsType & {
+      /** The chain to use to get the piece metadata. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllPieceMetadata'>
@@ -134,7 +131,7 @@ export function getAllPieceMetadataCall(options: getAllPieceMetadataCall.Options
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storageView.abi,
-    address: options.address ?? chain.contracts.storageView.address,
+    address: options.contractAddress ?? chain.contracts.storageView.address,
     functionName: 'getAllPieceMetadata',
     args: [options.dataSetId, options.pieceId],
   } satisfies getAllPieceMetadataCall.OutputType

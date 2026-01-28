@@ -13,6 +13,7 @@ import { type AbortError, HttpError, type NetworkError, request, TimeoutError } 
 import type { ToString } from 'multiformats'
 import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
+import type { Chain } from './chains.ts'
 import {
   AddPiecesError,
   CreateDataSetError,
@@ -316,8 +317,8 @@ export namespace getPiecesForDataSet {
     endpoint: string
     /** The ID of the data set. */
     dataSetId: bigint
-    /** The chain ID. */
-    chainId: number
+    /** The chain. */
+    chain: Chain
     /** The address of the user. */
     address: Address
     /** Whether the CDN is enabled. */
@@ -341,7 +342,7 @@ export async function getPiecesForDataSet(
   const pieces = dataSet.pieces.map((piece) => ({
     pieceCid: piece.pieceCid,
     pieceId: piece.pieceId,
-    pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chainId, options.endpoint),
+    pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chain, options.endpoint),
     subPieceCid: piece.subPieceCid,
     subPieceOffset: piece.subPieceOffset,
   }))

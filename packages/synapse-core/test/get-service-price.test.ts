@@ -47,7 +47,7 @@ describe('getServicePrice', () => {
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = getServicePriceCall({
         chain: calibration,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

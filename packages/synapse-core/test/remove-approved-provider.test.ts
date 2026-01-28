@@ -54,7 +54,7 @@ describe('removeApprovedProvider', () => {
         chain: calibration,
         providerId: 1n,
         index: 0n,
-        address: customAddress,
+        contractAddress: customAddress,
       })
 
       assert.equal(call.address, customAddress)

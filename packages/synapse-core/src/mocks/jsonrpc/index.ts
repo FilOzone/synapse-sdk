@@ -203,7 +203,10 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
 
       // Handle ERC20 token calls (including USDFC)
-      if (isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address)) {
+      if (
+        isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address) ||
+        isAddressEqual(ADDRESSES.customToken, to as Address)
+      ) {
         return erc20CallHandler(data as Hex, options)
       }
 
@@ -731,6 +734,7 @@ export const presets = {
       approve: () => [true],
       version: () => [encodeAbiParameters([{ type: 'string' }], ['1'])],
       nonces: () => [0n],
+      symbol: () => [encodeAbiParameters([{ type: 'string' }], ['USDFC'])],
     },
     payments: {
       operatorApprovals: () => [
@@ -741,6 +745,12 @@ export const presets = {
         5000000n, // lockupUsed
         86400n, // maxLockupPeriod
       ],
+      setOperatorApproval: () => [],
+      withdraw: () => [],
+      withdrawTo: () => [],
+      deposit: () => [],
+      depositWithPermit: () => [],
+      depositWithPermitAndApproveOperator: () => [],
       accounts: () => [
         parseUnits('500', 18), // funds
         0n, // lockupCurrent

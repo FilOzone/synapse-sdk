@@ -7,8 +7,8 @@ export namespace getDataSetListener {
   export type OptionsType = {
     /** The ID of the data set to get the listener for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = Address
@@ -33,7 +33,7 @@ export async function getDataSetListener(
     getDataSetListenerCall({
       chain: client.chain,
       dataSetId: options.dataSetId,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
   return data
@@ -43,8 +43,8 @@ export namespace getDataSetListenerCall {
   export type OptionsType = {
     /** The ID of the data set to get the listener for. */
     dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    address?: Address
+    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to get the data set listener. */
     chain: Chain
   }
@@ -66,7 +66,7 @@ export function getDataSetListenerCall(options: getDataSetListenerCall.OptionsTy
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.pdp.abi,
-    address: options.address ?? chain.contracts.pdp.address,
+    address: options.contractAddress ?? chain.contracts.pdp.address,
     functionName: 'getDataSetListener',
     args: [options.dataSetId],
   } satisfies getDataSetListenerCall.OutputType

@@ -163,12 +163,12 @@ export async function getPieces(client: Client<Transport, Chain>, options: GetPi
       getActivePiecesCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        address: options.address,
+        contractAddress: options.address,
       }),
       getScheduledRemovalsCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        address: options.address,
+        contractAddress: options.address,
       }),
     ],
     allowFailure: false,
@@ -184,7 +184,7 @@ export async function getPieces(client: Client<Transport, Chain>, options: GetPi
         return {
           cid,
           id: ids[index],
-          url: createPieceUrl(cid.toString(), options.dataSet.cdn, address, chain.id, options.dataSet.pdp.serviceURL),
+          url: createPieceUrl(cid.toString(), options.dataSet.cdn, address, chain, options.dataSet.pdp.serviceURL),
         }
       })
       .filter((piece) => !removals.includes(piece.id)),

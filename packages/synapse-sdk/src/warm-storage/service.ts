@@ -38,7 +38,6 @@ import {
   removeApprovedProvider,
   terminateDataSet,
 } from '@filoz/synapse-core/warm-storage'
-import type { ethers } from 'ethers'
 import { type Account, type Address, type Chain, type Client, type Hash, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { PaymentsService } from '../payments/service.ts'
@@ -46,24 +45,6 @@ import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/constants.ts'
 import { createError } from '../utils/index.ts'
-
-/**
- * Service price information
- */
-export interface ServicePriceInfo {
-  /** Price per TiB per month without CDN (in base units) */
-  pricePerTiBPerMonthNoCDN: bigint
-  /** CDN egress price per TiB (usage-based, in base units) */
-  pricePerTiBCdnEgress: bigint
-  /** Cache miss egress price per TiB (usage-based, in base units) */
-  pricePerTiBCacheMissEgress: bigint
-  /** Token address for payments */
-  tokenAddress: string
-  /** Number of epochs per month */
-  epochsPerMonth: bigint
-  /** Minimum monthly charge for any dataset size (in base units) */
-  minimumPricePerMonth: bigint
-}
 
 export class WarmStorageService {
   private readonly _client: Client<Transport, Chain>
@@ -90,23 +71,23 @@ export class WarmStorageService {
     return this._chain.contracts.pdp.address
   }
 
-  getPaymentsAddress(): string {
+  getPaymentsAddress(): Address {
     return this._chain.contracts.payments.address
   }
 
-  getUSDFCTokenAddress(): string {
+  getUSDFCTokenAddress(): Address {
     return this._chain.contracts.usdfc.address
   }
 
-  getViewContractAddress(): string {
+  getViewContractAddress(): Address {
     return this._chain.contracts.storageView.address
   }
 
-  getServiceProviderRegistryAddress(): string {
+  getServiceProviderRegistryAddress(): Address {
     return this._chain.contracts.serviceProviderRegistry.address
   }
 
-  getSessionKeyRegistryAddress(): string {
+  getSessionKeyRegistryAddress(): Address {
     return this._chain.contracts.sessionKeyRegistry.address
   }
 
@@ -420,8 +401,8 @@ export class WarmStorageService {
     const lockupNeeded = rateNeeded * lockupPeriod
 
     // Calculate required allowances (current usage + new requirement)
-    const totalRateNeeded = BigInt(approval.rateUsed) + rateNeeded
-    const totalLockupNeeded = BigInt(approval.lockupUsed) + lockupNeeded
+    const totalRateNeeded = approval.rateUsage + rateNeeded
+    const totalLockupNeeded = approval.lockupUsage + lockupNeeded
 
     // Check if allowances are sufficient
     const sufficient = approval.rateAllowance >= totalRateNeeded && approval.lockupAllowance >= totalLockupNeeded
@@ -451,8 +432,8 @@ export class WarmStorageService {
       lockupAllowanceNeeded,
       currentRateAllowance: approval.rateAllowance,
       currentLockupAllowance: approval.lockupAllowance,
-      currentRateUsed: approval.rateUsed,
-      currentLockupUsed: approval.lockupUsed,
+      currentRateUsed: approval.rateUsage,
+      currentLockupUsed: approval.lockupUsage,
       sufficient,
       message,
       costs: selectedCosts,
@@ -511,7 +492,7 @@ export class WarmStorageService {
     actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
       description: string
-      execute: () => Promise<ethers.TransactionResponse>
+      execute: () => Promise<Hash>
     }>
   }> {
     // Parallelize cost calculation and allowance check
@@ -526,7 +507,7 @@ export class WarmStorageService {
     const actions: Array<{
       type: 'deposit' | 'approve' | 'approveService'
       description: string
-      execute: () => Promise<ethers.TransactionResponse>
+      execute: () => Promise<Hash>
     }> = []
 
     // Check if deposit is needed

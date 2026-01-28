@@ -50,7 +50,7 @@ export interface ServiceRegistryOptions {
   REGISTRATION_FEE?: () => bigint
 }
 
-export type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
+type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
 export type ProviderWithProduct = AbiToType<getProviderWithProduct['outputs']>[0]
 
 export interface ProviderDecoded {

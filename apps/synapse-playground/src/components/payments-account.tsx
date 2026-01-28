@@ -1,5 +1,5 @@
 import { formatFraction } from '@filoz/synapse-core/utils'
-import { useAccountInfo, useApproveAllowance, useDeposit, useWithdraw } from '@filoz/synapse-react'
+import { useAccountInfo, useWithdraw } from '@filoz/synapse-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { parseEther } from 'viem'
@@ -111,212 +111,17 @@ export function PaymentsAccount() {
       </CardContent>
       <CardFooter className="flex-row gap-2">
         <DepositAndApproveDialog />
-        {/* <AllowanceDialog /> */}
-        {/* <DepositDialog /> */}
         <WithdrawDialog />
       </CardFooter>
     </Card>
   )
 }
 
-const formSchema = z.object({
-  amount: z.string().min(1),
-})
-export function AllowanceDialog() {
-  const [hash, setHash] = useState<string | null>(null)
-  const {
-    mutate: approve,
-    isPending,
-    isSuccess,
-    error,
-    reset,
-  } = useApproveAllowance({
-    onHash: (hash) => {
-      setHash(hash)
-    },
-    mutation: {
-      onSettled: () => {
-        setHash(null)
-      },
-    },
-  })
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    defaultValues: {
-      amount: '1',
-    },
-  })
-
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const amount = parseEther(values.amount)
-    approve({ amount })
-  }
-
-  return (
-    <Dialog
-      onOpenChange={() => {
-        reset()
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button>Allowance</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Manage Allowance</DialogTitle>
-              <DialogDescription>
-                Manage the allowance for the Payments contract to spend your USDFC tokens.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-3">
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormDescription>Amount of USDFC to approve.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                  rules={{
-                    required: 'Amount is required',
-                    validate: (value) => {
-                      const amount = parseEther(value)
-                      if (amount < 0n) {
-                        return 'Amount must be greater than 0'
-                      }
-                      return true
-                    },
-                  }}
-                />
-              </div>
-              <HashAlert hash={hash} />
-              <ErrorAlert error={error} />
-              <SuccessAlert message="Allowance approved" show={isSuccess} />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
-              <ButtonLoading className="sm:w-24 w-full" loading={isPending} type="submit">
-                Approve
-              </ButtonLoading>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-const depositFormSchema = z.object({
-  amount: z.string().min(1),
-})
-export function DepositDialog() {
-  const [hash, setHash] = useState<string | null>(null)
-  const {
-    mutate: deposit,
-    isPending,
-    isSuccess,
-    error,
-    reset,
-  } = useDeposit({
-    onHash: (hash) => {
-      setHash(hash)
-    },
-    mutation: {
-      onSettled: () => {
-        setHash(null)
-      },
-    },
-  })
-
-  const form = useForm<z.infer<typeof depositFormSchema>>({
-    defaultValues: {
-      amount: '1',
-    },
-  })
-
-  function onSubmit(values: z.infer<typeof depositFormSchema>) {
-    const amount = parseEther(values.amount)
-    deposit({ amount })
-  }
-
-  return (
-    <Dialog
-      onOpenChange={() => {
-        reset()
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button variant="secondary">Deposit</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <DialogHeader>
-              <DialogTitle>Deposit USDFC</DialogTitle>
-              <DialogDescription>Deposit USDFC tokens to the Payments contract.</DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-3">
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormDescription>Amount of USDFC to deposit.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                  rules={{
-                    required: 'Amount is required',
-                    validate: (value) => {
-                      const amount = parseEther(value)
-                      if (amount <= 0n) {
-                        return 'Amount must be greater than 0'
-                      }
-                      return true
-                    },
-                  }}
-                />
-              </div>
-              <HashAlert hash={hash} />
-              <ErrorAlert error={error} />
-              <SuccessAlert message="USDFC deposited" show={isSuccess} />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
-              <ButtonLoading className="sm:w-24 w-full" loading={isPending} type="submit">
-                Deposit
-              </ButtonLoading>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 const withdrawFormSchema = z.object({
   amount: z.string().min(1),
 })
-export function WithdrawDialog() {
+
+function WithdrawDialog() {
   const [hash, setHash] = useState<string | null>(null)
   const {
     mutate: withdraw,

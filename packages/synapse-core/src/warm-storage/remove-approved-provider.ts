@@ -5,12 +5,16 @@ import type {
   Client,
   ContractFunctionParameters,
   Hash,
+  Log,
   SimulateContractErrorType,
   Transport,
+  WaitForTransactionReceiptErrorType,
   WriteContractErrorType,
 } from 'viem'
-import { simulateContract, writeContract } from 'viem/actions'
+import { parseEventLogs } from 'viem'
+import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import type { storage as storageAbi } from '../abis/index.ts'
+import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
 export namespace removeApprovedProvider {
@@ -23,8 +27,8 @@ export namespace removeApprovedProvider {
      * Use `getApprovedProviders` to find the correct index.
      */
     index: bigint
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
   }
 
   export type OutputType = Hash
@@ -86,12 +90,94 @@ export async function removeApprovedProvider(
       chain: client.chain,
       providerId: options.providerId,
       index: options.index,
-      address: options.address,
+      contractAddress: options.contractAddress,
     })
   )
 
   const hash = await writeContract(client, request)
   return hash
+}
+
+export namespace removeApprovedProviderSync {
+  export type OptionsType = removeApprovedProvider.OptionsType & {
+    /** Callback function called with the transaction hash before waiting for the receipt. */
+    onHash?: (hash: Hash) => void
+  }
+
+  export type OutputType = {
+    /** The transaction receipt */
+    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
+    /** The extracted ProviderUnapproved event */
+    event: ReturnType<typeof extractRemoveApprovedProviderEvent>
+  }
+
+  export type ErrorType =
+    | removeApprovedProviderCall.ErrorType
+    | SimulateContractErrorType
+    | WriteContractErrorType
+    | WaitForTransactionReceiptErrorType
+}
+
+/**
+ * Remove an approved provider for the client and wait for confirmation
+ *
+ * Removes a provider ID from the approved list using a swap-and-pop pattern.
+ * After removal, the client can no longer create data sets with this provider.
+ * Waits for the transaction to be confirmed and returns the receipt with the event.
+ *
+ * @param client - The client to use to remove the approved provider.
+ * @param options - {@link removeApprovedProviderSync.OptionsType}
+ * @returns The transaction receipt and extracted event {@link removeApprovedProviderSync.OutputType}
+ * @throws Errors {@link removeApprovedProviderSync.ErrorType}
+ *
+ * @example
+ * ```ts
+ * import { removeApprovedProviderSync, getApprovedProviders } from '@filoz/synapse-core/warm-storage'
+ * import { createWalletClient, createPublicClient, http } from 'viem'
+ * import { privateKeyToAccount } from 'viem/accounts'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ *
+ * const account = privateKeyToAccount('0x...')
+ * const walletClient = createWalletClient({
+ *   account,
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ * const publicClient = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * // First, get the list to find the index
+ * const providers = await getApprovedProviders(publicClient, {
+ *   client: account.address,
+ * })
+ * const providerId = 1n
+ * const index = providers.findIndex((id) => id === providerId)
+ *
+ * const { receipt, event } = await removeApprovedProviderSync(walletClient, {
+ *   providerId,
+ *   index: BigInt(index),
+ *   onHash: (hash) => console.log('Transaction sent:', hash),
+ * })
+ *
+ * console.log('Removed provider ID:', event.args.providerId)
+ * ```
+ */
+export async function removeApprovedProviderSync(
+  client: Client<Transport, Chain, Account>,
+  options: removeApprovedProviderSync.OptionsType
+): Promise<removeApprovedProviderSync.OutputType> {
+  const hash = await removeApprovedProvider(client, options)
+
+  if (options.onHash) {
+    options.onHash(hash)
+  }
+
+  const receipt = await waitForTransactionReceipt(client, { hash })
+  const event = extractRemoveApprovedProviderEvent(receipt.logs)
+
+  return { receipt, event }
 }
 
 export namespace removeApprovedProviderCall {
@@ -104,8 +190,8 @@ export namespace removeApprovedProviderCall {
      * Use `getApprovedProviders` to find the correct index.
      */
     index: bigint
-    /** The address of the storage contract. If not provided, the default is the storage contract address for the chain. */
-    address?: Address
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
     /** The chain to use to remove the approved provider. */
     chain: Chain
   }
@@ -117,7 +203,8 @@ export namespace removeApprovedProviderCall {
 /**
  * Create a call to the removeApprovedProvider function
  *
- * This function is used to create a call to the removeApprovedProvider function for use with simulateContract.
+ * This function is used to create a call to the removeApprovedProvider function for use with
+ * sendCalls, sendTransaction, multicall, estimateContractGas, or simulateContract.
  *
  * @param options - {@link removeApprovedProviderCall.OptionsType}
  * @returns The call to the removeApprovedProvider function {@link removeApprovedProviderCall.OutputType}
@@ -164,8 +251,26 @@ export function removeApprovedProviderCall(options: removeApprovedProviderCall.O
   const chain = asChain(options.chain)
   return {
     abi: chain.contracts.storage.abi,
-    address: options.address ?? chain.contracts.storage.address,
+    address: options.contractAddress ?? chain.contracts.storage.address,
     functionName: 'removeApprovedProvider',
     args: [options.providerId, options.index],
   } satisfies removeApprovedProviderCall.OutputType
+}
+
+/**
+ * Extracts the ProviderUnapproved event from transaction logs
+ *
+ * @param logs - The transaction logs
+ * @returns The ProviderUnapproved event
+ * @throws Error if the event is not found in the logs
+ */
+export function extractRemoveApprovedProviderEvent(logs: Log[]) {
+  const [log] = parseEventLogs({
+    abi: Abis.storage,
+    logs,
+    eventName: 'ProviderUnapproved',
+    strict: true,
+  })
+  if (!log) throw new Error('`ProviderUnapproved` event not found.')
+  return log
 }

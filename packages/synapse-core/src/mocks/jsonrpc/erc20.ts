@@ -12,6 +12,7 @@ export type name = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'name'>
 export type approve = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'approve'>
 export type nonces = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'nonces'>
 export type version = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'version'>
+export type _symbol = ExtractAbiFunction<typeof Abis.erc20WithPermit, 'symbol'>
 
 export interface ERC20Options {
   balanceOf?: (args: AbiToType<balanceOf['inputs']>) => AbiToType<balanceOf['outputs']>
@@ -21,6 +22,7 @@ export interface ERC20Options {
   approve?: (args: AbiToType<approve['inputs']>) => AbiToType<approve['outputs']>
   version?: (args: AbiToType<version['inputs']>) => AbiToType<version['outputs']>
   nonces?: (args: AbiToType<nonces['inputs']>) => AbiToType<nonces['outputs']>
+  symbol?: (args: AbiToType<_symbol['inputs']>) => AbiToType<_symbol['outputs']>
 }
 
 /**
@@ -53,6 +55,15 @@ export function erc20CallHandler(data: Hex, options: JSONRPCOptions): Hex {
       return encodeAbiParameters(
         Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'balanceOf')!.outputs,
         options.erc20.balanceOf(args as AbiToType<balanceOf['inputs']>)
+      )
+    }
+    case 'symbol': {
+      if (!options.erc20?.symbol) {
+        throw new Error('ERC20: symbol is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.erc20WithPermit.find((abi) => abi.type === 'function' && abi.name === 'symbol')!.outputs,
+        options.erc20.symbol(args as AbiToType<_symbol['inputs']>)
       )
     }
 

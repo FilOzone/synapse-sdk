@@ -10,7 +10,7 @@ The Synapse SDK supports local development networks in addition to mainnet and c
 ## Network Support
 
 | Network | Chain ID | Auto-Discovery |
-|---------|----------|----------------|
+| --------- | ---------- | ---------------- |
 | mainnet | 314 | Yes |
 | calibration | 314159 | Yes |
 | devnet | 31415926 | No |

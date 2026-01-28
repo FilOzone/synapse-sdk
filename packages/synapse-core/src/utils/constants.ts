@@ -25,7 +25,7 @@ export const TIME_CONSTANTS = {
   /**
    * Default lockup period in days
    */
-  DEFAULT_LOCKUP_DAYS: 10n,
+  DEFAULT_LOCKUP_DAYS: 30n,
 } as const
 
 /**
@@ -84,7 +84,7 @@ export const SIZE_CONSTANTS = {
   DEFAULT_UPLOAD_BATCH_SIZE: 32,
 } as const
 
-export const LOCKUP_PERIOD = 30n * TIME_CONSTANTS.EPOCHS_PER_DAY
+export const LOCKUP_PERIOD = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS * TIME_CONSTANTS.EPOCHS_PER_DAY
 
 export const RETRY_CONSTANTS = {
   FACTOR: 1,

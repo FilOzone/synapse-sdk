@@ -1,3 +1,5 @@
+import * as z from 'zod'
+
 const symbol = Symbol.for('synapse-error')
 
 export interface SynapseErrorOptions extends ErrorOptions {
@@ -39,5 +41,31 @@ export class SynapseError extends Error {
 
   static is(value: unknown): value is SynapseError {
     return isSynapseError(value) && value.name === 'SynapseError'
+  }
+}
+
+/**
+ * Validation error thrown when a value does not match the expected Zod schema.
+ */
+export class ZodValidationError extends SynapseError {
+  override name: 'ZodValidationError' = 'ZodValidationError'
+
+  constructor(zodError: z.ZodError, message: string = 'Validation failed.') {
+    super(message, {
+      cause: zodError,
+      details: z.prettifyError(zodError),
+    })
+  }
+
+  static override is(value: unknown): value is ZodValidationError {
+    return isSynapseError(value) && value.name === 'ZodValidationError'
+  }
+}
+
+export class ValidationError extends SynapseError {
+  override name: 'ValidationError' = 'ValidationError'
+
+  static override is(value: unknown): value is ValidationError {
+    return isSynapseError(value) && value.name === 'ValidationError'
   }
 }
