@@ -105,8 +105,8 @@ export const pieces: Command = command(
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const metadata = await readContract(publicClient, {
-          address: calibration.contracts.storageView.address,
-          abi: calibration.contracts.storageView.abi,
+          address: calibration.contracts.fwssView.address,
+          abi: calibration.contracts.fwssView.abi,
           functionName: 'getAllPieceMetadata',
           args: [group.dataSetId, BigInt(piece.id)],
         })

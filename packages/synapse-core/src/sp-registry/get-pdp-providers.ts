@@ -61,7 +61,7 @@ export namespace getPDPProviders {
  */
 export async function getPDPProviders(
   client: Client<Transport, Chain>,
-  options: getPDPProviders.OptionsType
+  options: getPDPProviders.OptionsType = {}
 ): Promise<getPDPProviders.OutputType> {
   const data = await readContract(
     client,
