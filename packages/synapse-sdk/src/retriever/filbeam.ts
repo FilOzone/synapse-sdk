@@ -5,20 +5,21 @@
  * to the base retriever.
  */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import type { Address } from 'viem'
-import type { FilecoinNetworkType, PieceCID, PieceRetriever } from '../types.ts'
+import type { PieceCID, PieceRetriever } from '../types.ts'
 
 export class FilBeamRetriever implements PieceRetriever {
   private readonly baseRetriever: PieceRetriever
-  private readonly network: FilecoinNetworkType
+  private readonly chain: Chain
 
-  constructor(baseRetriever: PieceRetriever, network: FilecoinNetworkType) {
+  constructor(baseRetriever: PieceRetriever, chain: Chain) {
     this.baseRetriever = baseRetriever
-    this.network = network
+    this.chain = chain
   }
 
-  hostname(): string {
-    return this.network === 'mainnet' ? 'filbeam.io' : 'calibration.filbeam.io'
+  hostname(): string | null {
+    return this.chain.filbeam?.retrievalDomain ?? null
   }
 
   async fetchPiece(
@@ -31,7 +32,15 @@ export class FilBeamRetriever implements PieceRetriever {
     }
   ): Promise<Response> {
     if (options?.withCDN === true) {
-      const cdnUrl = `https://${client}.${this.hostname()}/${pieceCid.toString()}`
+      const hostname = this.hostname()
+      if (hostname == null) {
+        console.warn(
+          `CDN retrieval is not available for chain ${this.chain.id} (${this.chain.name}). Falling back to direct retrieval via the storage provider.`
+        )
+        return await this.baseRetriever.fetchPiece(pieceCid, client, options)
+      }
+
+      const cdnUrl = `https://${client}.${hostname}/${pieceCid.toString()}`
       try {
         const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
         if (cdnResponse.ok) {

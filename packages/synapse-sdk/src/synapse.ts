@@ -1,5 +1,6 @@
+import type { Chain as SynapseChain } from '@filoz/synapse-core/chains'
 import { ethers } from 'ethers'
-import type { Account, Address, Chain, Client, Transport } from 'viem'
+import type { Account, Address, Client, Transport } from 'viem'
 import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
@@ -40,7 +41,7 @@ export class Synapse {
   private _session: SessionKey | null = null
   private readonly _multicall3Address: Address
 
-  connectorClient: Client<Transport, Chain, Account>
+  connectorClient: Client<Transport, SynapseChain, Account>
 
   /**
    * Create a new Synapse instance with async initialization.
@@ -185,7 +186,7 @@ export class Synapse {
       }
 
       // Wrap with FilBeam retriever
-      pieceRetriever = new FilBeamRetriever(baseRetriever, network)
+      pieceRetriever = new FilBeamRetriever(baseRetriever, connectorClient.chain)
     }
 
     // Create FilBeamService
@@ -215,7 +216,7 @@ export class Synapse {
     network: FilecoinNetworkType,
     payments: PaymentsService,
     withCDN: boolean,
-    connectorClient: Client<Transport, Chain, Account>,
+    connectorClient: Client<Transport, SynapseChain, Account>,
     warmStorageAddress: Address,
     warmStorageService: WarmStorageService,
     pieceRetriever: PieceRetriever,

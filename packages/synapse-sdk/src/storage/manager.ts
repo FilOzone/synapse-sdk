@@ -20,7 +20,6 @@
  * ```
  */
 
-import { asChain } from '@filoz/synapse-core/chains'
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
@@ -500,7 +499,7 @@ export class StorageManager {
    * @returns Complete storage service information
    */
   async getStorageInfo(): Promise<StorageInfo> {
-    const chain = asChain(this._synapse.connectorClient.chain)
+    const chain = this._synapse.connectorClient.chain
     try {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {

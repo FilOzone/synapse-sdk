@@ -1,9 +1,8 @@
-import { getChain } from '@filoz/synapse-core/chains'
+import { getChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
 import { ethers } from 'ethers'
 import {
   type Account,
   type Address,
-  type Chain,
   type Client,
   createClient,
   createWalletClient,
@@ -14,7 +13,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
-export async function providerToClient(provider: ethers.Provider): Promise<Client<Transport, Chain>> {
+export async function providerToClient(provider: ethers.Provider): Promise<Client<Transport, SynapseChain>> {
   const network = await provider.getNetwork()
   const chainId = Number(network.chainId)
   const chain = getChain(chainId)
@@ -43,7 +42,7 @@ export async function providerToClient(provider: ethers.Provider): Promise<Clien
 export async function signerToConnectorClient(
   signer: ethers.Signer,
   provider?: ethers.Provider
-): Promise<Client<Transport, Chain, Account>> {
+): Promise<Client<Transport, SynapseChain, Account>> {
   const _provider = provider ?? signer.provider
   if (!_provider) {
     throw new Error('No provider found')

@@ -54,7 +54,7 @@ export interface Chain extends ViemChain {
   }
   filbeam: {
     retrievalDomain: string
-  }
+  } | null
 }
 
 /**
@@ -283,9 +283,7 @@ export const devnet: Chain = {
       abi: Abis.providerIdSet,
     },
   },
-  filbeam: {
-    retrievalDomain: 'localhost:8080',
-  },
+  filbeam: null,
   testnet: true,
 }
 
