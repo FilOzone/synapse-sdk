@@ -16,6 +16,7 @@
       "src/pay/index.ts",
       "src/pdp-verifier/index.ts",
       "src/session-key/index.ts",
+      "src/sp-registry/index.ts",
       "src/typed-data/index.ts",
       "src/utils/index.ts",
       "src/warm-storage/index.ts",
