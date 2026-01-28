@@ -1,4 +1,4 @@
-import { type PDPProvider, readProviders } from '@filoz/synapse-core/warm-storage'
+import { getApprovedPDPProviders } from '@filoz/synapse-core/sp-registry'
 import { type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { useConfig } from 'wagmi'
 
@@ -6,7 +6,7 @@ export interface UseProvidersProps {
   query?: Omit<UseQueryOptions<UseProvidersResult>, 'queryKey' | 'queryFn'>
 }
 
-export type UseProvidersResult = PDPProvider[]
+export type UseProvidersResult = getApprovedPDPProviders.OutputType
 
 export function useProviders(props?: UseProvidersProps) {
   const config = useConfig()
@@ -15,7 +15,7 @@ export function useProviders(props?: UseProvidersProps) {
     ...props?.query,
     queryKey: ['synapse-warm-storage-providers'],
     queryFn: () => {
-      return readProviders(config.getClient())
+      return getApprovedPDPProviders(config.getClient())
     },
   })
 }
