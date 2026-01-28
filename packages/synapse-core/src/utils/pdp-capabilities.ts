@@ -63,6 +63,10 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
+    ipniPiece: 'ipniPiece' in capabilities,
+    ipniIpfs: 'ipniIpfs' in capabilities,
+    ipniPeerID:
+      CAP_IPNI_PEER_ID in capabilities ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')) : undefined,
   }
   const optional = {
     ipniPiece: CAP_IPNI_PIECE in capabilities ? capabilities[CAP_IPNI_PIECE] === '0x01' : false,
