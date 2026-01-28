@@ -8,7 +8,7 @@ import type {
   Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
-import type { storage as storageAbi } from '../abis/index.ts'
+import type { fwss as storageAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
 export namespace getServicePrice {
@@ -123,8 +123,8 @@ export namespace getServicePriceCall {
 export function getServicePriceCall(options: getServicePriceCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
-    abi: chain.contracts.storage.abi,
-    address: options.contractAddress ?? chain.contracts.storage.address,
+    abi: chain.contracts.fwss.abi,
+    address: options.contractAddress ?? chain.contracts.fwss.address,
     functionName: 'getServicePrice',
     args: [],
   } satisfies getServicePriceCall.OutputType

@@ -19,7 +19,7 @@ import { formatAllDataSetMetadata, getAllDataSetMetadataCall } from './get-all-d
 /**
  * ABI function to get the client data sets
  */
-export type getClientDataSetsType = ExtractAbiFunction<typeof Abis.storageView, 'getClientDataSets'>
+export type getClientDataSetsType = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSets'>
 
 /**
  * ABI Client data set
@@ -51,8 +51,8 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
   const chain = getChain(client.chain.id)
   const address = options.address
   const data = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
+    address: chain.contracts.fwssView.address,
+    abi: chain.contracts.fwssView.abi,
     functionName: 'getClientDataSets',
     args: [address],
   })
@@ -89,7 +89,7 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
     return {
       ...dataSet,
       live,
-      managed: isAddressEqual(listener, chain.contracts.storage.address),
+      managed: isAddressEqual(listener, chain.contracts.fwss.address),
       cdn: dataSet.cdnRailId !== 0n,
       metadata: formatAllDataSetMetadata(metadata),
       pdp: pdpCaps,
@@ -120,8 +120,8 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   const chain = getChain(client.chain.id)
 
   const dataSet = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
+    address: chain.contracts.fwssView.address,
+    abi: chain.contracts.fwssView.abi,
     functionName: 'getDataSet',
     args: [options.dataSetId],
   })
@@ -162,7 +162,7 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   return {
     ...dataSet,
     live,
-    managed: isAddressEqual(listener, chain.contracts.storage.address),
+    managed: isAddressEqual(listener, chain.contracts.fwss.address),
     cdn: dataSet.cdnRailId !== 0n,
     metadata: formatAllDataSetMetadata(metadata),
     pdp: pdpCaps,
@@ -211,7 +211,7 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
   return SP.createDataSet({
     endpoint: options.endpoint,
-    recordKeeper: options.recordKeeper ?? chain.contracts.storage.address,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData,
   })
 }
@@ -261,7 +261,7 @@ export async function createDataSetAndAddPieces(
 
   return SP.createDataSetAndAddPieces({
     endpoint: options.endpoint,
-    recordKeeper: options.recordKeeper ?? chain.contracts.storage.address,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData: await signCreateDataSetAndAddPieces(client, {
       clientDataSetId: options.clientDataSetId ?? randU256(),
       payee: options.payee,
@@ -289,8 +289,8 @@ export async function terminateDataSet(client: Client<Transport, Chain, Account>
   const chain = asChain(client.chain)
 
   const { request } = await simulateContract(client, {
-    address: chain.contracts.storage.address,
-    abi: chain.contracts.storage.abi,
+    address: chain.contracts.fwss.address,
+    abi: chain.contracts.fwss.abi,
     functionName: 'terminateService',
     args: [options.dataSetId],
   })

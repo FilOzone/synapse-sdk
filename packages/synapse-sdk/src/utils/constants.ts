@@ -41,7 +41,7 @@ export const CONTRACT_ABIS = {
   /**
    * Payments contract ABI - based on fws-payments contract
    */
-  PAYMENTS: Abis.payments,
+  PAYMENTS: Abis.filecoinPay,
 
   /**
    * PDPVerifier contract ABI - core PDP verification functions
@@ -52,13 +52,13 @@ export const CONTRACT_ABIS = {
    * Warm Storage ABI - write functions and service provider management
    * View methods are in the WARM_STORAGE_VIEW contract
    */
-  WARM_STORAGE: Abis.storage,
+  WARM_STORAGE: Abis.fwss,
 
   /**
    * Warm Storage View contract ABI - read-only view methods separated from main contract
    * These methods were moved from the main Warm Storage contract to reduce contract size
    */
-  WARM_STORAGE_VIEW: Abis.storageView,
+  WARM_STORAGE_VIEW: Abis.fwssView,
 
   /**
    * Multicall3 ABI - for batching multiple contract calls into a single RPC request

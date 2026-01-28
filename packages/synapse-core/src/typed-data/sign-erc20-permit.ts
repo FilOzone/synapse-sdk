@@ -44,7 +44,7 @@ export async function signErc20Permit(client: Client<Transport, Chain, Account>,
   const chain = asChain(client.chain)
   const { amount, nonce, deadline, name, version } = options
 
-  const spender = options.spender ?? chain.contracts.payments.address
+  const spender = options.spender ?? chain.contracts.filecoinPay.address
   const token = options.token ?? chain.contracts.usdfc.address
 
   const domain = {

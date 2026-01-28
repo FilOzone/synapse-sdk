@@ -3,7 +3,6 @@ import { setup } from 'iso-web/msw'
 import { delay, HttpResponse, http } from 'msw'
 import { createWalletClient, decodeAbiParameters, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { Chain } from '../src/chains.ts'
 import * as Chains from '../src/chains.ts'
 import {
   AddPiecesError,
@@ -34,15 +33,10 @@ import * as SP from '../src/sp.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
-const chain: Chain = {
-  ...Chains.calibration,
-  id: 31337,
-}
-
 const account = privateKeyToAccount(PRIVATE_KEYS.key1)
 const client = createWalletClient({
   account,
-  chain,
+  chain: Chains.calibration,
   transport: viemHttp(),
 })
 
