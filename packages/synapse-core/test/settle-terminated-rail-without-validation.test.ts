@@ -47,8 +47,8 @@ describe('settleTerminatedRailWithoutValidation', () => {
       })
 
       assert.equal(call.functionName, 'settleTerminatedRailWithoutValidation')
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
 
       // Check args: [railId]
       assert.equal(call.args[0], 1n) // railId
@@ -61,8 +61,8 @@ describe('settleTerminatedRailWithoutValidation', () => {
       })
 
       assert.equal(call.functionName, 'settleTerminatedRailWithoutValidation')
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
 
       assert.equal(call.args[0], 2n)
     })
@@ -95,7 +95,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
       const settledUpTo = 999999n
 
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'RailSettled',
         args: {
           railId,
@@ -115,7 +115,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
 
       const logs: Log[] = [
         {
-          address: calibration.contracts.payments.address,
+          address: calibration.contracts.filecoinPay.address,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data: eventData,
           blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as `0x${string}`,
@@ -197,7 +197,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
 
       // Create the event log data for the receipt
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'RailSettled',
         args: {
           railId,
@@ -234,7 +234,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -247,7 +247,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
@@ -303,7 +303,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
       const settledUpTo = 888888n
 
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'RailSettled',
         args: {
           railId,
@@ -340,7 +340,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -353,7 +353,7 @@ describe('settleTerminatedRailWithoutValidation', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',

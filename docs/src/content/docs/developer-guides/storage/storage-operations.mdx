@@ -207,7 +207,7 @@ console.log("Providers:", info.providers.length);
 console.log("Network:", info.serviceParameters.network);
 
 const providerInfo = await synapse.getProviderInfo("0x...");
-console.log("PDP URL:", providerInfo.products.PDP!.data.serviceURL);
+console.log("PDP URL:", providerInfo.pdp.serviceURL);
 ```
 
 ## Next Steps

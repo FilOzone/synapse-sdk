@@ -31,13 +31,13 @@ This guide assumes you've already completed the [Storage Operations Guide](/deve
 #### Creation Options
 
 ```ts twoslash
-import { ProviderInfo } from "@filoz/synapse-sdk";
+import { PDPProvider } from "@filoz/synapse-sdk";
 type StorageContextCallbacks = {
-  onProviderSelected?: (provider: ProviderInfo) => void;
+  onProviderSelected?: (provider: PDPProvider) => void;
   onDataSetResolved?: (info: {
     isExisting: boolean;
     dataSetId: bigint;
-    provider: ProviderInfo;
+    provider: PDPProvider;
   }) => void;
 };
 // ---cut---
@@ -89,8 +89,7 @@ const storageContext = await synapse.storage.createContext({
         ` id: ${provider.id}`,
         ` name: ${provider.name}`,
         ` description: ${provider.description}`,
-        ` address: ${provider.serviceProvider}`,
-        ` products: ${JSON.stringify(provider.products)}`
+        ` address: ${provider.serviceProvider}`
       );
     },
   },
@@ -139,7 +138,7 @@ import {
   PieceCID,
   PieceRecord,
   UploadResult,
-  ProviderInfo,
+  PDPProvider,
   PreflightInfo,
   PieceStatus,
 } from "@filoz/synapse-sdk";
@@ -177,7 +176,7 @@ type UploadOptions = {
 // ---cut---
 interface StorageContextAPI {
   // Properties
-  readonly provider: ProviderInfo;
+  readonly provider: PDPProvider;
   readonly serviceProvider: string;
   readonly withCDN: boolean;
   readonly dataSetId: number | undefined;
@@ -199,7 +198,7 @@ interface StorageContextAPI {
   deletePiece(piece: string | PieceCID | number): Promise<string>;
 
   // Info & Preflight
-  getProviderInfo(): Promise<ProviderInfo>;
+  getProviderInfo(): Promise<PDPProvider>;
   preflightUpload(size: number): Promise<PreflightInfo>;
 
   // Lifecycle

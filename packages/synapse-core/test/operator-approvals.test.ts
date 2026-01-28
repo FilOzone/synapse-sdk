@@ -31,10 +31,10 @@ describe('operatorApprovals', () => {
       assert.deepEqual(call.args, [
         calibration.contracts.usdfc.address,
         ADDRESSES.client1,
-        calibration.contracts.storage.address,
+        calibration.contracts.fwss.address,
       ])
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -44,13 +44,9 @@ describe('operatorApprovals', () => {
       })
 
       assert.equal(call.functionName, 'operatorApprovals')
-      assert.deepEqual(call.args, [
-        mainnet.contracts.usdfc.address,
-        ADDRESSES.client1,
-        mainnet.contracts.storage.address,
-      ])
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.deepEqual(call.args, [mainnet.contracts.usdfc.address, ADDRESSES.client1, mainnet.contracts.fwss.address])
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
     })
 
     it('should use custom contract address when provided', () => {

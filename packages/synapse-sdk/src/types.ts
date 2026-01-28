@@ -6,12 +6,12 @@
  */
 
 import type { PieceCID } from '@filoz/synapse-core/piece'
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { ethers } from 'ethers'
 import type { Address, Hex } from 'viem'
-import type { ProviderInfo } from './sp-registry/types.ts'
 
-// Re-export PieceCID and ProviderInfo types
-export type { PieceCID, ProviderInfo }
+// Re-export PieceCID and PDPProvider types
+export type { PieceCID, PDPProvider }
 export type PrivateKey = string
 export type TokenAmount = bigint
 export type DataSetId = bigint
@@ -74,11 +74,6 @@ export interface SynapseOptions {
   usdfcAddress?: Address
   /** Override Endorsements contract address (required for devnet) */
   endorsementsAddress?: Address
-  // Subgraph Integration (provide ONE of these options)
-  /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
-  subgraphService?: SubgraphRetrievalService
-  /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
-  subgraphConfig?: SubgraphConfig
 }
 
 /**
@@ -169,15 +164,15 @@ export interface SubgraphRetrievalService {
    * @param pieceCid - The PieceCID of the data segment.
    * @returns A promise that resolves to an array of `ProviderInfo` objects.
    */
-  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ProviderInfo[]>
+  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<PDPProvider[]>
 
   /**
    * Retrieves details for a specific provider by their address.
    *
    * @param address - The unique address (ID) of the provider.
-   * @returns A promise that resolves to `ProviderInfo` if found, otherwise `null`.
+   * @returns A promise that resolves to `PDPProvider` if found, otherwise `null`.
    */
-  getProviderByAddress: (address: Address) => Promise<ProviderInfo | null>
+  getProviderByAddress: (address: Address) => Promise<PDPProvider | null>
 }
 
 /**
@@ -280,13 +275,13 @@ export interface StorageContextCallbacks {
    * Called when a service provider has been selected
    * @param provider - The selected provider info
    */
-  onProviderSelected?: (provider: ProviderInfo) => void
+  onProviderSelected?: (provider: PDPProvider) => void
 
   /**
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: ProviderInfo }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: PDPProvider }) => void
 }
 
 export interface CreateContextsOptions {
@@ -369,7 +364,7 @@ export interface PreflightInfo {
     message?: string
   }
   /** Selected service provider (null when no specific provider selected) */
-  selectedProvider: ProviderInfo | null
+  selectedProvider: PDPProvider | null
   /** Selected data set ID (null when no specific dataset selected) */
   selectedDataSetId: number | null
 }
@@ -469,7 +464,7 @@ export interface StorageInfo {
   }
 
   /** List of approved service providers */
-  providers: ProviderInfo[]
+  providers: PDPProvider[]
 
   /** Service configuration parameters */
   serviceParameters: {
@@ -565,7 +560,7 @@ export interface PieceStatus {
  */
 export interface ProviderSelectionResult {
   /** Selected service provider */
-  provider: ProviderInfo
+  provider: PDPProvider
   /** Selected data set ID */
   dataSetId: bigint
   /** Whether this is an existing data set */

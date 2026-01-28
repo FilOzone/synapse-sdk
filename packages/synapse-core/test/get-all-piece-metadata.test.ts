@@ -30,8 +30,8 @@ describe('getAllPieceMetadata', () => {
 
       assert.equal(call.functionName, 'getAllPieceMetadata')
       assert.deepEqual(call.args, [1n, 0n])
-      assert.equal(call.address, calibration.contracts.storageView.address)
-      assert.equal(call.abi, calibration.contracts.storageView.abi)
+      assert.equal(call.address, calibration.contracts.fwssView.address)
+      assert.equal(call.abi, calibration.contracts.fwssView.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -43,8 +43,8 @@ describe('getAllPieceMetadata', () => {
 
       assert.equal(call.functionName, 'getAllPieceMetadata')
       assert.deepEqual(call.args, [456n, 789n])
-      assert.equal(call.address, mainnet.contracts.storageView.address)
-      assert.equal(call.abi, mainnet.contracts.storageView.abi)
+      assert.equal(call.address, mainnet.contracts.fwssView.address)
+      assert.equal(call.abi, mainnet.contracts.fwssView.abi)
     })
 
     it('should use custom address when provided', () => {

@@ -64,9 +64,9 @@ export type DepositAndApproveOptions = {
 export async function depositAndApprove(client: Client<Transport, Chain, Account>, options: DepositAndApproveOptions) {
   const chain = getChain(client.chain.id)
   const token = options.token ?? chain.contracts.usdfc.address
-  const operator = options.operator ?? chain.contracts.storage.address
+  const operator = options.operator ?? chain.contracts.fwss.address
   const address = options.address ?? client.account.address
-  const spender = options.spender ?? chain.contracts.payments.address
+  const spender = options.spender ?? chain.contracts.filecoinPay.address
   const rateAllowance = options.rateAllowance ?? maxUint256
   const lockupAllowance = options.lockupAllowance ?? maxUint256
   const maxLockupPeriod = options.maxLockupPeriod ?? LOCKUP_PERIOD
@@ -109,8 +109,8 @@ export async function depositAndApprove(client: Client<Transport, Chain, Account
 
   const { request } = await simulateContract(client, {
     account: client.account,
-    address: chain.contracts.payments.address,
-    abi: chain.contracts.payments.abi,
+    address: chain.contracts.filecoinPay.address,
+    abi: chain.contracts.filecoinPay.abi,
     functionName: 'depositWithPermitAndApproveOperator',
     args: [
       token,

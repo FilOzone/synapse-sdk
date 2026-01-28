@@ -1,9 +1,32 @@
 import { base58btc } from 'multiformats/bases/base58'
 import type { Hex } from 'viem'
 import { bytesToHex, fromHex, hexToString, isHex, numberToBytes, stringToHex, toBytes } from 'viem'
-import type { PDPOffering } from '../warm-storage/providers.ts'
-import { decodeAddressCapability } from './capabilities.ts'
+import { z } from 'zod'
+import { ZodValidationError } from '../errors/base.ts'
+import type { PDPOffering, ProviderWithProduct } from '../sp-registry/types.ts'
+import { capabilitiesListToObject, decodeAddressCapability } from './capabilities.ts'
 
+const hex = z.custom<Hex>((val) => {
+  return typeof val === 'string' ? isHex(val) : false
+})
+
+/**
+ * Zod schema for PDP offering
+ *
+ * @see https://github.com/FilOzone/filecoin-services/blob/a86e4a5018133f17a25b4bb6b5b99da4d34fe664/service_contracts/src/ServiceProviderRegistry.sol#L14
+ */
+export const PDPOfferingSchema = z.object({
+  serviceURL: hex,
+  minPieceSizeInBytes: hex,
+  maxPieceSizeInBytes: hex,
+  storagePricePerTibPerDay: hex,
+  minProvingPeriodInEpochs: hex,
+  location: hex,
+  paymentTokenAddress: hex,
+  ipniPiece: hex.optional(),
+  ipniIpfs: hex.optional(),
+  ipniPeerID: hex.optional(),
+})
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
 export const CAP_MIN_PIECE_SIZE = 'minPieceSizeInBytes'
@@ -16,6 +39,15 @@ export const CAP_LOCATION = 'location'
 export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
 export const CAP_IPNI_PEER_ID = 'IPNIPeerID'
 
+export function decodePDPOffering(provider: ProviderWithProduct): PDPOffering {
+  const capabilities = capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
+  const parsed = PDPOfferingSchema.safeParse(capabilities)
+  if (!parsed.success) {
+    throw new ZodValidationError(parsed.error)
+  }
+  return decodePDPCapabilities(parsed.data)
+}
+
 /**
  * Decode PDP capabilities from keys/values arrays into a PDPOffering object.
  * Based on Curio's capabilitiesToOffering function.
@@ -25,17 +57,26 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     serviceURL: hexToString(capabilities.serviceURL),
     minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
     maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
-    ipniPiece: 'ipniPiece' in capabilities,
-    ipniIpfs: 'ipniIpfs' in capabilities,
-    ipniPeerID:
-      CAP_IPNI_PEER_ID in capabilities ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')) : undefined,
     storagePricePerTibPerDay: BigInt(capabilities.storagePricePerTibPerDay),
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
+    ipniPiece: 'ipniPiece' in capabilities,
+    ipniIpfs: 'ipniIpfs' in capabilities,
+    ipniPeerID:
+      CAP_IPNI_PEER_ID in capabilities ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')) : undefined,
   }
 }
 
+/**
+ * Encode PDP capabilities from a PDPOffering object and a capabilities object into a capability keys and values array.
+ *
+ * @todo add zod schema validation for the pdp offering and capabilities.
+ *
+ * @param pdpOffering - The PDP offering to encode.
+ * @param capabilities - The capabilities to encode.
+ * @returns The encoded capability keys and values.
+ */
 export function encodePDPCapabilities(
   pdpOffering: PDPOffering,
   capabilities?: Record<string, string>

@@ -72,7 +72,7 @@ export class WarmStorageService {
   }
 
   getPaymentsAddress(): Address {
-    return this._chain.contracts.payments.address
+    return this._chain.contracts.filecoinPay.address
   }
 
   getUSDFCTokenAddress(): Address {
@@ -80,7 +80,7 @@ export class WarmStorageService {
   }
 
   getViewContractAddress(): Address {
-    return this._chain.contracts.storageView.address
+    return this._chain.contracts.fwssView.address
   }
 
   getServiceProviderRegistryAddress(): Address {
@@ -101,8 +101,8 @@ export class WarmStorageService {
    */
   async getDataSet(dataSetId: bigint): Promise<DataSetInfo> {
     const ds = await readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'getDataSet',
       args: [dataSetId],
     })
@@ -122,8 +122,8 @@ export class WarmStorageService {
    */
   async getClientDataSets(clientAddress: Address): Promise<readonly DataSetInfo[]> {
     return await readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'getClientDataSets',
       args: [clientAddress],
     })
@@ -139,8 +139,8 @@ export class WarmStorageService {
   async getClientDataSetsWithDetails(client: Address, onlyManaged: boolean = false): Promise<EnhancedDataSetInfo[]> {
     // Query dataset IDs directly from the view contract
     const ids = await readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'clientDataSets',
       args: [client],
     })
@@ -163,8 +163,8 @@ export class WarmStorageService {
               dataSetId: dataSetId,
             }),
             {
-              address: this._chain.contracts.storageView.address,
-              abi: this._chain.contracts.storageView.abi,
+              address: this._chain.contracts.fwssView.address,
+              abi: this._chain.contracts.fwssView.abi,
               functionName: 'getAllDataSetMetadata',
               args: [dataSetId],
             },
@@ -172,7 +172,7 @@ export class WarmStorageService {
         })
 
         // Check if this data set is managed by our Warm Storage contract
-        const isManaged = listener != null && isAddressEqual(listener, this._chain.contracts.storage.address)
+        const isManaged = listener != null && isAddressEqual(listener, this._chain.contracts.fwss.address)
 
         // Skip unmanaged data sets if onlyManaged is true
         if (onlyManaged && !isManaged) {
@@ -237,10 +237,10 @@ export class WarmStorageService {
     }
 
     // Verify this data set is managed by our Warm Storage contract
-    if (!isAddressEqual(listener, this._chain.contracts.storage.address)) {
+    if (!isAddressEqual(listener, this._chain.contracts.fwss.address)) {
       throw new Error(
         `Data set ${dataSetId} is not managed by this WarmStorage contract (${
-          this._chain.contracts.storage.address
+          this._chain.contracts.fwss.address
         }), managed by ${String(listener)}`
       )
     }
@@ -274,8 +274,8 @@ export class WarmStorageService {
    */
   async getDataSetMetadataByKey(dataSetId: bigint, key: string): Promise<string | null> {
     const [exists, value] = await readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'getDataSetMetadata',
       args: [dataSetId, key],
     })
@@ -301,8 +301,8 @@ export class WarmStorageService {
    */
   async getPieceMetadataByKey(dataSetId: bigint, pieceId: bigint, key: string): Promise<string | null> {
     const [exists, value] = await readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'getPieceMetadata',
       args: [dataSetId, pieceId, key],
     })
@@ -388,7 +388,7 @@ export class WarmStorageService {
   }> {
     // Get current allowances and calculate costs in parallel
     const [approval, costs] = await Promise.all([
-      paymentsService.serviceApproval(this._chain.contracts.storage.address, TOKENS.USDFC),
+      paymentsService.serviceApproval(this._chain.contracts.fwss.address, TOKENS.USDFC),
       this.calculateStorageCost(sizeInBytes),
     ])
 
@@ -530,7 +530,7 @@ export class WarmStorageService {
         description: `Approve service with rate allowance ${allowanceCheck.rateAllowanceNeeded} and lockup allowance ${allowanceCheck.lockupAllowanceNeeded}`,
         execute: async () =>
           await paymentsService.approveService(
-            this._chain.contracts.storage.address,
+            this._chain.contracts.fwss.address,
             allowanceCheck.rateAllowanceNeeded,
             allowanceCheck.lockupAllowanceNeeded,
             TIME_CONSTANTS.EPOCHS_PER_MONTH, // 30 days max lockup period
@@ -618,8 +618,8 @@ export class WarmStorageService {
    */
   async isProviderIdApproved(providerId: bigint): Promise<boolean> {
     return readContract(this._client, {
-      address: this._chain.contracts.storageView.address,
-      abi: this._chain.contracts.storageView.abi,
+      address: this._chain.contracts.fwssView.address,
+      abi: this._chain.contracts.fwssView.abi,
       functionName: 'isProviderApproved',
       args: [providerId],
     })
@@ -631,8 +631,8 @@ export class WarmStorageService {
    */
   async getOwner(): Promise<Address> {
     return readContract(this._client, {
-      address: this._chain.contracts.storage.address,
-      abi: this._chain.contracts.storage.abi,
+      address: this._chain.contracts.fwss.address,
+      abi: this._chain.contracts.fwss.abi,
       functionName: 'owner',
     })
   }
@@ -660,8 +660,8 @@ export class WarmStorageService {
     const [maxProvingPeriod, challengeWindowSize, challengesPerProof, initChallengeWindowStart] = await readContract(
       this._client,
       {
-        address: this._chain.contracts.storageView.address,
-        abi: this._chain.contracts.storageView.abi,
+        address: this._chain.contracts.fwssView.address,
+        abi: this._chain.contracts.fwssView.abi,
         functionName: 'getPDPConfig',
       }
     )
@@ -698,8 +698,8 @@ export class WarmStorageService {
     }
 
     const { request } = await simulateContract(client, {
-      address: this._chain.contracts.storage.address,
-      abi: this._chain.contracts.storage.abi,
+      address: this._chain.contracts.fwss.address,
+      abi: this._chain.contracts.fwss.abi,
       functionName: 'topUpCDNPaymentRails',
       args: [dataSetId, cdnAmountToAdd, cacheMissAmountToAdd],
     })

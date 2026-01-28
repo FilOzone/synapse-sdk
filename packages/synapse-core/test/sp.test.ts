@@ -3,7 +3,6 @@ import { setup } from 'iso-web/msw'
 import { delay, HttpResponse, http } from 'msw'
 import { createWalletClient, decodeAbiParameters, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { Chain } from '../src/chains.ts'
 import * as Chains from '../src/chains.ts'
 import {
   AddPiecesError,
@@ -34,15 +33,10 @@ import * as SP from '../src/sp.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
-const chain: Chain = {
-  ...Chains.calibration,
-  id: 31337,
-}
-
 const account = privateKeyToAccount(PRIVATE_KEYS.key1)
 const client = createWalletClient({
   account,
-  chain,
+  chain: Chains.calibration,
   transport: viemHttp(),
 })
 
@@ -335,9 +329,8 @@ InvalidSignature(address expected, address actual)
       assert.deepStrictEqual(result, mockResponse)
     })
 
-    it('should handle pending then confirmed status', async function () {
-      this.timeout(10000)
-
+    it('should handle pending then confirmed status', async () => {
+      SP.setDelayTime(50)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
@@ -374,6 +367,7 @@ InvalidSignature(address expected, address actual)
       assert.strictEqual(result.dataSetCreated, true)
       assert.strictEqual(result.dataSetId, 123)
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
+      SP.resetDelayTime()
     })
 
     it('should handle server errors', async () => {
@@ -418,7 +412,7 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      SP.setTimeout(100)
+      SP.setTimeout(50)
 
       try {
         await SP.waitForDataSetCreationStatus({
@@ -427,7 +421,7 @@ InvalidSignature(address expected, address actual)
         assert.fail('Should have thrown timeout error')
       } catch (error) {
         assert.instanceOf(error, SP.TimeoutError)
-        assert.include(error.message, 'Request timed out after 100ms')
+        assert.include(error.message, 'Request timed out after 50ms')
       } finally {
         SP.resetTimeout()
       }
@@ -672,8 +666,8 @@ InvalidSignature(address expected, address actual)
       assert.deepStrictEqual(result, mockResponse)
     })
 
-    it('should handle pending then confirmed status', async function () {
-      this.timeout(10000) // Increase timeout for polling test
+    it('should handle pending then confirmed status', async () => {
+      SP.setDelayTime(50)
 
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
       let callCount = 0
@@ -715,6 +709,7 @@ InvalidSignature(address expected, address actual)
       assert.strictEqual(result.piecesAdded, true)
       assert.deepStrictEqual(result.confirmedPieceIds, [101, 102])
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
+      SP.resetDelayTime()
     })
 
     it('should handle server errors', async () => {
@@ -762,7 +757,7 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      SP.setTimeout(100)
+      SP.setTimeout(50)
 
       try {
         const result = await SP.waitForAddPiecesStatus({
@@ -771,7 +766,7 @@ InvalidSignature(address expected, address actual)
         assert.deepStrictEqual(result, mockResponse)
       } catch (error) {
         assert.instanceOf(error, SP.TimeoutError)
-        assert.include(error.message, 'Request timed out after 100ms')
+        assert.include(error.message, 'Request timed out after 50ms')
       } finally {
         SP.resetTimeout()
       }
@@ -857,7 +852,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle piece not found (timeout)', async () => {
-      SP.setTimeout(100)
+      SP.setTimeout(50)
       const pieceCid = Piece.parse(mockPieceCidStr)
 
       server.use(findPieceHandler(mockPieceCidStr, false))
@@ -901,8 +896,7 @@ InvalidSignature(address expected, address actual)
       }
     })
 
-    it('should retry on 202 status and eventually succeed', async function () {
-      this.timeout(10000)
+    it('should retry on 202 status and eventually succeed', async () => {
       const pieceCid = Piece.parse(mockPieceCidStr)
       let attemptCount = 0
 

@@ -7,10 +7,14 @@
  * @example
  * ```typescript
  * import { PDPVerifier } from '@filoz/synapse-sdk/pdp'
- * import { ethers } from 'ethers'
+ * import { createPublicClient, http } from 'viem'
+ * import { calibration } from '@filoz/synapse-core/chains'
  *
- * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const pdpVerifier = new PDPVerifier(provider, contractAddress)
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(rpcUrl),
+ * })
+ * const pdpVerifier = new PDPVerifier({ client, address: contractAddress })
  *
  * // Check if a data set is live
  * const isLive = await pdpVerifier.dataSetLive(dataSetId)

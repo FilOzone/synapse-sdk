@@ -77,7 +77,7 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
   const address = props?.address
 
   const result = useQuery({
@@ -234,7 +234,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
   const account = useAccount({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
 
   return useMutation({
     ...props?.mutation,
@@ -302,7 +302,7 @@ export function useRevokeOperator(props?: RevokeOperatorProps) {
   const account = useAccount({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
 
   return useMutation({
     ...props?.mutation,

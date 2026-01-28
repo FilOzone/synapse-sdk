@@ -18,41 +18,41 @@ export async function readAddresses(client: Client<Transport, Chain>): Promise<R
     allowFailure: false,
     contracts: [
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'paymentsContractAddress',
       },
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'viewContractAddress',
       },
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'pdpVerifierAddress',
       },
 
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'serviceProviderRegistry',
       },
 
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'sessionKeyRegistry',
       },
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'usdfcTokenAddress',
       },
 
       {
-        address: chain.contracts.storage.address,
-        abi: chain.contracts.storage.abi,
+        address: chain.contracts.fwss.address,
+        abi: chain.contracts.fwss.abi,
         functionName: 'filBeamBeneficiaryAddress',
       },
     ],
