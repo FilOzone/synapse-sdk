@@ -52,6 +52,7 @@ export class SessionKey {
   get chain(): Chain {
     return this._chain
   }
+
   get client(): Client<Transport, Chain, Account> {
     return this._client
   }
@@ -67,7 +68,6 @@ export class SessionKey {
     const expiries: Record<string, bigint> = {}
     const result = await multicall(this._ownerClient, {
       allowFailure: false,
-
       contracts: permissions.map((permission) =>
         SK.authorizationExpiryCall({
           chain: this._chain,
@@ -113,11 +113,11 @@ export class SessionKey {
    * @param permissions list of permissions removed from the signer, as a list of bytes32 hex strings
    * @return signed and broadcasted revoke transaction details
    */
-  async revoke(permissions: SK.SessionKeyPermissions[] = SK.ALL_PERMISSIONS): Promise<Hash> {
+  async revoke(permissions: SK.SessionKeyPermissions[] = SK.ALL_PERMISSIONS, origin = DEFAULT_ORIGIN): Promise<Hash> {
     return await SK.revoke(this._ownerClient, {
       address: this._account.address,
       permissions,
-      origin: DEFAULT_ORIGIN,
+      origin,
     })
   }
 }
