@@ -82,7 +82,7 @@ export const upload: Command = command(
         },
         onUploadComplete(pieceCid) {
           p.log.info(`Upload complete! PieceCID: ${pieceCid}`)
-          const serviceURL = context.provider.products.PDP?.data.serviceURL
+          const serviceURL = context.provider.pdp.serviceURL
           if (serviceURL) {
             p.log.info(
               `Retrieval URL: ${serviceURL.replace(/\/$/, '')}/piece/${pieceCid}`
@@ -92,7 +92,7 @@ export const upload: Command = command(
       })
 
       p.log.success(`File uploaded ${upload.pieceId}`)
-      const serviceURL = context.provider.products.PDP?.data.serviceURL
+      const serviceURL = context.provider.pdp.serviceURL
       if (serviceURL) {
         p.log.info(
           `Retrieval URL: ${serviceURL.replace(/\/$/, '')}/piece/${upload.pieceCid}`

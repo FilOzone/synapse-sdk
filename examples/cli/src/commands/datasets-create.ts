@@ -1,10 +1,10 @@
 import * as p from '@clack/prompts'
 import * as sp from '@filoz/synapse-core/sp'
 import {
-  createDataSet,
-  getProvider,
-  readProviders,
-} from '@filoz/synapse-core/warm-storage'
+  getPDPProvider,
+  getPDPProviders,
+} from '@filoz/synapse-core/sp-registry'
+import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import type { Account, Chain, Client, Transport } from 'viem'
 import { privateKeyClient } from '../client.ts'
@@ -35,7 +35,9 @@ export const datasetsCreate: Command = command(
     const spinner = p.spinner()
     try {
       const provider = argv._.providerId
-        ? await getProvider(client, { providerId: BigInt(argv._.providerId) })
+        ? await getPDPProvider(client, {
+            providerId: BigInt(argv._.providerId),
+          })
         : await selectProvider(client, argv.flags)
 
       p.log.info(
@@ -76,12 +78,12 @@ async function selectProvider(
   spinner.start(`Fetching providers...`)
 
   try {
-    const providers = await readProviders(client)
+    const result = await getPDPProviders(client)
     spinner.stop(`Fetching providers complete`)
 
     const provider = await p.select({
       message: 'Pick a provider to create a data set.',
-      options: providers.map((provider) => ({
+      options: result.providers.map((provider) => ({
         value: provider,
         label: `#${provider.id} - ${provider.serviceProvider} ${provider.pdp.serviceURL}`,
       })),
