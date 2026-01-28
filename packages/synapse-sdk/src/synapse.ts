@@ -4,20 +4,18 @@ import type { Account, Address, Client, Transport } from 'viem'
 import { EndorsementsService } from './endorsements/index.ts'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
-import { ChainRetriever, FilBeamRetriever, SubgraphRetriever } from './retriever/index.ts'
+import { ChainRetriever, FilBeamRetriever } from './retriever/index.ts'
 import { SessionKey } from './session/key.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
-import { SubgraphService } from './subgraph/service.ts'
 import type {
   FilecoinNetworkType,
+  PDPProvider,
   PieceCID,
   PieceRetriever,
-  ProviderInfo,
   StorageInfo,
   StorageServiceOptions,
-  SubgraphConfig,
   SynapseOptions,
 } from './types.ts'
 import { CHAIN_IDS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from './utils/index.ts'
@@ -165,7 +163,7 @@ export class Synapse {
 
     // Create SPRegistryService for use in retrievers
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(provider, registryAddress, multicall3Address)
+    const spRegistry = new SPRegistryService(connectorClient, provider, registryAddress)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -174,16 +172,6 @@ export class Synapse {
     } else {
       // Create default retriever chain: FilBeam wraps the base retriever
       const chainRetriever = new ChainRetriever(warmStorageService, spRegistry)
-
-      // Check for subgraph option
-      let baseRetriever: PieceRetriever = chainRetriever
-      if (options.subgraphConfig != null || options.subgraphService != null) {
-        const subgraphService =
-          options.subgraphService != null
-            ? options.subgraphService
-            : new SubgraphService(options.subgraphConfig as SubgraphConfig)
-        baseRetriever = new SubgraphRetriever(subgraphService)
-      }
 
       // Wrap with FilBeam retriever
       pieceRetriever = new FilBeamRetriever(baseRetriever, connectorClient.chain)
@@ -436,7 +424,7 @@ export class Synapse {
    * @param providerAddress - The provider's address or provider ID
    * @returns Provider information including URLs and pricing
    */
-  async getProviderInfo(providerAddress: Address | bigint): Promise<ProviderInfo> {
+  async getProviderInfo(providerAddress: Address | bigint): Promise<PDPProvider> {
     try {
       // Validate address format if string provided
       if (typeof providerAddress === 'string') {
@@ -449,9 +437,9 @@ export class Synapse {
 
       // Create SPRegistryService
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._provider, registryAddress, this._multicall3Address)
+      const spRegistry = new SPRegistryService(this.connectorClient, this._provider, registryAddress)
 
-      let providerInfo: ProviderInfo | null
+      let providerInfo: PDPProvider | null
       if (typeof providerAddress === 'string') {
         providerInfo = await spRegistry.getProviderByAddress(providerAddress)
       } else {

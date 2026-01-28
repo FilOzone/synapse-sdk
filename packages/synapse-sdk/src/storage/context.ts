@@ -24,7 +24,7 @@
 
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { type MetadataObject, randIndex, randU256 } from '@filoz/synapse-core/utils'
+import { createPieceUrlPDP, type MetadataObject, randIndex, randU256 } from '@filoz/synapse-core/utils'
 import { deletePiece } from '@filoz/synapse-core/warm-storage'
 import type { Address, Hash, Hex } from 'viem'
 import type { EndorsementsService } from '../endorsements/index.ts'
@@ -32,12 +32,12 @@ import type { PaymentsService } from '../payments/index.ts'
 import { PDPServer } from '../pdp/index.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
-import type { ProviderInfo } from '../sp-registry/types.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
   CreateContextsOptions,
   DataSetInfo,
   DownloadOptions,
+  PDPProvider,
   PieceCID,
   PieceRecord,
   PieceStatus,
@@ -64,7 +64,7 @@ const NO_REMAINING_PROVIDERS_ERROR_MESSAGE = 'No approved service providers avai
 
 export class StorageContext {
   private readonly _synapse: Synapse
-  private readonly _provider: ProviderInfo
+  private readonly _provider: PDPProvider
   private readonly _pdpEndpoint: string
   private readonly _pdpServer: PDPServer
   private readonly _warmStorageService: WarmStorageService
@@ -100,7 +100,7 @@ export class StorageContext {
   }
 
   // Getter for provider info
-  get provider(): ProviderInfo {
+  get provider(): PDPProvider {
     return this._provider
   }
 
@@ -166,7 +166,7 @@ export class StorageContext {
   constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
-    provider: ProviderInfo,
+    provider: PDPProvider,
     dataSetId: bigint | undefined,
     options: StorageServiceOptions,
     dataSetMetadata: Record<string, string>
@@ -182,11 +182,7 @@ export class StorageContext {
     this._dataSetId = dataSetId
     this.serviceProvider = provider.serviceProvider
 
-    // Create PDPServer instance with provider URL from PDP product
-    if (!provider.products.PDP?.data.serviceURL) {
-      throw new Error(`Provider ${provider.id} does not have a PDP product with serviceURL`)
-    }
-    this._pdpEndpoint = provider.products.PDP.data.serviceURL
+    this._pdpEndpoint = provider.pdp.serviceURL
     this._pdpServer = new PDPServer({
       client: synapse.connectorClient,
       endpoint: this._pdpEndpoint,
@@ -207,7 +203,7 @@ export class StorageContext {
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = (await synapse.getClient().getAddress()) as Address
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.connectorClient, synapse.getProvider(), registryAddress)
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
@@ -263,8 +259,7 @@ export class StorageContext {
             excludeProviderIds,
             resolutions.length === 0 ? await endorsementsService.getEndorsedProviderIds() : new Set<bigint>(),
             options.forceCreateDataSets ?? false,
-            options.withIpni ?? false,
-            options.dev ?? false
+            options.withIpni ?? false
           )
           excludeProviderIds.push(resolution.provider.id)
           resolutions.push(resolution)
@@ -295,7 +290,7 @@ export class StorageContext {
   ): Promise<StorageContext> {
     // Create SPRegistryService
     const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.connectorClient, synapse.getProvider(), registryAddress)
 
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)
@@ -394,8 +389,7 @@ export class StorageContext {
       options.excludeProviderIds ?? [],
       new Set<bigint>(),
       options.forceCreateDataSet ?? false,
-      options.withIpni ?? false,
-      options.dev ?? false
+      options.withIpni ?? false
     )
   }
 
@@ -665,8 +659,7 @@ export class StorageContext {
     excludeProviderIds: bigint[],
     endorsedProviderIds: Set<bigint>,
     forceCreateDataSet: boolean,
-    withIpni: boolean,
-    dev: boolean
+    withIpni: boolean
   ): Promise<ProviderSelectionResult> {
     // Strategy:
     // 1. Try to find existing data sets first
@@ -695,7 +688,7 @@ export class StorageContext {
       })
 
       // Create async generator that yields providers lazily
-      async function* generateProviders(): AsyncGenerator<ProviderInfo> {
+      async function* generateProviders(): AsyncGenerator<PDPProvider> {
         // First, yield providers from existing data sets (in sorted order)
         for (const dataSet of sorted) {
           if (skipProviderIds.has(dataSet.providerId)) {
@@ -711,13 +704,7 @@ export class StorageContext {
             continue
           }
 
-          if (withIpni && provider.products.PDP?.data.ipniIpfs === false) {
-            continue
-          }
-
-          const serviceStatus = provider.products.PDP?.capabilities?.serviceStatus
-          if (!dev && serviceStatus === '0x646576') {
-            // "dev" in hex
+          if (withIpni && provider.pdp.ipniIpfs === false) {
             continue
           }
 
@@ -757,21 +744,19 @@ export class StorageContext {
     const approvedIds = await warmStorageService.getApprovedProviderIds()
     const approvedProviders = await spRegistry.getProviders(approvedIds)
     const allProviders = approvedProviders.filter(
-      (provider: ProviderInfo) =>
-        (!withIpni || provider.products.PDP?.data.ipniIpfs === true) &&
-        (dev || provider.products.PDP?.capabilities?.serviceStatus !== '0x646576') &&
-        !excludeProviderIds.includes(provider.id)
+      (provider: PDPProvider) =>
+        (!withIpni || provider.pdp.ipniIpfs === true) && !excludeProviderIds.includes(provider.id)
     )
 
     if (allProviders.length === 0) {
       throw createError('StorageContext', 'smartSelectProvider', NO_REMAINING_PROVIDERS_ERROR_MESSAGE)
     }
 
-    let provider: ProviderInfo | null
+    let provider: PDPProvider | null
     if (endorsedProviderIds.size > 0) {
       // Split providers according to whether they have all of the endorsements
-      const [otherProviders, endorsedProviders] = allProviders.reduce<[ProviderInfo[], ProviderInfo[]]>(
-        (results: [ProviderInfo[], ProviderInfo[]], provider: ProviderInfo) => {
+      const [otherProviders, endorsedProviders] = allProviders.reduce<[PDPProvider[], PDPProvider[]]>(
+        (results: [PDPProvider[], PDPProvider[]], provider: PDPProvider) => {
           results[endorsedProviderIds.has(provider.id) ? 1 : 0].push(provider)
           return results
         },
@@ -808,13 +793,13 @@ export class StorageContext {
    * @param dev - Include dev providers
    * @returns Selected provider
    */
-  private static async selectRandomProvider(providers: ProviderInfo[]): Promise<ProviderInfo | null> {
+  private static async selectRandomProvider(providers: PDPProvider[]): Promise<PDPProvider | null> {
     if (providers.length === 0) {
       return null
     }
 
     // Create async generator that yields providers in random order
-    async function* generateRandomProviders(): AsyncGenerator<ProviderInfo> {
+    async function* generateRandomProviders(): AsyncGenerator<PDPProvider> {
       const remaining = [...providers]
 
       while (remaining.length > 0) {
@@ -834,17 +819,11 @@ export class StorageContext {
    * @returns The first provider that responds
    * @throws If all providers fail
    */
-  private static async selectProviderWithPing(providers: AsyncIterable<ProviderInfo>): Promise<ProviderInfo | null> {
+  private static async selectProviderWithPing(providers: AsyncIterable<PDPProvider>): Promise<PDPProvider | null> {
     // Try providers in order until we find one that responds to ping
     for await (const provider of providers) {
       try {
-        // Create a temporary PDPServer for this specific provider's endpoint
-        if (!provider.products.PDP?.data.serviceURL) {
-          // Skip providers without PDP products
-          continue
-        }
-
-        await SP.ping(provider.products.PDP.data.serviceURL)
+        await SP.ping(provider.pdp.serviceURL)
         return provider
       } catch (error) {
         console.warn(
@@ -1194,7 +1173,7 @@ export class StorageContext {
    * Get information about the service provider used by this service
    * @returns Provider information including pricing (currently same for all providers)
    */
-  async getProviderInfo(): Promise<ProviderInfo> {
+  async getProviderInfo(): Promise<PDPProvider> {
     return await this._synapse.getProviderInfo(this.serviceProvider)
   }
 
@@ -1401,14 +1380,7 @@ export class StorageContext {
 
       // Set retrieval URL if we have provider info
       if (providerInfo != null) {
-        // Remove trailing slash from serviceURL to avoid double slashes
-        if (!providerInfo.products.PDP?.data.serviceURL) {
-          throw new Error(`Provider ${providerInfo.id} does not have a PDP product with serviceURL`)
-        }
-        retrievalUrl = `${providerInfo.products.PDP.data.serviceURL.replace(
-          /\/$/,
-          ''
-        )}/piece/${parsedPieceCID.toString()}`
+        retrievalUrl = createPieceUrlPDP(parsedPieceCID.toString(), providerInfo.pdp.serviceURL)
       }
 
       // Process proof timing data if we have data set data and PDP config

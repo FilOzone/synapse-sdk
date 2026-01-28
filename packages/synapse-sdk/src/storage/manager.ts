@@ -23,8 +23,7 @@
 import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
-import { ethers } from 'ethers'
-import type { Address, Hash } from 'viem'
+import { type Address, type Hash, zeroAddress } from 'viem'
 import type { EndorsementsService } from '../endorsements/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
@@ -32,10 +31,10 @@ import type {
   CreateContextsOptions,
   DownloadOptions,
   EnhancedDataSetInfo,
+  PDPProvider,
   PieceCID,
   PieceRetriever,
   PreflightInfo,
-  ProviderInfo,
   StorageContextCallbacks,
   StorageInfo,
   StorageServiceOptions,
@@ -522,7 +521,11 @@ export class StorageManager {
 
       // Create SPRegistryService to get providers
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._synapse.getProvider(), registryAddress)
+      const spRegistry = new SPRegistryService(
+        this._synapse.connectorClient,
+        this._synapse.getProvider(),
+        registryAddress
+      )
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
@@ -550,7 +553,7 @@ export class StorageManager {
       const withCDNPerDay = BigInt(pricingData.pricePerTiBPerMonthNoCDN) / TIME_CONSTANTS.DAYS_PER_MONTH
 
       // Filter out providers with zero addresses
-      const validProviders = providers.filter((p: ProviderInfo) => p.serviceProvider !== ethers.ZeroAddress)
+      const validProviders = providers.filter((p: PDPProvider) => p.serviceProvider !== zeroAddress)
 
       const network = this._synapse.getNetwork()
 
