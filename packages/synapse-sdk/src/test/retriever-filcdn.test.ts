@@ -8,6 +8,7 @@ import type { PieceCID, PieceRetriever } from '../types.ts'
 
 const calibrationChain = { filbeam: { retrievalDomain: 'calibration.filbeam.io' } } as unknown as Chain
 const mainnetChain = { filbeam: { retrievalDomain: 'filbeam.io' } } as unknown as Chain
+const devnetChain = { id: 31415926, name: 'Filecoin - Devnet', filbeam: null } as unknown as Chain
 
 // Create a mock PieceCID for testing
 const mockPieceCID = asPieceCID('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace') as PieceCID
@@ -237,6 +238,86 @@ describe('FilBeamRetriever', () => {
 
       const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, calibrationChain)
       assert.strictEqual(cdnRetriever.hostname(), 'calibration.filbeam.io')
+    })
+
+    it('should return null hostname when chain.filbeam is null', () => {
+      const mockBaseRetriever: PieceRetriever = {
+        fetchPiece: async () => new Response(),
+      }
+
+      const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, devnetChain)
+      assert.isNull(cdnRetriever.hostname())
+    })
+
+    it('should fall back to direct retrieval when chain.filbeam is null and withCDN=true', async () => {
+      let baseCalled = false
+      const baseResponse = new Response('test data', { status: 200 })
+      const warnings: string[] = []
+
+      const mockBaseRetriever: PieceRetriever = {
+        fetchPiece: async (pieceCid: PieceCID, client: string) => {
+          baseCalled = true
+          assert.equal(pieceCid, mockPieceCID)
+          assert.equal(client, '0xClient')
+          return baseResponse
+        },
+      }
+
+      const originalWarn = console.warn
+      console.warn = (msg: string, ...args: unknown[]) => {
+        warnings.push([msg, ...args].join(' '))
+      }
+      const originalFetch = global.fetch
+      global.fetch = async () => {
+        throw new Error('Should not call fetch when chain.filbeam is null')
+      }
+
+      try {
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, devnetChain)
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: true,
+        })
+
+        assert.isTrue(baseCalled, 'Base retriever should be called')
+        assert.equal(response, baseResponse)
+        assert.lengthOf(warnings, 1, 'Should log exactly one warning')
+        assert.include(warnings[0], '31415926', 'Warning should include chain ID')
+        assert.include(warnings[0], 'Filecoin - Devnet', 'Warning should include chain name')
+      } finally {
+        console.warn = originalWarn
+        global.fetch = originalFetch
+      }
+    })
+
+    it('should pass through without warning when chain.filbeam is null and withCDN=false', async () => {
+      let baseCalled = false
+      const baseResponse = new Response('test data', { status: 200 })
+      const warnings: string[] = []
+
+      const mockBaseRetriever: PieceRetriever = {
+        fetchPiece: async () => {
+          baseCalled = true
+          return baseResponse
+        },
+      }
+
+      const originalWarn = console.warn
+      console.warn = (msg: string, ...args: unknown[]) => {
+        warnings.push([msg, ...args].join(' '))
+      }
+
+      try {
+        const cdnRetriever = new FilBeamRetriever(mockBaseRetriever, devnetChain)
+        const response = await cdnRetriever.fetchPiece(mockPieceCID, '0xClient', {
+          withCDN: false,
+        })
+
+        assert.isTrue(baseCalled, 'Base retriever should be called')
+        assert.equal(response, baseResponse)
+        assert.lengthOf(warnings, 0, 'Should not log any warnings when CDN not requested')
+      } finally {
+        console.warn = originalWarn
+      }
     })
   })
 })
