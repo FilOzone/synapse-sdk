@@ -285,9 +285,9 @@ providers.forEach((provider) => {
     ID: provider.id,
     Name: provider.name,
     Description: provider.description,
-    Active: provider.active,
+    Active: provider.isActive,
     ProviderAddress: provider.serviceProvider,
-    PDPServiceURL: provider.products.PDP!.data.serviceURL,
+    PDPServiceURL: provider.pdp.serviceURL,
   });
 });
 ```
