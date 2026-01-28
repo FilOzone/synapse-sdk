@@ -9,6 +9,13 @@ function typeHash(type: TypedData.encodeType.Value) {
   return keccak256(stringToHex(TypedData.encodeType(type)))
 }
 
+export const ALL_PERMISSIONS: SessionKeyPermissions[] = [
+  'CreateDataSet',
+  'AddPieces',
+  'SchedulePieceRemovals',
+  'DeleteDataSet',
+]
+
 /**
  * Session key permissions type hash map
  */
@@ -29,4 +36,14 @@ export const SESSION_KEY_PERMISSIONS: Record<SessionKeyPermissions, Hex> = {
     types: EIP712Types,
     primaryType: 'DeleteDataSet',
   }),
+}
+
+export function getPermissionFromTypeHash(typeHash: Hex): SessionKeyPermissions {
+  for (const permission of Object.entries(SESSION_KEY_PERMISSIONS)) {
+    if (permission[1] === typeHash) {
+      return permission[0] as SessionKeyPermissions
+    }
+  }
+
+  throw new Error(`Permission not found for type hash: ${typeHash}`)
 }

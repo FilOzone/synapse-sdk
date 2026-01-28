@@ -6,14 +6,15 @@
 
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
+import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
 import { type Address, bytesToHex, type Hex, isAddressEqual, numberToBytes, parseUnits, stringToHex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
-import { PDP_PERMISSIONS } from '../session/key.ts'
 import type { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -226,20 +227,26 @@ describe('Synapse', () => {
 
     it('should storage.createContext with session key', async () => {
       const signerAddress = await signer.getAddress()
-      const sessionKeySigner = new ethers.Wallet(Mocks.PRIVATE_KEYS.key2)
-      const sessionKeyAddress = await sessionKeySigner.getAddress()
+      const sessionKeyAccount = privateKeyToAccount(Mocks.PRIVATE_KEYS.key2)
       const EXPIRY = BigInt(1757618883)
+      const PDP_PERMISSIONS: SessionKeyPermissions[] = [
+        'CreateDataSet',
+        'AddPieces',
+        'SchedulePieceRemovals',
+        'DeleteDataSet',
+      ]
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           sessionKeyRegistry: {
             authorizationExpiry: (args) => {
               const client = args[0]
               const signer = args[1]
               assert.equal(client, signerAddress)
-              assert.equal(signer, sessionKeyAddress)
+              assert.equal(signer, sessionKeyAccount.address)
               const permission = args[2]
-              assert.isTrue(PDP_PERMISSIONS.includes(permission))
+              assert.isTrue(PDP_PERMISSIONS.includes(getPermissionFromTypeHash(permission)))
               return [EXPIRY]
             },
           },
@@ -277,9 +284,9 @@ describe('Synapse', () => {
         })
       )
       const synapse = await Synapse.create({ signer })
-      const sessionKey = synapse.createSessionKey(sessionKeySigner)
+      const sessionKey = synapse.createSessionKey(sessionKeyAccount)
       synapse.setSession(sessionKey)
-      assert.equal(sessionKey.getSigner(), sessionKeySigner)
+      assert.equal(sessionKey.account.address, sessionKeyAccount.address)
 
       const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
       for (const permission of PDP_PERMISSIONS) {
@@ -287,7 +294,6 @@ describe('Synapse', () => {
       }
 
       const context = await synapse.storage.createContext()
-      assert.equal((context as any)._synapse.getSigner(), sessionKeySigner)
       const info = await context.preflightUpload(127)
       assert.isTrue(info.allowanceCheck.sufficient)
 

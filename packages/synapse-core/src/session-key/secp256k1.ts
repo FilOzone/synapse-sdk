@@ -105,7 +105,7 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
 
   async refresh(client: Client<Transport, Chain, Account>) {
     const hash = await login(client, {
-      sessionAddress: this.account.address,
+      address: this.account.address,
       permissions: this.permissions,
       expiresAt: this.expiresAt ? BigInt(this.expiresAt) : undefined,
     })
@@ -121,7 +121,7 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
     }
     return isExpired(client, {
       address: client.account.address,
-      sessionAddress: this.account.address,
+      sessionKeyAddress: this.account.address,
       permission: permission,
     })
   }

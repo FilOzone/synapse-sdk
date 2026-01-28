@@ -50,7 +50,7 @@ export const pay: Command = command(
         `Lockup last settled at: ${formatBalance({ value: paymentsBalance.lockupLastSettledAt })}`
       )
       p.log.info(`Funds: ${formatBalance({ value: paymentsBalance.funds })}`)
-      p.log.info(`Address: ${await synapse.getSigner().getAddress()}`)
+      p.log.info(`Address: ${await synapse.getClient().getAddress()}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)
