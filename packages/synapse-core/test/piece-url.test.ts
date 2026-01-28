@@ -17,10 +17,6 @@ describe('createPieceUrl', () => {
         chain: calibration,
         expected: `https://${testAddress}.calibration.filbeam.io/${testCid}`,
       },
-      {
-        chain: devnet,
-        expected: `https://${testAddress}.localhost:8080/${testCid}`,
-      },
     ]
 
     for (const { chain, expected } of testCases) {
@@ -29,6 +25,11 @@ describe('createPieceUrl', () => {
         assert.strictEqual(result, expected)
       })
     }
+
+    it('should fall back to PDP URL when chain.filbeam is null', () => {
+      const result = createPieceUrl(testCid, true, testAddress, devnet, testPdpUrl)
+      assert.strictEqual(result, `${testPdpUrl}piece/${testCid}`)
+    })
   })
 
   describe('PDP URLs', () => {

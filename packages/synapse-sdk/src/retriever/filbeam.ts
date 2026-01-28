@@ -18,8 +18,8 @@ export class FilBeamRetriever implements PieceRetriever {
     this.chain = chain
   }
 
-  hostname(): string {
-    return this.chain.filbeam.retrievalDomain
+  hostname(): string | null {
+    return this.chain.filbeam?.retrievalDomain ?? null
   }
 
   async fetchPiece(
@@ -32,7 +32,15 @@ export class FilBeamRetriever implements PieceRetriever {
     }
   ): Promise<Response> {
     if (options?.withCDN === true) {
-      const cdnUrl = `https://${client}.${this.hostname()}/${pieceCid.toString()}`
+      const hostname = this.hostname()
+      if (hostname == null) {
+        console.warn(
+          `CDN retrieval is not available for chain ${this.chain.id} (${this.chain.name}). Falling back to direct retrieval via the storage provider.`
+        )
+        return await this.baseRetriever.fetchPiece(pieceCid, client, options)
+      }
+
+      const cdnUrl = `https://${client}.${hostname}/${pieceCid.toString()}`
       try {
         const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
         if (cdnResponse.ok) {
