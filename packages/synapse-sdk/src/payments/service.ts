@@ -338,7 +338,7 @@ export class PaymentsService {
     if (currentAllowance < amount) {
       // Golden path: automatically approve the exact amount needed
       const { receipt } = await ERC20.approveSync(this._client, {
-        spender: chain.contracts.payments.address,
+        spender: chain.contracts.filecoinPay.address,
         amount,
         onHash: options?.onApprovalTransaction,
       })
@@ -402,15 +402,15 @@ export class PaymentsService {
         name: balance.name,
         version: balance.version,
         token: chain.contracts.usdfc.address,
-        spender: chain.contracts.payments.address,
+        spender: chain.contracts.filecoinPay.address,
       })
     )
 
     try {
       const { request } = await simulateContract(this._client, {
         account: this._client.account,
-        address: chain.contracts.payments.address,
-        abi: chain.contracts.payments.abi,
+        address: chain.contracts.filecoinPay.address,
+        abi: chain.contracts.filecoinPay.abi,
         functionName: 'depositWithPermit',
         args: [
           chain.contracts.usdfc.address,

@@ -325,7 +325,7 @@ describe('PaymentsService', () => {
         eventName: 'Approval',
         args: {
           owner: Mocks.ADDRESSES.client1,
-          spender: calibration.contracts.payments.address,
+          spender: calibration.contracts.filecoinPay.address,
         },
       })
       const eventData = encodeAbiParameters([{ name: 'amount', type: 'uint256' }], [parseUnits('100', 18)])
@@ -337,10 +337,10 @@ describe('PaymentsService', () => {
             return {
               hash,
               from: Mocks.ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                 },

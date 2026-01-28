@@ -45,8 +45,8 @@ describe('deposit', () => {
       })
 
       assert.equal(call.functionName, 'deposit')
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
 
       // Check args: [token, to, amount]
       assert.equal(call.args[0], calibration.contracts.usdfc.address) // token
@@ -63,8 +63,8 @@ describe('deposit', () => {
       })
 
       assert.equal(call.functionName, 'deposit')
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
 
       assert.equal(call.args[0], mainnet.contracts.usdfc.address)
       assert.equal(call.args[1], account.address)
@@ -130,7 +130,7 @@ describe('deposit', () => {
     it('should extract event from logs', () => {
       const depositAmount = parseUnits('100', 18)
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'DepositRecorded',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
@@ -143,7 +143,7 @@ describe('deposit', () => {
 
       const logs: Log[] = [
         {
-          address: calibration.contracts.payments.address,
+          address: calibration.contracts.filecoinPay.address,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data,
           blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as `0x${string}`,
@@ -293,7 +293,7 @@ describe('deposit', () => {
 
       // Create the event log data for the receipt
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'DepositRecorded',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
@@ -321,7 +321,7 @@ describe('deposit', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -334,7 +334,7 @@ describe('deposit', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
@@ -380,7 +380,7 @@ describe('deposit', () => {
       const depositAmount = parseUnits('50', 18)
 
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'DepositRecorded',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
@@ -408,7 +408,7 @@ describe('deposit', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -421,7 +421,7 @@ describe('deposit', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',

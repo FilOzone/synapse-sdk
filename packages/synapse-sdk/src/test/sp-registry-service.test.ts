@@ -4,17 +4,8 @@ import { calibration } from '@filoz/synapse-core/chains'
 import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
-import {
-  type Address,
-  type Chain,
-  type Client,
-  createPublicClient,
-  createWalletClient,
-  type Transport,
-  http as viemHttp,
-} from 'viem'
+import { type Chain, type Client, createPublicClient, createWalletClient, type Transport, http as viemHttp } from 'viem'
 import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
@@ -24,8 +15,6 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 describe('SPRegistryService', () => {
-  let provider: ethers.Provider
-  let signer: ethers.Signer
   let service: SPRegistryService
   let publicClient: Client<Transport, Chain>
   let walletClient: Client<Transport, Chain, Account>
@@ -40,8 +29,6 @@ describe('SPRegistryService', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
     publicClient = createPublicClient({
       chain: calibration,
       transport: viemHttp(),

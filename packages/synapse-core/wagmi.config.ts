@@ -124,17 +124,17 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
       },
     },
     {
-      name: 'FilecoinWarmStorageService',
-      address: {
-        314: FWSS_ADDRESS_MAINNET,
-        314159: FWSS_ADDRESS_CALIBRATION,
-      },
-    },
-    {
       name: 'FilecoinPayV1',
       address: {
         314: mainnetAddresses.payments,
         314159: calibrationAddresses.payments,
+      },
+    },
+    {
+      name: 'FilecoinWarmStorageService',
+      address: {
+        314: FWSS_ADDRESS_MAINNET,
+        314159: FWSS_ADDRESS_CALIBRATION,
       },
     },
     {

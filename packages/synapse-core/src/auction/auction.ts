@@ -26,8 +26,8 @@ export type AuctionInfo = {
 export async function auctionInfo(client: Client<Transport, Chain>, token: Address): Promise<AuctionInfo> {
   const chain = getChain(client.chain.id)
   const [startPrice, startTime] = await readContract(client, {
-    address: chain.contracts.payments.address,
-    abi: chain.contracts.payments.abi,
+    address: chain.contracts.filecoinPay.address,
+    abi: chain.contracts.filecoinPay.abi,
     functionName: 'auctionInfo',
     args: [token],
   })
@@ -49,10 +49,10 @@ export async function auctionInfo(client: Client<Transport, Chain>, token: Addre
 export async function auctionFunds(client: Client<Transport, Chain>, token: Address): Promise<bigint> {
   const chain = getChain(client.chain.id)
   const [funds] = await readContract(client, {
-    address: chain.contracts.payments.address,
-    abi: chain.contracts.payments.abi,
+    address: chain.contracts.filecoinPay.address,
+    abi: chain.contracts.filecoinPay.abi,
     functionName: 'accounts',
-    args: [token, chain.contracts.payments.address],
+    args: [token, chain.contracts.filecoinPay.address],
   })
   return funds
 }

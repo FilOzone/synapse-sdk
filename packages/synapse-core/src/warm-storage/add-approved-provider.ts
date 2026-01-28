@@ -13,7 +13,7 @@ import type {
 } from 'viem'
 import { parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
-import type { storage as storageAbi } from '../abis/index.ts'
+import type { fwss as storageAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
@@ -198,8 +198,8 @@ export namespace addApprovedProviderCall {
 export function addApprovedProviderCall(options: addApprovedProviderCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
-    abi: chain.contracts.storage.abi,
-    address: options.contractAddress ?? chain.contracts.storage.address,
+    abi: chain.contracts.fwss.abi,
+    address: options.contractAddress ?? chain.contracts.fwss.address,
     functionName: 'addApprovedProvider',
     args: [options.providerId],
   } satisfies addApprovedProviderCall.OutputType
@@ -214,7 +214,7 @@ export function addApprovedProviderCall(options: addApprovedProviderCall.Options
  */
 export function extractAddApprovedProviderEvent(logs: Log[]) {
   const [log] = parseEventLogs({
-    abi: Abis.storage,
+    abi: Abis.fwss,
     logs,
     eventName: 'ProviderApproved',
     strict: true,

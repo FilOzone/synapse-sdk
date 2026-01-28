@@ -36,8 +36,8 @@ describe('getRailsForPayerAndToken', () => {
 
       assert.equal(call.functionName, 'getRailsForPayerAndToken')
       assert.deepEqual(call.args, [ADDRESSES.client1, calibration.contracts.usdfc.address, 0n, 10n])
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -51,8 +51,8 @@ describe('getRailsForPayerAndToken', () => {
 
       assert.equal(call.functionName, 'getRailsForPayerAndToken')
       assert.deepEqual(call.args, [ADDRESSES.client1, mainnet.contracts.usdfc.address, 0n, 20n])
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
     })
 
     it('should use custom address when provided', () => {

@@ -28,8 +28,8 @@ describe('getApprovedProviders', () => {
 
       assert.equal(call.functionName, 'getApprovedProviders')
       assert.deepEqual(call.args, [0n, 0n]) // default offset and limit
-      assert.equal(call.address, calibration.contracts.storageView.address)
-      assert.equal(call.abi, calibration.contracts.storageView.abi)
+      assert.equal(call.address, calibration.contracts.fwssView.address)
+      assert.equal(call.abi, calibration.contracts.fwssView.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -39,8 +39,8 @@ describe('getApprovedProviders', () => {
 
       assert.equal(call.functionName, 'getApprovedProviders')
       assert.deepEqual(call.args, [0n, 0n])
-      assert.equal(call.address, mainnet.contracts.storageView.address)
-      assert.equal(call.abi, mainnet.contracts.storageView.abi)
+      assert.equal(call.address, mainnet.contracts.fwssView.address)
+      assert.equal(call.abi, mainnet.contracts.fwssView.abi)
     })
 
     it('should use custom offset and limit', () => {

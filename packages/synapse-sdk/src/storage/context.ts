@@ -202,8 +202,7 @@ export class StorageContext {
     const count = options?.count ?? 2
     const resolutions: ProviderSelectionResult[] = []
     const clientAddress = (await synapse.getClient().getAddress()) as Address
-    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.connectorClient, synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.connectorClient)
     if (options.dataSetIds) {
       const selections = []
       for (const dataSetId of new Set(options.dataSetIds)) {
@@ -289,8 +288,7 @@ export class StorageContext {
     options: StorageServiceOptions = {}
   ): Promise<StorageContext> {
     // Create SPRegistryService
-    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(synapse.connectorClient, synapse.getProvider(), registryAddress)
+    const spRegistry = new SPRegistryService(synapse.connectorClient)
 
     // Resolve provider and data set based on options
     const resolution = await StorageContext.resolveProviderAndDataSet(synapse, warmStorageService, spRegistry, options)

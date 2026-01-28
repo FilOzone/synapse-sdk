@@ -29,8 +29,8 @@ describe('getRail', () => {
 
       assert.equal(call.functionName, 'getRail')
       assert.deepEqual(call.args, [1n])
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -41,8 +41,8 @@ describe('getRail', () => {
 
       assert.equal(call.functionName, 'getRail')
       assert.deepEqual(call.args, [2n])
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
     })
 
     it('should use custom address when provided', () => {

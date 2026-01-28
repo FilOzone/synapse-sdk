@@ -8,7 +8,7 @@ import type {
   Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
-import type { payments as paymentsAbi } from '../abis/index.ts'
+import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import type { RailInfo } from './types.ts'
 
@@ -167,8 +167,8 @@ export function getRailsForPayerAndTokenCall(options: getRailsForPayerAndTokenCa
   const chain = asChain(options.chain)
 
   return {
-    abi: chain.contracts.payments.abi,
-    address: options.contractAddress ?? chain.contracts.payments.address,
+    abi: chain.contracts.filecoinPay.abi,
+    address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'getRailsForPayerAndToken',
     args: [options.payer, options.token, options.offset, options.limit],
   } satisfies getRailsForPayerAndTokenCall.OutputType

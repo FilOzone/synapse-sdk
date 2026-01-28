@@ -28,8 +28,8 @@ describe('getServicePrice', () => {
 
       assert.equal(call.functionName, 'getServicePrice')
       assert.deepEqual(call.args, [])
-      assert.equal(call.address, calibration.contracts.storage.address)
-      assert.equal(call.abi, calibration.contracts.storage.abi)
+      assert.equal(call.address, calibration.contracts.fwss.address)
+      assert.equal(call.abi, calibration.contracts.fwss.abi)
     })
 
     it('should create call with mainnet chain defaults', () => {
@@ -39,8 +39,8 @@ describe('getServicePrice', () => {
 
       assert.equal(call.functionName, 'getServicePrice')
       assert.deepEqual(call.args, [])
-      assert.equal(call.address, mainnet.contracts.storage.address)
-      assert.equal(call.abi, mainnet.contracts.storage.abi)
+      assert.equal(call.address, mainnet.contracts.fwss.address)
+      assert.equal(call.abi, mainnet.contracts.fwss.abi)
     })
 
     it('should use custom address when provided', () => {

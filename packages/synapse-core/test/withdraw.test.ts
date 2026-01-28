@@ -43,8 +43,8 @@ describe('withdraw', () => {
       })
 
       assert.equal(call.functionName, 'withdraw')
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
 
       // Check args: [token, amount]
       assert.equal(call.args[0], calibration.contracts.usdfc.address) // token
@@ -58,8 +58,8 @@ describe('withdraw', () => {
       })
 
       assert.equal(call.functionName, 'withdraw')
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
 
       assert.equal(call.args[0], mainnet.contracts.usdfc.address)
       assert.equal(call.args[1], parseUnits('50', 18))
@@ -120,7 +120,7 @@ describe('withdraw', () => {
     it('should extract event from logs', () => {
       const withdrawAmount = parseUnits('100', 18)
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'WithdrawRecorded',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
@@ -133,7 +133,7 @@ describe('withdraw', () => {
 
       const logs: Log[] = [
         {
-          address: calibration.contracts.payments.address,
+          address: calibration.contracts.filecoinPay.address,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data,
           blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as `0x${string}`,
@@ -234,7 +234,7 @@ describe('withdraw', () => {
 
       // Create the event log data for the receipt
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'WithdrawRecorded',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
@@ -257,7 +257,7 @@ describe('withdraw', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -270,7 +270,7 @@ describe('withdraw', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
