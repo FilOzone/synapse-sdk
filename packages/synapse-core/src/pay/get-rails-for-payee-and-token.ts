@@ -10,6 +10,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { payments as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayeeAndToken {
   export type OptionsType = {
@@ -30,18 +31,6 @@ export namespace getRailsForPayeeAndToken {
     'pure' | 'view',
     'getRailsForPayeeAndToken'
   >
-
-  /**
-   * Rail information for paginated results.
-   */
-  export type RailInfo = {
-    /** The rail ID */
-    railId: bigint
-    /** Whether the rail is terminated */
-    isTerminated: boolean
-    /** End epoch (0 for active rails, > 0 for terminated rails) */
-    endEpoch: bigint
-  }
 
   /**
    * Paginated rail results for a payee and token.
