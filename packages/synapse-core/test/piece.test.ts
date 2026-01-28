@@ -362,7 +362,7 @@ describe('PieceCID utilities', () => {
     })
 
     it('should throw for valid hex but invalid CID bytes', () => {
-      // Valid hex that ethers.getBytes can parse, but not valid CID structure
+      // Valid hex that bytesToHex can parse, but not valid CID structure
       const validHexInvalidCid = '0x0000000000000000000000000000000000000000000000000000000000000000'
       assert.throws(() => {
         hexToPieceCID(validHexInvalidCid)

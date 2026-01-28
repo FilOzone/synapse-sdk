@@ -36,9 +36,9 @@ import { createPieceUrl, createPieceUrlPDP } from './utils/piece-url.ts'
 import { asReadableStream } from './utils/streams.ts'
 
 let TIMEOUT = RETRY_CONSTANTS.MAX_RETRY_TIME
-export const RETRIES = RETRY_CONSTANTS.RETRIES
-export const FACTOR = RETRY_CONSTANTS.FACTOR
-export const MIN_TIMEOUT = RETRY_CONSTANTS.DELAY_TIME
+const RETRIES = RETRY_CONSTANTS.RETRIES
+const FACTOR = RETRY_CONSTANTS.FACTOR
+let MIN_TIMEOUT: number = RETRY_CONSTANTS.DELAY_TIME
 
 // Just for testing purposes
 export function setTimeout(timeout: number) {
@@ -46,6 +46,13 @@ export function setTimeout(timeout: number) {
 }
 export function resetTimeout() {
   TIMEOUT = RETRY_CONSTANTS.MAX_RETRY_TIME
+}
+
+export function setDelayTime(delayTime: number) {
+  MIN_TIMEOUT = delayTime
+}
+export function resetDelayTime() {
+  MIN_TIMEOUT = RETRY_CONSTANTS.DELAY_TIME
 }
 
 export { AbortError, NetworkError, TimeoutError } from 'iso-web/http'

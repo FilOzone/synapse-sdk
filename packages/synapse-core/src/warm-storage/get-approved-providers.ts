@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -82,16 +83,12 @@ export async function getApprovedProviders(
 }
 
 export namespace getApprovedProvidersCall {
-  export type OptionsType = {
-    /** Starting index (0-based). Use 0 to start from beginning. Defaults to 0. */
-    offset?: bigint
-    /** Maximum number of providers to return. Use 0 to get all remaining providers. Defaults to 1000. */
-    limit?: bigint
-    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the approved providers. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getApprovedProviders.OptionsType & {
+      /** The chain to use to get the approved providers. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getApprovedProviders'>

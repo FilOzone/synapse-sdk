@@ -7,6 +7,7 @@ import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import { dataSetLiveCall, getDataSetListenerCall } from '../pdp-verifier/index.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
+import type { PDPOffering } from '../sp-registry/types.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
 import { capabilitiesListToObject } from '../utils/capabilities.ts'
@@ -14,7 +15,6 @@ import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectT
 import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
 import { formatAllDataSetMetadata, getAllDataSetMetadataCall } from './get-all-data-set-metadata.ts'
-import type { PDPOffering } from './providers.ts'
 
 /**
  * ABI function to get the client data sets
