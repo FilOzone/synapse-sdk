@@ -8,7 +8,7 @@ import type {
   Transport,
 } from 'viem'
 import { getBlockNumber, readContract } from 'viem/actions'
-import type { payments as paymentsAbi } from '../abis/index.ts'
+import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
 export namespace accounts {
@@ -152,8 +152,8 @@ export function accountsCall(options: accountsCall.OptionsType) {
   const token = options.token ?? chain.contracts.usdfc.address
 
   return {
-    abi: chain.contracts.payments.abi,
-    address: options.contractAddress ?? chain.contracts.payments.address,
+    abi: chain.contracts.filecoinPay.abi,
+    address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'accounts',
     args: [token, options.address],
   } satisfies accountsCall.OutputType

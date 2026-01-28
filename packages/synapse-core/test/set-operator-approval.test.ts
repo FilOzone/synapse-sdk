@@ -48,12 +48,12 @@ describe('setOperatorApproval', () => {
       })
 
       assert.equal(call.functionName, 'setOperatorApproval')
-      assert.equal(call.address, calibration.contracts.payments.address)
-      assert.equal(call.abi, calibration.contracts.payments.abi)
+      assert.equal(call.address, calibration.contracts.filecoinPay.address)
+      assert.equal(call.abi, calibration.contracts.filecoinPay.abi)
 
       // Check args: [token, operator, approved, rateAllowance, lockupAllowance, maxLockupPeriod]
       assert.equal(call.args[0], calibration.contracts.usdfc.address) // token
-      assert.equal(call.args[1], calibration.contracts.storage.address) // operator
+      assert.equal(call.args[1], calibration.contracts.fwss.address) // operator
       assert.equal(call.args[2], true) // approved
       assert.equal(call.args[3], maxUint256) // rateAllowance
       assert.equal(call.args[4], maxUint256) // lockupAllowance
@@ -67,11 +67,11 @@ describe('setOperatorApproval', () => {
       })
 
       assert.equal(call.functionName, 'setOperatorApproval')
-      assert.equal(call.address, mainnet.contracts.payments.address)
-      assert.equal(call.abi, mainnet.contracts.payments.abi)
+      assert.equal(call.address, mainnet.contracts.filecoinPay.address)
+      assert.equal(call.abi, mainnet.contracts.filecoinPay.abi)
 
       assert.equal(call.args[0], mainnet.contracts.usdfc.address)
-      assert.equal(call.args[1], mainnet.contracts.storage.address)
+      assert.equal(call.args[1], mainnet.contracts.fwss.address)
       assert.equal(call.args[2], true)
       assert.equal(call.args[3], maxUint256)
       assert.equal(call.args[4], maxUint256)
@@ -164,12 +164,12 @@ describe('setOperatorApproval', () => {
 
     it('should extract event from logs', () => {
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'OperatorApprovalUpdated',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
           client: ADDRESSES.client1,
-          operator: calibration.contracts.storage.address,
+          operator: calibration.contracts.fwss.address,
         },
       })
 
@@ -185,7 +185,7 @@ describe('setOperatorApproval', () => {
 
       const logs: Log[] = [
         {
-          address: calibration.contracts.payments.address,
+          address: calibration.contracts.filecoinPay.address,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data,
           blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as `0x${string}`,
@@ -242,7 +242,7 @@ describe('setOperatorApproval', () => {
       assert.equal(setOperatorApprovalCalled, true)
       assert.ok(capturedArgs)
       assert.equal(capturedArgs[0].toLowerCase(), calibration.contracts.usdfc.address.toLowerCase()) // token
-      assert.equal(capturedArgs[1].toLowerCase(), calibration.contracts.storage.address.toLowerCase()) // operator
+      assert.equal(capturedArgs[1].toLowerCase(), calibration.contracts.fwss.address.toLowerCase()) // operator
       assert.equal(capturedArgs[2], true) // approved
       assert.equal(capturedArgs[3], maxUint256) // rateAllowance
       assert.equal(capturedArgs[4], maxUint256) // lockupAllowance
@@ -364,12 +364,12 @@ describe('setOperatorApproval', () => {
 
       // Create the event log data for the receipt
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'OperatorApprovalUpdated',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
           client: ADDRESSES.client1,
-          operator: calibration.contracts.storage.address,
+          operator: calibration.contracts.fwss.address,
         },
       })
 
@@ -395,7 +395,7 @@ describe('setOperatorApproval', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -408,7 +408,7 @@ describe('setOperatorApproval', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
@@ -455,12 +455,12 @@ describe('setOperatorApproval', () => {
 
     it('should work without onHash callback', async () => {
       const topics = encodeEventTopics({
-        abi: Abis.payments,
+        abi: Abis.filecoinPay,
         eventName: 'OperatorApprovalUpdated',
         args: {
           token: ADDRESSES.calibration.usdfcToken,
           client: ADDRESSES.client1,
-          operator: calibration.contracts.storage.address,
+          operator: calibration.contracts.fwss.address,
         },
       })
 
@@ -486,7 +486,7 @@ describe('setOperatorApproval', () => {
             return {
               hash,
               from: ADDRESSES.client1,
-              to: calibration.contracts.payments.address,
+              to: calibration.contracts.filecoinPay.address,
               contractAddress: null,
               index: 0,
               root: '0x0000000000000000000000000000000000000000000000000000000000000000',
@@ -499,7 +499,7 @@ describe('setOperatorApproval', () => {
               blockNumber: numberToHex(1000000n),
               logs: [
                 {
-                  address: calibration.contracts.payments.address,
+                  address: calibration.contracts.filecoinPay.address,
                   topics,
                   data: eventData,
                   blockHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',

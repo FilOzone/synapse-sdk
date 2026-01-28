@@ -503,9 +503,9 @@ export class StorageManager {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
         try {
-          const approval = await this._synapse.payments.serviceApproval(chain.contracts.storage.address, TOKENS.USDFC)
+          const approval = await this._synapse.payments.serviceApproval(chain.contracts.fwss.address, TOKENS.USDFC)
           return {
-            service: chain.contracts.storage.address,
+            service: chain.contracts.fwss.address,
             // Forward whether operator is approved so callers can react accordingly
             isApproved: approval.isApproved,
             rateAllowance: approval.rateAllowance,
@@ -520,12 +520,7 @@ export class StorageManager {
       }
 
       // Create SPRegistryService to get providers
-      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(
-        this._synapse.connectorClient,
-        this._synapse.getProvider(),
-        registryAddress
-      )
+      const spRegistry = new SPRegistryService(this._synapse.connectorClient)
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([

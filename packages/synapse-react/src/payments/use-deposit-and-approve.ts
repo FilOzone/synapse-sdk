@@ -57,7 +57,7 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
         queryKey: ['synapse-erc20-balance', from, token],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', from, token, chain.contracts.storage.address],
+        queryKey: ['synapse-payments-operator-approvals', from, token, chain.contracts.fwss.address],
       })
 
       return transactionReceipt

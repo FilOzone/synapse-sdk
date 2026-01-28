@@ -13,7 +13,7 @@ import type {
 } from 'viem'
 import { parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
-import type { payments as paymentsAbi } from '../abis/index.ts'
+import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
@@ -209,8 +209,8 @@ export function settleTerminatedRailWithoutValidationCall(
   const chain = asChain(options.chain)
 
   return {
-    abi: chain.contracts.payments.abi,
-    address: options.contractAddress ?? chain.contracts.payments.address,
+    abi: chain.contracts.filecoinPay.abi,
+    address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'settleTerminatedRailWithoutValidation',
     args: [options.railId],
   } satisfies settleTerminatedRailWithoutValidationCall.OutputType
@@ -225,7 +225,7 @@ export function settleTerminatedRailWithoutValidationCall(
  */
 export function extractSettleTerminatedRailWithoutValidationEvent(logs: Log[]) {
   const [log] = parseEventLogs({
-    abi: Abis.payments,
+    abi: Abis.filecoinPay,
     logs,
     eventName: 'RailSettled',
     strict: true,

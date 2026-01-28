@@ -80,7 +80,7 @@ export async function balance(
         address: token,
         abi: erc20Abi,
         functionName: 'allowance',
-        args: [options.address, options.spender ?? chain.contracts.payments.address],
+        args: [options.address, options.spender ?? chain.contracts.filecoinPay.address],
       },
     ],
   })

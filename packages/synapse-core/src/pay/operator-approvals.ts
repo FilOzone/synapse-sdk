@@ -8,7 +8,7 @@ import type {
   Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
-import type { payments as paymentsAbi } from '../abis/index.ts'
+import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 
 export namespace operatorApprovals {
@@ -153,11 +153,11 @@ export namespace operatorApprovalsCall {
 export function operatorApprovalsCall(options: operatorApprovalsCall.OptionsType) {
   const chain = asChain(options.chain)
   const token = options.token ?? chain.contracts.usdfc.address
-  const operator = options.operator ?? chain.contracts.storage.address
+  const operator = options.operator ?? chain.contracts.fwss.address
 
   return {
-    abi: chain.contracts.payments.abi,
-    address: options.contractAddress ?? chain.contracts.payments.address,
+    abi: chain.contracts.filecoinPay.abi,
+    address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'operatorApprovals',
     args: [token, options.address, operator],
   } satisfies operatorApprovalsCall.OutputType

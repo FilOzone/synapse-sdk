@@ -13,7 +13,7 @@ import type {
 } from 'viem'
 import { parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
-import type { payments as paymentsAbi } from '../abis/index.ts'
+import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
@@ -221,8 +221,8 @@ export function withdrawCall(options: withdrawCall.OptionsType): withdrawCall.Ou
   }
 
   return {
-    abi: chain.contracts.payments.abi,
-    address: options.contractAddress ?? chain.contracts.payments.address,
+    abi: chain.contracts.filecoinPay.abi,
+    address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'withdraw',
     args: [token, options.amount],
   } satisfies withdrawCall.OutputType
@@ -237,7 +237,7 @@ export function withdrawCall(options: withdrawCall.OptionsType): withdrawCall.Ou
  */
 export function extractWithdrawEvent(logs: Log[]) {
   const [log] = parseEventLogs({
-    abi: Abis.payments,
+    abi: Abis.filecoinPay,
     logs,
     eventName: 'WithdrawRecorded',
     strict: true,
