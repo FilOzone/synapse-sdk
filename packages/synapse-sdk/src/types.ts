@@ -17,6 +17,9 @@ export type TokenAmount = bigint
 export type DataSetId = bigint
 export type ServiceProvider = Address
 
+export type { RailInfo } from '@filoz/synapse-core/pay'
+export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
+
 /**
  * Supported Filecoin network types
  */
@@ -239,18 +242,6 @@ export interface EnhancedDataSetInfo extends DataSetInfo {
   withCDN: boolean
   /** Metadata associated with this data set (key-value pairs) */
   metadata: Record<string, string>
-}
-
-/**
- * Information about a payment rail
- */
-export interface RailInfo {
-  /** Rail ID */
-  railId: bigint
-  /** Whether the rail is terminated */
-  isTerminated: boolean
-  /** End epoch (0 if not terminated) */
-  endEpoch: bigint
 }
 
 /**
@@ -581,9 +572,4 @@ export interface ProviderSelectionResult {
   isExisting?: boolean
   /** Data set metadata */
   dataSetMetadata: Record<string, string>
-}
-
-export type MetadataEntry = {
-  key: string
-  value: string
 }
