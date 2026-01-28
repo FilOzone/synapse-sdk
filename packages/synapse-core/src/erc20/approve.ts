@@ -210,7 +210,7 @@ export namespace approveCall {
 export function approveCall(options: approveCall.OptionsType): approveCall.OutputType {
   const chain = asChain(options.chain)
   const token = options.token ?? chain.contracts.usdfc.address
-  const spender = options.spender ?? chain.contracts.payments.address
+  const spender = options.spender ?? chain.contracts.filecoinPay.address
 
   if (options.amount < 0n) {
     throw new AllowanceAmountError(options.amount)

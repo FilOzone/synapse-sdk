@@ -162,8 +162,7 @@ export class Synapse {
     const payments = new PaymentsService(connectorClient)
 
     // Create SPRegistryService for use in retrievers
-    const registryAddress = warmStorageService.getServiceProviderRegistryAddress()
-    const spRegistry = new SPRegistryService(connectorClient, provider, registryAddress)
+    const spRegistry = new SPRegistryService(connectorClient)
 
     // Initialize piece retriever (use provided or create default)
     let pieceRetriever: PieceRetriever
@@ -436,8 +435,7 @@ export class Synapse {
       }
 
       // Create SPRegistryService
-      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this.connectorClient, this._provider, registryAddress)
+      const spRegistry = new SPRegistryService(this.connectorClient)
 
       let providerInfo: PDPProvider | null
       if (typeof providerAddress === 'string') {

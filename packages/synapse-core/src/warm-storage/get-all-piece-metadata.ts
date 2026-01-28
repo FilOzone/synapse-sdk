@@ -9,7 +9,7 @@ import type {
   Transport,
 } from 'viem'
 import { readContract } from 'viem/actions'
-import type { storageView as storageViewAbi } from '../abis/index.ts'
+import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 
@@ -130,8 +130,8 @@ export namespace getAllPieceMetadataCall {
 export function getAllPieceMetadataCall(options: getAllPieceMetadataCall.OptionsType) {
   const chain = asChain(options.chain)
   return {
-    abi: chain.contracts.storageView.abi,
-    address: options.contractAddress ?? chain.contracts.storageView.address,
+    abi: chain.contracts.fwssView.abi,
+    address: options.contractAddress ?? chain.contracts.fwssView.address,
     functionName: 'getAllPieceMetadata',
     args: [options.dataSetId, options.pieceId],
   } satisfies getAllPieceMetadataCall.OutputType

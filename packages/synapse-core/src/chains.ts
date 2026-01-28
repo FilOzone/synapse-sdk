@@ -23,17 +23,17 @@ export interface Chain extends ViemChain {
       address: Address
       abi: typeof Abis.erc20WithPermit
     }
-    payments: {
+    filecoinPay: {
       address: Address
-      abi: typeof Abis.payments
+      abi: typeof Abis.filecoinPay
     }
-    storage: {
+    fwss: {
       address: Address
-      abi: typeof Abis.storage
+      abi: typeof Abis.fwss
     }
-    storageView: {
+    fwssView: {
       address: Address
-      abi: typeof Abis.storageView
+      abi: typeof Abis.fwssView
     }
     serviceProviderRegistry: {
       address: Address
@@ -104,17 +104,17 @@ export const mainnet: Chain = {
       address: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: Abis.generated.filecoinPayV1Address['314'],
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: Abis.generated.filecoinWarmStorageServiceAddress['314'],
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: Abis.generated.filecoinWarmStorageServiceStateViewAddress['314'],
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: Abis.generated.serviceProviderRegistryAddress['314'],
@@ -185,17 +185,17 @@ export const calibration: Chain = {
       address: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: Abis.generated.filecoinPayV1Address['314159'],
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: Abis.generated.filecoinWarmStorageServiceAddress['314159'],
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: Abis.generated.filecoinWarmStorageServiceStateViewAddress['314159'],
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: Abis.generated.serviceProviderRegistryAddress['314159'],
@@ -254,17 +254,17 @@ export const devnet: Chain = {
       address: '0x0000000000000000000000000000000000000000',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: '0x0000000000000000000000000000000000000000',
@@ -316,7 +316,12 @@ export function getChain(id?: number): Chain {
  * @throws Errors {@link asChain.ErrorType}
  */
 export function asChain(chain: ViemChain): Chain {
-  if (chain.contracts && 'payments' in chain.contracts) {
+  if (
+    chain.contracts &&
+    'filecoinPay' in chain.contracts &&
+    'fwss' in chain.contracts &&
+    [mainnet.id, calibration.id, devnet.id].includes(chain.id)
+  ) {
     return chain as Chain
   }
   throw new UnsupportedChainError(chain.id)
