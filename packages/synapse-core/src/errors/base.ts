@@ -24,8 +24,11 @@ export class SynapseError extends Error {
   shortMessage: string
 
   constructor(message: string, options?: SynapseErrorOptions) {
-    const details =
-      options?.cause instanceof Error ? options.cause.message : options?.details ? options.details : undefined
+    const details = options?.details
+      ? options.details
+      : options?.cause instanceof Error
+        ? options.cause.message
+        : undefined
 
     const msg = [
       message || 'An error occurred.',

@@ -19,6 +19,8 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
   - folder: `/src/warm-storage`
 - Session Key Registry: Session keys are disposable keys for dapps to perform actions on the user's behalf. Session keys are scoped to constrain the actions they can take.
   - [source code](https://github.com/FilOzone/SessionKeyRegistry)
+- Service Provider Registry, a registry contract for managing service providers across the Filecoin Onchain Cloud
+  - [source code](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ServiceProviderRegistry.sol)
 
 ## Packages Scripts
 
@@ -32,15 +34,14 @@ Scripts use `wireit` to manage dependencies and caching.
 
 ## Generating an new action
 
-When generating an action in each smart contract folder, follow these guidelines.
+When generating an action in each smart contract folder follow this plan:
 
-An example of a generated action set can be found in `src/warm-storage/get-approved-providers.ts`.
-
-Follow the links above for each contract to understand the interfaces and follow the ABI inside `src/abis/generated.ts`.
-
-Start by creating a new file using the ABI function in kebad case, if the function name is `operatorApprovals` the file should be `operator-approvals.ts`.
-
-ALWAYS create a test file for each action in the test folder `test`.
+- [ ] Explore the project first, example of a generated action set can be found in `src/warm-storage/get-approved-providers.ts`.
+- [ ] Follow the links above for each contract to understand the interfaces and follow the ABIs inside `src/abis/generated.ts`.
+- [ ] Start by creating a new file using the ABI function in kebad case, if the function name is `operatorApprovals` the file should be `operator-approvals.ts`.
+- [ ] Follow the guidelines below for the code logic and structure.
+- [ ] Create a test file in the test folder `test`.
+- [ ] Run linting and tests after generating an action check [instructions](#packages-scripts)
 
 ### Documenting an action
 
@@ -243,12 +244,10 @@ They should have their own namespaced types
 
 ```ts
 export namespace getServicePriceCall {
-  export type OptionsType = {
-    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
-    contractAddress?: Address
+  export type OptionsType = Simplify<getServicePrice.OptionsType & {
     /** The chain to use to get the service price. */
     chain: Chain
-  }
+  }>
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>

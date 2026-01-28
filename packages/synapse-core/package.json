@@ -73,6 +73,10 @@
       "types": "./dist/src/session-key/index.d.ts",
       "default": "./dist/src/session-key/index.js"
     },
+    "./sp-registry": {
+      "types": "./dist/src/sp-registry/index.d.ts",
+      "default": "./dist/src/sp-registry/index.js"
+    },
     "./errors": {
       "types": "./dist/src/errors/index.d.ts",
       "default": "./dist/src/errors/index.js"
@@ -136,6 +140,9 @@
       ],
       "mocks": [
         "./dist/src/mocks/index"
+      ],
+      "sp-registry": [
+        "./dist/src/sp-registry/index"
       ]
     }
   },

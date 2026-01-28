@@ -1,11 +1,12 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
 import { encodePDPCapabilities } from '@filoz/synapse-core/utils'
-import type { PDPOffering, ServiceProviderInfo } from '@filoz/synapse-core/warm-storage'
 import type { ExtractAbiFunction } from 'abitype'
+import type { Address } from 'ox/Address'
 import type { Hex } from 'viem'
 import { decodeFunctionData, encodeAbiParameters, isAddressEqual } from 'viem'
 import * as Abis from '../../abis/index.ts'
+import type { PDPOffering, ProviderInfo } from '../../sp-registry/types.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
 export type getProviderByAddress = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderByAddress'>
@@ -25,9 +26,23 @@ export type getAllActiveProviders = ExtractAbiFunction<typeof Abis.serviceProvid
 
 export type getProviderCount = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderCount'>
 
+export type activeProviderCount = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'activeProviderCount'>
+
 export type isProviderActive = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'isProviderActive'>
 
 export type isRegisteredProvider = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'isRegisteredProvider'>
+
+export type registerProvider = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'registerProvider'>
+
+export type updateProviderInfo = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'updateProviderInfo'>
+
+export type removeProvider = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'removeProvider'>
+
+export type addProduct = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'addProduct'>
+
+export type updateProduct = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'updateProduct'>
+
+export type removeProduct = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'removeProduct'>
 
 export interface ServiceRegistryOptions {
   getProviderByAddress?: (args: AbiToType<getProviderByAddress['inputs']>) => AbiToType<getProviderByAddress['outputs']>
@@ -45,9 +60,36 @@ export interface ServiceRegistryOptions {
     args: AbiToType<getAllActiveProviders['inputs']>
   ) => AbiToType<getAllActiveProviders['outputs']>
   getProviderCount?: (args: AbiToType<getProviderCount['inputs']>) => AbiToType<getProviderCount['outputs']>
+  activeProviderCount?: (args: AbiToType<activeProviderCount['inputs']>) => AbiToType<activeProviderCount['outputs']>
   isProviderActive?: (args: AbiToType<isProviderActive['inputs']>) => AbiToType<isProviderActive['outputs']>
   isRegisteredProvider?: (args: AbiToType<isRegisteredProvider['inputs']>) => AbiToType<isRegisteredProvider['outputs']>
   REGISTRATION_FEE?: () => bigint
+  registerProvider?: (
+    args: AbiToType<registerProvider['inputs']>,
+    value: Hex,
+    from: Address
+  ) => AbiToType<registerProvider['outputs']>
+  updateProviderInfo?: (
+    args: AbiToType<updateProviderInfo['inputs']>,
+    value: Hex,
+    from: Address
+  ) => AbiToType<updateProviderInfo['outputs']>
+  removeProvider?: (
+    args: AbiToType<removeProvider['inputs']>,
+    value: Hex,
+    from: Address
+  ) => AbiToType<removeProvider['outputs']>
+  addProduct?: (args: AbiToType<addProduct['inputs']>, value: Hex, from: Address) => AbiToType<addProduct['outputs']>
+  updateProduct?: (
+    args: AbiToType<updateProduct['inputs']>,
+    value: Hex,
+    from: Address
+  ) => AbiToType<updateProduct['outputs']>
+  removeProduct?: (
+    args: AbiToType<removeProduct['inputs']>,
+    value: Hex,
+    from: Address
+  ) => AbiToType<removeProduct['outputs']>
 }
 
 type ServiceProviderInfoView = AbiToType<getProvider['outputs']>[0]
@@ -55,7 +97,7 @@ export type ProviderWithProduct = AbiToType<getProviderWithProduct['outputs']>[0
 
 export interface ProviderDecoded {
   providerId: bigint
-  providerInfo: ServiceProviderInfo
+  providerInfo: ProviderInfo
   products: Array<
     | {
         productType: number
@@ -115,6 +157,9 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
     getProviderCount: () => {
       return [BigInt(providers.length)]
     },
+    activeProviderCount: () => {
+      return [BigInt(activeProviders.length)]
+    },
     isProviderActive: ([providerId]) => {
       const provider = providers.find((p) => p.providerId === providerId)
       return [provider?.providerInfo.isActive ?? false]
@@ -129,7 +174,7 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
     getProviderWithProduct: ([providerId, productType]) => {
       const provider = providers.find((p) => p.providerId === providerId)
       if (!provider) {
-        throw new Error('Provider does not exist')
+        throw new Error('Provider not found')
       }
       const product = provider.products.find((p) => p?.productType === productType)
       if (!product) {
@@ -184,7 +229,7 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
           productCapabilityValues,
         })
       }
-      const hasMore = offset + limit >= filteredProviders.length
+      const hasMore = Number(offset + limit) < filteredProviders.length
       return [
         {
           providers: filteredProviders.slice(Number(offset), Number(offset + limit)),
@@ -219,7 +264,7 @@ export function mockServiceProviderRegistry(providers: ProviderDecoded[]): Servi
 /**
  * Handle service provider registry calls
  */
-export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOptions): Hex {
+export function serviceProviderRegistryCallHandler(data: Hex, value: Hex, from: Address, options: JSONRPCOptions): Hex {
   const { functionName, args } = decodeFunctionData({
     abi: Abis.serviceProviderRegistry,
     data: data as Hex,
@@ -269,6 +314,16 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
         options.serviceRegistry.getProviderWithProduct(args)
       )
     }
+    case 'getProvidersByProductType': {
+      if (!options.serviceRegistry?.getProvidersByProductType) {
+        throw new Error('Service Provider Registry: getProvidersByProductType is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProvidersByProductType')!
+          .outputs,
+        options.serviceRegistry.getProvidersByProductType(args)
+      )
+    }
     case 'getAllActiveProviders': {
       if (!options.serviceRegistry?.getAllActiveProviders) {
         throw new Error('Service Provider Registry: getAllActiveProviders is not defined')
@@ -286,6 +341,16 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
       return encodeAbiParameters(
         Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'getProviderCount')!.outputs,
         options.serviceRegistry.getProviderCount(args)
+      )
+    }
+    case 'activeProviderCount': {
+      if (!options.serviceRegistry?.activeProviderCount) {
+        throw new Error('Service Provider Registry: activeProviderCount is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'activeProviderCount')!
+          .outputs,
+        options.serviceRegistry.activeProviderCount(args)
       )
     }
     case 'isProviderActive': {
@@ -314,6 +379,61 @@ export function serviceProviderRegistryCallHandler(data: Hex, options: JSONRPCOp
       return encodeAbiParameters(
         Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'REGISTRATION_FEE')!.outputs,
         [options.serviceRegistry.REGISTRATION_FEE()]
+      )
+    }
+    case 'registerProvider': {
+      if (!options.serviceRegistry?.registerProvider) {
+        throw new Error('Service Provider Registry: registerProvider is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'registerProvider')!.outputs,
+        options.serviceRegistry.registerProvider(args, value, from)
+      )
+    }
+    case 'updateProviderInfo': {
+      if (!options.serviceRegistry?.updateProviderInfo) {
+        throw new Error('Service Provider Registry: updateProviderInfo is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'updateProviderInfo')!
+          .outputs,
+        options.serviceRegistry.updateProviderInfo(args, value, from)
+      )
+    }
+    case 'removeProvider': {
+      if (!options.serviceRegistry?.removeProvider) {
+        throw new Error('Service Provider Registry: removeProvider is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'removeProvider')!.outputs,
+        options.serviceRegistry.removeProvider(args, value, from)
+      )
+    }
+    case 'addProduct': {
+      if (!options.serviceRegistry?.addProduct) {
+        throw new Error('Service Provider Registry: addProduct is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'addProduct')!.outputs,
+        options.serviceRegistry.addProduct(args, value, from)
+      )
+    }
+    case 'updateProduct': {
+      if (!options.serviceRegistry?.updateProduct) {
+        throw new Error('Service Provider Registry: updateProduct is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'updateProduct')!.outputs,
+        options.serviceRegistry.updateProduct(args, value, from)
+      )
+    }
+    case 'removeProduct': {
+      if (!options.serviceRegistry?.removeProduct) {
+        throw new Error('Service Provider Registry: removeProduct is not defined')
+      }
+      return encodeAbiParameters(
+        Abis.serviceProviderRegistry.find((abi) => abi.type === 'function' && abi.name === 'removeProduct')!.outputs,
+        options.serviceRegistry.removeProduct(args, value, from)
       )
     }
     default: {
