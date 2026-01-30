@@ -12,11 +12,10 @@
   "dependencies": {
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-sdk": "workspace:*",
-    "ethers": "catalog:",
     "starlight-auto-sidebar": "^0.1.3",
     "starlight-changelogs": "^0.4.0",
     "starlight-links-validator": "^0.19.2",
-    "viem": "catalog:"
+    "viem": "2.x"
   },
   "devDependencies": {
     "@astrojs/starlight": "^0.37.3",
