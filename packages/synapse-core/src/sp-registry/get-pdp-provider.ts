@@ -3,7 +3,7 @@ import type { Address, Chain, Client, ContractFunctionReturnType, Transport } fr
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { decodePDPOffering } from '../utils/pdp-capabilities.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from './get-provider-with-product.ts'
-import type { PDPProvider } from './types.ts'
+import { type PDPProvider, PRODUCTS } from './types.ts'
 
 export namespace getPDPProvider {
   export type OptionsType = {
@@ -57,7 +57,7 @@ export async function getPDPProvider(
 ): Promise<getPDPProvider.OutputType> {
   const data = await getProviderWithProduct(client, {
     ...options,
-    productType: 0,
+    productType: PRODUCTS.PDP,
   })
 
   return parsePDPProvider(data)
@@ -109,7 +109,7 @@ export namespace getPDPProviderCall {
 export function getPDPProviderCall(options: getPDPProviderCall.OptionsType) {
   return getProviderWithProductCall({
     ...options,
-    productType: 0,
+    productType: PRODUCTS.PDP,
   })
 }
 
