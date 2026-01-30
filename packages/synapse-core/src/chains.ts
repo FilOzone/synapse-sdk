@@ -17,6 +17,13 @@ import { UnsupportedChainError } from './errors/chains.ts'
  * Viem compatible chain interface with all the FOC contracts addresses and ABIs
  */
 export interface Chain extends ViemChain {
+  /**
+   * The genesis timestamp of the chain in seconds (Unix timestamp)
+   */
+  genesisTimestamp: number
+  /**
+   * The contracts of the chain
+   */
   contracts: {
     multicall3: ChainContract
     usdfc: {
@@ -136,6 +143,10 @@ export const mainnet: Chain = {
   filbeam: {
     retrievalDomain: 'filbeam.io',
   },
+  /**
+   * Filecoin Mainnet genesis: August 24, 2020 22:00:00 UTC
+   */
+  genesisTimestamp: 1598306400,
 }
 
 /**
@@ -218,6 +229,10 @@ export const calibration: Chain = {
     retrievalDomain: 'calibration.filbeam.io',
   },
   testnet: true,
+  /**
+   * Filecoin Calibration testnet genesis: November 1, 2022 18:13:00 UTC
+   */
+  genesisTimestamp: 1667326380,
 }
 
 /**
@@ -285,6 +300,12 @@ export const devnet: Chain = {
   },
   filbeam: null,
   testnet: true,
+  /**
+   * Filecoin Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions (epochToDate,
+   * dateToEpoch) will return incorrect results on devnet. Core contract operations
+   * are unaffected as they use epochs directly.
+   */
+  genesisTimestamp: 0,
 }
 
 /**
@@ -320,6 +341,7 @@ export function asChain(chain: ViemChain): Chain {
     chain.contracts &&
     'filecoinPay' in chain.contracts &&
     'fwss' in chain.contracts &&
+    'genesisTimestamp' in chain &&
     [mainnet.id, calibration.id, devnet.id].includes(chain.id)
   ) {
     return chain as Chain
