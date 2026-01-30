@@ -28,14 +28,13 @@ The SDK provides two primary components:
 The main `Synapse` class exposes this simple interface for all operations:
 
 ```ts twoslash
+// @lib: esnext,dom
 import {
   Synapse,
   SynapseOptions,
   StorageInfo,
   PDPProvider,
-  FilecoinNetworkType,
 } from "@filoz/synapse-sdk"
-import { ethers } from "ethers"
 import type { PaymentsService } from "@filoz/synapse-sdk/payments"
 import type { StorageManager } from "@filoz/synapse-sdk/storage"
 // ---cut---
@@ -48,16 +47,11 @@ interface SynapseAPI {
   // Storage Information (pricing, providers, service parameters, allowances)
   getStorageInfo(): Promise<StorageInfo>
   getProviderInfo(providerAddress: string): Promise<PDPProvider>
-  // Network Information
-  getNetwork(): FilecoinNetworkType
   getChainId(): number
   // Contract Addresses
   getWarmStorageAddress(): string
   getPaymentsAddress(): string
   getPDPVerifierAddress(): string
-  // Ethers Helpers
-  getProvider(): ethers.Provider
-  getSigner(): ethers.Signer
 }
 ```
 
@@ -159,7 +153,7 @@ LegacyPieceCID (v1 format) conversion utilities are provided for interoperabilit
 
 The SDK provides consistent error handling across all operations to help you debug issues quickly.
 
-```typescript
+```ts
 try {
   await synapse.payments.deposit(amount);
 } catch (error) {

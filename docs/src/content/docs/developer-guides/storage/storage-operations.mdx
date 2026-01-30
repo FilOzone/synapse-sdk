@@ -47,8 +47,11 @@ The SDK offers two ways to work with storage operations:
 Upload and download data with zero configuration - SDK automatically selects a provider and manages the data set:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const data = new Uint8Array([1, 2, 3, 4, 5]);
 
@@ -64,9 +67,12 @@ console.log("Downloaded:", downloaded.length, "bytes");
 Add metadata to organize uploads and enable faster data set reuse - SDK will reuse any existing data set matching the metadata:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+
 const data = null as unknown as Uint8Array;
-const synapse = await Synapse.create({});
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const context = await synapse.storage.createContext({
   metadata: {
@@ -106,8 +112,11 @@ Data sets are automatically created during your first upload to a provider. For 
 Retrieve all data sets owned by your account to inspect piece counts, CDN status, and metadata:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const dataSets = await synapse.storage.findDataSets();
 
@@ -126,9 +135,12 @@ for (const ds of dataSets) {
 List all pieces stored in a specific data set by iterating through the context:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const dataSetId = 1n;
-const synapse = await Synapse.create({});
 // ---cut---
 const context = await synapse.storage.createContext({ dataSetId });
 
@@ -144,15 +156,12 @@ console.log(`Found ${pieces.length} pieces`);
 Calculate total storage size by summing piece sizes extracted from PieceCIDs:
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
+// @lib: esnext,dom
 import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
 
-const synapse = await Synapse.create({});
 const dataSetId = 1n;
 // ---cut---
-const pdpVerifier = new PDPVerifier({
-  client: synapse.connectorClient
-});
+const pdpVerifier = PDPVerifier.create();
 
 const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId);
 const sizeInBytes = leafCount * 32n; // Each leaf is 32 bytes
@@ -164,15 +173,12 @@ console.log(`Data set size: ${sizeInBytes} bytes`);
 Access custom metadata attached to individual pieces for organization and filtering:
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
+// @lib: esnext,dom
 import { WarmStorageService } from "@filoz/synapse-sdk/warm-storage";
-const synapse = await Synapse.create({});
 const dataSetId = 1n;
 const piece = null as unknown as { pieceCid: string; pieceId: bigint };
 // ---cut---
-const warmStorage = await WarmStorageService.create(
-  synapse.connectorClient
-);
+const warmStorage =  WarmStorageService.create();
 
 const metadata = await warmStorage.getPieceMetadata(dataSetId, piece.pieceId);
 console.log("Piece metadata:", metadata);
@@ -183,7 +189,7 @@ console.log("Piece metadata:", metadata);
 Calculate size of a specific piece by extracting the size from the PieceCID:
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
+// @lib: esnext,dom
 const pieceCid = null as unknown as string;
 // @ts-ignore
 // ---cut---
@@ -198,13 +204,15 @@ console.log(`Piece size: ${size} bytes`);
 Query service-wide pricing, available providers, and network parameters:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const info = await synapse.getStorageInfo();
 console.log("Price/TiB/month:", info.pricing.noCDN.perTiBPerMonth);
 console.log("Providers:", info.providers.length);
-console.log("Network:", info.serviceParameters.network);
 
 const providerInfo = await synapse.getProviderInfo("0x...");
 console.log("PDP URL:", providerInfo.pdp.serviceURL);
