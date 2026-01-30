@@ -11,18 +11,13 @@
  * @example
  * ```typescript
  * import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
- * import { ethers } from 'ethers'
  *
- * const provider = new ethers.JsonRpcProvider(rpcUrl)
- * const warmStorageService = new WarmStorageService(provider, warmStorageAddress, pdpVerifierAddress)
+ * const client = createClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
  *
- * // Get data sets for a client
- * const dataSets = await warmStorageService.getClientDataSets(clientAddress)
- * console.log(`Client has ${dataSets.length} data sets`)
- *
- * // Register as a service provider
- * const signer = await provider.getSigner()
- * await warmStorageService.registerServiceProvider(signer, pdpUrl, retrievalUrl)
+ * const warmStorageService = WarmStorageService.create(client)
  * ```
  */
 
