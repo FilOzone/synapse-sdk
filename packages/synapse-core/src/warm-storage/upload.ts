@@ -53,6 +53,7 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
       await SP.findPiece({
         pieceCid,
         endpoint: dataSet.pdp.serviceURL,
+        retry: true,
       })
 
       options.onEvent?.('pieceParked', { pieceCid, url, dataSet })

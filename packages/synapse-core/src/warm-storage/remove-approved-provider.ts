@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -181,20 +182,12 @@ export async function removeApprovedProviderSync(
 }
 
 export namespace removeApprovedProviderCall {
-  export type OptionsType = {
-    /** The ID of the provider to remove from approved list. Reverts if provider is not in list. */
-    providerId: bigint
-    /**
-     * The index of the provider in the approvedProviderIds array.
-     * Must match the providerId at that index (reverts on mismatch).
-     * Use `getApprovedProviders` to find the correct index.
-     */
-    index: bigint
-    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to remove the approved provider. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    removeApprovedProvider.OptionsType & {
+      /** The chain to use to remove the approved provider. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'nonpayable', 'removeApprovedProvider'>

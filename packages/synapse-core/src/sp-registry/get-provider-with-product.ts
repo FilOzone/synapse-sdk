@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -77,16 +78,12 @@ export async function getProviderWithProduct(
 }
 
 export namespace getProviderWithProductCall {
-  export type OptionsType = {
-    /** The provider ID. */
-    providerId: bigint
-    /** The product type. */
-    productType: number
-    /** Service Provider Registry contract address. If not provided, the default is the contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getProviderWithProduct.OptionsType & {
+      /** The chain to use. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<

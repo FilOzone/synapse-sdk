@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -148,14 +149,12 @@ export async function addApprovedProviderSync(
 }
 
 export namespace addApprovedProviderCall {
-  export type OptionsType = {
-    /** The ID of the provider to approve. */
-    providerId: bigint
-    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to add the approved provider. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    addApprovedProvider.OptionsType & {
+      /** The chain to use to add the approved provider. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'nonpayable', 'addApprovedProvider'>

@@ -33,10 +33,6 @@ export namespace getAllPieceMetadata {
   export type ErrorType = asChain.ErrorType | ReadContractErrorType
 }
 
-export function formatAllPieceMetadata(data: getAllPieceMetadata.ContractOutputType): MetadataObject {
-  return metadataArrayToObject(data)
-}
-
 /**
  * Get all metadata for a piece formatted as a MetadataObject
  *
@@ -77,7 +73,7 @@ export async function getAllPieceMetadata(
       contractAddress: options.contractAddress,
     })
   )
-  return formatAllPieceMetadata(data)
+  return parseAllPieceMetadata(data)
 }
 
 export namespace getAllPieceMetadataCall {
@@ -97,7 +93,7 @@ export namespace getAllPieceMetadataCall {
  *
  * This function is used to create a call to the getAllPieceMetadata function for use with the multicall or readContract function.
  *
- * Use {@link formatAllPieceMetadata} to format the output into a MetadataObject.
+ * Use {@link parseAllPieceMetadata} to parse the output into a MetadataObject.
  *
  * @param options - {@link getAllPieceMetadataCall.OptionsType}
  * @returns The call to the getAllPieceMetadata function {@link getAllPieceMetadataCall.OutputType}
@@ -105,7 +101,7 @@ export namespace getAllPieceMetadataCall {
  *
  * @example
  * ```ts
- * import { formatAllPieceMetadata, getAllPieceMetadataCall } from '@filoz/synapse-core/warm-storage'
+ * import { parseAllPieceMetadata, getAllPieceMetadataCall } from '@filoz/synapse-core/warm-storage'
  * import { createPublicClient, http } from 'viem'
  * import { multicall } from 'viem/actions'
  * import { calibration } from '@filoz/synapse-core/chains'
@@ -122,7 +118,7 @@ export namespace getAllPieceMetadataCall {
  *   ],
  * })
  *
- * const formattedMetadata = results.map(formatAllPieceMetadata)
+ * const formattedMetadata = results.map(parseAllPieceMetadata)
  *
  * console.log(formattedMetadata)
  * ```
@@ -135,4 +131,14 @@ export function getAllPieceMetadataCall(options: getAllPieceMetadataCall.Options
     functionName: 'getAllPieceMetadata',
     args: [options.dataSetId, options.pieceId],
   } satisfies getAllPieceMetadataCall.OutputType
+}
+
+/**
+ * Parse the contract output into a MetadataObject
+ *
+ * @param data - The contract output from the getAllPieceMetadata function {@link getAllPieceMetadata.ContractOutputType}
+ * @returns The metadata formatted as a MetadataObject {@link getAllPieceMetadata.OutputType}
+ */
+export function parseAllPieceMetadata(data: getAllPieceMetadata.ContractOutputType): getAllPieceMetadata.OutputType {
+  return metadataArrayToObject(data)
 }
