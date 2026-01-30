@@ -6,7 +6,7 @@ import {
   getPieces,
   type Piece,
 } from '@filoz/synapse-core/warm-storage'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { createPublicClient, type Hex, http, stringify } from 'viem'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
@@ -32,7 +32,7 @@ export const pieces: Command = command(
     },
   },
   async (argv) => {
-    const { client, privateKey } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const spinner = p.spinner()
 
@@ -125,8 +125,7 @@ export const pieces: Command = command(
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const synapse = await Synapse.create({
-          privateKey: privateKey as Hex,
-          rpcURL: RPC_URLS.calibration.http,
+          client,
         })
         const context = await synapse.storage.createContext({
           dataSetId: group.dataSetId,

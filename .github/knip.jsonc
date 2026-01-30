@@ -49,6 +49,7 @@
         "src/usdfc.ts",
         "src/abis/index.ts",
         "src/auction/index.ts",
+        "src/endorsements/index.ts",
         "src/erc20/index.ts",
         "src/errors/index.ts",
         "src/mocks/index.ts",

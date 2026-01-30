@@ -35,7 +35,7 @@ export const upload: Command = command(
     },
   },
   async (argv) => {
-    const { privateKey, rpcURL } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
@@ -43,8 +43,7 @@ export const upload: Command = command(
 
     try {
       const synapse = await Synapse.create({
-        privateKey,
-        rpcURL,
+        client,
       })
 
       p.log.step('Creating context...')
