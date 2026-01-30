@@ -604,6 +604,10 @@ export namespace findPiece {
     endpoint: string
     /** The piece CID to find. */
     pieceCid: PieceCID
+    /** The signal to abort the request. */
+    signal?: AbortSignal
+    /** Whether to retry the request. Defaults to false. */
+    retry?: boolean
   }
   export type ReturnType = PieceCID
   export type ErrorType = FindPieceError | TimeoutError | NetworkError | AbortError
@@ -620,14 +624,17 @@ export namespace findPiece {
 export async function findPiece(options: findPiece.OptionsType): Promise<findPiece.ReturnType> {
   const { pieceCid, endpoint } = options
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
-
+  const retry = options.retry ?? false
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
-    retry: {
-      statusCodes: [202, 404],
-      retries: RETRIES,
-      factor: FACTOR,
-    },
-    timeout: TIMEOUT,
+    signal: options.signal,
+    retry: retry
+      ? {
+          statusCodes: [202, 404],
+          retries: RETRIES,
+          factor: FACTOR,
+        }
+      : undefined,
+    timeout: retry ? TIMEOUT : undefined,
   })
 
   if (response.error) {

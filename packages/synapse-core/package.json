@@ -92,6 +92,10 @@
     "./mocks": {
       "types": "./dist/src/mocks/index.d.ts",
       "default": "./dist/src/mocks/index.js"
+    },
+    "./endorsements": {
+      "types": "./dist/src/endorsements/index.d.ts",
+      "default": "./dist/src/endorsements/index.js"
     }
   },
   "typesVersions": {
@@ -143,6 +147,9 @@
       ],
       "sp-registry": [
         "./dist/src/sp-registry/index"
+      ],
+      "endorsements": [
+        "./dist/src/endorsements/index"
       ]
     }
   },

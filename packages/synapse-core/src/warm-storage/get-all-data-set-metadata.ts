@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -11,10 +12,6 @@ import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
-
-export function formatAllDataSetMetadata(data: getAllDataSetMetadata.ContractOutputType): MetadataObject {
-  return metadataArrayToObject(data)
-}
 
 export namespace getAllDataSetMetadata {
   export type OptionsType = {
@@ -72,18 +69,16 @@ export async function getAllDataSetMetadata(
       contractAddress: options.contractAddress,
     })
   )
-  return formatAllDataSetMetadata(data)
+  return parseAllDataSetMetadata(data)
 }
 
 export namespace getAllDataSetMetadataCall {
-  export type OptionsType = {
-    /** The ID of the data set to get metadata for. */
-    dataSetId: bigint
-    /** Warm storage contract address. If not provided, the default is the storage view contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the data set metadata. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getAllDataSetMetadata.OptionsType & {
+      /** The chain to use to get the data set metadata. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllDataSetMetadata'>
@@ -94,7 +89,7 @@ export namespace getAllDataSetMetadataCall {
  *
  * This function is used to create a call to the getAllDataSetMetadata function for use with the multicall or readContract function.
  *
- * Use {@link formatAllDataSetMetadata} to format the output into a MetadataObject.
+ * Use {@link parseAllDataSetMetadata} to parse the output into a MetadataObject.
  *
  * @param options - {@link getAllDataSetMetadataCall.OptionsType}
  * @returns The call to the getAllDataSetMetadata function {@link getAllDataSetMetadataCall.OutputType}
@@ -119,7 +114,7 @@ export namespace getAllDataSetMetadataCall {
  *   ],
  * })
  *
- * const formattedMetadata = results.map(formatAllDataSetMetadata)
+ * const formattedMetadata = results.map(parseAllDataSetMetadata)
  *
  * console.log(formattedMetadata)
  * ```
@@ -132,4 +127,16 @@ export function getAllDataSetMetadataCall(options: getAllDataSetMetadataCall.Opt
     functionName: 'getAllDataSetMetadata',
     args: [options.dataSetId],
   } satisfies getAllDataSetMetadataCall.OutputType
+}
+
+/**
+ * Parse the contract output into a MetadataObject
+ *
+ * @param data - The contract output from the getAllDataSetMetadata function {@link getAllDataSetMetadata.ContractOutputType}
+ * @returns The metadata formatted as a MetadataObject {@link getAllDataSetMetadata.OutputType}
+ */
+export function parseAllDataSetMetadata(
+  data: getAllDataSetMetadata.ContractOutputType
+): getAllDataSetMetadata.OutputType {
+  return metadataArrayToObject(data)
 }

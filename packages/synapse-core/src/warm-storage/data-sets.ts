@@ -7,14 +7,13 @@ import { DataSetNotFoundError } from '../errors/warm-storage.ts'
 import { dataSetLiveCall, getDataSetListenerCall } from '../pdp-verifier/index.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
+import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
 import type { PDPOffering } from '../sp-registry/types.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
 import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
-import { capabilitiesListToObject } from '../utils/capabilities.ts'
 import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import { randU256 } from '../utils/rand.ts'
-import { formatAllDataSetMetadata, getAllDataSetMetadataCall } from './get-all-data-set-metadata.ts'
+import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 
 /**
  * ABI function to get the client data sets
@@ -58,7 +57,7 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
   })
 
   const promises = data.map(async (dataSet) => {
-    const [live, listener, metadata, pdpOffering] = await multicall(client, {
+    const [live, listener, metadata, _pdpProvider] = await multicall(client, {
       allowFailure: false,
       contracts: [
         dataSetLiveCall({
@@ -73,26 +72,22 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
           chain: client.chain,
           dataSetId: dataSet.dataSetId,
         }),
-        {
-          address: chain.contracts.serviceProviderRegistry.address,
-          abi: chain.contracts.serviceProviderRegistry.abi,
-          functionName: 'getProviderWithProduct',
-          args: [dataSet.providerId, 0], // 0 = PDP product type
-        },
+        getPDPProviderCall({
+          chain: client.chain,
+          providerId: dataSet.providerId,
+        }),
       ],
     })
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-    const pdpCaps = decodePDPCapabilities(
-      capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
-    )
+    const pdpProvider = parsePDPProvider(_pdpProvider)
 
     return {
       ...dataSet,
       live,
       managed: isAddressEqual(listener, chain.contracts.fwss.address),
       cdn: dataSet.cdnRailId !== 0n,
-      metadata: formatAllDataSetMetadata(metadata),
-      pdp: pdpCaps,
+      metadata: parseAllDataSetMetadata(metadata),
+      pdp: pdpProvider.pdp,
     }
   })
   const proofs = await Promise.all(promises)
@@ -130,7 +125,7 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     throw new DataSetNotFoundError(options.dataSetId)
   }
 
-  const [live, listener, metadata, pdpOffering] = await multicall(client, {
+  const [live, listener, metadata, _pdpProvider] = await multicall(client, {
     allowFailure: false,
     contracts: [
       dataSetLiveCall({
@@ -145,27 +140,23 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
         chain: client.chain,
         dataSetId: options.dataSetId,
       }),
-      {
-        address: chain.contracts.serviceProviderRegistry.address,
-        abi: chain.contracts.serviceProviderRegistry.abi,
-        functionName: 'getProviderWithProduct',
-        args: [dataSet.providerId, 0], // 0 = PDP product type
-      },
+      getPDPProviderCall({
+        chain: client.chain,
+        providerId: dataSet.providerId,
+      }),
     ],
   })
 
   // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-  const pdpCaps = decodePDPCapabilities(
-    capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
-  )
+  const pdpProvider = parsePDPProvider(_pdpProvider)
 
   return {
     ...dataSet,
     live,
     managed: isAddressEqual(listener, chain.contracts.fwss.address),
     cdn: dataSet.cdnRailId !== 0n,
-    metadata: formatAllDataSetMetadata(metadata),
-    pdp: pdpCaps,
+    metadata: parseAllDataSetMetadata(metadata),
+    pdp: pdpProvider.pdp,
   }
 }
 
