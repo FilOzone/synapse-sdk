@@ -4,11 +4,18 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { CID } from 'multiformats/cid'
-import { type Account, type Client, createWalletClient, numberToHex, type Transport, http as viemHttp } from 'viem'
+import {
+  type Account,
+  bytesToHex,
+  type Client,
+  createWalletClient,
+  numberToHex,
+  type Transport,
+  http as viemHttp,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
@@ -17,10 +24,6 @@ import { WarmStorageService } from '../warm-storage/index.ts'
 
 // MSW server for JSONRPC mocking
 const server = setup()
-
-function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
-  return ethers.hexlify(bytes) as `0x${string}`
-}
 
 const pdpOptions = {
   baseUrl: 'https://pdp.example.com',
@@ -1558,7 +1561,7 @@ describe('StorageService', () => {
       // Mock getActivePieces to return the expected pieces
       const piecesData = mockDataSetData.pieces.map((piece) => {
         const cid = CID.parse(piece.pieceCid)
-        return { data: cidBytesToContractHex(cid.bytes) }
+        return { data: bytesToHex(cid.bytes) }
       })
       server.use(
         Mocks.JSONRPC({
@@ -1614,7 +1617,7 @@ describe('StorageService', () => {
     })
 
     it('should handle invalid CID in response', async () => {
-      const invalidCidBytes = cidBytesToContractHex(ethers.toUtf8Bytes('invalid-cid-format'))
+      const invalidCidBytes = bytesToHex(new TextEncoder().encode('invalid-cid-format'))
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -2040,15 +2043,11 @@ describe('StorageService', () => {
 
               // First page: return 2 pieces with hasMore=true
               if (offset === 0) {
-                return [
-                  [{ data: cidBytesToContractHex(piece1Cid.bytes) }, { data: cidBytesToContractHex(piece2Cid.bytes) }],
-                  [1n, 2n],
-                  true,
-                ]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }, { data: bytesToHex(piece2Cid.bytes) }], [1n, 2n], true]
               }
               // Second page: return 1 piece with hasMore=false
               if (offset === 2) {
-                return [[{ data: cidBytesToContractHex(piece3Cid.bytes) }], [3n], false]
+                return [[{ data: bytesToHex(piece3Cid.bytes) }], [3n], false]
               }
               return [[], [], false]
             },
@@ -2144,11 +2143,11 @@ describe('StorageService', () => {
 
               // First page
               if (offset === 0) {
-                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
               }
               // Second page
               if (offset === 1) {
-                return [[{ data: cidBytesToContractHex(piece2Cid.bytes) }], [2n], false]
+                return [[{ data: bytesToHex(piece2Cid.bytes) }], [2n], false]
               }
               return [[], [], false]
             },
@@ -2192,7 +2191,7 @@ describe('StorageService', () => {
               // Only return data on first call, then abort
               if (callCount === 1) {
                 setTimeout(() => controller.abort(), 0)
-                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
               }
               return [[], [], false]
             },
