@@ -30,7 +30,7 @@ export const fund: Command = command(
         hash: hashes[0].tx_hash,
       })
 
-      const synapse = await Synapse.create({
+      const synapse = new Synapse({
         client,
       })
 

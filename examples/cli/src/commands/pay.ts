@@ -25,7 +25,7 @@ export const pay: Command = command(
 
     spinner.start('Checking wallet balance...')
     try {
-      const synapse = await Synapse.create({
+      const synapse = new Synapse({
         client,
       })
 
