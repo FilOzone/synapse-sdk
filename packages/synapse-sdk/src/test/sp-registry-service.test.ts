@@ -1,11 +1,11 @@
 /* globals describe it beforeEach */
 
-import { calibration } from '@filoz/synapse-core/chains'
+import { type Chain, calibration } from '@filoz/synapse-core/chains'
 import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { type Chain, type Client, createPublicClient, createWalletClient, type Transport, http as viemHttp } from 'viem'
+import { type Client, createPublicClient, createWalletClient, type Transport, http as viemHttp } from 'viem'
 import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
