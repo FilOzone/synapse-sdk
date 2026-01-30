@@ -16,7 +16,7 @@ export const fund: Command = command(
     },
   },
   async (argv) => {
-    const { client, privateKey, rpcURL } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     p.intro('Funding wallet...')
     const spinner = p.spinner()
@@ -31,8 +31,7 @@ export const fund: Command = command(
       })
 
       const synapse = await Synapse.create({
-        privateKey,
-        rpcURL,
+        client,
       })
 
       spinner.stop('Balances')
