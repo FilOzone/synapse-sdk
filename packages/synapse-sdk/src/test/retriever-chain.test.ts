@@ -47,7 +47,7 @@ describe('ChainRetriever', () => {
       chain: calibration,
       transport: viemHttp(),
     })
-    warmStorage = await WarmStorageService.create(publicClient)
+    warmStorage = new WarmStorageService(publicClient)
     spRegistry = await SPRegistryService.create(publicClient)
   })
 

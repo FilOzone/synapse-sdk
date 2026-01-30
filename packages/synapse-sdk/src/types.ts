@@ -36,6 +36,34 @@ export type TokenIdentifier = 'USDFC' | string
  */
 export interface SynapseOptions {
   /**
+   * Viem transport
+   *
+   * @see https://viem.sh/docs/clients/intro#transports
+   */
+  transport?: Transport
+
+  /**
+   * Filecoin chain
+   *
+   */
+  chain?: Chain
+
+  /**
+   * Viem account
+   *
+   * @see https://viem.sh/docs/accounts/jsonRpc
+   * @see https://viem.sh/docs/accounts/local
+   */
+  account: Account | Address
+
+  /** Whether to use CDN for retrievals (default: false) */
+  withCDN?: boolean
+  /** Whether to filter providers by IPNI availability */
+  withIpni?: boolean
+}
+
+export interface SynapseFromClientOptions {
+  /**
    * Viem wallet client
    *
    * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account

@@ -20,7 +20,7 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 describe('Storage Upload', () => {
-  let walletClient: Client<Transport, Chain, Account>
+  let client: Client<Transport, Chain, Account>
   before(async () => {
     await server.start()
   })
@@ -34,12 +34,12 @@ describe('Storage Upload', () => {
 
   it('should enforce 127 byte minimum size limit', async () => {
     server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }), Mocks.PING({ debug: false }))
-    walletClient = createWalletClient({
+    client = createWalletClient({
       chain: calibration,
       transport: viemHttp(),
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext()
 
     try {
@@ -88,7 +88,7 @@ describe('Storage Upload', () => {
         return HttpResponse.json(response, { status: 200 })
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -177,7 +177,7 @@ describe('Storage Upload', () => {
         } satisfies AddPiecesSuccess)
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       uploadBatchSize: 2,
@@ -266,7 +266,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       uploadBatchSize: 1,
@@ -331,7 +331,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -384,7 +384,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -435,7 +435,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -491,7 +491,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -576,7 +576,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ client: walletClient })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
