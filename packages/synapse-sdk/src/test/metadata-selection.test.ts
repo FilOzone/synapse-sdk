@@ -6,7 +6,7 @@ import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { createPublicClient, http as viemHttp, zeroAddress } from 'viem'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
+import { metadataMatches } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
 describe('Metadata-based Data Set Selection', () => {
@@ -93,20 +93,6 @@ describe('Metadata-based Data Set Selection', () => {
         }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
-      })
-    })
-
-    describe('withCDNToMetadata', () => {
-      it('should convert true to metadata entry', () => {
-        const metadata = withCDNToMetadata(true)
-        assert.equal(metadata.length, 1)
-        assert.equal(metadata[0].key, METADATA_KEYS.WITH_CDN)
-        assert.equal(metadata[0].value, '')
-      })
-
-      it('should convert false to empty array', () => {
-        const metadata = withCDNToMetadata(false)
-        assert.equal(metadata.length, 0)
       })
     })
   })

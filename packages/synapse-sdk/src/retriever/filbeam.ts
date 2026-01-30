@@ -5,7 +5,7 @@
  * to the base retriever.
  */
 
-import type { Chain } from '@filoz/synapse-core/chains'
+import { asChain, type Chain } from '@filoz/synapse-core/chains'
 import type { Address } from 'viem'
 import type { PieceCID, PieceRetriever } from '../types.ts'
 
@@ -15,11 +15,7 @@ export class FilBeamRetriever implements PieceRetriever {
 
   constructor(baseRetriever: PieceRetriever, chain: Chain) {
     this.baseRetriever = baseRetriever
-    this.chain = chain
-  }
-
-  hostname(): string | null {
-    return this.chain.filbeam?.retrievalDomain ?? null
+    this.chain = asChain(chain)
   }
 
   async fetchPiece(
@@ -31,16 +27,8 @@ export class FilBeamRetriever implements PieceRetriever {
       signal?: AbortSignal
     }
   ): Promise<Response> {
-    if (options?.withCDN === true) {
-      const hostname = this.hostname()
-      if (hostname == null) {
-        console.warn(
-          `CDN retrieval is not available for chain ${this.chain.id} (${this.chain.name}). Falling back to direct retrieval via the storage provider.`
-        )
-        return await this.baseRetriever.fetchPiece(pieceCid, client, options)
-      }
-
-      const cdnUrl = `https://${client}.${hostname}/${pieceCid.toString()}`
+    if (options?.withCDN === true && this.chain.filbeam != null) {
+      const cdnUrl = `https://${client}.${this.chain.filbeam.retrievalDomain}/${pieceCid.toString()}`
       try {
         const cdnResponse = await fetch(cdnUrl, { signal: options?.signal })
         if (cdnResponse.ok) {
