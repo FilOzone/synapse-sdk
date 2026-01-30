@@ -124,7 +124,7 @@ export const pieces: Command = command(
         spinner.start('Deleting piece...')
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
-        const synapse = await Synapse.create({
+        const synapse = new Synapse({
           client,
         })
         const context = await synapse.storage.createContext({

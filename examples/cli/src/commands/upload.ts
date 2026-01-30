@@ -42,7 +42,7 @@ export const upload: Command = command(
     const fileData = await readFile(absolutePath)
 
     try {
-      const synapse = await Synapse.create({
+      const synapse = new Synapse({
         client,
       })
 
