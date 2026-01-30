@@ -21,7 +21,7 @@
  * ```
  */
 
-import { asChain, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import { asChain, type Chain, calibration, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
 import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
@@ -33,7 +33,16 @@ import {
   removeApprovedProvider,
   terminateDataSet,
 } from '@filoz/synapse-core/warm-storage'
-import { type Account, type Address, type Chain, type Client, type Hash, isAddressEqual, type Transport } from 'viem'
+import {
+  type Account,
+  type Address,
+  type Client,
+  createClient,
+  type Hash,
+  http,
+  isAddressEqual,
+  type Transport,
+} from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { PaymentsService } from '../payments/service.ts'
 import { PDPVerifier } from '../pdp/verifier.ts'
@@ -47,9 +56,9 @@ export class WarmStorageService {
   private readonly _chain: SynapseChain
 
   /**
-   * Private constructor - use WarmStorageService.create() instead
+   * Create a new WarmStorageService instance
    */
-  private constructor(client: Client<Transport, Chain>) {
+  constructor(client: Client<Transport, Chain>) {
     this._client = client
     this._pdpVerifier = new PDPVerifier({ client })
     this._chain = asChain(client.chain)
@@ -58,7 +67,11 @@ export class WarmStorageService {
   /**
    * Create a new WarmStorageService instance with initialized addresses
    */
-  static create(client: Client<Transport, Chain>): WarmStorageService {
+  static create(options: { transport?: Transport; chain?: Chain } = {}): WarmStorageService {
+    const client = createClient({
+      chain: options.chain ?? calibration,
+      transport: options.transport ?? http(),
+    })
     return new WarmStorageService(client)
   }
 

@@ -1,12 +1,30 @@
-import { asChain, type Chain } from '@filoz/synapse-core/chains'
-import { type Account, type Address, type Client, isAddress, type Transport } from 'viem'
+import { asChain, type Chain, calibration } from '@filoz/synapse-core/chains'
+import {
+  type Account,
+  type Address,
+  type Client,
+  createClient,
+  http,
+  isAddress,
+  type PublicActions,
+  type PublicRpcSchema,
+  publicActions,
+  type Transport,
+} from 'viem'
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever } from './retriever/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
-import type { PDPProvider, PieceCID, StorageInfo, StorageServiceOptions, SynapseOptions } from './types.ts'
+import type {
+  PDPProvider,
+  PieceCID,
+  StorageInfo,
+  StorageServiceOptions,
+  SynapseFromClientOptions,
+  SynapseOptions,
+} from './types.ts'
 import { WarmStorageService } from './warm-storage/index.ts'
 
 /**
@@ -20,7 +38,7 @@ export class Synapse {
   private readonly _filbeamService: FilBeamService
   private readonly _providers: SPRegistryService
 
-  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _client: Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>>
   private readonly _chain: Chain
 
   /**
@@ -28,18 +46,32 @@ export class Synapse {
    * @param options - Configuration options for Synapse
    * @returns A fully initialized Synapse instance
    */
-  static async create(options: SynapseOptions): Promise<Synapse> {
-    return new Synapse(options.client, options.withCDN === true, options.withIpni)
+  static create(options: SynapseOptions) {
+    const client = createClient({
+      // todo: change to mainnet chain for GA
+      chain: options.chain ?? calibration,
+      // todo: add better fallback transport
+      transport: options.transport ?? http(),
+      account: options.account,
+      name: 'Synapse Client',
+      key: 'synapse-client',
+    })
+
+    if (client.account.type === 'json-rpc' && client.transport.type !== 'custom') {
+      throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
+    }
+
+    return new Synapse({ client, withCDN: options.withCDN, withIpni: options.withIpni })
   }
 
-  private constructor(client: Client<Transport, Chain, Account>, withCDN: boolean, withIpni: boolean | undefined) {
-    this._client = client
-    this._chain = asChain(client.chain)
-    this._withCDN = withCDN
-    this._providers = new SPRegistryService(client)
+  public constructor(options: SynapseFromClientOptions) {
+    this._client = options.client.extend(publicActions)
+    this._chain = asChain(options.client.chain)
+    this._withCDN = options.withCDN ?? false
+    this._providers = new SPRegistryService(options.client)
     this._filbeamService = new FilBeamService(this._chain)
-    this._warmStorageService = WarmStorageService.create(client)
-    this._payments = new PaymentsService(client)
+    this._warmStorageService = new WarmStorageService(options.client)
+    this._payments = new PaymentsService(options.client)
 
     // Initialize StorageManager
     this._storageManager = new StorageManager(
@@ -47,11 +79,11 @@ export class Synapse {
       this._warmStorageService,
       new FilBeamRetriever(new ChainRetriever(this._warmStorageService, this._providers), this._chain),
       this._withCDN,
-      withIpni
+      options.withIpni
     )
   }
 
-  get client(): Client<Transport, Chain, Account> {
+  get client(): Client<Transport, Chain, Account, PublicRpcSchema, PublicActions<Transport, Chain>> {
     return this._client
   }
 

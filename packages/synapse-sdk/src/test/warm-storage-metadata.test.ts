@@ -31,7 +31,7 @@ describe('WarmStorageService Metadata', () => {
       transport: viemHttp(),
       account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
     })
-    warmStorageService = await WarmStorageService.create(walletClient)
+    warmStorageService = new WarmStorageService(walletClient)
   })
 
   describe('Data Set Metadata', () => {

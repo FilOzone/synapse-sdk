@@ -11,7 +11,7 @@ import { setup } from 'iso-web/msw'
 import { type Address, createWalletClient, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
-import { CONTRACT_ADDRESSES, SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
+import { SIZE_CONSTANTS, TIME_CONSTANTS } from '../utils/constants.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
 // mock server for testing
@@ -27,7 +27,7 @@ describe('WarmStorageService', () => {
 
   // Helper to create WarmStorageService with factory pattern
   const createWarmStorageService = async () => {
-    return await WarmStorageService.create(walletClient)
+    return new WarmStorageService(walletClient)
   }
 
   before(async () => {
@@ -91,7 +91,7 @@ describe('WarmStorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
-            // @ts-expect-error - we want to test the error case
+            // @ts-expect-error - test error
             getDataSet: () => {
               return null
             },
@@ -196,7 +196,7 @@ describe('WarmStorageService', () => {
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
           warmStorageView: {
-            // @ts-expect-error - we want to test the error case
+            // @ts-expect-error - test error
             getClientDataSets: () => null,
           },
         })
@@ -727,7 +727,7 @@ describe('WarmStorageService', () => {
                     pricePerTiBPerMonthNoCDN: parseUnits('2', 18),
                     pricePerTiBCdnEgress: parseUnits('0.05', 18),
                     pricePerTiBCacheMissEgress: parseUnits('0.1', 18),
-                    tokenAddress: CONTRACT_ADDRESSES.USDFC.calibration,
+                    tokenAddress: calibration.contracts.usdfc.address,
                     epochsPerMonth: TIME_CONSTANTS.EPOCHS_PER_MONTH,
                     minimumPricePerMonth: parseUnits('0.01', 18),
                   },
