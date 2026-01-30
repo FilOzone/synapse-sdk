@@ -5,10 +5,11 @@
  * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
-import type { ethers } from 'ethers'
-import type { Address, Hex } from 'viem'
+import type { MetadataObject } from '@filoz/synapse-core/utils'
+import type { Account, Address, Client, Hex, Transport } from 'viem'
 
 // Re-export PieceCID and PDPProvider types
 export type { PieceCID, PDPProvider }
@@ -32,48 +33,20 @@ export type TokenIdentifier = 'USDFC' | string
 
 /**
  * Options for initializing the Synapse instance
- * Must provide one of:
- * 1. privateKey + rpcURL (for server environments)
- * 2. provider (for browser environments - user handles MetaMask coupling)
- * 3. signer (for direct ethers.js integration)
  */
 export interface SynapseOptions {
-  // Wallet Configuration (exactly one required)
-
-  /** Private key for signing transactions (requires rpcURL) */
-  privateKey?: PrivateKey
-  /** Ethers Provider instance (handles both reads and transactions) */
-  provider?: ethers.Provider
-  /** Ethers Signer instance (for direct ethers.js integration) */
-  signer?: ethers.Signer
-
-  // Network Configuration
-
-  /** RPC URL for Filecoin node (required with privateKey) */
-  rpcURL?: string
-  /** Authorization header value for API authentication (e.g., Bearer token) */
-  authorization?: string
-
+  /**
+   * Viem wallet client
+   *
+   * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
+   */
+  client: Client<Transport, Chain, Account>
   // Advanced Configuration
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
   /** Whether to filter providers by IPNI availability */
   withIpni?: boolean
-  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
-  dev?: boolean
-  /** Optional override for piece retrieval */
-  pieceRetriever?: PieceRetriever
-  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
-  disableNonceManager?: boolean
-  /** Override Warm Storage service contract address (defaults to network's default) */
-  warmStorageAddress?: Address
-  /** Override Multicall3 contract address (required for devnet) */
-  multicall3Address?: Address
-  /** Override USDFC token address (optional, useful for devnet) */
-  usdfcAddress?: Address
-  /** Override Endorsements contract address (required for devnet) */
-  endorsementsAddress?: Address
 }
 
 /**
@@ -414,7 +387,7 @@ export interface PieceRecord {
  */
 export interface UploadOptions extends UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
-  metadata?: Record<string, string>
+  metadata?: MetadataObject
   /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
   pieceCid?: PieceCID
   /** Optional AbortSignal to cancel the upload */
@@ -468,8 +441,6 @@ export interface StorageInfo {
 
   /** Service configuration parameters */
   serviceParameters: {
-    /** Network type (mainnet or calibration) */
-    network: FilecoinNetworkType
     /** Number of epochs in a month */
     epochsPerMonth: bigint
     /** Number of epochs in a day */
@@ -480,12 +451,6 @@ export interface StorageInfo {
     minUploadSize: number
     /** Maximum allowed upload size in bytes */
     maxUploadSize: number
-    /** Warm Storage service contract address */
-    warmStorageAddress: Address
-    /** Payments contract address */
-    paymentsAddress: Address
-    /** PDP Verifier contract address */
-    pdpVerifierAddress: Address
   }
 
   /** Current user allowances (null if wallet not connected) */

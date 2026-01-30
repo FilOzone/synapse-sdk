@@ -24,7 +24,6 @@ import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { type Address, type Hash, zeroAddress } from 'viem'
-import type { EndorsementsService } from '../endorsements/index.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { Synapse } from '../synapse.ts'
 import type {
@@ -96,28 +95,22 @@ export interface StorageManagerDownloadOptions extends DownloadOptions {
 export class StorageManager {
   private readonly _synapse: Synapse
   private readonly _warmStorageService: WarmStorageService
-  private readonly _endorsementsService: EndorsementsService
   private readonly _pieceRetriever: PieceRetriever
   private readonly _withCDN: boolean
-  private readonly _dev: boolean
   private readonly _withIpni: boolean | undefined
   private _defaultContexts?: StorageContext[]
 
   constructor(
     synapse: Synapse,
     warmStorageService: WarmStorageService,
-    endorsementsService: EndorsementsService,
     pieceRetriever: PieceRetriever,
     withCDN: boolean,
-    dev: boolean,
     withIpni?: boolean
   ) {
     this._synapse = synapse
     this._warmStorageService = warmStorageService
-    this._endorsementsService = endorsementsService
     this._pieceRetriever = pieceRetriever
     this._withCDN = withCDN
-    this._dev = dev
     this._withIpni = withIpni
   }
 
@@ -269,7 +262,7 @@ export class StorageManager {
       }
     }
 
-    const clientAddress = (await this._synapse.getClient().getAddress()) as Address
+    const clientAddress = this._synapse.client.account.address
 
     // Use piece retriever to fetch
     const response = await this._pieceRetriever.fetchPiece(parsedPieceCID, clientAddress, {
@@ -377,17 +370,11 @@ export class StorageManager {
       }
     }
 
-    const contexts = await StorageContext.createContexts(
-      this._synapse,
-      this._warmStorageService,
-      this._endorsementsService,
-      {
-        ...options,
-        withCDN,
-        withIpni: options?.withIpni ?? this._withIpni,
-        dev: options?.dev ?? this._dev,
-      }
-    )
+    const contexts = await StorageContext.createContexts(this._synapse, this._warmStorageService, {
+      ...options,
+      withCDN,
+      withIpni: options?.withIpni ?? this._withIpni,
+    })
 
     if (canUseDefault) {
       this._defaultContexts = contexts
@@ -456,7 +443,6 @@ export class StorageManager {
       ...options,
       withCDN: effectiveWithCDN,
       withIpni: options?.withIpni ?? this._withIpni,
-      dev: options?.dev ?? this._dev,
     })
 
     if (canUseDefault) {
@@ -478,7 +464,7 @@ export class StorageManager {
    * @returns Array of enhanced data set information including management status
    */
   async findDataSets(clientAddress?: Address): Promise<EnhancedDataSetInfo[]> {
-    const address = clientAddress ?? this._synapse.connectorClient.account.address
+    const address = clientAddress ?? this._synapse.client.account.address
     return await this._warmStorageService.getClientDataSetsWithDetails(address)
   }
 
@@ -489,7 +475,7 @@ export class StorageManager {
    * @returns Transaction hash
    */
   async terminateDataSet(dataSetId: bigint): Promise<Hash> {
-    return this._warmStorageService.terminateDataSet(this._synapse.connectorClient, dataSetId)
+    return this._warmStorageService.terminateDataSet(this._synapse.client, dataSetId)
   }
 
   /**
@@ -498,7 +484,7 @@ export class StorageManager {
    * @returns Complete storage service information
    */
   async getStorageInfo(): Promise<StorageInfo> {
-    const chain = this._synapse.connectorClient.chain
+    const chain = this._synapse.client.chain
     try {
       // Helper function to get allowances with error handling
       const getOptionalAllowances = async (): Promise<StorageInfo['allowances']> => {
@@ -520,7 +506,7 @@ export class StorageManager {
       }
 
       // Create SPRegistryService to get providers
-      const spRegistry = new SPRegistryService(this._synapse.connectorClient)
+      const spRegistry = new SPRegistryService(this._synapse.client)
 
       // Fetch all data in parallel for performance
       const [pricingData, approvedIds, allowances] = await Promise.all([
@@ -550,8 +536,6 @@ export class StorageManager {
       // Filter out providers with zero addresses
       const validProviders = providers.filter((p: PDPProvider) => p.serviceProvider !== zeroAddress)
 
-      const network = this._synapse.getNetwork()
-
       return {
         pricing: {
           noCDN: {
@@ -570,15 +554,11 @@ export class StorageManager {
         },
         providers: validProviders,
         serviceParameters: {
-          network,
           epochsPerMonth,
           epochsPerDay: TIME_CONSTANTS.EPOCHS_PER_DAY,
           epochDuration: TIME_CONSTANTS.EPOCH_DURATION,
           minUploadSize: SIZE_CONSTANTS.MIN_UPLOAD_SIZE,
           maxUploadSize: SIZE_CONSTANTS.MAX_UPLOAD_SIZE,
-          warmStorageAddress: this._synapse.getWarmStorageAddress(),
-          paymentsAddress: this._warmStorageService.getPaymentsAddress(),
-          pdpVerifierAddress: this._warmStorageService.getPDPVerifierAddress(),
         },
         allowances,
       }

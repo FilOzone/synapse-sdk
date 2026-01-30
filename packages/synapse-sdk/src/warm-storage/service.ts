@@ -63,7 +63,7 @@ export class WarmStorageService {
   /**
    * Create a new WarmStorageService instance with initialized addresses
    */
-  static async create(client: Client<Transport, Chain>): Promise<WarmStorageService> {
+  static create(client: Client<Transport, Chain>): WarmStorageService {
     return new WarmStorageService(client)
   }
 

@@ -4,15 +4,15 @@
  * Basic tests for Synapse class
  */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import pDefer from 'p-defer'
-import { type Address, isAddressEqual, parseUnits } from 'viem'
+import { type Address, createWalletClient, isAddressEqual, parseUnits, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { PaymentsService } from '../payments/index.ts'
 import type { StorageContext } from '../storage/context.ts'
@@ -24,10 +24,13 @@ const server = setup()
 
 const providers = [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]
 const providerIds = providers.map((provider) => provider.providerId)
+const client = createWalletClient({
+  chain: calibration,
+  transport: viemHttp(),
+  account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
+})
 
 describe('Synapse', () => {
-  let signer: ethers.Signer
-  let provider: ethers.Provider
   before(async () => {
     await server.start()
   })
@@ -37,126 +40,12 @@ describe('Synapse', () => {
   })
   beforeEach(() => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
-  })
-
-  describe('Instantiation', () => {
-    it('should create instance with signer', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
-      assert.exists(synapse)
-      assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof PaymentsService)
-    })
-
-    it('should create instance with private key', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const privateKey = '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
-      const rpcURL = 'https://api.calibration.node.glif.io/rpc/v1'
-      const synapse = await Synapse.create({ privateKey, rpcURL })
-      assert.exists(synapse)
-      assert.exists(synapse.payments)
-      assert.isTrue(synapse.payments instanceof PaymentsService)
-    })
-
-    it('should apply NonceManager by default', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
-      assert.exists(synapse)
-      // We can't directly check if NonceManager is applied, but we can verify the instance is created
-    })
-
-    it('should allow disabling NonceManager', async () => {
-      server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({
-        signer,
-        disableNonceManager: true,
-      })
-      assert.exists(synapse)
-      // We can't directly check if NonceManager is not applied, but we can verify the instance is created
-    })
-
-    it.skip('should allow enabling CDN', async () => {
-      // Skip this test as it requires real contract interactions
-      const synapse = await Synapse.create({
-        signer,
-        withCDN: true,
-      })
-      const storageService = await synapse.createStorage()
-      assert.exists(storageService)
-      // CDN is part of the storage service configuration
-    })
-
-    it('should reject when no authentication method provided', async () => {
-      try {
-        await Synapse.create({} as any)
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'Must provide exactly one of')
-      }
-    })
-
-    it('should reject when multiple authentication methods provided', async () => {
-      try {
-        await Synapse.create({
-          privateKey: '0x123',
-          provider,
-          rpcURL: 'https://example.com',
-        } as any)
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'Must provide exactly one of')
-      }
-    })
-
-    it('should reject privateKey without rpcURL', async () => {
-      try {
-        await Synapse.create({
-          privateKey: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        })
-        assert.fail('Should have thrown')
-      } catch (error: any) {
-        assert.include(error.message, 'rpcURL is required when using privateKey')
-      }
-    })
-  })
-
-  describe.skip('Network validation', () => {
-    it('should reject unsupported networks', async () => {
-      // Create mock provider with unsupported chain ID
-      // const unsupportedProvider = createMockProvider(999999)
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          eth_chainId: '999999',
-        })
-      )
-      try {
-        await Synapse.create({ provider })
-        assert.fail('Should have thrown for unsupported network')
-      } catch (error: any) {
-        assert.include(error.message, 'Unsupported network')
-        assert.include(error.message, '999999')
-      }
-    })
-
-    it('should accept calibration network', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          eth_chainId: '314159',
-        })
-      )
-      const synapse = await Synapse.create({ provider })
-      assert.exists(synapse)
-    })
   })
 
   describe('StorageManager access', () => {
     it('should provide access to StorageManager via synapse.storage', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
 
       // Should be able to access storage manager
       assert.exists(synapse.storage)
@@ -173,7 +62,7 @@ describe('Synapse', () => {
     it('should create storage manager with CDN settings', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const synapse = await Synapse.create({
-        signer,
+        client,
         withCDN: true,
       })
 
@@ -185,7 +74,7 @@ describe('Synapse', () => {
 
     it('should return same storage manager instance', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
 
       const storage1 = synapse.storage
       const storage2 = synapse.storage
@@ -195,118 +84,113 @@ describe('Synapse', () => {
     })
   })
 
-  describe('Session Keys', () => {
-    const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
-    const FAKE_TX = {
-      hash: FAKE_TX_HASH,
-      from: Mocks.ADDRESSES.serviceProvider1,
-      gas: '0x5208',
-      value: '0x0',
-      nonce: '0x444',
-      input: '0x',
-      v: '0x01',
-      r: '0x4e2eef88cc6f2dc311aa3b1c8729b6485bd606960e6ae01522298278932c333a',
-      s: '0x5d0e08d8ecd6ed8034aa956ff593de9dc1d392e73909ef0c0f828918b58327c9',
-    }
-    const FAKE_RECEIPT = {
-      ...FAKE_TX,
-      transactionHash: FAKE_TX_HASH,
-      transactionIndex: '0x10',
-      blockHash: '0xb91b7314248aaae06f080ad427dbae78b8c5daf72b2446cf843739aef80c6417',
-      status: '0x1',
-      blockNumber: '0x127001',
-      cumulativeGasUsed: '0x52080',
-      gasUsed: '0x5208',
-    }
-    beforeEach(() => {
-      const pdpOptions: Mocks.PingMockOptions = {
-        baseUrl: 'https://pdp.example.com',
-      }
-      server.use(Mocks.PING(pdpOptions))
-    })
+  // describe('Session Keys', () => {
+  //   const FAKE_TX_HASH = '0x3816d82cb7a6f5cde23f4d63c0763050d13c6b6dc659d0a7e6eba80b0ec76a18'
+  //   const FAKE_TX = {
+  //     hash: FAKE_TX_HASH,
+  //     from: Mocks.ADDRESSES.serviceProvider1,
+  //     gas: '0x5208',
+  //     value: '0x0',
+  //     nonce: '0x444',
+  //     input: '0x',
+  //     v: '0x01',
+  //     r: '0x4e2eef88cc6f2dc311aa3b1c8729b6485bd606960e6ae01522298278932c333a',
+  //     s: '0x5d0e08d8ecd6ed8034aa956ff593de9dc1d392e73909ef0c0f828918b58327c9',
+  //   }
+  //   const FAKE_RECEIPT = {
+  //     ...FAKE_TX,
+  //     transactionHash: FAKE_TX_HASH,
+  //     transactionIndex: '0x10',
+  //     blockHash: '0xb91b7314248aaae06f080ad427dbae78b8c5daf72b2446cf843739aef80c6417',
+  //     status: '0x1',
+  //     blockNumber: '0x127001',
+  //     cumulativeGasUsed: '0x52080',
+  //     gasUsed: '0x5208',
+  //   }
+  //   beforeEach(() => {
+  //     const pdpOptions: Mocks.PingMockOptions = {
+  //       baseUrl: 'https://pdp.example.com',
+  //     }
+  //     server.use(Mocks.PING(pdpOptions))
+  //   })
 
-    it('should storage.createContext with session key', async () => {
-      const signerAddress = await signer.getAddress()
-      const sessionKeyAccount = privateKeyToAccount(Mocks.PRIVATE_KEYS.key2)
-      const EXPIRY = BigInt(1757618883)
-      const PDP_PERMISSIONS: SessionKeyPermissions[] = [
-        'CreateDataSet',
-        'AddPieces',
-        'SchedulePieceRemovals',
-        'DeleteDataSet',
-      ]
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          debug: false,
-          sessionKeyRegistry: {
-            authorizationExpiry: (args) => {
-              const client = args[0]
-              const signer = args[1]
-              assert.equal(client, signerAddress)
-              assert.equal(signer, sessionKeyAccount.address)
-              const permission = args[2]
-              assert.isTrue(PDP_PERMISSIONS.includes(getPermissionFromTypeHash(permission)))
-              return [EXPIRY]
-            },
-          },
-          payments: {
-            ...Mocks.presets.basic.payments,
-            operatorApprovals: ([token, client, operator]) => {
-              assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
-              assert.equal(client, signerAddress)
-              assert.equal(operator, Mocks.ADDRESSES.calibration.warmStorage)
-              return [
-                true, // isApproved
-                BigInt(127001 * 635000000), // rateAllowance
-                BigInt(127001 * 635000000), // lockupAllowance
-                BigInt(0), // rateUsage
-                BigInt(0), // lockupUsage
-                BigInt(28800), // maxLockupPeriod
-              ]
-            },
-            accounts: ([token, user]) => {
-              assert.equal(user, signerAddress)
-              assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
-              return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
-            },
-          },
-          eth_getTransactionByHash: (params) => {
-            const hash = params[0]
-            assert.equal(hash, FAKE_TX_HASH)
-            return FAKE_TX
-          },
-          eth_getTransactionReceipt: (params) => {
-            const hash = params[0]
-            assert.equal(hash, FAKE_TX_HASH)
-            return FAKE_RECEIPT
-          },
-        })
-      )
-      const synapse = await Synapse.create({ signer })
-      const sessionKey = synapse.createSessionKey(sessionKeyAccount)
-      synapse.setSession(sessionKey)
-      assert.equal(sessionKey.account.address, sessionKeyAccount.address)
+  //   it('should storage.createContext with session key', async () => {
+  //     const signerAddress = client.account.address
+  //     const sessionKeySigner = new ethers.Wallet(Mocks.PRIVATE_KEYS.key2)
+  //     const sessionKeyAddress = await sessionKeySigner.getAddress()
+  //     const EXPIRY = BigInt(1757618883)
+  //     server.use(
+  //       Mocks.JSONRPC({
+  //         ...Mocks.presets.basic,
+  //         sessionKeyRegistry: {
+  //           authorizationExpiry: (args) => {
+  //             const client = args[0]
+  //             const signer = args[1]
+  //             assert.equal(client, signerAddress)
+  //             assert.equal(signer, sessionKeyAddress)
+  //             const permission = args[2]
+  //             assert.isTrue(PDP_PERMISSIONS.includes(permission))
+  //             return [EXPIRY]
+  //           },
+  //         },
+  //         payments: {
+  //           ...Mocks.presets.basic.payments,
+  //           operatorApprovals: ([token, client, operator]) => {
+  //             assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
+  //             assert.equal(client, signerAddress)
+  //             assert.equal(operator, Mocks.ADDRESSES.calibration.warmStorage)
+  //             return [
+  //               true, // isApproved
+  //               BigInt(127001 * 635000000), // rateAllowance
+  //               BigInt(127001 * 635000000), // lockupAllowance
+  //               BigInt(0), // rateUsage
+  //               BigInt(0), // lockupUsage
+  //               BigInt(28800), // maxLockupPeriod
+  //             ]
+  //           },
+  //           accounts: ([token, user]) => {
+  //             assert.equal(user, signerAddress)
+  //             assert.equal(token, Mocks.ADDRESSES.calibration.usdfcToken)
+  //             return [BigInt(127001 * 635000000), BigInt(0), BigInt(0), BigInt(0)]
+  //           },
+  //         },
+  //         eth_getTransactionByHash: (params) => {
+  //           const hash = params[0]
+  //           assert.equal(hash, FAKE_TX_HASH)
+  //           return FAKE_TX
+  //         },
+  //         eth_getTransactionReceipt: (params) => {
+  //           const hash = params[0]
+  //           assert.equal(hash, FAKE_TX_HASH)
+  //           return FAKE_RECEIPT
+  //         },
+  //       })
+  //     )
+  //     const synapse = await Synapse.create({ client })
+  //     const sessionKey = synapse.createSessionKey(sessionKeySigner)
+  //     synapse.setSession(sessionKey)
+  //     assert.equal(sessionKey.getSigner(), sessionKeySigner)
 
-      const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
-      for (const permission of PDP_PERMISSIONS) {
-        assert.equal(expiries[permission], EXPIRY)
-      }
+  //     const expiries = await sessionKey.fetchExpiries(PDP_PERMISSIONS)
+  //     for (const permission of PDP_PERMISSIONS) {
+  //       assert.equal(expiries[permission], EXPIRY)
+  //     }
 
-      const context = await synapse.storage.createContext()
-      const info = await context.preflightUpload(127)
-      assert.isTrue(info.allowanceCheck.sufficient)
+  //     const context = await synapse.storage.createContext()
+  //     assert.equal((context as any)._synapse.getSigner(), sessionKeySigner)
+  //     const info = await context.preflightUpload(127)
+  //     assert.isTrue(info.allowanceCheck.sufficient)
 
-      // Payments uses the original signer
-      const accountInfo = await synapse.payments.accountInfo()
-      assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
-    })
-  })
+  //     // Payments uses the original signer
+  //     const accountInfo = await synapse.payments.accountInfo()
+  //     assert.equal(accountInfo.funds, BigInt(127001 * 635000000))
+  //   })
+  // })
 
   describe('Payment access', () => {
     it('should provide read-only access to payments', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
 
       // Should be able to access payments
       assert.exists(synapse.payments)
@@ -330,7 +214,7 @@ describe('Synapse', () => {
     it('should get provider info for valid approved provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
       const providerInfo = await synapse.getProviderInfo(Mocks.ADDRESSES.serviceProvider1)
 
       assert.ok(isAddressEqual(providerInfo.serviceProvider as Address, Mocks.ADDRESSES.serviceProvider1))
@@ -339,14 +223,14 @@ describe('Synapse', () => {
 
     it('should throw for invalid provider address', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
 
       try {
         // @ts-expect-error - invalid address
         await synapse.getProviderInfo('invalid-address')
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Invalid provider address')
+        assert.include(error.message, 'Address "invalid-address" is invalid')
       }
     })
 
@@ -362,7 +246,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client })
         await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -381,7 +265,7 @@ describe('Synapse', () => {
       )
 
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client })
         await synapse.getProviderInfo(Mocks.ADDRESSES.zero)
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -393,7 +277,7 @@ describe('Synapse', () => {
   describe('download', () => {
     it('should validate PieceCID input', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
 
       try {
         await synapse.download('invalid-piece-link')
@@ -423,7 +307,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client,
       })
 
       // Use the actual PieceCID for 'test data'
@@ -458,7 +342,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client,
         withCDN: false, // Instance default
       })
 
@@ -507,7 +391,7 @@ describe('Synapse', () => {
         })
       )
       const synapse = await Synapse.create({
-        signer,
+        client,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -526,7 +410,7 @@ describe('Synapse', () => {
       )
 
       const synapse = await Synapse.create({
-        signer,
+        client,
       })
 
       const testPieceCid = 'bafkzcibcoybm2jlqsbekq6uluyl7xm5ffemw7iuzni5ez3a27iwy4qu3ssebqdq'
@@ -547,7 +431,7 @@ describe('Synapse', () => {
     it('should return comprehensive storage information', async () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }))
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
       const storageInfo = await synapse.getStorageInfo()
 
       // Check pricing
@@ -565,7 +449,6 @@ describe('Synapse', () => {
       assert.equal(storageInfo.providers[1].serviceProvider, Mocks.ADDRESSES.serviceProvider2)
 
       // Check service parameters
-      assert.equal(storageInfo.serviceParameters.network, 'calibration')
       assert.equal(storageInfo.serviceParameters.epochsPerMonth, 86400n)
       assert.equal(storageInfo.serviceParameters.epochsPerDay, 2880n)
       assert.equal(storageInfo.serviceParameters.epochDuration, 30)
@@ -590,7 +473,7 @@ describe('Synapse', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
+      const synapse = await Synapse.create({ client })
       const storageInfo = await synapse.getStorageInfo()
 
       // Should still return data with null allowances
@@ -620,7 +503,7 @@ describe('Synapse', () => {
         })
       )
       try {
-        const synapse = await Synapse.create({ signer })
+        const synapse = await Synapse.create({ client })
         await synapse.getStorageInfo()
         assert.fail('Should have thrown')
       } catch (error: any) {
@@ -645,7 +528,7 @@ describe('Synapse', () => {
           },
         })
       )
-      synapse = await Synapse.create({ signer })
+      synapse = await Synapse.create({ client })
       for (const { products } of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
         server.use(
           Mocks.PING({

@@ -8,7 +8,7 @@
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
-import type { FilecoinNetworkType } from '../types.ts'
+import { asChain, type Chain } from '@filoz/synapse-core/chains'
 import { createError } from '../utils/errors.ts'
 
 /**
@@ -49,30 +49,19 @@ export interface DataSetStats {
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} for detailed API specifications and usage guides
  */
 export class FilBeamService {
-  private readonly _network: FilecoinNetworkType
+  private readonly _chain: Chain
   private readonly _fetch: typeof fetch
 
-  constructor(network: FilecoinNetworkType, fetchImpl: typeof fetch = globalThis.fetch) {
-    this._validateNetworkType(network)
-    this._network = network
+  constructor(chain: Chain, fetchImpl: typeof fetch = globalThis.fetch) {
+    this._chain = asChain(chain)
     this._fetch = fetchImpl
-  }
-
-  private _validateNetworkType(network: FilecoinNetworkType) {
-    if (network === 'mainnet' || network === 'calibration' || network === 'devnet') return
-
-    throw createError(
-      'FilBeamService',
-      'validateNetworkType',
-      'Unsupported network type: Only Filecoin mainnet, calibration, and devnet networks are supported.'
-    )
   }
 
   /**
    * Get the base stats URL for the current network
    */
   private _getStatsBaseUrl(): string {
-    return this._network === 'mainnet' ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
+    return this._chain.testnet ? 'https://calibration.stats.filbeam.com' : 'https://stats.filbeam.com'
   }
 
   /**
