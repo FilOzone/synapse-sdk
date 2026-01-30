@@ -15,7 +15,7 @@ import { asChain } from '../chains.ts'
 import { getApprovedProvidersCall } from '../warm-storage/get-approved-providers.ts'
 import { getPDPProviderCall, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
-import type { PDPProvider, ProviderWithProduct } from './types.ts'
+import { type PDPProvider, PRODUCTS, type ProviderWithProduct } from './types.ts'
 
 export namespace getPDPProviders {
   export type OptionsType = Omit<getProvidersByProductType.OptionsType, 'productType'>
@@ -131,7 +131,7 @@ export function getPDPProvidersCall(options: getPDPProvidersCall.OptionsType) {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
     functionName: 'getProvidersByProductType',
-    args: [0, options.onlyActive ?? true, options.offset ?? 0n, options.limit ?? 50n],
+    args: [PRODUCTS.PDP, options.onlyActive ?? true, options.offset ?? 0n, options.limit ?? 50n],
   } satisfies getPDPProvidersCall.OutputType
 }
 

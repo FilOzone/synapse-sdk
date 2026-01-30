@@ -2,6 +2,15 @@ import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
 import type { Hex } from 'viem'
 import type * as Abis from '../abis/index.ts'
 
+/**
+ * Product types supported by the registry
+ */
+export const PRODUCTS = {
+  PDP: 0,
+} as const
+
+export type ProductType = (typeof PRODUCTS)[keyof typeof PRODUCTS]
+
 export type getProviderWithProductType = ExtractAbiFunction<
   typeof Abis.serviceProviderRegistry,
   'getProviderWithProduct'
@@ -61,5 +70,5 @@ export interface PDPOffering {
   /**
    * The IPNI peer ID.
    */
-  ipniPeerID?: string
+  ipniPeerId?: string
 }

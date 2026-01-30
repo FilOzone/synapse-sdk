@@ -25,7 +25,7 @@ export const PDPOfferingSchema = z.object({
   paymentTokenAddress: hex,
   ipniPiece: hex.optional(),
   ipniIpfs: hex.optional(),
-  ipniPeerID: hex.optional(),
+  ipniPeerId: hex.optional(),
 })
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'
@@ -37,7 +37,9 @@ export const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
 export const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
 export const CAP_LOCATION = 'location'
 export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
-export const CAP_IPNI_PEER_ID = 'IPNIPeerID'
+export const CAP_IPNI_PEER_ID = 'ipniPeerId'
+/** @deprecated Use CAP_IPNI_PEER_ID - kept for reading legacy entries */
+export const CAP_IPNI_PEER_ID_LEGACY = 'IPNIPeerID'
 
 export function decodePDPOffering(provider: ProviderWithProduct): PDPOffering {
   const capabilities = capabilitiesListToObject(provider.product.capabilityKeys, provider.productCapabilityValues)
@@ -61,10 +63,12 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
-    ipniPiece: 'ipniPiece' in capabilities,
-    ipniIpfs: 'ipniIpfs' in capabilities,
-    ipniPeerID:
-      CAP_IPNI_PEER_ID in capabilities ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes')) : undefined,
+    ipniPeerId:
+      CAP_IPNI_PEER_ID in capabilities
+        ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes'))
+        : CAP_IPNI_PEER_ID_LEGACY in capabilities
+          ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID_LEGACY], 'bytes'))
+          : undefined,
   }
 }
 
