@@ -114,18 +114,16 @@ In this guide we will calculate the costs for a 1 GiB storage capacity for 12 mo
 Get pricing information and calculate the cost per epoch for your storage capacity:
 
 ```ts twoslash
+// @lib: esnext,dom
 import {
   Synapse,
   SIZE_CONSTANTS,
+  calibration
 } from "@filoz/synapse-sdk"
 import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
-const synapse = await Synapse.create({})
 // ---cut---
 // Get pricing structure
-const warmStorageAddress = await synapse.getWarmStorageAddress()
-const warmStorageService = await WarmStorageService.create(
-  synapse.connectorClient
-)
+const warmStorageService = WarmStorageService.create()
 
 const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
   await warmStorageService.getServicePrice()
@@ -158,14 +156,13 @@ Allowances are **cumulative** - you must add your new storage requirements to an
 - **Rate Allowance**: Total per-epoch spending across all datasets
 - **Lockup Allowance**: Total 30-day buffer across all datasets
 
-  :::
-
 ```ts twoslash
-import { Synapse, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+// @lib: esnext,dom
+import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const pricePerMonth = null as unknown as bigint;
 const pricePerEpoch = null as unknown as bigint;
-const warmStorageAddress = await synapse.getWarmStorageAddress();
 // ---cut---
 // Define storage duration in months (minimum 1 month)
 const persistencePeriodInMonths = 12n;
@@ -190,7 +187,7 @@ if (newCDNDataSetNeeded) {
 
 // Get current approval status (what's already being used)
 const [approval, accountInfo] = await Promise.all([
-  synapse.payments.serviceApproval(warmStorageAddress),
+  synapse.payments.serviceApproval(calibration.contracts.fwss.address),
   synapse.payments.accountInfo(TOKENS.USDFC),
 ]);
 
@@ -209,13 +206,14 @@ console.log("Cumulative rate allowance needed:", rateAllowanceNeeded);
 Check balances, calculate deposit amount, and execute the appropriate transaction:
 
 ```ts twoslash
-import { Synapse, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const warmStorageAddress = await synapse.getWarmStorageAddress();
+// @lib: esnext,dom
+import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const totalCostNeeded = null as unknown as bigint;
 const rateAllowanceNeeded = null as unknown as bigint;
 const lockupAllowanceNeeded = null as unknown as bigint;
-const approval = await synapse.payments.serviceApproval(warmStorageAddress);
+const approval = await synapse.payments.serviceApproval(calibration.contracts.fwss.address);
 const accountInfo = await synapse.payments.accountInfo(TOKENS.USDFC);
 // ---cut---
 // Calculate deposit amount needed
@@ -240,7 +238,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
   // Need both deposit and approval
   await synapse.payments.depositWithPermitAndApproveOperator(
     depositAmountNeeded,
-    warmStorageAddress,
+    calibration.contracts.fwss.address,
     rateAllowanceNeeded,
     lockupAllowanceNeeded,
     TIME_CONSTANTS.EPOCHS_PER_MONTH
@@ -248,7 +246,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
 } else if (!sufficient) {
   // Only need approval update
   await synapse.payments.approveService(
-    warmStorageAddress,
+    calibration.contracts.fwss.address,
     rateAllowanceNeeded,
     lockupAllowanceNeeded,
     TIME_CONSTANTS.EPOCHS_PER_MONTH
@@ -257,7 +255,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
   // Only need deposit
   await synapse.payments.depositWithPermit(
     depositAmountNeeded,
-    warmStorageAddress
+    calibration.contracts.fwss.address
   );
 }
 

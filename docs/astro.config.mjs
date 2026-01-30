@@ -174,10 +174,7 @@ export default defineConfig({
         plugins: [
           ecTwoSlash({
             twoslashOptions: {
-              compilerOptions: {
-                lib: ['ESNext', 'DOM'],
-                composite: true,
-              },
+              lib: ['esnext', 'dom'],
             },
           }),
         ],
