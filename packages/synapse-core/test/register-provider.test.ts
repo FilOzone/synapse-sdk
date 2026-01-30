@@ -32,6 +32,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
@@ -67,6 +69,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
@@ -102,6 +106,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
@@ -130,6 +136,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const capabilities = { region: 'us-east', tier: 'premium' }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering, capabilities)
@@ -163,6 +171,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
@@ -235,6 +245,8 @@ describe('registerProvider', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-east',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
 
       const customFee = parseEther('10')

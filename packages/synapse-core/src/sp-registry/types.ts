@@ -62,11 +62,11 @@ export interface PDPOffering {
   /**
    * Whether the service supports IPNI piece.
    */
-  ipniPiece?: boolean
+  ipniPiece: boolean
   /**
    * Whether the service supports IPNI IPFS.
    */
-  ipniIpfs?: boolean
+  ipniIpfs: boolean
   /**
    * The IPNI peer ID.
    */

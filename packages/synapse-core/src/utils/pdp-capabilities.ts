@@ -31,13 +31,13 @@ export const PDPOfferingSchema = z.object({
 export const CAP_SERVICE_URL = 'serviceURL'
 export const CAP_MIN_PIECE_SIZE = 'minPieceSizeInBytes'
 export const CAP_MAX_PIECE_SIZE = 'maxPieceSizeInBytes'
-export const CAP_IPNI_PIECE = 'ipniPiece' // Optional
-export const CAP_IPNI_IPFS = 'ipniIpfs' // Optional
 export const CAP_STORAGE_PRICE = 'storagePricePerTibPerDay'
 export const CAP_MIN_PROVING_PERIOD = 'minProvingPeriodInEpochs'
 export const CAP_LOCATION = 'location'
 export const CAP_PAYMENT_TOKEN = 'paymentTokenAddress'
-export const CAP_IPNI_PEER_ID = 'ipniPeerId'
+export const CAP_IPNI_PIECE = 'ipniPiece' // Optional (not validated by Bloom filter)
+export const CAP_IPNI_IPFS = 'ipniIpfs' // Optional (not validated by Bloom filter)
+export const CAP_IPNI_PEER_ID = 'ipniPeerId' // Optional (not validated by Bloom filter)
 /** @deprecated Use CAP_IPNI_PEER_ID - kept for reading legacy entries */
 export const CAP_IPNI_PEER_ID_LEGACY = 'IPNIPeerID'
 
@@ -55,7 +55,7 @@ export function decodePDPOffering(provider: ProviderWithProduct): PDPOffering {
  * Based on Curio's capabilitiesToOffering function.
  */
 export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOffering {
-  return {
+  const required = {
     serviceURL: hexToString(capabilities.serviceURL),
     minPieceSizeInBytes: BigInt(capabilities.minPieceSizeInBytes),
     maxPieceSizeInBytes: BigInt(capabilities.maxPieceSizeInBytes),
@@ -63,6 +63,10 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
     minProvingPeriodInEpochs: BigInt(capabilities.minProvingPeriodInEpochs),
     location: hexToString(capabilities.location),
     paymentTokenAddress: decodeAddressCapability(capabilities.paymentTokenAddress),
+  }
+  const optional = {
+    ipniPiece: CAP_IPNI_PIECE in capabilities ? capabilities[CAP_IPNI_PIECE] === '0x01' : false,
+    ipniIpfs: CAP_IPNI_IPFS in capabilities ? capabilities[CAP_IPNI_IPFS] === '0x01' : false,
     ipniPeerId:
       CAP_IPNI_PEER_ID in capabilities
         ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID], 'bytes'))
@@ -70,6 +74,7 @@ export function decodePDPCapabilities(capabilities: Record<string, Hex>): PDPOff
           ? base58btc.encode(fromHex(capabilities[CAP_IPNI_PEER_ID_LEGACY], 'bytes'))
           : undefined,
   }
+  return { ...required, ...optional }
 }
 
 /**

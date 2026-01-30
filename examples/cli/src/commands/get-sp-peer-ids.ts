@@ -7,7 +7,7 @@ import { globalFlags } from '../flags.ts'
 interface ProviderEntry {
   providerId: bigint
   name: string
-  ipniPeerID?: string
+  ipniPeerId?: string
 }
 
 export const getSpPeerIds: Command = command(
@@ -27,7 +27,7 @@ export const getSpPeerIds: Command = command(
       examples: [
         'synapse get-sp-peer-ids',
         'synapse get-sp-peer-ids --json',
-        "synapse get-sp-peer-ids --json | jq -r '.[] | select(.ipniPeerID != null) | .ipniPeerID'",
+        "synapse get-sp-peer-ids --json | jq -r '.[] | select(.ipniPeerId != null) | .ipniPeerId'",
         'synapse get-sp-peer-ids --chain 314',
       ],
     },
@@ -52,14 +52,12 @@ export const getSpPeerIds: Command = command(
   }
 )
 
-async function fetchProviderPeerIds(
-  client: ReturnType<typeof publicClient>
-): Promise<ProviderEntry[]> {
+async function fetchProviderPeerIds(client: ReturnType<typeof publicClient>) {
   const result = await getPDPProviders(client)
-  return result.providers.map<ProviderEntry>((provider) => ({
+  return result.providers.map((provider) => ({
     providerId: provider.id,
     name: provider.name,
-    ipniPeerID: provider.pdp.ipniPeerID,
+    ipniPeerId: provider.pdp.ipniPeerId,
   }))
 }
 function outputResults(
@@ -75,7 +73,7 @@ function outputResults(
       // providerId value as a number in the JSON output.
       providerId: Number(provider.providerId),
       name: provider.name,
-      ipniPeerID: provider.ipniPeerID,
+      ipniPeerId: provider.ipniPeerId,
     }))
     console.log(JSON.stringify(output))
     return
@@ -83,7 +81,7 @@ function outputResults(
 
   for (const provider of providers) {
     p.log.info(
-      `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerID ?? '<not provided>'}`
+      `Provider ${provider.providerId} (${provider.name}): ${provider.ipniPeerId ?? '<not provided>'}`
     )
   }
 }
