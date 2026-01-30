@@ -31,6 +31,7 @@ This guide assumes you've already completed the [Storage Operations Guide](/deve
 #### Creation Options
 
 ```ts twoslash
+// @lib: esnext,dom
 import { PDPProvider } from "@filoz/synapse-sdk";
 type StorageContextCallbacks = {
   onProviderSelected?: (provider: PDPProvider) => void;
@@ -57,8 +58,10 @@ interface StorageServiceOptions {
 Monitor the creation process with detailed callbacks to track progress:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse, StorageServiceOptions } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -134,6 +137,7 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 **API Design**:
 
 ```ts twoslash
+// @lib: esnext,dom
 import {
   PieceCID,
   PieceRecord,
@@ -142,8 +146,8 @@ import {
   PreflightInfo,
   PieceStatus,
 } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-type Transaction = Promise<ethers.TransactionResponse>;
+import { Hash } from 'viem'
+type Transaction = Promise<Hash>;
 type Hex = `0x${string}`;
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
@@ -209,8 +213,10 @@ interface StorageContextAPI {
 ### Storage Context Methods
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -314,14 +320,10 @@ This method submits an on-chain transaction to initiate the termination process.
 You can also terminate a data set using `synapse.storage.terminateDataSet(dataSetId)`, in a case that creation of the context is not possible or `dataSetId` is known and creation of the context is not necessary.
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-import { calibration } from '@filoz/synapse-core/chains'
-import { createPublicClient, http } from 'viem'
-const synapse = await Synapse.create({});
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -330,7 +332,7 @@ const storageContext = await synapse.storage.createContext({
 const hash = await storageContext.terminate();
 console.log(`Dataset termination transaction: ${hash}`);
 
-await publicClient.waitForTransactionReceipt({ hash });
+await synapse.client.waitForTransactionReceipt({ hash });
 console.log("Dataset terminated successfully");
 ```
 
@@ -342,9 +344,10 @@ This method submits an on-chain transaction to initiate the deletion process.
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
 
 ```ts twoslash
-// @errors: 2345
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
