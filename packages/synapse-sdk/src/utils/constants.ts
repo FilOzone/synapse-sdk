@@ -125,26 +125,6 @@ export const TIME_CONSTANTS = {
 } as const
 
 /**
- * Genesis timestamps for Filecoin networks (Unix timestamp in seconds)
- */
-export const GENESIS_TIMESTAMPS: Record<FilecoinNetworkType, number> = {
-  /**
-   * Mainnet genesis: August 24, 2020 22:00:00 UTC
-   */
-  mainnet: 1598306400,
-  /**
-   * Calibration testnet genesis: November 1, 2022 18:13:00 UTC
-   */
-  calibration: 1667326380,
-  /**
-   * Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions (epochToDate,
-   * dateToEpoch) will return incorrect results on devnet. Core contract operations
-   * are unaffected as they use epochs directly.
-   */
-  devnet: 0, // TODO: Consider adding override in SynapseOptions if/when this is a problem
-} as const
-
-/**
  * Data size constants
  */
 export const SIZE_CONSTANTS = {

@@ -1,76 +1,60 @@
 /* globals describe it */
+
+import { calibration, mainnet } from '@filoz/synapse-core/chains'
 import { assert } from 'chai'
-import { GENESIS_TIMESTAMPS, TIME_CONSTANTS } from '../utils/constants.ts'
-import {
-  calculateLastProofDate,
-  dateToEpoch,
-  epochToDate,
-  getGenesisTimestamp,
-  timeUntilEpoch,
-} from '../utils/epoch.ts'
+import { TIME_CONSTANTS } from '../utils/constants.ts'
+import { calculateLastProofDate, dateToEpoch, epochToDate, timeUntilEpoch } from '../utils/epoch.ts'
 
 describe('Epoch Utilities', () => {
   describe('epochToDate', () => {
     it('should convert epoch 0 to genesis timestamp for mainnet', () => {
-      const date = epochToDate(0, 'mainnet')
-      assert.equal(date.getTime(), GENESIS_TIMESTAMPS.mainnet * 1000)
+      const date = epochToDate(0, mainnet.genesisTimestamp)
+      assert.equal(date.getTime(), mainnet.genesisTimestamp * 1000)
     })
 
     it('should convert epoch 0 to genesis timestamp for calibration', () => {
-      const date = epochToDate(0, 'calibration')
-      assert.equal(date.getTime(), GENESIS_TIMESTAMPS.calibration * 1000)
+      const date = epochToDate(0, calibration.genesisTimestamp)
+      assert.equal(date.getTime(), calibration.genesisTimestamp * 1000)
     })
 
     it('should calculate correct date for future epochs', () => {
       const epochsPerDay = 24 * 60 * 2 // 2880 epochs per day
-      const date = epochToDate(epochsPerDay, 'mainnet')
-      const expectedTime = (GENESIS_TIMESTAMPS.mainnet + epochsPerDay * TIME_CONSTANTS.EPOCH_DURATION) * 1000
+      const date = epochToDate(epochsPerDay, mainnet.genesisTimestamp)
+      const expectedTime = (mainnet.genesisTimestamp + epochsPerDay * TIME_CONSTANTS.EPOCH_DURATION) * 1000
       assert.equal(date.getTime(), expectedTime)
     })
 
     it('should handle large epoch numbers', () => {
       const largeEpoch = 1000000
-      const date = epochToDate(largeEpoch, 'calibration')
-      const expectedTime = (GENESIS_TIMESTAMPS.calibration + largeEpoch * TIME_CONSTANTS.EPOCH_DURATION) * 1000
+      const date = epochToDate(largeEpoch, calibration.genesisTimestamp)
+      const expectedTime = (calibration.genesisTimestamp + largeEpoch * TIME_CONSTANTS.EPOCH_DURATION) * 1000
       assert.equal(date.getTime(), expectedTime)
     })
   })
 
   describe('dateToEpoch', () => {
     it('should convert genesis date to epoch 0 for mainnet', () => {
-      const genesisDate = new Date(GENESIS_TIMESTAMPS.mainnet * 1000)
-      const epoch = dateToEpoch(genesisDate, 'mainnet')
+      const genesisDate = new Date(mainnet.genesisTimestamp * 1000)
+      const epoch = dateToEpoch(genesisDate, mainnet.genesisTimestamp)
       assert.equal(epoch, 0)
     })
 
     it('should convert genesis date to epoch 0 for calibration', () => {
-      const genesisDate = new Date(GENESIS_TIMESTAMPS.calibration * 1000)
-      const epoch = dateToEpoch(genesisDate, 'calibration')
+      const genesisDate = new Date(calibration.genesisTimestamp * 1000)
+      const epoch = dateToEpoch(genesisDate, calibration.genesisTimestamp)
       assert.equal(epoch, 0)
     })
 
     it('should calculate correct epoch for future dates', () => {
-      const futureDate = new Date((GENESIS_TIMESTAMPS.mainnet + 3600) * 1000) // 1 hour after genesis
-      const epoch = dateToEpoch(futureDate, 'mainnet')
+      const futureDate = new Date((mainnet.genesisTimestamp + 3600) * 1000) // 1 hour after genesis
+      const epoch = dateToEpoch(futureDate, mainnet.genesisTimestamp)
       assert.equal(epoch, 120) // 3600 seconds / 30 seconds per epoch
     })
 
     it('should round down to nearest epoch', () => {
-      const partialEpochDate = new Date((GENESIS_TIMESTAMPS.calibration + 45) * 1000) // 1.5 epochs
-      const epoch = dateToEpoch(partialEpochDate, 'calibration')
+      const partialEpochDate = new Date((calibration.genesisTimestamp + 45) * 1000) // 1.5 epochs
+      const epoch = dateToEpoch(partialEpochDate, calibration.genesisTimestamp)
       assert.equal(epoch, 1) // Should round down
-    })
-  })
-
-  describe('getGenesisTimestamp', () => {
-    it('should return correct timestamp for mainnet', () => {
-      const timestamp = getGenesisTimestamp('mainnet')
-      assert.equal(timestamp, GENESIS_TIMESTAMPS.mainnet)
-    })
-
-    it('should return correct timestamp for calibration', () => {
-      const timestamp = getGenesisTimestamp('calibration')
-      assert.equal(timestamp, GENESIS_TIMESTAMPS.calibration)
     })
   })
 
@@ -110,30 +94,30 @@ describe('Epoch Utilities', () => {
 
   describe('calculateLastProofDate', () => {
     it('should return null when nextChallengeEpoch is 0', () => {
-      const result = calculateLastProofDate(0, 2880, 'mainnet')
+      const result = calculateLastProofDate(0, 2880, mainnet.genesisTimestamp)
       assert.isNull(result)
     })
 
     it('should return null when in first proving period', () => {
-      const result = calculateLastProofDate(100, 2880, 'mainnet')
+      const result = calculateLastProofDate(100, 2880, mainnet.genesisTimestamp)
       assert.isNull(result)
     })
 
     it('should calculate correct last proof date', () => {
       const nextChallengeEpoch = 5760 // 2 days worth of epochs
       const maxProvingPeriod = 2880 // 1 day
-      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, 'mainnet')
+      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, mainnet.genesisTimestamp)
 
       assert.isNotNull(result)
       // Last proof should be at epoch 2880 (5760 - 2880)
-      const expectedDate = epochToDate(2880, 'mainnet')
+      const expectedDate = epochToDate(2880, mainnet.genesisTimestamp)
       assert.equal(result?.getTime(), expectedDate.getTime())
     })
 
     it('should handle edge case at proving period boundary', () => {
       const nextChallengeEpoch = 2880
       const maxProvingPeriod = 2880
-      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, 'mainnet')
+      const result = calculateLastProofDate(nextChallengeEpoch, maxProvingPeriod, mainnet.genesisTimestamp)
 
       // Should return null since lastProofEpoch would be 0
       assert.isNull(result)

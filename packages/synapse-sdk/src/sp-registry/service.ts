@@ -22,8 +22,9 @@
  * ```
  */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp-registry'
-import type { Account, Address, Chain, Client, Hash, Transport } from 'viem'
+import type { Account, Address, Client, Hash, Transport } from 'viem'
 import type { PDPOffering, ProductType, ProviderRegistrationInfo } from './types.ts'
 
 export class SPRegistryService {
