@@ -229,7 +229,7 @@ describe('Metadata-based Data Set Selection', () => {
         chain: calibration,
         transport: viemHttp(),
       })
-      warmStorageService = await WarmStorageService.create(publicClient)
+      warmStorageService = new WarmStorageService(publicClient)
     })
 
     it('should fetch metadata for each data set', async () => {

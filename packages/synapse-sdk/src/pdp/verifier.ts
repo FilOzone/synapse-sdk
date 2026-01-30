@@ -22,10 +22,10 @@
  * ```
  */
 
-import { asChain } from '@filoz/synapse-core/chains'
+import { asChain, type Chain, calibration } from '@filoz/synapse-core/chains'
 import * as Verifier from '@filoz/synapse-core/pdp-verifier'
 import { hexToPieceCID } from '@filoz/synapse-core/piece'
-import type { Address, Chain, Client, Transport } from 'viem'
+import { type Address, type Client, createClient, http, type Transport } from 'viem'
 import type { PieceCID } from '../types.ts'
 import { createError } from '../utils/index.ts'
 
@@ -49,6 +49,14 @@ export class PDPVerifier {
   constructor(options: PDPVerifier.OptionsType) {
     this._client = options.client
     this._address = options.address ?? asChain(options.client.chain).contracts.pdp.address
+  }
+
+  static create(options: { transport?: Transport; chain?: Chain } = {}): PDPVerifier {
+    const client = createClient({
+      chain: options.chain ?? calibration,
+      transport: options.transport ?? http(),
+    })
+    return new PDPVerifier({ client })
   }
 
   /**
