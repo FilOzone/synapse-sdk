@@ -97,6 +97,8 @@ describe('updateProduct', () => {
           minProvingPeriodInEpochs: 2880n,
           location: 'us-west',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
+          ipniPiece: false,
+          ipniIpfs: false,
         },
       })
 
@@ -120,6 +122,8 @@ describe('updateProduct', () => {
         minProvingPeriodInEpochs: 2880n,
         location: 'us-west',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000' as const,
+        ipniPiece: false,
+        ipniIpfs: false,
       }
       const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
