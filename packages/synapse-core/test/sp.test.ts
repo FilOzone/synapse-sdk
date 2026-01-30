@@ -861,6 +861,7 @@ InvalidSignature(address expected, address actual)
         await SP.findPiece({
           endpoint: 'http://pdp.local',
           pieceCid,
+          retry: true,
         })
         assert.fail('Should have thrown error for not found')
       } catch (error) {
@@ -914,6 +915,7 @@ InvalidSignature(address expected, address actual)
       const result = await SP.findPiece({
         endpoint: 'http://pdp.local',
         pieceCid,
+        retry: true,
       })
       assert.strictEqual(result.toString(), mockPieceCidStr)
       assert.isAtLeast(attemptCount, 3, 'Should have retried at least 3 times')

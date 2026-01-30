@@ -19,8 +19,10 @@ It uses [viem](https://viem.sh/) and is structured as single purpose functions (
   - folder: `/src/warm-storage`
 - Session Key Registry: Session keys are disposable keys for dapps to perform actions on the user's behalf. Session keys are scoped to constrain the actions they can take.
   - [source code](https://github.com/FilOzone/SessionKeyRegistry)
-- Service Provider Registry, a registry contract for managing service providers across the Filecoin Onchain Cloud
+- Service Provider Registry: a registry contract for managing service providers across the Filecoin Onchain Cloud
   - [source code](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ServiceProviderRegistry.sol)
+- ProviderIdSet: smart contract to manage endorsed providers
+  - [source core](https://github.com/FilOzone/filecoin-services/blob/main/service_contracts/src/ProviderIdSet.sol)
 
 ## Packages Scripts
 

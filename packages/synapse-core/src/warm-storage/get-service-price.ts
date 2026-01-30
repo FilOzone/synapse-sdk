@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -79,12 +80,12 @@ export async function getServicePrice(
 }
 
 export namespace getServicePriceCall {
-  export type OptionsType = {
-    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the service price. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getServicePrice.OptionsType & {
+      /** The chain to use to get the service price. */
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>

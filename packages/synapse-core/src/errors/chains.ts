@@ -1,4 +1,4 @@
-import { calibration, mainnet } from '../chains.ts'
+import { calibration, devnet, mainnet } from '../chains.ts'
 import { isSynapseError, SynapseError } from './base.ts'
 
 export class UnsupportedChainError extends SynapseError {
@@ -6,7 +6,7 @@ export class UnsupportedChainError extends SynapseError {
 
   constructor(chainId: number) {
     super(
-      `Unsupported chain: ${chainId} (only Filecoin mainnet (${mainnet.id}) and calibration (${calibration.id}) are supported)`
+      `Unsupported chain: ${chainId} (only Filecoin mainnet (${mainnet.id}), calibration (${calibration.id}), and devnet (${devnet.id}) are supported). Import chains from @filoz/synapse-core/chains to get the correct chain.`
     )
   }
 
