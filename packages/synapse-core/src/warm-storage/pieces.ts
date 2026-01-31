@@ -1,4 +1,4 @@
-import { bytes, CID } from 'multiformats'
+import {CID } from 'multiformats'
 import pRetry from 'p-retry'
 import { type Account, type Address, type Chain, type Client, type Hex, hexToBytes, type Transport } from 'viem'
 import { getTransaction, readContract, waitForTransactionReceipt } from 'viem/actions'
