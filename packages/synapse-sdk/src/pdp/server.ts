@@ -604,6 +604,32 @@ export class PDPServer {
   }
 
   /**
+   * Delete multiple pieces from a data set
+   * @param dataSetId - The ID of dataset to delete from
+   * @param clientDataSetId - Client dataset ID of the dataset to delete from
+   * @param pieceIDs - The IDs of the pieces to delete
+   * @returns Promise for transaction hashes of the delete operations
+   */
+  async deletePieces(dataSetId: number, clientDataSetId: bigint, pieceIDs: number[]): Promise<string[]> {
+    const authData = await this.getAuthHelper().signSchedulePieceRemovals(
+      clientDataSetId,
+      pieceIDs.map((id) => BigInt(id))
+    )
+
+    const results = await Promise.all(
+      pieceIDs.map((pieceID) =>
+        SP.deletePiece({
+          endpoint: this._serviceURL,
+          dataSetId: BigInt(dataSetId),
+          pieceId: BigInt(pieceID),
+          extraData: ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [authData.signature]) as Hex,
+        })
+      )
+    )
+    return results.map((result) => result.txHash)
+  }
+
+  /**
    * Encode DataSetCreateData for extraData field
    * This matches the Solidity struct DataSetCreateData in Warm Storage contract
    */
