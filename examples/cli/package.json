@@ -13,7 +13,7 @@
   "author": "Hugo Dias <hugomrdias@gmail.com> (hugodias.me)",
   "license": "Apache-2.0 OR MIT",
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
+    "@clack/prompts": "^1.0.0",
     "@filoz/synapse-core": "workspace:^",
     "@filoz/synapse-sdk": "workspace:^",
     "cleye": "^2.0.0",
