@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -81,18 +82,11 @@ export async function getActivePieces(
 }
 
 export namespace getActivePiecesCall {
-  export type OptionsType = {
-    /** The ID of the data set to get active pieces for. */
-    dataSetId: bigint
-    /** The offset for pagination. @default 0n */
-    offset?: bigint
-    /** The limit for pagination. @default 100n */
-    limit?: bigint
-    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the active pieces. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<
+    getActivePieces.OptionsType & {
+      chain: Chain
+    }
+  >
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
