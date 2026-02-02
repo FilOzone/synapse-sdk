@@ -59,7 +59,7 @@ packages/synapse-sdk/src/
 **NO** semicolons at line end (`semicolons: "asNeeded"`)
 **MUST** use kebab-case filenames
 
-Run `pnpm run fix` before commits.
+Run `pnpm run lint:fix` before commits.
 
 ## Key Components
 
