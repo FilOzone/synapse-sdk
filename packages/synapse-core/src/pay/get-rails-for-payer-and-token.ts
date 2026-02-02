@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -10,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 import type { RailInfo } from './types.ts'
 
 export namespace getRailsForPayerAndToken {
@@ -87,17 +89,14 @@ export async function getRailsForPayerAndToken(
   client: Client<Transport, Chain>,
   options: getRailsForPayerAndToken.OptionsType
 ): Promise<getRailsForPayerAndToken.OutputType> {
-  const chain = asChain(client.chain)
-  const token = options.token ?? chain.contracts.usdfc.address
-
   const data = await readContract(
     client,
     getRailsForPayerAndTokenCall({
       chain: client.chain,
       payer: options.payer,
-      token,
-      offset: options.offset ?? 0n,
-      limit: options.limit ?? 0n,
+      token: options.token,
+      offset: options.offset,
+      limit: options.limit,
       contractAddress: options.contractAddress,
     })
   )
@@ -106,21 +105,7 @@ export async function getRailsForPayerAndToken(
 }
 
 export namespace getRailsForPayerAndTokenCall {
-  export type OptionsType = {
-    /** The address of the payer to query */
-    payer: Address
-    /** The address of the ERC20 token to filter by */
-    token: Address
-    /** Starting index for pagination (0-based) */
-    offset: bigint
-    /** Maximum number of rails to return. Use 0 to get all remaining rails. */
-    limit: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the rails. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getRailsForPayerAndToken.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'pure' | 'view', 'getRailsForPayerAndToken'>
 }
@@ -165,12 +150,13 @@ export namespace getRailsForPayerAndTokenCall {
  */
 export function getRailsForPayerAndTokenCall(options: getRailsForPayerAndTokenCall.OptionsType) {
   const chain = asChain(options.chain)
+  const token = options.token ?? chain.contracts.usdfc.address
 
   return {
     abi: chain.contracts.filecoinPay.abi,
     address: options.contractAddress ?? chain.contracts.filecoinPay.address,
     functionName: 'getRailsForPayerAndToken',
-    args: [options.payer, options.token, options.offset, options.limit],
+    args: [options.payer, token, options.offset ?? 0n, options.limit ?? 0n],
   } satisfies getRailsForPayerAndTokenCall.OutputType
 }
 

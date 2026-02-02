@@ -34,9 +34,25 @@ export namespace getContract {
 /**
  * Get the PDP Verifier contract
  *
+ * @example
+ * ```ts
+ * import { getContract } from '@filoz/synapse-core/pdp-verifier'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ * import { createPublicClient, http } from 'viem'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const contract = getContract({ client })
+ * const dataSetId = 1n
+ * const isLive = await contract.read.dataSetLive([dataSetId])
+ * ```
+ *
  * @param options - {@link getContract.OptionsType}
  * @returns [Contract](https://viem.sh/docs/contract/getContract) {@link getContract.OutputType}
- * @throws Errors {@link asChain.ErrorType}
+ * @throws Errors {@link getContract.ErrorType}
  */
 export function getContract(options: getContract.OptionsType): getContract.OutputType {
   const chain = asChain(options.client.chain)

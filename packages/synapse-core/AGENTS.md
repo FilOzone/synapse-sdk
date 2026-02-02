@@ -38,9 +38,9 @@ Scripts use `wireit` to manage dependencies and caching.
 
 When generating an action in each smart contract folder follow this plan:
 
-- [ ] Explore the project first, example of a generated action set can be found in `src/warm-storage/get-approved-providers.ts`.
+- [ ] Explore the project first, example of a generated read action set can be found in `src/warm-storage/get-approved-providers.ts` and write action in `src/warm-storage/add-approved-provider.ts`.
 - [ ] Follow the links above for each contract to understand the interfaces and follow the ABIs inside `src/abis/generated.ts`.
-- [ ] Start by creating a new file using the ABI function in kebad case, if the function name is `operatorApprovals` the file should be `operator-approvals.ts`.
+- [ ] Start by creating a new file using the ABI function in kebab-case, if the function name is `operatorApprovals` the file should be `operator-approvals.ts`.
 - [ ] Follow the guidelines below for the code logic and structure.
 - [ ] Create a test file in the test folder `test`.
 - [ ] Run linting and tests after generating an action check [instructions](#packages-scripts)
@@ -246,11 +246,7 @@ They should have their own namespaced types
 
 ```ts
 export namespace getServicePriceCall {
-  export type OptionsType = Simplify<getServicePrice.OptionsType & {
-    /** The chain to use to get the service price. */
-    chain: Chain
-  }>
-
+  export type OptionsType = Simplify<getServicePrice.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>
 }

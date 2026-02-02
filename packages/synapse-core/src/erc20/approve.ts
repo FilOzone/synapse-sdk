@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -15,6 +16,7 @@ import { erc20Abi, parseEventLogs } from 'viem'
 import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem/actions'
 import { asChain } from '../chains.ts'
 import { AllowanceAmountError } from '../errors/erc20.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace approve {
   export type OptionsType = {
@@ -22,7 +24,7 @@ export namespace approve {
     token?: Address
     /** The amount to approve (in token base units). */
     amount: bigint
-    /** The address of the spender to approve. If not provided, the payments contract address will be used. */
+    /** The address of the spender to approve. If not provided, the Filecoin Pay contract address will be used. */
     spender?: Address
   }
 
@@ -34,7 +36,7 @@ export namespace approve {
  * Approve an ERC20 token allowance
  *
  * Approves a spender to transfer tokens on behalf of the caller up to the specified amount.
- * This is required before depositing tokens into the payments contract or allowing operators
+ * This is required before depositing tokens into the Filecoin Pay contract or allowing operators
  * to manage payment rails.
  *
  * @param client - The viem client with account to use for the transaction.
@@ -56,7 +58,7 @@ export namespace approve {
  *   transport: http(),
  * })
  *
- * // Approve payments contract to spend 100 USDFC
+ * // Approve Filecoin Pay contract to spend 100 USDFC
  * const hash = await approve(client, {
  *   amount: parseUnits('100', 18),
  * })
@@ -88,17 +90,8 @@ export async function approve(
 }
 
 export namespace approveSync {
-  export type OptionsType = approve.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted Approval event */
-    event: ReturnType<typeof extractApproveEvent>
-  }
+  export type OptionsType = Simplify<approve.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractApproveEvent>
 
   export type ErrorType =
     | approveCall.ErrorType
@@ -158,16 +151,7 @@ export async function approveSync(
 }
 
 export namespace approveCall {
-  export type OptionsType = {
-    /** The address of the ERC20 token to approve. If not provided, the USDFC token address will be used. */
-    token?: Address
-    /** The amount to approve (in token base units). */
-    amount: bigint
-    /** The address of the spender to approve. If not provided, the payments contract address will be used. */
-    spender?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
+  export type OptionsType = Simplify<approve.OptionsType & ActionCallChain>
 
   export type ErrorType = asChain.ErrorType | AllowanceAmountError
   export type OutputType = ContractFunctionParameters<typeof erc20Abi, 'nonpayable', 'approve'>

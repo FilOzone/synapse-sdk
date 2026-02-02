@@ -1,3 +1,4 @@
+import type { SetRequired, Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -19,6 +20,7 @@ import { asChain } from '../chains.ts'
 import * as erc20 from '../erc20/index.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAllowanceError, InsufficientBalanceError } from '../errors/pay.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace deposit {
   export type OptionsType = {
@@ -103,17 +105,8 @@ export async function deposit(client: Client<Transport, Chain, Account>, options
 }
 
 export namespace depositSync {
-  export type OptionsType = deposit.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted DepositRecorded event */
-    event: ReturnType<typeof extractDepositEvent>
-  }
+  export type OptionsType = Simplify<deposit.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractDepositEvent>
 
   export type ErrorType =
     | depositCall.ErrorType
@@ -173,19 +166,7 @@ export async function depositSync(
 }
 
 export namespace depositCall {
-  export type OptionsType = {
-    /** The address of the ERC20 token to deposit. If not provided, the USDFC token address will be used. */
-    token?: Address
-    /** The recipient address for the deposit. */
-    to: Address
-    /** The amount to deposit (in token base units). Must be greater than 0. */
-    amount: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<SetRequired<deposit.OptionsType, 'to'> & ActionCallChain>
   export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'payable', 'deposit'>
 }

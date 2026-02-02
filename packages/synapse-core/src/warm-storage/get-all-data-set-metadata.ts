@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 
 export namespace getAllDataSetMetadata {
@@ -73,12 +74,7 @@ export async function getAllDataSetMetadata(
 }
 
 export namespace getAllDataSetMetadataCall {
-  export type OptionsType = Simplify<
-    getAllDataSetMetadata.OptionsType & {
-      /** The chain to use to get the data set metadata. */
-      chain: Chain
-    }
-  >
+  export type OptionsType = Simplify<getAllDataSetMetadata.OptionsType & ActionCallChain>
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllDataSetMetadata'>
