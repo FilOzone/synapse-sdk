@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist"
   },
-  "include": ["src/**/*", "package.json"],
+  "include": ["src/**/*", "package.json", "../synapse-core/src/utils/epoch.ts", "../synapse-core/test/epoch.test.ts"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {
