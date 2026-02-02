@@ -173,7 +173,7 @@ export class Synapse {
       const chainRetriever = new ChainRetriever(warmStorageService, spRegistry)
 
       // Wrap with FilBeam retriever
-      pieceRetriever = new FilBeamRetriever(baseRetriever, connectorClient.chain)
+      pieceRetriever = new FilBeamRetriever(chainRetriever, connectorClient.chain)
     }
 
     // Create FilBeamService
