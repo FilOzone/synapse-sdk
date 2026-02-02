@@ -1,3 +1,4 @@
+import type { SetRequired, Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -16,6 +17,7 @@ import { readContract, simulateContract, waitForTransactionReceipt, writeContrac
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
 
@@ -107,9 +109,6 @@ export async function registerProvider(
     })
   }
 
-  // Encode PDP capabilities
-  const [capabilityKeys, capabilityValues] = encodePDPCapabilities(options.pdpOffering, options.capabilities)
-
   const { request } = await simulateContract(
     client,
     registerProviderCall({
@@ -117,9 +116,9 @@ export async function registerProvider(
       payee: options.payee,
       name: options.name,
       description: options.description,
-      productType: options.productType ?? 0,
-      capabilityKeys,
-      capabilityValues,
+      productType: options.productType,
+      pdpOffering: options.pdpOffering,
+      capabilities: options.capabilities,
       value: registrationFee,
       contractAddress,
     })
@@ -129,17 +128,8 @@ export async function registerProvider(
 }
 
 export namespace registerProviderSync {
-  export type OptionsType = registerProvider.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted ProviderRegistered event */
-    event: ReturnType<typeof extractRegisterProviderEvent>
-  }
+  export type OptionsType = Simplify<registerProvider.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractRegisterProviderEvent>
 
   export type ErrorType =
     | registerProviderCall.ErrorType
@@ -211,27 +201,7 @@ export async function registerProviderSync(
 }
 
 export namespace registerProviderCall {
-  export type OptionsType = {
-    /** The address that will receive payments for this provider */
-    payee: Address
-    /** The name of the service provider */
-    name: string
-    /** The description of the service provider */
-    description: string
-    /** The product type to register (0 for PDP) */
-    productType: number
-    /** The capability keys array */
-    capabilityKeys: string[]
-    /** The capability values array (as hex strings) */
-    capabilityValues: readonly `0x${string}`[]
-    /** The registration fee value */
-    value: bigint
-    /** Service provider registry contract address. If not provided, the default is the registry contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<SetRequired<registerProvider.OptionsType, 'value'> & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,
@@ -296,6 +266,8 @@ export namespace registerProviderCall {
  */
 export function registerProviderCall(options: registerProviderCall.OptionsType) {
   const chain = asChain(options.chain)
+  // Encode PDP capabilities
+  const [capabilityKeys, capabilityValues] = encodePDPCapabilities(options.pdpOffering, options.capabilities)
   return {
     abi: chain.contracts.serviceProviderRegistry.abi,
     address: options.contractAddress ?? chain.contracts.serviceProviderRegistry.address,
@@ -304,9 +276,9 @@ export function registerProviderCall(options: registerProviderCall.OptionsType) 
       options.payee,
       options.name,
       options.description,
-      options.productType,
-      options.capabilityKeys,
-      options.capabilityValues,
+      options.productType ?? 0,
+      capabilityKeys,
+      capabilityValues,
     ],
     value: options.value,
   } satisfies registerProviderCall.OutputType

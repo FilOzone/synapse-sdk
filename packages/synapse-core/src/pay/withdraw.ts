@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -18,6 +19,7 @@ import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
 import { InsufficientAvailableFundsError } from '../errors/pay.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { accounts } from './accounts.ts'
 
 export namespace withdraw {
@@ -93,17 +95,8 @@ export async function withdraw(
 }
 
 export namespace withdrawSync {
-  export type OptionsType = withdraw.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted WithdrawRecorded event */
-    event: ReturnType<typeof extractWithdrawEvent>
-  }
+  export type OptionsType = Simplify<withdraw.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractWithdrawEvent>
 
   export type ErrorType =
     | withdrawCall.ErrorType
@@ -163,17 +156,7 @@ export async function withdrawSync(
 }
 
 export namespace withdrawCall {
-  export type OptionsType = {
-    /** The address of the ERC20 token to withdraw. If not provided, the USDFC token address will be used. */
-    token?: Address
-    /** The amount to withdraw (in token base units). Must be greater than 0. */
-    amount: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<withdraw.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'nonpayable', 'withdraw'>
 }

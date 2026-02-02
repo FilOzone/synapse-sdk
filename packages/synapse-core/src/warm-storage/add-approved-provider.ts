@@ -17,6 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { fwss as storageAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace addApprovedProvider {
   export type OptionsType = {
@@ -75,23 +76,12 @@ export async function addApprovedProvider(
     })
   )
 
-  const hash = await writeContract(client, request)
-  return hash
+  return writeContract(client, request)
 }
 
 export namespace addApprovedProviderSync {
-  export type OptionsType = addApprovedProvider.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted ProviderApproved event */
-    event: ReturnType<typeof extractAddApprovedProviderEvent>
-  }
-
+  export type OptionsType = Simplify<addApprovedProvider.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractAddApprovedProviderEvent>
   export type ErrorType =
     | addApprovedProviderCall.ErrorType
     | SimulateContractErrorType
@@ -149,13 +139,7 @@ export async function addApprovedProviderSync(
 }
 
 export namespace addApprovedProviderCall {
-  export type OptionsType = Simplify<
-    addApprovedProvider.OptionsType & {
-      /** The chain to use to add the approved provider. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<addApprovedProvider.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'nonpayable', 'addApprovedProvider'>
 }

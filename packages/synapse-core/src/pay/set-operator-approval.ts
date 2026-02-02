@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -17,6 +18,7 @@ import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
 import { ValidationError } from '../errors/base.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { LOCKUP_PERIOD } from '../utils/constants.ts'
 
 export namespace setOperatorApproval {
@@ -101,17 +103,8 @@ export async function setOperatorApproval(
 }
 
 export namespace setOperatorApprovalSync {
-  export type OptionsType = setOperatorApproval.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted OperatorApprovalUpdated event */
-    event: ReturnType<typeof extractSetOperatorApprovalEvent>
-  }
+  export type OptionsType = Simplify<setOperatorApproval.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractSetOperatorApprovalEvent>
 
   export type ErrorType =
     | setOperatorApprovalCall.ErrorType
@@ -171,25 +164,7 @@ export async function setOperatorApprovalSync(
 }
 
 export namespace setOperatorApprovalCall {
-  export type OptionsType = {
-    /** The address of the ERC20 token. If not provided, the USDFC token address will be used. */
-    token?: Address
-    /** The address of the operator to approve/revoke. If not provided, the Warm Storage contract address will be used. */
-    operator?: Address
-    /** Whether to approve (true) or revoke (false) the operator. */
-    approve: boolean
-    /** Maximum rate the operator can use per epoch (in token base units). Defaults to maxUint256 when approving, 0n when revoking. */
-    rateAllowance?: bigint
-    /** Maximum lockup amount the operator can use (in token base units). Defaults to maxUint256 when approving, 0n when revoking. */
-    lockupAllowance?: bigint
-    /** Maximum lockup period in epochs the operator can set for payment rails. Defaults to 30 days in epochs when approving, 0n when revoking. */
-    maxLockupPeriod?: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<setOperatorApproval.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType | ValidationError
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'nonpayable', 'setOperatorApproval'>
 }

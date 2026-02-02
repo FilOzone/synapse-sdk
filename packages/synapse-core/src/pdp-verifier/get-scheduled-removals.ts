@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -10,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getScheduledRemovals {
   export type OptionsType = {
@@ -26,6 +28,22 @@ export namespace getScheduledRemovals {
 
 /**
  * Get the scheduled removals for a data set (deduped)
+ *
+ * @example
+ * ```ts
+ * import { getScheduledRemovals } from '@filoz/synapse-core/pdp-verifier'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ * import { createPublicClient, http } from 'viem'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const pieceIds = await getScheduledRemovals(client, {
+ *   dataSetId: 1n,
+ * })
+ * ```
  *
  * @param client - The client to use to get the scheduled removals.
  * @param options - {@link getScheduledRemovals.OptionsType}
@@ -48,15 +66,7 @@ export async function getScheduledRemovals(
 }
 
 export namespace getScheduledRemovalsCall {
-  export type OptionsType = {
-    /** The ID of the data set to get the scheduled removals for. */
-    dataSetId: bigint
-    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the scheduled removals. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getScheduledRemovals.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getScheduledRemovals'>
 }
@@ -67,6 +77,26 @@ export namespace getScheduledRemovalsCall {
  * This function is used to create a call to the getScheduledRemovals function for use with the multicall or readContract function.
  *
  * May require manual deduplication of the output if the data set has multiple scheduled removals for the same piece.
+ *
+ * @example
+ * ```ts
+ * import { getScheduledRemovalsCall } from '@filoz/synapse-core/pdp-verifier'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ * import { createPublicClient, http } from 'viem'
+ * import { multicall } from 'viem/actions'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const results = await multicall(client, {
+ *   contracts: [
+ *     getScheduledRemovalsCall({ chain: calibration, dataSetId: 1n }),
+ *     getScheduledRemovalsCall({ chain: calibration, dataSetId: 2n }),
+ *   ],
+ * })
+ * ```
  *
  * @param options - {@link getScheduledRemovalsCall.OptionsType}
  * @returns The call to the getScheduledRemovals function {@link getScheduledRemovalsCall.OutputType}

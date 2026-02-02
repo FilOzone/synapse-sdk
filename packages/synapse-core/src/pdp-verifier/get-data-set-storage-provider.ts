@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -10,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getDataSetStorageProvider {
   export type OptionsType = {
@@ -75,15 +77,7 @@ export async function getDataSetStorageProvider(
 }
 
 export namespace getDataSetStorageProviderCall {
-  export type OptionsType = {
-    /** The ID of the data set to get the storage provider for. */
-    dataSetId: bigint
-    /** The address of the PDP Verifier contract. If not provided, the default is the PDP Verifier contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the data set storage provider. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getDataSetStorageProvider.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof pdpVerifierAbi,

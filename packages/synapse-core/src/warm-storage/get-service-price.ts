@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwss as storageAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getServicePrice {
   export type OptionsType = {
@@ -80,13 +81,7 @@ export async function getServicePrice(
 }
 
 export namespace getServicePriceCall {
-  export type OptionsType = Simplify<
-    getServicePrice.OptionsType & {
-      /** The chain to use to get the service price. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getServicePrice.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'pure' | 'view', 'getServicePrice'>
 }

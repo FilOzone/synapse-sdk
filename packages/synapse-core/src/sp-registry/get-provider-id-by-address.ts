@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getProviderIdByAddress {
   export type OptionsType = {
@@ -80,13 +81,7 @@ export async function getProviderIdByAddress(
 }
 
 export namespace getProviderIdByAddressCall {
-  export type OptionsType = Simplify<
-    getProviderIdByAddress.OptionsType & {
-      /** The chain to use. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getProviderIdByAddress.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,

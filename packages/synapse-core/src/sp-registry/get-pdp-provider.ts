@@ -1,6 +1,7 @@
 import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ContractFunctionReturnType, Transport } from 'viem'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
+import type { ActionCallChain } from '../types.ts'
 import { decodePDPOffering } from '../utils/pdp-capabilities.ts'
 import { getProviderWithProduct, getProviderWithProductCall } from './get-provider-with-product.ts'
 import { type PDPProvider, PRODUCTS } from './types.ts'
@@ -64,12 +65,7 @@ export async function getPDPProvider(
 }
 
 export namespace getPDPProviderCall {
-  export type OptionsType = Simplify<
-    getPDPProvider.OptionsType & {
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getPDPProvider.OptionsType & ActionCallChain>
   export type ErrorType = getProviderWithProductCall.ErrorType
   export type OutputType = getProviderWithProductCall.OutputType
 }

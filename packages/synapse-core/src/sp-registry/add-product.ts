@@ -17,6 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 import { encodePDPCapabilities } from '../utils/pdp-capabilities.ts'
 import type { PDPOffering } from './types.ts'
 
@@ -100,19 +101,9 @@ export async function addProduct(
 }
 
 export namespace addProductSync {
-  export type OptionsType = Simplify<
-    addProduct.OptionsType & {
-      /** Callback function called with the transaction hash before waiting for the receipt. */
-      onHash?: (hash: Hash) => void
-    }
-  >
+  export type OptionsType = Simplify<addProduct.OptionsType & ActionSyncCallback>
 
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted ProductAdded event */
-    event: ReturnType<typeof extractAddProductEvent>
-  }
+  export type OutputType = ActionSyncOutput<typeof extractAddProductEvent>
 
   export type ErrorType =
     | addProductCall.ErrorType
@@ -186,9 +177,7 @@ export namespace addProductCall {
       capabilityKeys: string[]
       /** The capability values array (as hex strings) */
       capabilityValues: readonly `0x${string}`[]
-      /** The chain to use for the contract call. */
-      chain: Chain
-    }
+    } & ActionCallChain
   >
 
   export type ErrorType = asChain.ErrorType
