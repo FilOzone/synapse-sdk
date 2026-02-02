@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { sessionKeyRegistry as sessionKeyRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 import { SESSION_KEY_PERMISSIONS, type SessionKeyPermissions } from './permissions.ts'
 
 export namespace authorizationExpiry {
@@ -86,13 +87,7 @@ export async function authorizationExpiry(
 }
 
 export namespace authorizationExpiryCall {
-  export type OptionsType = Simplify<
-    authorizationExpiry.OptionsType & {
-      /** The chain to use to get the authorization expiry. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<authorizationExpiry.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof sessionKeyRegistryAbi,

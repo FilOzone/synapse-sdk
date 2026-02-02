@@ -17,6 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { fwss as storageAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace removeApprovedProvider {
   export type OptionsType = {
@@ -100,17 +101,8 @@ export async function removeApprovedProvider(
 }
 
 export namespace removeApprovedProviderSync {
-  export type OptionsType = removeApprovedProvider.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted ProviderUnapproved event */
-    event: ReturnType<typeof extractRemoveApprovedProviderEvent>
-  }
+  export type OptionsType = Simplify<removeApprovedProvider.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractRemoveApprovedProviderEvent>
 
   export type ErrorType =
     | removeApprovedProviderCall.ErrorType
@@ -182,13 +174,7 @@ export async function removeApprovedProviderSync(
 }
 
 export namespace removeApprovedProviderCall {
-  export type OptionsType = Simplify<
-    removeApprovedProvider.OptionsType & {
-      /** The chain to use to remove the approved provider. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<removeApprovedProvider.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageAbi, 'nonpayable', 'removeApprovedProvider'>
 }

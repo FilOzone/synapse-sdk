@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -10,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace operatorApprovals {
   export type OptionsType = {
@@ -96,19 +98,7 @@ export async function operatorApprovals(
 }
 
 export namespace operatorApprovalsCall {
-  export type OptionsType = {
-    /** The address of the ERC20 token to query. If not provided, the USDFC token address will be used. */
-    token?: Address
-    /** The address of the account to query approvals for. */
-    address: Address
-    /** The address of the operator to query. If not provided, the Warm Storage contract address will be used. */
-    operator?: Address
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<operatorApprovals.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'pure' | 'view', 'operatorApprovals'>
 }

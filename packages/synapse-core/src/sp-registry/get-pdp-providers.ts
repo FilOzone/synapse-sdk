@@ -12,6 +12,7 @@ import type {
 import { multicall, readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 import { getApprovedProvidersCall } from '../warm-storage/get-approved-providers.ts'
 import { getPDPProviderCall, parsePDPProvider } from './get-pdp-provider.ts'
 import type { getProvidersByProductType } from './get-providers-by-product-type.ts'
@@ -77,13 +78,7 @@ export async function getPDPProviders(
 }
 
 export namespace getPDPProvidersCall {
-  export type OptionsType = Simplify<
-    getPDPProviders.OptionsType & {
-      /** The chain to use. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getPDPProviders.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,

@@ -1,3 +1,4 @@
+import type { SetRequired, Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -16,6 +17,7 @@ import { getBlockNumber, simulateContract, waitForTransactionReceipt, writeContr
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace settleRail {
   export type OptionsType = {
@@ -94,17 +96,8 @@ export async function settleRail(
 }
 
 export namespace settleRailSync {
-  export type OptionsType = settleRail.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted RailSettled event */
-    event: ReturnType<typeof extractSettleRailEvent>
-  }
+  export type OptionsType = Simplify<settleRail.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractSettleRailEvent>
 
   export type ErrorType =
     | settleRailCall.ErrorType
@@ -164,17 +157,7 @@ export async function settleRailSync(
 }
 
 export namespace settleRailCall {
-  export type OptionsType = {
-    /** The rail ID to settle */
-    railId: bigint
-    /** The epoch to settle up to */
-    untilEpoch: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<SetRequired<settleRail.OptionsType, 'untilEpoch'> & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'nonpayable', 'settleRail'>
 }

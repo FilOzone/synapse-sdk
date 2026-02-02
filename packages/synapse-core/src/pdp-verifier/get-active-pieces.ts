@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getActivePieces {
   export type OptionsType = {
@@ -82,12 +83,7 @@ export async function getActivePieces(
 }
 
 export namespace getActivePiecesCall {
-  export type OptionsType = Simplify<
-    getActivePieces.OptionsType & {
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getActivePieces.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieces'>
 }

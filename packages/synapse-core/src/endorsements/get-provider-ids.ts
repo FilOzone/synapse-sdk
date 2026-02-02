@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { providerIdSetAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getProviderIds {
   export type OptionsType = {
@@ -69,12 +70,7 @@ export async function getProviderIds(
 }
 
 export namespace getProviderIdsCall {
-  export type OptionsType = Simplify<
-    getProviderIds.OptionsType & {
-      /** The chain to use to get the endorsed providers. */
-      chain: Chain
-    }
-  >
+  export type OptionsType = Simplify<getProviderIds.OptionsType & ActionCallChain>
 
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof providerIdSetAbi, 'pure' | 'view', 'getProviderIds'>
