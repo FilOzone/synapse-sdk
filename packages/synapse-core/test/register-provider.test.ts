@@ -43,8 +43,7 @@ describe('registerProvider', () => {
         name: 'Test Provider',
         description: 'Test Description',
         productType: 0,
-        capabilityKeys,
-        capabilityValues,
+        pdpOffering,
         value: parseEther('5'),
       })
 
@@ -80,8 +79,7 @@ describe('registerProvider', () => {
         name: 'Mainnet Provider',
         description: 'Mainnet Description',
         productType: 0,
-        capabilityKeys,
-        capabilityValues,
+        pdpOffering,
         value: parseEther('5'),
       })
 
@@ -109,7 +107,6 @@ describe('registerProvider', () => {
         ipniPiece: false,
         ipniIpfs: false,
       }
-      const [capabilityKeys, capabilityValues] = encodePDPCapabilities(pdpOffering)
 
       const customAddress = '0x1234567890123456789012345678901234567890'
       const call = registerProviderCall({
@@ -118,8 +115,7 @@ describe('registerProvider', () => {
         name: 'Test Provider',
         description: 'Test Description',
         productType: 0,
-        capabilityKeys,
-        capabilityValues,
+        pdpOffering,
         value: parseEther('5'),
         contractAddress: customAddress,
       })
@@ -148,8 +144,8 @@ describe('registerProvider', () => {
         name: 'Test Provider',
         description: 'Test Description',
         productType: 0,
-        capabilityKeys,
-        capabilityValues,
+        capabilities,
+        pdpOffering,
         value: parseEther('5'),
       })
 
