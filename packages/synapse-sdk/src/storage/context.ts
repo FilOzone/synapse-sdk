@@ -27,11 +27,14 @@ import { getProviderIds } from '@filoz/synapse-core/endorsements'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import {
+  calculateLastProofDate,
   createPieceUrlPDP,
+  epochToDate,
   type MetadataObject,
   pieceMetadataObjectToEntry,
   randIndex,
   randU256,
+  timeUntilEpoch,
 } from '@filoz/synapse-core/utils'
 import { deletePiece } from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Chain, Client, Hash, Hex, Transport } from 'viem'
@@ -56,14 +59,7 @@ import type {
   UploadOptions,
   UploadResult,
 } from '../types.ts'
-import {
-  calculateLastProofDate,
-  createError,
-  epochToDate,
-  METADATA_KEYS,
-  SIZE_CONSTANTS,
-  timeUntilEpoch,
-} from '../utils/index.ts'
+import { createError, METADATA_KEYS, SIZE_CONSTANTS } from '../utils/index.ts'
 import { combineMetadata, metadataMatches } from '../utils/metadata.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 
