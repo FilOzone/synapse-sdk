@@ -163,18 +163,17 @@ export async function getPieces(client: Client<Transport, Chain>, options: GetPi
       getActivePiecesCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        contractAddress: options.address,
       }),
       getScheduledRemovalsCall({
         chain: client.chain,
         dataSetId: options.dataSet.dataSetId,
-        contractAddress: options.address,
       }),
     ],
     allowFailure: false,
   })
 
   const [data, ids, hasMore] = activePiecesResult
+
   const removals = Array.from(new Set(removalsResult))
 
   return {

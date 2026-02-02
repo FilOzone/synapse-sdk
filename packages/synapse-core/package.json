@@ -244,7 +244,7 @@
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.1.0",
+    "type-fest": "^5.4.3",
     "typescript": "catalog:"
   },
   "publishConfig": {

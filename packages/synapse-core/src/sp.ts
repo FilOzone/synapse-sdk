@@ -827,6 +827,7 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
     new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
     {
       body: { extraData },
+      timeout: TIMEOUT,
     }
   )
 
