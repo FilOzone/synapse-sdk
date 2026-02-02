@@ -87,7 +87,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
-    "type-fest": "^5.1.0",
+    "type-fest": "^5.4.3",
     "typescript": "catalog:"
   },
   "publishConfig": {

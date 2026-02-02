@@ -20,7 +20,7 @@
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
     "terminal-link": "^5.0.0",
-    "viem": "2.x"
+    "viem": "^2.45.1"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
