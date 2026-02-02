@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Address,
   Chain,
@@ -10,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getRail {
   export type OptionsType = {
@@ -101,15 +103,7 @@ export async function getRail(
 }
 
 export namespace getRailCall {
-  export type OptionsType = {
-    /** The rail ID to query */
-    railId: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the rail info. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getRail.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof paymentsAbi, 'pure' | 'view', 'getRail'>
 }

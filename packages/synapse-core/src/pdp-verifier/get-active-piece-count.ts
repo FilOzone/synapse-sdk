@@ -1,7 +1,9 @@
+import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getActivePieceCount {
   export type OptionsType = {
@@ -18,6 +20,20 @@ export namespace getActivePieceCount {
 
 /**
  * Get the active piece count for a data set (non-zero leaf count)
+ *
+ * @example
+ * ```ts
+ * import { getActivePieceCount } from '@filoz/synapse-core/pdp-verifier'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ * import { createPublicClient, http } from 'viem'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const activePieceCount = await getActivePieceCount(client, { dataSetId: 1n })
+ * ```
  *
  * @param client - The client to use to get the active piece count.
  * @param options - {@link getActivePieceCount.OptionsType}
@@ -40,15 +56,7 @@ export async function getActivePieceCount(
 }
 
 export namespace getActivePieceCountCall {
-  export type OptionsType = {
-    /** The ID of the data set to get the active piece count for. */
-    dataSetId: bigint
-    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the active piece count. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getActivePieceCount.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getActivePieceCount'>
 }
@@ -57,6 +65,26 @@ export namespace getActivePieceCountCall {
  * Create a call to the getActivePieceCount function
  *
  * This function is used to create a call to the getActivePieceCount function for use with the multicall or readContract function.
+ *
+ * @example
+ * ```ts
+ * import { getActivePieceCountCall } from '@filoz/synapse-core/pdp-verifier'
+ * import { calibration } from '@filoz/synapse-core/chains'
+ * import { createPublicClient, http } from 'viem'
+ * import { multicall } from 'viem/actions'
+ *
+ * const client = createPublicClient({
+ *   chain: calibration,
+ *   transport: http(),
+ * })
+ *
+ * const results = await multicall(client, {
+ *   contracts: [
+ *     getActivePieceCountCall({ chain: calibration, dataSetId: 1n }),
+ *     getActivePieceCountCall({ chain: calibration, dataSetId: 2n }),
+ *   ],
+ * })
+ * ```
  *
  * @param options - {@link getActivePieceCountCall.OptionsType}
  * @returns The call to the getActivePieceCount function {@link getActivePieceCountCall.OutputType}

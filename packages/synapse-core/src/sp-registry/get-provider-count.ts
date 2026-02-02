@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { serviceProviderRegistry as serviceProviderRegistryAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getProviderCount {
   export type OptionsType = {
@@ -69,13 +70,7 @@ export async function getProviderCount(
 }
 
 export namespace getProviderCountCall {
-  export type OptionsType = Simplify<
-    getProviderCount.OptionsType & {
-      /** The chain to use. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getProviderCount.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof serviceProviderRegistryAbi,

@@ -11,6 +11,7 @@ import type {
 import { readContract } from 'viem/actions'
 import type { fwssView as storageViewAbi } from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 import { type MetadataObject, metadataArrayToObject } from '../utils/metadata.ts'
 
 export namespace getAllPieceMetadata {
@@ -77,13 +78,7 @@ export async function getAllPieceMetadata(
 }
 
 export namespace getAllPieceMetadataCall {
-  export type OptionsType = Simplify<
-    getAllPieceMetadata.OptionsType & {
-      /** The chain to use to get the piece metadata. */
-      chain: Chain
-    }
-  >
-
+  export type OptionsType = Simplify<getAllPieceMetadata.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof storageViewAbi, 'pure' | 'view', 'getAllPieceMetadata'>
 }

@@ -1,7 +1,9 @@
+import type { Simplify } from 'type-fest'
 import type { Address, Chain, Client, ContractFunctionParameters, ReadContractErrorType, Transport } from 'viem'
 import { readContract } from 'viem/actions'
 import type { pdpVerifierAbi } from '../abis/generated.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain } from '../types.ts'
 
 export namespace getDataSetLeafCount {
   export type OptionsType = {
@@ -54,15 +56,7 @@ export async function getDataSetLeafCount(
 }
 
 export namespace getDataSetLeafCountCall {
-  export type OptionsType = {
-    /** The ID of the data set to get the leaf count for. */
-    dataSetId: bigint
-    /** PDP Verifier contract address. If not provided, the default is the PDP Verifier contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use to get the data set leaf count. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<getDataSetLeafCount.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<typeof pdpVerifierAbi, 'pure' | 'view', 'getDataSetLeafCount'>
 }

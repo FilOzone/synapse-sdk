@@ -1,3 +1,4 @@
+import type { Simplify } from 'type-fest'
 import type {
   Account,
   Address,
@@ -16,6 +17,7 @@ import { simulateContract, waitForTransactionReceipt, writeContract } from 'viem
 import type { filecoinPay as paymentsAbi } from '../abis/index.ts'
 import * as Abis from '../abis/index.ts'
 import { asChain } from '../chains.ts'
+import type { ActionCallChain, ActionSyncCallback, ActionSyncOutput } from '../types.ts'
 
 export namespace settleTerminatedRailWithoutValidation {
   export type OptionsType = {
@@ -82,17 +84,8 @@ export async function settleTerminatedRailWithoutValidation(
 }
 
 export namespace settleTerminatedRailWithoutValidationSync {
-  export type OptionsType = settleTerminatedRailWithoutValidation.OptionsType & {
-    /** Callback function called with the transaction hash before waiting for the receipt. */
-    onHash?: (hash: Hash) => void
-  }
-
-  export type OutputType = {
-    /** The transaction receipt */
-    receipt: Awaited<ReturnType<typeof waitForTransactionReceipt>>
-    /** The extracted RailSettled event */
-    event: ReturnType<typeof extractSettleTerminatedRailWithoutValidationEvent>
-  }
+  export type OptionsType = Simplify<settleTerminatedRailWithoutValidation.OptionsType & ActionSyncCallback>
+  export type OutputType = ActionSyncOutput<typeof extractSettleTerminatedRailWithoutValidationEvent>
 
   export type ErrorType =
     | settleTerminatedRailWithoutValidationCall.ErrorType
@@ -152,15 +145,7 @@ export async function settleTerminatedRailWithoutValidationSync(
 }
 
 export namespace settleTerminatedRailWithoutValidationCall {
-  export type OptionsType = {
-    /** The rail ID to settle */
-    railId: bigint
-    /** Payments contract address. If not provided, the default is the payments contract address for the chain. */
-    contractAddress?: Address
-    /** The chain to use for the contract call. */
-    chain: Chain
-  }
-
+  export type OptionsType = Simplify<settleTerminatedRailWithoutValidation.OptionsType & ActionCallChain>
   export type ErrorType = asChain.ErrorType
   export type OutputType = ContractFunctionParameters<
     typeof paymentsAbi,
