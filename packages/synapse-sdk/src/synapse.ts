@@ -18,10 +18,10 @@ import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import type {
+  CreateContextOptions,
   PDPProvider,
   PieceCID,
   StorageInfo,
-  StorageServiceOptions,
   SynapseFromClientOptions,
   SynapseOptions,
 } from './types.ts'
@@ -61,7 +61,7 @@ export class Synapse {
       throw new Error('Transport must be a custom transport. See https://viem.sh/docs/clients/transports/custom.')
     }
 
-    return new Synapse({ client, withCDN: options.withCDN, withIpni: options.withIpni })
+    return new Synapse({ client, withCDN: options.withCDN })
   }
 
   public constructor(options: SynapseFromClientOptions) {
@@ -78,8 +78,7 @@ export class Synapse {
       this,
       this._warmStorageService,
       new FilBeamRetriever(new ChainRetriever(this._warmStorageService, this._providers), this._chain),
-      this._withCDN,
-      options.withIpni
+      this._withCDN
     )
   }
 
@@ -152,7 +151,7 @@ export class Synapse {
    * })
    * ```
    */
-  async createStorage(options: StorageServiceOptions = {}): Promise<StorageContext> {
+  async createStorage(options: CreateContextOptions = {}): Promise<StorageContext> {
     // Use StorageManager to create context
     return await this._storageManager.createContext(options)
   }

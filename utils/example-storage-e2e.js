@@ -5,42 +5,82 @@
  *
  * This example demonstrates:
  * 1. Creating a Synapse instance with credentials
- * 2. Using the synapse.storage API for uploads and downloads
- * 3. Uploading a file to PDP storage with callbacks
- * 4. Downloading the file back and verifying contents
+ * 2. Single-file upload using synapse.storage.upload()
+ * 3. Multi-file upload using split operations (store → pull → commit)
+ * 4. Downloading and verifying contents
+ *
+ * For a single file, upload() handles everything: provider selection, data
+ * transfer, SP-to-SP replication, and on-chain commitment.
+ *
+ * For multiple files, the split operations give you control over batching:
+ * store each file on the primary, pull all pieces to secondaries in one
+ * request, then commit all pieces per provider in a single transaction.
+ * This is more efficient than calling upload() per file because it reduces
+ * on-chain transactions from N×providers to just 1×providers.
  *
  * Required environment variables:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
+ *
+ * Optional environment variables:
  * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
+ * - NETWORK: Network to use (mainnet | calibnet | devnet, default: calibnet)
+ * - COPY_COUNT: Number of copies to store (default: 2 for multi-copy)
  *
- * Optional environment variables (for devnet):
- * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (uses default for network)
- * - MULTICALL3_ADDRESS: Multicall3 address (required for devnet)
- * - USDFC_ADDRESS: USDFC token address (optional)
+ * Devnet environment variables (triggers custom chain setup):
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address
+ * - WARM_STORAGE_VIEW_ADDRESS: Warm Storage state view contract address
+ * - MULTICALL3_ADDRESS: Multicall3 address
+ * - USDFC_ADDRESS: USDFC token address
+ * - FILECOIN_PAY_ADDRESS: Filecoin Pay contract address
+ * - SP_REGISTRY_ADDRESS: ServiceProviderRegistry address
+ * - ENDORSEMENTS_ADDRESS: Endorsements contract address
+ * - PDP_ADDRESS: PDP Verifier contract address
  *
- * Usage:
- *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] [file-path3] ...
+ * Usage (calibnet - standard):
+ *   PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> [file-path2] ...
+ *
+ * Usage (devnet):
+ *   RUN_ID=$(jq -r '.run_id' ~/.foc-devnet/state/current_runid.json) && \
+ *   CONTRACTS=~/.foc-devnet/run/$RUN_ID/contract_addresses.json && \
+ *   PRIVATE_KEY=0x$(jq -r '.[] | select(.name=="USER_1") | .private_key' ~/.foc-devnet/keys/addresses.json) \
+ *   RPC_URL=http://localhost:$(docker port foc-${RUN_ID}-lotus 1234 | cut -d: -f2)/rpc/v1 \
+ *   NETWORK=devnet \
+ *   WARM_STORAGE_ADDRESS=$(jq -r '.foc_contracts.filecoin_warm_storage_service_proxy' $CONTRACTS) \
+ *   WARM_STORAGE_VIEW_ADDRESS=$(jq -r '.foc_contracts.filecoin_warm_storage_service_state_view' $CONTRACTS) \
+ *   MULTICALL3_ADDRESS=$(jq -r '.contracts.multicall' $CONTRACTS) \
+ *   USDFC_ADDRESS=$(jq -r '.contracts.usdfc' $CONTRACTS) \
+ *   FILECOIN_PAY_ADDRESS=$(jq -r '.foc_contracts.filecoin_pay_v1_contract' $CONTRACTS) \
+ *   SP_REGISTRY_ADDRESS=$(jq -r '.foc_contracts.service_provider_registry_proxy' $CONTRACTS) \
+ *   ENDORSEMENTS_ADDRESS=$(jq -r '.foc_contracts.endorsements' $CONTRACTS) \
+ *   PDP_ADDRESS=$(jq -r '.foc_contracts.p_d_p_verifier_proxy' $CONTRACTS) \
+ *   node utils/example-storage-e2e.js README.md package.json
  */
 
-import { ethers } from 'ethers'
+import fs from 'fs'
 import fsPromises from 'fs/promises'
-import { SIZE_CONSTANTS, Synapse, TIME_CONSTANTS } from '../packages/synapse-sdk/src/index.ts'
-import {
-  ADD_PIECES_TYPEHASH,
-  CREATE_DATA_SET_TYPEHASH,
-  PDP_PERMISSION_NAMES,
-} from '../packages/synapse-sdk/src/session/index.ts'
+import { Readable } from 'stream'
+import { privateKeyToAccount } from 'viem/accounts'
+import { calibration, devnet, mainnet } from '../packages/synapse-core/src/chains.ts'
+import { SIZE_CONSTANTS, Synapse } from '../packages/synapse-sdk/src/index.ts'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
-const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
-const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
-const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
-const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS // Required for devnet
+const RPC_URL = process.env.RPC_URL
+const COPY_COUNT = process.env.COPY_COUNT ? parseInt(process.env.COPY_COUNT, 10) : 2
+const NETWORK = process.env.NETWORK || 'calibnet' // mainnet | calibnet | devnet
+
+// Devnet overrides (see buildDevnetChain at bottom of file)
+const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS
+const WARM_STORAGE_VIEW_ADDRESS = process.env.WARM_STORAGE_VIEW_ADDRESS
+const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS
+const USDFC_ADDRESS = process.env.USDFC_ADDRESS
+const FILECOIN_PAY_ADDRESS = process.env.FILECOIN_PAY_ADDRESS
+const SP_REGISTRY_ADDRESS = process.env.SP_REGISTRY_ADDRESS
+const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS
+const PDP_ADDRESS = process.env.PDP_ADDRESS
 
 function printUsageAndExit() {
-  console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
+  console.error('Usage: PRIVATE_KEY=0x... node utils/example-storage-e2e.js <file-path> [file-path2] ...')
   process.exit(1)
 }
 
@@ -80,7 +120,6 @@ async function main() {
     const files = []
     let totalSize = 0
 
-    // Currently we deal in Uint8Array blobs, so we have to read files into memory
     for (const filePath of filePaths) {
       console.log(`  Reading file: ${filePath}`)
       const stat = await fsPromises.stat(filePath)
@@ -89,50 +128,34 @@ async function main() {
       }
       if (stat.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new Error(
-          `File exceeds maximum size of ${formatBytes(
-            SIZE_CONSTANTS.MAX_UPLOAD_SIZE
-          )}: ${filePath} (${formatBytes(stat.size)})`
+          `File exceeds maximum size of ${formatBytes(SIZE_CONSTANTS.MAX_UPLOAD_SIZE)}: ${filePath} (${formatBytes(stat.size)})`
         )
       }
-      const fh = await fsPromises.open(filePath, 'r')
-
-      files.push({ path: filePath, handle: fh, length: stat.size })
+      files.push({ path: filePath, length: stat.size })
       totalSize += stat.size
     }
 
-    // Create Synapse instance
+    const chain = NETWORK === 'devnet' ? buildDevnetChain() : NETWORK === 'mainnet' ? mainnet : calibration
+
     console.log('\n--- Initializing Synapse SDK ---')
-    console.log(`RPC URL: ${RPC_URL}`)
-
-    const synapseOptions = {
-      multicall3Address: MULTICALL3_ADDRESS,
-      privateKey: PRIVATE_KEY,
-      rpcURL: RPC_URL,
-      usdfcAddress: USDFC_ADDRESS,
-      warmStorageAddress: WARM_STORAGE_ADDRESS,
-      endorsementsAddress: ENDORSEMENTS_ADDRESS,
+    console.log(`Network: ${chain.name}`)
+    if (RPC_URL) {
+      console.log(`RPC URL: ${RPC_URL}`)
     }
 
-    if (WARM_STORAGE_ADDRESS) {
-      console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
-    }
-    if (MULTICALL3_ADDRESS) {
-      console.log(`Multicall3 Address: ${MULTICALL3_ADDRESS}`)
-    }
-    if (USDFC_ADDRESS) {
-      console.log(`USDFC Address: ${USDFC_ADDRESS}`)
-    }
-    if (ENDORSEMENTS_ADDRESS) {
-      console.log(`Endorsements Address: ${ENDORSEMENTS_ADDRESS}`)
-    }
+    // Create account from private key
+    const account = privateKeyToAccount(PRIVATE_KEY)
+    console.log(`Wallet address: ${account.address}`)
 
-    const synapse = await Synapse.create(synapseOptions)
-    console.log('✓ Synapse instance created')
+    // Create Synapse instance
+    // For calibnet/mainnet: chain has all contract addresses built-in
+    // For devnet: chain is customized with environment variable addresses
+    const synapse = Synapse.create({
+      chain,
+      account,
+    })
 
-    // Get wallet info
-    const signer = synapse.getSigner()
-    const address = await signer.getAddress()
-    console.log(`Wallet address: ${address}`)
+    console.log('Synapse instance created')
 
     // Check balances
     console.log('\n--- Checking Balances ---')
@@ -141,101 +164,7 @@ async function main() {
     console.log(`FIL balance: ${Number(filBalance) / 1e18} FIL`)
     console.log(`USDFC balance: ${formatUSDFC(usdfcBalance)}`)
 
-    // Check session keys
-    if (process.env.SESSION_KEY) {
-      let sessionPrivateKey = process.env.SESSION_KEY
-      if (!sessionPrivateKey.startsWith('0x')) {
-        sessionPrivateKey = `0x${sessionPrivateKey}`
-      }
-      const sessionKeyWallet = new ethers.Wallet(sessionPrivateKey, synapse.getProvider())
-      const sessionKey = synapse.createSessionKey(sessionKeyWallet)
-      synapse.setSession(sessionKey)
-      const permissions = [CREATE_DATA_SET_TYPEHASH, ADD_PIECES_TYPEHASH]
-      const expiries = await sessionKey.fetchExpiries(permissions)
-      const sessionKeyAddress = await sessionKeyWallet.getAddress()
-
-      console.log('\n--- SessionKey Login ---')
-      console.log(`Session Key: ${sessionKeyAddress})`)
-      // Check the existing expiry of the permissions for this session key,
-      // if it's not far enough in the future update them with a new login()
-      const permissionsToRefresh = []
-      const day = TIME_CONSTANTS.EPOCHS_PER_DAY * BigInt(TIME_CONSTANTS.EPOCH_DURATION)
-      const soon = BigInt(Date.now()) / BigInt(1000) + day / BigInt(6)
-      const refresh = soon + day
-      for (const permission of permissions) {
-        if (expiries[permission] < soon) {
-          console.log(`  refreshing ${PDP_PERMISSION_NAMES[permission]}: ${expiries[permission]} to ${refresh}`)
-          permissionsToRefresh.push(permission)
-        }
-      }
-      if (permissionsToRefresh.length > 0) {
-        // Use login() to reset the expiry of existing permissions to the new value
-        const loginTx = await sessionKey.login(refresh, permissionsToRefresh)
-        console.log(`  tx: ${loginTx.hash}`)
-        const loginReceipt = await loginTx.wait()
-        if (loginReceipt.status === 1) {
-          console.log('✓ login successful')
-        } else {
-          throw new Error('Login failed')
-        }
-      } else {
-        console.log('✓ session active')
-      }
-    }
-
-    // Create storage context (optional - synapse.storage.upload() will auto-create if needed)
-    // We create it explicitly here to show provider selection and data set creation callbacks.
-    //
-    // Currently we create a single context, but multiple can be created for multi-provider uploads.
-    // Multi-provider uploads is currently an experimental feature. A single context can also be
-    // created using the synapse.storage.createContext() method.
-    console.log('\n--- Setting Up Storage Context ---')
-    const contexts = await synapse.storage.createContexts({
-      // providerId: 1, // Optional: specify provider ID
-      count: 1,
-      withCDN: false, // Set to true if you want CDN support
-      callbacks: {
-        onProviderSelected: (provider) => {
-          console.log(`✓ Selected service provider: ${provider.serviceProvider}`)
-        },
-        onDataSetResolved: (info) => {
-          if (info.isExisting) {
-            console.log(`✓ Using existing data set: ${info.dataSetId}`)
-          } else {
-            console.log(`✓ Created new data set: ${info.dataSetId}`)
-          }
-        },
-      },
-    })
-
-    for (const [index, storageContext] of contexts.entries()) {
-      const providerLabel = contexts.length > 1 ? ` #${index + 1}` : ''
-      if (storageContext.dataSetId === undefined) {
-        console.log(`Data set not yet created`)
-      } else {
-        console.log(`Data set ID: ${storageContext.dataSetId}`)
-      }
-      const pieceCids = await storageContext.getDataSetPieces()
-      console.log(`Data set contains ${pieceCids.length} piece CIDs`)
-      /* Uncomment to see piece CIDs
-      for (const cid of pieceCids) {
-        console.log(`  - Piece CID: ${cid}`)
-      }
-      */
-
-      // Get detailed provider information
-      console.log(`\n--- Service Provider${providerLabel} Details ---`)
-      const providerInfo = await storageContext.getProviderInfo()
-      console.log(`Provider ID: ${providerInfo.id}`)
-      console.log(`Provider Address: ${providerInfo.serviceProvider}`)
-      console.log(`Provider Name: ${providerInfo.name}`)
-      console.log(`Active: ${providerInfo.active}`)
-      if (providerInfo.products.PDP?.data.serviceURL) {
-        console.log(`PDP Service URL: ${providerInfo.products.PDP.data.serviceURL}`)
-      }
-    }
-
-    // Run preflight checks, using total size since we care about our ability to pay
+    // Run preflight checks
     console.log('\n--- Preflight Upload Check ---')
     const preflight = await synapse.storage.preflightUpload(totalSize)
 
@@ -245,7 +174,7 @@ async function main() {
     console.log(`  Per month: ${formatUSDFC(preflight.estimatedCost.perMonth)}`)
 
     if (!preflight.allowanceCheck.sufficient) {
-      console.error(`\n❌ Insufficient allowances: ${preflight.allowanceCheck.message}`)
+      console.error(`\nInsufficient allowances: ${preflight.allowanceCheck.message}`)
       console.error('\nPlease ensure you have:')
       console.error('1. Sufficient USDFC balance')
       console.error('2. Approved USDFC spending for the Payments contract')
@@ -253,178 +182,209 @@ async function main() {
       process.exit(1)
     }
 
-    console.log('✓ Sufficient allowances available')
+    console.log('Sufficient allowances available')
 
-    // Upload all files in parallel
+    // Upload files
     console.log('\n--- Uploading ---')
-    const providerText = contexts.length > 1 ? `${contexts.length} service providers` : 'service provider'
-    if (files.length > 1) {
-      console.log(`Uploading files to ${providerText} in parallel...\n`)
-    } else {
-      console.log(`Uploading file to ${providerText}...\n`)
-    }
+    console.log(`Uploading ${files.length} file(s) with ${COPY_COUNT} copies each...\n`)
 
-    // Start all uploads without waiting (collect promises and not block with await)
-    const uploadPromises = files.map(async (file, index) => {
-      let pfx = ''
-      if (files.length > 1) {
-        pfx = `[File ${index + 1}/${files.length}] `
-      }
+    // uploadResults is built by either the single-file or multi-file path
+    const uploadResults = []
 
-      // Track progress in chunks
-      const PROGRESS_CHUNK_SIZE = 10 * 1024 * 1024 // 10 MiB
-      let lastReportedBytes = 0
-      let data
-      if (contexts.length !== 1) {
-        // Streaming currently unsupported for multiple providers, collect into a buffer
-        data = await file.handle.readFile()
-      } else {
-        data = file.handle.readableWebStream()
-      }
+    if (files.length === 1) {
+      // ---------------------------------------------------------------
+      // Single file: upload() handles everything
+      // Uses streaming to avoid buffering the entire file in memory
+      // ---------------------------------------------------------------
+      const fileStream = Readable.toWeb(fs.createReadStream(files[0].path))
+      console.log(`Uploading ${files[0].path} (${formatBytes(files[0].length)}) via stream...`)
 
-      return synapse.storage.upload(data, {
-        contexts,
+      const result = await synapse.storage.upload(fileStream, {
+        count: COPY_COUNT,
         callbacks: {
-          onProgress: (bytesUploaded) => {
-            if (bytesUploaded - lastReportedBytes >= PROGRESS_CHUNK_SIZE || bytesUploaded === file.length) {
-              let progressMsg = ''
-              if (file.length !== -1) {
-                const percent = ((bytesUploaded / file.length) * 100).toFixed(1)
-                progressMsg = `${formatBytes(bytesUploaded)} / ${formatBytes(file.length)} (${percent}%)`
-              } else {
-                progressMsg = `${formatBytes(bytesUploaded)}`
-              }
-              console.log(`  ${pfx}Upload progress: ${progressMsg}`)
-              lastReportedBytes = bytesUploaded
-            }
+          onStored: (providerId, pieceCid) => {
+            console.log(`  Stored on SP ${providerId}: ${pieceCid}`)
           },
           onUploadComplete: (pieceCid) => {
-            console.log(`✓ ${pfx}Upload complete! PieceCID: ${pieceCid}`)
+            console.log(`  Upload complete: ${pieceCid}`)
           },
-          onPieceAdded: (transactionHash) => {
-            console.log(`✓ ${pfx}Piece addition transaction: ${transactionHash}`)
+          onCopyComplete: (providerId, pieceCid) => {
+            console.log(`  Copied to SP ${providerId}: ${pieceCid}`)
           },
-          onPieceConfirmed: (pieceIds) => {
-            console.log(`✓ ${pfx}Piece addition confirmed! ID(s): ${pieceIds.join(', ')}`)
+          onCopyFailed: (providerId, pieceCid, error) => {
+            console.log(`  Copy failed on SP ${providerId}: ${pieceCid} - ${error.message}`)
+          },
+          onPieceAdded: (providerId, pieceCid) => {
+            console.log(`  Piece submitted on SP ${providerId}: ${pieceCid}`)
+          },
+          onPieceConfirmed: (providerId, pieceCid, pieceId) => {
+            console.log(`  Piece confirmed on SP ${providerId}: ${pieceCid} (pieceId: ${pieceId})`)
           },
         },
       })
-    })
 
-    // Wait for all uploads to complete in parallel
-    const uploadResults = await Promise.all(uploadPromises)
+      uploadResults.push({ file: files[0], result })
+    } else {
+      // ---------------------------------------------------------------
+      // Multiple files: orchestrate store → pull → commit manually
+      //
+      // This is more efficient than calling upload() per file because
+      // all pieces are committed in a single on-chain transaction per
+      // provider, rather than one transaction per file.
+      // ---------------------------------------------------------------
 
-    // Close all file handles
-    await Promise.all(files.map((file) => file.handle.close()))
+      // Create storage contexts — primary (endorsed) + secondaries
+      const contexts = await synapse.storage.createContexts({ count: COPY_COUNT })
+      const [primary, ...secondaries] = contexts
+      console.log(`Primary: SP ${primary.provider.id}`)
+      for (const sec of secondaries) {
+        console.log(`Secondary: SP ${sec.provider.id}`)
+      }
 
+      // Store each file on the primary provider using streaming
+      const stored = []
+      for (const file of files) {
+        const fileStream = Readable.toWeb(fs.createReadStream(file.path))
+        console.log(`\nStoring ${file.path} (${formatBytes(file.length)}) via stream on SP ${primary.provider.id}...`)
+        const storeResult = await primary.store(fileStream)
+        console.log(`  Stored: ${storeResult.pieceCid}`)
+        stored.push({ file, pieceCid: storeResult.pieceCid, size: storeResult.size })
+      }
+
+      // Pull all pieces to each secondary via SP-to-SP transfer.
+      // Pre-sign extraData per secondary so the same signature is reused for
+      // both the pull (estimateGas validation) and commit (on-chain submission),
+      // avoiding a second wallet prompt.
+      const pieceCids = stored.map((s) => s.pieceCid)
+      const pieceInputs = stored.map((s) => ({ pieceCid: s.pieceCid }))
+      const successfulSecondaries = []
+
+      for (const secondary of secondaries) {
+        console.log(`\nPulling ${pieceCids.length} piece(s) to SP ${secondary.provider.id}...`)
+        try {
+          const extraData = await secondary.presignForCommit(pieceInputs)
+          const pullResult = await secondary.pull({ pieces: pieceCids, from: primary, extraData })
+
+          if (pullResult.status === 'complete') {
+            console.log(`  Pull complete`)
+            successfulSecondaries.push({ context: secondary, extraData })
+          } else {
+            const failedPieces = pullResult.pieces.filter((p) => p.status === 'failed')
+            console.log(`  Pull failed for ${failedPieces.length} piece(s)`)
+          }
+        } catch (error) {
+          console.log(`  Pull failed: ${error.message}`)
+        }
+      }
+
+      // Commit all pieces on each provider in a single transaction.
+      // Primary commits without extraData (signs internally); secondaries
+      // reuse the extraData signed during the pull step.
+      console.log(`\nCommitting ${stored.length} piece(s) on ${1 + successfulSecondaries.length} provider(s)...`)
+
+      const primaryCommit = await primary.commit({ pieces: pieceInputs })
+      console.log(`  Committed on SP ${primary.provider.id} (tx: ${primaryCommit.txHash.slice(0, 18)}...)`)
+
+      const secondaryCommits = []
+      for (const { context, extraData } of successfulSecondaries) {
+        try {
+          const result = await context.commit({ pieces: pieceInputs, extraData })
+          console.log(`  Committed on SP ${context.provider.id} (tx: ${result.txHash.slice(0, 18)}...)`)
+          secondaryCommits.push({ context, result })
+        } catch (error) {
+          console.log(`  Commit failed on SP ${context.provider.id}: ${error.message}`)
+        }
+      }
+
+      // Build upload results (same shape as upload() returns)
+      for (const { file, pieceCid, size } of stored) {
+        const i = stored.findIndex((s) => s.pieceCid === pieceCid)
+        const copies = [
+          {
+            providerId: primary.provider.id,
+            dataSetId: primaryCommit.dataSetId,
+            pieceId: primaryCommit.pieceIds[i],
+            role: 'primary',
+            retrievalUrl: primary.getPieceUrl(pieceCid),
+            isNewDataSet: primaryCommit.isNewDataSet,
+          },
+          ...secondaryCommits.map(({ context, result }) => ({
+            providerId: context.provider.id,
+            dataSetId: result.dataSetId,
+            pieceId: result.pieceIds[i],
+            role: 'secondary',
+            retrievalUrl: context.getPieceUrl(pieceCid),
+            isNewDataSet: result.isNewDataSet,
+          })),
+        ]
+        uploadResults.push({ file, result: { pieceCid, size, copies, failures: [] } })
+      }
+    }
+
+    // Display upload summary
     console.log('\n--- Upload Summary ---')
-    uploadResults.forEach((fileResult, fileIndex) => {
-      console.log(`File ${fileIndex + 1}: ${files[fileIndex].path}`)
-      console.log(`    PieceCID: ${fileResult.pieceCid}`)
-      console.log(`    Size: ${formatBytes(fileResult.size)}`)
-      console.log(`    Piece ID: ${fileResult.pieceId}`)
-    })
+    for (const { file, result } of uploadResults) {
+      console.log(`\nFile: ${file.path}`)
+      console.log(`  PieceCID: ${result.pieceCid}`)
+      console.log(`  Size: ${formatBytes(result.size)}`)
+      console.log(`  Copies: ${result.copies.length}/${COPY_COUNT}`)
 
-    // Download all files back in parallel
-    console.log('\n--- Downloading Files ---')
-    console.log(`Downloading file${files.length !== 1 ? 's in parallel' : ''}...\n`)
+      for (const copy of result.copies) {
+        const roleLabel = copy.role === 'primary' ? '[Primary]  ' : '[Secondary]'
+        console.log(
+          `    ${roleLabel} Provider ${copy.providerId} - pieceId: ${copy.pieceId}, dataSetId: ${copy.dataSetId}`
+        )
+        console.log(`               Retrieval: ${copy.retrievalUrl}`)
+      }
 
-    // Start all downloads without waiting (collect promises)
-    const downloadPromises = uploadResults.map((fileResult, index) => {
-      console.log(`  Downloading file ${index + 1}: ${fileResult.pieceCid}`)
-      // Use synapse.storage.download for SP-agnostic download (finds any provider with the piece)
-      // Could also use storageContext.download() to download from the specific provider
-      return synapse.storage.download(fileResult.pieceCid)
-    })
+      if (result.failures.length > 0) {
+        console.log(`  Failures: ${result.failures.length}`)
+        for (const failure of result.failures) {
+          console.log(`    Provider ${failure.providerId}: ${failure.error}`)
+        }
+      }
+    }
 
-    // Wait for all downloads to complete in parallel
-    const downloadedFiles = await Promise.all(downloadPromises)
+    // Download and verify all files
+    console.log('\n--- Downloading and Verifying ---')
 
-    console.log(`\n✓ Downloaded ${downloadedFiles.length} file${files.length !== 1 ? 's' : ''} successfully`)
-
-    // Verify all files
-    console.log('\n--- Verifying Data ---')
     let allMatch = true
+    for (const { file, result } of uploadResults) {
+      console.log(`\nDownloading ${result.pieceCid}...`)
 
-    for (let i = 0; i < files.length; i++) {
-      const downloadedData = downloadedFiles[i]
+      // Use synapse.storage.download for SP-agnostic download
+      // It will find any provider that has the piece
+      const downloadedData = await synapse.storage.download(result.pieceCid)
+
       if (downloadedData == null) {
-        console.warn(`Skipped File ${i + 1} (${files[i].path})`)
+        console.error(`  FAILED: Could not download`)
+        allMatch = false
         continue
       }
 
-      // This isn't pretty (or recommended), but just to demonstrate that our verified download
-      // verified the data correctly, we'll do a direct comparison of the bytes
-      const originalData = await fsPromises.readFile(files[i].path)
+      // Verify against original
+      const originalData = await fsPromises.readFile(file.path)
       const matches = Buffer.from(originalData).equals(Buffer.from(downloadedData))
 
-      console.log(
-        `File ${i + 1} (${files[i].path}): ${matches ? '✅ MATCH' : '❌ MISMATCH'} (${formatBytes(downloadedData.length)})`
-      )
-
-      if (!matches) {
+      if (matches) {
+        console.log(`  VERIFIED: ${formatBytes(downloadedData.length)} matches original`)
+      } else {
+        console.error(`  MISMATCH: Downloaded data does not match original!`)
         allMatch = false
       }
     }
 
     if (!allMatch) {
-      console.error('\n❌ ERROR: One or more downloaded files do not match originals!')
+      console.error('\nERROR: One or more files failed verification!')
       process.exit(1)
     }
 
-    console.log('\n✅ SUCCESS: All downloaded files match originals!')
-
-    // Check piece status for all files
-    console.log('\n--- Piece Status ---')
-
-    for (const fileResult of uploadResults) {
-      const pieceCid = fileResult.pieceCid
-
-      for (let spIndex = 0; spIndex < contexts.length; spIndex++) {
-        const storageContext = contexts[spIndex]
-        const providerLabel = contexts.length > 1 ? ` #${spIndex + 1}` : ''
-        // Check status for the first piece (data set info is shared)
-        const firstPieceStatus = await storageContext.pieceStatus(pieceCid)
-        console.log(`Data set exists on provider: ${firstPieceStatus.exists}`)
-        if (firstPieceStatus.dataSetLastProven) {
-          console.log(`Data set last proven: ${firstPieceStatus.dataSetLastProven.toLocaleString()}`)
-        }
-        if (firstPieceStatus.dataSetNextProofDue) {
-          console.log(`Data set next proof due: ${firstPieceStatus.dataSetNextProofDue.toLocaleString()}`)
-        }
-        if (firstPieceStatus.inChallengeWindow) {
-          console.log('Currently in challenge window - proof must be submitted soon')
-        } else if (firstPieceStatus.hoursUntilChallengeWindow && firstPieceStatus.hoursUntilChallengeWindow > 0) {
-          console.log(`Hours until challenge window: ${firstPieceStatus.hoursUntilChallengeWindow.toFixed(1)}`)
-        }
-
-        const providerInfo = storageContext.provider
-        // Show storage info
-        console.log(`\n--- Storage Information${providerLabel} ---`)
-        const fileText = files.length !== 1 ? 'files are' : 'file is'
-        console.log(`Your ${uploadResults.length} ${fileText} now stored on the Filecoin network:`)
-        console.log(`- Data set ID: ${storageContext.dataSetId}`)
-        console.log(`- Service provider: ${storageContext.provider.serviceProvider}`)
-
-        console.log('\nUploaded pieces:')
-        uploadResults.forEach((fileResult, fileIndex) => {
-          console.log(`\n  File ${fileIndex + 1}: ${files[fileIndex].path}`)
-          console.log(`    PieceCID: ${fileResult.pieceCid}`)
-          console.log(`    Piece ID: ${fileResult.pieceId}`)
-          console.log(`    Size: ${formatBytes(fileResult.size)}`)
-          if (providerInfo.products.PDP?.data.serviceURL) {
-            console.log(
-              `    Retrieval URL: ${providerInfo.products.PDP.data.serviceURL.replace(/\/$/, '')}/piece/${fileResult.pieceCid}`
-            )
-          }
-        })
-      }
-    }
-
-    console.log('\nThe service provider(s) will periodically prove they still have your data.')
+    console.log('\n=== SUCCESS: All files uploaded, replicated, and verified ===')
+    console.log(`\nStored ${uploadResults.length} file(s) with ${COPY_COUNT} copies each.`)
+    console.log('The service providers will periodically prove they still have your data.')
     console.log('You are being charged based on the storage size and duration.')
   } catch (error) {
-    console.error('\n❌ Error:', error.message)
+    console.error('\nERROR:', error.message)
     if (error.cause) {
       console.error('Caused by:', error.cause.message)
     }
@@ -435,3 +395,89 @@ async function main() {
 
 // Run the example
 main().catch(console.error)
+
+// =============================================================================
+// DEVNET CHAIN BUILDER
+// =============================================================================
+// When running against foc-devnet, contract addresses are deployment-specific.
+// This function builds a custom chain with addresses from environment variables.
+// For calibnet/mainnet, the standard chain definitions have addresses built-in.
+
+function buildDevnetChain() {
+  console.log('\n--- Devnet Configuration ---')
+  if (WARM_STORAGE_ADDRESS) console.log(`  FWSS: ${WARM_STORAGE_ADDRESS}`)
+  if (WARM_STORAGE_VIEW_ADDRESS) console.log(`  FWSS View: ${WARM_STORAGE_VIEW_ADDRESS}`)
+  if (MULTICALL3_ADDRESS) console.log(`  Multicall3: ${MULTICALL3_ADDRESS}`)
+  if (USDFC_ADDRESS) console.log(`  USDFC: ${USDFC_ADDRESS}`)
+  if (FILECOIN_PAY_ADDRESS) console.log(`  Filecoin Pay: ${FILECOIN_PAY_ADDRESS}`)
+  if (SP_REGISTRY_ADDRESS) console.log(`  SP Registry: ${SP_REGISTRY_ADDRESS}`)
+  if (ENDORSEMENTS_ADDRESS) console.log(`  Endorsements: ${ENDORSEMENTS_ADDRESS}`)
+  if (PDP_ADDRESS) console.log(`  PDP: ${PDP_ADDRESS}`)
+
+  return {
+    ...devnet,
+    rpcUrls: {
+      default: { http: [RPC_URL || devnet.rpcUrls.default.http[0]] },
+    },
+    contracts: {
+      ...devnet.contracts,
+      ...(MULTICALL3_ADDRESS ? { multicall3: { address: MULTICALL3_ADDRESS, blockCreated: 0 } } : {}),
+      ...(WARM_STORAGE_ADDRESS
+        ? {
+            fwss: {
+              ...devnet.contracts.fwss,
+              address: WARM_STORAGE_ADDRESS,
+            },
+          }
+        : {}),
+      ...(WARM_STORAGE_VIEW_ADDRESS
+        ? {
+            fwssView: {
+              ...devnet.contracts.fwssView,
+              address: WARM_STORAGE_VIEW_ADDRESS,
+            },
+          }
+        : {}),
+      ...(USDFC_ADDRESS
+        ? {
+            usdfc: {
+              ...devnet.contracts.usdfc,
+              address: USDFC_ADDRESS,
+            },
+          }
+        : {}),
+      ...(FILECOIN_PAY_ADDRESS
+        ? {
+            filecoinPay: {
+              ...devnet.contracts.filecoinPay,
+              address: FILECOIN_PAY_ADDRESS,
+            },
+          }
+        : {}),
+      ...(SP_REGISTRY_ADDRESS
+        ? {
+            serviceProviderRegistry: {
+              ...devnet.contracts.serviceProviderRegistry,
+              address: SP_REGISTRY_ADDRESS,
+            },
+          }
+        : {}),
+      ...(ENDORSEMENTS_ADDRESS
+        ? {
+            endorsements: {
+              ...devnet.contracts.endorsements,
+              address: ENDORSEMENTS_ADDRESS,
+            },
+          }
+        : {}),
+      ...(PDP_ADDRESS
+        ? {
+            pdp: {
+              ...devnet.contracts.pdp,
+              address: PDP_ADDRESS,
+            },
+          }
+        : {}),
+    },
+  }
+}

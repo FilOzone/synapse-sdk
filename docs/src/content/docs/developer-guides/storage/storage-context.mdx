@@ -140,7 +140,6 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 // @lib: esnext,dom
 import {
   PieceCID,
-  PieceRecord,
   UploadResult,
   PDPProvider,
   PreflightInfo,
@@ -148,34 +147,36 @@ import {
 } from "@filoz/synapse-sdk";
 import { Hash } from 'viem'
 type Transaction = Promise<Hash>;
-type Hex = `0x${string}`;
+type PullStatus = { status: string };
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void;
-  /** Called when upload to service provider completes */
+  /** Called when data has been uploaded to a provider */
   onUploadComplete?: (pieceCid: PieceCID) => void;
-  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  /** @deprecated Use onPiecesAdded instead */
-  onPieceAdded?: (transaction?: Hex) => void;
-  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
-  /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: number[]) => void;
+  /** Called after data is stored on a provider */
+  onStored?: (providerId: bigint, pieceCid: PieceCID) => void;
+  /** Called with progress updates during pull to secondary providers */
+  onPullProgress?: (providerId: bigint, pieceCid: PieceCID, status: PullStatus) => void;
+  /** Called when a copy to a secondary provider completes */
+  onCopyComplete?: (providerId: bigint, pieceCid: PieceCID) => void;
+  /** Called when a copy to a secondary provider fails */
+  onCopyFailed?: (providerId: bigint, pieceCid: PieceCID, error: Error) => void;
+  /** Called when the addPieces transaction has been submitted for a provider */
+  onPieceAdded?: (providerId: bigint, pieceCid: PieceCID) => void;
+  /** Called after the addPieces transaction is confirmed on-chain for a provider */
+  onPieceConfirmed?: (providerId: bigint, pieceCid: PieceCID, pieceId: bigint) => void;
 }
 
 /**
  * Options for uploading individual pieces to an existing storage context
  * @param metadata - Custom metadata for this specific piece (key-value pairs)
- * @param onUploadComplete - Called when upload to service provider completes
- * @param onPiecesAdded - Called when the service provider has added the piece(s) and submitted the transaction to the chain
- * @param onPiecesConfirmed - Called when the service provider agrees that the piece addition(s) are confirmed on-chain and provides the dataSetId
+ * @param pieceCid - Optional pre-calculated PieceCID to skip CommP calculation
+ * @param signal - Optional AbortSignal to cancel the upload
  */
-type UploadOptions = {
+type UploadOptions = UploadCallbacks & {
   metadata?: Record<string, string>;
-  onUploadComplete?: (pieceCid: PieceCID) => void;
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void;
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void;
+  pieceCid?: PieceCID;
+  signal?: AbortSignal;
 };
 // ---cut---
 interface StorageContextAPI {
@@ -245,22 +246,17 @@ const { pieceCid, size, pieceId } = await storageContext.upload(data, {
       `Uploaded PieceCID: ${piece.toV1().toString()} to storage provider!`
     );
   },
-  onPiecesAdded: (hash, pieces) => {
+  onStored: (providerId, piece) => {
+    console.log(`Stored on provider ${providerId}: ${piece.toString()}`);
+  },
+  onPieceAdded: (providerId, piece) => {
     console.log(
-      `🔄 Waiting for transaction to be confirmed on chain (txHash: ${hash})`
-    );
-    console.log(
-      `Batch includes PieceCIDs: ${
-        pieces?.map(({ pieceCid }) => pieceCid.toString()).join(", ") ?? ""
-      }`
+      `Piece submitted for on-chain addition on provider ${providerId}: ${piece.toString()}`
     );
   },
-  onPiecesConfirmed: (dataSetId, pieces) => {
-    console.log(`Data set ${dataSetId} confirmed with provider`);
+  onPieceConfirmed: (providerId, piece, pieceId) => {
     console.log(
-      `Piece ID mapping: ${pieces
-        .map(({ pieceId, pieceCid }) => `${pieceId}:${pieceCid}`)
-        .join(", ")}`
+      `Piece ${pieceId} confirmed on provider ${providerId}: ${piece.toString()}`
     );
   },
 });

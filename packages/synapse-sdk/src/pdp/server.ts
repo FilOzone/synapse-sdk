@@ -35,7 +35,7 @@ import {
   createDataSetAndAddPieces,
   type PieceInputWithMetadata,
 } from '@filoz/synapse-core/warm-storage'
-import type { Account, Address, Chain, Client, Transport } from 'viem'
+import type { Account, Address, Chain, Client, Hex, Transport } from 'viem'
 import type { DataSetData, PieceCID } from '../types.ts'
 
 /**
@@ -139,7 +139,8 @@ export class PDPServer {
     payer: Address,
     recordKeeper: Address,
     pieces: PieceInputWithMetadata[],
-    metadata: MetadataObject
+    metadata: MetadataObject,
+    extraData?: Hex
   ): Promise<CreateDataSetResponse> {
     return createDataSetAndAddPieces(this._client, {
       endpoint: this._endpoint,
@@ -150,6 +151,7 @@ export class PDPServer {
       cdn: false, // synpase sdk adds this to the metadata
       pieces,
       metadata,
+      extraData,
     })
   }
 
@@ -164,13 +166,15 @@ export class PDPServer {
   async addPieces(
     dataSetId: bigint,
     clientDataSetId: bigint,
-    pieces: PieceInputWithMetadata[]
+    pieces: PieceInputWithMetadata[],
+    extraData?: Hex
   ): Promise<AddPiecesResponse> {
     const { txHash, statusUrl } = await addPieces(this._client, {
       endpoint: this._endpoint,
       dataSetId: BigInt(dataSetId),
       clientDataSetId,
       pieces,
+      extraData,
     })
     return {
       message: `Pieces added to data set ID ${dataSetId} successfully`,

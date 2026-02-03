@@ -35,6 +35,8 @@ describe('StorageService', () => {
   before(async () => {
     // Set timeout to 100ms for testing
     SP.setTimeout(100)
+    // Set delay time to 10ms for polling tests
+    SP.setDelayTime(10)
     await server.start()
   })
 
@@ -76,123 +78,6 @@ describe('StorageService', () => {
       )
     })
 
-    it('should select a random provider but filter allow IPNI providers', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.providerIPNI]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.providerIPNI.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      // Create storage service without specifying providerId
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        withIpni: true,
-      })
-
-      // Should have selected one of the providers
-      assert.isTrue(service.serviceProvider === Mocks.PROVIDERS.providerIPNI.providerInfo.serviceProvider)
-    })
-
-    it.skip('should never select a dev provider by default', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      // Create storage service without specifying providerId
-      // dev defaults to false, so dev providers should be filtered out
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dev: false,
-      })
-
-      // Should have selected provider2 (non-dev), never provider1 (dev)
-      assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
-      assert.notEqual(
-        service.serviceProvider,
-        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
-        'Should not select dev provider'
-      )
-    })
-
-    it.skip('should include dev providers when dev option is true', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      // Create storage service with dev: true
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dev: true,
-      })
-
-      // Should be able to select from either provider, including the dev one
-      assert.isTrue(
-        service.serviceProvider === Mocks.PROVIDERS.provider1.providerInfo.serviceProvider ||
-          service.serviceProvider === Mocks.PROVIDERS.provider2.providerInfo.serviceProvider
-      )
-    })
-
-    it.skip('should filter providers with serviceStatus=dev when dev option is false', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      // Create storage service with dev: false (default)
-      const service = await StorageContext.create(synapse, warmStorageService, {
-        dev: false,
-      })
-
-      // Should only select the production provider, not the dev one
-      assert.equal(
-        service.serviceProvider.toLowerCase(),
-        Mocks.PROVIDERS.provider2.providerInfo.serviceProvider.toLowerCase(),
-        'Should select production provider, not dev provider'
-      )
-      assert.notEqual(
-        service.serviceProvider.toLowerCase(),
-        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider.toLowerCase(),
-        'Should NOT select dev provider'
-      )
-    })
-
     it('should use specific provider when providerId specified', async () => {
       server.use(
         Mocks.JSONRPC({
@@ -209,7 +94,7 @@ describe('StorageService', () => {
       const synapse = new Synapse({ client })
       const warmStorageService = new WarmStorageService(client)
 
-      // Create storage service with specific providerId
+      // Create storage service with specific providerIds
       const service = await StorageContext.create(synapse, warmStorageService, {
         providerId: Mocks.PROVIDERS.provider1.providerId,
       })
@@ -217,75 +102,7 @@ describe('StorageService', () => {
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
-    it('should skip existing datasets and return -1 with providerId when forceCreateDataSet is true', async () => {
-      let fetchedDataSets = false
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          warmStorageView: {
-            ...Mocks.presets.basic.warmStorageView,
-            getAllDataSetMetadata() {
-              fetchedDataSets = true
-              return [[], []]
-            },
-          },
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Mocks.PROVIDERS.provider1.providerId,
-        forceCreateDataSet: true,
-      })
-
-      assert.equal(
-        context.serviceProvider,
-        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
-        'Should select the requested provider'
-      )
-      assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
-      assert.isFalse(fetchedDataSets, 'Should not have fetched existing data sets when forceCreateDataSet is true')
-    })
-
-    it('should skip existing datasets and return -1 with providerAddress when forceCreateDataSet is true', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          warmStorageView: {
-            ...Mocks.presets.basic.warmStorageView,
-          },
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const context = await StorageContext.create(synapse, warmStorageService, {
-        providerAddress: Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
-        forceCreateDataSet: true,
-      })
-
-      assert.equal(
-        context.serviceProvider,
-        Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
-        'Should select the requested provider'
-      )
-      assert.equal(context.dataSetId, undefined, 'Should not have a data set id when forceCreateDataSet is true')
-    })
-
-    it('should reuse existing data set with providerId when forceCreateDataSet is not set', async () => {
+    it('should reuse existing data set with providerIds', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -311,7 +128,7 @@ describe('StorageService', () => {
       })
       // Should have reused existing data set (not created new one)
       assert.equal(context.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
-      assert.equal(context.dataSetId, 1n, 'Should not have a data set id when forceCreateDataSet is true')
+      assert.equal(context.dataSetId, 1n, 'Should have a data set id')
     })
 
     it('should throw when no approved providers available', async () => {
@@ -396,12 +213,6 @@ describe('StorageService', () => {
 
       // Should use existing data set
       assert.equal(service.dataSetId, 1n)
-    })
-
-    it.skip('should create new data set when none exist', async () => {
-      // Skip: Requires real PDPServer for createDataSet
-      // This would need mocking of PDPServer which is created internally
-      // TODO: Implement PDPServer mocking and get this working
     })
 
     it('should prefer data sets with existing pieces', async () => {
@@ -568,7 +379,7 @@ describe('StorageService', () => {
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
-    it('should select by providerAddress', async () => {
+    it('should select by providerIds', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -591,7 +402,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService(client)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerAddress: Mocks.PROVIDERS.provider2.providerInfo.serviceProvider,
+        providerId: Mocks.PROVIDERS.provider2.providerId,
       })
 
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
@@ -622,41 +433,7 @@ describe('StorageService', () => {
       }
     })
 
-    it('should throw when dataSetId conflicts with providerId', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          warmStorageView: {
-            ...Mocks.presets.basic.warmStorageView,
-            getAllDataSetMetadata() {
-              return [[], []]
-            },
-          },
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
-        }),
-        Mocks.PING({
-          baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1n,
-          providerId: 2n, // Conflicts with actual owner
-        })
-        assert.fail('Should have thrown error')
-      } catch (error: any) {
-        assert.include(error.message, 'belongs to provider ID 1')
-        assert.include(error.message, 'but provider ID 2 was requested')
-      }
-    })
-
-    it('should throw when providerAddress not approved', async () => {
+    it('should throw when provider not found in registry', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -667,7 +444,7 @@ describe('StorageService', () => {
       const warmStorageService = new WarmStorageService(client)
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          providerAddress: '0x6666666666666666666666666666666666666666',
+          providerId: 999n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -746,24 +523,6 @@ describe('StorageService', () => {
         withCDN: true,
       })
       assert.equal(serviceWithCDN.dataSetId, 2n, 'Should select CDN data set')
-    })
-
-    it.skip('should handle data sets not managed by current WarmStorage', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      // Should create new data set since existing one is not managed
-      const service = await StorageContext.create(synapse, warmStorageService, {})
-
-      // Should have selected a provider but no existing data set
-      assert.exists(service.serviceProvider)
-      assert.notEqual(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
     it('should throw when data set belongs to non-approved provider', async () => {
@@ -852,64 +611,6 @@ describe('StorageService', () => {
       } catch (error: any) {
         assert.include(error.message, 'Data set 1 does not exist or is not live')
       }
-    })
-
-    it('should handle conflict between dataSetId and providerAddress', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          warmStorageView: {
-            ...Mocks.presets.basic.warmStorageView,
-            clientDataSets: () => [[1n]],
-            getAllDataSetMetadata: () => [[], []],
-            getDataSet: () => {
-              return [
-                {
-                  cacheMissRailId: 0n,
-                  cdnRailId: 0n,
-                  clientDataSetId: 0n,
-                  commissionBps: 100n,
-                  dataSetId: 1n,
-                  payee: Mocks.ADDRESSES.serviceProvider1,
-                  payer: Mocks.ADDRESSES.client1,
-                  pdpEndEpoch: 0n,
-                  pdpRailId: 1n,
-                  providerId: 1n,
-                  serviceProvider: Mocks.ADDRESSES.serviceProvider1,
-                },
-              ]
-            },
-          },
-        }),
-        Mocks.PING()
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-
-      try {
-        await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1n,
-          providerAddress: '0x9999888877776666555544443333222211110000', // Different address
-        })
-        assert.fail('Should have thrown error')
-      } catch (error: any) {
-        assert.include(error.message, 'belongs to provider')
-        assert.include(error.message, 'but provider')
-        assert.include(error.message, 'was requested')
-      }
-    })
-
-    it.skip('should retry transaction fetch for up to 180 seconds', async () => {
-      // This test validates that the transaction retry logic is implemented
-      // The implementation retries getTransaction() for up to 180 seconds (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS)
-      // with a 2-second interval (TIMING_CONSTANTS.TRANSACTION_PROPAGATION_POLL_INTERVAL_MS)
-      // before throwing an error if the transaction is not found
-    })
-
-    it.skip('should fail after 180 seconds if transaction never appears', async () => {
-      // This test validates that the transaction retry logic times out after 180 seconds
-      // If a transaction is not found after TIMING_CONSTANTS.TRANSACTION_PROPAGATION_TIMEOUT_MS (180 seconds),
-      // the implementation throws an error indicating the transaction was not found
     })
 
     it('should match providers by ID even when payee differs from serviceProvider', async () => {
@@ -1182,23 +883,22 @@ describe('StorageService', () => {
         service.upload(new Uint8Array(129).fill(3)),
       ]
 
-      // All uploads in the batch should fail with the same error
+      // All uploads should fail with store errors
       const results = await Promise.allSettled(uploads)
 
-      // First two should fail together (same batch)
+      // All uploads fail independently
       assert.equal(results[0].status, 'rejected')
       assert.equal(results[1].status, 'rejected')
+      assert.equal(results[2].status, 'rejected')
 
-      if (results[0].status === 'rejected' && results[1].status === 'rejected') {
-        assert.include(results[0].reason.message, 'Failed to upload piece to service provider')
-        assert.include(results[1].reason.message, 'Failed to upload piece to service provider')
-        // They should have the same error message (same batch)
-        assert.equal(results[0].reason.message, results[1].reason.message)
+      if (results[0].status === 'rejected') {
+        assert.include(results[0].reason.message, 'Failed to store piece on service provider')
       }
-
-      // Third upload might succeed or fail depending on timing
+      if (results[1].status === 'rejected') {
+        assert.include(results[1].reason.message, 'Failed to store piece on service provider')
+      }
       if (results[2].status === 'rejected') {
-        assert.include(results[2].reason.message, 'Failed to upload piece to service provider')
+        assert.include(results[2].reason.message, 'Failed to store piece on service provider')
       }
     })
 
@@ -1229,166 +929,6 @@ describe('StorageService', () => {
       }
     })
 
-    it.skip('should fail if new server verification fails', async () => {
-      const testData = new Uint8Array(127).fill(42) // 127 bytes to meet minimum
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.post<Record<string, never>, { pieceCid: string }>('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.error()
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const service = await StorageContext.create(synapse, warmStorageService)
-
-      try {
-        await service.upload(testData)
-        assert.fail('Should have thrown error for verification failure')
-      } catch (error: any) {
-        // The error is wrapped by createError
-        assert.include(error.message, 'StorageContext addPieces failed:')
-        assert.include(error.message, 'Failed to verify piece addition')
-        assert.include(error.message, 'The transaction was confirmed on-chain but the server failed to acknowledge it')
-      }
-    })
-
-    it.skip('should handle transaction failure on-chain', async () => {
-      const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/${mockUuid}`,
-            },
-          })
-        }),
-        Mocks.pdp.uploadPieceHandler(mockUuid, pdpOptions),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
-        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
-        http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
-          return HttpResponse.json(
-            {
-              createMessageHash: mockTxHash,
-              dataSetCreated: true,
-              service: 'test-service',
-              txStatus: 'confirmed',
-              ok: false,
-              dataSetId: 123,
-            },
-            {
-              status: 200,
-            }
-          )
-        }),
-        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          return HttpResponse.json(
-            {
-              txHash: mockTxHash,
-              txStatus: 'confirmed',
-              dataSetId: 1,
-              pieceCount: 2,
-              addMessageOk: false,
-              confirmedPieceIds: [101, 102],
-            },
-            {
-              status: 200,
-            }
-          )
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const service = await StorageContext.create(synapse, warmStorageService)
-
-      try {
-        await service.upload(testData)
-        assert.fail('Should have thrown error for failed transaction')
-      } catch (error: any) {
-        // The error is wrapped twice - first by the specific throw, then by the outer catch
-        assert.include(error.message, 'StorageContext addPieces failed:')
-        assert.include(error.message, 'Failed to add piece to data set')
-      }
-    })
-
-    it.skip('should handle piece parking timeout', async () => {
-      const testData = new Uint8Array(127).fill(42)
-      const testPieceCID = 'bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-        }),
-        Mocks.PING(),
-        http.post('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.text('Created', {
-            status: 201,
-            headers: {
-              Location: `/pdp/piece/upload/${mockUuid}`,
-            },
-          })
-        }),
-        Mocks.pdp.uploadPieceHandler(mockUuid, pdpOptions),
-        http.get('https://pdp.example.com/pdp/piece', async () => {
-          return HttpResponse.json({ pieceCid: testPieceCID })
-        }),
-        Mocks.pdp.createAndAddPiecesHandler(mockTxHash, pdpOptions),
-        http.get('https://pdp.example.com/pdp/data-sets/created/:tx', async () => {
-          return HttpResponse.json(
-            {
-              createMessageHash: mockTxHash,
-              dataSetCreated: true,
-              service: 'test-service',
-              txStatus: 'confirmed',
-              ok: false,
-              dataSetId: 123,
-            },
-            {
-              status: 200,
-            }
-          )
-        }),
-        http.get('https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash', () => {
-          return HttpResponse.json(
-            {
-              txHash: mockTxHash,
-              txStatus: 'confirmed',
-              dataSetId: 1,
-              pieceCount: 2,
-              addMessageOk: false,
-              confirmedPieceIds: [101, 102],
-            },
-            {
-              status: 200,
-            }
-          )
-        })
-      )
-      const synapse = new Synapse({ client })
-      const warmStorageService = new WarmStorageService(client)
-      const service = await StorageContext.create(synapse, warmStorageService)
-
-      try {
-        await service.upload(testData)
-        assert.fail('Should have thrown timeout error')
-      } catch (error: any) {
-        assert.include(error.message, 'Timeout waiting for piece to be parked')
-      }
-    })
-
     it('should handle upload piece failure', async () => {
       const testData = new Uint8Array(127).fill(42)
       const testPieceCID = Piece.calculate(testData).toString()
@@ -1411,7 +951,7 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown upload error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to upload piece to service provider')
+        assert.include(error.message, 'Failed to store piece on service provider')
       }
     })
 
@@ -1442,8 +982,751 @@ describe('StorageService', () => {
         await service.upload(testData)
         assert.fail('Should have thrown add pieces error')
       } catch (error: any) {
-        assert.include(error.message, 'Failed to add piece to data set')
+        assert.include(error.message, 'Failed to commit pieces on-chain')
       }
+    })
+  })
+
+  describe('store() split operation', () => {
+    it('should store data and return pieceCid and size', async () => {
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), pdpOptions),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, pdpOptions)
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      const result = await service.store(testData)
+
+      assert.equal(result.pieceCid.toString(), expectedPieceCid.toString())
+      assert.equal(result.size, 127)
+    })
+
+    it('should throw when SP upload fails', async () => {
+      const testData = new Uint8Array(127).fill(42)
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.post('https://pdp.example.com/pdp/piece/uploads', () => {
+          return HttpResponse.error()
+        })
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      try {
+        await service.store(testData)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'StorageContext store failed')
+        assert.include(error.message, 'Failed to store piece on service provider')
+      }
+    })
+
+    it('should throw when piece parking confirmation fails', async () => {
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, pdpOptions),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, pdpOptions),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), pdpOptions),
+        // findPiece returns not found - piece parking failed
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), false, pdpOptions)
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      try {
+        await service.store(testData)
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'StorageContext store failed')
+        assert.include(error.message, 'Failed to confirm piece storage')
+      }
+    })
+
+    it('should validate size limit', async () => {
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING()
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      const smallData = new Uint8Array(127)
+      const testSize = SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1
+      Object.defineProperty(smallData, 'length', { value: testSize })
+
+      try {
+        await service.store(smallData)
+        assert.fail('Should have thrown size limit error')
+      } catch (error: any) {
+        assert.include(error.message, 'exceeds maximum allowed size')
+      }
+    })
+  })
+
+  describe('commit() split operation', () => {
+    const FAKE_TX_HASH = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+    // Use data set ID 1 which is set up in Mocks.presets.basic
+    const DATA_SET_ID = 1
+
+    it('should commit to existing data set and return isNewDataSet=false', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.post(`https://pdp.example.com/pdp/data-sets/${DATA_SET_ID}/pieces`, () => {
+          return new HttpResponse(null, {
+            status: 201,
+            headers: { Location: `/pdp/data-sets/${DATA_SET_ID}/pieces/added/${FAKE_TX_HASH}` },
+          })
+        }),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          DATA_SET_ID,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: DATA_SET_ID,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [101],
+          },
+          pdpOptions
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      const result = await service.commit({
+        pieces: [{ pieceCid: testPieceCid }],
+      })
+
+      assert.equal(result.txHash, FAKE_TX_HASH)
+      assert.deepEqual(result.pieceIds, [101n])
+      assert.equal(result.dataSetId, BigInt(DATA_SET_ID))
+      assert.equal(result.isNewDataSet, false)
+    })
+
+    it('should create new data set and return isNewDataSet=true', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+      const NEW_DATA_SET_ID = 456
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions),
+        Mocks.pdp.dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            createMessageHash: FAKE_TX_HASH,
+            dataSetCreated: true,
+            service: 'test-service',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: NEW_DATA_SET_ID,
+          },
+          pdpOptions
+        ),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          NEW_DATA_SET_ID,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: NEW_DATA_SET_ID,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [201],
+          },
+          pdpOptions
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      // No dataSetIds - will create new
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      const result = await service.commit({
+        pieces: [{ pieceCid: testPieceCid }],
+      })
+
+      assert.equal(result.txHash, FAKE_TX_HASH)
+      assert.deepEqual(result.pieceIds, [201n])
+      assert.equal(result.dataSetId, BigInt(NEW_DATA_SET_ID))
+      assert.equal(result.isNewDataSet, true)
+    })
+
+    it('should throw when addPieces fails', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.post(`https://pdp.example.com/pdp/data-sets/${DATA_SET_ID}/pieces`, () => {
+          return HttpResponse.json({ error: 'Transaction failed' }, { status: 500 })
+        })
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      try {
+        await service.commit({
+          pieces: [{ pieceCid: testPieceCid }],
+        })
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'StorageContext commit failed')
+        assert.include(error.message, 'Failed to commit pieces on-chain')
+      }
+    })
+
+    it('should throw when createAndAddPieces fails', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        http.post('https://pdp.example.com/pdp/data-sets', () => {
+          return HttpResponse.json({ error: 'Transaction failed' }, { status: 500 })
+        })
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService)
+
+      try {
+        await service.commit({
+          pieces: [{ pieceCid: testPieceCid }],
+        })
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'StorageContext commit failed')
+        assert.include(error.message, 'Failed to commit pieces on-chain')
+      }
+    })
+  })
+
+  describe('pull() split operation', () => {
+    // Use data set ID 1 which is set up in Mocks.presets.basic
+    const DATA_SET_ID = 1
+
+    it('should pull pieces successfully and return complete status', async () => {
+      const testPieceCid1 = calculatePieceCID(new Uint8Array(127).fill(42))
+      const testPieceCid2 = calculatePieceCID(new Uint8Array(127).fill(43))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.pullPiecesHandler(
+          Mocks.pdp.createPullResponse('complete', [
+            { pieceCid: testPieceCid1.toString(), status: 'complete' },
+            { pieceCid: testPieceCid2.toString(), status: 'complete' },
+          ]),
+          pdpOptions
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      const result = await service.pull({
+        pieces: [testPieceCid1, testPieceCid2],
+        from: 'https://primary.example.com',
+      })
+
+      assert.equal(result.status, 'complete')
+      assert.lengthOf(result.pieces, 2)
+      assert.equal(result.pieces[0].status, 'complete')
+      assert.equal(result.pieces[1].status, 'complete')
+    })
+
+    it('should return failed status when some pieces fail', async () => {
+      const testPieceCid1 = calculatePieceCID(new Uint8Array(127).fill(42))
+      const testPieceCid2 = calculatePieceCID(new Uint8Array(127).fill(43))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.pullPiecesHandler(
+          Mocks.pdp.createPullResponse('failed', [
+            { pieceCid: testPieceCid1.toString(), status: 'complete' },
+            { pieceCid: testPieceCid2.toString(), status: 'failed' },
+          ]),
+          pdpOptions
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      const result = await service.pull({
+        pieces: [testPieceCid1, testPieceCid2],
+        from: 'https://primary.example.com',
+      })
+
+      assert.equal(result.status, 'failed')
+      assert.lengthOf(result.pieces, 2)
+      assert.equal(result.pieces[0].status, 'complete')
+      assert.equal(result.pieces[1].status, 'failed')
+    })
+
+    it('should throw when pull endpoint fails', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        Mocks.pdp.pullPiecesErrorHandler('Network error', 500, pdpOptions)
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      try {
+        await service.pull({
+          pieces: [testPieceCid],
+          from: 'https://primary.example.com',
+        })
+        assert.fail('Should have thrown error')
+      } catch (error: any) {
+        assert.include(error.message, 'StorageContext pull failed')
+        assert.include(error.message, 'Failed to pull pieces from source provider')
+      }
+    })
+
+    it('should complete pull after polling through pending status', async () => {
+      const testPieceCid = calculatePieceCID(new Uint8Array(127).fill(42))
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+        }),
+        Mocks.PING(),
+        // Simulate 1 pending poll before completing
+        Mocks.pdp.pullPiecesPollingHandler(
+          1,
+          Mocks.pdp.createPullResponse('complete', [{ pieceCid: testPieceCid.toString(), status: 'complete' }]),
+          pdpOptions
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
+      const service = await StorageContext.create(synapse, warmStorageService, {
+        dataSetId: BigInt(DATA_SET_ID),
+      })
+
+      const result = await service.pull({
+        pieces: [testPieceCid],
+        from: 'https://primary.example.com',
+      })
+
+      assert.equal(result.status, 'complete')
+      assert.lengthOf(result.pieces, 1)
+      assert.equal(result.pieces[0].status, 'complete')
+    })
+  })
+
+  describe('multi-copy upload orchestration', () => {
+    const FAKE_TX_HASH = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as const
+    const DATA_SET_ID = 1
+
+    it('should throw StoreError when primary store fails', async () => {
+      // StoreError is only thrown in multi-copy path (count >= 2)
+      // Use explicit contexts to ensure provider1 is primary
+      const testData = new Uint8Array(127).fill(42)
+      const provider1Options = { baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL }
+      const provider2Options = { baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL }
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+        }),
+        // Both providers respond to ping
+        Mocks.PING(provider1Options),
+        Mocks.PING(provider2Options),
+        // Primary store fails
+        http.post(`${provider1Options.baseUrl}/pdp/piece/uploads`, () => {
+          return HttpResponse.error()
+        })
+      )
+
+      const synapse = new Synapse({ client })
+
+      // Create contexts explicitly to ensure provider1 is primary
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId],
+      })
+
+      try {
+        // Explicit contexts with 2 providers triggers multi-copy path
+        await synapse.storage.upload(testData, { contexts })
+        assert.fail('Should have thrown StoreError')
+      } catch (error: any) {
+        assert.include(error.name, 'StoreError')
+        assert.include(error.message, 'Failed to store on primary provider')
+      }
+    })
+
+    it('should throw CommitError when primary commit fails after successful store', async () => {
+      // CommitError is only thrown in multi-copy path (count >= 2)
+      // Use explicit contexts to ensure provider1 is primary
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const provider1Options = { baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL }
+      const provider2Options = { baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL }
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+        }),
+        // Both providers respond to ping
+        Mocks.PING(provider1Options),
+        Mocks.PING(provider2Options),
+        // Primary store succeeds
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, provider1Options),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, provider1Options),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), provider1Options),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, provider1Options),
+        // Primary commit fails
+        http.post(`${provider1Options.baseUrl}/pdp/data-sets/create-and-add`, () => {
+          return HttpResponse.json({ error: 'Transaction failed' }, { status: 500 })
+        })
+      )
+
+      const synapse = new Synapse({ client })
+
+      // Create contexts explicitly to ensure provider1 is primary
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId],
+      })
+
+      try {
+        // Explicit contexts with 2 providers triggers multi-copy path
+        await synapse.storage.upload(testData, { contexts })
+        assert.fail('Should have thrown CommitError')
+      } catch (error: any) {
+        assert.include(error.name, 'CommitError')
+        assert.include(error.message, 'Failed to commit on primary provider')
+      }
+    })
+
+    it('should succeed with primary-only copy when all secondaries fail', async () => {
+      // This test uses explicit contexts to control provider ordering
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const provider1Options = { baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL }
+      const provider2Options = { baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL }
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+        }),
+        // Both providers respond to ping
+        Mocks.PING(provider1Options),
+        Mocks.PING(provider2Options),
+        // Primary (provider1) store and commit succeed
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, provider1Options),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, provider1Options),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), provider1Options),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, provider1Options),
+        Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, provider1Options),
+        Mocks.pdp.dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            createMessageHash: FAKE_TX_HASH,
+            dataSetCreated: true,
+            service: 'test',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: DATA_SET_ID,
+          },
+          provider1Options
+        ),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          DATA_SET_ID,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: DATA_SET_ID,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [101],
+          },
+          provider1Options
+        )
+        // No handlers for provider2 - secondary pull will fail
+      )
+
+      const synapse = new Synapse({ client })
+
+      // Create contexts explicitly to ensure provider1 is primary
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId],
+      })
+
+      const result = await synapse.storage.upload(testData, { contexts })
+
+      // Should succeed with partial result
+      assert.equal(result.pieceCid.toString(), expectedPieceCid.toString())
+      assert.equal(result.size, 127)
+      assert.lengthOf(result.copies, 1, 'Should have 1 successful copy (primary only)')
+      assert.equal(result.copies[0].role, 'primary')
+      assert.isAbove(result.failures.length, 0, 'Should have at least 1 failure (secondary)')
+    })
+
+    it('should call onCopyComplete for each piece when secondary pull succeeds', async () => {
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const provider1Options = { baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL }
+      const provider2Options = { baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL }
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+        }),
+        Mocks.PING(provider1Options),
+        Mocks.PING(provider2Options),
+        // Primary store and commit
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, provider1Options),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, provider1Options),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), provider1Options),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, provider1Options),
+        Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, provider1Options),
+        Mocks.pdp.dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            createMessageHash: FAKE_TX_HASH,
+            dataSetCreated: true,
+            service: 'test',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: DATA_SET_ID,
+          },
+          provider1Options
+        ),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          DATA_SET_ID,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: DATA_SET_ID,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [101],
+          },
+          provider1Options
+        ),
+        // Secondary pull and commit
+        Mocks.pdp.pullPiecesHandler(
+          { status: 'complete', pieces: [{ pieceCid: expectedPieceCid.toString(), status: 'complete' }] },
+          provider2Options
+        ),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, provider2Options),
+        Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, provider2Options),
+        Mocks.pdp.dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            createMessageHash: FAKE_TX_HASH,
+            dataSetCreated: true,
+            service: 'test',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: DATA_SET_ID + 1,
+          },
+          provider2Options
+        ),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          DATA_SET_ID + 1,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: DATA_SET_ID + 1,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [201],
+          },
+          provider2Options
+        )
+      )
+
+      const synapse = new Synapse({ client })
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId],
+      })
+
+      const copyCompleteEvents: Array<{ providerId: bigint; pieceCid: string }> = []
+      const confirmedEvents: Array<{ providerId: bigint; pieceCid: string; pieceId: bigint }> = []
+
+      const result = await synapse.storage.upload(testData, {
+        contexts,
+        callbacks: {
+          onCopyComplete: (providerId, pieceCid) => {
+            copyCompleteEvents.push({ providerId, pieceCid: pieceCid.toString() })
+          },
+          onPieceConfirmed: (providerId, pieceCid, pieceId) => {
+            confirmedEvents.push({ providerId, pieceCid: pieceCid.toString(), pieceId })
+          },
+        },
+      })
+
+      assert.equal(result.copies.length, 2, 'Should have 2 copies')
+      assert.equal(copyCompleteEvents.length, 1, 'onCopyComplete should fire once for secondary')
+      assert.equal(copyCompleteEvents[0].providerId, Mocks.PROVIDERS.provider2.providerId)
+      assert.equal(copyCompleteEvents[0].pieceCid, expectedPieceCid.toString())
+      assert.equal(confirmedEvents.length, 2, 'onPieceConfirmed should fire for each provider')
+    })
+
+    it('should call onCopyFailed when secondary pull fails', async () => {
+      const testData = new Uint8Array(127).fill(42)
+      const expectedPieceCid = Piece.calculate(testData)
+      const mockUuid = '12345678-90ab-cdef-1234-567890abcdef'
+      const provider1Options = { baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL }
+      const provider2Options = { baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL }
+
+      server.use(
+        Mocks.JSONRPC({
+          ...Mocks.presets.basic,
+          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]),
+        }),
+        Mocks.PING(provider1Options),
+        Mocks.PING(provider2Options),
+        // Primary store and commit succeeds
+        Mocks.pdp.postPieceUploadsHandler(mockUuid, provider1Options),
+        Mocks.pdp.uploadPieceStreamingHandler(mockUuid, provider1Options),
+        Mocks.pdp.finalizePieceUploadHandler(mockUuid, expectedPieceCid.toString(), provider1Options),
+        Mocks.pdp.findPieceHandler(expectedPieceCid.toString(), true, provider1Options),
+        Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, provider1Options),
+        Mocks.pdp.dataSetCreationStatusHandler(
+          FAKE_TX_HASH,
+          {
+            createMessageHash: FAKE_TX_HASH,
+            dataSetCreated: true,
+            service: 'test',
+            txStatus: 'confirmed',
+            ok: true,
+            dataSetId: DATA_SET_ID,
+          },
+          provider1Options
+        ),
+        Mocks.pdp.pieceAdditionStatusHandler(
+          DATA_SET_ID,
+          FAKE_TX_HASH,
+          {
+            txHash: FAKE_TX_HASH,
+            txStatus: 'confirmed',
+            dataSetId: DATA_SET_ID,
+            pieceCount: 1,
+            addMessageOk: true,
+            piecesAdded: true,
+            confirmedPieceIds: [101],
+          },
+          provider1Options
+        ),
+        // Secondary pull fails
+        Mocks.pdp.pullPiecesErrorHandler('Pull failed: connection refused', 500, provider2Options)
+      )
+
+      const synapse = new Synapse({ client })
+      const contexts = await synapse.storage.createContexts({
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider2.providerId],
+      })
+
+      const copyFailedEvents: Array<{ providerId: bigint; pieceCid: string; error: string }> = []
+
+      const result = await synapse.storage.upload(testData, {
+        contexts,
+        callbacks: {
+          onCopyFailed: (providerId, pieceCid, error) => {
+            copyFailedEvents.push({ providerId, pieceCid: pieceCid.toString(), error: error.message })
+          },
+        },
+      })
+
+      assert.equal(result.copies.length, 1, 'Should have 1 copy (primary only)')
+      assert.equal(result.failures.length, 1, 'Should have 1 failure')
+      assert.equal(copyFailedEvents.length, 1, 'onCopyFailed should fire once')
+      assert.equal(copyFailedEvents[0].providerId, Mocks.PROVIDERS.provider2.providerId)
     })
   })
 
@@ -1491,7 +1774,7 @@ describe('StorageService', () => {
           await StorageContext.create(synapse, warmStorageService)
           assert.fail('Should have thrown error')
         } catch (error: any) {
-          assert.include(error.message, 'StorageContext selectProviderWithPing failed')
+          assert.include(error.message, 'StorageContext smartSelectProvider failed')
           assert.include(error.message, 'All 2 providers failed health check')
         }
       })

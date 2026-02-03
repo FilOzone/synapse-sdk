@@ -11,6 +11,7 @@
 
 export * from '@filoz/synapse-core/chains'
 export { formatUnits, parseUnits } from '@filoz/synapse-core/utils'
+export * from './errors/index.ts'
 export { Synapse } from './synapse.ts'
 export * from './types.ts'
 export * from './utils/constants.ts'

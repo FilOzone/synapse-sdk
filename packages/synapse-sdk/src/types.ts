@@ -7,6 +7,7 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
+import type { PullStatus } from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
@@ -19,6 +20,7 @@ export type DataSetId = bigint
 export type ServiceProvider = Address
 
 export type { RailInfo } from '@filoz/synapse-core/pay'
+export type { PullStatus } from '@filoz/synapse-core/sp'
 export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
 
 /**
@@ -58,8 +60,6 @@ export interface SynapseOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** Whether to filter providers by IPNI availability */
-  withIpni?: boolean
 }
 
 export interface SynapseFromClientOptions {
@@ -73,8 +73,6 @@ export interface SynapseFromClientOptions {
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
-  /** Whether to filter providers by IPNI availability */
-  withIpni?: boolean
 }
 
 /**
@@ -261,12 +259,22 @@ export interface SettlementResult {
 // ============================================================================
 // Storage Context Creation Types
 // ============================================================================
-// These types are used when creating or selecting storage contexts
-// (provider + data set pairs)
+//
+// BaseContextOptions contains shared fields: withCDN, metadata, callbacks.
+//
+// CreateContextOptions extends BaseContextOptions with singular fields
+// (providerId, dataSetId) for single-context creation methods.
+//
+// CreateContextsOptions extends BaseContextOptions with plural fields
+// (providerIds, dataSetIds, count, excludeProviderIds) for multi-context methods.
+//
+// StorageManagerUploadOptions (in manager.ts) extends CreateContextsOptions
+// with upload-specific fields (contexts, pieceCid, signal).
+//
 // ============================================================================
 
 /**
- * Callbacks for storage service creation process
+ * Callbacks for storage context creation process
  *
  * These callbacks provide visibility into the context creation process,
  * including provider and data set selection.
@@ -285,68 +293,155 @@ export interface StorageContextCallbacks {
   onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: PDPProvider }) => void
 }
 
-export interface CreateContextsOptions {
-  /** Number of contexts to create (optional, defaults to 2) */
-  count?: number
-  /**
-   * Specific data set IDs to use
-   */
-  dataSetIds?: bigint[]
-  /**
-   * Specific provider IDs to use
-   */
-  providerIds?: bigint[]
-  /** Do not select any of these providers */
-  excludeProviderIds?: bigint[]
-  /** Whether to enable CDN services */
+/**
+ * Base options shared by all context creation methods
+ *
+ * Contains fields common to both single and multi-context creation:
+ * CDN enablement, metadata matching, and creation callbacks.
+ */
+export interface BaseContextOptions {
+  /** Whether to enable CDN services for the context */
   withCDN?: boolean
-  withIpni?: boolean
-  dev?: boolean
+
   /**
-   * Custom metadata for the data sets (key-value pairs)
-   * When smart-selecting data sets, this metadata will be used to match.
+   * Custom metadata for data sets (key-value pairs).
+   * Used to match existing data sets during provider selection or smart selection.
    */
   metadata?: Record<string, string>
-  /** Create new data sets, even if candidates exist */
-  forceCreateDataSets?: boolean
-  /** Callbacks for creation process (will need to change to handle multiples) */
+
+  /** Callbacks for context creation process */
   callbacks?: StorageContextCallbacks
-  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
-  uploadBatchSize?: number
 }
 
 /**
- * Options for creating or selecting a storage context
+ * Options for creating a single storage context
  *
- * Used by StorageManager.createContext() and indirectly by StorageManager.upload()
- * when auto-creating contexts. Allows specification of:
- * - Provider selection (by ID or address)
- * - Data set selection or creation
- * - CDN enablement and metadata
- * - Creation process callbacks
+ * Used by `StorageManager.createContext()` and `StorageContext.create()`.
+ * Uses singular `providerId` and `dataSetId` to match the single-context semantics.
+ *
+ * @example
+ * ```typescript
+ * // Create context for specific provider
+ * const ctx = await storage.createContext({ providerId: 1n })
+ *
+ * // Create context for specific data set
+ * const ctx = await storage.createContext({ dataSetId: 5n })
+ *
+ * // Let smart selection choose (with CDN enabled)
+ * const ctx = await storage.createContext({ withCDN: true })
+ * ```
  */
-export interface StorageServiceOptions {
-  /** Specific provider ID to use (optional) */
+export interface CreateContextOptions extends BaseContextOptions {
+  /**
+   * Specific provider ID to use.
+   *
+   * When provided:
+   * - Context is created for this specific provider
+   * - Provider must exist in the registry
+   * - Existing data set matching `metadata` is reused when available
+   * - Mutually exclusive with `dataSetId`
+   *
+   * @throws If provider is not found in registry
+   * @throws If combined with `dataSetId`
+   */
   providerId?: bigint
-  /** Do not select any of these providers */
-  excludeProviderIds?: bigint[]
-  /** Specific provider address to use (optional) */
-  providerAddress?: Address
-  /** Specific data set ID to use (optional) */
+
+  /**
+   * Specific data set ID to use.
+   *
+   * When provided:
+   * - Context is created for this specific data set
+   * - Data set must exist and belong to the current client
+   * - Mutually exclusive with `providerId`
+   *
+   * @throws If data set does not exist or is not owned by client
+   * @throws If combined with `providerId`
+   */
   dataSetId?: bigint
-  /** Whether to enable CDN services */
-  withCDN?: boolean
-  withIpni?: boolean
-  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
-  dev?: boolean
-  /** Force creation of a new data set, even if a candidate exists */
-  forceCreateDataSet?: boolean
-  /** Maximum number of uploads to process in a single batch (default: 32, minimum: 1) */
-  uploadBatchSize?: number
-  /** Callbacks for creation process */
-  callbacks?: StorageContextCallbacks
-  /** Custom metadata for the data set (key-value pairs) */
-  metadata?: Record<string, string>
+}
+
+/**
+ * Options for creating multiple storage contexts
+ *
+ * Used by `StorageManager.createContexts()` and `StorageContext.createContexts()`.
+ * Uses plural `providerIds` and `dataSetIds` to match the multi-context semantics.
+ *
+ * Three mutually exclusive modes:
+ * 1. `dataSetIds` provided: creates contexts for exactly those data sets
+ * 2. `providerIds` provided: creates contexts for exactly those providers
+ * 3. Neither provided: uses smart selection with `count` (default 2)
+ *
+ * @example
+ * ```typescript
+ * // Create contexts for specific providers
+ * const ctxs = await storage.createContexts({ providerIds: [1n, 2n] })
+ *
+ * // Create 3 contexts via smart selection
+ * const ctxs = await storage.createContexts({ count: 3 })
+ *
+ * // Create contexts for specific data sets
+ * const ctxs = await storage.createContexts({ dataSetIds: [5n, 10n] })
+ * ```
+ */
+export interface CreateContextsOptions extends BaseContextOptions {
+  /**
+   * Number of contexts to create.
+   *
+   * - When NEITHER `dataSetIds` nor `providerIds` are specified: controls smart selection
+   * - When explicit IDs are provided: if specified, must match the deduplicated array length
+   *
+   * @default 2 (only for smart selection)
+   */
+  count?: number
+
+  /**
+   * Specific data set IDs to use.
+   *
+   * When provided:
+   * - Contexts are created for exactly these data sets (duplicates removed)
+   * - If `count` is specified, it must match the deduplicated length
+   * - Each data set must exist and belong to the current client
+   * - Each data set must belong to a unique provider (no duplicates)
+   * - Mutually exclusive with `providerIds`
+   *
+   * **Note:** Bypasses smart selection. Endorsed provider prioritization and
+   * ordering logic are your responsibility when using explicit IDs.
+   *
+   * @throws If any data set does not exist or is not owned by client
+   * @throws If data sets resolve to duplicate providers
+   * @throws If combined with `providerIds`
+   * @throws If `count` does not match deduplicated array length
+   */
+  dataSetIds?: bigint[]
+
+  /**
+   * Specific provider IDs to use.
+   *
+   * When provided:
+   * - Contexts are created for exactly these providers (duplicates removed)
+   * - If `count` is specified, it must match the deduplicated length
+   * - Each provider must exist in the registry
+   * - Existing data sets matching `metadata` are reused when available
+   * - Mutually exclusive with `dataSetIds`
+   *
+   * **Note:** Bypasses smart selection. Endorsed provider prioritization and
+   * ordering logic are your responsibility when using explicit IDs.
+   *
+   * @throws If any provider is not found in registry
+   * @throws If combined with `dataSetIds`
+   * @throws If `count` does not match deduplicated array length
+   */
+  providerIds?: bigint[]
+
+  /**
+   * Provider IDs to exclude from smart selection.
+   *
+   * Only applies when NEITHER `dataSetIds` nor `providerIds` are specified.
+   * Used internally by retry logic to avoid re-selecting failed providers.
+   *
+   * @internal Not recommended for general use
+   */
+  excludeProviderIds?: bigint[]
 }
 
 /**
@@ -375,25 +470,43 @@ export interface PreflightInfo {
 // ============================================================================
 // The SDK provides different upload options for different use cases:
 //
-// 1. UploadCallbacks - Progress callbacks only (used by all upload methods)
+// 1. UploadCallbacks - Upload lifecycle callbacks (used by all upload methods)
 // 2. UploadOptions - For StorageContext.upload() (adds piece metadata)
 // 3. StorageManagerUploadOptions - For StorageManager.upload() (internal type
 //    that combines context creation + upload in one call)
 // ============================================================================
 
+/**
+ * Callbacks for upload operations
+ *
+ * These callbacks provide visibility into the upload lifecycle:
+ * - store → pull to secondaries → commit flow
+ *
+ * Provider-scoped callbacks follow a consistent signature pattern:
+ * (providerId, pieceCid, ...extra) for correlating events with both the
+ * provider and the specific piece.
+ */
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
   onProgress?: (bytesUploaded: number) => void
-  /** Called when upload to service provider completes */
-  onUploadComplete?: (pieceCid: PieceCID) => void
-  /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void
-  /** @deprecated Use onPiecesAdded instead */
-  onPieceAdded?: (transaction?: Hex) => void
-  /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void
-  /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: bigint[]) => void
+
+  /** Called after data is stored on a provider (uploaded but not yet committed on-chain) */
+  onStored?: (providerId: bigint, pieceCid: PieceCID) => void
+
+  /** Called with progress updates during pull to secondary providers */
+  onPullProgress?: (providerId: bigint, pieceCid: PieceCID, status: PullStatus) => void
+
+  /** Called when a copy to a secondary provider completes successfully */
+  onCopyComplete?: (providerId: bigint, pieceCid: PieceCID) => void
+
+  /** Called when a copy to a secondary provider fails */
+  onCopyFailed?: (providerId: bigint, pieceCid: PieceCID, error: Error) => void
+
+  /** Called when the addPieces transaction has been submitted for a provider (before on-chain confirmation) */
+  onPieceAdded?: (providerId: bigint, pieceCid: PieceCID) => void
+
+  /** Called after the addPieces transaction is confirmed on-chain for a provider */
+  onPieceConfirmed?: (providerId: bigint, pieceCid: PieceCID, pieceId: bigint) => void
 }
 
 /**
@@ -415,7 +528,7 @@ export interface PieceRecord {
  */
 export interface UploadOptions extends UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
-  metadata?: MetadataObject
+  pieceMetadata?: MetadataObject
   /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
   pieceCid?: PieceCID
   /** Optional AbortSignal to cancel the upload */
@@ -423,15 +536,167 @@ export interface UploadOptions extends UploadCallbacks {
 }
 
 /**
- * Upload result information
+ * Input types for upload operations
+ */
+export type UploadData = Uint8Array | ReadableStream<Uint8Array>
+
+/**
+ * Result of a successful copy to a single provider
+ */
+export interface CopyResult {
+  /** Provider ID */
+  providerId: bigint
+  /** Data set ID on this provider */
+  dataSetId: bigint
+  /** Piece ID within the data set */
+  pieceId: bigint
+  /** Role in the upload flow */
+  role: 'primary' | 'secondary'
+  /** Direct retrieval URL */
+  retrievalUrl: string
+  /** Whether a new data set was created for this copy */
+  isNewDataSet: boolean
+}
+
+/**
+ * Information about a failed copy attempt
+ */
+export interface FailedCopy {
+  /** Provider ID that failed */
+  providerId: bigint
+  /** Role of the provider that failed */
+  role: 'primary' | 'secondary'
+  /** Error message */
+  error: string
+  /** Was this an explicitly requested provider? */
+  explicit: boolean
+}
+
+/**
+ * Upload result information with multi-copy support.
+ *
+ * **Important:** Receiving an UploadResult does not guarantee all copies succeeded.
+ * Always check `copies.length` against your requested count and inspect `failures`
+ * if fewer copies than expected were created.
+ *
+ * @example
+ * ```typescript
+ * const result = await synapse.storage.upload(data, { count: 3 })
+ *
+ * if (result.copies.length < 3) {
+ *   console.warn(`Only ${result.copies.length}/3 copies succeeded`)
+ *   for (const failure of result.failures) {
+ *     console.error(`Provider ${failure.providerId} failed: ${failure.error}`)
+ *   }
+ * }
+ * ```
  */
 export interface UploadResult {
-  /** PieceCID of the uploaded data */
+  /** The piece CID (same across all copies) */
   pieceCid: PieceCID
-  /** Size of the original data */
+  /** Raw data size in bytes */
   size: number
-  /** Piece ID in the data set */
-  pieceId?: bigint
+  /**
+   * Successful copies. Primary is first (index 0) when it succeeds.
+   * Length may be less than requested count if some providers failed.
+   */
+  copies: CopyResult[]
+  /**
+   * Failed provider attempts. Empty if all copies succeeded.
+   *
+   * Note: `failures.length + copies.length` may exceed the requested count
+   * because failed providers are retried with alternates. For example,
+   * requesting 2 copies might yield 2 successful copies and 3 failures
+   * if multiple retry attempts were needed.
+   */
+  failures: FailedCopy[]
+}
+
+/**
+ * Options for the store() split operation
+ */
+export interface StoreOptions {
+  /** Pre-calculated PieceCID (skip calculation) */
+  pieceCid?: PieceCID
+  /** AbortSignal for cancellation */
+  signal?: AbortSignal
+  /** Called periodically during upload with bytes uploaded so far */
+  onProgress?: (bytesUploaded: number) => void
+}
+
+/**
+ * Result of a store() operation
+ */
+export interface StoreResult {
+  /** PieceCID of the stored data */
+  pieceCid: PieceCID
+  /** Size in bytes */
+  size: number
+}
+
+/**
+ * Source for pull operations - either a StorageContext or base URL
+ */
+export type PullSource = { getPieceUrl(pieceCid: PieceCID): string } | string
+
+/**
+ * Options for the pull() split operation
+ */
+export interface PullOptions {
+  /** Pieces to pull */
+  pieces: PieceCID[]
+  /** Source to pull from (StorageContext or base URL) */
+  from: PullSource
+  /** AbortSignal for cancellation */
+  signal?: AbortSignal
+  /** Progress callback */
+  onProgress?: (pieceCid: PieceCID, status: PullStatus) => void
+  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  extraData?: Hex
+}
+
+/**
+ * Result of a pull() operation
+ */
+export interface PullResult {
+  /** Overall status - 'complete' only if ALL pieces succeeded */
+  status: 'complete' | 'failed'
+  /** Per-piece results */
+  pieces: Array<{
+    pieceCid: PieceCID
+    status: 'complete' | 'failed'
+    error?: string
+  }>
+}
+
+/**
+ * Options for the commit() split operation
+ */
+export interface CommitOptions {
+  /** Pieces to commit on-chain */
+  pieces: Array<{
+    pieceCid: PieceCID
+    /** Per-piece metadata (distinct from dataset metadata) */
+    pieceMetadata?: Record<string, string>
+  }>
+  /** Pre-built signed extraData. When provided, skips internal EIP-712 signing. */
+  extraData?: Hex
+  /** Called after the addPieces transaction is submitted but before on-chain confirmation */
+  onSubmitted?: () => void
+}
+
+/**
+ * Result of a commit() operation
+ */
+export interface CommitResult {
+  /** Transaction hash */
+  txHash: Hex
+  /** Piece IDs assigned */
+  pieceIds: bigint[]
+  /** Data set ID */
+  dataSetId: bigint
+  /** Whether a new data set was created */
+  isNewDataSet: boolean
 }
 
 /**

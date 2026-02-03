@@ -10,10 +10,10 @@ import type { AddPiecesSuccess } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import { type Account, type Client, createWalletClient, type Hex, type Transport, http as viemHttp } from 'viem'
+import { type Account, type Client, createWalletClient, type Transport, http as viemHttp } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { Synapse } from '../synapse.ts'
-import type { PieceCID, PieceRecord } from '../types.ts'
+import type { PieceCID } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
 
 // mock server for testing
@@ -59,8 +59,8 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-    let addPiecesCount = 0
-    let uploadCompleteCount = 0
+    let confirmedCount = 0
+    let storedCount = 0
     server.use(
       Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
       Mocks.PING(),
@@ -74,19 +74,27 @@ describe('Storage Upload', () => {
           },
         })
       }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        const response: AddPiecesSuccess = {
-          addMessageOk: true,
-          confirmedPieceIds: [0, 1, 2],
-          dataSetId: parseInt(params.id, 10),
-          pieceCount: 3,
-          piecesAdded: true,
-          txHash,
-          txStatus: 'confirmed',
-        }
+      http.get<{ id: string }>(
+        `https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`,
+        (() => {
+          let pieceIdCounter = 0
+          return ({ params }) => {
+            // Each upload commits separately, so return incrementing piece IDs
+            const pieceId = pieceIdCounter++
+            const response: AddPiecesSuccess = {
+              addMessageOk: true,
+              confirmedPieceIds: [pieceId],
+              dataSetId: parseInt(params.id, 10),
+              pieceCount: 1,
+              piecesAdded: true,
+              txHash,
+              txStatus: 'confirmed',
+            }
 
-        return HttpResponse.json(response, { status: 200 })
-      })
+            return HttpResponse.json(response, { status: 200 })
+          }
+        })()
+      )
     )
     const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
@@ -98,22 +106,22 @@ describe('Storage Upload', () => {
 
     // Create distinct data for each upload
     const firstData = new Uint8Array(127).fill(1) // 127 bytes
-    const secondData = new Uint8Array(128).fill(2) // 66 bytes
-    const thirdData = new Uint8Array(129).fill(3) // 67 bytes
+    const secondData = new Uint8Array(128).fill(2) // 128 bytes
+    const thirdData = new Uint8Array(129).fill(3) // 129 bytes
 
     // Start all uploads concurrently with callbacks
     const uploads = [
       context.upload(firstData, {
-        onPieceAdded: () => addPiecesCount++,
-        onUploadComplete: () => uploadCompleteCount++,
+        onPieceConfirmed: () => confirmedCount++,
+        onStored: () => storedCount++,
       }),
       context.upload(secondData, {
-        onPieceAdded: () => addPiecesCount++,
-        onUploadComplete: () => uploadCompleteCount++,
+        onPieceConfirmed: () => confirmedCount++,
+        onStored: () => storedCount++,
       }),
       context.upload(thirdData, {
-        onPieceAdded: () => addPiecesCount++,
-        onUploadComplete: () => uploadCompleteCount++,
+        onPieceConfirmed: () => confirmedCount++,
+        onStored: () => storedCount++,
       }),
     ]
 
@@ -121,231 +129,13 @@ describe('Storage Upload', () => {
     assert.lengthOf(results, 3, 'All three uploads should complete successfully')
 
     const resultSizes = results.map((r) => r.size)
-    const resultPieceIds = results.map((r) => r.pieceId)
+    // Piece IDs may be assigned in any order due to concurrent commits
+    const resultPieceIds = results.map((r) => r.copies[0].pieceId).sort()
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
     assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
-    assert.strictEqual(addPiecesCount, 3, 'addPieces should be called 3 times')
-    assert.strictEqual(uploadCompleteCount, 3, 'uploadComplete should be called 3 times')
-  })
-
-  it('should respect batch size configuration', async () => {
-    let addPiecesCalls = 0
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-    server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
-      Mocks.PING(),
-      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
-      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        addPiecesCalls++
-
-        if (addPiecesCalls === 2) {
-          return HttpResponse.json(
-            {
-              addMessageOk: true,
-              confirmedPieceIds: [2],
-              dataSetId: parseInt(params.id, 10),
-              pieceCount: 1,
-              piecesAdded: true,
-              txHash,
-              txStatus: 'confirmed',
-            } satisfies AddPiecesSuccess,
-            { status: 200 }
-          )
-        }
-
-        return HttpResponse.json({
-          addMessageOk: true,
-          confirmedPieceIds: [0, 1],
-          dataSetId: parseInt(params.id, 10),
-          pieceCount: 2,
-          piecesAdded: true,
-          txHash,
-          txStatus: 'confirmed',
-        } satisfies AddPiecesSuccess)
-      })
-    )
-    const synapse = new Synapse({ client })
-    const context = await synapse.storage.createContext({
-      withCDN: true,
-      uploadBatchSize: 2,
-      metadata: {
-        environment: 'test',
-      },
-    })
-
-    // Create distinct data for each upload
-    const firstData = new Uint8Array(127).fill(1) // 127 bytes
-    const secondData = new Uint8Array(128).fill(2) // 66 bytes
-    const thirdData = new Uint8Array(129).fill(3) // 67 bytes
-
-    // Start all uploads concurrently with callbacks
-    const uploads = [context.upload(firstData), context.upload(secondData), context.upload(thirdData)]
-
-    const results = await Promise.all(uploads)
-
-    assert.lengthOf(results, 3, 'All three uploads should complete successfully')
-
-    assert.strictEqual(addPiecesCalls, 2, 'addPieces should be called 2 times')
-  })
-
-  it('should handle batch size of 1', async () => {
-    let addPiecesCalls = 0
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
-    server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
-      Mocks.PING(),
-      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
-      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        addPiecesCalls++
-
-        if (addPiecesCalls === 2) {
-          return HttpResponse.json(
-            {
-              addMessageOk: true,
-              confirmedPieceIds: [1],
-              dataSetId: parseInt(params.id, 10),
-              pieceCount: 1,
-              piecesAdded: true,
-              txHash,
-              txStatus: 'confirmed',
-            } satisfies AddPiecesSuccess,
-            { status: 200 }
-          )
-        }
-        if (addPiecesCalls === 3) {
-          return HttpResponse.json(
-            {
-              addMessageOk: true,
-              confirmedPieceIds: [2],
-              dataSetId: parseInt(params.id, 10),
-              pieceCount: 1,
-              piecesAdded: true,
-              txHash,
-              txStatus: 'confirmed',
-            } satisfies AddPiecesSuccess,
-            { status: 200 }
-          )
-        }
-
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 1,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          } satisfies AddPiecesSuccess,
-          { status: 200 }
-        )
-      })
-    )
-    const synapse = new Synapse({ client })
-    const context = await synapse.storage.createContext({
-      withCDN: true,
-      uploadBatchSize: 1,
-      metadata: {
-        environment: 'test',
-      },
-    })
-
-    // Create distinct data for each upload
-    const firstData = new Uint8Array(127).fill(1) // 127 bytes
-    const secondData = new Uint8Array(128).fill(2) // 66 bytes
-    const thirdData = new Uint8Array(129).fill(3) // 67 bytes
-
-    // Start all uploads concurrently with callbacks
-    const uploads = [context.upload(firstData), context.upload(secondData), context.upload(thirdData)]
-
-    const results = await Promise.all(uploads)
-
-    assert.lengthOf(results, 3, 'All three uploads should complete successfully')
-
-    const resultSizes = results.map((r) => r.size)
-    const resultPieceIds = results.map((r) => r.pieceId)
-
-    assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-    assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
-    assert.strictEqual(addPiecesCalls, 3, 'addPieces should be called 2 times')
-  })
-
-  it('should debounce uploads for better batching', async () => {
-    let addPiecesCalls = 0
-    const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-    const pdpOptions = {
-      baseUrl: 'https://pdp.example.com',
-    }
-    server.use(
-      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
-      Mocks.PING(),
-      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
-      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
-      http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
-        return new HttpResponse(null, {
-          status: 201,
-          headers: {
-            Location: `/pdp/data-sets/${params.id}/pieces/added/${txHash}`,
-          },
-        })
-      }),
-      http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        addPiecesCalls++
-
-        return HttpResponse.json(
-          {
-            addMessageOk: true,
-            confirmedPieceIds: [0, 1, 2, 3, 4],
-            dataSetId: parseInt(params.id, 10),
-            pieceCount: 5,
-            piecesAdded: true,
-            txHash,
-            txStatus: 'confirmed',
-          } satisfies AddPiecesSuccess,
-          { status: 200 }
-        )
-      })
-    )
-    const synapse = new Synapse({ client })
-    const context = await synapse.storage.createContext({
-      withCDN: true,
-      metadata: {
-        environment: 'test',
-      },
-    })
-
-    const uploads = []
-    for (let i = 0; i < 5; i++) {
-      uploads.push(context.upload(new Uint8Array(127).fill(i)))
-    }
-
-    await Promise.all(uploads)
-    assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
+    assert.strictEqual(confirmedCount, 3, 'onPieceConfirmed should be called 3 times')
+    assert.strictEqual(storedCount, 3, 'onStored should be called 3 times')
   })
 
   it('should accept exactly 127 bytes', async () => {
@@ -395,7 +185,7 @@ describe('Storage Upload', () => {
     const expectedSize = 127
     const upload = await context.upload(new Uint8Array(expectedSize))
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
+    assert.strictEqual(upload.copies[0].pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 127')
   })
 
@@ -447,17 +237,14 @@ describe('Storage Upload', () => {
     const upload = await context.upload(new Uint8Array(expectedSize).fill(1))
 
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
+    assert.strictEqual(upload.copies[0].pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 200 MiB')
   })
 
-  it('should handle new server with transaction tracking', async () => {
-    let pieceAddedCallbackFired = false
-    let pieceConfirmedCallbackFired = false
-    let piecesAddedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } | null = null
-    let piecesConfirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } | null = null
-    let uploadCompleteCallbackFired = false
-    let resolvedDataSetId: number | undefined
+  it('should fire onStored, onPieceAdded and onPieceConfirmed callbacks', async () => {
+    let storedArgs: { providerId?: bigint; pieceCid?: PieceCID } | null = null
+    let addedArgs: { providerId?: bigint; pieceCid?: PieceCID } | null = null
+    let confirmedArgs: { providerId?: bigint; pieceCid?: PieceCID; pieceId?: bigint } | null = null
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     const pdpOptions = {
       baseUrl: 'https://pdp.example.com',
@@ -476,12 +263,11 @@ describe('Storage Upload', () => {
         })
       }),
       http.get<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces/added/:txHash`, ({ params }) => {
-        resolvedDataSetId = parseInt(params.id, 10)
         return HttpResponse.json(
           {
             addMessageOk: true,
             confirmedPieceIds: [0],
-            dataSetId: resolvedDataSetId,
+            dataSetId: parseInt(params.id, 10),
             pieceCount: 1,
             piecesAdded: true,
             txHash,
@@ -501,46 +287,52 @@ describe('Storage Upload', () => {
 
     const expectedSize = SIZE_CONSTANTS.MIN_UPLOAD_SIZE
     const uploadResult = await context.upload(new Uint8Array(expectedSize).fill(1), {
-      onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
-        piecesAddedArgs = { transaction, pieces }
+      onStored(providerId: bigint, pieceCid: PieceCID) {
+        storedArgs = { providerId, pieceCid }
       },
-      onPiecesConfirmed(dataSetId: bigint, pieces: PieceRecord[]) {
-        piecesConfirmedArgs = { dataSetId, pieces }
+      onPieceAdded(providerId: bigint, pieceCid: PieceCID) {
+        addedArgs = { providerId, pieceCid }
       },
-      onPieceAdded() {
-        pieceAddedCallbackFired = true
-      },
-      onPieceConfirmed() {
-        pieceConfirmedCallbackFired = true
-      },
-      onUploadComplete() {
-        uploadCompleteCallbackFired = true
+      onPieceConfirmed(providerId: bigint, pieceCid: PieceCID, pieceId: bigint) {
+        confirmedArgs = { providerId, pieceCid, pieceId }
       },
     })
 
-    assert.isTrue(pieceAddedCallbackFired, 'pieceAddedCallback should have been called')
-    assert.isTrue(pieceConfirmedCallbackFired, 'pieceConfirmedCallback should have been called')
-    assert.isTrue(uploadCompleteCallbackFired, 'uploadCompleteCallback should have been called')
-    assert.isNotNull(piecesAddedArgs, 'onPiecesAdded args should be captured')
-    assert.isNotNull(piecesConfirmedArgs, 'onPiecesConfirmed args should be captured')
-    if (piecesAddedArgs == null || piecesConfirmedArgs == null) {
+    assert.isNotNull(storedArgs, 'onStored should have been called')
+    assert.isNotNull(addedArgs, 'onPieceAdded should have been called')
+    assert.isNotNull(confirmedArgs, 'onPieceConfirmed should have been called')
+    if (storedArgs == null || addedArgs == null || confirmedArgs == null) {
       throw new Error('Callbacks should have been called')
     }
-    const addedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } = piecesAddedArgs
-    const confirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } = piecesConfirmedArgs
-    assert.strictEqual(addedArgs.transaction, txHash, 'onPiecesAdded should receive transaction hash')
+    const stored: { providerId?: bigint; pieceCid?: PieceCID } = storedArgs
+    const added: { providerId?: bigint; pieceCid?: PieceCID } = addedArgs
+    const confirmed: { providerId?: bigint; pieceCid?: PieceCID; pieceId?: bigint } = confirmedArgs
     assert.strictEqual(
-      addedArgs.pieces?.[0].pieceCid.toString(),
+      stored.pieceCid?.toString(),
       uploadResult.pieceCid.toString(),
-      'onPiecesAdded should provide matching pieceCid'
+      'onStored should receive the pieceCid'
     )
-    assert.isDefined(resolvedDataSetId, 'resolvedDataSetId should be defined')
     assert.strictEqual(
-      confirmedArgs.dataSetId,
-      BigInt(resolvedDataSetId),
-      'onPiecesConfirmed should provide the dataset id'
+      added.pieceCid?.toString(),
+      uploadResult.pieceCid.toString(),
+      'onPieceAdded should receive the pieceCid'
     )
-    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0n, 'onPiecesConfirmed should include piece IDs')
+    assert.strictEqual(
+      confirmed.pieceCid?.toString(),
+      uploadResult.pieceCid.toString(),
+      'onPieceConfirmed should receive the pieceCid'
+    )
+    assert.strictEqual(confirmed.pieceId, 0n, 'onPieceConfirmed should receive the pieceId')
+    assert.strictEqual(
+      stored.providerId,
+      added.providerId,
+      'providerId should be consistent across onStored and onPieceAdded'
+    )
+    assert.strictEqual(
+      added.providerId,
+      confirmed.providerId,
+      'providerId should be consistent across onPieceAdded and onPieceConfirmed'
+    )
   })
 
   it('should handle ArrayBuffer input', async () => {
@@ -586,7 +378,7 @@ describe('Storage Upload', () => {
 
     const buffer = new Uint8Array(1024)
     const upload = await context.upload(buffer)
-    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
+    assert.strictEqual(upload.copies[0].pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')
   })
 })

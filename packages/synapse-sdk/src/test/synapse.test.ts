@@ -7,7 +7,6 @@
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
-import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
@@ -22,8 +21,6 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 // mock server for testing
 const server = setup()
 
-const providers = [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]
-const providerIds = providers.map((provider) => provider.providerId)
 const account = privateKeyToAccount(Mocks.PRIVATE_KEYS.key1)
 const client = createWalletClient({
   chain: calibration,
@@ -568,22 +565,6 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
 
-    it('force creates new data set specified by providerId even when metadata matches', async () => {
-      const metadata = {
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        providerIds: [Mocks.PROVIDERS.provider1.providerId],
-        metadata,
-        count: 1,
-        forceCreateDataSets: true,
-      })
-      assert.equal(contexts.length, 1)
-      assert.equal(BigInt(contexts[0].provider.id), Mocks.PROVIDERS.provider1.providerId)
-      // should create new data set
-      assert.equal((contexts[0] as any)._dataSetId, undefined)
-    })
-
     it('fails when provided an invalid providerId', async () => {
       try {
         await synapse.storage.createContexts({
@@ -629,52 +610,112 @@ describe('Synapse', () => {
       }
     })
 
-    it('does not create multiple contexts for the same data set from duplicate dataSetIds', async () => {
+    it('deduplicates dataSetIds', async () => {
       const metadata = {
         environment: 'test',
         withCDN: '',
       }
+      // Duplicate dataSetIds are removed
       const contexts = await synapse.storage.createContexts({
-        count: 2,
-        dataSetIds: [1n, 1n],
+        dataSetIds: [1n, 1n], // duplicates removed → [1n]
         metadata,
       })
-      assert.equal(contexts.length, 2)
+      assert.equal(contexts.length, 1)
       assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
-      // should also use different providers in this case
-      assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
     })
 
-    it('does not create multiple contexts for the same data set from duplicate providerIds', async () => {
+    it('deduplicates providerIds', async () => {
       const metadata = {
         environment: 'test',
         withCDN: '',
       }
+      // Duplicate providerIds are removed
       const contexts = await synapse.storage.createContexts({
-        count: 2,
-        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
+        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId], // duplicates removed
         metadata,
       })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+      assert.equal(contexts.length, 1)
+      assert.equal(contexts[0].provider.id, Mocks.PROVIDERS.provider1.providerId)
     })
 
-    it('does not create multiple contexts for a specified data set when providerId also provided', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
+    it('throws when count does not match unique dataSetIds length', async () => {
+      try {
+        await synapse.storage.createContexts({
+          count: 5,
+          dataSetIds: [1n, 1n], // deduped → 1
+        })
+        assert.fail('Expected error for count mismatch')
+      } catch (error: unknown) {
+        assert.include((error as Error).message, 'count (5) does not match unique dataSetIds length (1)')
       }
-      const contexts = await synapse.storage.createContexts({
-        count: 2,
-        dataSetIds: [1n, 1n],
-        providerIds: [Mocks.PROVIDERS.provider1.providerId, Mocks.PROVIDERS.provider1.providerId],
-        metadata,
-      })
-      assert.equal(contexts.length, 2)
-      assert.equal((contexts[0] as any)._dataSetId, 1)
-      assert.notEqual((contexts[0] as any)._dataSetId, (contexts[1] as any)._dataSetId)
+    })
+
+    it('throws when count does not match unique providerIds length', async () => {
+      try {
+        await synapse.storage.createContexts({
+          count: 3,
+          providerIds: [Mocks.PROVIDERS.provider1.providerId],
+        })
+        assert.fail('Expected error for count mismatch')
+      } catch (error: unknown) {
+        assert.include((error as Error).message, 'count (3) does not match unique providerIds length (1)')
+      }
+    })
+
+    it('throws when both dataSetIds and providerIds are specified', async () => {
+      try {
+        await synapse.storage.createContexts({
+          dataSetIds: [1n],
+          providerIds: [Mocks.PROVIDERS.provider1.providerId],
+        })
+        assert.fail('Expected createContexts to throw for mutual exclusivity')
+      } catch (error: unknown) {
+        assert.include((error as Error).message, "Cannot specify both 'dataSetIds' and 'providerIds'")
+      }
+    })
+
+    it('throws when dataSetIds resolve to duplicate providers', async () => {
+      // Set up custom mock where data sets 1 and 2 both belong to provider 1
+      server.resetHandlers()
+      const customPreset: any = {
+        ...Mocks.presets.basic,
+        warmStorageView: {
+          ...Mocks.presets.basic.warmStorageView,
+          getDataSet: (args: any) => {
+            const [dataSetId] = args as [bigint]
+            // Both data sets belong to the same provider
+            return [
+              {
+                pdpRailId: dataSetId,
+                cacheMissRailId: 0n,
+                cdnRailId: 0n,
+                payer: Mocks.ADDRESSES.client1,
+                payee: Mocks.ADDRESSES.serviceProvider1,
+                serviceProvider: Mocks.ADDRESSES.serviceProvider1,
+                commissionBps: 100n,
+                clientDataSetId: 0n,
+                pdpEndEpoch: 0n,
+                providerId: 1n, // Same provider for all
+                cdnEndEpoch: 0n,
+                dataSetId,
+              },
+            ]
+          },
+        },
+      }
+      server.use(Mocks.JSONRPC(customPreset))
+
+      try {
+        await synapse.storage.createContexts({
+          dataSetIds: [1n, 2n], // Different data sets, same provider
+        })
+        assert.fail('Expected error for duplicate providers')
+      } catch (error: unknown) {
+        assert.include(
+          (error as Error).message,
+          'dataSetIds resolve to duplicate providers - each context must use a unique provider'
+        )
+      }
     })
 
     it('selects existing data set by default when metadata matches', async () => {
@@ -691,34 +732,6 @@ describe('Synapse', () => {
       assert.equal((contexts[0] as any)._dataSetId, 1n)
     })
 
-    it('avoids existing data set when provider is excluded even when metadata matches', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        count: 1,
-        metadata,
-        excludeProviderIds: [1n],
-      })
-      assert.equal(contexts.length, 1)
-      assert.notEqual(contexts[0].provider.id, 1n)
-    })
-
-    it('creates new data set context when forced even when metadata matches', async () => {
-      const metadata = {
-        environment: 'test',
-        withCDN: '',
-      }
-      const contexts = await synapse.storage.createContexts({
-        count: 1,
-        metadata,
-        forceCreateDataSets: true,
-      })
-      assert.equal(contexts.length, 1)
-      assert.equal((contexts[0] as any)._dataSetId, undefined)
-    })
-
     it('can select new data sets from different providers using default params', async () => {
       const contexts = await synapse.storage.createContexts()
       assert.equal(contexts.length, 2)
@@ -729,57 +742,6 @@ describe('Synapse', () => {
       // should return the same contexts when invoked again
       const defaultContexts = await synapse.storage.createContexts()
       assert.isTrue(defaultContexts === contexts)
-    })
-
-    providerIds.forEach((endorsedProviderId, index) => {
-      describe(`when endorsing providers[${index}]`, async () => {
-        beforeEach(() => {
-          endorsedProviderIds.push(BigInt(endorsedProviderId))
-        })
-
-        it('falls back to other provider when endorsed provider fails ping', async () => {
-          // mock ping to fail for endorsed provider
-          const endorsedProvider = providers[index]
-          server.use(
-            http.get(`${endorsedProvider.products[0].offering.serviceURL}/pdp/ping`, () => HttpResponse.error())
-          )
-
-          const contexts = await synapse.storage.createContexts({
-            count: 1,
-            forceCreateDataSets: true,
-          })
-          assert.equal(contexts.length, 1)
-          assert.equal((contexts[0] as any)._dataSetId, undefined)
-
-          const otherProviderId = providerIds[providers.length - index - 1]
-          assert.equal(contexts[0].provider.id, otherProviderId)
-        })
-
-        for (const count of [1, 2]) {
-          it(`prefers to select the endorsed context when selecting ${count} providers`, async () => {
-            const counts: Record<string, number> = {}
-            for (const providerId of providerIds) {
-              counts[providerId.toString()] = 0
-            }
-            for (let i = 0; i < 5; i++) {
-              const contexts = await synapse.storage.createContexts({
-                count,
-                forceCreateDataSets: true, // This prevents the defaultContexts caching
-              })
-              assert.equal(contexts.length, count)
-              assert.equal((contexts[0] as any)._dataSetId, undefined)
-              counts[contexts[0].provider.id.toString()]++
-              if (count > 1) {
-                assert.notEqual(contexts[0].provider.id, contexts[1].provider.id)
-                assert.equal((contexts[1] as any)._dataSetId, undefined)
-              }
-            }
-            for (const providerId of providerIds) {
-              assert.equal(counts[providerId.toString()], providerId === endorsedProviderId ? 5 : 0)
-            }
-          })
-        }
-      })
     })
 
     it('can attempt to create numerous contexts, returning fewer', async () => {
@@ -855,50 +817,52 @@ describe('Synapse', () => {
         assert.equal(result.size, 1024)
       })
 
-      it('fails when one storage provider returns wrong pieceCid', async () => {
+      it('succeeds with partial copies when secondary pull fails', async () => {
+        // In the SP-to-SP pull model, secondary failure results in partial success
+        // (primary copy succeeds, secondary failure recorded)
         const data = new Uint8Array(1024)
         const pieceCid = Piece.calculate(data)
         const mockUUID = '12345678-90ab-cdef-1234-567890abcdef'
         const found = true
-        const wrongCid = 'wrongCid'
-        for (const provider of [Mocks.PROVIDERS.provider1, Mocks.PROVIDERS.provider2]) {
-          const pdpOptions = {
-            baseUrl: provider.products[0].offering.serviceURL,
-          }
-          server.use(Mocks.pdp.postPieceUploadsHandler(mockUUID, pdpOptions))
-          server.use(Mocks.pdp.uploadPieceStreamingHandler(mockUUID, pdpOptions))
-          server.use(
-            Mocks.pdp.finalizePieceUploadHandler(
-              mockUUID,
-              provider === Mocks.PROVIDERS.provider1 ? pieceCid.toString() : wrongCid,
-              pdpOptions
-            )
-          )
-          server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, pdpOptions))
-          server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, pdpOptions))
-          server.use(
-            Mocks.pdp.pieceAdditionStatusHandler(
-              DATA_SET_ID,
-              FAKE_TX_HASH,
-              {
-                txHash: FAKE_TX_HASH,
-                txStatus: 'pending',
-                dataSetId: DATA_SET_ID,
-                pieceCount: 1,
-                addMessageOk: true,
-                piecesAdded: true,
-                confirmedPieceIds: [0],
-              },
-              pdpOptions
-            )
-          )
+
+        // Set up handlers for primary (provider1) only
+        const primaryOptions = {
+          baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         }
-        try {
-          await synapse.storage.upload(data, { contexts })
-          assert.fail('Expected upload to fail when one provider returns wrong pieceCid')
-        } catch (error: any) {
-          assert.include(error.message, 'Failed to create upload session')
-        }
+        server.use(Mocks.pdp.postPieceUploadsHandler(mockUUID, primaryOptions))
+        server.use(Mocks.pdp.uploadPieceStreamingHandler(mockUUID, primaryOptions))
+        server.use(Mocks.pdp.finalizePieceUploadHandler(mockUUID, pieceCid.toString(), primaryOptions))
+        server.use(Mocks.pdp.findPieceHandler(pieceCid.toString(), found, primaryOptions))
+        server.use(Mocks.pdp.createAndAddPiecesHandler(FAKE_TX_HASH, primaryOptions))
+        server.use(
+          Mocks.pdp.pieceAdditionStatusHandler(
+            DATA_SET_ID,
+            FAKE_TX_HASH,
+            {
+              txHash: FAKE_TX_HASH,
+              txStatus: 'pending',
+              dataSetId: DATA_SET_ID,
+              pieceCount: 1,
+              addMessageOk: true,
+              piecesAdded: true,
+              confirmedPieceIds: [0],
+            },
+            primaryOptions
+          )
+        )
+
+        // No handlers for provider2's pull endpoint - it will fail
+        // The upload should still succeed with just the primary copy
+
+        const result = await synapse.storage.upload(data, { contexts })
+
+        // Verify partial success
+        assert.equal(result.pieceCid.toString(), pieceCid.toString())
+        assert.equal(result.size, 1024)
+        assert.lengthOf(result.copies, 1, 'Should have 1 successful copy (primary)')
+        assert.equal(result.copies[0].role, 'primary')
+        assert.lengthOf(result.failures, 1, 'Should have 1 failed copy (secondary)')
+        assert.equal(result.failures[0].role, 'secondary')
       })
     })
   })
