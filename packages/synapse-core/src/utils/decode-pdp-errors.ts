@@ -16,7 +16,7 @@ export function decodePDPError(error: string) {
       // try warm storage abi
       try {
         const value = decodeErrorResult({
-          abi: Abis.storage,
+          abi: Abis.fwss,
           data: extractedContent as Hex,
         })
 
@@ -29,7 +29,7 @@ export function decodePDPError(error: string) {
       if (error instanceof AbiErrorSignatureNotFoundError) {
         try {
           const value = decodeErrorResult({
-            abi: Abis.payments,
+            abi: Abis.filecoinPay,
             data: extractedContent as Hex,
           })
 

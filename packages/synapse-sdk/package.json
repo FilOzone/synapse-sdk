@@ -47,10 +47,6 @@
       "import": "./dist/src/subgraph/index.js",
       "types": "./dist/src/subgraph/index.d.ts"
     },
-    "./telemetry": {
-      "import": "./dist/src/telemetry/index.js",
-      "types": "./dist/src/telemetry/index.d.ts"
-    },
     "./warm-storage": {
       "import": "./dist/src/warm-storage/index.js",
       "types": "./dist/src/warm-storage/index.d.ts"
@@ -81,9 +77,6 @@
       "subgraph": [
         "./dist/src/subgraph"
       ],
-      "telemetry": [
-        "./dist/src/telemetry"
-      ],
       "warm-storage": [
         "./dist/src/warm-storage"
       ],
@@ -98,7 +91,7 @@
   "scripts": {
     "build": "wireit",
     "lint": "wireit",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
+    "lint:fix": "biome check --fix .",
     "test": "wireit",
     "test:node": "wireit",
     "test:browser": "wireit",
@@ -122,7 +115,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check .",
       "files": [
         "src/**/*.ts",
         "../../biome.json"
@@ -165,26 +158,21 @@
   },
   "dependencies": {
     "@filoz/synapse-core": "workspace:^",
-    "@web3-storage/data-segment": "^5.3.0",
-    "multiformats": "^13.4.1",
-    "ox": "catalog:",
-    "viem": "catalog:"
+    "multiformats": "^13.4.1"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
-    "abitype": "catalog:",
-    "chai": "^6.2.0",
-    "ethers": "catalog:",
+    "chai": "^6.2.1",
     "iso-web": "^2.1.0",
     "mocha": "catalog:",
     "msw": "catalog:",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.1.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"
@@ -195,6 +183,6 @@
     ]
   },
   "peerDependencies": {
-    "ethers": "6.x"
+    "viem": "2.x"
   }
 }

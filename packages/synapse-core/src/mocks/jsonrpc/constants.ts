@@ -1,9 +1,9 @@
-import { type Address, zeroAddress } from 'viem'
+import { type Address, type Hex, zeroAddress } from 'viem'
 import { calibration, mainnet } from '../../chains.ts'
 
 export const PRIVATE_KEYS = {
-  key1: '0x1234567890123456789012345678901234567890123456789012345678901234',
-  key2: '0x4123456789012345678901234567890123456789012345678901234567890123',
+  key1: '0x1234567890123456789012345678901234567890123456789012345678901234' as Hex,
+  key2: '0x4123456789012345678901234567890123456789012345678901234567890123' as Hex,
 }
 export const ADDRESSES = {
   client1: '0x2e988A386a799F506693793c6A5AF6B54dfAaBfB' as Address,
@@ -11,21 +11,22 @@ export const ADDRESSES = {
   serviceProvider1: '0x0000000000000000000000000000000000000001' as Address,
   serviceProvider2: '0x0000000000000000000000000000000000000002' as Address,
   payee1: '0x1000000000000000000000000000000000000001' as Address,
+  customToken: '0xaabbccddaabbccddaabbccddaabbccddaabbccdd' as Address,
   mainnet: {
-    warmStorage: mainnet.contracts.storage.address,
+    warmStorage: mainnet.contracts.fwss.address,
     multicall3: mainnet.contracts.multicall3.address,
     pdpVerifier: mainnet.contracts.pdp.address,
     endorsements: mainnet.contracts.endorsements.address,
   },
   calibration: {
-    warmStorage: calibration.contracts.storage.address,
+    warmStorage: calibration.contracts.fwss.address,
     multicall3: calibration.contracts.multicall3.address,
     pdpVerifier: calibration.contracts.pdp.address,
-    payments: calibration.contracts.payments.address,
+    payments: calibration.contracts.filecoinPay.address,
     endorsements: calibration.contracts.endorsements.address,
     usdfcToken: calibration.contracts.usdfc.address,
     filCDN: zeroAddress,
-    viewContract: calibration.contracts.storageView.address,
+    viewContract: calibration.contracts.fwssView.address,
     spRegistry: calibration.contracts.serviceProviderRegistry.address,
     sessionKeyRegistry: calibration.contracts.sessionKeyRegistry.address,
   },
@@ -62,7 +63,7 @@ export const PROVIDERS = {
           maxPieceSizeInBytes: 32n * 1024n * 1024n * 1024n,
           ipniPiece: false,
           ipniIpfs: false,
-          ipniPeerID: '',
+          ipniPeerId: undefined,
           storagePricePerTibPerDay: 1000000n,
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
@@ -90,7 +91,7 @@ export const PROVIDERS = {
           maxPieceSizeInBytes: 32n * 1024n * 1024n * 1024n,
           ipniPiece: false,
           ipniIpfs: false,
-          ipniPeerID: '',
+          ipniPeerId: undefined,
           storagePricePerTibPerDay: 1000000n,
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',
@@ -118,7 +119,7 @@ export const PROVIDERS = {
           maxPieceSizeInBytes: 32n * 1024n * 1024n * 1024n,
           ipniPiece: true,
           ipniIpfs: true,
-          ipniPeerID: '',
+          ipniPeerId: undefined,
           storagePricePerTibPerDay: 1000000n,
           minProvingPeriodInEpochs: 30n,
           location: 'us-east',

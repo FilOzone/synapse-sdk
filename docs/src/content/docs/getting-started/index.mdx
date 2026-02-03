@@ -53,10 +53,10 @@ Before you start building with Synapse SDK, you'll need to request test tokens f
 The Synapse SDK requires Node.js 20+ and can be installed via npm, yarn, or pnpm:
 
 ```bash
-npm install @filoz/synapse-sdk ethers
+npm install @filoz/synapse-sdk viem
 ```
 
-Note: `ethers` v6 is a peer dependency and must be installed separately.
+Note: `viem` is a peer dependency and must be installed separately.
 
 ## Quick Start Example
 
@@ -69,28 +69,24 @@ Instead of hardcoding `privateKey` in the code, you should always consider to st
 Get started with storage in just a few lines of code.
 
 ```ts twoslash
-import { Synapse, RPC_URLS, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk"
-import { ethers } from "ethers"
+// @lib: esnext,dom
+import { Synapse, parseUnits } from "@filoz/synapse-sdk"
+import { privateKeyToAccount } from 'viem/accounts'
 
 async function main() {
   // 1) Initialize the Synapse SDK
-  const synapse = await Synapse.create({
-    privateKey: "YOUR_PRIVATE_KEY",
-    rpcURL: RPC_URLS.calibration.http,
+  const synapse = Synapse.create({ 
+    account: privateKeyToAccount('0x...') 
     // Uncomment for high-performance incentive-aligned data retrievability through Filecoin Beam
     // withCDN: true
   })
 
   // 2) Fund & approve (single tx)
-  const depositAmount = ethers.parseUnits("2.5", 18)
-  const tx = await synapse.payments.depositWithPermitAndApproveOperator(
+  const depositAmount = parseUnits("2.5")
+  const hash = await synapse.payments.depositWithPermitAndApproveOperator(
     depositAmount, // 2.5 USDFC (covers 1TiB of storage for 30 days)
-    synapse.getWarmStorageAddress(),
-    ethers.MaxUint256,
-    ethers.MaxUint256,
-    TIME_CONSTANTS.EPOCHS_PER_MONTH,
   )
-  await tx.wait()
+  await synapse.client.waitForTransactionReceipt({ hash })
   console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 
   // 3) Upload
@@ -137,13 +133,12 @@ Now let's break down each step...
 First, set up the Synapse SDK with your credentials. We use wallet private key here as an example, but you can definitely inject signer from any wallet providers, such as MetaMask or wallet connect.
 
 ```ts twoslash
-import { Synapse, RPC_URLS } from "@filoz/synapse-sdk";
+// @lib: esnext,dom
+import { Synapse } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
 // ---cut---
 // Initialize SDK with your private key and RPC endpoint
-const synapse = await Synapse.create({
-  privateKey: "YOUR_PRIVATE_KEY",
-  rpcURL: RPC_URLS.calibration.http,
-})
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 ```
 
 ### 2: Payment Setup
@@ -154,31 +149,22 @@ To size your deposit, check the up‑to‑date rates in [**Pricing**](/introduct
 :::
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-import { TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
+// @lib: esnext,dom
+import { Synapse, TOKENS, formatUnits, parseUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
+
 // ---cut---
 // Check current USDFC balance
 const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
-const formattedBalance = ethers.formatUnits(walletBalance, 18);
-
-const depositAmount = ethers.parseUnits("2.5", 18) // 2.5 USDFC
-
-// Validate sufficient balance before proceeding
-if (walletBalance < depositAmount) {
-  throw new Error("Insufficient USDFC balance in wallet");
-}
+const formattedBalance = formatUnits(walletBalance);
+const depositAmount = parseUnits("2.5") // 2.5 USDFC
 
 // Deposit USDFC for payment and approve Warm Storage service
-const tx = await synapse.payments.depositWithPermitAndApproveOperator(
+const hash = await synapse.payments.depositWithPermitAndApproveOperator(
   depositAmount, // Deposit amount: 2.5 USDFC (covers 1TiB of storage for 30 days)
-  synapse.getWarmStorageAddress(), // Warm Storage service address
-  ethers.MaxUint256, // Rate allowance: Always max (only in Warm Storage service) permisionless audited service
-  ethers.MaxUint256, // Lockup allowance: Always max (only in Warm Storage service) permissionless audited service
-  TIME_CONSTANTS.EPOCHS_PER_MONTH, // Max lockup period: 30 days (in epochs)
 );
-await tx.wait();
+await synapse.client.waitForTransactionReceipt({ hash });
 console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 ```
 
@@ -187,8 +173,10 @@ console.log(`✅ USDFC deposit and Warm Storage service approval successful!`);
 Now you can upload data to decentralized storage and retrieve it:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 // Upload data - SDK automatically selects provider and creates data set if needed
 const data = new TextEncoder().encode(
@@ -234,13 +222,15 @@ Congratulations! You've successfully stored and retrieved data using the Synapse
 For more control over provider selection and data set management:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
 const data = {} as unknown as Uint8Array;
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 // Create a storage context with specific provider
 const context = await synapse.storage.createContext({
-  providerId: 1, // Use specific provider
+  providerId: 1n, // Use specific provider
   withCDN: true, // Enable CDN for faster retrieval
   metadata: {
     category: "documents",
@@ -264,8 +254,10 @@ const downloaded = await context.download(result.pieceCid);
 ##### Finding Service Providers
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 // Get all approved providers
 const storageInfo = await synapse.storage.getStorageInfo();
@@ -277,9 +269,9 @@ providers.forEach((provider) => {
     ID: provider.id,
     Name: provider.name,
     Description: provider.description,
-    Active: provider.active,
+    Active: provider.isActive,
     ProviderAddress: provider.serviceProvider,
-    PDPServiceURL: provider.products.PDP!.data.serviceURL,
+    PDPServiceURL: provider.pdp.serviceURL,
   });
 });
 ```

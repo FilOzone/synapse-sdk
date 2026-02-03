@@ -1,13 +1,22 @@
+import { type Chain, calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
 import { calculate, calculate as calculatePieceCID } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
 import { CID } from 'multiformats/cid'
-import { numberToHex } from 'viem'
+import {
+  type Account,
+  bytesToHex,
+  type Client,
+  createWalletClient,
+  numberToHex,
+  type Transport,
+  http as viemHttp,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { StorageContext } from '../storage/context.ts'
 import { Synapse } from '../synapse.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -16,17 +25,12 @@ import { WarmStorageService } from '../warm-storage/index.ts'
 // MSW server for JSONRPC mocking
 const server = setup()
 
-function cidBytesToContractHex(bytes: Uint8Array): `0x${string}` {
-  return ethers.hexlify(bytes) as `0x${string}`
-}
-
 const pdpOptions = {
   baseUrl: 'https://pdp.example.com',
 }
 
 describe('StorageService', () => {
-  let signer: ethers.Signer
-  let provider: ethers.Provider
+  let client: Client<Transport, Chain, Account>
   // MSW lifecycle hooks
   before(async () => {
     // Set timeout to 100ms for testing
@@ -40,8 +44,11 @@ describe('StorageService', () => {
 
   beforeEach(async () => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
+    client = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
+    })
   })
 
   describe('create() factory method', () => {
@@ -58,8 +65,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Should have selected one of the providers
@@ -82,8 +89,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.providerIPNI.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       // Create storage service without specifying providerId
       const service = await StorageContext.create(synapse, warmStorageService, {
         withIpni: true,
@@ -106,8 +113,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Create storage service without specifying providerId
       // dev defaults to false, so dev providers should be filtered out
@@ -137,8 +144,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Create storage service with dev: true
       const service = await StorageContext.create(synapse, warmStorageService, {
@@ -165,8 +172,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Create storage service with dev: false (default)
       const service = await StorageContext.create(synapse, warmStorageService, {
@@ -199,12 +206,12 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Create storage service with specific providerId
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
+        providerId: Mocks.PROVIDERS.provider1.providerId,
       })
 
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
@@ -231,10 +238,10 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
+        providerId: Mocks.PROVIDERS.provider1.providerId,
         forceCreateDataSet: true,
       })
 
@@ -263,8 +270,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
         providerAddress: Mocks.PROVIDERS.provider1.providerInfo.serviceProvider,
         forceCreateDataSet: true,
@@ -297,15 +304,14 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
+        providerId: Mocks.PROVIDERS.provider1.providerId,
       })
-
       // Should have reused existing data set (not created new one)
       assert.equal(context.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
-      assert.equal(context.dataSetId, 1, 'Should not have a data set id when forceCreateDataSet is true')
+      assert.equal(context.dataSetId, 1n, 'Should not have a data set id when forceCreateDataSet is true')
     })
 
     it('should throw when no approved providers available', async () => {
@@ -320,8 +326,8 @@ describe('StorageService', () => {
           },
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       try {
         await StorageContext.create(synapse, warmStorageService)
@@ -350,11 +356,11 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          providerId: 999,
+          providerId: 999n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -381,15 +387,15 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
+        providerId: Mocks.PROVIDERS.provider1.providerId,
       })
 
       // Should use existing data set
-      assert.equal(service.dataSetId, 1)
+      assert.equal(service.dataSetId, 1n)
     })
 
     it.skip('should create new data set when none exist', async () => {
@@ -452,15 +458,15 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
-        providerId: 1,
+        providerId: 1n,
       })
 
       // Should select the data set with pieces
-      assert.equal(service.dataSetId, 2)
+      assert.equal(service.dataSetId, 2n)
     })
 
     it('should handle provider selection callbacks', async () => {
@@ -481,11 +487,11 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       await StorageContext.create(synapse, warmStorageService, {
-        providerId: Number(Mocks.PROVIDERS.provider1.providerId),
+        providerId: Mocks.PROVIDERS.provider1.providerId,
         callbacks: {
           onProviderSelected: (provider) => {
             assert.equal(provider.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
@@ -493,7 +499,7 @@ describe('StorageService', () => {
           },
           onDataSetResolved: (info) => {
             assert.isTrue(info.isExisting)
-            assert.equal(info.dataSetId, 1)
+            assert.equal(info.dataSetId, 1n)
             dataSetCallbackFired = true
           },
         },
@@ -553,12 +559,12 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 2,
+        dataSetId: 2n,
       })
-      assert.equal(service.dataSetId, 2)
+      assert.equal(service.dataSetId, 2n)
       assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider1.providerInfo.serviceProvider)
     })
 
@@ -581,8 +587,8 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       const service = await StorageContext.create(synapse, warmStorageService, {
         providerAddress: Mocks.PROVIDERS.provider2.providerInfo.serviceProvider,
@@ -603,12 +609,12 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 999,
+          dataSetId: 999n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -635,13 +641,13 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1,
-          providerId: 2, // Conflicts with actual owner
+          dataSetId: 1n,
+          providerId: 2n, // Conflicts with actual owner
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -657,8 +663,8 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       try {
         await StorageContext.create(synapse, warmStorageService, {
           providerAddress: '0x6666666666666666666666666666666666666666',
@@ -726,20 +732,20 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Test with CDN = false
       const serviceNoCDN = await StorageContext.create(synapse, warmStorageService, {
         withCDN: false,
       })
-      assert.equal(serviceNoCDN.dataSetId, 1, 'Should select non-CDN data set')
+      assert.equal(serviceNoCDN.dataSetId, 1n, 'Should select non-CDN data set')
 
       // Test with CDN = true
       const serviceWithCDN = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
-      assert.equal(serviceWithCDN.dataSetId, 2, 'Should select CDN data set')
+      assert.equal(serviceWithCDN.dataSetId, 2n, 'Should select CDN data set')
     })
 
     it.skip('should handle data sets not managed by current WarmStorage', async () => {
@@ -749,8 +755,8 @@ describe('StorageService', () => {
           serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.provider1]),
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       // Should create new data set since existing one is not managed
       const service = await StorageContext.create(synapse, warmStorageService, {})
@@ -789,12 +795,12 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1,
+          dataSetId: 1n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -836,11 +842,11 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1,
+          dataSetId: 1n,
         })
         assert.fail('Should have thrown error')
       } catch (error: any) {
@@ -877,12 +883,12 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       try {
         await StorageContext.create(synapse, warmStorageService, {
-          dataSetId: 1,
+          dataSetId: 1n,
           providerAddress: '0x9999888877776666555544443333222211110000', // Different address
         })
         assert.fail('Should have thrown error')
@@ -935,14 +941,14 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
 
       const service = await StorageContext.create(synapse, warmStorageService, {})
 
       // Should successfully match by provider ID despite different payee
-      assert.equal(service.dataSetId, 1)
-      assert.equal(service.provider.id, 1)
+      assert.equal(service.dataSetId, 1n)
+      assert.equal(service.provider.id, 1n)
       assert.equal(service.provider.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
   })
@@ -959,8 +965,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: false,
       })
@@ -984,8 +990,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1006,8 +1012,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1025,8 +1031,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1048,8 +1054,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1085,8 +1091,8 @@ describe('StorageService', () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
         withCDN: true,
       })
@@ -1109,8 +1115,8 @@ describe('StorageService', () => {
           return HttpResponse.error()
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1135,8 +1141,8 @@ describe('StorageService', () => {
           return HttpResponse.arrayBuffer(testData.buffer)
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Test with and without empty options object
@@ -1165,8 +1171,8 @@ describe('StorageService', () => {
           }
         )
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Create 3 uploads
@@ -1203,8 +1209,8 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       // Create minimal data but mock length to simulate oversized data
@@ -1234,8 +1240,8 @@ describe('StorageService', () => {
           return HttpResponse.error()
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1303,8 +1309,8 @@ describe('StorageService', () => {
           )
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1371,8 +1377,8 @@ describe('StorageService', () => {
           )
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1397,8 +1403,8 @@ describe('StorageService', () => {
           return HttpResponse.error()
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       try {
@@ -1426,10 +1432,10 @@ describe('StorageService', () => {
           return HttpResponse.error()
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       try {
@@ -1456,8 +1462,8 @@ describe('StorageService', () => {
             baseUrl: Mocks.PROVIDERS.provider2.products[0].offering.serviceURL,
           })
         )
-        const synapse = await Synapse.create({ signer })
-        const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+        const synapse = new Synapse({ client })
+        const warmStorageService = new WarmStorageService(client)
         const service = await StorageContext.create(synapse, warmStorageService)
         // Should have selected the second provider (first one failed ping)
         assert.equal(service.serviceProvider, Mocks.PROVIDERS.provider2.providerInfo.serviceProvider)
@@ -1478,8 +1484,8 @@ describe('StorageService', () => {
             return HttpResponse.error()
           })
         )
-        const synapse = await Synapse.create({ signer })
-        const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+        const synapse = new Synapse({ client })
+        const warmStorageService = new WarmStorageService(client)
 
         try {
           await StorageContext.create(synapse, warmStorageService)
@@ -1503,45 +1509,30 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService)
 
       const providerInfo = await service.getProviderInfo()
 
       assert.deepEqual(providerInfo, {
-        id: 1,
+        id: 1n,
         serviceProvider: '0x0000000000000000000000000000000000000001',
         payee: '0x1000000000000000000000000000000000000001',
         name: 'Provider 1',
         description: 'Test provider 1',
-        active: true,
-        products: {
-          PDP: {
-            type: 'PDP',
-            isActive: true,
-            capabilities: {
-              serviceURL: '0x68747470733a2f2f70726f7669646572312e6578616d706c652e636f6d',
-              minPieceSizeInBytes: '0x0400',
-              maxPieceSizeInBytes: '0x0800000000',
-              storagePricePerTibPerDay: '0x0f4240',
-              minProvingPeriodInEpochs: '0x1e',
-              location: '0x75732d65617374',
-              paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
-            },
-            data: {
-              serviceURL: 'https://provider1.example.com',
-              minPieceSizeInBytes: 1024n,
-              maxPieceSizeInBytes: 34359738368n,
-              ipniPiece: false,
-              ipniIpfs: false,
-              ipniPeerID: undefined,
-              storagePricePerTibPerDay: 1000000n,
-              minProvingPeriodInEpochs: 30n,
-              location: 'us-east',
-              paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
-            },
-          },
+        isActive: true,
+        pdp: {
+          serviceURL: 'https://provider1.example.com',
+          minPieceSizeInBytes: 1024n,
+          maxPieceSizeInBytes: 34359738368n,
+          ipniPiece: false,
+          ipniIpfs: false,
+          ipniPeerId: undefined,
+          storagePricePerTibPerDay: 1000000n,
+          minProvingPeriodInEpochs: 30n,
+          location: 'us-east',
+          paymentTokenAddress: '0xb3042734b608a1b16e9e86b374a3f3e389b4cdf0',
         },
       })
     })
@@ -1570,7 +1561,7 @@ describe('StorageService', () => {
       // Mock getActivePieces to return the expected pieces
       const piecesData = mockDataSetData.pieces.map((piece) => {
         const cid = CID.parse(piece.pieceCid)
-        return { data: cidBytesToContractHex(cid.bytes) }
+        return { data: bytesToHex(cid.bytes) }
       })
       server.use(
         Mocks.JSONRPC({
@@ -1585,10 +1576,10 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const result = await service.getDataSetPieces()
@@ -1613,10 +1604,10 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const result = await service.getDataSetPieces()
@@ -1626,7 +1617,7 @@ describe('StorageService', () => {
     })
 
     it('should handle invalid CID in response', async () => {
-      const invalidCidBytes = cidBytesToContractHex(ethers.toUtf8Bytes('invalid-cid-format'))
+      const invalidCidBytes = bytesToHex(new TextEncoder().encode('invalid-cid-format'))
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
@@ -1640,10 +1631,10 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       // The new implementation should throw an error when trying to decode invalid CID data
@@ -1672,10 +1663,10 @@ describe('StorageService', () => {
           baseUrl: Mocks.PROVIDERS.provider1.products[0].offering.serviceURL,
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
       // Mock getActivePieces to throw an error
 
@@ -1709,10 +1700,10 @@ describe('StorageService', () => {
           })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1746,10 +1737,10 @@ describe('StorageService', () => {
           return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1783,10 +1774,10 @@ describe('StorageService', () => {
         }),
         Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
       const status = await service.pieceStatus(mockPieceCID)
 
@@ -1819,10 +1810,10 @@ describe('StorageService', () => {
           return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1854,10 +1845,10 @@ describe('StorageService', () => {
           return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1891,10 +1882,10 @@ describe('StorageService', () => {
           return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1914,10 +1905,10 @@ describe('StorageService', () => {
         }),
         Mocks.PING()
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       try {
@@ -1951,10 +1942,10 @@ describe('StorageService', () => {
           return HttpResponse.json({ pieceCid: mockPieceCID })
         })
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -1976,10 +1967,10 @@ describe('StorageService', () => {
         }),
         Mocks.pdp.findPieceHandler(mockPieceCID, true, pdpOptions)
       )
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const service = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const status = await service.pieceStatus(mockPieceCID)
@@ -2005,24 +1996,24 @@ describe('StorageService', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const scheduledRemovals = await context.getScheduledRemovals()
 
-      assert.deepEqual(scheduledRemovals, [1, 2, 5])
+      assert.deepEqual(scheduledRemovals, [1n, 2n, 5n])
     })
 
     it('should return an empty array when no data set is configured', async () => {
       server.use(Mocks.JSONRPC({ ...Mocks.presets.basic }), Mocks.PING())
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       ;(context as any)._dataSetId = undefined
@@ -2052,15 +2043,11 @@ describe('StorageService', () => {
 
               // First page: return 2 pieces with hasMore=true
               if (offset === 0) {
-                return [
-                  [{ data: cidBytesToContractHex(piece1Cid.bytes) }, { data: cidBytesToContractHex(piece2Cid.bytes) }],
-                  [1n, 2n],
-                  true,
-                ]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }, { data: bytesToHex(piece2Cid.bytes) }], [1n, 2n], true]
               }
               // Second page: return 1 piece with hasMore=false
               if (offset === 2) {
-                return [[{ data: cidBytesToContractHex(piece3Cid.bytes) }], [3n], false]
+                return [[{ data: bytesToHex(piece3Cid.bytes) }], [3n], false]
               }
               return [[], [], false]
             },
@@ -2068,26 +2055,26 @@ describe('StorageService', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       // Test getPieces - should collect all pages
       const allPieces = []
-      for await (const piece of context.getPieces({ batchSize: 2 })) {
+      for await (const piece of context.getPieces({ batchSize: 2n })) {
         allPieces.push(piece)
       }
 
       assert.equal(allPieces.length, 3, 'Should return all 3 pieces across pages')
-      assert.equal(allPieces[0].pieceId, 1)
+      assert.equal(allPieces[0].pieceId, 1n)
       assert.equal(allPieces[0].pieceCid.toString(), piece1Cid.toString())
 
-      assert.equal(allPieces[1].pieceId, 2)
+      assert.equal(allPieces[1].pieceId, 2n)
       assert.equal(allPieces[1].pieceCid.toString(), piece2Cid.toString())
 
-      assert.equal(allPieces[2].pieceId, 3)
+      assert.equal(allPieces[2].pieceId, 3n)
       assert.equal(allPieces[2].pieceCid.toString(), piece3Cid.toString())
     })
 
@@ -2103,10 +2090,10 @@ describe('StorageService', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       const allPieces = []
@@ -2121,10 +2108,10 @@ describe('StorageService', () => {
 
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       // Abort before making the call
@@ -2156,11 +2143,11 @@ describe('StorageService', () => {
 
               // First page
               if (offset === 0) {
-                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
               }
               // Second page
               if (offset === 1) {
-                return [[{ data: cidBytesToContractHex(piece2Cid.bytes) }], [2n], false]
+                return [[{ data: bytesToHex(piece2Cid.bytes) }], [2n], false]
               }
               return [[], [], false]
             },
@@ -2168,22 +2155,22 @@ describe('StorageService', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       // Test the async generator
       const pieces = []
-      for await (const piece of context.getPieces({ batchSize: 1 })) {
+      for await (const piece of context.getPieces({ batchSize: 1n })) {
         pieces.push(piece)
       }
 
       assert.equal(pieces.length, 2, 'Should yield 2 pieces')
-      assert.equal(pieces[0].pieceId, 1)
+      assert.equal(pieces[0].pieceId, 1n)
       assert.equal(pieces[0].pieceCid.toString(), piece1Cid.toString())
-      assert.equal(pieces[1].pieceId, 2)
+      assert.equal(pieces[1].pieceId, 2n)
       assert.equal(pieces[1].pieceCid.toString(), piece2Cid.toString())
     })
 
@@ -2204,7 +2191,7 @@ describe('StorageService', () => {
               // Only return data on first call, then abort
               if (callCount === 1) {
                 setTimeout(() => controller.abort(), 0)
-                return [[{ data: cidBytesToContractHex(piece1Cid.bytes) }], [1n], true]
+                return [[{ data: bytesToHex(piece1Cid.bytes) }], [1n], true]
               }
               return [[], [], false]
             },
@@ -2212,16 +2199,16 @@ describe('StorageService', () => {
         })
       )
 
-      const synapse = await Synapse.create({ signer })
-      const warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const synapse = new Synapse({ client })
+      const warmStorageService = new WarmStorageService(client)
       const context = await StorageContext.create(synapse, warmStorageService, {
-        dataSetId: 1,
+        dataSetId: 1n,
       })
 
       try {
         const pieces = []
         for await (const piece of context.getPieces({
-          batchSize: 1,
+          batchSize: 1n,
           signal: controller.signal,
         })) {
           pieces.push(piece)

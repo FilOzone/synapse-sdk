@@ -62,7 +62,9 @@ export const init: Command = command(
     const privateKeyInput = await text({
       message: 'Enter your private key',
       validate(value) {
-        if (!/^0x[a-fA-F0-9]{64}$/.test(value)) return `Invalid private key!`
+        if (!value || !/^0x[a-fA-F0-9]{64}$/.test(value)) {
+          return `Invalid private key!`
+        }
       },
     })
     config.set('privateKey', privateKeyInput)

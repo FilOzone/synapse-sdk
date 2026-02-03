@@ -3,10 +3,8 @@ import path from 'node:path'
 import * as p from '@clack/prompts'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import {
-  createDataSetAndAddPieces,
-  readProviders,
-} from '@filoz/synapse-core/warm-storage'
+import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
+import { createDataSetAndAddPieces } from '@filoz/synapse-core/warm-storage'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
@@ -38,8 +36,8 @@ export const uploadDataset: Command = command(
 
     spinner.start(`Uploading file ${absolutePath}...`)
     try {
-      const providers = await readProviders(client)
-      const provider = providers.find(
+      const result = await getPDPProviders(client)
+      const provider = result.providers.find(
         (provider) => provider.id === BigInt(argv._.requiredProviderId)
       )
       if (!provider) {
@@ -72,7 +70,7 @@ export const uploadDataset: Command = command(
         ],
       })
 
-      await SP.pollForDataSetCreationStatus(rsp)
+      await SP.waitForDataSetCreationStatus(rsp)
       spinner.stop(`File uploaded ${pieceCid}`)
     } catch (error) {
       spinner.stop()

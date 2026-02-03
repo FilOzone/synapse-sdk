@@ -4,7 +4,6 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "format": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
     "dev": "wireit",
     "build": "wireit",
     "lint": "wireit",
@@ -26,7 +25,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check --fix .",
       "files": [
         "src/**/*.{tsx,ts}",
         "tsconfig.json",
@@ -51,7 +50,7 @@
     "@filoz/synapse-core": "workspace:*",
     "@filoz/synapse-react": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
-    "@nanostores/persistent": "^1.1.0",
+    "@nanostores/persistent": "^1.3.0",
     "@nanostores/react": "^1.0.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -72,20 +71,19 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "iso-ledger": "^0.1.7",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.563.0",
     "nanostores": "^1.0.1",
     "next-themes": "^0.4.6",
-    "p-retry": "^7.1.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-dropzone": "^14.3.8",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-dropzone": "^14.4.0",
     "react-hook-form": "^7.66.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.14",
     "viem": "catalog:",
     "wagmi": "catalog:",
-    "zod": "^4.1.13"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -98,6 +96,6 @@
     "typescript": "catalog:",
     "vite": "^7.2.6",
     "vite-plugin-node-polyfills": "^0.25.0",
-    "wrangler": "^4.51.0"
+    "wrangler": "^4.61.1"
   }
 }

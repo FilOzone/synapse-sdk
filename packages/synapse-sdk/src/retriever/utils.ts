@@ -2,9 +2,11 @@
  * Utility to attempt fetching a piece from multiple providers in parallel.
  */
 
-import type { PieceCID, ProviderInfo } from '../types.ts'
+import * as SP from '@filoz/synapse-core/sp'
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import { createPieceUrlPDP } from '@filoz/synapse-core/utils'
+import type { PieceCID } from '../types.ts'
 import { createError } from '../utils/errors.ts'
-import { constructFindPieceUrl, constructPieceUrl } from '../utils/piece.ts'
 
 // Define the type for provider attempt results (internal to this function)
 interface ProviderAttemptResult {
@@ -21,7 +23,7 @@ interface ProviderAttemptResult {
  * @returns The first successful response
  */
 export async function fetchPiecesFromProviders(
-  providers: ProviderInfo[],
+  providers: PDPProvider[],
   pieceCid: PieceCID,
   retrieverName: string,
   signal?: AbortSignal
@@ -36,46 +38,21 @@ export async function fetchPiecesFromProviders(
     // Create a dedicated controller for this provider
     const controller = new AbortController()
     abortControllers[index] = controller
-
-    // If parent signal is provided, propagate abort to this controller
-    if (signal != null) {
-      signal.addEventListener(
-        'abort',
-        () => {
-          controller.abort(signal.reason)
-        },
-        { once: true }
-      )
-
-      // If parent is already aborted, abort immediately
-      if (signal.aborted) {
-        controller.abort(signal.reason)
-      }
-    }
+    const _signal = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal
 
     try {
       // Phase 1: Check if provider has the piece
-      if (!provider.products.PDP?.data.serviceURL) {
-        throw new Error(`Provider ${provider.id} does not have PDP product with serviceURL`)
-      }
-      const findUrl = constructFindPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
-      const findResponse = await fetch(findUrl, {
-        signal: controller.signal,
+
+      await SP.findPiece({
+        endpoint: provider.pdp.serviceURL,
+        pieceCid,
+        signal: _signal,
       })
 
-      if (!findResponse.ok) {
-        // Provider doesn't have the piece
-        failures.push({
-          provider: provider.serviceProvider,
-          error: `findPiece returned ${findResponse.status}`,
-        })
-        throw new Error('Provider does not have piece')
-      }
-
       // Phase 2: Provider has piece, download it
-      const downloadUrl = constructPieceUrl(provider.products.PDP.data.serviceURL, pieceCid)
+      const downloadUrl = createPieceUrlPDP(pieceCid.toString(), provider.pdp.serviceURL)
       const response = await fetch(downloadUrl, {
-        signal: controller.signal,
+        signal: _signal,
       })
 
       if (response.ok) {
