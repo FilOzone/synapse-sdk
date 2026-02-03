@@ -11,7 +11,7 @@ import {
 } from '@clack/prompts'
 import { getPDPProvider } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
-import { getContract } from 'viem'
+import { type Address, getContract, isAddress, isHex } from 'viem'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
@@ -155,6 +155,50 @@ export const endorse: Command = command(
               } catch (error) {
                 txSpin.stop(
                   `Failed to remove ${providerId}: ${(error as Error).message}`
+                )
+              }
+            }
+          }
+          break
+        }
+        case 'transferOwnership': {
+          const newOwner = await text({
+            message: 'What is the address of the new owner?',
+            placeholder: `^C to cancel`,
+            validate(value) {
+              if (!value) {
+                return `Please try again`
+              }
+              if (value.length !== 42) {
+                return `Unexpected address length ${value.length}, expecting 42`
+              }
+              if (!isHex('0x')) {
+                return `Address should start with 0x`
+              }
+              if (!isAddress(value)) {
+                return `Invalid address`
+              }
+            },
+          })
+          if (isCancel(newOwner)) {
+            cancel(`Canceled`)
+          } else {
+            const confirmed = await confirm({
+              message: `Transfer ownership to ${newOwner}?`,
+            })
+            if (isCancel(confirmed)) {
+              cancel(`Canceled`)
+            } else if (confirmed) {
+              const txSpin = spinner()
+              txSpin.start(`Submitting transaction`)
+              try {
+                const txHash = await endorsements.write.transferOwnership([
+                  newOwner as Address,
+                ])
+                txSpin.stop(`Transaction submitted: ${txHash}`)
+              } catch (error) {
+                txSpin.stop(
+                  `Failed to transfer ownership: ${(error as Error).message}`
                 )
               }
             }
