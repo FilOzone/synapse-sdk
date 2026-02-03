@@ -11,6 +11,7 @@
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
+  DeletePiecesResponse,
   UploadPieceOptions,
 } from './server.ts'
 export { PDPServer } from './server.ts'

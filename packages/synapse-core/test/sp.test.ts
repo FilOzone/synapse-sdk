@@ -836,6 +836,41 @@ InvalidSignature(address expected, address actual)
     })
   })
 
+  describe('deletePieces', () => {
+    it('should handle successful batch delete', async () => {
+      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
+      const mockResponse = {
+        txHash: mockTxHash,
+      }
+
+      server.use(
+        http.post('http://pdp.local/pdp/data-sets/1/pieces/removals', async ({ request }) => {
+          const body = (await request.json()) as { pieceIds: string[]; extraData: string }
+          assert.hasAllKeys(body, ['pieceIds', 'extraData'])
+          assert.deepStrictEqual(body.pieceIds, ['2', '3'])
+          assert.isDefined(body.extraData)
+          return HttpResponse.json(mockResponse, {
+            status: 200,
+          })
+        })
+      )
+
+      const extraData = await TypedData.signSchedulePieceRemovals(client, {
+        clientDataSetId: 0n,
+        pieceIds: [2n, 3n],
+      })
+
+      const result = await SP.deletePieces({
+        endpoint: 'http://pdp.local',
+        dataSetId: 1n,
+        pieceIds: [2n, 3n],
+        extraData,
+      })
+
+      assert.strictEqual(result.txHash, mockTxHash)
+    })
+  })
+
   describe('findPiece', () => {
     const mockPieceCidStr = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
 

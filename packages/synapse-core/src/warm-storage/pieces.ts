@@ -133,6 +133,40 @@ export async function waitForDeletePieceStatus(
   return receipt
 }
 
+export type DeletePiecesOptions = {
+  pieceIds: bigint[]
+  dataSetId: bigint
+  clientDataSetId: bigint
+  endpoint: string
+}
+
+/**
+ * Delete multiple pieces from a data set
+ *
+ * Call the Service Provider API to delete the pieces.
+ *
+ * @param client - The client to use to delete the pieces.
+ * @param options - The options for the delete pieces.
+ * @param options.dataSetId - The ID of the data set.
+ * @param options.clientDataSetId - The ID of the client data set.
+ * @param options.pieceIds - The IDs of the pieces.
+ * @param options.endpoint - The endpoint of the PDP API.
+ * @returns The transaction hashes of the delete operations.
+ */
+export async function deletePieces(client: Client<Transport, Chain, Account>, options: DeletePiecesOptions) {
+  const extraData = await signSchedulePieceRemovals(client, {
+    clientDataSetId: options.clientDataSetId,
+    pieceIds: options.pieceIds,
+  })
+
+  return PDP.deletePieces({
+    endpoint: options.endpoint,
+    dataSetId: options.dataSetId,
+    pieceIds: options.pieceIds,
+    extraData,
+  })
+}
+
 export type GetPiecesOptions = {
   dataSet: DataSet
   address: Address
