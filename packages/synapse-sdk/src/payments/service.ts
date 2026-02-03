@@ -446,7 +446,7 @@ export class PaymentsService {
    * @param maxLockupPeriod - Max lockup period in epochs operator can set
    * @param token - Token identifier (currently only USDFC supported)
    * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction response object
+   * @returns Transaction hash
    */
   async depositWithPermitAndApproveOperator(
     amount: TokenAmount,

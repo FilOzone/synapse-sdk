@@ -387,7 +387,7 @@ export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void
+  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void
   /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */

@@ -171,7 +171,8 @@
     "msw": "catalog:",
     "p-defer": "^4.0.1",
     "playwright-test": "^14.1.12",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"
