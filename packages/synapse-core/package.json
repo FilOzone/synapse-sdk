@@ -229,7 +229,7 @@
     "multiformats": "^13.4.1",
     "ox": "catalog:",
     "p-retry": "^7.1.0",
-    "zod": "^4.3.5"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
@@ -245,7 +245,8 @@
     "msw": "catalog:",
     "playwright-test": "^14.1.12",
     "type-fest": "^5.4.3",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"
@@ -256,7 +257,6 @@
     ]
   },
   "peerDependencies": {
-    "msw": "^2.12.4",
     "viem": "2.x"
   }
 }

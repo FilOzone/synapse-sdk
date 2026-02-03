@@ -81,9 +81,9 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.14",
-    "viem": "~2.45.1",
+    "viem": "catalog:",
     "wagmi": "catalog:",
-    "zod": "^4.1.13"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",

@@ -38,10 +38,12 @@ export const datasets: Command = command(
       })
       p.log.warn(`Block number: ${blockNumber}`)
     } catch (error) {
-      spinner.stop()
-      console.error(error)
-      p.outro('Failed to list data sets')
-      return
+      if (argv.flags.debug) {
+        spinner.clear()
+        console.error(error)
+      } else {
+        spinner.error((error as Error).message)
+      }
     }
   }
 )

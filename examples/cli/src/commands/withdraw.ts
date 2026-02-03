@@ -3,41 +3,40 @@ import { parseUnits, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
+import { hashLink } from '../utils.ts'
 
-export const deposit: Command = command(
+export const withdraw: Command = command(
   {
-    name: 'deposit',
-    description: 'Deposit funds to the wallet',
+    name: 'withdraw',
+    description: 'Withdraw funds from the wallet',
     parameters: ['<amount>'],
-    alias: 'd',
+    alias: 'w',
     flags: {
       ...globalFlags,
     },
     help: {
-      description: 'Deposit funds to the wallet',
-      examples: ['synapse deposit', 'synapse deposit --help'],
+      description: 'Withdraw funds from the wallet',
+      examples: ['synapse withdraw', 'synapse withdraw --help'],
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
+    const { client, chain } = privateKeyClient(argv.flags.chain)
     const synapse = new Synapse({
       client,
     })
 
     const spinner = p.spinner()
-    spinner.start('Depositing funds...')
+    spinner.start('Withdrawing funds...')
     try {
-      const hash = await synapse.payments.depositWithPermitAndApproveOperator(
-        parseUnits(argv._.amount)
-      )
+      const hash = await synapse.payments.withdraw(parseUnits(argv._.amount))
 
-      spinner.message('Waiting for transaction to be mined...')
+      spinner.message(`Waiting for tx ${hashLink(hash, chain)} to be mined...`)
 
       await synapse.client.waitForTransactionReceipt({
         hash,
       })
 
-      spinner.stop('Funds deposited')
+      spinner.stop('Funds withdrawn')
     } catch (error) {
       if (argv.flags.debug) {
         spinner.clear()

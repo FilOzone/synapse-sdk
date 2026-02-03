@@ -31,7 +31,7 @@ export const datasetsTerminate: Command = command(
       spinner.start(`Terminating data set ${dataSetId}...`)
 
       const tx = await terminateDataSet(client, {
-        dataSetId: BigInt(dataSetId),
+        dataSetId,
       })
 
       spinner.message(`Waiting for tx ${hashLink(tx, chain)} to be mined...`)
@@ -41,13 +41,12 @@ export const datasetsTerminate: Command = command(
 
       spinner.stop(`Data set terminated`)
     } catch (error) {
-      spinner.stop('Failed to terminate data set', 1)
       if (argv.flags.debug) {
+        spinner.clear()
         console.error(error)
       } else {
-        p.log.error((error as Error).message)
+        spinner.error((error as Error).message)
       }
-      process.exit(1)
     }
   }
 )
@@ -79,7 +78,7 @@ async function selectDataSet(
 
     return dataSetId
   } catch (error) {
-    spinner.stop('Failed to select data set', 1)
+    spinner.error('Failed to select data set')
     if (options.debug) {
       console.error(error)
     } else {

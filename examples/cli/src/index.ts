@@ -14,6 +14,7 @@ import { pieces } from './commands/pieces.ts'
 import { piecesUpload } from './commands/pieces-upload.ts'
 import { upload } from './commands/upload.ts'
 import { uploadDataset } from './commands/upload-dataset.ts'
+import { withdraw } from './commands/withdraw.ts'
 
 const argv = cli({
   name: 'synapse-cli',
@@ -24,6 +25,7 @@ const argv = cli({
     pay,
     fund,
     deposit,
+    withdraw,
     endorse,
     upload,
     datasets,

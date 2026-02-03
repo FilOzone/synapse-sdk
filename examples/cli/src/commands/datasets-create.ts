@@ -59,13 +59,12 @@ export const datasetsCreate: Command = command(
 
       spinner.stop(`Data set created #${dataset.dataSetId}`)
     } catch (error) {
-      spinner.stop('Failed to create data set', 1)
       if (argv.flags.debug) {
+        spinner.clear()
         console.error(error)
       } else {
-        p.log.error((error as Error).message)
+        spinner.error((error as Error).message)
       }
-      process.exit(1)
     }
   }
 )
@@ -94,11 +93,11 @@ async function selectProvider(
     }
     return provider
   } catch (error) {
-    spinner.stop('Failed to select data set', 1)
     if (options.debug) {
+      spinner.clear()
       console.error(error)
     } else {
-      p.log.error((error as Error).message)
+      spinner.error((error as Error).message)
     }
     process.exit(1)
   }

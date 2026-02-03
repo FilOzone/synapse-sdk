@@ -9,7 +9,6 @@ import {
   spinner,
   text,
 } from '@clack/prompts'
-import { getChain } from '@filoz/synapse-core/chains'
 import { getPDPProvider } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
 import { getContract } from 'viem'
@@ -28,10 +27,10 @@ export const endorse: Command = command(
   async (argv) => {
     intro('Endorsements')
     log.info('Loading account')
-    const { client } = privateKeyClient(argv.flags.chain)
+    const { client, chain } = privateKeyClient(argv.flags.chain)
 
     const endorsements = getContract({
-      ...getChain(client.chain.id).contracts.endorsements,
+      ...chain.contracts.endorsements,
       client,
     })
 
