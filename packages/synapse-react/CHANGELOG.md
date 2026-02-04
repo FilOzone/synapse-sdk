@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.4...synapse-react-v0.2.0) (2026-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555))
+
+### Features
+
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555)) ([3741241](https://github.com/FilOzone/synapse-sdk/commit/37412415eba0b1204b6b14d00bac68aaf35afca1))
+
+
+### Chores
+
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-react-v0.1.3...synapse-react-v0.1.4) (2025-12-04)
 
 
