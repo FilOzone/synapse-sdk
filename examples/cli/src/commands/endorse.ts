@@ -59,7 +59,7 @@ export const endorse: Command = command(
       log.info(lines.join('\n'))
 
       const isOwner = client.account.address === owner
-      const requiresOwner = isOwner ? undefined : '(not owner)'
+      const requiresOwner = isOwner ? undefined : 'not owner'
 
       const action = await select({
         message: 'Select an action',
