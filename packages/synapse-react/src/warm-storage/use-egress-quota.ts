@@ -1,3 +1,4 @@
+import { getChain } from '@filoz/synapse-core/chains'
 import { type DataSetStats, getDataSetStats } from '@filoz/synapse-core/filbeam'
 import { skipToken, type UseQueryOptions, useQuery } from '@tanstack/react-query'
 import { useChainId } from 'wagmi'
@@ -35,11 +36,12 @@ export type UseEgressQuotaResult = DataSetStats
  */
 export function useEgressQuota(props: UseEgressQuotaProps) {
   const chainId = useChainId()
+  const chain = getChain(chainId)
   const dataSetId = props.dataSetId
 
   return useQuery({
     ...props.query,
     queryKey: ['synapse-filbeam-egress-quotas', chainId, dataSetId?.toString()],
-    queryFn: dataSetId != null ? () => getDataSetStats({ chainId, dataSetId }) : skipToken,
+    queryFn: dataSetId != null ? () => getDataSetStats({ chain, dataSetId }) : skipToken,
   })
 }

@@ -10,6 +10,7 @@
  */
 
 import { HttpError, request } from 'iso-web/http'
+import type { Chain } from '../chains.ts'
 import { GetDataSetStatsError } from '../errors/filbeam.ts'
 
 /**
@@ -27,8 +28,8 @@ export interface DataSetStats {
 }
 
 export interface GetDataSetStatsOptions {
-  /** The chain ID (314 for mainnet, 314159 for calibration) */
-  chainId: number
+  /** The chain configuration containing FilBeam stats URL */
+  chain: Chain
   /** The data set ID to query */
   dataSetId: bigint | number | string
   /** Optional override for request.json.get (for testing) */
@@ -48,17 +49,22 @@ export interface GetDataSetStatsOptions {
  * @param options - The options for fetching data set stats
  * @returns A promise that resolves to the data set statistics with remaining quotas as BigInt values
  *
- * @throws {GetDataSetStatsError} If the data set is not found, the API returns an invalid response, or network errors occur
+ * @throws {GetDataSetStatsError} If the chain doesn't support FilBeam, data set is not found, the API returns an invalid response, or network errors occur
  *
  * @example
  * ```typescript
- * const stats = await getDataSetStats({ chainId: 314, dataSetId: 12345n })
+ * import { mainnet } from '@filoz/synapse-core/chains'
+ *
+ * const stats = await getDataSetStats({ chain: mainnet, dataSetId: 12345n })
  * console.log(`Remaining CDN Egress: ${stats.cdnEgressQuota} bytes`)
  * console.log(`Remaining Cache Miss: ${stats.cacheMissEgressQuota} bytes`)
  * ```
  */
 export async function getDataSetStats(options: GetDataSetStatsOptions): Promise<DataSetStats> {
-  const baseUrl = getStatsBaseUrl(options.chainId)
+  if (!options.chain.filbeam) {
+    throw new GetDataSetStatsError(`Chain ${options.chain.id} (${options.chain.name}) does not support FilBeam`)
+  }
+  const baseUrl = options.chain.filbeam.statsBaseUrl
   const url = `${baseUrl}/data-set/${options.dataSetId}`
   const requestGetJson = options.requestGetJson ?? request.json.get
 
@@ -82,13 +88,6 @@ export async function getDataSetStats(options: GetDataSetStatsOptions): Promise<
   }
 
   return validateStatsResponse(response.result)
-}
-
-/**
- * Get the base stats URL for a given chain ID
- */
-export function getStatsBaseUrl(chainId: number): string {
-  return chainId === 314 ? 'https://stats.filbeam.com' : 'https://calibration.stats.filbeam.com'
 }
 
 /**

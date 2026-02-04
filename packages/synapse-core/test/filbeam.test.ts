@@ -1,6 +1,7 @@
 import assert from 'assert'
 import { HttpError, type request } from 'iso-web/http'
-import { getDataSetStats, getStatsBaseUrl, validateStatsResponse } from '../src/filbeam/stats.ts'
+import { calibration, mainnet } from '../src/chains.ts'
+import { getDataSetStats, validateStatsResponse } from '../src/filbeam/stats.ts'
 
 type MockRequestGetJson = typeof request.json.get
 
@@ -12,21 +13,6 @@ function isInvalidResponseFormatError(err: unknown): boolean {
 }
 
 describe('FilBeam Stats', () => {
-  describe('getStatsBaseUrl', () => {
-    it('should return mainnet URL for chainId 314', () => {
-      assert.equal(getStatsBaseUrl(314), 'https://stats.filbeam.com')
-    })
-
-    it('should return calibration URL for chainId 314159', () => {
-      assert.equal(getStatsBaseUrl(314159), 'https://calibration.stats.filbeam.com')
-    })
-
-    it('should return calibration URL for unknown chain IDs', () => {
-      assert.equal(getStatsBaseUrl(1), 'https://calibration.stats.filbeam.com')
-      assert.equal(getStatsBaseUrl(0), 'https://calibration.stats.filbeam.com')
-    })
-  })
-
   describe('validateStatsResponse', () => {
     it('should return valid DataSetStats for correct input', () => {
       const result = validateStatsResponse({
@@ -90,7 +76,7 @@ describe('FilBeam Stats', () => {
       }
 
       const result = await getDataSetStats({
-        chainId: 314,
+        chain: mainnet,
         dataSetId: 'test-dataset',
         requestGetJson: mockRequestGetJson as MockRequestGetJson,
       })
@@ -107,7 +93,7 @@ describe('FilBeam Stats', () => {
       }
 
       const result = await getDataSetStats({
-        chainId: 314159,
+        chain: calibration,
         dataSetId: 12345n,
         requestGetJson: mockRequestGetJson as MockRequestGetJson,
       })
@@ -127,7 +113,7 @@ describe('FilBeam Stats', () => {
 
       try {
         await getDataSetStats({
-          chainId: 314,
+          chain: mainnet,
           dataSetId: 'non-existent',
           requestGetJson: mockRequestGetJson as MockRequestGetJson,
         })
@@ -149,7 +135,7 @@ describe('FilBeam Stats', () => {
 
       try {
         await getDataSetStats({
-          chainId: 314,
+          chain: mainnet,
           dataSetId: 'test',
           requestGetJson: mockRequestGetJson as MockRequestGetJson,
         })
@@ -167,7 +153,7 @@ describe('FilBeam Stats', () => {
 
       try {
         await getDataSetStats({
-          chainId: 314,
+          chain: mainnet,
           dataSetId: 'test',
           requestGetJson: mockRequestGetJson as unknown as MockRequestGetJson,
         })

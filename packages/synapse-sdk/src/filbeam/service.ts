@@ -80,7 +80,7 @@ export class FilBeamService {
    */
   async getDataSetStats(dataSetId: string | number): Promise<DataSetStats> {
     return coreGetDataSetStats({
-      chainId: this._chain.id,
+      chain: this._chain,
       dataSetId,
       requestGetJson: this._requestGetJson,
     })
