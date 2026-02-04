@@ -1,6 +1,7 @@
 import type { DataSetCreatedResponse } from '@filoz/synapse-core/sp'
 import * as SP from '@filoz/synapse-core/sp'
-import { createDataSet, type PDPProvider } from '@filoz/synapse-core/warm-storage'
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
@@ -48,7 +49,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
       props?.onHash?.(txHash)
 
-      const dataSet = await SP.pollForDataSetCreationStatus({ statusUrl })
+      const dataSet = await SP.waitForDataSetCreationStatus({ statusUrl })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],

@@ -8,8 +8,4 @@
  * ```
  */
 
-export type {
-  ComprehensiveDataSetStatus,
-  DataSetCreationVerification,
-} from './service.ts'
 export { WarmStorageService } from './service.ts'

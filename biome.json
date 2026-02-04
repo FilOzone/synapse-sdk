@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
+    "ignoreUnknown": true,
     "includes": [
       "**",
       "!**/node_modules",
@@ -73,7 +74,7 @@
         "useImportExtensions": "error"
       },
       "style": {
-        "noNamespace": "error",
+        "noNamespace": "off",
         "noNegationElse": "error",
         "noNonNullAssertion": "error",
         "noParameterAssign": "off",

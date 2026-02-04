@@ -11,11 +11,13 @@ import {
   multicall3Abi,
   numberToBytes,
   numberToHex,
+  parseEther,
   parseUnits,
   stringToHex,
 } from 'viem'
 import { TIME_CONSTANTS } from '../../utils/constants.ts'
 import { ADDRESSES } from './constants.ts'
+import { endorsementsCallHandler } from './endorsements.ts'
 import { erc20CallHandler } from './erc20.ts'
 import { paymentsCallHandler } from './payments.ts'
 import { pdpVerifierCallHandler } from './pdp.ts'
@@ -130,6 +132,12 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
       return options.eth_estimateGas(params)
     }
+    case 'eth_fillTransaction': {
+      if (!options.eth_fillTransaction) {
+        throw new Error('eth_fillTransaction is not defined')
+      }
+      return options.eth_fillTransaction(params)
+    }
     case 'eth_getBlockByNumber': {
       if (!options.eth_getBlockByNumber) {
         throw new Error('eth_getBlockByNumber is not defined')
@@ -155,7 +163,7 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       return options.eth_sendRawTransaction(params)
     }
     case 'eth_call': {
-      const { to, data } = params[0]
+      const { to, data, value, from } = params[0]
 
       if (
         isAddressEqual(ADDRESSES.calibration.warmStorage, to as Address) ||
@@ -169,11 +177,18 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
 
       if (isAddressEqual(ADDRESSES.calibration.spRegistry, to as Address)) {
-        return serviceProviderRegistryCallHandler(data as Hex, options)
+        return serviceProviderRegistryCallHandler(data as Hex, value as Hex, from as Address, options)
       }
 
       if (isAddressEqual(ADDRESSES.calibration.sessionKeyRegistry, to as Address)) {
         return sessionKeyRegistryCallHandler(data as Hex, options)
+      }
+
+      if (
+        isAddressEqual(ADDRESSES.calibration.endorsements, to as Address) ||
+        isAddressEqual(ADDRESSES.mainnet.endorsements, to as Address)
+      ) {
+        return endorsementsCallHandler(data as Hex, options)
       }
 
       if (isAddressEqual(ADDRESSES.calibration.viewContract, to as Address)) {
@@ -189,7 +204,10 @@ function handler(body: RpcRequest, options: JSONRPCOptions) {
       }
 
       // Handle ERC20 token calls (including USDFC)
-      if (isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address)) {
+      if (
+        isAddressEqual(ADDRESSES.calibration.usdfcToken, to as Address) ||
+        isAddressEqual(ADDRESSES.customToken, to as Address)
+      ) {
         return erc20CallHandler(data as Hex, options)
       }
 
@@ -332,6 +350,9 @@ export const presets = {
       }
     },
     eth_estimateGas: () => '0x1',
+    eth_fillTransaction: () => {
+      throw new Error('eth_fillTransaction not implemented')
+    },
     eth_getTransactionCount: () => '0x1',
     eth_gasPrice: () => '0x09184e72a000',
     eth_maxPriorityFeePerGas: () => '0x5f5e100',
@@ -349,6 +370,8 @@ export const presets = {
       return hash
     },
     warmStorage: {
+      addApprovedProvider: () => [],
+      removeApprovedProvider: () => [],
       pdpVerifierAddress: () => [ADDRESSES.calibration.pdpVerifier],
       paymentsContractAddress: () => [ADDRESSES.calibration.payments],
       usdfcTokenAddress: () => [ADDRESSES.calibration.usdfcToken],
@@ -367,6 +390,8 @@ export const presets = {
         },
       ],
       owner: () => [ADDRESSES.client1],
+      terminateService: () => [],
+      topUpCDNPaymentRails: () => [],
     },
     warmStorageView: {
       isProviderApproved: () => [true],
@@ -467,12 +492,6 @@ export const presets = {
       getPDPConfig: () => {
         return [BigInt(2880), BigInt(60), BigInt(1), BigInt(0)]
       },
-      getMaxProvingPeriod: () => {
-        return [BigInt(2880)]
-      },
-      challengeWindow: () => {
-        return [BigInt(60)]
-      },
     },
     pdpVerifier: {
       dataSetLive: () => [true],
@@ -485,6 +504,12 @@ export const presets = {
       getScheduledRemovals: () => [[]],
     },
     serviceRegistry: {
+      registerProvider: () => [1n],
+      updateProviderInfo: () => [],
+      removeProvider: () => [],
+      addProduct: () => [],
+      updateProduct: () => [],
+      removeProduct: () => [],
       getProviderByAddress: (data) => [
         {
           providerId: 1n,
@@ -497,7 +522,16 @@ export const presets = {
           },
         },
       ],
-      getProviderIdByAddress: () => [1n],
+      getProviderIdByAddress: (data) => {
+        const address = data[0]
+        if (address.toLowerCase() === ADDRESSES.serviceProvider1.toLowerCase()) {
+          return [1n]
+        }
+        if (address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase()) {
+          return [2n]
+        }
+        return [0n]
+      },
       getProvider: (data) => {
         if (data[0] === 1n) {
           return [
@@ -542,6 +576,7 @@ export const presets = {
       },
       getAllActiveProviders: () => [[1n, 2n], false],
       getProviderCount: () => [2n],
+      activeProviderCount: () => [2n],
       isProviderActive: (data) => {
         const providerId = data[0]
         return [providerId === 1n || providerId === 2n]
@@ -553,7 +588,7 @@ export const presets = {
             address.toLowerCase() === ADDRESSES.serviceProvider2.toLowerCase(),
         ]
       },
-      REGISTRATION_FEE: () => 0n,
+      REGISTRATION_FEE: () => parseEther('5'),
       getProvidersByProductType: () => [
         {
           providers: [
@@ -651,26 +686,7 @@ export const presets = {
             description: 'Test Provider',
           }
         } else {
-          // TODO throw if !providerExists
-          providerInfo = {
-            serviceProvider: ADDRESSES.zero,
-            payee: ADDRESSES.zero,
-            name: '',
-            description: '',
-            isActive: false,
-          }
-          return [
-            {
-              providerId,
-              providerInfo,
-              product: {
-                productType: 0,
-                capabilityKeys: [],
-                isActive: false,
-              },
-              productCapabilityValues: [] as Hex[],
-            },
-          ]
+          throw new Error('Provider not found')
         }
         return [
           {
@@ -705,6 +721,9 @@ export const presets = {
     sessionKeyRegistry: {
       authorizationExpiry: () => [BigInt(0)],
     },
+    endorsements: {
+      getProviderIds: () => [[]],
+    },
     erc20: {
       balanceOf: () => [parseUnits('1000', 18)],
       decimals: () => [18],
@@ -713,6 +732,7 @@ export const presets = {
       approve: () => [true],
       version: () => [encodeAbiParameters([{ type: 'string' }], ['1'])],
       nonces: () => [0n],
+      symbol: () => [encodeAbiParameters([{ type: 'string' }], ['USDFC'])],
     },
     payments: {
       operatorApprovals: () => [
@@ -723,6 +743,12 @@ export const presets = {
         5000000n, // lockupUsed
         86400n, // maxLockupPeriod
       ],
+      setOperatorApproval: () => [],
+      withdraw: () => [],
+      withdrawTo: () => [],
+      deposit: () => [],
+      depositWithPermit: () => [],
+      depositWithPermitAndApproveOperator: () => [],
       accounts: () => [
         parseUnits('500', 18), // funds
         0n, // lockupCurrent

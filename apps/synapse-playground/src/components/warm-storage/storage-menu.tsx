@@ -2,7 +2,7 @@ import { formatFraction } from '@filoz/synapse-core/utils'
 import { useOperatorApprovals, useRevokeOperator } from '@filoz/synapse-react'
 import { EllipsisVertical } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { toastError } from '@/lib/utils.ts'
 import { ExplorerLink } from '../explorer-link.tsx'
 import { Button } from '../ui/button.tsx'
@@ -16,7 +16,7 @@ import {
 } from '../ui/dropdown-menu.tsx'
 
 export function StorageMenu() {
-  const { address } = useAccount()
+  const { address } = useConnection()
   const { data: operatorApprovals } = useOperatorApprovals({
     address,
   })
@@ -53,7 +53,7 @@ export function StorageMenu() {
           <span>Rate</span>
           <span className="text-muted-foreground">
             {formatFraction({
-              value: operatorApprovals?.rateUsed,
+              value: operatorApprovals?.rateUsage,
               digits: 12,
             })}
           </span>
@@ -62,7 +62,7 @@ export function StorageMenu() {
           <span>Lockup </span>
           <span className="text-muted-foreground">
             {formatFraction({
-              value: operatorApprovals?.lockupUsed,
+              value: operatorApprovals?.lockupUsage,
             })}
           </span>
         </DropdownMenuLabel>

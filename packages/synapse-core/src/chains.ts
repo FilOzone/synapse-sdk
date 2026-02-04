@@ -11,28 +11,36 @@
 
 import type { Address, ChainContract, Chain as ViemChain } from 'viem'
 import * as Abis from './abis/index.ts'
+import { UnsupportedChainError } from './errors/chains.ts'
 
 /**
  * Viem compatible chain interface with all the FOC contracts addresses and ABIs
  */
 export interface Chain extends ViemChain {
+  /**
+   * The genesis timestamp of the chain in seconds (Unix timestamp)
+   */
+  genesisTimestamp: number
+  /**
+   * The contracts of the chain
+   */
   contracts: {
     multicall3: ChainContract
     usdfc: {
       address: Address
       abi: typeof Abis.erc20WithPermit
     }
-    payments: {
+    filecoinPay: {
       address: Address
-      abi: typeof Abis.payments
+      abi: typeof Abis.filecoinPay
     }
-    storage: {
+    fwss: {
       address: Address
-      abi: typeof Abis.storage
+      abi: typeof Abis.fwss
     }
-    storageView: {
+    fwssView: {
       address: Address
-      abi: typeof Abis.storageView
+      abi: typeof Abis.fwssView
     }
     serviceProviderRegistry: {
       address: Address
@@ -46,7 +54,14 @@ export interface Chain extends ViemChain {
       address: Address
       abi: typeof Abis.pdp
     }
+    endorsements: {
+      address: Address
+      abi: typeof Abis.providerIdSet
+    }
   }
+  filbeam: {
+    retrievalDomain: string
+  } | null
 }
 
 /**
@@ -96,17 +111,17 @@ export const mainnet: Chain = {
       address: '0x80B98d3aa09ffff255c3ba4A241111Ff1262F045',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: Abis.generated.filecoinPayV1Address['314'],
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: Abis.generated.filecoinWarmStorageServiceAddress['314'],
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: Abis.generated.filecoinWarmStorageServiceStateViewAddress['314'],
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: Abis.generated.serviceProviderRegistryAddress['314'],
@@ -120,7 +135,18 @@ export const mainnet: Chain = {
       address: Abis.generated.pdpVerifierAddress['314'],
       abi: Abis.pdp,
     },
+    endorsements: {
+      address: Abis.generated.providerIdSetAddress['314'],
+      abi: Abis.providerIdSet,
+    },
   },
+  filbeam: {
+    retrievalDomain: 'filbeam.io',
+  },
+  /**
+   * Filecoin Mainnet genesis: August 24, 2020 22:00:00 UTC
+   */
+  genesisTimestamp: 1598306400,
 }
 
 /**
@@ -170,17 +196,17 @@ export const calibration: Chain = {
       address: '0xb3042734b608a1B16e9e86B374A3f3e389B4cDf0',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: Abis.generated.filecoinPayV1Address['314159'],
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: Abis.generated.filecoinWarmStorageServiceAddress['314159'],
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: Abis.generated.filecoinWarmStorageServiceStateViewAddress['314159'],
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: Abis.generated.serviceProviderRegistryAddress['314159'],
@@ -194,8 +220,19 @@ export const calibration: Chain = {
       address: Abis.generated.pdpVerifierAddress['314159'],
       abi: Abis.pdp,
     },
+    endorsements: {
+      address: Abis.generated.providerIdSetAddress['314159'],
+      abi: Abis.providerIdSet,
+    },
+  },
+  filbeam: {
+    retrievalDomain: 'calibration.filbeam.io',
   },
   testnet: true,
+  /**
+   * Filecoin Calibration testnet genesis: November 1, 2022 18:13:00 UTC
+   */
+  genesisTimestamp: 1667326380,
 }
 
 /**
@@ -232,17 +269,17 @@ export const devnet: Chain = {
       address: '0x0000000000000000000000000000000000000000',
       abi: Abis.erc20WithPermit,
     },
-    payments: {
+    filecoinPay: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.payments,
+      abi: Abis.filecoinPay,
     },
-    storage: {
+    fwss: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.storage,
+      abi: Abis.fwss,
     },
-    storageView: {
+    fwssView: {
       address: '0x0000000000000000000000000000000000000000',
-      abi: Abis.storageView,
+      abi: Abis.fwssView,
     },
     serviceProviderRegistry: {
       address: '0x0000000000000000000000000000000000000000',
@@ -256,8 +293,19 @@ export const devnet: Chain = {
       address: '0x0000000000000000000000000000000000000000',
       abi: Abis.pdp,
     },
+    endorsements: {
+      address: '0x0000000000000000000000000000000000000000',
+      abi: Abis.providerIdSet,
+    },
   },
+  filbeam: null,
   testnet: true,
+  /**
+   * Filecoin Devnet genesis: Set to 0 as placeholder. Epoch<>Date conversions (epochToDate,
+   * dateToEpoch) will return incorrect results on devnet. Core contract operations
+   * are unaffected as they use epochs directly.
+   */
+  genesisTimestamp: 0,
 }
 
 /**
@@ -280,4 +328,27 @@ export function getChain(id?: number): Chain {
     default:
       throw new Error(`Chain with id ${id} not found`)
   }
+}
+
+/**
+ * Convert a viem chain to a filecoin chain.
+ * @param chain - The viem chain.
+ * @returns The filecoin chain.
+ * @throws Errors {@link asChain.ErrorType}
+ */
+export function asChain(chain: ViemChain): Chain {
+  if (
+    chain.contracts &&
+    'filecoinPay' in chain.contracts &&
+    'fwss' in chain.contracts &&
+    'genesisTimestamp' in chain &&
+    [mainnet.id, calibration.id, devnet.id].includes(chain.id)
+  ) {
+    return chain as Chain
+  }
+  throw new UnsupportedChainError(chain.id)
+}
+
+export namespace asChain {
+  export type ErrorType = UnsupportedChainError
 }

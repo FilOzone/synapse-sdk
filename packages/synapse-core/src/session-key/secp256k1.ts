@@ -7,7 +7,6 @@ import {
   type TransactionReceipt,
   type Transport,
   type TransportConfig,
-  type WalletClient,
 } from 'viem'
 import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { waitForTransactionReceipt } from 'viem/actions'
@@ -106,7 +105,7 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
 
   async refresh(client: Client<Transport, Chain, Account>) {
     const hash = await login(client, {
-      sessionAddress: this.account.address,
+      address: this.account.address,
       permissions: this.permissions,
       expiresAt: this.expiresAt ? BigInt(this.expiresAt) : undefined,
     })
@@ -122,12 +121,12 @@ export class Secp256k1Key extends TypedEventTarget<WalletEvents> implements Sess
     }
     return isExpired(client, {
       address: client.account.address,
-      sessionAddress: this.account.address,
+      sessionKeyAddress: this.account.address,
       permission: permission,
     })
   }
 
-  client(chain: Chain, transportConfig?: TransportConfig): WalletClient<Transport, Chain, Account> {
+  client(chain: Chain, transportConfig?: TransportConfig): Client<Transport, Chain, Account> {
     if (!this.connected) {
       throw new Error('Not connected')
     }
@@ -156,5 +155,5 @@ export interface SessionKey extends TypedEventTarget<WalletEvents> {
   disconnect: () => Promise<void>
   refresh: (client: Client<Transport, Chain, Account>) => Promise<Hex>
   isValid: (client: Client<Transport, Chain, Account>, permission: SessionKeyPermissions) => Promise<boolean>
-  client: (chain: Chain, transportConfig?: TransportConfig) => WalletClient<Transport, Chain, Account>
+  client: (chain: Chain, transportConfig?: TransportConfig) => Client<Transport, Chain, Account>
 }

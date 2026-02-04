@@ -10,6 +10,7 @@ import type {
   RpcTransaction,
   TransactionRequest,
 } from 'viem'
+import type { EndorsementsOptions } from './endorsements.ts'
 import type { ERC20Options } from './erc20.ts'
 import type { PaymentsOptions } from './payments.ts'
 import type { PDPVerifierOptions } from './pdp.ts'
@@ -35,6 +36,10 @@ export interface JSONRPCOptions {
   eth_getBalance?: (params: [address: Address, block: BlockNumber | BlockTag]) => Hex
   eth_getTransactionByHash?: (params: any) => any
   eth_getTransactionReceipt?: (params: any) => any
+  eth_fillTransaction?: (params: [transaction: TransactionRequest]) => {
+    raw: Hex
+    tx: RpcTransaction
+  }
   eth_signTypedData_v4?: (params: any) => string
   eth_getTransactionCount?: (params: [address: Address, block: BlockNumber | BlockTag | BlockIdentifier]) => Hex
   eth_estimateGas?: (
@@ -62,6 +67,7 @@ export interface JSONRPCOptions {
   serviceRegistry?: ServiceRegistryOptions
   sessionKeyRegistry?: SessionKeyRegistryOptions
   erc20?: ERC20Options
+  endorsements?: EndorsementsOptions
 }
 
 /**

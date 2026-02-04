@@ -1,17 +1,5 @@
 import { getChain } from '@filoz/synapse-core/chains'
-import {
-  type AccountInfoOptions,
-  type AccountInfoResult,
-  accountInfo,
-  type DepositOptions,
-  deposit,
-  type OperatorApprovalsOptions,
-  type OperatorApprovalsResult,
-  operatorApprovals,
-  setOperatorApproval,
-  type WithdrawOptions,
-  withdraw,
-} from '@filoz/synapse-core/pay'
+import { accounts, deposit, operatorApprovals, setOperatorApproval, withdraw } from '@filoz/synapse-core/pay'
 import {
   type MutateOptions,
   skipToken,
@@ -23,16 +11,16 @@ import {
 import type { SetOptional } from 'type-fest'
 import type { Address, TransactionReceipt } from 'viem'
 import { waitForTransactionReceipt } from 'viem/actions'
-import { useAccount, useBlock, useChainId, useConfig } from 'wagmi'
+import { useAccount, useBlock, useChainId, useConfig, useConnection } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-interface UseAccountInfoProps extends SetOptional<AccountInfoOptions, 'address'> {
+export interface UseAccountInfoProps extends SetOptional<accounts.OptionsType, 'address'> {
   /**
    * Whether to watch blocks.
    * @default false
    */
   watch?: boolean
-  query?: Omit<UseQueryOptions<AccountInfoResult>, 'queryKey' | 'queryFn'>
+  query?: Omit<UseQueryOptions<accounts.OutputType>, 'queryKey' | 'queryFn'>
 }
 
 /**
@@ -50,7 +38,7 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
-  const address = props?.address
+  const owner = props?.address
   const { data } = useBlock({
     blockTag: 'latest',
     chainId,
@@ -59,12 +47,13 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
 
   const result = useQuery({
     ...props?.query,
-    queryKey: ['synapse-payments-account-info', address, token, data?.number?.toString()],
-    queryFn: address
+    queryKey: ['synapse-payments-account-info', owner, token, data?.number?.toString()],
+    queryFn: owner
       ? async () => {
-          return await accountInfo(config.getClient(), {
+          return await accounts(config.getClient(), {
             token,
-            address,
+            address: owner,
+
             blockNumber: data?.number,
           })
         }
@@ -73,11 +62,9 @@ export function useAccountInfo(props?: UseAccountInfoProps) {
   return result
 }
 
-export interface UseOperatorApprovalsProps extends SetOptional<OperatorApprovalsOptions, 'address'> {
-  query?: Omit<UseQueryOptions<OperatorApprovalsResult>, 'queryKey' | 'queryFn'>
+export interface UseOperatorApprovalsProps extends SetOptional<operatorApprovals.OptionsType, 'address'> {
+  query?: Omit<UseQueryOptions<operatorApprovals.OutputType>, 'queryKey' | 'queryFn'>
 }
-
-export type { OperatorApprovalsResult } from '@filoz/synapse-core/pay'
 
 /**
  * Get the operator approvals from the payments contract.
@@ -90,7 +77,7 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
   const address = props?.address
 
   const result = useQuery({
@@ -109,8 +96,8 @@ export function useOperatorApprovals(props?: UseOperatorApprovalsProps) {
   return result
 }
 
-type UseDepositVariables = Pick<DepositOptions, 'amount'>
-interface UseDepositProps extends Omit<DepositOptions, 'amount'> {
+export type UseDepositVariables = Pick<deposit.OptionsType, 'amount'>
+export interface UseDepositProps extends Omit<deposit.OptionsType, 'amount'> {
   /**
    * The mutation options.
    */
@@ -124,21 +111,17 @@ interface UseDepositProps extends Omit<DepositOptions, 'amount'> {
 /**
  * Deposit ERC20 tokens into the payments contract.
  *
- * @param props - The props for the deposit.
- * @param props.address - The address of the account to deposit from.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link UseDepositProps}
  * @returns The deposit mutation.
  */
 export function useDeposit(props?: UseDepositProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
-  const account = useAccount({ config })
+  const account = useConnection({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const from = props?.address ?? account.address
+  const to = props?.to ?? account.address
 
   return useMutation({
     mutationFn: async ({ amount }: UseDepositVariables) => {
@@ -149,8 +132,9 @@ export function useDeposit(props?: UseDepositProps) {
 
       const hash = await deposit(client, {
         amount,
-        address: account.address,
+        to,
         token,
+        contractAddress: props?.contractAddress,
       })
 
       props?.onHash?.(hash)
@@ -159,10 +143,10 @@ export function useDeposit(props?: UseDepositProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', from, token],
+        queryKey: ['synapse-payments-account-info', to, token],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', from, token],
+        queryKey: ['synapse-erc20-balance', to, token],
       })
       return transactionReceipt
     },
@@ -170,8 +154,8 @@ export function useDeposit(props?: UseDepositProps) {
   })
 }
 
-type UseWithdrawVariables = Pick<WithdrawOptions, 'amount'>
-type UseWithdrawProps = Omit<WithdrawOptions, 'amount'> & {
+export type UseWithdrawVariables = Pick<withdraw.OptionsType, 'amount'>
+export type UseWithdrawProps = Omit<withdraw.OptionsType, 'amount'> & {
   mutation?: Omit<MutateOptions<TransactionReceipt, Error, UseWithdrawVariables>, 'mutationFn'>
   onHash?: (hash: string) => void
 }
@@ -185,10 +169,9 @@ export function useWithdraw(props?: UseWithdrawProps) {
   const config = useConfig()
   const chainId = useChainId({ config })
   const chain = getChain(chainId)
-  const account = useAccount({ config })
+  const account = useConnection({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const from = props?.address ?? account.address
 
   return useMutation({
     mutationFn: async ({ amount }: UseWithdrawVariables) => {
@@ -199,7 +182,6 @@ export function useWithdraw(props?: UseWithdrawProps) {
 
       const hash = await withdraw(client, {
         amount,
-        address: account.address,
         token,
       })
       props?.onHash?.(hash)
@@ -208,10 +190,10 @@ export function useWithdraw(props?: UseWithdrawProps) {
       })
 
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-account-info', from, token],
+        queryKey: ['synapse-payments-account-info', account.address, token],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-erc20-balance', from, token],
+        queryKey: ['synapse-erc20-balance', account.address, token],
       })
       return transactionReceipt
     },
@@ -219,7 +201,7 @@ export function useWithdraw(props?: UseWithdrawProps) {
   })
 }
 
-type ApproveOperatorProps =
+export type ApproveOperatorProps =
   | {
       /**
        * The address of the operator to approve.
@@ -242,11 +224,7 @@ type ApproveOperatorProps =
 /**
  * Approve a service contract to act as an operator for payment rails.
  *
- * @param props - The props for the deposit.
- * @param props.operator - The address of the operator to approve.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link ApproveOperatorProps}
  * @returns The deposit mutation.
  */
 export function useApproveOperator(props?: ApproveOperatorProps) {
@@ -256,7 +234,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
   const account = useAccount({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
 
   return useMutation({
     ...props?.mutation,
@@ -288,7 +266,7 @@ export function useApproveOperator(props?: ApproveOperatorProps) {
   })
 }
 
-type RevokeOperatorProps =
+export type RevokeOperatorProps =
   | {
       /**
        * The address of the operator to revoke.
@@ -304,6 +282,9 @@ type RevokeOperatorProps =
        * The mutation options.
        */
       mutation?: Omit<MutateOptions<TransactionReceipt, Error>, 'mutationFn'>
+      /**
+       * The callback to call when the hash is available.
+       */
       onHash?: (hash: string) => void
     }
   | undefined
@@ -311,11 +292,7 @@ type RevokeOperatorProps =
 /**
  * Revoke the operator to deposit and withdraw ERC20 tokens from the payments contract.
  *
- * @param props - The props for the deposit.
- * @param props.operator - The address of the operator to approve.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
+ * @param props - The props for the deposit. {@link RevokeOperatorProps}
  * @returns The deposit mutation.
  */
 export function useRevokeOperator(props?: RevokeOperatorProps) {
@@ -325,7 +302,7 @@ export function useRevokeOperator(props?: RevokeOperatorProps) {
   const account = useAccount({ config })
   const queryClient = useQueryClient()
   const token = props?.token ?? chain.contracts.usdfc.address
-  const operator = props?.operator ?? chain.contracts.storage.address
+  const operator = props?.operator ?? chain.contracts.fwss.address
 
   return useMutation({
     ...props?.mutation,

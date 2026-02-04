@@ -13,7 +13,7 @@
     "preinstall": "pnpx only-allow pnpm",
     "build": "pnpm -r --filter='./packages/*' --if-present run build",
     "lint": "pnpm -r --if-present run lint",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
+    "lint:fix": "biome check --fix .",
     "test": "pnpm -r --filter='./packages/*' --if-present run test",
     "check:markdown": "markdownlint-cli2 --config .github/.markdownlint-cli2.jsonc '**/*.md' '**/*.mdx'",
     "check:repo": "pnpx sherif@latest -r root-package-manager-field",
@@ -30,16 +30,16 @@
     "wireit": "^0.14.12"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true --staged"
+    "pre-commit": "pnpm exec biome check --staged --fix"
   },
   "engines": {
     "node": ">=22"
   },
-  "packageManager": "pnpm@10.26.0",
+  "packageManager": "pnpm@10.28.2",
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^24.8.0",
+      "version": "^24.13.0",
       "onFail": "download"
     }
   }

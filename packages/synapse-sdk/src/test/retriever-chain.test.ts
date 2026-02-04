@@ -1,9 +1,10 @@
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { asPieceCID } from '@filoz/synapse-core/piece'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
+import { createPublicClient, http as viemHttp } from 'viem'
 import { ChainRetriever } from '../retriever/chain.ts'
 import { SPRegistryService } from '../sp-registry/index.ts'
 import type { PieceCID, PieceRetriever } from '../types.ts'
@@ -27,7 +28,6 @@ const mockChildRetriever: PieceRetriever = {
 }
 
 describe('ChainRetriever', () => {
-  let provider: ethers.Provider
   let warmStorage: WarmStorageService
   let spRegistry: SPRegistryService
 
@@ -43,9 +43,12 @@ describe('ChainRetriever', () => {
     server.resetHandlers()
     // Set up basic JSON-RPC handler before creating services
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    warmStorage = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
-    spRegistry = await SPRegistryService.create(provider, Mocks.ADDRESSES.calibration.spRegistry)
+    const publicClient = createPublicClient({
+      chain: calibration,
+      transport: viemHttp(),
+    })
+    warmStorage = new WarmStorageService(publicClient)
+    spRegistry = await SPRegistryService.create(publicClient)
   })
 
   describe('fetchPiece with specific provider', () => {
@@ -115,6 +118,7 @@ describe('ChainRetriever', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
             getProviderByAddress: () => [
@@ -137,11 +141,11 @@ describe('ChainRetriever', () => {
 
       try {
         await retriever.fetchPiece(mockPieceCID, Mocks.ADDRESSES.client1, {
-          providerAddress: '0xNotApproved',
+          providerAddress: Mocks.ADDRESSES.client1,
         })
         assert.fail('Should have thrown')
       } catch (error: any) {
-        assert.include(error.message, 'Provider 0xNotApproved not found in registry')
+        assert.include(error.message, `Provider ${Mocks.ADDRESSES.client1} not found in registry`)
       }
     })
   })

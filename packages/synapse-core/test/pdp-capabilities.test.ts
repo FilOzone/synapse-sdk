@@ -14,7 +14,7 @@ describe('decodePDPCapabilities', () => {
 
       const result = decodePDPCapabilities(capabilities)
 
-      assert.strictEqual(result.ipniPeerID, 'z12D3KooWEQovpB7KFS5vE7agxzzxAmXZbWRysFqLp396ojUxgWeA')
+      assert.strictEqual(result.ipniPeerId, 'z12D3KooWEQovpB7KFS5vE7agxzzxAmXZbWRysFqLp396ojUxgWeA')
     })
 
     it('returns undefined when IPNIPeerID capability is missing', () => {
@@ -24,7 +24,7 @@ describe('decodePDPCapabilities', () => {
 
       const result = decodePDPCapabilities(capabilities)
 
-      assert.strictEqual(result.ipniPeerID, undefined)
+      assert.strictEqual(result.ipniPeerId, undefined)
     })
   })
 })

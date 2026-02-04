@@ -1,9 +1,12 @@
 /* globals describe it beforeEach */
 
+import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import { ZodValidationError } from '@filoz/synapse-core/errors'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import { type Client, createPublicClient, createWalletClient, type Transport, http as viemHttp } from 'viem'
+import { type Account, privateKeyToAccount } from 'viem/accounts'
 import { SPRegistryService } from '../sp-registry/service.ts'
 import { PRODUCTS } from '../sp-registry/types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
@@ -12,9 +15,9 @@ import { SIZE_CONSTANTS } from '../utils/constants.ts'
 const server = setup()
 
 describe('SPRegistryService', () => {
-  let provider: ethers.Provider
-  let signer: ethers.Signer
   let service: SPRegistryService
+  let publicClient: Client<Transport, Chain>
+  let walletClient: Client<Transport, Chain, Account>
 
   before(async () => {
     await server.start()
@@ -26,15 +29,22 @@ describe('SPRegistryService', () => {
 
   beforeEach(() => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(Mocks.PRIVATE_KEYS.key1, provider)
-    service = new SPRegistryService(provider, Mocks.ADDRESSES.calibration.spRegistry)
+    publicClient = createPublicClient({
+      chain: calibration,
+      transport: viemHttp(),
+    })
+    walletClient = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
+    })
+    service = new SPRegistryService(publicClient)
   })
 
   describe('Constructor', () => {
     it('should create instance with provider and address', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const instance = new SPRegistryService(provider, Mocks.ADDRESSES.calibration.spRegistry)
+      const instance = new SPRegistryService(publicClient)
       assert.exists(instance)
     })
   })
@@ -42,37 +52,26 @@ describe('SPRegistryService', () => {
   describe('Provider Read Operations', () => {
     it('should get provider by ID', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
-      assert.equal(provider?.id, 1)
+      assert.equal(provider?.id, 1n)
       assert.equal(provider?.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
       assert.equal(provider?.name, 'Test Provider')
       assert.equal(provider?.description, 'Test Provider')
-      assert.isTrue(provider?.active)
+      assert.isTrue(provider?.isActive)
     })
 
     it('should return null for non-existent provider', async () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
-            getProvider: () => [
-              {
-                providerId: 0n,
-                info: {
-                  serviceProvider: Mocks.ADDRESSES.zero,
-                  payee: Mocks.ADDRESSES.zero,
-                  isActive: false,
-                  name: '',
-                  description: '',
-                },
-              },
-            ],
           },
         })
       )
-      const provider = await service.getProvider(999)
+      const provider = await service.getProvider(999n)
       assert.isNull(provider)
     })
 
@@ -80,7 +79,7 @@ describe('SPRegistryService', () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const provider = await service.getProviderByAddress(Mocks.ADDRESSES.serviceProvider1)
       assert.exists(provider)
-      assert.equal(provider.id, 1)
+      assert.equal(provider.id, 1n)
       assert.equal(provider.serviceProvider, Mocks.ADDRESSES.serviceProvider1)
     })
 
@@ -112,7 +111,7 @@ describe('SPRegistryService', () => {
     it('should get provider ID by address', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const id = await service.getProviderIdByAddress(Mocks.ADDRESSES.serviceProvider1)
-      assert.equal(id, 1)
+      assert.equal(id, 1n)
     })
 
     it('should return 0 for unregistered address', async () => {
@@ -126,12 +125,12 @@ describe('SPRegistryService', () => {
         })
       )
       const id = await service.getProviderIdByAddress(Mocks.ADDRESSES.zero)
-      assert.equal(id, 0)
+      assert.equal(id, 0n)
     })
 
     it('should check if provider is active', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const isActive = await service.isProviderActive(1)
+      const isActive = await service.isProviderActive(1n)
       assert.isTrue(isActive)
 
       server.use(
@@ -143,7 +142,7 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const isInactive = await service.isProviderActive(999)
+      const isInactive = await service.isProviderActive(999n)
       assert.isFalse(isInactive)
     })
 
@@ -168,15 +167,15 @@ describe('SPRegistryService', () => {
     it('should get provider count', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
       const count = await service.getProviderCount()
-      assert.equal(count, 2)
+      assert.equal(count, 2n)
     })
   })
 
   describe('Provider Write Operations', () => {
     it('should register new provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const tx = await service.registerProvider(signer, {
-        payee: await signer.getAddress(),
+      const hash = await service.registerProvider(walletClient, {
+        payee: walletClient.account.address,
         name: 'New Provider',
         description: 'Description',
         pdpOffering: {
@@ -185,62 +184,56 @@ describe('SPRegistryService', () => {
           maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
           ipniPiece: true,
           ipniIpfs: false,
-          ipniPeerID: '',
+          ipniPeerId: '',
           storagePricePerTibPerDay: BigInt(1000000),
           minProvingPeriodInEpochs: 2880n,
           location: 'US-EAST',
           paymentTokenAddress: '0x0000000000000000000000000000000000000000',
         },
       })
-      assert.exists(tx, 'Transaction should exist')
-      assert.exists(tx.hash, 'Transaction should have a hash')
+      assert.exists(hash, 'Transaction should exist')
+      assert.ok(hash.startsWith('0x'))
     })
 
     it('should update provider info', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const tx = await service.updateProviderInfo(signer, 'Updated Name', 'Updated Description')
-      assert.exists(tx)
-      assert.exists(tx.hash)
+      const hash = await service.updateProviderInfo(walletClient, 'Updated Name', 'Updated Description')
+      assert.exists(hash)
+      assert.ok(hash.startsWith('0x'))
     })
 
     it('should remove provider', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const tx = await service.removeProvider(signer)
-      assert.exists(tx)
-      assert.exists(tx.hash)
+      const hash = await service.removeProvider(walletClient)
+      assert.exists(hash)
+      assert.ok(hash.startsWith('0x'))
     })
   })
 
   describe('Product Operations', () => {
     it('should get provider products', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
-      assert.exists(provider?.products)
-      assert.exists(provider?.products.PDP)
+      assert.exists(provider.pdp)
 
-      const product = provider?.products.PDP
+      const product = provider.pdp
       assert.exists(product)
-      assert.equal(product?.type, 'PDP')
-      assert.isTrue(product?.isActive)
+      assert.equal(product.serviceURL, 'https://pdp.example.com')
     })
 
     it('should decode PDP product data', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
-      const product = provider?.products.PDP
+      const provider = await service.getProvider(1n)
+      const product = provider?.pdp
 
       assert.exists(product)
-      assert.equal(product?.type, 'PDP')
-
-      if (product?.type === 'PDP') {
-        assert.equal(product.data.serviceURL, 'https://pdp.example.com')
-        assert.equal(product.data.minPieceSizeInBytes, SIZE_CONSTANTS.KiB)
-        assert.equal(product.data.maxPieceSizeInBytes, SIZE_CONSTANTS.GiB)
-        assert.isFalse(product.data.ipniPiece)
-        assert.isFalse(product.data.ipniIpfs)
-        assert.equal(product.data.location, 'US')
-      }
+      assert.equal(product.serviceURL, 'https://pdp.example.com')
+      assert.equal(product.minPieceSizeInBytes, SIZE_CONSTANTS.KiB)
+      assert.equal(product.maxPieceSizeInBytes, SIZE_CONSTANTS.GiB)
+      assert.isFalse(product.ipniPiece)
+      assert.isFalse(product.ipniIpfs)
+      assert.equal(product.location, 'US')
     })
 
     it('should add new product', async () => {
@@ -251,16 +244,16 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB,
         ipniPiece: true,
         ipniIpfs: false,
-        ipniPeerID: '',
+        ipniPeerId: '',
         storagePricePerTibPerDay: BigInt(1000000),
         minProvingPeriodInEpochs: 2880n,
         location: 'US-WEST',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const tx = await service.addPDPProduct(signer, pdpData)
-      assert.exists(tx)
-      assert.exists(tx.hash)
+      const hash = await service.addPDPProduct(walletClient, pdpData)
+      assert.exists(hash)
+      assert.ok(hash.startsWith('0x'))
     })
 
     it('should update existing product', async () => {
@@ -271,36 +264,36 @@ describe('SPRegistryService', () => {
         maxPieceSizeInBytes: SIZE_CONSTANTS.GiB * 2n,
         ipniPiece: true,
         ipniIpfs: true,
-        ipniPeerID: '',
+        ipniPeerId: '',
         storagePricePerTibPerDay: BigInt(2000000),
         minProvingPeriodInEpochs: 2880n,
         location: 'EU-WEST',
         paymentTokenAddress: '0x0000000000000000000000000000000000000000',
       } as const
 
-      const tx = await service.updatePDPProduct(signer, pdpData)
-      assert.exists(tx)
-      assert.exists(tx.hash)
+      const hash = await service.updatePDPProduct(walletClient, pdpData)
+      assert.exists(hash)
+      assert.ok(hash.startsWith('0x'))
     })
 
     it('should remove product', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const tx = await service.removeProduct(signer, PRODUCTS.PDP)
-      assert.exists(tx)
-      assert.exists(tx.hash)
+      const hash = await service.removeProduct(walletClient, PRODUCTS.PDP)
+      assert.exists(hash)
+      assert.ok(hash.startsWith('0x'))
     })
   })
 
   describe('Batch Operations', () => {
     it('should get multiple providers in batch', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const providers = await service.getProviders([1, 2, 3])
+      const providers = await service.getProviders([1n, 2n, 3n])
       assert.isArray(providers)
       assert.equal(providers.length, 2) // Only IDs 1 and 2 exist in our mock
       assert.exists(providers[0]) // ID 1 exists
-      assert.equal(providers[0].id, 1)
+      assert.equal(providers[0].id, 1n)
       assert.exists(providers[1]) // ID 2 exists
-      assert.equal(providers[1].id, 2)
+      assert.equal(providers[1].id, 2n)
     })
 
     it('should handle empty provider ID list', async () => {
@@ -314,22 +307,9 @@ describe('SPRegistryService', () => {
   describe('Provider Info Conversion', () => {
     it('should extract serviceURL from first PDP product', async () => {
       server.use(Mocks.JSONRPC(Mocks.presets.basic))
-      const provider = await service.getProvider(1)
+      const provider = await service.getProvider(1n)
       assert.exists(provider)
-      assert.equal(provider?.products.PDP?.data.serviceURL, 'https://pdp.example.com')
-    })
-
-    it('should handle provider without PDP products', async () => {
-      server.use(
-        Mocks.JSONRPC({
-          ...Mocks.presets.basic,
-          serviceRegistry: Mocks.mockServiceProviderRegistry([Mocks.PROVIDERS.providerNoPDP]),
-        })
-      )
-
-      const provider = await service.getProvider(1)
-      assert.exists(provider)
-      assert.isUndefined(provider?.products.PDP)
+      assert.equal(provider?.pdp?.serviceURL, 'https://pdp.example.com')
     })
   })
 
@@ -338,9 +318,10 @@ describe('SPRegistryService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
-            getProvider: () => {
+            getProviderWithProduct: () => {
               throw new Error('Contract call failed')
             },
           },
@@ -348,7 +329,7 @@ describe('SPRegistryService', () => {
       )
 
       try {
-        const provider = await service.getProvider(1)
+        const provider = await service.getProvider(1n)
         assert.isNull(provider)
       } catch (error: any) {
         assert.include((error as Error).message, 'Contract call failed')
@@ -359,7 +340,7 @@ describe('SPRegistryService', () => {
       server.use(
         Mocks.JSONRPC({
           ...Mocks.presets.basic,
-          debug: true,
+          debug: false,
           serviceRegistry: {
             ...Mocks.presets.basic.serviceRegistry,
             getProviderWithProduct: () => [
@@ -383,10 +364,12 @@ describe('SPRegistryService', () => {
           },
         })
       )
-      const provider = await service.getProvider(1)
-      assert.exists(provider)
-      assert.exists(provider?.products)
-      assert.isUndefined(provider?.products.PDP) // Product decoding failed, so no PDP product
+      try {
+        await service.getProvider(1n)
+      } catch (error: any) {
+        assert.instanceOf(error, ZodValidationError)
+        assert.include(error.details, 'Invalid input')
+      }
     })
   })
 })

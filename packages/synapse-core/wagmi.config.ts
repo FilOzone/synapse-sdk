@@ -5,10 +5,12 @@ import { multicall } from 'viem/actions'
 import { calibration, mainnet } from './src/chains.ts'
 
 // GIT_REF can be one of: '<branch name>', '<commit>' or 'tags/<tag>'
-const GIT_REF = '8e162d676f3e83c495f104989b3014b3961e2f05'
+const GIT_REF = '3f132815997a0f6fc7b207e511b7d54205044838'
 const BASE_URL = `https://raw.githubusercontent.com/FilOzone/filecoin-services/${GIT_REF.replace(/^(?![a-f0-9]{40}$)/, 'refs/')}/service_contracts/abi`
 const FWSS_ADDRESS_CALIBRATION = '0x02925630df557F957f70E112bA06e50965417CA0' as Address
 const FWSS_ADDRESS_MAINNET = '0x8408502033C418E1bbC97cE9ac48E5528F371A9f' as Address
+const ENDORSEMENTS_ADDRESS_CALIBRATION = '0xAA2f7CfC7ecAc616EC9C1f6d700fAd19087FAC84' as Address
+const ENDORSEMENTS_ADDRESS_MAINNET = '0x59eFa2e8324E1551d46010d7B0B140eE2F5c726b' as Address
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address
 
 async function readAddresses(client: Client<Transport, Chain>, fwssAddress: Address) {
@@ -122,17 +124,17 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
       },
     },
     {
-      name: 'FilecoinWarmStorageService',
-      address: {
-        314: FWSS_ADDRESS_MAINNET,
-        314159: FWSS_ADDRESS_CALIBRATION,
-      },
-    },
-    {
       name: 'FilecoinPayV1',
       address: {
         314: mainnetAddresses.payments,
         314159: calibrationAddresses.payments,
+      },
+    },
+    {
+      name: 'FilecoinWarmStorageService',
+      address: {
+        314: FWSS_ADDRESS_MAINNET,
+        314159: FWSS_ADDRESS_CALIBRATION,
       },
     },
     {
@@ -161,6 +163,13 @@ const config: ReturnType<typeof defineConfig> = defineConfig(async () => {
       address: {
         314: mainnetAddresses.sessionKeyRegistry,
         314159: calibrationAddresses.sessionKeyRegistry,
+      },
+    },
+    {
+      name: 'ProviderIdSet',
+      address: {
+        314: ENDORSEMENTS_ADDRESS_MAINNET,
+        314159: ENDORSEMENTS_ADDRESS_CALIBRATION,
       },
     },
   ]

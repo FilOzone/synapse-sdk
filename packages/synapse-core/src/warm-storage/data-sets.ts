@@ -1,36 +1,24 @@
 import type { AbiParametersToPrimitiveTypes, ExtractAbiFunction } from 'abitype'
-import {
-  type Account,
-  type Address,
-  type Chain,
-  type Client,
-  encodeAbiParameters,
-  isAddressEqual,
-  type Transport,
-} from 'viem'
+import { type Account, type Address, type Chain, type Client, isAddressEqual, type Transport } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type * as Abis from '../abis/index.ts'
-import { getChain } from '../chains.ts'
+import { asChain, getChain } from '../chains.ts'
 import { DataSetNotFoundError } from '../errors/warm-storage.ts'
+import { dataSetLiveCall, getDataSetListenerCall } from '../pdp-verifier/index.ts'
 import type { PieceCID } from '../piece.ts'
 import * as SP from '../sp.ts'
-import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
+import { getPDPProviderCall, parsePDPProvider } from '../sp-registry/get-pdp-provider.ts'
+import type { PDPOffering } from '../sp-registry/types.ts'
 import { signCreateDataSet } from '../typed-data/sign-create-dataset.ts'
-import { capabilitiesListToObject } from '../utils/capabilities.ts'
-import {
-  datasetMetadataObjectToEntry,
-  type MetadataObject,
-  metadataArrayToObject,
-  pieceMetadataObjectToEntry,
-} from '../utils/metadata.ts'
-import { decodePDPCapabilities } from '../utils/pdp-capabilities.ts'
+import { signCreateDataSetAndAddPieces } from '../typed-data/sign-create-dataset-add-pieces.ts'
+import { datasetMetadataObjectToEntry, type MetadataObject, pieceMetadataObjectToEntry } from '../utils/metadata.ts'
 import { randU256 } from '../utils/rand.ts'
-import type { PDPOffering } from './providers.ts'
+import { getAllDataSetMetadataCall, parseAllDataSetMetadata } from './get-all-data-set-metadata.ts'
 
 /**
  * ABI function to get the client data sets
  */
-export type getClientDataSetsType = ExtractAbiFunction<typeof Abis.storageView, 'getClientDataSets'>
+export type getClientDataSetsType = ExtractAbiFunction<typeof Abis.fwssView, 'getClientDataSets'>
 
 /**
  * ABI Client data set
@@ -62,54 +50,44 @@ export async function getDataSets(client: Client<Transport, Chain>, options: Get
   const chain = getChain(client.chain.id)
   const address = options.address
   const data = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
+    address: chain.contracts.fwssView.address,
+    abi: chain.contracts.fwssView.abi,
     functionName: 'getClientDataSets',
     args: [address],
   })
 
   const promises = data.map(async (dataSet) => {
-    const [live, listener, metadata, pdpOffering] = await multicall(client, {
+    const [live, listener, metadata, _pdpProvider] = await multicall(client, {
       allowFailure: false,
       contracts: [
-        {
-          abi: chain.contracts.pdp.abi,
-          address: chain.contracts.pdp.address,
-          functionName: 'dataSetLive',
-          args: [dataSet.dataSetId],
-        },
-        {
-          abi: chain.contracts.pdp.abi,
-          address: chain.contracts.pdp.address,
-          functionName: 'getDataSetListener',
-          args: [dataSet.dataSetId],
-        },
-        {
-          address: chain.contracts.storageView.address,
-          abi: chain.contracts.storageView.abi,
-          functionName: 'getAllDataSetMetadata',
-          args: [dataSet.dataSetId],
-        },
-        {
-          address: chain.contracts.serviceProviderRegistry.address,
-          abi: chain.contracts.serviceProviderRegistry.abi,
-          functionName: 'getProviderWithProduct',
-          args: [dataSet.providerId, 0], // 0 = PDP product type
-        },
+        dataSetLiveCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
+        getDataSetListenerCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
+        getAllDataSetMetadataCall({
+          chain: client.chain,
+          dataSetId: dataSet.dataSetId,
+        }),
+        getPDPProviderCall({
+          chain: client.chain,
+          providerId: dataSet.providerId,
+        }),
       ],
     })
     // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-    const pdpCaps = decodePDPCapabilities(
-      capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
-    )
+    const pdpProvider = parsePDPProvider(_pdpProvider)
 
     return {
       ...dataSet,
       live,
-      managed: isAddressEqual(listener, chain.contracts.storage.address),
+      managed: isAddressEqual(listener, chain.contracts.fwss.address),
       cdn: dataSet.cdnRailId !== 0n,
-      metadata: metadataArrayToObject(metadata),
-      pdp: pdpCaps,
+      metadata: parseAllDataSetMetadata(metadata),
+      pdp: pdpProvider.pdp,
     }
   })
   const proofs = await Promise.all(promises)
@@ -137,8 +115,8 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
   const chain = getChain(client.chain.id)
 
   const dataSet = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
+    address: chain.contracts.fwssView.address,
+    abi: chain.contracts.fwssView.abi,
     functionName: 'getDataSet',
     args: [options.dataSetId],
   })
@@ -147,99 +125,74 @@ export async function getDataSet(client: Client<Transport, Chain>, options: GetD
     throw new DataSetNotFoundError(options.dataSetId)
   }
 
-  const [live, listener, metadata, pdpOffering] = await multicall(client, {
+  const [live, listener, metadata, _pdpProvider] = await multicall(client, {
     allowFailure: false,
     contracts: [
-      {
-        abi: chain.contracts.pdp.abi,
-        address: chain.contracts.pdp.address,
-        functionName: 'dataSetLive',
-        args: [options.dataSetId],
-      },
-      {
-        abi: chain.contracts.pdp.abi,
-        address: chain.contracts.pdp.address,
-        functionName: 'getDataSetListener',
-        args: [options.dataSetId],
-      },
-      {
-        address: chain.contracts.storageView.address,
-        abi: chain.contracts.storageView.abi,
-        functionName: 'getAllDataSetMetadata',
-        args: [options.dataSetId],
-      },
-      {
-        address: chain.contracts.serviceProviderRegistry.address,
-        abi: chain.contracts.serviceProviderRegistry.abi,
-        functionName: 'getProviderWithProduct',
-        args: [dataSet.providerId, 0], // 0 = PDP product type
-      },
+      dataSetLiveCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
+      getDataSetListenerCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
+      getAllDataSetMetadataCall({
+        chain: client.chain,
+        dataSetId: options.dataSetId,
+      }),
+      getPDPProviderCall({
+        chain: client.chain,
+        providerId: dataSet.providerId,
+      }),
     ],
   })
 
   // getProviderWithProduct returns {providerId, providerInfo, product, productCapabilityValues}
-  const pdpCaps = decodePDPCapabilities(
-    capabilitiesListToObject(pdpOffering.product.capabilityKeys, pdpOffering.productCapabilityValues)
-  )
+  const pdpProvider = parsePDPProvider(_pdpProvider)
 
   return {
     ...dataSet,
     live,
-    managed: isAddressEqual(listener, chain.contracts.storage.address),
+    managed: isAddressEqual(listener, chain.contracts.fwss.address),
     cdn: dataSet.cdnRailId !== 0n,
-    metadata: metadataArrayToObject(metadata),
-    pdp: pdpCaps,
+    metadata: parseAllDataSetMetadata(metadata),
+    pdp: pdpProvider.pdp,
   }
 }
 
-/**
- * Get the metadata for a data set
- *
- * @param client
- * @param dataSetId
- * @returns
- */
-export async function getDataSetMetadata(client: Client<Transport, Chain>, dataSetId: bigint) {
-  const chain = getChain(client.chain.id)
-  const metadata = await readContract(client, {
-    address: chain.contracts.storageView.address,
-    abi: chain.contracts.storageView.abi,
-    functionName: 'getAllDataSetMetadata',
-    args: [dataSetId],
-  })
-  return metadataArrayToObject(metadata)
-}
-
 export type CreateDataSetOptions = {
+  /** Whether the data set should use CDN. */
   cdn: boolean
+  /** The address that will receive payments (service provider). */
   payee: Address
   /**
+   * The address that will pay for the storage (client). If not provided, the default is the client address.
    * If client is from a session key this should be set to the actual payer address
    */
   payer?: Address
+  /** The endpoint of the PDP API. */
   endpoint: string
+  /** The metadata for the data set. */
   metadata?: MetadataObject
+  /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
+  clientDataSetId?: bigint
+  /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
+  recordKeeper?: Address
 }
 
 /**
  * Create a data set
  *
  * @param client - The client to use to create the data set.
- * @param options - The options for the create data set.
- * @param options.payee - The address that will receive payments (service provider).
- * @param options.payer - The address that will pay for the storage (client).
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.cdn - Whether the data set should use CDN.
- * @param options.metadata - The metadata for the data set.
+ * @param options - {@link CreateDataSetOptions}
  * @returns The response from the create data set on PDP API.
  */
 export async function createDataSet(client: Client<Transport, Chain, Account>, options: CreateDataSetOptions) {
   const chain = getChain(client.chain.id)
-  const nonce = randU256()
 
   // Sign and encode the create data set message
   const extraData = await signCreateDataSet(client, {
-    clientDataSetId: nonce,
+    clientDataSetId: options.clientDataSetId ?? randU256(),
     payee: options.payee,
     payer: options.payer,
     metadata: datasetMetadataObjectToEntry(options.metadata, {
@@ -249,67 +202,69 @@ export async function createDataSet(client: Client<Transport, Chain, Account>, o
 
   return SP.createDataSet({
     endpoint: options.endpoint,
-    recordKeeper: chain.contracts.storage.address,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
     extraData,
   })
 }
 
 export type CreateDataSetAndAddPiecesOptions = {
+  /** The client data set id (nonce) to use for the signature. Must be unique for each data set. */
+  clientDataSetId?: bigint
+  /** The address of the record keeper to use for the signature. If not provided, the default is the Warm Storage contract address. */
+  recordKeeper?: Address
   /**
+   * The address that will pay for the storage (client). If not provided, the default is the client address.
+   *
    * If client is from a session key this should be set to the actual payer address
    */
   payer?: Address
+  /** The endpoint of the PDP API. */
   endpoint: string
+  /** The address that will receive payments (service provider). */
   payee: Address
+  /** Whether the data set should use CDN. */
   cdn: boolean
+  /** The metadata for the data set. */
   metadata?: MetadataObject
+  /** The pieces and metadata to add to the data set. */
   pieces: { pieceCid: PieceCID; metadata?: MetadataObject }[]
+}
+
+export namespace createDataSetAndAddPieces {
+  export type OptionsType = CreateDataSetAndAddPiecesOptions
+  export type ReturnType = SP.createDataSetAndAddPieces.ReturnType
+  export type ErrorType = SP.createDataSetAndAddPieces.ErrorType | asChain.ErrorType
 }
 
 /**
  * Create a data set and add pieces to it
  *
  * @param client - The client to use to create the data set.
- * @param options - The options for the create data set.
- * @param options.payer - The address that will pay for the storage (client).
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.payee - The address that will receive payments (service provider).
- * @param options.cdn - Whether the data set should use CDN.
- * @param options.metadata - The metadata for the data set.
- * @returns The response from the create data set on PDP API.
+ * @param options - {@link CreateDataSetAndAddPiecesOptions}
+ * @returns The response from the create data set on PDP API. {@link createDataSetAndAddPieces.ReturnType}
+ * @throws Errors {@link createDataSetAndAddPieces.ErrorType}
  */
 export async function createDataSetAndAddPieces(
   client: Client<Transport, Chain, Account>,
   options: CreateDataSetAndAddPiecesOptions
-) {
-  const chain = getChain(client.chain.id)
-  const clientDataSetId = randU256()
-  // Sign and encode the create data set message
-  const dataSetExtraData = await signCreateDataSet(client, {
-    clientDataSetId,
-    payee: options.payee,
-    payer: options.payer,
-    metadata: datasetMetadataObjectToEntry(options.metadata, {
-      cdn: options.cdn,
-    }),
-  })
-
-  // Sign and encode the add pieces message
-  const addPiecesExtraData = await signAddPieces(client, {
-    clientDataSetId,
-    nonce: randU256(),
-    pieces: options.pieces.map((piece) => ({
-      pieceCid: piece.pieceCid,
-      metadata: pieceMetadataObjectToEntry(piece.metadata),
-    })),
-  })
-
-  const extraData = encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [dataSetExtraData, addPiecesExtraData])
+): Promise<createDataSetAndAddPieces.ReturnType> {
+  const chain = asChain(client.chain)
 
   return SP.createDataSetAndAddPieces({
     endpoint: options.endpoint,
-    recordKeeper: chain.contracts.storage.address,
-    extraData,
+    recordKeeper: options.recordKeeper ?? chain.contracts.fwss.address,
+    extraData: await signCreateDataSetAndAddPieces(client, {
+      clientDataSetId: options.clientDataSetId ?? randU256(),
+      payee: options.payee,
+      payer: options.payer,
+      metadata: datasetMetadataObjectToEntry(options.metadata, {
+        cdn: options.cdn,
+      }),
+      pieces: options.pieces.map((piece) => ({
+        pieceCid: piece.pieceCid,
+        metadata: pieceMetadataObjectToEntry(piece.metadata),
+      })),
+    }),
     pieces: options.pieces.map((piece) => piece.pieceCid),
   })
 }
@@ -322,11 +277,11 @@ export type TerminateDataSetOptions = {
 }
 
 export async function terminateDataSet(client: Client<Transport, Chain, Account>, options: TerminateDataSetOptions) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
 
   const { request } = await simulateContract(client, {
-    address: chain.contracts.storage.address,
-    abi: chain.contracts.storage.abi,
+    address: chain.contracts.fwss.address,
+    abi: chain.contracts.fwss.abi,
     functionName: 'terminateService',
     args: [options.dataSetId],
   })

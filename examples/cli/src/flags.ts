@@ -17,4 +17,9 @@ export const globalFlags = {
     description: 'The chain to use. 314159 for calibration, 314 for mainnet',
     default: 314159,
   },
+  debug: {
+    type: Boolean,
+    description: 'Enable debug mode',
+    default: false,
+  },
 }

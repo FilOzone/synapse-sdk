@@ -50,7 +50,8 @@
   ],
   "scripts": {
     "build": "wireit",
-    "lint": "wireit"
+    "lint": "wireit",
+    "lint:fix": "biome check --fix ."
   },
   "wireit": {
     "build": {
@@ -68,7 +69,7 @@
       ]
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check .",
       "files": [
         "src/**/*.ts",
         "../../biome.json"
@@ -86,8 +87,9 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/node": "catalog:",
-    "type-fest": "^5.1.0",
-    "typescript": "catalog:"
+    "type-fest": "^5.4.3",
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"

@@ -1,22 +1,11 @@
+import { calibration, mainnet } from '@filoz/synapse-core/chains'
 import { expect } from 'chai'
 import type { request } from 'iso-web/http'
 import { FilBeamService } from '../filbeam/service.ts'
-import type { FilecoinNetworkType } from '../types.ts'
 
 type MockRequestGetJson = typeof request.json.get
 
 describe('FilBeamService', () => {
-  describe('network type validation', () => {
-    it('should throw error if network type not mainnet or calibration', () => {
-      try {
-        // @ts-expect-error
-        new FilBeamService('base-sepolia')
-      } catch (error: any) {
-        expect(error.message).to.include('Unsupported network type')
-      }
-    })
-  })
-
   describe('URL construction', () => {
     it('should use mainnet URL for mainnet network', async () => {
       let calledUrl: string | undefined
@@ -24,7 +13,7 @@ describe('FilBeamService', () => {
         calledUrl = String(url)
         return { result: { cdnEgressQuota: '100', cacheMissEgressQuota: '50' } }
       }
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockRequestGetJson as MockRequestGetJson)
+      const service = new FilBeamService(mainnet, mockRequestGetJson as MockRequestGetJson)
       await service.getDataSetStats('test')
 
       expect(calledUrl).to.equal('https://stats.filbeam.com/data-set/test')
@@ -36,7 +25,7 @@ describe('FilBeamService', () => {
         calledUrl = String(url)
         return { result: { cdnEgressQuota: '100', cacheMissEgressQuota: '50' } }
       }
-      const service = new FilBeamService('calibration' as FilecoinNetworkType, mockRequestGetJson as MockRequestGetJson)
+      const service = new FilBeamService(calibration, mockRequestGetJson as MockRequestGetJson)
       await service.getDataSetStats('test')
 
       expect(calledUrl).to.equal('https://calibration.stats.filbeam.com/data-set/test')
@@ -51,7 +40,7 @@ describe('FilBeamService', () => {
         result: { cdnEgressQuota: '1000', cacheMissEgressQuota: '500' },
       })
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockRequestGetJson as MockRequestGetJson)
+      const service = new FilBeamService(mainnet, mockRequestGetJson as MockRequestGetJson)
       const result = await service.getDataSetStats('test-dataset')
 
       expect(result).to.deep.equal({
@@ -65,7 +54,7 @@ describe('FilBeamService', () => {
         result: { cdnEgressQuota: '2000', cacheMissEgressQuota: '1000' },
       })
 
-      const service = new FilBeamService('calibration' as FilecoinNetworkType, mockRequestGetJson as MockRequestGetJson)
+      const service = new FilBeamService(calibration, mockRequestGetJson as MockRequestGetJson)
       const result = await service.getDataSetStats(123)
 
       expect(result).to.deep.equal({

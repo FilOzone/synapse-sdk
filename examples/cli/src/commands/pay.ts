@@ -19,15 +19,14 @@ export const pay: Command = command(
     },
   },
   async (argv) => {
-    const { privateKey, rpcURL } = privateKeyClient(argv.flags.chain)
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const spinner = p.spinner()
 
     spinner.start('Checking wallet balance...')
     try {
-      const synapse = await Synapse.create({
-        privateKey,
-        rpcURL,
+      const synapse = new Synapse({
+        client,
       })
 
       const filBalance = await synapse.payments.walletBalance()
@@ -50,7 +49,7 @@ export const pay: Command = command(
         `Lockup last settled at: ${formatBalance({ value: paymentsBalance.lockupLastSettledAt })}`
       )
       p.log.info(`Funds: ${formatBalance({ value: paymentsBalance.funds })}`)
-      p.log.info(`Address: ${await synapse.getSigner().getAddress()}`)
+      p.log.info(`Address: ${client.account.address}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)

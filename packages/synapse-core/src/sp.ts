@@ -9,101 +9,78 @@
  * @module sp
  */
 
-import { HttpError, request, TimeoutError } from 'iso-web/http'
+import { type AbortError, HttpError, type NetworkError, request, TimeoutError } from 'iso-web/http'
 import type { ToString } from 'multiformats'
 import type { Simplify } from 'type-fest'
 import { type Address, type Hex, isHex } from 'viem'
+import type { Chain } from './chains.ts'
 import {
   AddPiecesError,
   CreateDataSetError,
   DeletePieceError,
+  DownloadPieceError,
   FindPieceError,
   GetDataSetError,
   InvalidUploadSizeError,
   LocationHeaderError,
-  PollDataSetCreationStatusError,
-  PollForAddPiecesStatusError,
   PostPieceError,
   UploadPieceError,
+  WaitDataSetCreationStatusError,
+  WaitForAddPiecesStatusError,
 } from './errors/pdp.ts'
 import type { PieceCID } from './piece.ts'
 import * as Piece from './piece.ts'
-import { SIZE_CONSTANTS } from './utils/constants.ts'
-import { createPieceUrl } from './utils/piece-url.ts'
+import type * as TypedData from './typed-data/index.ts'
+import { RETRY_CONSTANTS, SIZE_CONSTANTS } from './utils/constants.ts'
+import { createPieceUrl, createPieceUrlPDP } from './utils/piece-url.ts'
+import { asReadableStream } from './utils/streams.ts'
 
-let TIMEOUT = 1000 * 60 * 5 // 5 minutes
-export const RETRIES = Infinity
-export const FACTOR = 1
-export const MIN_TIMEOUT = 4000 // interval between retries in milliseconds
+let TIMEOUT = RETRY_CONSTANTS.MAX_RETRY_TIME
+const RETRIES = RETRY_CONSTANTS.RETRIES
+const FACTOR = RETRY_CONSTANTS.FACTOR
+let MIN_TIMEOUT: number = RETRY_CONSTANTS.DELAY_TIME
 
 // Just for testing purposes
 export function setTimeout(timeout: number) {
   TIMEOUT = timeout
 }
-
-/**
- * Convert AsyncIterable to ReadableStream with broad browser compatibility.
- * Provides fallback for environments where ReadableStream.from() is not available.
- *
- * Uses pull-based streaming to implement proper backpressure and ensure all
- * chunks are consumed in order.
- */
-function asyncIterableToReadableStream(iterable: AsyncIterable<Uint8Array>): ReadableStream<Uint8Array> {
-  if (!isAsyncIterable(iterable)) {
-    throw new Error('Input must be an AsyncIterable')
-  }
-
-  // Use native ReadableStream.from() if available
-  // See https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream/from_static for latest
-  // support matrix, as of late 2025 this is still "Experimental"
-  if (typeof ReadableStream.from === 'function') {
-    return ReadableStream.from(iterable)
-  }
-
-  // Fallback implementation using pull-based streaming
-  const iterator = iterable[Symbol.asyncIterator]()
-
-  return new ReadableStream({
-    async pull(controller) {
-      try {
-        const { value, done } = await iterator.next()
-        if (done) {
-          controller.close()
-        } else {
-          controller.enqueue(value)
-        }
-      } catch (error) {
-        // run cleanup on internal errors
-        if (iterator.return) {
-          try {
-            await iterator.return()
-          } catch {
-            // safely ignore
-          }
-        }
-        controller.error(error)
-      }
-    },
-    async cancel() {
-      // Clean up iterator if stream is cancelled
-      if (iterator.return) {
-        await iterator.return()
-      }
-    },
-  })
+export function resetTimeout() {
+  TIMEOUT = RETRY_CONSTANTS.MAX_RETRY_TIME
 }
 
-/**
- * The options for the create data set on PDP API.
- *
- * @param endpoint - The endpoint of the PDP API.
- * @param recordKeeper - The address of the record keeper.
- * @param extraData - The extra data for the create data set.
- */
-export type PDPCreateDataSetOptions = {
-  endpoint: string
-  recordKeeper: Address
-  extraData: Hex
+export function setDelayTime(delayTime: number) {
+  MIN_TIMEOUT = delayTime
+}
+export function resetDelayTime() {
+  MIN_TIMEOUT = RETRY_CONSTANTS.DELAY_TIME
+}
+
+export { AbortError, NetworkError, TimeoutError } from 'iso-web/http'
+
+export namespace createDataSet {
+  /**
+   * The options for the create data set on PDP API.
+   */
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The address of the record keeper. */
+    recordKeeper: Address
+    /** The extra data for the create data set. */
+    extraData: Hex
+  }
+
+  export type ReturnType = {
+    txHash: Hex
+    statusUrl: string
+  }
+
+  export type ErrorType = CreateDataSetError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+
+  export type RequestBody = {
+    recordKeeper: Address
+    extraData: Hex
+  }
 }
 
 /**
@@ -111,13 +88,11 @@ export type PDPCreateDataSetOptions = {
  *
  * POST /pdp/data-sets
  *
- * @param options - The options for the create data set on PDP API.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.recordKeeper - The address of the record keeper.
- * @param options.extraData - The extra data for the create data set.
- * @returns The response from the create data set on PDP API.
+ * @param options - {@link createDataSet.OptionsType}
+ * @returns Transaction hash and status URL. {@link createDataSet.ReturnType}
+ * @throws Errors {@link createDataSet.ErrorType}
  */
-export async function createDataSet(options: PDPCreateDataSetOptions) {
+export async function createDataSet(options: createDataSet.OptionsType): Promise<createDataSet.ReturnType> {
   // Send the create data set message to the PDP
   const response = await request.post(new URL(`pdp/data-sets`, options.endpoint), {
     body: JSON.stringify({
@@ -149,10 +124,6 @@ export async function createDataSet(options: PDPCreateDataSetOptions) {
   }
 }
 
-export type PollForDataSetCreationStatusOptions = {
-  statusUrl: string
-}
-
 export type DataSetCreatedResponse =
   | {
       createMessageHash: Hex
@@ -172,20 +143,29 @@ export type DataSetCreateSuccess = {
   dataSetId: number
 }
 
+export namespace waitForDataSetCreationStatus {
+  export type OptionsType = {
+    statusUrl: string
+  }
+  export type ReturnType = DataSetCreateSuccess
+  export type ErrorType = WaitDataSetCreationStatusError | TimeoutError | NetworkError | AbortError
+}
 /**
- * Poll for the data set creation status.
+ * Wait for the data set creation status.
  *
  * GET /pdp/data-sets/created({txHash})
  *
- * @param options - The options for the poll for data set creation status.
- * @param options.statusUrl - The status URL of the data set creation.
- * @returns The data set creation status.
+ * @param options - {@link waitForDataSetCreationStatus.OptionsType}
+ * @returns Status {@link waitForDataSetCreationStatus.ReturnType}
+ * @throws Errors {@link waitForDataSetCreationStatus.ErrorType}
  */
-export async function pollForDataSetCreationStatus(options: PollForDataSetCreationStatusOptions) {
-  const response = await request.json.get<DataSetCreatedResponse>(options.statusUrl, {
+export async function waitForDataSetCreationStatus(
+  options: waitForDataSetCreationStatus.OptionsType
+): Promise<waitForDataSetCreationStatus.ReturnType> {
+  const response = await request.json.get<waitForDataSetCreationStatus.ReturnType>(options.statusUrl, {
     async onResponse(response) {
       if (response.ok) {
-        const data = (await response.clone().json()) as DataSetCreatedResponse
+        const data = (await response.clone().json()) as waitForDataSetCreationStatus.ReturnType
 
         if (data.dataSetCreated) {
           return response
@@ -204,19 +184,40 @@ export async function pollForDataSetCreationStatus(options: PollForDataSetCreati
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new PollDataSetCreationStatusError(await response.error.response.text())
+      throw new WaitDataSetCreationStatusError(await response.error.response.text())
     }
     throw response.error
   }
 
-  return response.result as DataSetCreateSuccess
+  return response.result as waitForDataSetCreationStatus.ReturnType
 }
 
-export type PDPCreateDataSetAndAddPiecesOptions = {
-  endpoint: string
-  recordKeeper: Address
-  extraData: Hex
-  pieces: PieceCID[]
+export namespace createDataSetAndAddPieces {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The address of the record keeper. */
+    recordKeeper: Address
+    /** The extra data for the create data set and add pieces. */
+    extraData: Hex
+    /** The pieces to add. */
+    pieces: PieceCID[]
+  }
+  export type ReturnType = {
+    /** The transaction hash. */
+    txHash: Hex
+    /** The status URL. */
+    statusUrl: string
+  }
+  export type ErrorType = CreateDataSetError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+  export type RequestBody = {
+    recordKeeper: Address
+    extraData: Hex
+    pieces: {
+      pieceCid: ToString<PieceCID>
+      subPieces: { subPieceCid: ToString<PieceCID> }[]
+    }[]
+  }
 }
 
 /**
@@ -224,13 +225,13 @@ export type PDPCreateDataSetAndAddPiecesOptions = {
  *
  * POST /pdp/data-sets/create-and-add
  *
- * @param options - The options for the create data set and add pieces to it on PDP API.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.recordKeeper - The address of the record keeper.
- * @param options.extraData - The extra data for the create data set.
- * @returns The response from the create data set and add pieces to it on PDP API.
+ * @param options - {@link createDataSetAndAddPieces.OptionsType}
+ * @returns Hash and status URL {@link createDataSetAndAddPieces.ReturnType}
+ * @throws Errors {@link createDataSetAndAddPieces.ErrorType}
  */
-export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddPiecesOptions) {
+export async function createDataSetAndAddPieces(
+  options: createDataSetAndAddPieces.OptionsType
+): Promise<createDataSetAndAddPieces.ReturnType> {
   // Send the create data set message to the PDP
   const response = await request.post(new URL(`pdp/data-sets/create-and-add`, options.endpoint), {
     body: JSON.stringify({
@@ -266,17 +267,6 @@ export async function createDataSetAndAddPieces(options: PDPCreateDataSetAndAddP
   }
 }
 
-export type GetDataSetOptions = {
-  endpoint: string
-  dataSetId: bigint
-}
-
-export type GetDataSetResponse = {
-  id: number
-  nextChallengeEpoch: number
-  pieces: SPPiece[]
-}
-
 export type SPPiece = {
   pieceCid: string
   pieceId: number
@@ -284,18 +274,32 @@ export type SPPiece = {
   subPieceOffset: number
 }
 
+export namespace getDataSet {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The ID of the data set. */
+    dataSetId: bigint
+  }
+  export type ReturnType = {
+    id: number
+    nextChallengeEpoch: number
+    pieces: SPPiece[]
+  }
+  export type ErrorType = GetDataSetError | TimeoutError | NetworkError | AbortError
+}
+
 /**
  * Get a data set from the PDP API.
  *
  * GET /pdp/data-sets/{dataSetId}
  *
- * @param options - The options for the get data set from the PDP API.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.dataSetId - The ID of the data set.
- * @returns The data set from the PDP API.
+ * @param options - {@link getDataSet.OptionsType}
+ * @returns The data set from the PDP API. {@link getDataSet.ReturnType}
+ * @throws Errors {@link getDataSet.ErrorType}
  */
-export async function getDataSet(options: GetDataSetOptions) {
-  const response = await request.json.get<GetDataSetResponse>(
+export async function getDataSet(options: getDataSet.OptionsType): Promise<getDataSet.ReturnType> {
+  const response = await request.json.get<getDataSet.ReturnType>(
     new URL(`pdp/data-sets/${options.dataSetId}`, options.endpoint)
   )
   if (response.error) {
@@ -308,37 +312,44 @@ export async function getDataSet(options: GetDataSetOptions) {
   return response.result
 }
 
-export type GetPiecesForDataSetOptions = {
-  endpoint: string
-  dataSetId: bigint
-  chainId: number
-  address: Address
-  cdn: boolean
-}
-
 export type SPPieceWithUrl = Simplify<
   SPPiece & {
     pieceUrl: string
   }
 >
 
+export namespace getPiecesForDataSet {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The ID of the data set. */
+    dataSetId: bigint
+    /** The chain. */
+    chain: Chain
+    /** The address of the user. */
+    address: Address
+    /** Whether the CDN is enabled. */
+    cdn: boolean
+  }
+  export type ReturnType = SPPieceWithUrl[]
+  export type ErrorType = GetDataSetError | TimeoutError | NetworkError | AbortError
+}
+
 /**
  * Get the pieces for a data set from the PDP API.
  *
- *
- * @param options - The options for the get pieces for data set.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.dataSetId - The ID of the data set.
- * @param options.chainId - The chain ID.
- * @param options.address - The address of the user.
- * @param options.cdn - Whether the CDN is enabled.
+ * @param options - {@link getPiecesForDataSet.OptionsType}
+ * @returns Pieces with URLs. {@link getPiecesForDataSet.ReturnType}
+ * @throws Errors {@link getPiecesForDataSet.ErrorType}
  */
-export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): Promise<SPPieceWithUrl[]> {
+export async function getPiecesForDataSet(
+  options: getPiecesForDataSet.OptionsType
+): Promise<getPiecesForDataSet.ReturnType> {
   const dataSet = await getDataSet(options)
   const pieces = dataSet.pieces.map((piece) => ({
     pieceCid: piece.pieceCid,
     pieceId: piece.pieceId,
-    pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chainId, options.endpoint),
+    pieceUrl: createPieceUrl(piece.pieceCid, options.cdn, options.address, options.chain, options.endpoint),
     subPieceCid: piece.subPieceCid,
     subPieceOffset: piece.subPieceOffset,
   }))
@@ -346,15 +357,16 @@ export async function getPiecesForDataSet(options: GetPiecesForDataSetOptions): 
   return pieces
 }
 
-export type UploadPieceOptions = {
-  endpoint: string
-  data: Uint8Array
-  pieceCid: PieceCID
-}
-
-export type UploadPieceResponse = {
-  pieceCid: PieceCID
-  size: number
+export namespace uploadPiece {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The data to upload. */
+    data: Uint8Array
+    /** The piece CID to upload. */
+    pieceCid: PieceCID
+  }
+  export type ErrorType = InvalidUploadSizeError | LocationHeaderError | TimeoutError | NetworkError | AbortError
 }
 
 /**
@@ -362,12 +374,10 @@ export type UploadPieceResponse = {
  *
  * POST /pdp/piece
  *
- * @param options - The options for the upload piece.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.data - The data to upload.
- * @returns The response from the upload piece.
+ * @param options - {@link uploadPiece.OptionsType}
+ * @throws Errors {@link uploadPiece.ErrorType}
  */
-export async function uploadPiece(options: UploadPieceOptions): Promise<void> {
+export async function uploadPiece(options: uploadPiece.OptionsType): Promise<void> {
   const size = options.data.length
   if (size < SIZE_CONSTANTS.MIN_UPLOAD_SIZE || size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
     throw new InvalidUploadSizeError(size)
@@ -406,7 +416,7 @@ export async function uploadPiece(options: UploadPieceOptions): Promise<void> {
   }
 
   const uploadResponse = await request.put(new URL(`pdp/piece/upload/${uploadUuid}`, options.endpoint), {
-    body: options.data,
+    body: options.data as BufferSource,
     headers: {
       'Content-Type': 'application/octet-stream',
       'Content-Length': options.data.length.toString(),
@@ -429,6 +439,11 @@ export type UploadPieceStreamingOptions = {
   onProgress?: (bytesUploaded: number) => void
   pieceCid?: PieceCID
   signal?: AbortSignal
+}
+
+export type UploadPieceResponse = {
+  pieceCid: PieceCID
+  size: number
 }
 
 /**
@@ -499,7 +514,7 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
       bytesUploaded += chunk.length
 
       // Check size limit
-      if (bytesUploaded > Piece.MAX_UPLOAD_SIZE) {
+      if (bytesUploaded > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new InvalidUploadSizeError(bytesUploaded)
       }
 
@@ -583,32 +598,43 @@ export async function uploadPieceStreaming(options: UploadPieceStreamingOptions)
   }
 }
 
-export type FindPieceOptions = {
-  endpoint: string
-  pieceCid: PieceCID
+export namespace findPiece {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The piece CID to find. */
+    pieceCid: PieceCID
+    /** The signal to abort the request. */
+    signal?: AbortSignal
+    /** Whether to retry the request. Defaults to false. */
+    retry?: boolean
+  }
+  export type ReturnType = PieceCID
+  export type ErrorType = FindPieceError | TimeoutError | NetworkError | AbortError
 }
-
 /**
  * Find a piece on the PDP API.
  *
  * GET /pdp/piece?pieceCid={pieceCid}
  *
- * @param options - The options for the find piece.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.pieceCid - The piece CID to find.
- * @returns
+ * @param options - {@link findPiece.OptionsType}
+ * @returns Piece CID {@link findPiece.ReturnType}
+ * @throws Errors {@link findPiece.ErrorType}
  */
-export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
+export async function findPiece(options: findPiece.OptionsType): Promise<findPiece.ReturnType> {
   const { pieceCid, endpoint } = options
   const params = new URLSearchParams({ pieceCid: pieceCid.toString() })
-
+  const retry = options.retry ?? false
   const response = await request.json.get<{ pieceCid: string }>(new URL(`pdp/piece?${params.toString()}`, endpoint), {
-    retry: {
-      statusCodes: [202, 404],
-      retries: RETRIES,
-      factor: FACTOR,
-    },
-    timeout: TIMEOUT,
+    signal: options.signal,
+    retry: retry
+      ? {
+          statusCodes: [202, 404],
+          retries: RETRIES,
+          factor: FACTOR,
+        }
+      : undefined,
+    timeout: retry ? TIMEOUT : undefined,
   })
 
   if (response.error) {
@@ -624,21 +650,31 @@ export async function findPiece(options: FindPieceOptions): Promise<PieceCID> {
   return Piece.parse(data.pieceCid)
 }
 
-export type AddPiecesOptions = {
-  endpoint: string
-  dataSetId: bigint
-  pieces: PieceCID[]
-  extraData: Hex
-}
-
-export type AddPiecesRequest = {
-  pieces: {
-    pieceCid: ToString<PieceCID>
-    subPieces: {
-      subPieceCid: ToString<PieceCID>
+export namespace addPieces {
+  export type OptionsType = {
+    /** The endpoint of the PDP API. */
+    endpoint: string
+    /** The ID of the data set. */
+    dataSetId: bigint
+    /** The pieces to add. */
+    pieces: PieceCID[]
+    /** The extra data for the add pieces. {@link TypedData.signAddPieces} */
+    extraData: Hex
+  }
+  export type ReturnType = {
+    /** The transaction hash. */
+    txHash: Hex
+    /** The status URL. */
+    statusUrl: string
+  }
+  export type ErrorType = AddPiecesError | LocationHeaderError | TimeoutError | NetworkError | AbortError
+  export type RequestBody = {
+    pieces: {
+      pieceCid: ToString<PieceCID>
+      subPieces: { subPieceCid: ToString<PieceCID> }[]
     }[]
-  }[]
-  extraData: Hex
+    extraData: Hex
+  }
 }
 
 /**
@@ -646,14 +682,11 @@ export type AddPiecesRequest = {
  *
  * POST /pdp/data-sets/{dataSetId}/pieces
  *
- * @param options - The options for the add pieces.
- * @param options.endpoint - The endpoint of the PDP API.
- * @param options.dataSetId - The ID of the data set.
- * @param options.pieces - The pieces to add.
- * @param options.extraData - The extra data for the add pieces.
- * @returns The response from the add pieces.
+ * @param options - {@link addPieces.OptionsType}
+ * @returns Hash and status URL {@link addPieces.ReturnType}
+ * @throws Errors {@link addPieces.ErrorType}
  */
-export async function addPieces(options: AddPiecesOptions) {
+export async function addPieces(options: addPieces.OptionsType): Promise<addPieces.ReturnType> {
   const { endpoint, dataSetId, pieces, extraData } = options
   const response = await request.post(new URL(`pdp/data-sets/${dataSetId}/pieces`, endpoint), {
     headers: {
@@ -717,25 +750,32 @@ export type AddPiecesSuccess = {
   txStatus: 'confirmed'
 }
 
-export type PollForAddPiecesStatusOptions = {
-  statusUrl: string
+export namespace waitForAddPiecesStatus {
+  export type OptionsType = {
+    statusUrl: string
+  }
+  export type ReturnType = AddPiecesSuccess
+  export type ErrorType = WaitForAddPiecesStatusError | TimeoutError | NetworkError | AbortError
 }
 
 /**
- * Poll for the add pieces status.
+ * Wait for the add pieces status.
  *
  * GET /pdp/data-sets/{dataSetId}/pieces/added/{txHash}
  *
- * @param options - The options for the poll for add pieces status.
- * @param options.statusUrl - The status URL of the add pieces.
- * @returns The add pieces status.
+ * TODO: add onEvent for txConfirmed
+ *
+ * @param options - {@link waitForAddPiecesStatus.OptionsType}
+ * @returns Status {@link waitForAddPiecesStatus.ReturnType}
+ * @throws Errors {@link waitForAddPiecesStatus.ErrorType}
  */
-export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOptions) {
+export async function waitForAddPiecesStatus(
+  options: waitForAddPiecesStatus.OptionsType
+): Promise<waitForAddPiecesStatus.ReturnType> {
   const response = await request.json.get<AddPiecesResponse>(options.statusUrl, {
     async onResponse(response) {
       if (response.ok) {
         const data = (await response.clone().json()) as AddPiecesResponse
-
         if (data.piecesAdded) {
           return response
         }
@@ -748,39 +788,46 @@ export async function pollForAddPiecesStatus(options: PollForAddPiecesStatusOpti
       factor: FACTOR,
       minTimeout: MIN_TIMEOUT,
     },
-    timeout: 1000 * 60 * 5,
+    timeout: TIMEOUT,
   })
   if (response.error) {
     if (HttpError.is(response.error)) {
-      throw new PollForAddPiecesStatusError(await response.error.response.text())
+      throw new WaitForAddPiecesStatusError(await response.error.response.text())
     }
     throw response.error
   }
   return response.result as AddPiecesSuccess
 }
 
-export type DeletePieceOptions = {
-  endpoint: string
-  dataSetId: bigint
-  pieceId: bigint
-  extraData: Hex
-}
-
-export type DeletePieceResponse = {
-  txHash: Hex
+export namespace deletePiece {
+  export type OptionsType = {
+    endpoint: string
+    dataSetId: bigint
+    pieceId: bigint
+    extraData: Hex
+  }
+  export type ReturnType = {
+    txHash: Hex
+  }
+  export type ErrorType = DeletePieceError | TimeoutError | NetworkError | AbortError
 }
 
 /**
  * Delete a piece from a data set on the PDP API.
  *
  * DELETE /pdp/data-sets/{dataSetId}/pieces/{pieceId}
+ *
+ * @param options - {@link deletePiece.OptionsType}
+ * @returns Hash of the delete operation {@link deletePiece.ReturnType}
+ * @throws Errors {@link deletePiece.ErrorType}
  */
-export async function deletePiece(options: DeletePieceOptions) {
+export async function deletePiece(options: deletePiece.OptionsType): Promise<deletePiece.ReturnType> {
   const { endpoint, dataSetId, pieceId, extraData } = options
-  const response = await request.json.delete<DeletePieceResponse>(
+  const response = await request.json.delete<deletePiece.ReturnType>(
     new URL(`pdp/data-sets/${dataSetId}/pieces/${pieceId}`, endpoint),
     {
       body: { extraData },
+      timeout: TIMEOUT,
     }
   )
 
@@ -794,6 +841,15 @@ export async function deletePiece(options: DeletePieceOptions) {
   return response.result
 }
 
+/**
+ * Ping the PDP API.
+ *
+ * GET /pdp/ping
+ *
+ * @param endpoint - The endpoint of the PDP API.
+ * @returns void
+ * @throws Errors {@link Error}
+ */
 export async function ping(endpoint: string) {
   const response = await request.get(new URL(`pdp/ping`, endpoint))
   if (response.error) {
@@ -802,39 +858,32 @@ export async function ping(endpoint: string) {
   return response.result
 }
 
-/**
- * Type guard to check if a value is a ReadableStream
- * @param value - The value to check
- * @returns True if it's a ReadableStream
- */
-function isReadableStream(value: unknown): value is ReadableStream<Uint8Array> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'getReader' in value &&
-    typeof (value as ReadableStream<Uint8Array>).getReader === 'function'
-  )
+export namespace downloadPiece {
+  export type OptionsType = {
+    endpoint: string
+    pieceCid: PieceCID
+  }
+  export type ReturnType = Uint8Array
+  export type ErrorType = DownloadPieceError | TimeoutError | NetworkError | AbortError
 }
 
 /**
- * Convert AsyncIterable or ReadableStream to ReadableStream
- * @param data - AsyncIterable or ReadableStream to convert
- * @returns ReadableStream
+ * Download a piece and verify from the PDP API.
+ *
+ * GET /piece/{pieceCid}
+ *
+ * @param options - {@link downloadPiece.OptionsType}
+ * @returns Data {@link downloadPiece.ReturnType}
+ * @throws Errors {@link downloadPiece.ErrorType}
  */
-function asReadableStream(data: AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
-  return isReadableStream(data) ? data : asyncIterableToReadableStream(data)
-}
-
-/**
- * Type guard to check if a value is an AsyncIterable
- * @param value - The value to check
- * @returns True if it's an AsyncIterable
- */
-function isAsyncIterable(value: unknown): value is AsyncIterable<Uint8Array> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    Symbol.asyncIterator in value &&
-    typeof (value as AsyncIterable<Uint8Array>)[Symbol.asyncIterator] === 'function'
-  )
+export async function downloadPiece(options: downloadPiece.OptionsType): Promise<downloadPiece.ReturnType> {
+  const url = createPieceUrlPDP(options.pieceCid.toString(), options.endpoint)
+  const response = await request.get(url)
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new DownloadPieceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+  return await Piece.downloadAndValidate(response.result, options.pieceCid)
 }

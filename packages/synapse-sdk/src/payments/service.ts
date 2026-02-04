@@ -1,29 +1,33 @@
-import { ethers } from 'ethers'
-import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
+import { asChain } from '@filoz/synapse-core/chains'
+import * as ERC20 from '@filoz/synapse-core/erc20'
+import * as Pay from '@filoz/synapse-core/pay'
+import { signErc20Permit } from '@filoz/synapse-core/typed-data'
 import {
-  CHAIN_IDS,
-  CONTRACT_ABIS,
-  CONTRACT_ADDRESSES,
-  createError,
-  EIP2612_PERMIT_TYPES,
-  getCurrentEpoch,
-  getFilecoinNetworkType,
-  TIMING_CONSTANTS,
-  TOKENS,
-} from '../utils/index.ts'
+  type Account,
+  type Address,
+  type Chain,
+  type Client,
+  type Hash,
+  parseSignature,
+  type TransactionReceipt,
+  type Transport,
+} from 'viem'
+import { getBalance, getBlockNumber, simulateContract, writeContract } from 'viem/actions'
+import type { RailInfo, SettlementResult, TokenAmount, TokenIdentifier } from '../types.ts'
+import { createError, TIMING_CONSTANTS, TOKENS } from '../utils/index.ts'
 
 /**
  * Options for deposit operation
  */
 export interface DepositOptions {
   /** Optional recipient address (defaults to signer address if not provided) */
-  to?: string
+  to?: Address
   /** Called when checking current allowance */
   onAllowanceCheck?: (current: bigint, required: bigint) => void
   /** Called when approval transaction is sent */
-  onApprovalTransaction?: (tx: ethers.TransactionResponse) => void
+  onApprovalTransaction?: (tx: Hash) => void
   /** Called when approval is confirmed */
-  onApprovalConfirmed?: (receipt: ethers.TransactionReceipt) => void
+  onApprovalConfirmed?: (receipt: TransactionReceipt) => void
   /** Called before deposit transaction is sent */
   onDepositStarting?: () => void
 }
@@ -32,221 +36,14 @@ export interface DepositOptions {
  * PaymentsService - Filecoin Pay client for managing deposits, approvals, and payment rails
  */
 export class PaymentsService {
-  private readonly _provider: ethers.Provider
-  private readonly _signer: ethers.Signer
-  private readonly _paymentsAddress: string
-  private readonly _usdfcAddress: string
-  private readonly _disableNonceManager: boolean
-  private readonly _multicall3Address: string | null
-  // Cached contract instances
-  private _usdfcContract: ethers.Contract | null = null
-  private _paymentsContract: ethers.Contract | null = null
+  private readonly _client: Client<Transport, Chain, Account>
 
   /**
-   * @param provider - Direct provider instance for balance checks, nonce management, and epoch calculations
-   * @param signer - Signer instance for transaction signing (may be wrapped in NonceManager)
-   * @param paymentsAddress - Address of the Payments contract
-   * @param usdfcAddress - Address of the USDFC token contract
-   * @param disableNonceManager - When true, manually manages nonces using provider.getTransactionCount()
+   * @param client - Client instance for balance checks, nonce management, and epoch calculations
    *
-   * Note: Both provider and signer are required for NonceManager compatibility. When NonceManager
-   * is disabled, we need direct provider access for reliable nonce management. Using signer.provider
-   * could interfere with NonceManager's internal state or behave differently with MetaMask/hardware wallets.
    */
-  constructor(
-    provider: ethers.Provider,
-    signer: ethers.Signer,
-    paymentsAddress: string,
-    usdfcAddress: string,
-    disableNonceManager: boolean,
-    multicall3Address: string | null
-  ) {
-    this._provider = provider
-    this._signer = signer
-    this._paymentsAddress = paymentsAddress
-    this._usdfcAddress = usdfcAddress
-    this._disableNonceManager = disableNonceManager
-    this._multicall3Address = multicall3Address
-  }
-
-  /**
-   * Get cached USDFC contract instance or create new one
-   */
-  private _getUsdfcContract(): ethers.Contract {
-    if (this._usdfcContract == null) {
-      this._usdfcContract = new ethers.Contract(this._usdfcAddress, CONTRACT_ABIS.ERC20, this._signer)
-    }
-    return this._usdfcContract
-  }
-
-  /**
-   * Get cached payments contract instance or create new one
-   */
-  private _getPaymentsContract(): ethers.Contract {
-    if (this._paymentsContract == null) {
-      this._paymentsContract = new ethers.Contract(this._paymentsAddress, CONTRACT_ABIS.PAYMENTS, this._signer)
-    }
-    return this._paymentsContract
-  }
-
-  /**
-   * Generate EIP-2612 permit signature for USDFC token
-   * Handles balance check, domain creation, nonce retrieval, and signature generation
-   * Uses Multicall3 to batch RPC calls for efficiency
-   * @param amount - Amount to permit
-   * @param deadline - Unix timestamp (seconds) when the permit expires
-   * @param contextName - Context name for error messages (e.g., 'depositWithPermit')
-   * @returns Signature object
-   */
-  private async _getPermitSignature(amount: bigint, deadline: bigint, contextName: string): Promise<ethers.Signature> {
-    const signerAddress = await this._signer.getAddress()
-
-    // Get network type (validates network and makes single getNetwork() call internally)
-    const networkType = await getFilecoinNetworkType(this._provider)
-
-    // Derive chainId from network type
-    const chainId = CHAIN_IDS[networkType]
-
-    // Setup Multicall3 for batched RPC calls
-    const multicall3Address = this._multicall3Address ?? CONTRACT_ADDRESSES.MULTICALL3[networkType]
-    if (!multicall3Address) {
-      throw createError('PaymentsService', contextName, `No Multicall3 address available for network: ${networkType}`)
-    }
-    const multicall = new ethers.Contract(multicall3Address, CONTRACT_ABIS.MULTICALL3, this._provider)
-
-    // Create interfaces for encoding/decoding
-    const erc20Interface = new ethers.Interface(CONTRACT_ABIS.ERC20)
-    const permitInterface = new ethers.Interface(CONTRACT_ABIS.ERC20_PERMIT)
-
-    // Prepare multicall batch: balanceOf, name, version (with fallback), nonces
-    const calls = [
-      {
-        target: this._usdfcAddress,
-        allowFailure: false,
-        callData: erc20Interface.encodeFunctionData('balanceOf', [signerAddress]),
-      },
-      {
-        target: this._usdfcAddress,
-        allowFailure: false,
-        callData: erc20Interface.encodeFunctionData('name'),
-      },
-      {
-        target: this._usdfcAddress,
-        allowFailure: true, // Allow failure for version, we'll fallback to '1'
-        callData: permitInterface.encodeFunctionData('version'),
-      },
-      {
-        target: this._usdfcAddress,
-        allowFailure: false,
-        callData: permitInterface.encodeFunctionData('nonces', [signerAddress]),
-      },
-    ]
-
-    // Execute multicall
-    let results: any[]
-    try {
-      results = await multicall.aggregate3.staticCall(calls)
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        contextName,
-        'Failed to fetch token information for permit. Ensure token contract is reachable.',
-        error
-      )
-    }
-
-    // Decode results
-    // Result 0: balanceOf
-    let usdfcBalance: bigint
-    try {
-      const decoded = erc20Interface.decodeFunctionResult('balanceOf', results[0].returnData)
-      usdfcBalance = decoded[0]
-    } catch (error) {
-      throw createError('PaymentsService', contextName, 'Failed to decode token balance.', error)
-    }
-
-    // Check balance
-    if (usdfcBalance < amount) {
-      throw createError(
-        'PaymentsService',
-        contextName,
-        `Insufficient USDFC: have ${usdfcBalance.toString()}, need ${amount.toString()}`
-      )
-    }
-
-    // Result 1: name
-    let tokenName: string
-    try {
-      const decoded = erc20Interface.decodeFunctionResult('name', results[1].returnData)
-      tokenName = decoded[0]
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        contextName,
-        'Failed to read token name for permit domain. Ensure token contract is reachable.',
-        error
-      )
-    }
-
-    // Result 2: version (with fallback)
-    let domainVersion = '1'
-    if (results[2].success) {
-      try {
-        const decoded = permitInterface.decodeFunctionResult('version', results[2].returnData)
-        const maybeVersion = decoded[0]
-        if (typeof maybeVersion === 'string' && maybeVersion.length > 0) {
-          domainVersion = maybeVersion
-        }
-      } catch {
-        // silently fallback to '1'
-      }
-    }
-
-    // Result 3: nonces
-    let nonce: bigint
-    try {
-      const decoded = permitInterface.decodeFunctionResult('nonces', results[3].returnData)
-      nonce = decoded[0]
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        contextName,
-        'Token does not appear to support EIP-2612 permit (nonces() unavailable).',
-        error
-      )
-    }
-
-    // Build EIP-2612 permit domain
-    const domain = {
-      name: tokenName,
-      version: domainVersion,
-      chainId,
-      verifyingContract: this._usdfcAddress,
-    }
-
-    // Create permit value
-    const value = {
-      owner: signerAddress,
-      spender: this._paymentsAddress,
-      value: amount,
-      nonce,
-      deadline,
-    }
-
-    // Sign typed data
-    let signatureHex: string
-    try {
-      signatureHex = await this._signer.signTypedData(domain, EIP2612_PERMIT_TYPES, value)
-    } catch (error) {
-      throw createError(
-        'PaymentsService',
-        contextName,
-        'Failed to sign EIP-2612 permit. Ensure your wallet supports typed data signing.',
-        error
-      )
-    }
-
-    return ethers.Signature.from(signatureHex)
+  constructor(client: Client<Transport, Chain, Account>) {
+    this._client = client
   }
 
   async balance(token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
@@ -283,49 +80,18 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
-    let accountData: any[]
-
-    try {
-      // Get account info from payments contract
-      accountData = await paymentsContract.accounts(this._usdfcAddress, signerAddress)
-    } catch (contractCallError) {
-      throw createError(
-        'PaymentsService',
-        'account info',
-        'Failed to read account information from payments contract. This could indicate the contract is not properly deployed, the ABI is incorrect, or there are network connectivity issues.',
-        contractCallError
-      )
-    }
-
-    // accountData returns: (uint256 funds, uint256 lockupCurrent, uint256 lockupRate, uint256 lockupLastSettledAt)
-    const [funds, lockupCurrent, lockupRate, lockupLastSettledAt] = accountData
-
-    // Calculate time-based lockup
-    const currentEpoch = await getCurrentEpoch(this._provider)
-    const epochsSinceSettlement = currentEpoch - BigInt(lockupLastSettledAt)
-    const actualLockup = BigInt(lockupCurrent) + BigInt(lockupRate) * epochsSinceSettlement
-
-    // Calculate available funds
-    const availableFunds = BigInt(funds) - actualLockup
-
-    return {
-      funds: BigInt(funds),
-      lockupCurrent: BigInt(lockupCurrent),
-      lockupRate: BigInt(lockupRate),
-      lockupLastSettledAt: BigInt(lockupLastSettledAt),
-      availableFunds: availableFunds > 0n ? availableFunds : 0n,
-    }
+    return await Pay.accounts(this._client, {
+      address: this._client.account.address,
+    })
   }
 
   async walletBalance(token?: TokenIdentifier): Promise<bigint> {
     // If no token specified or FIL is requested, return native wallet balance
     if (token == null || token === TOKENS.FIL) {
       try {
-        const address = await this._signer.getAddress()
-        const balance = await this._provider.getBalance(address)
+        const balance = await getBalance(this._client, {
+          address: this._client.account.address,
+        })
         return balance
       } catch (error) {
         throw createError(
@@ -340,10 +106,10 @@ export class PaymentsService {
     // Handle ERC20 token balance
     if (token === TOKENS.USDFC) {
       try {
-        const address = await this._signer.getAddress()
-        const usdfcContract = this._getUsdfcContract()
-        const balance = await usdfcContract.balanceOf(address)
-        return balance
+        const balance = await ERC20.balance(this._client, {
+          address: this._client.account.address,
+        })
+        return balance.value
       } catch (error) {
         throw createError(
           'PaymentsService',
@@ -373,7 +139,7 @@ export class PaymentsService {
    * @param token - The token to check allowance for (defaults to USDFC)
    * @returns The current allowance amount as bigint
    */
-  async allowance(spender: string, token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
+  async allowance(spender: Address, token: TokenIdentifier = TOKENS.USDFC): Promise<bigint> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -382,12 +148,12 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const usdfcContract = this._getUsdfcContract()
-
     try {
-      const currentAllowance = await usdfcContract.allowance(signerAddress, spender)
-      return currentAllowance
+      const balance = await ERC20.balance(this._client, {
+        address: this._client.account.address,
+        spender,
+      })
+      return balance.allowance
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -405,11 +171,7 @@ export class PaymentsService {
    * @param token - The token to approve spending for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async approve(
-    spender: string,
-    amount: TokenAmount,
-    token: TokenIdentifier = TOKENS.USDFC
-  ): Promise<ethers.TransactionResponse> {
+  async approve(spender: Address, amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -418,29 +180,17 @@ export class PaymentsService {
       )
     }
 
-    const approveAmount = typeof amount === 'bigint' ? amount : BigInt(amount)
-    if (approveAmount < 0n) {
-      throw createError('PaymentsService', 'approve', 'Approval amount cannot be negative')
-    }
-
-    const signerAddress = await this._signer.getAddress()
-    const usdfcContract = this._getUsdfcContract()
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const approvalNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = approvalNonce
-    }
-
     try {
-      const approveTx = await usdfcContract.approve(spender, approveAmount, txOptions)
+      const approveTx = await ERC20.approve(this._client, {
+        spender: spender,
+        amount,
+      })
       return approveTx
     } catch (error) {
       throw createError(
         'PaymentsService',
         'approve',
-        `Failed to approve ${spender} to spend ${approveAmount.toString()} ${token}`,
+        `Failed to approve ${spender} to spend ${amount.toString()} ${token}`,
         error
       )
     }
@@ -458,12 +208,12 @@ export class PaymentsService {
    * @returns Transaction response object
    */
   async approveService(
-    service: string,
+    service: Address,
     rateAllowance: TokenAmount,
     lockupAllowance: TokenAmount,
     maxLockupPeriod: TokenAmount,
     token: TokenIdentifier = TOKENS.USDFC
-  ): Promise<ethers.TransactionResponse> {
+  ): Promise<Hash> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -472,34 +222,14 @@ export class PaymentsService {
       )
     }
 
-    const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
-    const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
-    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
-
-    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
-      throw createError('PaymentsService', 'approveService', 'Allowance values cannot be negative')
-    }
-
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
-
     try {
-      const approveTx = await paymentsContract.setOperatorApproval(
-        this._usdfcAddress,
-        service,
-        true, // approved
-        rateAllowanceBigint,
-        lockupAllowanceBigint,
-        maxLockupPeriodBigint,
-        txOptions
-      )
+      const approveTx = await Pay.setOperatorApproval(this._client, {
+        operator: service,
+        approve: true,
+        rateAllowance: rateAllowance,
+        lockupAllowance: lockupAllowance,
+        maxLockupPeriod: maxLockupPeriod,
+      })
       return approveTx
     } catch (error) {
       throw createError(
@@ -517,7 +247,7 @@ export class PaymentsService {
    * @param token - The token to revoke approval for (defaults to USDFC)
    * @returns Transaction response object
    */
-  async revokeService(service: string, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async revokeService(service: Address, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -526,26 +256,11 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
-
     try {
-      const revokeTx = await paymentsContract.setOperatorApproval(
-        this._usdfcAddress,
-        service,
-        false, // not approved
-        0n, // zero rate allowance
-        0n, // zero lockup allowance
-        0n, // zero max lockup period
-        txOptions
-      )
+      const revokeTx = await Pay.setOperatorApproval(this._client, {
+        operator: service,
+        approve: false,
+      })
       return revokeTx
     } catch (error) {
       throw createError(
@@ -561,19 +276,12 @@ export class PaymentsService {
    * Get the operator approval status and allowances for a service
    * @param service - The service contract address to check
    * @param token - The token to check approval for (defaults to USDFC)
-   * @returns Approval status and allowances
+   * @returns Approval status and allowances {@link Pay.operatorApprovals.OutputType}
    */
   async serviceApproval(
-    service: string,
+    service: Address,
     token: TokenIdentifier = TOKENS.USDFC
-  ): Promise<{
-    isApproved: boolean
-    rateAllowance: bigint
-    rateUsed: bigint
-    lockupAllowance: bigint
-    lockupUsed: bigint
-    maxLockupPeriod: bigint
-  }> {
+  ): Promise<Pay.operatorApprovals.OutputType> {
     if (token !== TOKENS.USDFC) {
       throw createError(
         'PaymentsService',
@@ -582,19 +290,12 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
     try {
-      const approval = await paymentsContract.operatorApprovals(this._usdfcAddress, signerAddress, service)
-      return {
-        isApproved: approval[0],
-        rateAllowance: approval[1],
-        lockupAllowance: approval[2],
-        rateUsed: approval[3],
-        lockupUsed: approval[4],
-        maxLockupPeriod: approval[5],
-      }
+      const approval = await Pay.operatorApprovals(this._client, {
+        address: this._client.account.address,
+        operator: service,
+      })
+      return approval
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -605,51 +306,44 @@ export class PaymentsService {
     }
   }
 
-  async deposit(
-    amount: TokenAmount,
-    token: TokenIdentifier = TOKENS.USDFC,
-    options?: DepositOptions
-  ): Promise<ethers.TransactionResponse> {
+  async deposit(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC, options?: DepositOptions): Promise<Hash> {
+    const chain = asChain(this._client.chain)
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'deposit', `Unsupported token: ${token}`)
     }
 
-    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
-    if (depositAmountBigint <= 0n) {
+    if (amount <= 0n) {
       throw createError('PaymentsService', 'deposit', 'Invalid amount')
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const depositTo = options?.to ?? signerAddress
-    const usdfcContract = this._getUsdfcContract()
-    const paymentsContract = this._getPaymentsContract()
-
     // Check balance
-    const usdfcBalance = await usdfcContract.balanceOf(signerAddress)
+    const erc20Balance = await ERC20.balance(this._client, {
+      address: this._client.account.address,
+    })
 
-    if (usdfcBalance < depositAmountBigint) {
+    if (erc20Balance.value < amount) {
       throw createError(
         'PaymentsService',
         'deposit',
-        `Insufficient USDFC: have ${BigInt(usdfcBalance).toString()}, need ${depositAmountBigint.toString()}`
+        `Insufficient USDFC: have ${erc20Balance.value.toString()}, need ${amount.toString()}`
       )
     }
 
     // Check and update allowance if needed
-    const currentAllowance = await this.allowance(this._paymentsAddress, token)
-    options?.onAllowanceCheck?.(currentAllowance, depositAmountBigint)
+    const currentAllowance = erc20Balance.allowance
 
-    if (currentAllowance < depositAmountBigint) {
+    options?.onAllowanceCheck?.(currentAllowance, amount)
+
+    if (currentAllowance < amount) {
       // Golden path: automatically approve the exact amount needed
-      const approveTx = await this.approve(this._paymentsAddress, depositAmountBigint, token)
-      options?.onApprovalTransaction?.(approveTx)
+      const { receipt } = await ERC20.approveSync(this._client, {
+        spender: chain.contracts.filecoinPay.address,
+        amount,
+        onHash: options?.onApprovalTransaction,
+      })
 
-      // Wait for approval to be mined before proceeding
-      const approvalReceipt = await approveTx.wait(TIMING_CONSTANTS.TRANSACTION_CONFIRMATIONS)
-      if (approvalReceipt != null) {
-        options?.onApprovalConfirmed?.(approvalReceipt)
-      }
+      options?.onApprovalConfirmed?.(receipt)
     }
 
     // Check if account has sufficient available balance (no frozen account check needed for deposits)
@@ -657,14 +351,10 @@ export class PaymentsService {
     // Notify that deposit is starting
     options?.onDepositStarting?.()
 
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
-
-    const depositTx = await paymentsContract.deposit(this._usdfcAddress, depositTo, depositAmountBigint, txOptions)
+    const depositTx = await Pay.deposit(this._client, {
+      amount,
+      to: options?.to,
+    })
 
     return depositTx
   }
@@ -682,49 +372,58 @@ export class PaymentsService {
   async depositWithPermit(
     amount: TokenAmount,
     token: TokenIdentifier = TOKENS.USDFC,
-    deadline?: number | bigint
-  ): Promise<ethers.TransactionResponse> {
+    deadline?: bigint
+  ): Promise<Hash> {
+    const chain = asChain(this._client.chain)
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'depositWithPermit', `Unsupported token: ${token}`)
     }
 
-    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
-    if (depositAmountBigint <= 0n) {
+    if (amount <= 0n) {
       throw createError('PaymentsService', 'depositWithPermit', 'Invalid amount')
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
     // Calculate deadline
     const permitDeadline: bigint =
-      deadline == null
-        ? BigInt(Math.floor(Date.now() / 1000) + TIMING_CONSTANTS.PERMIT_DEADLINE_DURATION)
-        : BigInt(deadline)
+      deadline == null ? BigInt(Math.floor(Date.now() / 1000) + TIMING_CONSTANTS.PERMIT_DEADLINE_DURATION) : deadline
 
-    // Get permit signature (includes balance check, domain, nonce, signing)
-    const signature = await this._getPermitSignature(depositAmountBigint, permitDeadline, 'depositWithPermit')
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
+    const balance = await ERC20.balanceForPermit(this._client, {
+      address: this._client.account.address,
+    })
+    if (balance.value < amount) {
+      throw createError('PaymentsService', 'depositWithPermit', 'Insufficient balance')
     }
+    const signature = parseSignature(
+      await signErc20Permit(this._client, {
+        amount,
+        nonce: balance.nonce,
+        deadline: permitDeadline,
+        name: balance.name,
+        version: balance.version,
+        token: chain.contracts.usdfc.address,
+        spender: chain.contracts.filecoinPay.address,
+      })
+    )
 
     try {
-      const tx = await paymentsContract.depositWithPermit(
-        this._usdfcAddress,
-        signerAddress,
-        depositAmountBigint,
-        permitDeadline,
-        signature.v,
-        signature.r,
-        signature.s,
-        txOptions
-      )
-      return tx
+      const { request } = await simulateContract(this._client, {
+        account: this._client.account,
+        address: chain.contracts.filecoinPay.address,
+        abi: chain.contracts.filecoinPay.abi,
+        functionName: 'depositWithPermit',
+        args: [
+          chain.contracts.usdfc.address,
+          this._client.account.address,
+          amount,
+          permitDeadline,
+          Number(signature.v),
+          signature.r,
+          signature.s,
+        ],
+      })
+      const hash = await writeContract(this._client, request)
+      return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -747,73 +446,32 @@ export class PaymentsService {
    * @param maxLockupPeriod - Max lockup period in epochs operator can set
    * @param token - Token identifier (currently only USDFC supported)
    * @param deadline - Unix timestamp (seconds) when the permit expires. Defaults to now + 1 hour.
-   * @returns Transaction response object
+   * @returns Transaction hash
    */
   async depositWithPermitAndApproveOperator(
     amount: TokenAmount,
-    operator: string,
-    rateAllowance: TokenAmount,
-    lockupAllowance: TokenAmount,
-    maxLockupPeriod: bigint,
-    token: TokenIdentifier = TOKENS.USDFC,
-    deadline?: number | bigint
-  ): Promise<ethers.TransactionResponse> {
+    operator?: Address,
+    rateAllowance?: TokenAmount,
+    lockupAllowance?: TokenAmount,
+    maxLockupPeriod?: bigint,
+    deadline?: bigint,
+    token: TokenIdentifier = TOKENS.USDFC
+  ): Promise<Hash> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', `Unsupported token: ${token}`)
     }
 
-    const depositAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
-    if (depositAmountBigint <= 0n) {
-      throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', 'Invalid amount')
-    }
-
-    const rateAllowanceBigint = typeof rateAllowance === 'bigint' ? rateAllowance : BigInt(rateAllowance)
-    const lockupAllowanceBigint = typeof lockupAllowance === 'bigint' ? lockupAllowance : BigInt(lockupAllowance)
-    const maxLockupPeriodBigint = typeof maxLockupPeriod === 'bigint' ? maxLockupPeriod : BigInt(maxLockupPeriod)
-    if (rateAllowanceBigint < 0n || lockupAllowanceBigint < 0n || maxLockupPeriodBigint < 0n) {
-      throw createError('PaymentsService', 'depositWithPermitAndApproveOperator', 'Allowance values cannot be negative')
-    }
-
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
-    // Calculate deadline
-    const permitDeadline: bigint =
-      deadline == null
-        ? BigInt(Math.floor(Date.now() / 1000) + TIMING_CONSTANTS.PERMIT_DEADLINE_DURATION)
-        : BigInt(deadline)
-
-    // Get permit signature (includes balance check, domain, nonce, signing)
-    const signature = await this._getPermitSignature(
-      depositAmountBigint,
-      permitDeadline,
-      'depositWithPermitAndApproveOperator'
-    )
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
-
     try {
-      const tx = await paymentsContract.depositWithPermitAndApproveOperator(
-        this._usdfcAddress,
-        signerAddress,
-        depositAmountBigint,
-        permitDeadline,
-        signature.v,
-        signature.r,
-        signature.s,
+      const hash = await Pay.depositAndApprove(this._client, {
+        amount,
         operator,
-        rateAllowanceBigint,
-        lockupAllowanceBigint,
-        maxLockupPeriodBigint,
-        txOptions
-      )
-      return tx
+        rateAllowance,
+        lockupAllowance,
+        maxLockupPeriod,
+        deadline,
+      })
+      return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
@@ -824,42 +482,32 @@ export class PaymentsService {
     }
   }
 
-  async withdraw(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<ethers.TransactionResponse> {
+  async withdraw(amount: TokenAmount, token: TokenIdentifier = TOKENS.USDFC): Promise<Hash> {
     // Only support USDFC for now
     if (token !== TOKENS.USDFC) {
       throw createError('PaymentsService', 'withdraw', `Unsupported token: ${token}`)
     }
 
-    const withdrawAmountBigint = typeof amount === 'bigint' ? amount : BigInt(amount)
-
-    if (withdrawAmountBigint <= 0n) {
+    if (amount <= 0n) {
       throw createError('PaymentsService', 'withdraw', 'Invalid amount')
     }
-
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
 
     // Check balance using the corrected accountInfo method
     const accountInfo = await this.accountInfo(token)
 
-    if (accountInfo.availableFunds < withdrawAmountBigint) {
+    if (accountInfo.availableFunds < amount) {
       throw createError(
         'PaymentsService',
         'withdraw',
-        `Insufficient available balance: have ${accountInfo.availableFunds.toString()}, need ${withdrawAmountBigint.toString()}`
+        `Insufficient available balance: have ${accountInfo.availableFunds.toString()}, need ${amount.toString()}`
       )
     }
 
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
+    const hash = await Pay.withdraw(this._client, {
+      amount,
+    })
 
-    const tx = await paymentsContract.withdraw(this._usdfcAddress, withdrawAmountBigint, txOptions)
-
-    return tx
+    return hash
   }
 
   /**
@@ -871,33 +519,24 @@ export class PaymentsService {
    * @returns Transaction response object
    * @throws Error if untilEpoch is in the future (contract reverts with CannotSettleFutureEpochs)
    */
-  async settle(railId: number | bigint, untilEpoch?: number | bigint): Promise<ethers.TransactionResponse> {
-    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
-
-    const [signerAddress, currentEpoch] = await Promise.all([
-      this._signer.getAddress(),
-      untilEpoch == null ? getCurrentEpoch(this._provider) : Promise.resolve(null),
-    ])
-
-    const untilEpochBigint = untilEpoch == null ? (currentEpoch as bigint) : BigInt(untilEpoch)
-
-    const paymentsContract = this._getPaymentsContract()
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
+  async settle(railId: bigint, untilEpoch?: bigint): Promise<Hash> {
+    const _untilEpoch =
+      untilEpoch ??
+      (await getBlockNumber(this._client, {
+        cacheTime: 0,
+      }))
 
     try {
-      const tx = await paymentsContract.settleRail(railIdBigint, untilEpochBigint, txOptions)
-      return tx
+      const hash = await Pay.settleRail(this._client, {
+        railId,
+        untilEpoch: _untilEpoch,
+      })
+      return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
         'settle',
-        `Failed to settle rail ${railIdBigint.toString()} up to epoch ${untilEpochBigint.toString()}`,
+        `Failed to settle rail ${railId.toString()} up to epoch ${_untilEpoch.toString()}`,
         error
       )
     }
@@ -911,18 +550,23 @@ export class PaymentsService {
    *                     Can be used to preview partial settlements to a past epoch.
    * @returns Settlement result with amounts and details
    */
-  async getSettlementAmounts(railId: number | bigint, untilEpoch?: number | bigint): Promise<SettlementResult> {
-    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
-
-    const currentEpoch = untilEpoch == null ? await getCurrentEpoch(this._provider) : null
-
-    const untilEpochBigint = untilEpoch == null ? (currentEpoch as bigint) : BigInt(untilEpoch)
-
-    const paymentsContract = this._getPaymentsContract()
+  async getSettlementAmounts(railId: bigint, untilEpoch?: bigint): Promise<SettlementResult> {
+    const _untilEpoch =
+      untilEpoch ??
+      (await getBlockNumber(this._client, {
+        cacheTime: 0,
+      }))
 
     try {
       // Use staticCall to simulate the transaction and get the return values
-      const result = await paymentsContract.settleRail.staticCall(railIdBigint, untilEpochBigint)
+      const { result } = await simulateContract(
+        this._client,
+        Pay.settleRailCall({
+          railId,
+          untilEpoch: _untilEpoch,
+          chain: this._client.chain,
+        })
+      )
 
       return {
         totalSettledAmount: result[0],
@@ -936,7 +580,7 @@ export class PaymentsService {
       throw createError(
         'PaymentsService',
         'getSettlementAmounts',
-        `Failed to get settlement amounts for rail ${railIdBigint.toString()} up to epoch ${untilEpochBigint.toString()}`,
+        `Failed to get settlement amounts for rail ${railId.toString()} up to epoch ${_untilEpoch.toString()}`,
         error
       )
     }
@@ -949,26 +593,17 @@ export class PaymentsService {
    * @param railId - The rail ID to settle
    * @returns Transaction response object
    */
-  async settleTerminatedRail(railId: number | bigint): Promise<ethers.TransactionResponse> {
-    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
-    // Only set explicit nonce if NonceManager is disabled
-    const txOptions: any = {}
-    if (this._disableNonceManager) {
-      const currentNonce = await this._provider.getTransactionCount(signerAddress, 'pending')
-      txOptions.nonce = currentNonce
-    }
-
+  async settleTerminatedRail(railId: bigint): Promise<Hash> {
     try {
-      const tx = await paymentsContract.settleTerminatedRailWithoutValidation(railIdBigint, txOptions)
-      return tx
+      const hash = await Pay.settleTerminatedRailWithoutValidation(this._client, {
+        railId,
+      })
+      return hash
     } catch (error) {
       throw createError(
         'PaymentsService',
         'settleTerminatedRail',
-        `Failed to settle terminated rail ${railIdBigint.toString()}`,
+        `Failed to settle terminated rail ${railId.toString()}`,
         error
       )
     }
@@ -980,45 +615,32 @@ export class PaymentsService {
    * @returns Rail information including all parameters and current state
    * @throws Error if the rail doesn't exist or is inactive (contract reverts with RailInactiveOrSettled)
    */
-  async getRail(railId: number | bigint): Promise<{
-    token: string
-    from: string
-    to: string
-    operator: string
-    validator: string
+  async getRail(railId: bigint): Promise<{
+    token: Address
+    from: Address
+    to: Address
+    operator: Address
+    validator: Address
     paymentRate: bigint
     lockupPeriod: bigint
     lockupFixed: bigint
     settledUpTo: bigint
     endEpoch: bigint
     commissionRateBps: bigint
-    serviceFeeRecipient: string
+    serviceFeeRecipient: Address
   }> {
-    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
-    const paymentsContract = this._getPaymentsContract()
-
     try {
-      const rail = await paymentsContract.getRail(railIdBigint)
-      return {
-        token: rail.token,
-        from: rail.from,
-        to: rail.to,
-        operator: rail.operator,
-        validator: rail.validator,
-        paymentRate: rail.paymentRate,
-        lockupPeriod: rail.lockupPeriod,
-        lockupFixed: rail.lockupFixed,
-        settledUpTo: rail.settledUpTo,
-        endEpoch: rail.endEpoch,
-        commissionRateBps: rail.commissionRateBps,
-        serviceFeeRecipient: rail.serviceFeeRecipient,
-      }
+      const rail = await Pay.getRail(this._client, {
+        railId,
+      })
+
+      return rail
     } catch (error: any) {
       // Contract reverts with RailInactiveOrSettled error if rail doesn't exist
       if (error.message?.includes('RailInactiveOrSettled')) {
-        throw createError('PaymentsService', 'getRail', `Rail ${railIdBigint.toString()} does not exist or is inactive`)
+        throw createError('PaymentsService', 'getRail', `Rail ${railId.toString()} does not exist or is inactive`)
       }
-      throw createError('PaymentsService', 'getRail', `Failed to get rail ${railIdBigint.toString()}`, error)
+      throw createError('PaymentsService', 'getRail', `Failed to get rail ${railId.toString()}`, error)
     }
   }
 
@@ -1043,19 +665,17 @@ export class PaymentsService {
    * const tx = await synapse.payments.settleAuto(railId, specificEpoch)
    * ```
    */
-  async settleAuto(railId: number | bigint, untilEpoch?: number | bigint): Promise<ethers.TransactionResponse> {
-    const railIdBigint = typeof railId === 'bigint' ? railId : BigInt(railId)
-
+  async settleAuto(railId: bigint, untilEpoch?: bigint): Promise<Hash> {
     // Get rail information to check if terminated
-    const rail = await this.getRail(railIdBigint)
+    const rail = await this.getRail(railId)
 
     // Check if rail is terminated (endEpoch > 0 means terminated)
     if (rail.endEpoch > 0n) {
       // Rail is terminated, use settleTerminatedRail
-      return await this.settleTerminatedRail(railIdBigint)
+      return await this.settleTerminatedRail(railId)
     } else {
       // Rail is active, use regular settle (requires settlement fee)
-      return await this.settle(railIdBigint, untilEpoch)
+      return await this.settle(railId, untilEpoch)
     }
   }
 
@@ -1073,17 +693,12 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
     try {
-      const [rails] = await paymentsContract.getRailsForPayerAndToken(signerAddress, this._usdfcAddress, 0n, 0n)
+      const { results } = await Pay.getRailsForPayerAndToken(this._client, {
+        payer: this._client.account.address,
+      })
 
-      return rails.map((rail: any) => ({
-        railId: Number(rail.railId),
-        isTerminated: rail.isTerminated,
-        endEpoch: Number(rail.endEpoch),
-      }))
+      return results
     } catch (error) {
       throw createError('PaymentsService', 'getRailsAsPayer', 'Failed to get rails where wallet is payer', error)
     }
@@ -1103,17 +718,12 @@ export class PaymentsService {
       )
     }
 
-    const signerAddress = await this._signer.getAddress()
-    const paymentsContract = this._getPaymentsContract()
-
     try {
-      const [rails] = await paymentsContract.getRailsForPayeeAndToken(signerAddress, this._usdfcAddress, 0n, 0n)
+      const { results } = await Pay.getRailsForPayeeAndToken(this._client, {
+        payee: this._client.account.address,
+      })
 
-      return rails.map((rail: any) => ({
-        railId: Number(rail.railId),
-        isTerminated: rail.isTerminated,
-        endEpoch: Number(rail.endEpoch),
-      }))
+      return results
     } catch (error) {
       throw createError('PaymentsService', 'getRailsAsPayee', 'Failed to get rails where wallet is payee', error)
     }

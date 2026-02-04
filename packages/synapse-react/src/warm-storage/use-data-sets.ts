@@ -40,10 +40,10 @@ export function useDataSets(props: UseDataSetsProps) {
               const piecesWithMetadata = await Promise.all(
                 piecesPaginated.pieces.map(async (piece) => {
                   const metadata = await readContract(config.getClient(), {
-                    address: chain.contracts.storageView.address,
-                    abi: chain.contracts.storageView.abi,
+                    address: chain.contracts.fwssView.address,
+                    abi: chain.contracts.fwssView.abi,
                     functionName: 'getAllPieceMetadata',
-                    args: [dataSet.dataSetId, BigInt(piece.id)],
+                    args: [dataSet.dataSetId, piece.id],
                   })
                   return {
                     ...piece,

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { intro, log, outro, text } from '@clack/prompts'
 import { type Command, command } from 'cleye'
 import { generatePrivateKey } from 'viem/accounts'
@@ -12,14 +13,35 @@ export const init: Command = command(
     flags: {
       auto: {
         type: Boolean,
+        description: 'Generate a new private key',
+      },
+      keystore: {
+        type: String,
+        description: 'Path specifying a foundry keystore (requires foundry)',
       },
     },
     help: {
       description: 'Initialize a new service provider',
-      examples: ['synapse init', 'synapse init --auto'],
+      examples: [
+        'synapse init',
+        'synapse init --auto',
+        'synapse init --keystore ~/.foundry/keystores/alice',
+      ],
     },
   },
   async (argv) => {
+    if (argv.flags.keystore) {
+      if (existsSync(argv.flags.keystore)) {
+        config.set('keystore', argv.flags.keystore)
+        config.delete('privateKey')
+        outro(`You're all set!`)
+        return
+      } else {
+        log.error(`Keystore file not found: ${argv.flags.keystore}`)
+        process.exit(1)
+      }
+    }
+
     const privateKey = config.get('privateKey')
     if (privateKey) {
       log.success(`Private key: ${privateKey}`)
@@ -40,10 +62,13 @@ export const init: Command = command(
     const privateKeyInput = await text({
       message: 'Enter your private key',
       validate(value) {
-        if (!/^0x[a-fA-F0-9]{64}$/.test(value)) return `Invalid private key!`
+        if (!value || !/^0x[a-fA-F0-9]{64}$/.test(value)) {
+          return `Invalid private key!`
+        }
       },
     })
     config.set('privateKey', privateKeyInput)
+    config.delete('keystore')
     outro(`You're all set!`)
   }
 )

@@ -8,11 +8,9 @@
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} - Official FilBeam documentation
  */
 
+import { asChain, type Chain } from '@filoz/synapse-core/chains'
 import { getDataSetStats as coreGetDataSetStats, type DataSetStats } from '@filoz/synapse-core/filbeam'
 import type { request } from 'iso-web/http'
-import type { FilecoinNetworkType } from '../types.ts'
-import { CHAIN_IDS } from '../utils/constants.ts'
-import { createError } from '../utils/errors.ts'
 
 export type { DataSetStats }
 
@@ -26,7 +24,7 @@ export type { DataSetStats }
  * const stats = await synapse.filbeam.getDataSetStats(12345)
  *
  * // Monitor remaining pay-per-byte quotas
- * const service = new FilBeamService('mainnet')
+ * const service = new FilBeamService(mainnet)
  * const stats = await service.getDataSetStats(12345)
  * console.log('Remaining CDN Egress:', stats.cdnEgressQuota)
  * console.log('Remaining Cache Miss Egress:', stats.cacheMissEgressQuota)
@@ -38,23 +36,12 @@ export type { DataSetStats }
  * @see {@link https://docs.filbeam.com | FilBeam Documentation} for detailed API specifications and usage guides
  */
 export class FilBeamService {
-  private readonly _network: FilecoinNetworkType
+  private readonly _chain: Chain
   private readonly _requestGetJson: typeof request.json.get | undefined
 
-  constructor(network: FilecoinNetworkType, requestGetJson?: typeof request.json.get) {
-    this._validateNetworkType(network)
-    this._network = network
+  constructor(chain: Chain, requestGetJson?: typeof request.json.get) {
+    this._chain = asChain(chain)
     this._requestGetJson = requestGetJson
-  }
-
-  private _validateNetworkType(network: FilecoinNetworkType) {
-    if (network === 'mainnet' || network === 'calibration' || network === 'devnet') return
-
-    throw createError(
-      'FilBeamService',
-      'validateNetworkType',
-      'Unsupported network type: Only Filecoin mainnet, calibration, and devnet networks are supported.'
-    )
   }
 
   /**
@@ -92,9 +79,8 @@ export class FilBeamService {
    * ```
    */
   async getDataSetStats(dataSetId: string | number): Promise<DataSetStats> {
-    const chainId = CHAIN_IDS[this._network]
     return coreGetDataSetStats({
-      chainId,
+      chainId: this._chain.id,
       dataSetId,
       requestGetJson: this._requestGetJson,
     })

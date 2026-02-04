@@ -1,11 +1,12 @@
 /* globals describe it before after */
 
+import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
+import { createPublicClient, http as viemHttp, zeroAddress } from 'viem'
 import { METADATA_KEYS } from '../utils/constants.ts'
-import { metadataMatches, withCDNToMetadata } from '../utils/metadata.ts'
+import { metadataMatches } from '../utils/metadata.ts'
 import { WarmStorageService } from '../warm-storage/index.ts'
 
 describe('Metadata-based Data Set Selection', () => {
@@ -92,20 +93,6 @@ describe('Metadata-based Data Set Selection', () => {
         }
 
         assert.isTrue(metadataMatches(dataSetMetadata, requested))
-      })
-    })
-
-    describe('withCDNToMetadata', () => {
-      it('should convert true to metadata entry', () => {
-        const metadata = withCDNToMetadata(true)
-        assert.equal(metadata.length, 1)
-        assert.equal(metadata[0].key, METADATA_KEYS.WITH_CDN)
-        assert.equal(metadata[0].value, '')
-      })
-
-      it('should convert false to empty array', () => {
-        const metadata = withCDNToMetadata(false)
-        assert.equal(metadata.length, 0)
       })
     })
   })
@@ -195,9 +182,9 @@ describe('Metadata-based Data Set Selection', () => {
                 pdpRailId: 0n,
                 cacheMissRailId: 0n,
                 cdnRailId: 0n,
-                payer: ethers.ZeroAddress,
-                payee: ethers.ZeroAddress,
-                serviceProvider: ethers.ZeroAddress,
+                payer: zeroAddress,
+                payee: zeroAddress,
+                serviceProvider: zeroAddress,
                 commissionBps: 0n,
                 clientDataSetId: 0n,
                 pdpEndEpoch: 0n,
@@ -238,8 +225,11 @@ describe('Metadata-based Data Set Selection', () => {
 
       server.use(Mocks.JSONRPC(customPreset))
 
-      const provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-      warmStorageService = await WarmStorageService.create(provider, Mocks.ADDRESSES.calibration.warmStorage)
+      const publicClient = createPublicClient({
+        chain: calibration,
+        transport: viemHttp(),
+      })
+      warmStorageService = new WarmStorageService(publicClient)
     })
 
     it('should fetch metadata for each data set', async () => {
@@ -248,17 +238,17 @@ describe('Metadata-based Data Set Selection', () => {
       assert.equal(dataSets.length, 3)
 
       // Data set 1: no metadata, no CDN from rail
-      assert.equal(dataSets[0].pdpVerifierDataSetId, 1)
+      assert.equal(dataSets[0].pdpVerifierDataSetId, 1n)
       assert.isFalse(dataSets[0].withCDN)
       assert.deepEqual(dataSets[0].metadata, {})
 
       // Data set 2: withCDN metadata, also has CDN rail
-      assert.equal(dataSets[1].pdpVerifierDataSetId, 2)
+      assert.equal(dataSets[1].pdpVerifierDataSetId, 2n)
       assert.isTrue(dataSets[1].withCDN)
       assert.deepEqual(dataSets[1].metadata, { [METADATA_KEYS.WITH_CDN]: '' })
 
       // Data set 3: withIPFSIndexing metadata, no CDN
-      assert.equal(dataSets[2].pdpVerifierDataSetId, 3)
+      assert.equal(dataSets[2].pdpVerifierDataSetId, 3n)
       assert.isFalse(dataSets[2].withCDN)
       assert.deepEqual(dataSets[2].metadata, { [METADATA_KEYS.WITH_IPFS_INDEXING]: '' })
     })
@@ -272,20 +262,20 @@ describe('Metadata-based Data Set Selection', () => {
       )
 
       assert.equal(withIndexing.length, 1)
-      assert.equal(withIndexing[0].pdpVerifierDataSetId, 3)
+      assert.equal(withIndexing[0].pdpVerifierDataSetId, 3n)
 
       // Filter for data sets with withCDN
       const withCDN = dataSets.filter((ds) => metadataMatches(ds.metadata, { [METADATA_KEYS.WITH_CDN]: '' }))
 
       assert.equal(withCDN.length, 1)
-      assert.equal(withCDN[0].pdpVerifierDataSetId, 2)
+      assert.equal(withCDN[0].pdpVerifierDataSetId, 2n)
 
       // Filter for data sets with no specific metadata (exact empty match)
       const noRequirements = dataSets.filter((ds) => metadataMatches(ds.metadata, {}))
 
       // With exact matching, only data set 1 with empty metadata matches
       assert.equal(noRequirements.length, 1)
-      assert.equal(noRequirements[0].pdpVerifierDataSetId, 1)
+      assert.equal(noRequirements[0].pdpVerifierDataSetId, 1n)
     })
   })
 })

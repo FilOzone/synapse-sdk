@@ -1,8 +1,6 @@
 import * as p from '@clack/prompts'
-import { depositAndApprove } from '@filoz/synapse-core/pay'
+import { parseUnits, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import { parseEther } from 'viem'
-import { waitForTransactionReceipt } from 'viem/actions'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
 
@@ -10,6 +8,7 @@ export const deposit: Command = command(
   {
     name: 'deposit',
     description: 'Deposit funds to the wallet',
+    parameters: ['<amount>'],
     alias: 'd',
     flags: {
       ...globalFlags,
@@ -21,35 +20,31 @@ export const deposit: Command = command(
   },
   async (argv) => {
     const { client } = privateKeyClient(argv.flags.chain)
-
-    const spinner = p.spinner()
-    const value = await p.text({
-      message: 'Enter the amount to deposit',
+    const synapse = new Synapse({
+      client,
     })
 
-    if (p.isCancel(value)) {
-      p.cancel('Operation cancelled.')
-      process.exit(0)
-    }
-
+    const spinner = p.spinner()
     spinner.start('Depositing funds...')
     try {
-      const hash = await depositAndApprove(client, {
-        amount: parseEther(value),
-      })
+      const hash = await synapse.payments.depositWithPermitAndApproveOperator(
+        parseUnits(argv._.amount)
+      )
 
       spinner.message('Waiting for transaction to be mined...')
 
-      await waitForTransactionReceipt(client, {
+      await synapse.client.waitForTransactionReceipt({
         hash,
       })
 
       spinner.stop('Funds deposited')
     } catch (error) {
-      spinner.stop()
-      console.error(error)
-      p.outro('Failed to deposit funds')
-      return
+      if (argv.flags.debug) {
+        spinner.clear()
+        console.error(error)
+      } else {
+        spinner.error((error as Error).message)
+      }
     }
   }
 )

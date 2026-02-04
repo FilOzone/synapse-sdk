@@ -15,12 +15,13 @@ export * as generated from './generated.ts'
 import * as generated from './generated.ts'
 
 // Merge the storage and errors ABIs
-export const storage = [...generated.filecoinWarmStorageServiceAbi, ...generated.errorsAbi] as const
+export const fwss = [...generated.filecoinWarmStorageServiceAbi, ...generated.errorsAbi] as const
+export const serviceProviderRegistry = [...generated.serviceProviderRegistryAbi, ...generated.errorsAbi] as const
 
 export {
-  filecoinPayV1Abi as payments,
-  filecoinWarmStorageServiceStateViewAbi as storageView,
+  filecoinPayV1Abi as filecoinPay,
+  filecoinWarmStorageServiceStateViewAbi as fwssView,
   pdpVerifierAbi as pdp,
-  serviceProviderRegistryAbi as serviceProviderRegistry,
+  providerIdSetAbi as providerIdSet,
   sessionKeyRegistryAbi as sessionKeyRegistry,
 } from './generated.ts'

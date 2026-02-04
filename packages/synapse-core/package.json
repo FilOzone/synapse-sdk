@@ -23,6 +23,7 @@
   "main": "dist/src/index.js",
   "module": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
@@ -36,9 +37,13 @@
       "types": "./dist/src/sp.d.ts",
       "default": "./dist/src/sp.js"
     },
+    "./pdp-verifier": {
+      "types": "./dist/src/pdp-verifier/index.d.ts",
+      "default": "./dist/src/pdp-verifier/index.js"
+    },
     "./erc20": {
-      "types": "./dist/src/erc20.d.ts",
-      "default": "./dist/src/erc20.js"
+      "types": "./dist/src/erc20/index.d.ts",
+      "default": "./dist/src/erc20/index.js"
     },
     "./usdfc": {
       "types": "./dist/src/usdfc.d.ts",
@@ -68,6 +73,10 @@
       "types": "./dist/src/session-key/index.d.ts",
       "default": "./dist/src/session-key/index.js"
     },
+    "./sp-registry": {
+      "types": "./dist/src/sp-registry/index.d.ts",
+      "default": "./dist/src/sp-registry/index.js"
+    },
     "./errors": {
       "types": "./dist/src/errors/index.d.ts",
       "default": "./dist/src/errors/index.js"
@@ -87,6 +96,10 @@
     "./mocks": {
       "types": "./dist/src/mocks/index.d.ts",
       "default": "./dist/src/mocks/index.js"
+    },
+    "./endorsements": {
+      "types": "./dist/src/endorsements/index.d.ts",
+      "default": "./dist/src/endorsements/index.js"
     }
   },
   "typesVersions": {
@@ -97,8 +110,11 @@
       "sp": [
         "./dist/src/sp"
       ],
+      "pdp-verifier": [
+        "./dist/src/pdp-verifier/index"
+      ],
       "erc20": [
-        "./dist/src/erc20"
+        "./dist/src/erc20/index"
       ],
       "usdfc": [
         "./dist/src/usdfc"
@@ -135,6 +151,12 @@
       ],
       "mocks": [
         "./dist/src/mocks/index"
+      ],
+      "sp-registry": [
+        "./dist/src/sp-registry/index"
+      ],
+      "endorsements": [
+        "./dist/src/endorsements/index"
       ]
     }
   },
@@ -151,7 +173,7 @@
     "test:node": "wireit",
     "test:browser": "wireit",
     "lint": "wireit",
-    "lint:fix": "biome check --no-errors-on-unmatched --files-ignore-unknown=true --fix .",
+    "lint:fix": "biome check --fix .",
     "update:msw": "pnpx msw init test/mocks/ --save"
   },
   "wireit": {
@@ -195,7 +217,7 @@
       "output": []
     },
     "lint": {
-      "command": "biome check --no-errors-on-unmatched --files-ignore-unknown=true .",
+      "command": "biome check .",
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
@@ -213,21 +235,25 @@
     "iso-web": "^2.1.0",
     "multiformats": "^13.4.1",
     "ox": "catalog:",
-    "p-retry": "^7.1.0"
+    "p-retry": "^7.1.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
     "@types/assert": "^1.5.11",
+    "@types/chai": "^5.2.3",
     "@types/mocha": "catalog:",
     "@types/node": "catalog:",
     "@wagmi/cli": "^2.7.0",
     "abitype": "catalog:",
     "assert": "^2.1.0",
+    "chai": "^6.2.1",
     "mocha": "catalog:",
     "msw": "catalog:",
     "playwright-test": "^14.1.12",
-    "type-fest": "^5.1.0",
-    "typescript": "catalog:"
+    "type-fest": "^5.4.3",
+    "typescript": "catalog:",
+    "viem": "catalog:"
   },
   "publishConfig": {
     "access": "public"
@@ -238,7 +264,6 @@
     ]
   },
   "peerDependencies": {
-    "msw": "^2.12.4",
     "viem": "2.x"
   }
 }

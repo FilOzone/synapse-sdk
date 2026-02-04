@@ -26,6 +26,7 @@ export type ClaimTokenResponseError = [
     error: { ServerError: string }
   },
 ]
+
 export async function claimTokens(options: ClaimTokensOptions) {
   const response = await request.json.get<ClaimTokenResponse>(
     `https://forest-explorer.chainsafe.dev/api/claim_token_all?address=${options.address}`,
