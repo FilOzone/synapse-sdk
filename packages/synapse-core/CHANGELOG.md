@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.2.0](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.4...synapse-core-v0.2.0) (2026-02-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555))
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517))
+
+### refactor
+
+* replace `getMaxProvingPeriod()` and `getChallengeWindow()` with `getPDPConfig()` ([#526](https://github.com/FilOzone/synapse-sdk/issues/526)) ([a4956c7](https://github.com/FilOzone/synapse-sdk/commit/a4956c7d3aa6f78573ed87153da2fcd4b8dc8254))
+
+
+### Features
+
+* add devnet support ([#527](https://github.com/FilOzone/synapse-sdk/issues/527)) ([773551b](https://github.com/FilOzone/synapse-sdk/commit/773551bf1e9cf4cdc49aeb63a47a81f8dc5cb9e1))
+* add the json rpc mock modules ([370b6ed](https://github.com/FilOzone/synapse-sdk/commit/370b6ed02950658a8fe4975565cf91f0ba2d029b))
+* Endorsements Service ([#553](https://github.com/FilOzone/synapse-sdk/issues/553)) ([fba3280](https://github.com/FilOzone/synapse-sdk/commit/fba328044ec926317f72075ba2dfe611ecd9ba64))
+* **examples/cli:** add get-sp-peer-ids command ([#546](https://github.com/FilOzone/synapse-sdk/issues/546)) ([8aafdf1](https://github.com/FilOzone/synapse-sdk/commit/8aafdf1c0b8ba1b729898898aec4aeb47f5ac6a4))
+* transition from ethers to viem ([#555](https://github.com/FilOzone/synapse-sdk/issues/555)) ([3741241](https://github.com/FilOzone/synapse-sdk/commit/37412415eba0b1204b6b14d00bac68aaf35afca1))
+* use activePieceCount for accurate piece tracking ([#517](https://github.com/FilOzone/synapse-sdk/issues/517)) ([59fd863](https://github.com/FilOzone/synapse-sdk/commit/59fd8634c48df588460cf67b8518d81c4c171e4a))
+
+
+### Bug Fixes
+
+* treat status code 202 for findPiece as a retry ([6b9e03f](https://github.com/FilOzone/synapse-sdk/commit/6b9e03f06cd469a0f8365f725881cd87a71f41dc))
+
+
+### Chores
+
+* add docs build to packages ci ([810d7a8](https://github.com/FilOzone/synapse-sdk/commit/810d7a82a497bb9b2e788333d70a89a607e4db33)), closes [#468](https://github.com/FilOzone/synapse-sdk/issues/468)
+* improve documentation ([3d536ac](https://github.com/FilOzone/synapse-sdk/commit/3d536acc636229c15351295a7b6cc92f4b3c9484))
+* pnpm security and catalog ([123b89c](https://github.com/FilOzone/synapse-sdk/commit/123b89c178f2597a35168e7ebddb440d1dda0816))
+* re-add `getMaxProvingPeriod` and `challengeWindow` function ([#550](https://github.com/FilOzone/synapse-sdk/issues/550)) ([62bb92a](https://github.com/FilOzone/synapse-sdk/commit/62bb92a27401b8fe9e874e124668e2cc0b8c45c4))
+* remove outdated NETWORK_FEE mock ([#552](https://github.com/FilOzone/synapse-sdk/issues/552)) ([9f8ea3e](https://github.com/FilOzone/synapse-sdk/commit/9f8ea3ea2f3ebec8cd76b78d389d6f02c2837cb8))
+* update msw ([#465](https://github.com/FilOzone/synapse-sdk/issues/465)) ([ea02a6d](https://github.com/FilOzone/synapse-sdk/commit/ea02a6dba86ad91a012c4ef6bb167c5fa774cc67))
+* update viem/wagmi and markdown lint ([#478](https://github.com/FilOzone/synapse-sdk/issues/478)) ([3f023f6](https://github.com/FilOzone/synapse-sdk/commit/3f023f6bb426a67afca917b73d41ac063d158487))
+
 ## [0.1.4](https://github.com/FilOzone/synapse-sdk/compare/synapse-core-v0.1.3...synapse-core-v0.1.4) (2025-12-02)
 
 
