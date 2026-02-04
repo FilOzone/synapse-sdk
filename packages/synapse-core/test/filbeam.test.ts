@@ -1,6 +1,6 @@
 import assert from 'assert'
 import { HttpError, type request } from 'iso-web/http'
-import { calibration, mainnet } from '../src/chains.ts'
+import { calibration, devnet, mainnet } from '../src/chains.ts'
 import { getDataSetStats, validateStatsResponse } from '../src/filbeam/stats.ts'
 
 type MockRequestGetJson = typeof request.json.get
@@ -161,6 +161,20 @@ describe('FilBeam Stats', () => {
       } catch (error) {
         assert.ok(isGetDataSetStatsError(error))
         assert.ok((error as Error).message.includes('Unexpected error'))
+      }
+    })
+
+    it('should throw error when chain does not support FilBeam', async () => {
+      try {
+        await getDataSetStats({
+          chain: devnet,
+          dataSetId: '12345',
+        })
+        assert.fail('Expected error to be thrown')
+      } catch (error) {
+        assert.ok(isGetDataSetStatsError(error))
+        assert.ok((error as Error).message.includes('does not support FilBeam'))
+        assert.ok((error as Error).message.includes('31415926'))
       }
     })
   })
