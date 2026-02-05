@@ -41,3 +41,38 @@ export function toastError(error: Error, id: string, title?: string) {
     id,
   })
 }
+
+const UNITS = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
+
+/**
+ * Formats a byte value into a human-readable string using binary units (KiB, MiB, etc.).
+ * Supports both `number` and `bigint` inputs and preserves the sign for negative values.
+ *
+ * @param bytes - The number of bytes to format. Can be a `number` or `bigint`, positive or negative.
+ * @returns A human-readable string representation of the byte value (e.g., `"1.23 MiB"`).
+ * @example
+ * ```ts twoslash
+ * import { formatBytes } from 'filsnap/utils'
+ * formatBytes(1024) // "1 KiB"
+ * formatBytes(1048576) // "1 MiB"
+ * ```
+ */
+export function formatBytes(bytes: bigint | number): string {
+  const isNegative = bytes < 0
+  let num = isNegative ? -BigInt(bytes) : BigInt(bytes)
+  if (num === 0n) return '0 B'
+
+  const kBig = 1024n
+  let i = 0
+  while (num >= kBig && i < UNITS.length - 1) {
+    num /= kBig
+    i++
+  }
+
+  const sign = isNegative ? '-' : ''
+  const value = Number(num)
+    .toFixed(2)
+    .replace(/\.?0+$/, '')
+  const unit = UNITS[i]
+  return `${sign}${value} ${unit}`
+}
