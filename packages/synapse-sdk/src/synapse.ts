@@ -496,13 +496,13 @@ export class Synapse {
    * @param filter - Filtering options
    * @returns Filtered list of providers
    */
-  async providerFiltering(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
+  async filterProviders(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
     // Create SPRegistryService
     try {
       const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
       const spRegistry = new SPRegistryService(this._provider, registryAddress)
 
-      const providers = await spRegistry.providerFiltering(filter)
+      const providers = await spRegistry.filterProviders(filter)
       return providers
     } catch (error) {
       throw new Error(`Failed to filter providers: ${error instanceof Error ? error.message : String(error)}`)

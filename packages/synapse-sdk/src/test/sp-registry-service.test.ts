@@ -392,21 +392,21 @@ describe('SPRegistryService', () => {
       server.use(JSONRPC(presets.basic))
 
       // Test location filtering (case-insensitive partial match)
-      const byLocation = await service.providerFiltering({ location: 'US' })
+      const byLocation = await service.filterProviders({ location: 'US' })
       assert.equal(byLocation.length, 2) // Both providers have 'US' location
 
-      const byPrice = await service.providerFiltering({ maxStoragePricePerTibPerDay: 999999 })
+      const byPrice = await service.filterProviders({ maxStoragePricePerTibPerDay: 999999 })
       assert.equal(byPrice.length, 0)
 
       // Test piece size filtering
-      const byPieceSize = await service.providerFiltering({
+      const byPieceSize = await service.filterProviders({
         minPieceSizeInBytes: Number(SIZE_CONSTANTS.KiB),
         maxPieceSizeInBytes: Number(SIZE_CONSTANTS.GiB),
       })
       assert.equal(byPieceSize.length, 2) // Both providers support this range
 
       // Test no filters returns all
-      const all = await service.providerFiltering()
+      const all = await service.filterProviders()
       assert.equal(all.length, 2)
     })
 
@@ -415,7 +415,7 @@ describe('SPRegistryService', () => {
 
       const results = []
       for (let i = 0; i < 5; i++) {
-        const filtered = await service.providerFiltering({ randomize: true })
+        const filtered = await service.filterProviders({ randomize: true })
         results.push(filtered.map((p) => p.id))
       }
 

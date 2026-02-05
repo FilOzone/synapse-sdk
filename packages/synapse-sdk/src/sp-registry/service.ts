@@ -22,14 +22,18 @@
  * ```
  */
 
-import { capabilitiesListToObject, decodePDPCapabilities, encodePDPCapabilities } from '@filoz/synapse-core/utils'
+import {
+  capabilitiesListToObject,
+  decodePDPCapabilities,
+  encodePDPCapabilities,
+  shuffle,
+} from '@filoz/synapse-core/utils'
 import { ethers } from 'ethers'
 import { CONTRACT_ABIS, CONTRACT_ADDRESSES } from '../utils/constants.ts'
 import { getFilecoinNetworkType } from '../utils/index.ts'
 import type {
   PDPOffering,
   PDPServiceInfo,
-  PRODUCTS,
   ProductType,
   ProviderFilterOptions,
   ProviderInfo,
@@ -449,11 +453,12 @@ export class SPRegistryService {
       return result
     }
   }
+
   /**   * Filter providers based on criteria
    * @param filter - Filtering options
    * @returns Filtered list of providers
    */
-  async providerFiltering(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
+  async filterProviders(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
     const providers = await this.getAllActiveProviders()
     if (!filter) return providers
 
@@ -466,7 +471,7 @@ export class SPRegistryService {
       const d = product.data
 
       return (
-        (!filter.location || (d.location && d.location.toLowerCase().includes(filter.location.toLowerCase()))) &&
+        (!filter.location || d.location?.toLowerCase().includes(filter.location.toLowerCase())) &&
         (filter.minPieceSizeInBytes === undefined || d.maxPieceSizeInBytes >= filter.minPieceSizeInBytes) &&
         (filter.maxPieceSizeInBytes === undefined || d.minPieceSizeInBytes <= filter.maxPieceSizeInBytes) &&
         (filter.ipniIpfs === undefined || d.ipniIpfs === filter.ipniIpfs) &&
@@ -478,7 +483,7 @@ export class SPRegistryService {
       )
     })
 
-    return filter.randomize ? this._shuffle(result) : result
+    return filter.randomize ? shuffle(result) : result
   }
   /**
    * Get providers using Multicall3 for batch efficiency
@@ -557,16 +562,6 @@ export class SPRegistryService {
     }
 
     return providers
-  }
-
-  private _shuffle<T>(array: T[]): T[] {
-    // Fisher-Yates shuffle
-    const arr = array.slice()
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[arr[i], arr[j]] = [arr[j], arr[i]]
-    }
-    return arr
   }
 
   /**

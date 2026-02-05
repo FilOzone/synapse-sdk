@@ -1080,7 +1080,7 @@ describe('Synapse', () => {
       const synapse = await Synapse.create({ signer })
 
       // Test filtering by location
-      const filtered = await synapse.providerFiltering({ location: 'US' })
+      const filtered = await synapse.filterProviders({ location: 'US' })
       assert.equal(filtered.length, 2) // Both providers have 'US' location in preset
       assert.exists(filtered[0].products.PDP?.data.location)
     })
