@@ -26,10 +26,6 @@ import type { Chain } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp-registry'
 import { shuffle } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hash, Transport } from 'viem'
-<<<<<<< Updated upstream
-import type { PDPOffering, ProductType, ProviderRegistrationInfo , ProviderFilterOptions } from './types.ts'
-import type { ProviderInfo } from '@filoz/synapse-core/sp-registry'
-=======
 import {
   type PDPOffering,
   PRODUCTS,
@@ -37,7 +33,6 @@ import {
   type ProviderFilterOptions,
   type ProviderRegistrationInfo,
 } from './types.ts'
->>>>>>> Stashed changes
 
 export class SPRegistryService {
   private readonly _client: Client<Transport, Chain>
@@ -322,11 +317,7 @@ export class SPRegistryService {
     })
   }
 
-<<<<<<< Updated upstream
-  /**   
-=======
   /**
->>>>>>> Stashed changes
    * Filter providers based on criteria
    * @param filter - Filtering options
    * @returns Filtered list of providers

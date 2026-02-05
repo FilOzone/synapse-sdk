@@ -7,7 +7,6 @@
 import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
 import * as Piece from '@filoz/synapse-core/piece'
-import { getPermissionFromTypeHash, type SessionKeyPermissions } from '@filoz/synapse-core/session-key'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
