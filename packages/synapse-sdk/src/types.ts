@@ -10,7 +10,6 @@ import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
 import type { MetadataObject } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hex, Transport } from 'viem'
-
 // Re-export PieceCID and PDPProvider types
 export type { PieceCID, PDPProvider }
 export type PrivateKey = string

@@ -14,6 +14,7 @@ export type {
   PDPServiceInfo,
   PRODUCTS,
   ProductType,
+  ProviderFilterOptions,
   ProviderInfo,
   ProviderRegistrationInfo,
   ServiceProduct,
