@@ -33,6 +33,7 @@ import {
   addPieces,
   createDataSet,
   createDataSetAndAddPieces,
+  deletePieces,
   type PieceInputWithMetadata,
 } from '@filoz/synapse-core/warm-storage'
 import type { Account, Address, Chain, Client, Transport } from 'viem'
@@ -58,6 +59,16 @@ export interface AddPiecesResponse {
   txHash: string
   /** URL to check piece addition status (optional - new servers only) */
   statusUrl: string
+}
+
+/**
+ * Response from deleting pieces from a data set
+ */
+export interface DeletePiecesResponse {
+  /** Success message from the server */
+  message: string
+  /** Transaction hash for the piece removal */
+  txHash: string
 }
 
 /**
@@ -249,6 +260,26 @@ export class PDPServer {
         }
       }),
       nextChallengeEpoch: data.nextChallengeEpoch,
+    }
+  }
+
+  /**
+   * Delete multiple pieces from a data set
+   * @param dataSetId - The ID of the data set
+   * @param clientDataSetId - The client's dataset ID used when creating the data set
+   * @param pieceIds - Array of piece IDs to delete
+   * @returns Promise that resolves with transaction hash
+   */
+  async deletePieces(dataSetId: bigint, clientDataSetId: bigint, pieceIds: bigint[]): Promise<DeletePiecesResponse> {
+    const { txHash } = await deletePieces(this._client, {
+      pieceIds,
+      dataSetId,
+      clientDataSetId,
+      endpoint: this._endpoint,
+    })
+    return {
+      message: `${pieceIds.length} pieces removed from data set ID ${dataSetId} successfully`,
+      txHash,
     }
   }
 }

@@ -1,6 +1,7 @@
 export * from './use-create-data-set.ts'
 export * from './use-data-sets.ts'
 export * from './use-delete-piece.ts'
+export * from './use-delete-pieces.ts'
 export * from './use-providers.ts'
 export * from './use-service-price.ts'
 export * from './use-upload.ts'

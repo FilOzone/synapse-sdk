@@ -841,6 +841,48 @@ export async function deletePiece(options: deletePiece.OptionsType): Promise<del
   return response.result
 }
 
+export namespace deletePieces {
+  export type OptionsType = {
+    endpoint: string
+    dataSetId: bigint
+    pieceIds: bigint[]
+    extraData: Hex
+  }
+  export type ReturnType = {
+    txHash: Hex
+  }
+  export type ErrorType = DeletePieceError | TimeoutError | NetworkError | AbortError
+}
+
+/**
+ * Delete multiple pieces from a data set on the PDP API.
+ *
+ * POST /pdp/data-sets/{dataSetId}/pieces/removals
+ *
+ * @param options - {@link deletePieces.OptionsType}
+ * @returns Hash of the delete operation {@link deletePieces.ReturnType}
+ * @throws Errors {@link deletePieces.ErrorType}
+ */
+export async function deletePieces(options: deletePieces.OptionsType): Promise<deletePieces.ReturnType> {
+  const { endpoint, dataSetId, pieceIds, extraData } = options
+  const response = await request.json.post<deletePieces.ReturnType>(
+    new URL(`pdp/data-sets/${dataSetId}/pieces/removals`, endpoint),
+    {
+      body: { pieceIds: pieceIds.map((id) => id.toString()), extraData },
+      timeout: TIMEOUT,
+    }
+  )
+
+  if (response.error) {
+    if (HttpError.is(response.error)) {
+      throw new DeletePieceError(await response.error.response.text())
+    }
+    throw response.error
+  }
+
+  return response.result
+}
+
 /**
  * Ping the PDP API.
  *
