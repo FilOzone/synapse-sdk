@@ -7,13 +7,11 @@
 
 import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
-import type { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import type { ProviderInfo } from './sp-registry/types.ts'
-import type { TelemetryConfig } from './telemetry/service.ts'
-
-// Re-export PieceCID and ProviderInfo types
-export type { PieceCID, ProviderInfo }
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import type { MetadataObject } from '@filoz/synapse-core/utils'
+import type { Account, Address, Client, Hex, Transport } from 'viem'
+// Re-export PieceCID and PDPProvider types
+export type { PieceCID, PDPProvider }
 export type PrivateKey = string
 export type TokenAmount = bigint
 export type DataSetId = bigint

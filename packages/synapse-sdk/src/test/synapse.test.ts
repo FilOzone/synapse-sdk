@@ -905,14 +905,13 @@ describe('Synapse', () => {
 
   describe('Provider Filtering', () => {
     it('should filter providers through Synapse class', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
-      const synapse = await Synapse.create({ signer })
-
+      const synapse = new Synapse({ client })
       // Test filtering by location
       const filtered = await synapse.filterProviders({ location: 'US' })
       assert.equal(filtered.length, 2) // Both providers have 'US' location in preset
-      assert.exists(filtered[0].products.PDP?.data.location)
+      assert.exists(filtered[0].pdp.location)
     })
   })
 })

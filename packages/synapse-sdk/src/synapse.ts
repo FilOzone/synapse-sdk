@@ -14,14 +14,13 @@ import {
 import { FilBeamService } from './filbeam/index.ts'
 import { PaymentsService } from './payments/index.ts'
 import { ChainRetriever, FilBeamRetriever } from './retriever/index.ts'
+import type { ProviderFilterOptions } from './sp-registry/index.ts'
 import { SPRegistryService } from './sp-registry/index.ts'
 import type { StorageContext } from './storage/index.ts'
 import { StorageManager } from './storage/manager.ts'
 import type {
   PDPProvider,
   PieceCID,
-  ProviderFilterOptions,
-  ProviderInfo,
   StorageInfo,
   StorageServiceOptions,
   SynapseFromClientOptions,
@@ -244,11 +243,11 @@ export class Synapse {
    * @param filter - Filtering options
    * @returns Filtered list of providers
    */
-  async filterProviders(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
+  async filterProviders(filter?: ProviderFilterOptions): Promise<PDPProvider[]> {
     // Create SPRegistryService
     try {
-      const registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
-      const spRegistry = new SPRegistryService(this._provider, registryAddress)
+      const _registryAddress = this._warmStorageService.getServiceProviderRegistryAddress()
+      const spRegistry = new SPRegistryService(this._client)
 
       const providers = await spRegistry.filterProviders(filter)
       return providers

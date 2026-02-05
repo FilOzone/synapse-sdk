@@ -26,8 +26,18 @@ import type { Chain } from '@filoz/synapse-core/chains'
 import * as SP from '@filoz/synapse-core/sp-registry'
 import { shuffle } from '@filoz/synapse-core/utils'
 import type { Account, Address, Client, Hash, Transport } from 'viem'
+<<<<<<< Updated upstream
 import type { PDPOffering, ProductType, ProviderRegistrationInfo , ProviderFilterOptions } from './types.ts'
 import type { ProviderInfo } from '@filoz/synapse-core/sp-registry'
+=======
+import {
+  type PDPOffering,
+  PRODUCTS,
+  type ProductType,
+  type ProviderFilterOptions,
+  type ProviderRegistrationInfo,
+} from './types.ts'
+>>>>>>> Stashed changes
 
 export class SPRegistryService {
   private readonly _client: Client<Transport, Chain>
@@ -312,34 +322,49 @@ export class SPRegistryService {
     })
   }
 
+<<<<<<< Updated upstream
   /**   
+=======
+  /**
+>>>>>>> Stashed changes
    * Filter providers based on criteria
    * @param filter - Filtering options
    * @returns Filtered list of providers
    */
-  async filterProviders(filter?: ProviderFilterOptions): Promise<ProviderInfo[]> {
+  async filterProviders(filter?: ProviderFilterOptions): Promise<SP.PDPProvider[]> {
     const providers = await this.getAllActiveProviders()
     if (!filter) return providers
 
-    const type = filter.type ?? 'PDP'
+    if (filter.type !== undefined) {
+      const requestedTypeValue = PRODUCTS[filter.type]
+      if (requestedTypeValue === undefined) {
+        return [] // Invalid product type
+      }
+    }
 
-    const result = providers.filter((p) => {
-      const product = p.products?.[type]
-      if (!product) return false
+    const typeKey = (filter.type ?? 'PDP').toLowerCase()
 
-      const d = product.data
-
-      return (
-        (!filter.location || d.location?.toLowerCase().includes(filter.location.toLowerCase())) &&
-        (filter.minPieceSizeInBytes === undefined || d.maxPieceSizeInBytes >= filter.minPieceSizeInBytes) &&
-        (filter.maxPieceSizeInBytes === undefined || d.minPieceSizeInBytes <= filter.maxPieceSizeInBytes) &&
-        (filter.ipniIpfs === undefined || d.ipniIpfs === filter.ipniIpfs) &&
-        (filter.ipniPiece === undefined || d.ipniPiece === filter.ipniPiece) &&
-        (filter.serviceStatus === undefined || product.capabilities?.serviceStatus === filter.serviceStatus) &&
-        (filter.maxStoragePricePerTibPerDay === undefined ||
-          d.storagePricePerTibPerDay <= filter.maxStoragePricePerTibPerDay) &&
-        (filter.minProvingPeriodInEpochs === undefined || d.minProvingPeriodInEpochs >= filter.minProvingPeriodInEpochs)
-      )
+    const result = providers.filter((d) => {
+      switch (typeKey) {
+        case 'pdp': {
+          const offering = d[typeKey as keyof typeof d] as PDPOffering
+          return (
+            (!filter.location || offering.location?.toLowerCase().includes(filter.location.toLowerCase())) &&
+            (filter.minPieceSizeInBytes === undefined ||
+              offering.maxPieceSizeInBytes >= BigInt(filter.minPieceSizeInBytes)) &&
+            (filter.maxPieceSizeInBytes === undefined ||
+              offering.minPieceSizeInBytes <= BigInt(filter.maxPieceSizeInBytes)) &&
+            (filter.ipniIpfs === undefined || offering.ipniIpfs === filter.ipniIpfs) &&
+            (filter.ipniPiece === undefined || offering.ipniPiece === filter.ipniPiece) &&
+            (filter.maxStoragePricePerTibPerDay === undefined ||
+              offering.storagePricePerTibPerDay <= BigInt(filter.maxStoragePricePerTibPerDay)) &&
+            (filter.minProvingPeriodInEpochs === undefined ||
+              offering.minProvingPeriodInEpochs >= BigInt(filter.minProvingPeriodInEpochs))
+          )
+        }
+        default:
+          return false // Unsupported product type
+      }
     })
 
     return filter.randomize ? shuffle(result) : result

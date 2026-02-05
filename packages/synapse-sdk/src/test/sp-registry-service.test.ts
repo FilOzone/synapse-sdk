@@ -375,7 +375,7 @@ describe('SPRegistryService', () => {
 
   describe('Provider Filtering', () => {
     it('should filter providers by multiple criteria', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
       // Test location filtering (case-insensitive partial match)
       const byLocation = await service.filterProviders({ location: 'US' })
@@ -397,12 +397,12 @@ describe('SPRegistryService', () => {
     })
 
     it('should randomize results when requested', async () => {
-      server.use(JSONRPC(presets.basic))
+      server.use(Mocks.JSONRPC(Mocks.presets.basic))
 
       const results = []
       for (let i = 0; i < 5; i++) {
         const filtered = await service.filterProviders({ randomize: true })
-        results.push(filtered.map((p) => p.id))
+        results.push(filtered.map((p) => p.serviceProvider))
       }
 
       // At least one result should have different order (with high probability)
