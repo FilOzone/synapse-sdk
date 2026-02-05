@@ -2,6 +2,13 @@
  * PieceCID (Piece Commitment CID) utilities
  *
  * Helper functions for working with Filecoin Piece CIDs
+ *
+ * @example
+ * ```ts
+ * import * as Piece from '@filoz/synapse-core/piece'
+ * ```
+ *
+ * @module piece
  */
 
 import type { LegacyPieceLink as LegacyPieceCIDType, PieceLink as PieceCIDType } from '@web3-storage/data-segment'
@@ -12,23 +19,10 @@ import * as Raw from 'multiformats/codecs/raw'
 import * as Digest from 'multiformats/hashes/digest'
 import * as Link from 'multiformats/link'
 import { type Hex, hexToBytes } from 'viem'
+import { DownloadPieceError } from './errors/pdp.ts'
 
 const FIL_COMMITMENT_UNSEALED = 0xf101
 const SHA2_256_TRUNC254_PADDED = 0x1012
-
-/**
- * Maximum upload size currently supported by PDP servers.
- *
- * 1 GiB adjusted for fr32 expansion: 1 GiB * (127/128) = 1,065,353,216 bytes
- *
- * Fr32 encoding adds 2 bits of padding per 254 bits of data, resulting in 128 bytes
- * of padded data for every 127 bytes of raw data.
- *
- * Note: While it's technically possible to upload pieces this large as Uint8Array,
- * streaming via AsyncIterable is strongly recommended for non-trivial sizes.
- * See SIZE_CONSTANTS.MAX_UPLOAD_SIZE in synapse-sdk for detailed guidance.
- */
-export const MAX_UPLOAD_SIZE = 1_065_353_216 // 1 GiB * 127/128
 
 /**
  * PieceCID - A constrained CID type for Piece Commitments.
@@ -339,27 +333,6 @@ export function createPieceCIDStream(): {
 }
 
 /**
- * Convert Uint8Array to async iterable with optimal chunk size.
- *
- * Uses 2048-byte chunks for better hasher performance (determined by manual
- * testing with Node.js; this will likely vary by environment). This may not be
- * optimal for the streaming upload case, so further tuning may be needed to
- * find the best balance between hasher performance and upload chunk size.
- *
- * @param data - Uint8Array to convert
- * @param chunkSize - Size of chunks (default 2048)
- * @returns AsyncIterable yielding chunks
- */
-export async function* uint8ArrayToAsyncIterable(
-  data: Uint8Array,
-  chunkSize: number = 2048
-): AsyncIterable<Uint8Array> {
-  for (let i = 0; i < data.length; i += chunkSize) {
-    yield data.subarray(i, i + chunkSize)
-  }
-}
-
-/**
  * Convert a hex representation of a PieceCID to a PieceCID object
  *
  * The contract stores the full PieceCID multihash digest (including height and padding)
@@ -405,16 +378,16 @@ export async function downloadAndValidate(
   // Parse and validate the expected PieceCID
   const parsedPieceCid = asPieceCID(expectedPieceCid)
   if (parsedPieceCid == null) {
-    throw new Error(`Invalid PieceCID: ${String(expectedPieceCid)}`)
+    throw new DownloadPieceError(`Invalid PieceCID: ${String(expectedPieceCid)}`)
   }
 
   // Check response is OK
   if (!response.ok) {
-    throw new Error(`Download failed: ${response.status} ${response.statusText}`)
+    throw new DownloadPieceError(`Download failed: ${response.status} ${response.statusText}`)
   }
 
   if (response.body == null) {
-    throw new Error('Response body is null')
+    throw new DownloadPieceError('Response body is null')
   }
 
   // Create PieceCID calculation stream
@@ -444,19 +417,19 @@ export async function downloadAndValidate(
   }
 
   if (chunks.length === 0) {
-    throw new Error('Response body is empty')
+    throw new DownloadPieceError('Response body is empty')
   }
 
   // Get the calculated PieceCID
   const calculatedPieceCid = getPieceCID()
 
   if (calculatedPieceCid == null) {
-    throw new Error('Failed to calculate PieceCID from stream')
+    throw new DownloadPieceError('Failed to calculate PieceCID from stream')
   }
 
   // Verify the PieceCID
   if (calculatedPieceCid.toString() !== parsedPieceCid.toString()) {
-    throw new Error(
+    throw new DownloadPieceError(
       `PieceCID verification failed. Expected: ${String(parsedPieceCid)}, Got: ${String(calculatedPieceCid)}`
     )
   }

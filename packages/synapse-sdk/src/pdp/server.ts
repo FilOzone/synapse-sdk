@@ -27,20 +27,16 @@
  */
 
 import * as Piece from '@filoz/synapse-core/piece'
-import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { randU256 } from '@filoz/synapse-core/utils'
-import { ethers } from 'ethers'
-import type { Hex } from 'viem'
-import type { DataSetData, MetadataEntry, PieceCID } from '../types.ts'
-import { validateDataSetMetadata, validatePieceMetadata } from '../utils/metadata.ts'
-import { constructPieceUrl } from '../utils/piece.ts'
-import type { PDPAuthHelper } from './auth.ts'
+import { type MetadataObject, SIZE_CONSTANTS, uint8ArrayToAsyncIterable } from '@filoz/synapse-core/utils'
 import {
-  validateDataSetCreationStatusResponse,
-  validatePieceAdditionStatusResponse,
-  validatePieceStatusResponse,
-} from './validation.ts'
+  addPieces,
+  createDataSet,
+  createDataSetAndAddPieces,
+  type PieceInputWithMetadata,
+} from '@filoz/synapse-core/warm-storage'
+import type { Account, Address, Chain, Client, Transport } from 'viem'
+import type { DataSetData, PieceCID } from '../types.ts'
 
 /**
  * Response from creating a data set
@@ -50,24 +46,6 @@ export interface CreateDataSetResponse {
   txHash: string
   /** URL to check creation status */
   statusUrl: string
-}
-
-/**
- * Response from checking data set creation status
- */
-export interface DataSetCreationStatusResponse {
-  /** Transaction hash that created the data set */
-  createMessageHash: string
-  /** Whether the data set has been created on-chain */
-  dataSetCreated: boolean
-  /** Service label that created the data set */
-  service: string
-  /** Transaction status (pending, confirmed, failed) */
-  txStatus: string
-  /** Whether the transaction was successful (null if still pending) */
-  ok: boolean | null
-  /** The server's reported ID for this data set (only available after creation) */
-  dataSetId?: number
 }
 
 /**
@@ -83,55 +61,6 @@ export interface AddPiecesResponse {
 }
 
 /**
- * Response from finding a piece
- */
-export interface FindPieceResponse {
-  /** The piece CID that was found */
-  pieceCid: PieceCID
-}
-
-/**
- * Response from checking piece indexing and IPNI status
- */
-export interface PieceStatusResponse {
-  /** The piece CID */
-  pieceCid: string
-  /** Current processing status */
-  status: string
-  /** Whether the piece has been indexed */
-  indexed: boolean
-  /** Whether the piece has been advertised to IPNI */
-  advertised: boolean
-  /**
-   * Whether the piece has been retrieved
-   * This does not necessarily mean it was retrieved by a particular indexer,
-   * only that the PDP server witnessed a retrieval event. Care should be
-   * taken when interpreting this field.
-   */
-  retrieved: boolean
-  /** Timestamp when the piece was retrieved (optional) */
-  retrievedAt?: string
-}
-
-/**
- * Response from checking piece addition status
- */
-export interface PieceAdditionStatusResponse {
-  /** Transaction hash for the piece addition */
-  txHash: string
-  /** Transaction status (pending, confirmed, failed) */
-  txStatus: string
-  /** The data set ID */
-  dataSetId: number
-  /** Number of pieces being added */
-  pieceCount: number
-  /** Whether the add message was successful (null if pending) */
-  addMessageOk: boolean | null
-  /** Piece IDs assigned after confirmation */
-  confirmedPieceIds?: number[]
-}
-
-/**
  * Options for uploading a piece
  */
 export interface UploadPieceOptions {
@@ -143,43 +72,26 @@ export interface UploadPieceOptions {
   signal?: AbortSignal
 }
 
-/**
- * Input for adding pieces to a data set
- */
-export interface PDPAddPiecesInput {
-  pieces: PDPPieces[]
-  extraData: string
-}
-
-export interface PDPPieces {
-  pieceCid: string
-  subPieces: {
-    subPieceCid: string
-  }[]
-}
-
-export interface PDPCreateAndAddInput {
-  recordKeeper: string
-  pieces: PDPPieces[]
-  extraData: string
+export namespace PDPServer {
+  export type OptionsType = {
+    client: Client<Transport, Chain, Account>
+    /** The PDP service URL (e.g., https://pdp.provider.com). */
+    endpoint: string
+  }
+  export type ErrorType = Error
 }
 
 export class PDPServer {
-  private readonly _serviceURL: string
-  private readonly _authHelper: PDPAuthHelper | null
+  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _endpoint: string
 
   /**
    * Create a new PDPServer instance
-   * @param authHelper - PDPAuthHelper instance for signing operations
-   * @param serviceURL - The PDP service URL (e.g., https://pdp.provider.com)
+   * @param options - {@link PDPServer.OptionsType}
    */
-  constructor(authHelper: PDPAuthHelper | null, serviceURL: string) {
-    if (serviceURL.trim() === '') {
-      throw new Error('PDP service URL is required')
-    }
-    // Remove trailing slash from URL
-    this._serviceURL = serviceURL.replace(/\/$/, '')
-    this._authHelper = authHelper
+  constructor(options: PDPServer.OptionsType) {
+    this._client = options.client
+    this._endpoint = options.endpoint
   }
 
   /**
@@ -193,30 +105,19 @@ export class PDPServer {
    */
   async createDataSet(
     clientDataSetId: bigint,
-    payee: string,
-    payer: string,
-    metadata: MetadataEntry[],
-    recordKeeper: string
+    payee: Address,
+    payer: Address,
+    metadata: MetadataObject,
+    recordKeeper: Address
   ): Promise<CreateDataSetResponse> {
-    // Validate metadata against contract limits
-    validateDataSetMetadata(metadata)
-
-    // Generate the EIP-712 signature for data set creation
-    const authData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata)
-
-    // Prepare the extra data for the contract call
-    // This needs to match the DataSetCreateData struct in Warm Storage contract
-    const extraData = this._encodeDataSetCreateData({
+    return createDataSet(this._client, {
+      endpoint: this._endpoint,
+      payee,
       payer,
-      clientDataSetId,
       metadata,
-      signature: authData.signature,
-    })
-
-    return SP.createDataSet({
-      endpoint: this._serviceURL,
-      recordKeeper: recordKeeper as Hex,
-      extraData: `0x${extraData}`,
+      cdn: false, // synpase sdk adds this to the metadata
+      recordKeeper,
+      clientDataSetId,
     })
   }
 
@@ -228,267 +129,54 @@ export class PDPServer {
    * @param payee - Address that will receive payments (service provider)
    * @param payer - Address that will pay for the storage (client)
    * @param recordKeeper - Address of the Warm Storage contract
-   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
+   * @param pieces - Array of pieces to add to the data set. {@link PieceInputWithMetadata}
    * @param metadata - Optional metadata for dataset and each of the pieces.
    * @returns Promise that resolves with transaction hash and status URL
    */
   async createAndAddPieces(
     clientDataSetId: bigint,
-    payee: string,
-    payer: string,
-    recordKeeper: string,
-    pieceDataArray: PieceCID[] | string[],
-    metadata: {
-      dataset?: MetadataEntry[]
-      pieces?: MetadataEntry[][]
-    }
+    payee: Address,
+    payer: Address,
+    recordKeeper: Address,
+    pieces: PieceInputWithMetadata[],
+    metadata: MetadataObject
   ): Promise<CreateDataSetResponse> {
-    // Validate metadata against contract limits
-    if (metadata.dataset == null) {
-      metadata.dataset = []
-    }
-    validateDataSetMetadata(metadata.dataset)
-    metadata.pieces = PDPServer._processAddPiecesInputs(pieceDataArray, metadata.pieces)
-
-    // Generate the EIP-712 signature for data set creation
-    const createAuthData = await this.getAuthHelper().signCreateDataSet(clientDataSetId, payee, metadata.dataset)
-
-    // Prepare the extra data for the contract call
-    // This needs to match the DataSetCreateData struct in Warm Storage contract
-    const createExtraData = this._encodeDataSetCreateData({
+    return createDataSetAndAddPieces(this._client, {
+      endpoint: this._endpoint,
+      clientDataSetId,
+      payee,
       payer,
-      clientDataSetId,
-      metadata: metadata.dataset,
-      signature: createAuthData.signature,
+      recordKeeper,
+      cdn: false, // synpase sdk adds this to the metadata
+      pieces,
+      metadata,
     })
-
-    // Generate a random nonce for replay protection
-    const nonce = randU256()
-
-    const addAuthData = await this.getAuthHelper().signAddPieces(
-      clientDataSetId,
-      nonce,
-      pieceDataArray, // Pass PieceData[] directly to auth helper
-      metadata.pieces
-    )
-
-    const addExtraData = this._encodeAddPiecesExtraData({
-      nonce,
-      signature: addAuthData.signature,
-      metadata: metadata.pieces,
-    })
-
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(['bytes', 'bytes'], [`0x${createExtraData}`, `0x${addExtraData}`])
-
-    return SP.createDataSetAndAddPieces({
-      endpoint: this._serviceURL,
-      recordKeeper: recordKeeper as Hex,
-      extraData: encoded as Hex,
-      pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
-    })
-  }
-
-  private static _processAddPiecesInputs(
-    pieceDataArray: PieceCID[] | string[],
-    metadata?: MetadataEntry[][]
-  ): MetadataEntry[][] {
-    if (pieceDataArray.length === 0) {
-      throw new Error('At least one piece must be provided')
-    }
-
-    if (metadata != null) {
-      if (metadata.length !== pieceDataArray.length) {
-        throw new Error(`Metadata length (${metadata.length}) must match pieces length (${pieceDataArray.length})`)
-      }
-      for (let i = 0; i < metadata.length; i++) {
-        if (metadata[i] != null && metadata[i].length > 0) {
-          try {
-            validatePieceMetadata(metadata[i])
-          } catch (error: any) {
-            throw new Error(`Piece ${i} metadata validation failed: ${error.message}`)
-          }
-        }
-      }
-    }
-
-    // Validate all PieceCIDs
-    for (const pieceData of pieceDataArray) {
-      const pieceCid = asPieceCID(pieceData)
-      if (pieceCid == null) {
-        throw new Error(`Invalid PieceCID: ${String(pieceData)}`)
-      }
-    }
-    // If no metadata provided, create empty arrays for each piece
-    const finalMetadata = metadata ?? pieceDataArray.map(() => [])
-    return finalMetadata
   }
 
   /**
    * Add pieces to an existing data set
    * @param dataSetId - The ID of the data set to add pieces to
    * @param clientDataSetId - The client's dataset ID used when creating the data set
-   * @param pieceDataArray - Array of piece data containing PieceCID CIDs and raw sizes
-   * @param metadata - Optional metadata for each piece (array of arrays, one per piece)
+   * @param pieces - Array of piece data containing PieceCID CIDs and raw sizes
    * @returns Promise that resolves when the pieces are added (201 Created)
    * @throws Error if any CID is invalid
-   *
-   * @example
-   * ```typescript
-   * const pieceData = ['bafkzcibcd...']
-   * const metadata = [[{ key: 'snapshotDate', value: '20250711' }]]
-   * await pdpTool.addPieces(dataSetId, clientDataSetId, pieceData, metadata)
-   * ```
    */
   async addPieces(
-    dataSetId: number,
+    dataSetId: bigint,
     clientDataSetId: bigint,
-    pieceDataArray: PieceCID[] | string[],
-    metadata?: MetadataEntry[][]
+    pieces: PieceInputWithMetadata[]
   ): Promise<AddPiecesResponse> {
-    const finalMetadata = PDPServer._processAddPiecesInputs(pieceDataArray, metadata)
-
-    // Generate a random nonce for replay protection
-    const nonce = randU256()
-
-    // Generate the EIP-712 signature for adding pieces
-    const authData = await this.getAuthHelper().signAddPieces(
-      clientDataSetId,
-      nonce,
-      pieceDataArray, // Pass PieceData[] directly to auth helper
-      finalMetadata
-    )
-
-    // Prepare the extra data for the contract call
-    // This needs to match what the Warm Storage contract expects for addPieces
-    const extraData = this._encodeAddPiecesExtraData({
-      nonce,
-      signature: authData.signature,
-      metadata: finalMetadata,
-    })
-
-    const { txHash, statusUrl } = await SP.addPieces({
-      endpoint: this._serviceURL,
+    const { txHash, statusUrl } = await addPieces(this._client, {
+      endpoint: this._endpoint,
       dataSetId: BigInt(dataSetId),
-      pieces: pieceDataArray.map(asPieceCID).filter((t) => t != null),
-      extraData: `0x${extraData}`,
+      clientDataSetId,
+      pieces,
     })
     return {
       message: `Pieces added to data set ID ${dataSetId} successfully`,
       txHash,
       statusUrl,
     }
-  }
-
-  /**
-   * Check the status of a data set creation
-   * @param txHash - Transaction hash from createDataSet
-   * @returns Promise that resolves with the creation status
-   */
-  async getDataSetCreationStatus(txHash: string): Promise<DataSetCreationStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/created/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Data set creation not found for transaction hash: ${txHash}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(
-        `Failed to get data set creation status: ${response.status} ${response.statusText} - ${errorText}`
-      )
-    }
-
-    const data = await response.json()
-    return validateDataSetCreationStatusResponse(data)
-  }
-
-  /**
-   * Check the status of a piece addition transaction
-   * @param dataSetId - The data set ID
-   * @param txHash - Transaction hash from addPieces
-   * @returns Promise that resolves with the addition status
-   */
-  async getPieceAdditionStatus(dataSetId: number, txHash: string): Promise<PieceAdditionStatusResponse> {
-    const response = await fetch(`${this._serviceURL}/pdp/data-sets/${dataSetId}/pieces/added/${txHash}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      throw new Error(`Piece addition not found for transaction: ${txHash}`)
-    }
-
-    if (response.status !== 200) {
-      const errorText = await response.text()
-      throw new Error(`Failed to get piece addition status: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validatePieceAdditionStatusResponse(data)
-  }
-
-  /**
-   * Find a piece by PieceCID and size
-   * @param pieceCid - The PieceCID CID (as string or PieceCID object)
-   * @returns Piece information if found
-   */
-  async findPiece(pieceCid: string | PieceCID): Promise<FindPieceResponse> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    const piece = await SP.findPiece({
-      endpoint: this._serviceURL,
-      pieceCid: parsedPieceCid,
-    })
-    return {
-      pieceCid: piece,
-    }
-  }
-
-  /**
-   * Get indexing and IPNI status for a piece
-   *
-   * TODO: not used anywhere, remove?
-   *
-   * @param pieceCid - The PieceCID CID (as string or PieceCID object)
-   * @returns Piece status information including indexing and IPNI advertisement status
-   * @throws Error if piece not found or doesn't belong to service (404)
-   */
-  async getPieceStatus(pieceCid: string | PieceCID): Promise<PieceStatusResponse> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    const response = await fetch(`${this._serviceURL}/pdp/piece/${parsedPieceCid.toString()}/status`, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    })
-
-    if (response.status === 404) {
-      const errorText = await response.text()
-      throw new Error(`Piece not found or does not belong to service: ${errorText}`)
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to get piece status: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-
-    const data = await response.json()
-    return validatePieceStatusResponse(data)
   }
 
   /**
@@ -500,7 +188,7 @@ export class PDPServer {
    * documentation for detailed guidance.
    *
    * @param data - The data to upload (Uint8Array, AsyncIterable, or ReadableStream)
-   * @param options - Optional upload options
+   * @param options - Optional upload options {@link UploadPieceOptions}
    */
   async uploadPiece(
     data: Uint8Array | AsyncIterable<Uint8Array> | ReadableStream<Uint8Array>,
@@ -508,17 +196,17 @@ export class PDPServer {
   ): Promise<SP.UploadPieceResponse> {
     if (data instanceof Uint8Array) {
       // Check hard limit
-      if (data.length > Piece.MAX_UPLOAD_SIZE) {
+      if (data.length > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new Error(
-          `Upload size ${data.length} exceeds maximum ${Piece.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`
+          `Upload size ${data.length} exceeds maximum ${SIZE_CONSTANTS.MAX_UPLOAD_SIZE} bytes (1 GiB with fr32 expansion)`
         )
       }
 
       // Convert to async iterable with chunking
-      const iterable = Piece.uint8ArrayToAsyncIterable(data)
+      const iterable = uint8ArrayToAsyncIterable(data)
 
       return SP.uploadPieceStreaming({
-        endpoint: this._serviceURL,
+        endpoint: this._endpoint,
         data: iterable,
         size: data.length, // Known size for Content-Length
         onProgress: options?.onProgress,
@@ -528,7 +216,7 @@ export class PDPServer {
     } else {
       // AsyncIterable or ReadableStream path - no size limit check here (checked during streaming)
       return SP.uploadPieceStreaming({
-        endpoint: this._serviceURL,
+        endpoint: this._endpoint,
         data,
         // size unknown for streams
         onProgress: options?.onProgress,
@@ -539,42 +227,22 @@ export class PDPServer {
   }
 
   /**
-   * Download a piece from a service provider
-   * @param pieceCid - The PieceCID CID of the piece
-   * @returns The downloaded data
-   */
-  async downloadPiece(pieceCid: string | PieceCID): Promise<Uint8Array> {
-    const parsedPieceCid = asPieceCID(pieceCid)
-    if (parsedPieceCid == null) {
-      throw new Error(`Invalid PieceCID: ${String(pieceCid)}`)
-    }
-
-    // Use the retrieval endpoint configured at construction time
-    const downloadUrl = constructPieceUrl(this._serviceURL, parsedPieceCid)
-
-    const response = await fetch(downloadUrl)
-
-    // Use the shared download and validation function
-    return await downloadAndValidate(response, parsedPieceCid)
-  }
-
-  /**
    * Get data set details from the PDP server
    * @param dataSetId - The ID of the data set to fetch
    * @returns Promise that resolves with data set data
    */
-  async getDataSet(dataSetId: number): Promise<DataSetData> {
+  async getDataSet(dataSetId: bigint): Promise<DataSetData> {
     const data = await SP.getDataSet({
-      endpoint: this._serviceURL,
+      endpoint: this._endpoint,
       dataSetId: BigInt(dataSetId),
     })
 
     return {
-      id: data.id,
+      id: BigInt(data.id),
       pieces: data.pieces.map((piece) => {
         const pieceCid = Piece.parse(piece.pieceCid)
         return {
-          pieceId: piece.pieceId,
+          pieceId: BigInt(piece.pieceId),
           pieceCid: pieceCid,
           subPieceCid: pieceCid,
           subPieceOffset: piece.subPieceOffset,
@@ -582,110 +250,5 @@ export class PDPServer {
       }),
       nextChallengeEpoch: data.nextChallengeEpoch,
     }
-  }
-
-  /**
-   * Delete a piece from a data set
-   * @param dataSetId - The ID of dataset to delete
-   * @param clientDataSetId - Client dataset ID of the dataset to delete
-   * @param pieceID -  The ID of the piece to delete
-   * @returns Promise for transaction hash of the delete operation
-   */
-  async deletePiece(dataSetId: number, clientDataSetId: bigint, pieceID: number): Promise<string> {
-    const authData = await this.getAuthHelper().signSchedulePieceRemovals(clientDataSetId, [BigInt(pieceID)])
-
-    const { txHash } = await SP.deletePiece({
-      endpoint: this._serviceURL,
-      dataSetId: BigInt(dataSetId),
-      pieceId: BigInt(pieceID),
-      extraData: ethers.AbiCoder.defaultAbiCoder().encode(['bytes'], [authData.signature]) as Hex,
-    })
-    return txHash
-  }
-
-  /**
-   * Encode DataSetCreateData for extraData field
-   * This matches the Solidity struct DataSetCreateData in Warm Storage contract
-   */
-  private _encodeDataSetCreateData(data: {
-    payer: string
-    clientDataSetId: bigint
-    metadata: MetadataEntry[]
-    signature: string
-  }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-
-    // ABI encode the struct as a tuple
-    // DataSetCreateData struct:
-    // - address payer
-    // - uint256 clientDataSetId
-    // - string[] metadataKeys
-    // - string[] metadataValues
-    // - bytes signature
-    const keys = data.metadata.map((item) => item.key)
-    const values = data.metadata.map((item) => item.value)
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(
-      ['address', 'uint256', 'string[]', 'string[]', 'bytes'],
-      [data.payer, data.clientDataSetId, keys, values, signature]
-    )
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
-  }
-
-  /**
-   * Encode AddPieces extraData for the addPieces operation
-   * Format: (uint256 nonce, string[][] metadataKeys, string[][] metadataValues, bytes signature)
-   */
-  private _encodeAddPiecesExtraData(data: { nonce: bigint; signature: string; metadata: MetadataEntry[][] }): string {
-    // Ensure signature has 0x prefix
-    const signature = data.signature.startsWith('0x') ? data.signature : `0x${data.signature}`
-    const keys = data.metadata.map((item) => item.map((item) => item.key))
-    const values = data.metadata.map((item) => item.map((item) => item.value))
-
-    // ABI encode as (uint256 nonce, string[][] metadataKeys, string[][] metadataValues, bytes signature)
-    const abiCoder = ethers.AbiCoder.defaultAbiCoder()
-    const encoded = abiCoder.encode(
-      ['uint256', 'string[][]', 'string[][]', 'bytes'],
-      [data.nonce, keys, values, signature]
-    )
-
-    // Return hex string without 0x prefix (since we add it in the calling code)
-    return encoded.slice(2)
-  }
-
-  /**
-   * Ping the service provider to check connectivity
-   * @returns Promise that resolves if provider is reachable (200 response)
-   * @throws Error if provider is not reachable or returns non-200 status
-   */
-  async ping(): Promise<void> {
-    const url = `${this._serviceURL}/pdp/ping`
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {},
-    })
-
-    if (response.status !== 200) {
-      const errorText = await response.text().catch(() => 'Unknown error')
-      throw new Error(`Provider ping failed: ${response.status} ${response.statusText} - ${errorText}`)
-    }
-  }
-
-  /**
-   * Get the service URL for this PDPServer instance
-   * @returns The service URL
-   */
-  getServiceURL(): string {
-    return this._serviceURL
-  }
-
-  getAuthHelper(): PDPAuthHelper {
-    if (this._authHelper == null) {
-      throw new Error('AuthHelper is not available for an operation that requires signing')
-    }
-    return this._authHelper
   }
 }

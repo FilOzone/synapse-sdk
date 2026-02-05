@@ -76,8 +76,10 @@ Check active payment rails to monitor ongoing commitments and verify proper serv
 Check rails where you're the payer:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') })
 // ---cut---
 const payerRails = await synapse.payments.getRailsAsPayer();
 console.log(`You have ${payerRails.length} outgoing payment rails`);
@@ -94,8 +96,10 @@ for (const rail of payerRails) {
 Check rails where you're receiving payments:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const payeeRails = await synapse.payments.getRailsAsPayee();
 console.log(`You have ${payeeRails.length} incoming payment rails`);
@@ -106,9 +110,11 @@ console.log(`You have ${payeeRails.length} incoming payment rails`);
 For detailed information about a specific rail:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = null as unknown as bigint;
 // ---cut---
 const railInfo = await synapse.payments.getRail(railId);
 console.log("Rail details:", {
@@ -130,27 +136,6 @@ Settlement is the process of executing the accumulated payments in a rail. Until
 - **Flexibility**: Allows validators to adjust payments if needed
 - **Finality**: Makes funds available for withdrawal
 
-### Settlement Fee
-
-:::warning[FIL Required for Settlement]
-**Every settlement operation requires 0.0013 FIL** in your wallet (separate from USDFC deposits). This fee is burned to the Filecoin network and is **NOT** returned. Ensure you have sufficient FIL balance before attempting settlement operations.
-:::
-
-Settlement operations require a network fee that is burned (permanently removed from circulation), effectively paying the Filecoin network for providing the settlement service:
-
-- **Amount**: 0.0013 FIL (defined as `SETTLEMENT_FEE` constant)
-- **Mechanism**: The fee is burned to Filecoin's burn actor, `f099` (also known as address `0xff00000000000000000000000000000000000063`), reducing FIL supply
-- **Purpose**: This burn mechanism compensates the network for processing and securing payment settlements
-- **Automatic**: The SDK automatically includes this fee when calling settlement methods
-
-```ts twoslash
-import { ethers } from "ethers";
-// ---cut---
-import { SETTLEMENT_FEE } from "@filoz/synapse-sdk";
-console.log(`Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`);
-// This fee is burned to the network, not paid to any party
-```
-
 ### Performing Settlement
 
 #### Automatic Settlement (Recommended)
@@ -158,18 +143,20 @@ console.log(`Settlement fee: ${ethers.formatEther(SETTLEMENT_FEE)} FIL`);
 The simplest way to settle a rail is using `settleAuto()`, which automatically detects whether the rail is active or terminated and calls the appropriate method:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
 // ---cut---
 // Automatically handles both active and terminated rails
-const settleAutoTx = await synapse.payments.settleAuto(railId);
-await settleAutoTx.wait();
+const hash1 = await synapse.payments.settleAuto(railId);
+await synapse.client.waitForTransactionReceipt({ hash: hash1 });
 console.log("Rail settled successfully");
 
 // For active rails, you can specify the epoch to settle up to
-const settleAutoUpToEpochTx = await synapse.payments.settleAuto(railId, 1000);
-await settleAutoUpToEpochTx.wait();
+const hash2 = await synapse.payments.settleAuto(railId, 1000n);
+await synapse.client.waitForTransactionReceipt({ hash: hash2 });
 console.log("Rail settled successfully up to epoch 1000");
 ```
 
@@ -182,13 +169,15 @@ For more control, you can use the specific settlement methods:
 Settle up to the current epoch:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
 // ---cut---
 // Settle a specific rail (requires settlement fee)
-const tx = await synapse.payments.settle(railId);
-await tx.wait();
+const hash = await synapse.payments.settle(railId);
+await synapse.client.waitForTransactionReceipt({ hash });
 console.log("Rail settled successfully");
 ```
 
@@ -201,15 +190,15 @@ Settle up to a specific past epoch (partial settlement):
 - Settling up to a specific accounting period
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
 // ---cut---
-const provider = synapse.getProvider();
-const currentEpoch = await provider.getBlockNumber();
-const targetEpoch = Math.min(1000, currentEpoch); // Ensure it's not in the future
-const tx = await synapse.payments.settle(railId, targetEpoch);
-await tx.wait();
+const targetEpoch = 1000n; // Ensure it's not in the future
+const hash = await synapse.payments.settle(railId, targetEpoch);
+await synapse.client.waitForTransactionReceipt({ hash });
 ```
 
 **Important**: The `untilEpoch` parameter:
@@ -224,17 +213,19 @@ await tx.wait();
 When a rail is terminated, use the specific method for terminated rails:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
 // ---cut---
 // Check if rail is terminated
 const railInfo = await synapse.payments.getRail(railId);
 if (railInfo.endEpoch > 0) {
   console.log(`Rail terminated at epoch ${railInfo.endEpoch}`);
   // Settle the terminated rail
-  const tx = await synapse.payments.settleTerminatedRail(railId);
-  await tx.wait();
+  const hash = await synapse.payments.settleTerminatedRail(railId);
+  await synapse.client.waitForTransactionReceipt({ hash });
   console.log("Terminated rail settled and closed");
 }
 ```
@@ -246,19 +237,18 @@ if (railInfo.endEpoch > 0) {
 :::
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const railId = null as unknown as number;
-import { ethers } from "ethers";
+// @lib: esnext,dom
+import { Synapse, formatUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
+const railId = 1n;
 // ---cut---
 // Preview settlement to current epoch
 const amounts = await synapse.payments.getSettlementAmounts(railId);
-const totalSettledAmount = ethers.formatUnits(amounts.totalSettledAmount, 18);
-const totalNetPayeeAmount = ethers.formatUnits(amounts.totalNetPayeeAmount, 18);
-const totalOperatorCommission = ethers.formatUnits(
-  amounts.totalOperatorCommission,
-  18
-);
+const totalSettledAmount = formatUnits(amounts.totalSettledAmount);
+const totalNetPayeeAmount = formatUnits(amounts.totalNetPayeeAmount);
+const totalOperatorCommission = formatUnits(amounts.totalOperatorCommission);
+
 const finalSettledEpoch = amounts.finalSettledEpoch;
 const note = amounts.note;
 console.log("Settlement preview:");
@@ -269,15 +259,12 @@ console.log(`  Settled up to epoch: ${finalSettledEpoch}`);
 console.log(`  Note: ${note}`);
 
 // Preview partial settlement to a specific past epoch
-const targetEpoch = 1000; // Must be less than or equal to current epoch
+const targetEpoch = 1000n; // Must be less than or equal to current epoch
 const partialAmounts = await synapse.payments.getSettlementAmounts(
   railId,
   targetEpoch
 );
-const partialTotalSettledAmount = ethers.formatUnits(
-  partialAmounts.totalSettledAmount,
-  18
-);
+const partialTotalSettledAmount = formatUnits(partialAmounts.totalSettledAmount);
 console.log(
   `Partial settlement to epoch ${targetEpoch} -`,
   `would settle: ${partialTotalSettledAmount} USDFC`
@@ -291,9 +278,10 @@ console.log(
 Service providers (payees) should settle regularly to receive accumulated earnings.
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-const synapse = await Synapse.create({});
+// @lib: esnext,dom
+import { Synapse, parseUnits, formatUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 // Example: Settle all incoming rails using settleAuto
 async function settleAllIncomingRails() {
@@ -305,13 +293,13 @@ async function settleAllIncomingRails() {
       const amounts = await synapse.payments.getSettlementAmounts(rail.railId);
 
       // Only settle if amount exceeds threshold (e.g., $10)
-      const threshold = ethers.parseUnits("10", 18); // 10 USDFC
+      const threshold = parseUnits("10"); // 10 USDFC
       if (amounts.totalNetPayeeAmount > threshold) {
         // settleAuto handles both active and terminated rails
-        const tx = await synapse.payments.settleAuto(rail.railId);
-        await tx.wait();
+        const hash = await synapse.payments.settleAuto(rail.railId);
+        await synapse.client.waitForTransactionReceipt({ hash });
         console.log(
-          `Settled rail ${rail.railId} for ${ethers.formatUnits(amounts.totalNetPayeeAmount, 18)} USDFC`
+          `Settled rail ${rail.railId} for ${formatUnits(amounts.totalNetPayeeAmount)} USDFC`
         );
       }
     } catch (error) {
@@ -329,9 +317,10 @@ Clients (payers) typically don't need to settle unless:
 - A rail is terminated and needs finalization
 
 ```ts twoslash
-import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-import { ethers } from "ethers";
+// @lib: esnext,dom
+import { Synapse, parseUnits, formatUnits } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 // Example: Settle before withdrawal
 async function prepareForWithdrawal() {
@@ -339,15 +328,15 @@ async function prepareForWithdrawal() {
 
   // Settle all rails to update balance (settleAuto handles both active and terminated)
   for (const rail of rails) {
-    const tx = await synapse.payments.settleAuto(rail.railId);
-    await tx.wait();
+    const hash = await synapse.payments.settleAuto(rail.railId);
+    await synapse.client.waitForTransactionReceipt({ hash });
   }
 
   // Now withdrawal will reflect accurate balance
   const availableBalance = (await synapse.payments.accountInfo())
     .availableFunds;
   console.log(
-    `Available for withdrawal: ${ethers.formatUnits(availableBalance, 18)} USDFC`
+    `Available for withdrawal: ${formatUnits(availableBalance)} USDFC`
   );
 }
 ```
@@ -374,6 +363,6 @@ try {
 
 ## Next Steps
 
-- Learn about [Service Approvals](/developer-guides/payments/) for managing operator permissions
-- Explore [Storage Management](/developer-guides/storage/) which creates payment rails automatically
-- See [Payment Operations](/developer-guides/payments/) for comprehensive payment management guide
+- Learn about [Service Approvals](/developer-guides/payments/payment-operations/#approving-operators) for managing operator permissions
+- Explore [Storage Management](/developer-guides/storage/storage-operations/) which creates payment rails automatically
+- See [Payment Operations](/developer-guides/payments/payment-operations/) for comprehensive payment management guide

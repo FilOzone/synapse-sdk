@@ -1,10 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as p from '@clack/prompts'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { createPieceUrlPDP } from '@filoz/synapse-core/utils'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import type { Hex } from 'viem'
-import config from '../config.ts'
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
+import { hashLink } from '../utils.ts'
 
 export const upload: Command = command(
   {
@@ -13,6 +15,7 @@ export const upload: Command = command(
     description: 'Upload a file to the warm storage',
     alias: 'u',
     flags: {
+      ...globalFlags,
       forceCreateDataSet: {
         type: Boolean,
         description: 'Force create a new data set',
@@ -24,7 +27,7 @@ export const upload: Command = command(
         default: false,
       },
       dataSetId: {
-        type: Number,
+        type: BigInt,
         description: 'The data set ID to use',
         default: undefined,
       },
@@ -34,21 +37,15 @@ export const upload: Command = command(
     },
   },
   async (argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+    const { client, chain } = privateKeyClient(argv.flags.chain)
 
     const filePath = argv._.requiredPath
     const absolutePath = path.resolve(filePath)
     const fileData = await readFile(absolutePath)
 
     try {
-      const synapse = await Synapse.create({
-        privateKey: privateKey as Hex,
-        rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
+      const synapse = new Synapse({
+        client,
       })
 
       p.log.step('Creating context...')
@@ -66,17 +63,19 @@ export const upload: Command = command(
         },
       })
 
-      const upload = await context.upload(fileData, {
+      await context.upload(fileData, {
         metadata: {
           name: path.basename(absolutePath),
         },
-        onPiecesAdded(transactionHash, pieces) {
-          p.log.info(`Pieces added in tx: ${transactionHash}`)
-          if (pieces?.length) {
-            p.log.info(
-              `PieceCIDs: ${pieces.map(({ pieceCid }) => pieceCid.toString()).join(', ')}`
-            )
-          }
+        onUploadComplete(pieceCid) {
+          const url = createPieceUrlPDP(
+            pieceCid.toString(),
+            context.provider.pdp.serviceURL
+          )
+          p.log.info(`Upload complete! ${url}`)
+        },
+        onPiecesAdded(transactionHash) {
+          p.log.info(`Pieces added in tx ${hashLink(transactionHash, chain)}`)
         },
         onPiecesConfirmed(dataSetId, pieces) {
           p.log.info(`Data set ${dataSetId} confirmed`)
@@ -84,16 +83,15 @@ export const upload: Command = command(
             `Piece IDs: ${pieces.map(({ pieceId }) => pieceId).join(', ')}`
           )
         },
-        onUploadComplete(pieceCid) {
-          p.log.info(`Upload complete! PieceCID: ${pieceCid}`)
-        },
       })
 
-      p.log.success(`File uploaded ${upload.pieceId}`)
+      p.log.success(`File uploaded`)
     } catch (error) {
-      p.log.error((error as Error).message)
-      p.outro('Please try again')
-      return
+      if (argv.flags.debug) {
+        console.error(error)
+      } else {
+        p.log.error((error as Error).message)
+      }
     }
   }
 )

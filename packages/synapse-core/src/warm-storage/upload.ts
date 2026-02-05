@@ -1,44 +1,70 @@
 import type { Account, Chain, Client, Transport } from 'viem'
+import { asChain } from '../chains.ts'
 import * as Piece from '../piece.ts'
 import * as SP from '../sp.ts'
 import { signAddPieces } from '../typed-data/sign-add-pieces.ts'
 import { pieceMetadataObjectToEntry } from '../utils/metadata.ts'
-import { randU256 } from '../utils/rand.ts'
-import { getDataSet } from './data-sets.ts'
+import { createPieceUrl } from '../utils/piece-url.ts'
+import { type DataSet, getDataSet } from './data-sets.ts'
+
+export interface Events {
+  pieceUploaded: {
+    pieceCid: Piece.PieceCID
+    dataSet: DataSet
+  }
+  pieceParked: {
+    pieceCid: Piece.PieceCID
+    url: string
+    dataSet: DataSet
+  }
+}
 
 export type UploadOptions = {
   dataSetId: bigint
   data: File[]
+  onEvent?<T extends keyof Events>(event: T, data: Events[T]): void
 }
 
 export async function upload(client: Client<Transport, Chain, Account>, options: UploadOptions) {
   const dataSet = await getDataSet(client, {
     dataSetId: options.dataSetId,
   })
+  const chain = asChain(client.chain)
 
   const uploadResponses = await Promise.all(
     options.data.map(async (file: File) => {
       const data = new Uint8Array(await file.arrayBuffer())
       const pieceCid = Piece.calculate(data)
+      const url = createPieceUrl(
+        pieceCid.toString(),
+        dataSet.cdn,
+        client.account.address,
+        chain,
+        dataSet.pdp.serviceURL
+      )
+
       await SP.uploadPiece({
         data,
         pieceCid,
         endpoint: dataSet.pdp.serviceURL,
       })
+      options.onEvent?.('pieceUploaded', { pieceCid, dataSet })
 
       await SP.findPiece({
         pieceCid,
         endpoint: dataSet.pdp.serviceURL,
+        retry: true,
       })
+
+      options.onEvent?.('pieceParked', { pieceCid, url, dataSet })
 
       return {
         pieceCid,
+        url,
         metadata: { name: file.name, type: file.type },
       }
     })
   )
-
-  const nonce = randU256()
 
   const addPieces = await SP.addPieces({
     dataSetId: options.dataSetId,
@@ -46,7 +72,6 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
     endpoint: dataSet.pdp.serviceURL,
     extraData: await signAddPieces(client, {
       clientDataSetId: dataSet.clientDataSetId,
-      nonce,
       pieces: uploadResponses.map((response) => ({
         pieceCid: response.pieceCid,
         metadata: pieceMetadataObjectToEntry(response.metadata),
@@ -54,5 +79,5 @@ export async function upload(client: Client<Transport, Chain, Account>, options:
     }),
   })
 
-  return addPieces
+  return { ...addPieces, pieces: uploadResponses }
 }

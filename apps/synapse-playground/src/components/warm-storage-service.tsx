@@ -1,12 +1,12 @@
 import { useDataSets, useProviders } from '@filoz/synapse-react'
-import { useAccount } from 'wagmi'
+import { useConnection } from 'wagmi'
 import { Separator } from './ui/separator.tsx'
 import { Skeleton } from './ui/skeleton.tsx'
 import { DataSetsSection } from './warm-storage/data-sets-section.tsx'
 import { UploadsSection } from './warm-storage/uploads-section.tsx'
 
 export function WarmStorageService() {
-  const { address } = useAccount()
+  const { address } = useConnection()
   const { data: providers } = useProviders()
 
   const { data: dataSets } = useDataSets({

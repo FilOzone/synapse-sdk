@@ -10,13 +10,13 @@ This guide is for developers who need fine-grained control over storage operatio
 You'll learn about explicit provider selection, batch uploads, lifecycle management, and download strategies.
 
 **Audience**: Experienced developers building production applications
-**Prerequisites**: Complete the [Storage Operations Guide](./index) first
+**Prerequisites**: Complete the [Storage Operations Guide](/developer-guides/storage/storage-operations/) first
 **When to use this**: Batch operations, custom callbacks, specific provider requirements, advanced error handling
 :::
 
 ## Storage Context Overview
 
-A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](./index), contexts give you explicit control over these key capabilities:
+A Storage Context represents a connection to a specific storage provider and data set. Unlike the auto-managed approach in the [Storage Operations Guide](/developer-guides/storage/storage-operations/), contexts give you explicit control over these key capabilities:
 
 - **Provider Selection**: Choose specific providers for your data
 - **Data Set Management**: Create, reuse, and manage data sets explicitly
@@ -24,20 +24,21 @@ A Storage Context represents a connection to a specific storage provider and dat
 - **Lifecycle Control**: Terminate data sets and delete pieces when needed
 - **Download Strategies**: Choose between SP-agnostic and SP-specific retrieval
 
-This guide assumes you've already completed the [Storage Operations Guide](./index) and understand the basics of uploading and downloading data.
+This guide assumes you've already completed the [Storage Operations Guide](/developer-guides/storage/storage-operations/) and understand the basics of uploading and downloading data.
 
 ### Creating a Storage Context
 
 #### Creation Options
 
 ```ts twoslash
-import { ProviderInfo } from "@filoz/synapse-sdk";
+// @lib: esnext,dom
+import { PDPProvider } from "@filoz/synapse-sdk";
 type StorageContextCallbacks = {
-  onProviderSelected?: (provider: ProviderInfo) => void;
+  onProviderSelected?: (provider: PDPProvider) => void;
   onDataSetResolved?: (info: {
     isExisting: boolean;
-    dataSetId: number;
-    provider: ProviderInfo;
+    dataSetId: bigint;
+    provider: PDPProvider;
   }) => void;
 };
 // ---cut---
@@ -57,8 +58,10 @@ interface StorageServiceOptions {
 Monitor the creation process with detailed callbacks to track progress:
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse, StorageServiceOptions } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -89,8 +92,7 @@ const storageContext = await synapse.storage.createContext({
         ` id: ${provider.id}`,
         ` name: ${provider.name}`,
         ` description: ${provider.description}`,
-        ` address: ${provider.serviceProvider}`,
-        ` products: ${JSON.stringify(provider.products)}`
+        ` address: ${provider.serviceProvider}`
       );
     },
   },
@@ -135,16 +137,17 @@ The SDK intelligently manages data sets to minimize on-chain transactions. The s
 **API Design**:
 
 ```ts twoslash
+// @lib: esnext,dom
 import {
   PieceCID,
   PieceRecord,
   UploadResult,
-  ProviderInfo,
+  PDPProvider,
   PreflightInfo,
   PieceStatus,
 } from "@filoz/synapse-sdk";
-import { ethers } from "ethers";
-type Transaction = Promise<ethers.TransactionResponse>;
+import { Hash } from 'viem'
+type Transaction = Promise<Hash>;
 type Hex = `0x${string}`;
 export interface UploadCallbacks {
   /** Called periodically during upload with bytes uploaded so far */
@@ -177,7 +180,7 @@ type UploadOptions = {
 // ---cut---
 interface StorageContextAPI {
   // Properties
-  readonly provider: ProviderInfo;
+  readonly provider: PDPProvider;
   readonly serviceProvider: string;
   readonly withCDN: boolean;
   readonly dataSetId: number | undefined;
@@ -199,7 +202,7 @@ interface StorageContextAPI {
   deletePiece(piece: string | PieceCID | number): Promise<string>;
 
   // Info & Preflight
-  getProviderInfo(): Promise<ProviderInfo>;
+  getProviderInfo(): Promise<PDPProvider>;
   preflightUpload(size: number): Promise<PreflightInfo>;
 
   // Lifecycle
@@ -210,8 +213,10 @@ interface StorageContextAPI {
 ### Storage Context Methods
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -275,7 +280,7 @@ console.log(`Data set last proven: ${status.dataSetLastProven}`);
 console.log(`Data set next proof due: ${status.dataSetNextProofDue}`);
 ```
 
-##### Efficient Batch Uploads
+#### Efficient Batch Uploads
 
 When uploading multiple files, the SDK automatically batches operations for efficiency. Due to blockchain transaction ordering requirements, uploads are processed sequentially. To maximize efficiency:
 The SDK batches up to 32 uploads by default (configurable via `uploadBatchSize`). If you have more than 32 files, they'll be processed in multiple batches automatically.
@@ -315,17 +320,19 @@ This method submits an on-chain transaction to initiate the termination process.
 You can also terminate a data set using `synapse.storage.terminateDataSet(dataSetId)`, in a case that creation of the context is not possible or `dataSetId` is known and creation of the context is not necessary.
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
   withCDN: true, // Optional: enable CDN for faster downloads
 });
-const datasetTerminationTx = await storageContext.terminate();
-console.log(`Dataset termination transaction: ${datasetTerminationTx.hash}`);
+const hash = await storageContext.terminate();
+console.log(`Dataset termination transaction: ${hash}`);
 
-await datasetTerminationTx.wait();
+await synapse.client.waitForTransactionReceipt({ hash });
 console.log("Dataset terminated successfully");
 ```
 
@@ -337,8 +344,10 @@ This method submits an on-chain transaction to initiate the deletion process.
 **Important:** Piece deletion is irreversible and cannot be canceled once initiated.
 
 ```ts twoslash
+// @lib: esnext,dom
 import { Synapse } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const storageContext = await synapse.storage.createContext({
   providerAddress: "0x...", // Optional: use specific provider address
@@ -418,18 +427,18 @@ Note: When `withCDN: true` is set, it adds `{ withCDN: '' }` to the data set's m
 
 Now that you understand Storage Context and advanced operations:
 
-- **[Calculate Storage Costs →](./storage-costs)**
+- **[Calculate Storage Costs →](/developer-guides/storage/storage-costs/)**
   Plan your budget and fund your storage account.
   _Use the quick calculator to estimate monthly costs._
 
-- **[Storage Operations Basics →](./index)**
+- **[Storage Operations Basics →](/developer-guides/storage/storage-operations/)**
   Review fundamental storage concepts and auto-managed operations.
   _Good for a refresher on the simpler approach._
 
-- **[Component Architecture →](/developer-guides/components)**
+- **[Component Architecture →](/developer-guides/components/)**
   Understand how StorageContext fits into the SDK design.
   _Deep dive into the component architecture._
 
-- **[Payment Management →](/developer-guides/payments/)**
+- **[Payment Management →](/developer-guides/payments/payment-operations/)**
   Manage deposits, approvals, and payment rails.
   _Required before your first upload._

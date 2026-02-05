@@ -1,6 +1,6 @@
 import type { Account, Address, Chain, Client, Transport } from 'viem'
 import { signTypedData } from 'viem/actions'
-import { getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
 import { EIP712Types } from './type-definitions.ts'
 
 export type SignErc20PermitOptions = {
@@ -41,14 +41,14 @@ export type SignErc20PermitOptions = {
  * @param options - The options for the ERC20 permit message.
  */
 export async function signErc20Permit(client: Client<Transport, Chain, Account>, options: SignErc20PermitOptions) {
-  const chain = getChain(client.chain.id)
+  const chain = asChain(client.chain)
   const { amount, nonce, deadline, name, version } = options
 
-  const spender = options.spender ?? chain.contracts.payments.address
+  const spender = options.spender ?? chain.contracts.filecoinPay.address
   const token = options.token ?? chain.contracts.usdfc.address
 
   const domain = {
-    chainId: client.chain.id,
+    chainId: chain.id,
     name: name,
     version: version,
     verifyingContract: token,

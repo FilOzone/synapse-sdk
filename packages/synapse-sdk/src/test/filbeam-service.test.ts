@@ -1,38 +1,27 @@
+import { calibration, mainnet } from '@filoz/synapse-core/chains'
 import { expect } from 'chai'
 import { FilBeamService } from '../filbeam/service.ts'
-import type { FilecoinNetworkType } from '../types.ts'
 
 describe('FilBeamService', () => {
-  describe('network type validation', () => {
-    it('should throw error if network type not mainnet or calibration', () => {
-      try {
-        // @ts-expect-error
-        new FilBeamService('base-sepolia')
-      } catch (error: any) {
-        expect(error.message).to.include('Unsupported network type')
-      }
-    })
-  })
-
   describe('URL construction', () => {
     it('should use mainnet URL for mainnet network', () => {
       const mockFetch = async (): Promise<Response> => {
         return {} as Response
       }
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       const baseUrl = (service as any)._getStatsBaseUrl()
-      expect(baseUrl).to.equal('https://stats.filbeam.io')
+      expect(baseUrl).to.equal('https://stats.filbeam.com')
     })
 
     it('should use calibration URL for calibration network', () => {
       const mockFetch = async (): Promise<Response> => {
         return {} as Response
       }
-      const service = new FilBeamService('calibration' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(calibration, mockFetch)
 
       const baseUrl = (service as any)._getStatsBaseUrl()
-      expect(baseUrl).to.equal('https://calibration.stats.filbeam.io')
+      expect(baseUrl).to.equal('https://calibration.stats.filbeam.com')
     })
   })
 
@@ -44,7 +33,7 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://stats.filbeam.io/data-set/test-dataset-id')
+        expect(input).to.equal('https://stats.filbeam.com/data-set/test-dataset-id')
         return {
           status: 200,
           statusText: 'OK',
@@ -52,7 +41,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
       const result = await service.getDataSetStats('test-dataset-id')
 
       expect(result).to.deep.equal({
@@ -68,7 +57,7 @@ describe('FilBeamService', () => {
       }
 
       const mockFetch = async (input: string | URL | Request): Promise<Response> => {
-        expect(input).to.equal('https://calibration.stats.filbeam.io/data-set/123')
+        expect(input).to.equal('https://calibration.stats.filbeam.com/data-set/123')
         return {
           status: 200,
           statusText: 'OK',
@@ -76,7 +65,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('calibration' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(calibration, mockFetch)
       const result = await service.getDataSetStats(123)
 
       expect(result).to.deep.equal({
@@ -94,7 +83,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       try {
         await service.getDataSetStats('non-existent')
@@ -113,7 +102,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       try {
         await service.getDataSetStats('test-dataset')
@@ -132,7 +121,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       try {
         await service.getDataSetStats('test-dataset')
@@ -153,7 +142,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       try {
         await service.getDataSetStats('test-dataset')
@@ -174,7 +163,7 @@ describe('FilBeamService', () => {
         } as Response
       }
 
-      const service = new FilBeamService('mainnet' as FilecoinNetworkType, mockFetch)
+      const service = new FilBeamService(mainnet, mockFetch)
 
       try {
         await service.getDataSetStats('test-dataset')

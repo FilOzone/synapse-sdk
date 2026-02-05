@@ -25,15 +25,6 @@ export function metadataArrayToObject(metadataArray: MetadataArray): Record<stri
   const [keys, values] = metadataArray
   const metadata: Record<string, string> = {} as Record<string, string>
   for (let i = 0; i < keys.length; i++) {
-    if (keys[i] === 'withCDN') {
-      continue
-    }
-    if (keys[i] === 'withIPFSIndexing') {
-      continue
-    }
-    if (keys[i] === 'ipfsRootCID') {
-      continue
-    }
     metadata[keys[i]] = values[i]
   }
   return metadata

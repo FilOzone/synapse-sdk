@@ -4,24 +4,26 @@
   "description": "CLI for Synapse",
   "type": "module",
   "private": true,
-  "main": "index.js",
+  "main": "src/index.ts",
   "scripts": {
-    "lint": "biome check --no-errors-on-unmatched .",
+    "lint": "tsc && biome check --fix .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "Hugo Dias <hugomrdias@gmail.com> (hugodias.me)",
   "license": "Apache-2.0 OR MIT",
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
+    "@clack/prompts": "^1.0.0",
     "@filoz/synapse-core": "workspace:^",
     "@filoz/synapse-sdk": "workspace:^",
+    "@remix-run/fs": "^0.3.0",
     "cleye": "^2.0.0",
     "conf": "^15.0.2",
-    "viem": "^2.38.4"
+    "terminal-link": "^5.0.0",
+    "viem": "catalog:"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.8",
-    "@types/node": "^24.9.1"
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:"
   }
 }

@@ -1,7 +1,6 @@
 /**
- * Exports the PDP components
+ * PDP components
  *
- * @packageDocumentation
  * @module PDP
  * @example
  * ```ts
@@ -9,24 +8,10 @@
  * ```
  */
 
-export { PDPAuthHelper } from './auth.ts'
 export type {
   AddPiecesResponse,
   CreateDataSetResponse,
-  DataSetCreationStatusResponse,
-  FindPieceResponse,
-  PieceAdditionStatusResponse,
+  UploadPieceOptions,
 } from './server.ts'
 export { PDPServer } from './server.ts'
-// Export validation utilities for advanced use
-export {
-  asDataSetData,
-  asDataSetPieceData,
-  isDataSetCreationStatusResponse,
-  isFindPieceResponse,
-  isPieceAdditionStatusResponse,
-  validateDataSetCreationStatusResponse,
-  validateFindPieceResponse,
-  validatePieceAdditionStatusResponse,
-} from './validation.ts'
 export { PDPVerifier } from './verifier.ts'

@@ -7,12 +7,12 @@ import { waitForTransactionReceipt } from 'viem/actions'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
 
-type UseDepositVariables = Pick<DepositAndApproveOptions, 'amount'>
-interface UseDepositAndApproveProps extends Omit<DepositAndApproveOptions, 'amount'> {
+export type UseDepositAndApproveVariables = Pick<DepositAndApproveOptions, 'amount'>
+export interface UseDepositAndApproveProps extends Omit<DepositAndApproveOptions, 'amount'> {
   /**
    * The mutation options.
    */
-  mutation?: Omit<MutateOptions<TransactionReceipt, Error, UseDepositVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<TransactionReceipt, Error, UseDepositAndApproveVariables>, 'mutationFn'>
   /**
    * The callback to call when the hash is available.
    */
@@ -20,14 +20,10 @@ interface UseDepositAndApproveProps extends Omit<DepositAndApproveOptions, 'amou
 }
 
 /**
- * Deposit ERC20 tokens into the payments contract.
+ * Deposit and approve ERC20 tokens into the payments contract.
  *
- * @param props - The props for the deposit.
- * @param props.address - The address of the account to deposit from.
- * @param props.token - The address of the ERC20 token to deposit.
- * @param props.mutation - The mutation options.
- * @param props.onHash - The callback to call when the hash is available.
- * @returns The deposit mutation.
+ * @param props - The props for the deposit. {@link UseDepositAndApproveProps}
+ * @returns The deposit and approve mutation.
  */
 export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
   const config = useConfig()
@@ -39,7 +35,7 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
   const from = props?.address ?? account.address
 
   return useMutation({
-    mutationFn: async ({ amount }: UseDepositVariables) => {
+    mutationFn: async ({ amount }: UseDepositAndApproveVariables) => {
       const client = await getConnectorClient(config, {
         account: account.address,
         chainId,
@@ -61,7 +57,7 @@ export function useDepositAndApprove(props?: UseDepositAndApproveProps) {
         queryKey: ['synapse-erc20-balance', from, token],
       })
       queryClient.invalidateQueries({
-        queryKey: ['synapse-payments-operator-approvals', from, token, chain.contracts.storage.address],
+        queryKey: ['synapse-payments-operator-approvals', from, token, chain.contracts.fwss.address],
       })
 
       return transactionReceipt

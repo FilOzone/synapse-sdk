@@ -59,8 +59,8 @@ async function main() {
       return
     }
 
-    // Find a data set with pieces (currentPieceCount > 0)
-    const dataSetWithPieces = dataSets.find((ds) => ds.currentPieceCount > 0)
+    // Find a data set with pieces (activePieceCount > 0)
+    const dataSetWithPieces = dataSets.find((ds) => ds.activePieceCount > 0)
     if (!dataSetWithPieces) {
       console.log('❌ No data sets with pieces found. Please upload some data first using example-storage-simple.js')
       return
@@ -70,7 +70,7 @@ async function main() {
     dataSetInfo = {
       dataSetId: dataSetWithPieces.pdpVerifierDataSetId,
       providerId: dataSetWithPieces.providerId,
-      pieceCount: dataSetWithPieces.currentPieceCount,
+      pieceCount: dataSetWithPieces.activePieceCount,
       clientDataSetId: dataSetWithPieces.clientDataSetId,
       isLive: dataSetWithPieces.isLive,
       withCDN: dataSetWithPieces.withCDN,

@@ -3,21 +3,24 @@
   "compilerOptions": {
     "outDir": "./dist"
   },
-  "include": ["src/**/*", "package.json"],
+  "include": ["src/**/*", "package.json", "../synapse-core/src/utils/epoch.ts", "../synapse-core/test/epoch.test.ts"],
   "exclude": ["node_modules", "dist"],
   "references": [
     {
-      "path": "../synapse-core"
+      "path": "../synapse-core/tsconfig.json"
     }
   ],
   "typedocOptions": {
     "entryPointStrategy": "resolve",
     "entryPoints": [
       "src/index.ts",
-      "src/piece/index.ts",
-      "src/pdp/index.ts",
       "src/payments/index.ts",
+      "src/pdp/index.ts",
+      "src/session/index.ts",
       "src/storage/index.ts",
+      "src/subgraph/index.ts",
+      "src/warm-storage/index.ts",
+      "src/sp-registry/index.ts",
       "src/filbeam/index.ts"
     ]
   }

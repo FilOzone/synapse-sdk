@@ -5,8 +5,10 @@
  * that have the requested piece, then attempts to download from them.
  */
 
+import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
+import type { Address } from 'viem'
 import type { SPRegistryService } from '../sp-registry/index.ts'
-import type { PieceCID, PieceRetriever, ProviderInfo } from '../types.ts'
+import type { PieceCID, PieceRetriever } from '../types.ts'
 import { createError } from '../utils/index.ts'
 import type { WarmStorageService } from '../warm-storage/index.ts'
 import { fetchPiecesFromProviders } from './utils.ts'
@@ -28,7 +30,7 @@ export class ChainRetriever implements PieceRetriever {
    * @param providerAddress - Optional specific provider to use
    * @returns List of provider info
    */
-  private async findProviders(client: string, providerAddress?: string): Promise<ProviderInfo[]> {
+  private async findProviders(client: Address, providerAddress?: Address): Promise<PDPProvider[]> {
     if (providerAddress != null) {
       // Direct provider case - skip data set lookup entirely
       const provider = await this.spRegistry.getProviderByAddress(providerAddress)
@@ -44,7 +46,7 @@ export class ChainRetriever implements PieceRetriever {
     const dataSets = await this.warmStorageService.getClientDataSetsWithDetails(client)
 
     // Filter for live data sets with pieces
-    const validDataSets = dataSets.filter((ds) => ds.isLive && ds.currentPieceCount > 0)
+    const validDataSets = dataSets.filter((ds) => ds.isLive && ds.activePieceCount > 0)
 
     if (validDataSets.length === 0) {
       throw createError('ChainRetriever', 'findProviders', `No active data sets with data found for client ${client}`)
@@ -57,7 +59,7 @@ export class ChainRetriever implements PieceRetriever {
     const providerInfos = await this.spRegistry.getProviders(uniqueProviderIds)
 
     // Filter out null values (providers not found in registry)
-    const validProviderInfos = providerInfos.filter((info): info is ProviderInfo => info != null)
+    const validProviderInfos = providerInfos.filter((info): info is PDPProvider => info != null)
 
     if (validProviderInfos.length === 0) {
       throw createError(
@@ -72,29 +74,34 @@ export class ChainRetriever implements PieceRetriever {
 
   async fetchPiece(
     pieceCid: PieceCID,
-    client: string,
+    client: Address,
     options?: {
-      providerAddress?: string
+      providerAddress?: Address
       withCDN?: boolean
       signal?: AbortSignal
     }
   ): Promise<Response> {
     // Helper function to try child retriever or throw error
-    const tryChildOrThrow = async (reason: string): Promise<Response> => {
+    const tryChildOrThrow = async (reason: string, cause?: unknown): Promise<Response> => {
       if (this.childRetriever !== undefined) {
         return await this.childRetriever.fetchPiece(pieceCid, client, options)
       }
-      throw createError('ChainRetriever', 'fetchPiece', `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`)
+      throw createError(
+        'ChainRetriever',
+        'fetchPiece',
+        `Failed to retrieve piece ${pieceCid.toString()}: ${reason}`,
+        cause
+      )
     }
 
     // Find providers
-    let providersToTry: ProviderInfo[] = []
+    let providersToTry: PDPProvider[] = []
     try {
       providersToTry = await this.findProviders(client, options?.providerAddress)
     } catch (error) {
       // Provider discovery failed - this is a critical error
       const message = error instanceof Error ? error.message : 'Provider discovery failed'
-      return await tryChildOrThrow(message)
+      return await tryChildOrThrow(message, error)
     }
 
     // If no providers found, try child retriever
@@ -105,10 +112,11 @@ export class ChainRetriever implements PieceRetriever {
     // Try to fetch from providers
     try {
       return await fetchPiecesFromProviders(providersToTry, pieceCid, 'ChainRetriever', options?.signal)
-    } catch {
+    } catch (error) {
       // All provider attempts failed
       return await tryChildOrThrow(
-        'All provider retrieval attempts failed and no additional retriever method was configured'
+        'All provider retrieval attempts failed and no additional retriever method was configured',
+        error
       )
     }
   }

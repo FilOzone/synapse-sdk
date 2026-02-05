@@ -21,53 +21,40 @@
  * ```
  */
 
-import { ethers } from 'ethers'
-import { EIP712_TYPE_HASHES } from '../utils/eip712.ts'
-import { CONTRACT_ABIS, CONTRACT_ADDRESSES, getFilecoinNetworkType } from '../utils/index.ts'
-
-export const CREATE_DATA_SET_TYPEHASH = EIP712_TYPE_HASHES.CreateDataSet
-export const ADD_PIECES_TYPEHASH = EIP712_TYPE_HASHES.AddPieces
-export const SCHEDULE_PIECE_REMOVALS_TYPEHASH = EIP712_TYPE_HASHES.SchedulePieceRemovals
-export const DELETE_DATA_SET_TYPEHASH = EIP712_TYPE_HASHES.DeleteDataSet
-
-// These are the PDP-related permissions that can be granted to a session key.
-// They are bytes32 hex strings that can be supplied to fetchExpiries, login, and revoke.
-export const PDP_PERMISSIONS = [
-  CREATE_DATA_SET_TYPEHASH,
-  ADD_PIECES_TYPEHASH,
-  SCHEDULE_PIECE_REMOVALS_TYPEHASH,
-  DELETE_DATA_SET_TYPEHASH,
-]
-
-export const PDP_PERMISSION_NAMES: Record<string, string> = {
-  [CREATE_DATA_SET_TYPEHASH]: 'CreateDataSet',
-  [ADD_PIECES_TYPEHASH]: 'AddPieces',
-  [SCHEDULE_PIECE_REMOVALS_TYPEHASH]: 'SchedulePieceRemovals',
-  [DELETE_DATA_SET_TYPEHASH]: 'DeleteDataSet',
-}
+import { asChain } from '@filoz/synapse-core/chains'
+import * as SK from '@filoz/synapse-core/session-key'
+import { type Account, type Chain, type Client, createWalletClient, type Hash, http, type Transport } from 'viem'
+import { multicall } from 'viem/actions'
 
 const DEFAULT_ORIGIN: string = (globalThis as any).location?.hostname || 'unknown'
 
 export class SessionKey {
-  private readonly _provider: ethers.Provider
-  private readonly _registry: ethers.Contract
-  private readonly _signer: ethers.Signer
-  private readonly _owner: ethers.Signer
+  private readonly _ownerClient: Client<Transport, Chain, Account>
+  private readonly _client: Client<Transport, Chain, Account>
+  private readonly _account: Account
+  private readonly _chain: Chain
 
-  public constructor(
-    provider: ethers.Provider,
-    sessionKeyRegistryAddress: string,
-    signer: ethers.Signer,
-    owner: ethers.Signer
-  ) {
-    this._provider = provider
-    this._registry = new ethers.Contract(sessionKeyRegistryAddress, CONTRACT_ABIS.SESSION_KEY_REGISTRY, owner)
-    this._signer = signer
-    this._owner = owner
+  public constructor(client: Client<Transport, Chain, Account>, account: Account) {
+    this._ownerClient = client
+    this._account = account
+    this._chain = asChain(client.chain)
+    this._client = createWalletClient({
+      chain: this._chain,
+      transport: http(),
+      account: this._account,
+    })
   }
 
-  getSigner(): ethers.Signer {
-    return this._signer
+  get account(): Account {
+    return this._account
+  }
+
+  get chain(): Chain {
+    return this._chain
+  }
+
+  get client(): Client<Transport, Chain, Account> {
+    return this._client
   }
 
   /**
@@ -75,46 +62,26 @@ export class SessionKey {
    * @param permissions Expiries to fetch, as a list of bytes32 hex strings
    * @return map of each permission to its expiry for this session key
    */
-  async fetchExpiries(permissions: string[] = PDP_PERMISSIONS): Promise<Record<string, bigint>> {
-    const network = await getFilecoinNetworkType(this._provider)
-
-    const multicall = new ethers.Contract(
-      CONTRACT_ADDRESSES.MULTICALL3[network],
-      CONTRACT_ABIS.MULTICALL3,
-      this._provider
-    )
-    const registryInterface = new ethers.Interface(CONTRACT_ABIS.SESSION_KEY_REGISTRY)
-
-    const [ownerAddress, signerAddress, registryAddress] = await Promise.all([
-      this._owner.getAddress(),
-      this._signer.getAddress(),
-      this._registry.getAddress(),
-    ])
-
-    // Prepare multicall batch
-    const calls: Array<{ target: string; allowFailure: boolean; callData: string }> = []
-    for (const permission of permissions) {
-      calls.push({
-        target: registryAddress,
-        allowFailure: true,
-        callData: registryInterface.encodeFunctionData('authorizationExpiry', [
-          ownerAddress,
-          signerAddress,
-          permission,
-        ]),
-      })
-    }
-
-    // Execute multicall
-    const results = await multicall.aggregate3.staticCall(calls)
-
+  async fetchExpiries(
+    permissions: SK.SessionKeyPermissions[] = SK.ALL_PERMISSIONS
+  ): Promise<Record<SK.SessionKeyPermissions, bigint>> {
     const expiries: Record<string, bigint> = {}
+    const result = await multicall(this._ownerClient, {
+      allowFailure: false,
+      contracts: permissions.map((permission) =>
+        SK.authorizationExpiryCall({
+          chain: this._chain,
+          address: this._ownerClient.account.address,
+          sessionKeyAddress: this._account.address,
+          permission,
+        })
+      ),
+    })
+
     for (let i = 0; i < permissions.length; i++) {
-      expiries[PDP_PERMISSIONS[i]] = registryInterface.decodeFunctionResult(
-        'authorizationExpiry',
-        results[i].returnData
-      )[0]
+      expiries[permissions[i]] = result[i]
     }
+
     return expiries
   }
 
@@ -129,10 +96,15 @@ export class SessionKey {
    */
   async login(
     expiry: bigint,
-    permissions: string[] = PDP_PERMISSIONS,
+    permissions: SK.SessionKeyPermissions[] = SK.ALL_PERMISSIONS,
     origin = DEFAULT_ORIGIN
-  ): Promise<ethers.TransactionResponse> {
-    return await this._registry.login(await this._signer.getAddress(), expiry, permissions, origin)
+  ): Promise<Hash> {
+    return await SK.login(this._ownerClient, {
+      address: this._account.address,
+      expiresAt: expiry,
+      permissions,
+      origin,
+    })
   }
 
   /**
@@ -141,7 +113,11 @@ export class SessionKey {
    * @param permissions list of permissions removed from the signer, as a list of bytes32 hex strings
    * @return signed and broadcasted revoke transaction details
    */
-  async revoke(permissions: string[] = PDP_PERMISSIONS): Promise<ethers.TransactionResponse> {
-    return await this._registry.revoke(await this._signer.getAddress(), permissions)
+  async revoke(permissions: SK.SessionKeyPermissions[] = SK.ALL_PERMISSIONS, origin = DEFAULT_ORIGIN): Promise<Hash> {
+    return await SK.revoke(this._ownerClient, {
+      address: this._account.address,
+      permissions,
+      origin,
+    })
   }
 }

@@ -1,6 +1,6 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import type { SessionKey } from '@filoz/synapse-core/session-key'
-import { type DataSet, deletePiece, pollForDeletePieceStatus } from '@filoz/synapse-core/warm-storage'
+import { type DataSet, deletePiece, waitForDeletePieceStatus } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { TransactionReceipt } from 'viem'
 import { useAccount, useChainId, useConfig } from 'wagmi'
@@ -47,7 +47,7 @@ export function useDeletePiece(props: UseDeletePieceProps) {
       })
 
       props?.onHash?.(deletePieceRsp.txHash)
-      const rsp = await pollForDeletePieceStatus(client, deletePieceRsp)
+      const rsp = await waitForDeletePieceStatus(client, deletePieceRsp)
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],

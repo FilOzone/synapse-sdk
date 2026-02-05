@@ -12,7 +12,11 @@
  * Required environment variables:
  * - PRIVATE_KEY: Your Ethereum private key (with 0x prefix)
  * - RPC_URL: Filecoin RPC endpoint (defaults to calibration)
- * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (optional, uses default for network)
+ *
+ * Optional environment variables (for devnet):
+ * - WARM_STORAGE_ADDRESS: Warm Storage service contract address (uses default for network)
+ * - MULTICALL3_ADDRESS: Multicall3 address (required for devnet)
+ * - USDFC_ADDRESS: USDFC token address (optional)
  *
  * Usage:
  *   PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] [file-path3] ...
@@ -20,19 +24,20 @@
 
 import { ethers } from 'ethers'
 import fsPromises from 'fs/promises'
+import { SIZE_CONSTANTS, Synapse, TIME_CONSTANTS } from '../packages/synapse-sdk/src/index.ts'
 import {
   ADD_PIECES_TYPEHASH,
   CREATE_DATA_SET_TYPEHASH,
   PDP_PERMISSION_NAMES,
-  SIZE_CONSTANTS,
-  Synapse,
-  TIME_CONSTANTS,
-} from '../packages/synapse-sdk/src/index.ts'
+} from '../packages/synapse-sdk/src/session/index.ts'
 
 // Configuration from environment
 const PRIVATE_KEY = process.env.PRIVATE_KEY
 const RPC_URL = process.env.RPC_URL || 'https://api.calibration.node.glif.io/rpc/v1'
 const WARM_STORAGE_ADDRESS = process.env.WARM_STORAGE_ADDRESS // Optional - will use default for network
+const MULTICALL3_ADDRESS = process.env.MULTICALL3_ADDRESS // Required for devnet
+const USDFC_ADDRESS = process.env.USDFC_ADDRESS // Optional
+const ENDORSEMENTS_ADDRESS = process.env.ENDORSEMENTS_ADDRESS // Required for devnet
 
 function printUsageAndExit() {
   console.error('Usage: PRIVATE_KEY=0x... node example-storage-e2e.js <file-path> [file-path2] ...')
@@ -82,10 +87,10 @@ async function main() {
       if (!stat.isFile()) {
         throw new Error(`Path is not a file: ${filePath}`)
       }
-      if (stat.size > SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES) {
+      if (stat.size > SIZE_CONSTANTS.MAX_UPLOAD_SIZE) {
         throw new Error(
           `File exceeds maximum size of ${formatBytes(
-            SIZE_CONSTANTS.MAX_FILE_SIZE_BYTES
+            SIZE_CONSTANTS.MAX_UPLOAD_SIZE
           )}: ${filePath} (${formatBytes(stat.size)})`
         )
       }
@@ -100,14 +105,25 @@ async function main() {
     console.log(`RPC URL: ${RPC_URL}`)
 
     const synapseOptions = {
+      multicall3Address: MULTICALL3_ADDRESS,
       privateKey: PRIVATE_KEY,
       rpcURL: RPC_URL,
+      usdfcAddress: USDFC_ADDRESS,
+      warmStorageAddress: WARM_STORAGE_ADDRESS,
+      endorsementsAddress: ENDORSEMENTS_ADDRESS,
     }
 
-    // Add Warm Storage address if provided
     if (WARM_STORAGE_ADDRESS) {
-      synapseOptions.warmStorageAddress = WARM_STORAGE_ADDRESS
       console.log(`Warm Storage Address: ${WARM_STORAGE_ADDRESS}`)
+    }
+    if (MULTICALL3_ADDRESS) {
+      console.log(`Multicall3 Address: ${MULTICALL3_ADDRESS}`)
+    }
+    if (USDFC_ADDRESS) {
+      console.log(`USDFC Address: ${USDFC_ADDRESS}`)
+    }
+    if (ENDORSEMENTS_ADDRESS) {
+      console.log(`Endorsements Address: ${ENDORSEMENTS_ADDRESS}`)
     }
 
     const synapse = await Synapse.create(synapseOptions)

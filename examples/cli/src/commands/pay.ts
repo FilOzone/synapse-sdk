@@ -1,35 +1,32 @@
 import * as p from '@clack/prompts'
 import { formatBalance } from '@filoz/synapse-core/utils'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import type { Hex } from 'viem'
-import config from '../config.ts'
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const pay: Command = command(
   {
     name: 'pay',
     description: 'Check wallet balances',
     alias: 'p',
+    flags: {
+      ...globalFlags,
+    },
     help: {
       description: 'Check wallet balances',
       examples: ['synapse pay', 'synapse pay --help'],
     },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+  async (argv) => {
+    const { client } = privateKeyClient(argv.flags.chain)
 
     const spinner = p.spinner()
 
     spinner.start('Checking wallet balance...')
     try {
-      const synapse = await Synapse.create({
-        privateKey: privateKey as Hex,
-        rpcURL: RPC_URLS.calibration.http, // Use calibration testnet for testing
+      const synapse = new Synapse({
+        client,
       })
 
       const filBalance = await synapse.payments.walletBalance()
@@ -52,7 +49,7 @@ export const pay: Command = command(
         `Lockup last settled at: ${formatBalance({ value: paymentsBalance.lockupLastSettledAt })}`
       )
       p.log.info(`Funds: ${formatBalance({ value: paymentsBalance.funds })}`)
-      p.log.info(`Address: ${await synapse.getSigner().getAddress()}`)
+      p.log.info(`Address: ${client.account.address}`)
     } catch (error) {
       spinner.stop()
       p.log.error((error as Error).message)

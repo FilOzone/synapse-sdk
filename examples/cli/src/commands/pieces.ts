@@ -6,12 +6,12 @@ import {
   getPieces,
   type Piece,
 } from '@filoz/synapse-core/warm-storage'
-import { RPC_URLS, Synapse } from '@filoz/synapse-sdk'
+import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { createPublicClient, type Hex, http, stringify } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
-import config from '../config.ts'
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 const publicClient = createPublicClient({
   chain: calibration,
@@ -23,26 +23,23 @@ export const pieces: Command = command(
     name: 'pieces',
     description: 'List all pieces',
     alias: 'ps',
+    flags: {
+      ...globalFlags,
+    },
     help: {
       description: 'List all pieces',
       examples: ['synapse pieces', 'synapse pieces --help'],
     },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
+  async (argv) => {
+    const { client } = privateKeyClient(argv.flags.chain)
 
-    const account = privateKeyToAccount(privateKey as Hex)
     const spinner = p.spinner()
 
     spinner.start('Fetching data sets...')
     try {
-      const dataSets = await getDataSets(publicClient, {
-        address: account.address,
+      const dataSets = await getDataSets(client, {
+        address: client.account.address,
       })
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
@@ -61,12 +58,12 @@ export const pieces: Command = command(
           },
           pieceId: async ({ results }) => {
             const dataSetId = results.dataSetId
-            const rsp = await getPieces(publicClient, {
+            const rsp = await getPieces(client, {
               // biome-ignore lint/style/noNonNullAssertion: dataSetId is guaranteed to be found
               dataSet: dataSets.find(
                 (dataSet) => dataSet.dataSetId === dataSetId
               )!,
-              address: account.address,
+              address: client.account.address,
             })
             pieces = rsp.pieces
             if (rsp.pieces.length === 0) {
@@ -108,8 +105,8 @@ export const pieces: Command = command(
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
         const metadata = await readContract(publicClient, {
-          address: calibration.contracts.storageView.address,
-          abi: calibration.contracts.storageView.abi,
+          address: calibration.contracts.fwssView.address,
+          abi: calibration.contracts.fwssView.abi,
           functionName: 'getAllPieceMetadata',
           args: [group.dataSetId, BigInt(piece.id)],
         })
@@ -127,12 +124,11 @@ export const pieces: Command = command(
         spinner.start('Deleting piece...')
         // biome-ignore lint/style/noNonNullAssertion: pieceId is guaranteed to be found
         const piece = pieces.find((piece) => piece.id === group.pieceId)!
-        const synapse = await Synapse.create({
-          privateKey: privateKey as Hex,
-          rpcURL: RPC_URLS.calibration.http,
+        const synapse = new Synapse({
+          client,
         })
         const context = await synapse.storage.createContext({
-          dataSetId: Number(group.dataSetId),
+          dataSetId: group.dataSetId,
         })
         const txHash = await context.deletePiece(piece.cid)
         spinner.message('Waiting for transaction to be mined...')

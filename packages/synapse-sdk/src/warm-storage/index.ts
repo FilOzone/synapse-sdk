@@ -1,7 +1,6 @@
 /**
- * Exports the Warm Storage components
+ * Warm Storage Service
  *
- * @packageDocumentation
  * @module WarmStorage
  * @example
  * ```ts
@@ -9,8 +8,4 @@
  * ```
  */
 
-export type {
-  ComprehensiveDataSetStatus,
-  DataSetCreationVerification,
-} from './service.ts'
 export { WarmStorageService } from './service.ts'

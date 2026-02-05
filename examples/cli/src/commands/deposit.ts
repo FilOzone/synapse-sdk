@@ -1,74 +1,50 @@
 import * as p from '@clack/prompts'
-import { calibration } from '@filoz/synapse-core/chains'
-import { depositAndApprove } from '@filoz/synapse-core/pay'
+import { parseUnits, Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
-import {
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-  parseEther,
-} from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { waitForTransactionReceipt } from 'viem/actions'
-import config from '../config.ts'
-
-const publicClient = createPublicClient({
-  chain: calibration,
-  transport: http(),
-})
+import { privateKeyClient } from '../client.ts'
+import { globalFlags } from '../flags.ts'
 
 export const deposit: Command = command(
   {
     name: 'deposit',
     description: 'Deposit funds to the wallet',
+    parameters: ['<amount>'],
     alias: 'd',
+    flags: {
+      ...globalFlags,
+    },
     help: {
       description: 'Deposit funds to the wallet',
       examples: ['synapse deposit', 'synapse deposit --help'],
     },
   },
-  async (_argv) => {
-    const privateKey = config.get('privateKey')
-    if (!privateKey) {
-      p.log.error('Private key not found')
-      p.outro('Please run `synapse init` to initialize the CLI')
-      return
-    }
-    const client = createWalletClient({
-      account: privateKeyToAccount(privateKey as Hex),
-      chain: calibration,
-      transport: http(),
+  async (argv) => {
+    const { client } = privateKeyClient(argv.flags.chain)
+    const synapse = new Synapse({
+      client,
     })
 
     const spinner = p.spinner()
-    const value = await p.text({
-      message: 'Enter the amount to deposit',
-    })
-
-    if (p.isCancel(value)) {
-      p.cancel('Operation cancelled.')
-      process.exit(0)
-    }
-
     spinner.start('Depositing funds...')
     try {
-      const hash = await depositAndApprove(client, {
-        amount: parseEther(value),
-      })
+      const hash = await synapse.payments.depositWithPermitAndApproveOperator(
+        parseUnits(argv._.amount)
+      )
 
       spinner.message('Waiting for transaction to be mined...')
 
-      await waitForTransactionReceipt(publicClient, {
+      await synapse.client.waitForTransactionReceipt({
         hash,
       })
 
       spinner.stop('Funds deposited')
     } catch (error) {
-      spinner.stop()
-      console.error(error)
-      p.outro('Failed to deposit funds')
-      return
+      if (argv.flags.debug) {
+        spinner.clear()
+        console.error(error)
+      } else {
+        spinner.error((error as Error).message)
+      }
     }
   }
 )

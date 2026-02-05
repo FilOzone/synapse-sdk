@@ -1,12 +1,12 @@
 /**
- * Synapse Core - Errors
+ * Errors
  *
  * @example
  * ```ts
  * import * as Errors from '@filoz/synapse-core/errors'
  * ```
  *
- * @packageDocumentation
+ * @module errors
  */
 export * from './base.ts'
 export * from './chains.ts'

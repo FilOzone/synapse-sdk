@@ -63,6 +63,6 @@ export function getStorageDomain(options: GetStorageDomainOptions) {
     name: 'FilecoinWarmStorageService',
     version: '1',
     chainId: options.chain.id,
-    verifyingContract: options.verifyingContract ?? options.chain.contracts.storage.address,
+    verifyingContract: options.verifyingContract ?? options.chain.contracts.fwss.address,
   }
 }

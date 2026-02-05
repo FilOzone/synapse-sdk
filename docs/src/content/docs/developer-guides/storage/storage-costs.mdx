@@ -17,11 +17,11 @@ An **epoch** is Filecoin's block time, which is 30 seconds. Storage costs are ca
 
 ### Pricing Components
 
-| Component      | Cost               | Notes                                                    |
+| Component | Cost | Notes |
 | -------------- | ------------------ | -------------------------------------------------------- |
-| **Storage**    | $2.50/TiB/month    | Minimum $0.06/month per data set (~24.567 GiB threshold) |
-| **CDN Egress** | $14/TiB downloaded  | 1 USDFC top-up ≈ 71.5 GiB of downloads                    |
-| **CDN Setup**  | 1 USDFC (one-time) | Per data set; reusing existing data sets incurs no cost  |
+| **Storage** | $2.50/TiB/month | Minimum $0.06/month per data set (~24.567 GiB threshold) |
+| **CDN Egress** | $14/TiB downloaded | 1 USDFC top-up ≈ 71.5 GiB of downloads |
+| **CDN Setup** | 1 USDFC (one-time) | Per data set; reusing existing data sets incurs no cost |
 
 :::note[Be aware]
 Per month means **per 30 days** here, not calendar month like a traditional storage service.
@@ -35,7 +35,7 @@ Per month means **per 30 days** here, not calendar month like a traditional stor
 
 ### Real-World Cost Examples
 
-**Example 1: NFT Collection (10,000 × 5 KiB ≈ 48.82 MiB)**
+#### Example 1: NFT Collection (10,000 × 5 KiB ≈ 48.82 MiB)
 
 ```ts twoslash
 // 48.82 MiB less than 24.567 GiB threshold
@@ -52,7 +52,7 @@ const PRICE_FOR_24_MONTHS = PRICE_PER_MONTH * 24; // 1.44 USDFC
 
 ---
 
-**Example 2: User Content Platform with CDN**
+#### Example 2: User Content Platform with CDN
 
 - **Storage:** 1,000 users × 100 MiB ≈ 100,000 MiB
 - **Traffic:** 1,000 users × 100 MiB/month ≈ 100,000 MiB/month egress
@@ -82,11 +82,11 @@ const totalCostPerMonth = storageCostPerMonth + egressCostPerMonth;
 const totalCostFor24Months = totalCostPerMonth * 24;
 ```
 
-| Cost Component | Per Month        | 24 Months         |
+| Cost Component | Per Month | 24 Months |
 | -------------- | ---------------- | ----------------- |
-| Storage        | ≈ 0.238 USDFC    | ≈ 5.71 USDFC      |
-| CDN Egress     | ≈ 1.334 USDFC    | ≈ 32.016 USDFC     |
-| **Total**      | **≈ 1.572 USDFC** | **≈ 37.728 USDFC** |
+| Storage | ≈ 0.238 USDFC | ≈ 5.71 USDFC |
+| CDN Egress | ≈ 1.334 USDFC | ≈ 32.016 USDFC |
+| **Total** | **≈ 1.572 USDFC** | **≈ 37.728 USDFC** |
 
 ## Warm Storage Service Approvals
 
@@ -114,39 +114,36 @@ In this guide we will calculate the costs for a 1 GiB storage capacity for 12 mo
 Get pricing information and calculate the cost per epoch for your storage capacity:
 
 ```ts twoslash
+// @lib: esnext,dom
 import {
   Synapse,
-  WarmStorageService,
   SIZE_CONSTANTS,
-} from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+  calibration
+} from "@filoz/synapse-sdk"
+import { WarmStorageService } from '@filoz/synapse-sdk/warm-storage'
 // ---cut---
 // Get pricing structure
-const warmStorageAddress = await synapse.getWarmStorageAddress();
-const warmStorageService = await WarmStorageService.create(
-  synapse.getProvider(),
-  warmStorageAddress
-);
+const warmStorageService = WarmStorageService.create()
 
 const { minimumPricePerMonth, epochsPerMonth, pricePerTiBPerMonthNoCDN } =
-  await warmStorageService.getServicePrice();
+  await warmStorageService.getServicePrice()
 
 // Calculate base cost per month
-const bytesToStore = SIZE_CONSTANTS.GiB; // 1 GiB
+const bytesToStore = SIZE_CONSTANTS.GiB // 1 GiB
 let pricePerMonth =
   (pricePerTiBPerMonthNoCDN * BigInt(bytesToStore)) /
-  BigInt(SIZE_CONSTANTS.TiB);
+  BigInt(SIZE_CONSTANTS.TiB)
 
 // Apply minimum pricing if needed
 if (pricePerMonth < minimumPricePerMonth) {
-  pricePerMonth = minimumPricePerMonth;
+  pricePerMonth = minimumPricePerMonth
 }
 
 // Calculate per-epoch cost
-const pricePerEpoch = pricePerMonth / epochsPerMonth;
+const pricePerEpoch = pricePerMonth / epochsPerMonth
 
-console.log("Monthly cost:", pricePerMonth);
-console.log("Per-epoch cost:", pricePerEpoch);
+console.log("Monthly cost:", pricePerMonth)
+console.log("Per-epoch cost:", pricePerEpoch)
 ```
 
 ### Step 2: Calculate Required Allowances
@@ -158,17 +155,17 @@ Allowances are **cumulative** - you must add your new storage requirements to an
 
 - **Rate Allowance**: Total per-epoch spending across all datasets
 - **Lockup Allowance**: Total 30-day buffer across all datasets
-  :::
 
 ```ts twoslash
-import { Synapse, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
+// @lib: esnext,dom
+import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const pricePerMonth = null as unknown as bigint;
 const pricePerEpoch = null as unknown as bigint;
-const warmStorageAddress = await synapse.getWarmStorageAddress();
 // ---cut---
 // Define storage duration in months (minimum 1 month)
-const persistencePeriodInMonths = 12;
+const persistencePeriodInMonths = 12n;
 
 // Check if creating a new CDN dataset (creates context to determine if one exists)
 const storageContext = await synapse.storage.createContext({
@@ -181,7 +178,7 @@ const warmStorageDefaultLockupPeriod = TIME_CONSTANTS.DEFAULT_LOCKUP_DAYS; // 30
 
 // Calculate total cost and lockup needed for THIS storage addition
 const cdnDataSetCreationCost = 10n ** 18n; // 1 USDFC
-let totalCostNeeded = pricePerMonth * BigInt(persistencePeriodInMonths);
+let totalCostNeeded = pricePerMonth * persistencePeriodInMonths;
 let lockupNeeded = pricePerMonth * warmStorageDefaultLockupPeriod;
 if (newCDNDataSetNeeded) {
   lockupNeeded += cdnDataSetCreationCost;
@@ -190,14 +187,14 @@ if (newCDNDataSetNeeded) {
 
 // Get current approval status (what's already being used)
 const [approval, accountInfo] = await Promise.all([
-  synapse.payments.serviceApproval(warmStorageAddress),
+  synapse.payments.serviceApproval(calibration.contracts.fwss.address),
   synapse.payments.accountInfo(TOKENS.USDFC),
 ]);
 
 // Calculate cumulative allowances: existing usage + new requirements
 // This ensures the operator can spend for ALL your datasets
-const lockupAllowanceNeeded = approval.lockupUsed + lockupNeeded;
-const rateAllowanceNeeded = approval.rateUsed + pricePerEpoch;
+const lockupAllowanceNeeded = approval.lockupUsage + lockupNeeded;
+const rateAllowanceNeeded = approval.rateUsage + pricePerEpoch;
 
 console.log("New lockup needed:", lockupNeeded);
 console.log("Cumulative lockup allowance needed:", lockupAllowanceNeeded);
@@ -209,13 +206,14 @@ console.log("Cumulative rate allowance needed:", rateAllowanceNeeded);
 Check balances, calculate deposit amount, and execute the appropriate transaction:
 
 ```ts twoslash
-import { Synapse, TOKENS, TIME_CONSTANTS } from "@filoz/synapse-sdk";
-const synapse = await Synapse.create({});
-const warmStorageAddress = await synapse.getWarmStorageAddress();
+// @lib: esnext,dom
+import { Synapse, TOKENS, TIME_CONSTANTS, calibration } from "@filoz/synapse-sdk";
+import { privateKeyToAccount } from 'viem/accounts'
+const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 const totalCostNeeded = null as unknown as bigint;
 const rateAllowanceNeeded = null as unknown as bigint;
 const lockupAllowanceNeeded = null as unknown as bigint;
-const approval = await synapse.payments.serviceApproval(warmStorageAddress);
+const approval = await synapse.payments.serviceApproval(calibration.contracts.fwss.address);
 const accountInfo = await synapse.payments.accountInfo(TOKENS.USDFC);
 // ---cut---
 // Calculate deposit amount needed
@@ -240,7 +238,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
   // Need both deposit and approval
   await synapse.payments.depositWithPermitAndApproveOperator(
     depositAmountNeeded,
-    warmStorageAddress,
+    calibration.contracts.fwss.address,
     rateAllowanceNeeded,
     lockupAllowanceNeeded,
     TIME_CONSTANTS.EPOCHS_PER_MONTH
@@ -248,7 +246,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
 } else if (!sufficient) {
   // Only need approval update
   await synapse.payments.approveService(
-    warmStorageAddress,
+    calibration.contracts.fwss.address,
     rateAllowanceNeeded,
     lockupAllowanceNeeded,
     TIME_CONSTANTS.EPOCHS_PER_MONTH
@@ -257,7 +255,7 @@ if (!sufficient && depositAmountNeeded > 0n) {
   // Only need deposit
   await synapse.payments.depositWithPermit(
     depositAmountNeeded,
-    warmStorageAddress
+    calibration.contracts.fwss.address
   );
 }
 
@@ -266,5 +264,5 @@ console.log("Account funded successfully");
 
 ## Next Steps
 
-- [Storage Operations](/developer-guides/storage/) - Storage concepts and workflows
+- [Storage Operations](/developer-guides/storage/storage-operations/) - Storage concepts and workflows
 - [Storage Context](/developer-guides/storage/storage-context/) - Contexts and data sets

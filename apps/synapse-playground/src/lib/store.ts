@@ -3,13 +3,15 @@ import { persistentMap } from '@nanostores/persistent'
 type SettingsValue = {
   network: 'mainnet' | 'calibration'
 }
-export const isPlainObject = (payload: unknown): payload is { [key: string]: unknown } => {
+
+const isPlainObject = (payload: unknown): payload is { [key: string]: unknown } => {
   if (typeof payload !== 'object' || payload === null) return false
   if (payload === Object.prototype) return false
   if (Object.getPrototypeOf(payload) === null) return true
 
   return Object.getPrototypeOf(payload) === Object.prototype
 }
+
 export const store = persistentMap<SettingsValue>(
   'settings:',
   {

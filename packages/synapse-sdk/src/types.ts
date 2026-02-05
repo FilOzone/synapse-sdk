@@ -5,24 +5,27 @@
  * used throughout the SDK. Concrete classes are defined in their own files.
  */
 
+import type { Chain } from '@filoz/synapse-core/chains'
 import type { PieceCID } from '@filoz/synapse-core/piece'
 import type { ethers } from 'ethers'
 import type { Hex } from 'viem'
-import type { ProviderFilterOptions, ProviderInfo } from './sp-registry/types.ts'
+import type { ProviderInfo } from './sp-registry/types.ts'
 import type { TelemetryConfig } from './telemetry/service.ts'
 
 // Re-export PieceCID and ProviderInfo types
-export type { PieceCID, ProviderInfo, ProviderFilterOptions }
+export type { PieceCID, ProviderInfo }
 export type PrivateKey = string
-export type Address = string
-export type TokenAmount = number | bigint
-export type DataSetId = string
-export type ServiceProvider = string
+export type TokenAmount = bigint
+export type DataSetId = bigint
+export type ServiceProvider = Address
+
+export type { RailInfo } from '@filoz/synapse-core/pay'
+export type { MetadataEntry, MetadataObject } from '@filoz/synapse-core/utils'
 
 /**
  * Supported Filecoin network types
  */
-export type FilecoinNetworkType = 'mainnet' | 'calibration'
+export type FilecoinNetworkType = 'mainnet' | 'calibration' | 'devnet'
 
 /**
  * Token identifier for balance queries
@@ -31,51 +34,48 @@ export type TokenIdentifier = 'USDFC' | string
 
 /**
  * Options for initializing the Synapse instance
- * Must provide one of:
- * 1. privateKey + rpcURL (for server environments)
- * 2. provider (for browser environments - user handles MetaMask coupling)
- * 3. signer (for direct ethers.js integration)
  */
 export interface SynapseOptions {
-  // Wallet Configuration (exactly one required)
+  /**
+   * Viem transport
+   *
+   * @see https://viem.sh/docs/clients/intro#transports
+   */
+  transport?: Transport
 
-  /** Private key for signing transactions (requires rpcURL) */
-  privateKey?: PrivateKey
-  /** Ethers Provider instance (handles both reads and transactions) */
-  provider?: ethers.Provider
-  /** Ethers Signer instance (for direct ethers.js integration) */
-  signer?: ethers.Signer
+  /**
+   * Filecoin chain
+   *
+   */
+  chain?: Chain
 
-  // Network Configuration
+  /**
+   * Viem account
+   *
+   * @see https://viem.sh/docs/accounts/jsonRpc
+   * @see https://viem.sh/docs/accounts/local
+   */
+  account: Account | Address
 
-  /** RPC URL for Filecoin node (required with privateKey) */
-  rpcURL?: string
-  /** Authorization header value for API authentication (e.g., Bearer token) */
-  authorization?: string
+  /** Whether to use CDN for retrievals (default: false) */
+  withCDN?: boolean
+  /** Whether to filter providers by IPNI availability */
+  withIpni?: boolean
+}
 
+export interface SynapseFromClientOptions {
+  /**
+   * Viem wallet client
+   *
+   * @see https://viem.sh/docs/clients/wallet#optional-hoist-the-account
+   */
+  client: Client<Transport, Chain, Account>
   // Advanced Configuration
 
   /** Whether to use CDN for retrievals (default: false) */
   withCDN?: boolean
   /** Whether to filter providers by IPNI availability */
   withIpni?: boolean
-  /** Whether to include providers with serviceStatus=dev in the capabilities list (default: false) */
-  dev?: boolean
-  /** Optional override for piece retrieval */
-  pieceRetriever?: PieceRetriever
-  /** Whether to disable NonceManager for automatic nonce management (default: false, meaning NonceManager is used) */
-  disableNonceManager?: boolean
-  /** Override Warm Storage service contract address (defaults to network's default) */
-  warmStorageAddress?: string
-  // Subgraph Integration (provide ONE of these options)
-  /** Optional override for default subgraph service, to enable subgraph-based retrieval. */
-  subgraphService?: SubgraphRetrievalService
-  /** Optional configuration for the default subgraph service, to enable subgraph-based retrieval. */
-  subgraphConfig?: SubgraphConfig
-
-  // Telemetry Configuration
-  /** Telemetry configuration for error tracking and debugging (enabled by default) */
-  telemetry?: TelemetryConfig
 }
 
 /**
@@ -122,9 +122,9 @@ export interface PieceRetriever {
    */
   fetchPiece: (
     pieceCid: PieceCID, // Internal interface uses PieceCID type for validation
-    client: string,
+    client: Address,
     options?: {
-      providerAddress?: string // Restrict to specific provider
+      providerAddress?: Address // Restrict to specific provider
       withCDN?: boolean // Enable CDN retrieval attempts
       signal?: AbortSignal // Optional AbortSignal for request cancellation
     }
@@ -166,15 +166,15 @@ export interface SubgraphRetrievalService {
    * @param pieceCid - The PieceCID of the data segment.
    * @returns A promise that resolves to an array of `ProviderInfo` objects.
    */
-  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<ProviderInfo[]>
+  getApprovedProvidersForPieceCID: (pieceCid: PieceCID) => Promise<PDPProvider[]>
 
   /**
    * Retrieves details for a specific provider by their address.
    *
    * @param address - The unique address (ID) of the provider.
-   * @returns A promise that resolves to `ProviderInfo` if found, otherwise `null`.
+   * @returns A promise that resolves to `PDPProvider` if found, otherwise `null`.
    */
-  getProviderByAddress: (address: string) => Promise<ProviderInfo | null>
+  getProviderByAddress: (address: Address) => Promise<PDPProvider | null>
 }
 
 /**
@@ -198,29 +198,29 @@ export interface AuthSignature {
  */
 export interface DataSetInfo {
   /** ID of the PDP payment rail */
-  pdpRailId: number
+  pdpRailId: bigint
   /** For CDN add-on: ID of the cache miss payment rail */
-  cacheMissRailId: number
+  cacheMissRailId: bigint
   /** For CDN add-on: ID of the CDN payment rail */
-  cdnRailId: number
+  cdnRailId: bigint
   /** Address paying for storage */
-  payer: string
+  payer: Address
   /** SP's beneficiary address */
-  payee: string
+  payee: Address
   /** Service provider address (operator) */
-  serviceProvider: string
+  serviceProvider: Address
   /** Commission rate in basis points (dynamic based on CDN usage) */
-  commissionBps: number
+  commissionBps: bigint
   /** Client's sequential dataset ID within this Warm Storage contract */
   clientDataSetId: bigint
   /** Epoch when PDP payments end (0 if not terminated) */
-  pdpEndEpoch: number
+  pdpEndEpoch: bigint
   /** Provider ID from the ServiceProviderRegistry */
-  providerId: number
+  providerId: bigint
   // Legacy alias for backward compatibility
-  paymentEndEpoch?: number
+  paymentEndEpoch?: bigint
   /** PDP Data Set ID */
-  dataSetId: bigint | number
+  dataSetId: bigint
 }
 
 /**
@@ -228,31 +228,17 @@ export interface DataSetInfo {
  */
 export interface EnhancedDataSetInfo extends DataSetInfo {
   /** PDPVerifier global data set ID */
-  pdpVerifierDataSetId: number
-  /** Next piece ID to use when adding pieces */
-  nextPieceId: number
-  /** Current number of pieces in the data set */
-  currentPieceCount: number
+  pdpVerifierDataSetId: bigint
+  /** Number of active pieces in the data set (excludes removed pieces) */
+  activePieceCount: bigint
   /** Whether the data set is live on-chain */
   isLive: boolean
   /** Whether this data set is managed by the current Warm Storage contract */
   isManaged: boolean
-  /** Whether the data set is using CDN (derived from cdnRailId > 0) */
+  /** Whether the data set is using CDN (cdnRailId > 0 and withCDN metadata key present) */
   withCDN: boolean
   /** Metadata associated with this data set (key-value pairs) */
   metadata: Record<string, string>
-}
-
-/**
- * Information about a payment rail
- */
-export interface RailInfo {
-  /** Rail ID */
-  railId: number
-  /** Whether the rail is terminated */
-  isTerminated: boolean
-  /** End epoch (0 if not terminated) */
-  endEpoch: number
 }
 
 /**
@@ -291,13 +277,13 @@ export interface StorageContextCallbacks {
    * Called when a service provider has been selected
    * @param provider - The selected provider info
    */
-  onProviderSelected?: (provider: ProviderInfo) => void
+  onProviderSelected?: (provider: PDPProvider) => void
 
   /**
    * Called when data set resolution is complete
    * @param info - Information about the resolved data set
    */
-  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: number; provider: ProviderInfo }) => void
+  onDataSetResolved?: (info: { isExisting: boolean; dataSetId: bigint; provider: PDPProvider }) => void
 }
 
 export interface CreateContextsOptions {
@@ -306,13 +292,13 @@ export interface CreateContextsOptions {
   /**
    * Specific data set IDs to use
    */
-  dataSetIds?: number[]
+  dataSetIds?: bigint[]
   /**
    * Specific provider IDs to use
    */
-  providerIds?: number[]
+  providerIds?: bigint[]
   /** Do not select any of these providers */
-  excludeProviderIds?: number[]
+  excludeProviderIds?: bigint[]
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
@@ -342,13 +328,13 @@ export interface CreateContextsOptions {
  */
 export interface StorageServiceOptions {
   /** Specific provider ID to use (optional) */
-  providerId?: number
+  providerId?: bigint
   /** Do not select any of these providers */
-  excludeProviderIds?: number[]
+  excludeProviderIds?: bigint[]
   /** Specific provider address to use (optional) */
-  providerAddress?: string
+  providerAddress?: Address
   /** Specific data set ID to use (optional) */
-  dataSetId?: number
+  dataSetId?: bigint
   /** Whether to enable CDN services */
   withCDN?: boolean
   withIpni?: boolean
@@ -380,7 +366,7 @@ export interface PreflightInfo {
     message?: string
   }
   /** Selected service provider (null when no specific provider selected) */
-  selectedProvider: ProviderInfo | null
+  selectedProvider: PDPProvider | null
   /** Selected data set ID (null when no specific dataset selected) */
   selectedDataSetId: number | null
 }
@@ -402,13 +388,13 @@ export interface UploadCallbacks {
   /** Called when upload to service provider completes */
   onUploadComplete?: (pieceCid: PieceCID) => void
   /** Called when the service provider has added the piece(s) and submitted the transaction to the chain */
-  onPiecesAdded?: (transaction?: Hex, pieces?: { pieceCid: PieceCID }[]) => void
+  onPiecesAdded?: (transaction: Hex, pieces?: { pieceCid: PieceCID }[]) => void
   /** @deprecated Use onPiecesAdded instead */
   onPieceAdded?: (transaction?: Hex) => void
   /** Called when the service provider agrees that the piece addition(s) are confirmed on-chain */
-  onPiecesConfirmed?: (dataSetId: number, pieces: PieceRecord[]) => void
+  onPiecesConfirmed?: (dataSetId: bigint, pieces: PieceRecord[]) => void
   /** @deprecated Use onPiecesConfirmed instead */
-  onPieceConfirmed?: (pieceIds: number[]) => void
+  onPieceConfirmed?: (pieceIds: bigint[]) => void
 }
 
 /**
@@ -418,7 +404,7 @@ export interface UploadCallbacks {
  * in a data set.
  */
 export interface PieceRecord {
-  pieceId: number
+  pieceId: bigint
   pieceCid: PieceCID
 }
 
@@ -430,7 +416,7 @@ export interface PieceRecord {
  */
 export interface UploadOptions extends UploadCallbacks {
   /** Custom metadata for this specific piece (key-value pairs) */
-  metadata?: Record<string, string>
+  metadata?: MetadataObject
   /** Optional pre-calculated PieceCID to skip CommP calculation (BYO PieceCID) */
   pieceCid?: PieceCID
   /** Optional AbortSignal to cancel the upload */
@@ -446,7 +432,7 @@ export interface UploadResult {
   /** Size of the original data */
   size: number
   /** Piece ID in the data set */
-  pieceId?: number
+  pieceId?: bigint
 }
 
 /**
@@ -474,18 +460,16 @@ export interface StorageInfo {
       perTiBPerEpoch: bigint
     }
     /** Token contract address */
-    tokenAddress: string
+    tokenAddress: Address
     /** Token symbol (always USDFC for now) */
     tokenSymbol: string
   }
 
   /** List of approved service providers */
-  providers: ProviderInfo[]
+  providers: PDPProvider[]
 
   /** Service configuration parameters */
   serviceParameters: {
-    /** Network type (mainnet or calibration) */
-    network: FilecoinNetworkType
     /** Number of epochs in a month */
     epochsPerMonth: bigint
     /** Number of epochs in a day */
@@ -496,12 +480,6 @@ export interface StorageInfo {
     minUploadSize: number
     /** Maximum allowed upload size in bytes */
     maxUploadSize: number
-    /** Warm Storage service contract address */
-    warmStorageAddress: string
-    /** Payments contract address */
-    paymentsAddress: string
-    /** PDP Verifier contract address */
-    pdpVerifierAddress: string
   }
 
   /** Current user allowances (null if wallet not connected) */
@@ -509,7 +487,7 @@ export interface StorageInfo {
     /** Whether the service operator is approved to act on behalf of the wallet */
     isApproved: boolean
     /** Service contract address */
-    service: string
+    service: Address
     /** Maximum payment rate per epoch allowed */
     rateAllowance: bigint
     /** Maximum lockup amount allowed */
@@ -526,7 +504,7 @@ export interface StorageInfo {
  */
 export interface DataSetData {
   /** The data set ID */
-  id: number
+  id: bigint
   /** Array of piece data in the data set */
   pieces: DataSetPieceData[]
   /** Next challenge epoch */
@@ -538,7 +516,7 @@ export interface DataSetData {
  */
 export interface DataSetPieceData {
   /** Piece ID within the data set */
-  pieceId: number
+  pieceId: bigint
   /** The piece CID */
   pieceCid: PieceCID
   /** Sub-piece CID (usually same as pieceCid) */
@@ -562,7 +540,7 @@ export interface PieceStatus {
   /** URL where the piece can be retrieved (null if not available) */
   retrievalUrl: string | null
   /** The piece ID if the piece is in the data set */
-  pieceId?: number
+  pieceId?: bigint
   /** Whether the data set is currently in a challenge window */
   inChallengeWindow?: boolean
   /** Time until the data set enters the challenge window (in hours) */
@@ -576,16 +554,11 @@ export interface PieceStatus {
  */
 export interface ProviderSelectionResult {
   /** Selected service provider */
-  provider: ProviderInfo
+  provider: PDPProvider
   /** Selected data set ID */
-  dataSetId: number
+  dataSetId: bigint
   /** Whether this is an existing data set */
   isExisting?: boolean
   /** Data set metadata */
   dataSetMetadata: Record<string, string>
-}
-
-export type MetadataEntry = {
-  key: string
-  value: string
 }

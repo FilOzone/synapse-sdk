@@ -4,25 +4,23 @@
  * Basic tests for Synapse class
  */
 
+import { type Chain, calibration } from '@filoz/synapse-core/chains'
+import * as Mocks from '@filoz/synapse-core/mocks'
 import type { AddPiecesSuccess } from '@filoz/synapse-core/sp'
 import { assert } from 'chai'
-import { ethers } from 'ethers'
 import { setup } from 'iso-web/msw'
 import { HttpResponse, http } from 'msw'
-import type { Hex } from 'viem'
+import { type Account, type Client, createWalletClient, type Hex, type Transport, http as viemHttp } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { Synapse } from '../synapse.ts'
 import type { PieceCID, PieceRecord } from '../types.ts'
 import { SIZE_CONSTANTS } from '../utils/constants.ts'
-import { JSONRPC, PRIVATE_KEYS, presets } from './mocks/jsonrpc/index.ts'
-import { findAnyPieceHandler, streamingUploadHandlers } from './mocks/pdp/handlers.ts'
-import { PING } from './mocks/ping.ts'
 
 // mock server for testing
 const server = setup()
 
 describe('Storage Upload', () => {
-  let signer: ethers.Signer
-  let provider: ethers.Provider
+  let client: Client<Transport, Chain, Account>
   before(async () => {
     await server.start()
   })
@@ -32,13 +30,16 @@ describe('Storage Upload', () => {
   })
   beforeEach(() => {
     server.resetHandlers()
-    provider = new ethers.JsonRpcProvider('https://api.calibration.node.glif.io/rpc/v1')
-    signer = new ethers.Wallet(PRIVATE_KEYS.key1, provider)
   })
 
   it('should enforce 127 byte minimum size limit', async () => {
-    server.use(JSONRPC({ ...presets.basic, debug: false }), PING({ debug: false }))
-    const synapse = await Synapse.create({ signer })
+    server.use(Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }), Mocks.PING({ debug: false }))
+    client = createWalletClient({
+      chain: calibration,
+      transport: viemHttp(),
+      account: privateKeyToAccount(Mocks.PRIVATE_KEYS.key1),
+    })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext()
 
     try {
@@ -61,10 +62,10 @@ describe('Storage Upload', () => {
     let addPiecesCount = 0
     let uploadCompleteCount = 0
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -87,7 +88,7 @@ describe('Storage Upload', () => {
         return HttpResponse.json(response, { status: 200 })
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -123,7 +124,7 @@ describe('Storage Upload', () => {
     const resultPieceIds = results.map((r) => r.pieceId)
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-    assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
+    assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
     assert.strictEqual(addPiecesCount, 3, 'addPieces should be called 3 times')
     assert.strictEqual(uploadCompleteCount, 3, 'uploadComplete should be called 3 times')
   })
@@ -135,10 +136,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -176,7 +177,7 @@ describe('Storage Upload', () => {
         } satisfies AddPiecesSuccess)
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       uploadBatchSize: 2,
@@ -207,10 +208,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -265,7 +266,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       uploadBatchSize: 1,
@@ -290,7 +291,7 @@ describe('Storage Upload', () => {
     const resultPieceIds = results.map((r) => r.pieceId)
 
     assert.deepEqual(resultSizes, [127, 128, 129], 'Should have one result for each data size')
-    assert.deepEqual(resultPieceIds, [0, 1, 2], 'The set of assigned piece IDs should be {0, 1, 2}')
+    assert.deepEqual(resultPieceIds, [0n, 1n, 2n], 'The set of assigned piece IDs should be {0, 1, 2}')
     assert.strictEqual(addPiecesCalls, 3, 'addPieces should be called 2 times')
   })
 
@@ -301,10 +302,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -330,7 +331,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -354,10 +355,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -383,7 +384,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -394,7 +395,7 @@ describe('Storage Upload', () => {
     const expectedSize = 127
     const upload = await context.upload(new Uint8Array(expectedSize))
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 127')
   })
 
@@ -405,10 +406,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -434,7 +435,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -446,7 +447,7 @@ describe('Storage Upload', () => {
     const upload = await context.upload(new Uint8Array(expectedSize).fill(1))
 
     assert.strictEqual(addPiecesCalls, 1, 'addPieces should be called 1 time')
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, expectedSize, 'size should be 200 MiB')
   })
 
@@ -454,7 +455,7 @@ describe('Storage Upload', () => {
     let pieceAddedCallbackFired = false
     let pieceConfirmedCallbackFired = false
     let piecesAddedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } | null = null
-    let piecesConfirmedArgs: { dataSetId?: number; pieces?: PieceRecord[] } | null = null
+    let piecesConfirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } | null = null
     let uploadCompleteCallbackFired = false
     let resolvedDataSetId: number | undefined
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
@@ -462,10 +463,10 @@ describe('Storage Upload', () => {
       baseUrl: 'https://pdp.example.com',
     }
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -490,7 +491,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -503,7 +504,7 @@ describe('Storage Upload', () => {
       onPiecesAdded(transaction: Hex | undefined, pieces: Array<{ pieceCid: PieceCID }> | undefined) {
         piecesAddedArgs = { transaction, pieces }
       },
-      onPiecesConfirmed(dataSetId: number, pieces: PieceRecord[]) {
+      onPiecesConfirmed(dataSetId: bigint, pieces: PieceRecord[]) {
         piecesConfirmedArgs = { dataSetId, pieces }
       },
       onPieceAdded() {
@@ -526,15 +527,20 @@ describe('Storage Upload', () => {
       throw new Error('Callbacks should have been called')
     }
     const addedArgs: { transaction?: Hex; pieces?: Array<{ pieceCid: PieceCID }> } = piecesAddedArgs
-    const confirmedArgs: { dataSetId?: number; pieces?: PieceRecord[] } = piecesConfirmedArgs
+    const confirmedArgs: { dataSetId?: bigint; pieces?: PieceRecord[] } = piecesConfirmedArgs
     assert.strictEqual(addedArgs.transaction, txHash, 'onPiecesAdded should receive transaction hash')
     assert.strictEqual(
       addedArgs.pieces?.[0].pieceCid.toString(),
       uploadResult.pieceCid.toString(),
       'onPiecesAdded should provide matching pieceCid'
     )
-    assert.strictEqual(confirmedArgs.dataSetId, resolvedDataSetId, 'onPiecesConfirmed should provide the dataset id')
-    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0, 'onPiecesConfirmed should include piece IDs')
+    assert.isDefined(resolvedDataSetId, 'resolvedDataSetId should be defined')
+    assert.strictEqual(
+      confirmedArgs.dataSetId,
+      BigInt(resolvedDataSetId),
+      'onPiecesConfirmed should provide the dataset id'
+    )
+    assert.strictEqual(confirmedArgs.pieces?.[0].pieceId, 0n, 'onPiecesConfirmed should include piece IDs')
   })
 
   it('should handle ArrayBuffer input', async () => {
@@ -543,10 +549,10 @@ describe('Storage Upload', () => {
     }
     const txHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
     server.use(
-      JSONRPC({ ...presets.basic, debug: false }),
-      PING(),
-      ...streamingUploadHandlers(pdpOptions),
-      findAnyPieceHandler(true, pdpOptions),
+      Mocks.JSONRPC({ ...Mocks.presets.basic, debug: false }),
+      Mocks.PING(),
+      ...Mocks.pdp.streamingUploadHandlers(pdpOptions),
+      Mocks.pdp.findAnyPieceHandler(true, pdpOptions),
       http.post<{ id: string }>(`https://pdp.example.com/pdp/data-sets/:id/pieces`, async ({ params }) => {
         return new HttpResponse(null, {
           status: 201,
@@ -570,7 +576,7 @@ describe('Storage Upload', () => {
         )
       })
     )
-    const synapse = await Synapse.create({ signer })
+    const synapse = new Synapse({ client })
     const context = await synapse.storage.createContext({
       withCDN: true,
       metadata: {
@@ -580,7 +586,7 @@ describe('Storage Upload', () => {
 
     const buffer = new Uint8Array(1024)
     const upload = await context.upload(buffer)
-    assert.strictEqual(upload.pieceId, 0, 'pieceId should be 0')
+    assert.strictEqual(upload.pieceId, 0n, 'pieceId should be 0')
     assert.strictEqual(upload.size, 1024, 'size should be 1024')
   })
 })

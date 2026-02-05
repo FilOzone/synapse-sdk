@@ -1,10 +1,13 @@
 import starlight from '@astrojs/starlight'
+import { llmsPlugin } from '@hugomrdias/docs/starlight-llms'
 import { docsPlugin } from '@hugomrdias/docs/starlight-typedoc'
 import { defineConfig } from 'astro/config'
 import mermaid from 'astro-mermaid'
 import ecTwoSlash from 'expressive-code-twoslash'
-import starlightLlmsTxt from 'starlight-llms-txt'
-import starlightPageActions from 'starlight-page-actions'
+import rehypeExternalLinks from 'rehype-external-links'
+import starlightAutoSidebar from 'starlight-auto-sidebar'
+import starlightChangelogs, { makeChangelogsSidebarLinks } from 'starlight-changelogs'
+import starlightLinksValidator from 'starlight-links-validator'
 import viteTsconfigPaths from 'vite-tsconfig-paths'
 
 const site = 'https://docs.filecoin.cloud'
@@ -15,6 +18,16 @@ export default defineConfig({
   base: '/',
   vite: {
     plugins: [viteTsconfigPaths()],
+  },
+  markdown: {
+    rehypePlugins: [
+      [
+        rehypeExternalLinks,
+        {
+          target: '_blank',
+        },
+      ],
+    ],
   },
   integrations: [
     mermaid({
@@ -68,6 +81,21 @@ export default defineConfig({
             content: new URL('og2.jpg?v=1', site).href,
           },
         },
+        {
+          tag: 'script',
+          attrs: {
+            src: 'https://plausible.io/js/pa-rtmx1Y7w1rQg3O30eJD9U.js',
+            defer: true,
+            async: true,
+          },
+        },
+        {
+          tag: 'script',
+          content: `
+            window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+            plausible.init();
+          `,
+        },
       ],
       social: [
         {
@@ -114,40 +142,63 @@ export default defineConfig({
           autogenerate: { directory: 'resources' },
         },
         {
-          label: 'API',
+          label: 'Changelogs',
           collapsed: true,
-          autogenerate: { directory: 'api' },
+          items: [
+            ...makeChangelogsSidebarLinks([
+              {
+                type: 'all',
+                base: 'changelog-sdk',
+                label: '@filoz/synapse-sdk',
+              },
+              {
+                type: 'all',
+                base: 'changelog-core',
+                label: '@filoz/synapse-core',
+              },
+              {
+                type: 'all',
+                base: 'changelog-react',
+                label: '@filoz/synapse-react',
+              },
+            ]),
+          ],
+        },
+        {
+          label: 'Reference',
+          collapsed: true,
+          autogenerate: { directory: 'reference' },
         },
       ],
       expressiveCode: {
         plugins: [
           ecTwoSlash({
             twoslashOptions: {
-              compilerOptions: {
-                allowUmdGlobalAccess: true,
-                lib: ['ESNext', 'DOM', 'DOM.Iterable'],
-              },
+              lib: ['esnext', 'dom'],
             },
           }),
         ],
       },
       plugins: [
         docsPlugin({
+          outputDirectory: 'reference',
           pagination: true,
           typeDocOptions: {
             githubPages: true,
             entryPointStrategy: 'packages',
             entryPoints: ['../packages/*'],
             tsconfig: '../tsconfig.json',
-            useCodeBlocks: true,
+            useCodeBlocks: false,
             parametersFormat: 'table',
             indexFormat: 'table',
-            groupOrder: ['classes', 'functions', 'variables', 'types', '*'],
+            groupOrder: ['classes', 'functions', 'variables', 'types', 'namespaces', '*'],
             plugin: ['typedoc-plugin-mdn-links'],
           },
         }),
-        starlightLlmsTxt(),
-        starlightPageActions(),
+        llmsPlugin(),
+        starlightAutoSidebar(),
+        starlightChangelogs(),
+        starlightLinksValidator(),
       ],
     }),
   ],
