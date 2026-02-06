@@ -44,13 +44,16 @@ export async function fetchPiecesFromProviders(
       // Phase 1: Check if provider has the piece
 
       await SP.findPiece({
-        endpoint: provider.pdp.serviceURL,
+        serviceURL: provider.pdp.serviceURL,
         pieceCid,
         signal: _signal,
       })
 
       // Phase 2: Provider has piece, download it
-      const downloadUrl = createPieceUrlPDP(pieceCid.toString(), provider.pdp.serviceURL)
+      const downloadUrl = createPieceUrlPDP({
+        cid: pieceCid.toString(),
+        serviceURL: provider.pdp.serviceURL,
+      })
       const response = await fetch(downloadUrl, {
         signal: _signal,
       })

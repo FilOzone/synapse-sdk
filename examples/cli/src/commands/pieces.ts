@@ -1,11 +1,8 @@
 import * as p from '@clack/prompts'
 import { calibration } from '@filoz/synapse-core/chains'
+import { getPieces } from '@filoz/synapse-core/pdp-verifier'
 import { metadataArrayToObject } from '@filoz/synapse-core/utils'
-import {
-  getDataSets,
-  getPieces,
-  type Piece,
-} from '@filoz/synapse-core/warm-storage'
+import { getPdpDataSets, type Piece } from '@filoz/synapse-core/warm-storage'
 import { Synapse } from '@filoz/synapse-sdk'
 import { type Command, command } from 'cleye'
 import { createPublicClient, type Hex, http, stringify } from 'viem'
@@ -38,8 +35,8 @@ export const pieces: Command = command(
 
     spinner.start('Fetching data sets...')
     try {
-      const dataSets = await getDataSets(client, {
-        address: client.account.address,
+      const dataSets = await getPdpDataSets(client, {
+        client: client.account.address,
       })
       spinner.stop('Fetching data sets complete')
       let pieces: Piece[] = []
@@ -52,7 +49,7 @@ export const pieces: Command = command(
                 .filter((dataSet) => dataSet.pdpEndEpoch === 0n)
                 .map((dataSet) => ({
                   value: dataSet.dataSetId,
-                  label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.pdp.serviceURL}`,
+                  label: `#${dataSet.dataSetId} - SP: #${dataSet.providerId} ${dataSet.provider.pdp.serviceURL}`,
                 })),
             })
           },

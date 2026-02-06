@@ -20,7 +20,6 @@
  * ```
  */
 
-import * as Piece from '@filoz/synapse-core/piece'
 import { asPieceCID, downloadAndValidate } from '@filoz/synapse-core/piece'
 import { randIndex } from '@filoz/synapse-core/utils'
 import { type Address, type Hash, zeroAddress } from 'viem'
@@ -126,10 +125,7 @@ export class StorageManager {
    * only support Uint8Array. For streaming uploads with multiple contexts, convert your
    * stream to Uint8Array first or use stream forking (future feature).
    */
-  async upload(
-    data: Uint8Array | ReadableStream<Uint8Array>,
-    options?: StorageManagerUploadOptions
-  ): Promise<UploadResult> {
+  async upload(data: File, options?: StorageManagerUploadOptions): Promise<UploadResult> {
     // Validate options - if context is provided, no other options should be set
     if (options?.context != null || options?.contexts != null) {
       const invalidOptions = []
@@ -176,26 +172,12 @@ export class StorageManager {
 
     // Multi-context upload handling
     if (contexts.length > 1) {
-      // Multi-context uploads require Uint8Array to calculate pieceCid once
-      if (!(data instanceof Uint8Array)) {
-        throw createError(
-          'StorageManager',
-          'upload',
-          'Multi-context uploads currently only support Uint8Array. ' +
-            'For streaming uploads to multiple providers, convert your stream to Uint8Array first.'
-        )
-      }
-
-      // Calculate pieceCid once for all contexts
-      const pieceCid = Piece.calculate(data)
-
       // Upload to all contexts with the same pieceCid
       return Promise.all(
         contexts.map((context) =>
           context.upload(data, {
             ...options?.callbacks, // TODO: callbacks should be able to differentiate by provider
             metadata: options?.metadata,
-            pieceCid,
             signal: options?.signal,
           })
         )

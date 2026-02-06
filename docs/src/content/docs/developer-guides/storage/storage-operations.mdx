@@ -53,9 +53,9 @@ import { privateKeyToAccount } from 'viem/accounts'
 
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
-const data = new Uint8Array([1, 2, 3, 4, 5]);
+const file = new File([new Uint8Array([1, 2, 3, 4, 5])], "foo.txt");
 
-const result = await synapse.storage.upload(data);
+const result = await synapse.storage.upload(file);
 const downloaded = await synapse.storage.download(result.pieceCid);
 
 console.log("Uploaded:", result.pieceCid);
@@ -71,7 +71,7 @@ Add metadata to organize uploads and enable faster data set reuse - SDK will reu
 import { Synapse } from "@filoz/synapse-sdk";
 import { privateKeyToAccount } from 'viem/accounts'
 
-const data = null as unknown as Uint8Array;
+const data = new File([new Uint8Array([1, 2, 3, 4, 5])], "foo.txt");
 const synapse = Synapse.create({ account: privateKeyToAccount('0x...') });
 // ---cut---
 const context = await synapse.storage.createContext({
@@ -149,23 +149,6 @@ for await (const piece of context.getPieces()) {
   pieces.push(piece);
 }
 console.log(`Found ${pieces.length} pieces`);
-```
-
-### Getting data set size
-
-Calculate total storage size by summing piece sizes extracted from PieceCIDs:
-
-```ts twoslash
-// @lib: esnext,dom
-import { PDPVerifier } from "@filoz/synapse-sdk/pdp";
-
-const dataSetId = 1n;
-// ---cut---
-const pdpVerifier = PDPVerifier.create();
-
-const leafCount = await pdpVerifier.getDataSetLeafCount(dataSetId);
-const sizeInBytes = leafCount * 32n; // Each leaf is 32 bytes
-console.log(`Data set size: ${sizeInBytes} bytes`);
 ```
 
 ### Getting a data set piece metadata

@@ -1,57 +1,76 @@
-import type { Address, Chain, Client, Transport } from 'viem'
+import type { Address, Chain, Client, MulticallErrorType, Transport } from 'viem'
 import { multicall } from 'viem/actions'
-import { getChain } from '../chains.ts'
+import { asChain } from '../chains.ts'
 
-export type ReadAddressesResult = {
-  payments: Address
-  warmStorageView: Address
-  pdpVerifier: Address
-  serviceProviderRegistry: Address
-  sessionKeyRegistry: Address
-  usdfcToken: Address
-  filBeamBeneficiary: Address
+export namespace readAddresses {
+  export type OptionsType = {
+    /** Warm storage contract address. If not provided, the default is the storage contract address for the chain. */
+    contractAddress?: Address
+  }
+  export type OutputType = {
+    payments: Address
+    warmStorageView: Address
+    pdpVerifier: Address
+    serviceProviderRegistry: Address
+    sessionKeyRegistry: Address
+    usdfcToken: Address
+    filBeamBeneficiary: Address
+  }
+  export type ErrorType = asChain.ErrorType | MulticallErrorType
 }
 
-export async function readAddresses(client: Client<Transport, Chain>): Promise<ReadAddressesResult> {
-  const chain = getChain(client.chain.id)
+/**
+ * Read FOC addresses from the Warm Storage contract
+ *
+ * @param client - The client to use to read the addresses.
+ * @param options - {@link readAddresses.OptionsType}
+ * @returns The addresses {@link readAddresses.OutputType}
+ * @throws Errors {@link readAddresses.ErrorType}
+ */
+export async function readAddresses(
+  client: Client<Transport, Chain>,
+  options: readAddresses.OptionsType = {}
+): Promise<readAddresses.OutputType> {
+  const chain = asChain(client.chain)
+  const contractAddress = options.contractAddress ?? chain.contracts.fwss.address
   const addresses = await multicall(client, {
     allowFailure: false,
     contracts: [
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'paymentsContractAddress',
       },
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'viewContractAddress',
       },
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'pdpVerifierAddress',
       },
 
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'serviceProviderRegistry',
       },
 
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'sessionKeyRegistry',
       },
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'usdfcTokenAddress',
       },
 
       {
-        address: chain.contracts.fwss.address,
+        address: contractAddress,
         abi: chain.contracts.fwss.abi,
         functionName: 'filBeamBeneficiaryAddress',
       },

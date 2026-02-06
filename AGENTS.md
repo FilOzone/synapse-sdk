@@ -22,10 +22,6 @@ packages/synapse-sdk/src/
 ├── storage/
 │   ├── manager.ts              # StorageManager (auto-managed contexts)
 │   └── context.ts              # StorageContext (explicit provider+dataset ops)
-├── pdp/
-│   ├── auth.ts                 # PDPAuthHelper (EIP-712 signatures)
-│   ├── server.ts               # PDPServer (Curio HTTP client)
-│   └── verifier.ts             # PDPVerifier (contract wrapper)
 ├── piece/                      # PieceCID utilities
 ├── session/                    # Session key support
 ├── subgraph/                   # Subgraph queries

@@ -16,6 +16,7 @@ export * from './get-data-set-leaf-count.ts'
 export * from './get-data-set-listener.ts'
 export * from './get-data-set-storage-provider.ts'
 export * from './get-next-piece-id.ts'
+export * from './get-pieces.ts'
 export * from './get-scheduled-removals.ts'
 
 export namespace getContract {

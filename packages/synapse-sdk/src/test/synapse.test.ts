@@ -811,7 +811,7 @@ describe('Synapse', () => {
                 createMessageHash: FAKE_TX_HASH,
                 dataSetCreated: true,
                 service: '',
-                txStatus: 'pending',
+                txStatus: 'confirmed',
               },
               pdpOptions
             )
@@ -839,7 +839,7 @@ describe('Synapse', () => {
               FAKE_TX_HASH,
               {
                 txHash: FAKE_TX_HASH,
-                txStatus: 'pending',
+                txStatus: 'confirmed',
                 dataSetId: DATA_SET_ID,
                 pieceCount: 1,
                 addMessageOk: true,
@@ -850,7 +850,7 @@ describe('Synapse', () => {
             )
           )
         }
-        const result = await synapse.storage.upload(data, { contexts })
+        const result = await synapse.storage.upload(new File([data], 'test.txt'), { contexts })
         assert.equal(result.pieceCid.toString(), pieceCid.toString())
         assert.equal(result.size, 1024)
       })
@@ -894,7 +894,7 @@ describe('Synapse', () => {
           )
         }
         try {
-          await synapse.storage.upload(data, { contexts })
+          await synapse.storage.upload(new File([data], 'test.txt'), { contexts })
           assert.fail('Expected upload to fail when one provider returns wrong pieceCid')
         } catch (error: any) {
           assert.include(error.message, 'Failed to create upload session')

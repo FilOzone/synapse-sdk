@@ -4,6 +4,7 @@ import { createPublicClient, http } from 'viem'
 import { calibration, mainnet } from '../src/chains.ts'
 import { JSONRPC, presets } from '../src/mocks/jsonrpc/index.ts'
 import { getActivePieces, getActivePiecesCall } from '../src/pdp-verifier/get-active-pieces.ts'
+import * as Piece from '../src/piece.ts'
 
 describe('getActivePieces', () => {
   const server = setup()
@@ -77,11 +78,16 @@ describe('getActivePieces', () => {
         transport: http(),
       })
 
-      const [piecesData, pieceIds, hasMore] = await getActivePieces(client, { dataSetId: 1n })
+      const result = await getActivePieces(client, { dataSetId: 1n })
 
-      assert.ok(Array.isArray(piecesData))
-      assert.ok(Array.isArray(pieceIds))
-      assert.equal(typeof hasMore, 'boolean')
+      assert.deepEqual(result, {
+        pieces: [
+          { cid: Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'), id: 0n },
+          { cid: Piece.parse('bafkzcibeqcad6efnpwn62p5vvs5x3nh3j7xkzfgb3xtitcdm2hulmty3xx4tl3wace'), id: 1n },
+        ],
+        hasMore: false,
+      })
+      assert.equal(typeof result.hasMore, 'boolean')
     })
   })
 })

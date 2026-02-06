@@ -1,8 +1,7 @@
 import { getChain } from '@filoz/synapse-core/chains'
 import type { SessionKey } from '@filoz/synapse-core/session-key'
-import type { AddPiecesSuccess } from '@filoz/synapse-core/sp'
 import * as SP from '@filoz/synapse-core/sp'
-import { upload } from '@filoz/synapse-core/warm-storage'
+import { type AddPiecesSuccess, upload } from '@filoz/synapse-core/sp'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
@@ -45,7 +44,7 @@ export function useUpload(props: UseUploadProps) {
       })
 
       props?.onHash?.(uploadRsp.txHash)
-      const rsp = await SP.waitForAddPiecesStatus(uploadRsp)
+      const rsp = await SP.waitForAddPieces(uploadRsp)
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],

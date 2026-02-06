@@ -29,7 +29,7 @@ export function parseUnits(value: string | number | bigint | dn.Dnum, decimals?:
   return dn.from(value, decimals ?? 18)[0]
 }
 
-type FormatUnitsOptions = {
+export type FormatUnitsOptions = {
   /**
    * The number of decimals.
    * If not provided, the default is 18.

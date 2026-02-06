@@ -1,12 +1,12 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: testing */
 
-import { encodePDPCapabilities } from '@filoz/synapse-core/utils'
 import type { ExtractAbiFunction } from 'abitype'
 import type { Address } from 'ox/Address'
 import type { Hex } from 'viem'
 import { decodeFunctionData, encodeAbiParameters, isAddressEqual } from 'viem'
 import * as Abis from '../../abis/index.ts'
 import type { PDPOffering, ProviderInfo } from '../../sp-registry/types.ts'
+import { encodePDPCapabilities } from '../../utils/pdp-capabilities.ts'
 import type { AbiToType, JSONRPCOptions } from './types.ts'
 
 export type getProviderByAddress = ExtractAbiFunction<typeof Abis.serviceProviderRegistry, 'getProviderByAddress'>

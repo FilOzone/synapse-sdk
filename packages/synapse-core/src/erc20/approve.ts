@@ -41,7 +41,7 @@ export namespace approve {
  *
  * @param client - The viem client with account to use for the transaction.
  * @param options - {@link approve.OptionsType}
- * @returns The transaction hash
+ * @returns The transaction hash {@link approve.OutputType}
  * @throws Errors {@link approve.ErrorType}
  *
  * @example

@@ -1,7 +1,5 @@
-import type { DataSetCreatedResponse } from '@filoz/synapse-core/sp'
 import * as SP from '@filoz/synapse-core/sp'
 import type { PDPProvider } from '@filoz/synapse-core/sp-registry'
-import { createDataSet } from '@filoz/synapse-core/warm-storage'
 import { type MutateOptions, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAccount, useChainId, useConfig } from 'wagmi'
 import { getConnectorClient } from 'wagmi/actions'
@@ -11,7 +9,7 @@ export interface UseCreateDataSetProps {
    * The callback to call when the hash is available.
    */
   onHash?: (hash: string) => void
-  mutation?: Omit<MutateOptions<DataSetCreatedResponse, Error, UseCreateDataSetVariables>, 'mutationFn'>
+  mutation?: Omit<MutateOptions<SP.waitForCreateDataSet.ReturnType, Error, UseCreateDataSetVariables>, 'mutationFn'>
 }
 
 export interface UseCreateDataSetVariables {
@@ -22,7 +20,7 @@ export interface UseCreateDataSetVariables {
   cdn: boolean
 }
 
-export type UseCreateDataSetResult = DataSetCreatedResponse
+export type UseCreateDataSetResult = SP.waitForCreateDataSet.ReturnType
 
 export function useCreateDataSet(props: UseCreateDataSetProps) {
   const config = useConfig()
@@ -37,10 +35,10 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
         chainId,
       })
 
-      const { txHash, statusUrl } = await createDataSet(connectorClient, {
+      const { txHash, statusUrl } = await SP.createDataSet(connectorClient, {
         payee: provider.payee,
         payer: account.address,
-        endpoint: provider.pdp.serviceURL,
+        serviceURL: provider.pdp.serviceURL,
         cdn,
         // metadata: {
         //   title: 'Test Data Set',
@@ -49,7 +47,7 @@ export function useCreateDataSet(props: UseCreateDataSetProps) {
       })
       props?.onHash?.(txHash)
 
-      const dataSet = await SP.waitForDataSetCreationStatus({ statusUrl })
+      const dataSet = await SP.waitForCreateDataSet({ statusUrl })
 
       queryClient.invalidateQueries({
         queryKey: ['synapse-warm-storage-data-sets', account.address],

@@ -7,7 +7,7 @@
 import assert from 'assert'
 import { HttpResponse, http } from 'msw'
 import { decodeAbiParameters, type Hex } from 'viem'
-import type { addPieces } from '../sp.ts'
+import type { addPieces } from '../sp/sp.ts'
 
 export interface PDPMockOptions {
   baseUrl?: string
@@ -89,7 +89,6 @@ export function findPieceHandler(pieceCid: string, found: boolean, options: PDPM
   return http.get(`${baseUrl}/pdp/piece`, ({ request }) => {
     const url = new URL(request.url)
     const queryCid = url.searchParams.get('pieceCid')
-
     if (queryCid !== pieceCid) {
       return HttpResponse.text(null, { status: 404 })
     }
@@ -175,7 +174,8 @@ export function postPieceUploadsHandler(uuid: string, options: PDPMockOptions = 
  */
 export function uploadPieceStreamingHandler(uuid: string, options: PDPMockOptions = {}) {
   const baseUrl = options.baseUrl ?? 'http://pdp.local'
-  return http.put(`${baseUrl}/pdp/piece/uploads/${uuid}`, async () => {
+  return http.put(`${baseUrl}/pdp/piece/uploads/${uuid}`, async ({ request }) => {
+    await request.arrayBuffer()
     return HttpResponse.text('No Content', {
       status: 204,
     })
@@ -192,7 +192,6 @@ export function finalizePieceUploadHandler(uuid: string, expectedPieceCid?: stri
     `${baseUrl}/pdp/piece/uploads/${uuid}`,
     async ({ request }) => {
       const body = await request.json()
-
       if (expectedPieceCid != null) {
         assert.equal(body.pieceCid, expectedPieceCid, 'PieceCID should match expected value')
       }
@@ -229,7 +228,8 @@ export function streamingUploadHandlers(options: PDPMockOptions = {}) {
     }),
 
     // Step 2: Upload data stream
-    http.put(`${baseUrl}/pdp/piece/uploads/:uuid`, async () => {
+    http.put(`${baseUrl}/pdp/piece/uploads/:uuid`, async ({ request }) => {
+      await request.arrayBuffer()
       return HttpResponse.text('No Content', {
         status: 204,
       })

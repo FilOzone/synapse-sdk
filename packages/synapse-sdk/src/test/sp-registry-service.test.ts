@@ -368,7 +368,7 @@ describe('SPRegistryService', () => {
         await service.getProvider(1n)
       } catch (error: any) {
         assert.instanceOf(error, ZodValidationError)
-        assert.include(error.details, 'Invalid input')
+        assert.include(error.details, 'Invalid hex value')
       }
     })
   })

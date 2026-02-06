@@ -90,14 +90,10 @@ export namespace getApprovedProvidersCall {
 }
 
 /**
- * Create a call to the getApprovedProviders function
- *
- * This function is used to create a call to the getApprovedProviders function for use with the multicall or readContract function.
- *
- * For large lists, use pagination to avoid gas limit issues.
+ * Create a call to the {@link getApprovedProviders} function for use with the Viem multicall, readContract, or simulateContract functions.
  *
  * @param options - {@link getApprovedProvidersCall.OptionsType}
- * @returns The call to the getApprovedProviders function {@link getApprovedProvidersCall.OutputType}
+ * @returns Call object {@link getApprovedProvidersCall.OutputType}
  * @throws Errors {@link getApprovedProvidersCall.ErrorType}
  *
  * @example

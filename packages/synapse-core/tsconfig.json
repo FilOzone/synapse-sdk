@@ -24,7 +24,7 @@
       "src/chains.ts",
       "src/index.ts",
       "src/piece.ts",
-      "src/sp.ts",
+      "src/sp/index.ts",
       "src/usdfc.ts"
     ]
   }

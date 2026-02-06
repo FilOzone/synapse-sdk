@@ -5,10 +5,7 @@ import { z } from 'zod'
 import { ZodValidationError } from '../errors/base.ts'
 import type { PDPOffering, ProviderWithProduct } from '../sp-registry/types.ts'
 import { capabilitiesListToObject, decodeAddressCapability } from './capabilities.ts'
-
-const hex = z.custom<Hex>((val) => {
-  return typeof val === 'string' ? isHex(val) : false
-})
+import { zHex } from './schemas.ts'
 
 /**
  * Zod schema for PDP offering
@@ -16,16 +13,16 @@ const hex = z.custom<Hex>((val) => {
  * @see https://github.com/FilOzone/filecoin-services/blob/a86e4a5018133f17a25b4bb6b5b99da4d34fe664/service_contracts/src/ServiceProviderRegistry.sol#L14
  */
 export const PDPOfferingSchema = z.object({
-  serviceURL: hex,
-  minPieceSizeInBytes: hex,
-  maxPieceSizeInBytes: hex,
-  storagePricePerTibPerDay: hex,
-  minProvingPeriodInEpochs: hex,
-  location: hex,
-  paymentTokenAddress: hex,
-  ipniPiece: hex.optional(),
-  ipniIpfs: hex.optional(),
-  ipniPeerId: hex.optional(),
+  serviceURL: zHex,
+  minPieceSizeInBytes: zHex,
+  maxPieceSizeInBytes: zHex,
+  storagePricePerTibPerDay: zHex,
+  minProvingPeriodInEpochs: zHex,
+  location: zHex,
+  paymentTokenAddress: zHex,
+  ipniPiece: zHex.optional(),
+  ipniIpfs: zHex.optional(),
+  ipniPeerId: zHex.optional(),
 })
 // Standard capability keys for PDP product type (must match ServiceProviderRegistry.sol REQUIRED_PDP_KEYS)
 export const CAP_SERVICE_URL = 'serviceURL'

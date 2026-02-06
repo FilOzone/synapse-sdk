@@ -1,5 +1,7 @@
 import type { Chain, Hash, Log, WaitForTransactionReceiptReturnType } from 'viem'
 
+export type * from './warm-storage/types.ts'
+
 /**
  * Actions types
  */

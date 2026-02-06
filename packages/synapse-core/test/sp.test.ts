@@ -15,8 +15,8 @@ import {
   LocationHeaderError,
   PostPieceError,
   UploadPieceError,
-  WaitDataSetCreationStatusError,
-  WaitForAddPiecesStatusError,
+  WaitForAddPiecesError,
+  WaitForCreateDataSetError,
 } from '../src/errors/pdp.ts'
 import { ADDRESSES, PRIVATE_KEYS } from '../src/mocks/index.ts'
 import {
@@ -29,7 +29,18 @@ import {
   uploadPieceStreamingHandler,
 } from '../src/mocks/pdp.ts'
 import * as Piece from '../src/piece.ts'
-import * as SP from '../src/sp.ts'
+import { getDataSet, TimeoutError, waitForAddPieces } from '../src/sp/index.ts'
+import {
+  addPieces,
+  createDataSet,
+  createDataSetAndAddPieces,
+  deletePiece,
+  downloadPiece,
+  findPiece,
+  uploadPiece,
+  uploadPieceStreaming,
+} from '../src/sp/sp.ts'
+import { waitForCreateDataSet } from '../src/sp/wait-for-create-dataset.ts'
 import * as TypedData from '../src/typed-data/index.ts'
 import { SIZE_CONSTANTS } from '../src/utils/constants.ts'
 
@@ -60,7 +71,7 @@ describe('SP', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       server.use(
-        http.post<never, SP.createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
+        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
           const body = await request.json()
           assert.strictEqual(body.extraData, extraData)
           assert.strictEqual(body.recordKeeper, ADDRESSES.calibration.warmStorage)
@@ -80,8 +91,8 @@ describe('SP', () => {
         clientDataSetId: 0n,
         payee: ADDRESSES.client1,
       })
-      const result = await SP.createDataSet({
-        endpoint: 'http://pdp.local',
+      const result = await createDataSet({
+        serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         extraData,
       })
@@ -93,7 +104,7 @@ describe('SP', () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
 
       server.use(
-        http.post<never, SP.createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
+        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', async ({ request }) => {
           const body = await request.json()
           assert.strictEqual(body.extraData, extraData)
           assert.strictEqual(body.recordKeeper, ADDRESSES.calibration.warmStorage)
@@ -114,8 +125,8 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
         metadata: [{ key: 'name', value: 'test' }],
       })
-      const result = await SP.createDataSet({
-        endpoint: 'http://pdp.local',
+      const result = await createDataSet({
+        serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         extraData,
       })
@@ -125,7 +136,7 @@ describe('SP', () => {
 
     it('should fail with bad location header', async () => {
       server.use(
-        http.post<never, SP.createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
+        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
           return new HttpResponse(null, {
             status: 201,
             headers: { Location: `/pdp/data-sets/created/invalid-hash` },
@@ -137,14 +148,14 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
       })
       try {
-        await SP.createDataSet({
-          endpoint: 'http://pdp.local',
+        await createDataSet({
+          serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData,
         })
         assert.fail('Should have thrown error for bad location header')
       } catch (e) {
-        const error = e as SP.createDataSet.ErrorType
+        const error = e as createDataSet.ErrorType
         assert.instanceOf(error, LocationHeaderError)
         assert.equal(error.message, 'Location header format is invalid: /pdp/data-sets/created/invalid-hash')
       }
@@ -152,7 +163,7 @@ describe('SP', () => {
 
     it('should fail with no location header', async () => {
       server.use(
-        http.post<never, SP.createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
+        http.post<never, createDataSet.RequestBody>('http://pdp.local/pdp/data-sets', () => {
           return new HttpResponse(null, {
             status: 201,
             headers: {},
@@ -164,14 +175,14 @@ describe('SP', () => {
         payee: ADDRESSES.client1,
       })
       try {
-        await SP.createDataSet({
-          endpoint: 'http://pdp.local',
+        await createDataSet({
+          serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData,
         })
         assert.fail('Should have thrown error for no Location header')
       } catch (e) {
-        const error = e as SP.createDataSet.ErrorType
+        const error = e as createDataSet.ErrorType
         assert.instanceOf(error, LocationHeaderError)
         assert.equal(error.message, 'Location header format is invalid: <none>')
       }
@@ -196,8 +207,8 @@ describe('SP', () => {
         })
       )
       try {
-        await SP.createDataSet({
-          endpoint: 'http://pdp.local',
+        await createDataSet({
+          serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
             clientDataSetId: 0n,
@@ -206,7 +217,7 @@ describe('SP', () => {
         })
         assert.fail('Should have thrown error for CreateDataSetError error')
       } catch (e) {
-        const error = e as SP.createDataSet.ErrorType
+        const error = e as createDataSet.ErrorType
         assert.instanceOf(error, CreateDataSetError)
         assert.equal(error.shortMessage, 'Failed to create data set.')
         assert.equal(
@@ -237,8 +248,8 @@ invariant failure: insufficient funds to cover lockup after function execution`
         })
       )
       try {
-        await SP.createDataSet({
-          endpoint: 'http://pdp.local',
+        await createDataSet({
+          serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
             clientDataSetId: 0n,
@@ -278,8 +289,8 @@ InvalidSignature(address expected, address actual)
         })
       )
       try {
-        await SP.createDataSet({
-          endpoint: 'http://pdp.local',
+        await createDataSet({
+          serviceURL: 'http://pdp.local',
           recordKeeper: ADDRESSES.calibration.warmStorage,
           extraData: await TypedData.signCreateDataSet(client, {
             clientDataSetId: 0n,
@@ -305,7 +316,7 @@ InvalidSignature(address expected, address actual)
   describe('waitForDataSetCreationStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockResponse: SP.DataSetCreateSuccess = {
+      const mockResponse = {
         createMessageHash: mockTxHash,
         dataSetCreated: true,
         service: 'test-service',
@@ -323,26 +334,32 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.waitForDataSetCreationStatus({
+      const result = await waitForCreateDataSet({
         statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
       })
-      assert.deepStrictEqual(result, mockResponse)
+      assert.deepStrictEqual(result, {
+        createMessageHash: mockTxHash,
+        dataSetCreated: true,
+        service: 'test-service',
+        txStatus: 'confirmed',
+        ok: true,
+        dataSetId: 123n,
+      })
     })
 
     it('should handle pending then confirmed status', async () => {
-      SP.setDelayTime(50)
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
       let callCount = 0
 
-      const pendingResponse: SP.DataSetCreatedResponse = {
+      const pendingResponse = {
         createMessageHash: mockTxHash,
         dataSetCreated: false,
         service: 'test-service',
         txStatus: 'pending',
-        ok: false,
+        ok: true,
       }
 
-      const confirmedResponse: SP.DataSetCreateSuccess = {
+      const confirmedResponse = {
         createMessageHash: mockTxHash,
         dataSetCreated: true,
         service: 'test-service',
@@ -361,13 +378,14 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.waitForDataSetCreationStatus({
+      const result = await waitForCreateDataSet({
         statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+        pollInterval: 10,
+        timeout: 50,
       })
       assert.strictEqual(result.dataSetCreated, true)
-      assert.strictEqual(result.dataSetId, 123)
+      assert.strictEqual(result.dataSetId, 123n)
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
-      SP.resetDelayTime()
     })
 
     it('should handle server errors', async () => {
@@ -382,19 +400,19 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.waitForDataSetCreationStatus({
+        await waitForCreateDataSet({
           statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.instanceOf(error, WaitDataSetCreationStatusError)
-        assert.include(error.message, 'Failed to wait for data set creation status')
+        assert.instanceOf(error, WaitForCreateDataSetError)
+        assert.include(error.message, 'Failed to wait for data set creation')
       }
     })
 
     it('should handle timeout', async () => {
       const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      const mockResponse: SP.DataSetCreateSuccess = {
+      const mockResponse = {
         createMessageHash: mockTxHash,
         dataSetCreated: true,
         service: 'test-service',
@@ -412,18 +430,15 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      SP.setTimeout(50)
-
       try {
-        await SP.waitForDataSetCreationStatus({
+        await waitForCreateDataSet({
           statusUrl: `http://pdp.local/pdp/data-sets/created/${mockTxHash}`,
+          timeout: 50,
         })
         assert.fail('Should have thrown timeout error')
       } catch (error) {
-        assert.instanceOf(error, SP.TimeoutError)
+        assert.instanceOf(error, TimeoutError)
         assert.include(error.message, 'Request timed out after 50ms')
-      } finally {
-        SP.resetTimeout()
       }
     })
   })
@@ -434,8 +449,8 @@ InvalidSignature(address expected, address actual)
       const pieceCid = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
       server.use(createAndAddPiecesHandler(mockTxHash))
 
-      const result = await SP.createDataSetAndAddPieces({
-        endpoint: 'http://pdp.local',
+      const result = await createDataSetAndAddPieces({
+        serviceURL: 'http://pdp.local',
         recordKeeper: ADDRESSES.calibration.warmStorage,
         pieces: [Piece.parse(pieceCid)],
         extraData: await TypedData.signCreateDataSetAndAddPieces(client, {
@@ -457,7 +472,7 @@ InvalidSignature(address expected, address actual)
       const pieceCid = Piece.parse(validPieceCid)
 
       server.use(
-        http.post<{ id: string }, SP.addPieces.RequestBody>(
+        http.post<{ id: string }, addPieces.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             const body = await request.json()
@@ -487,8 +502,8 @@ InvalidSignature(address expected, address actual)
         pieces: [{ pieceCid }],
       })
 
-      const result = await SP.addPieces({
-        endpoint: 'http://pdp.local',
+      const result = await addPieces({
+        serviceURL: 'http://pdp.local',
         dataSetId: 1n,
         pieces: [pieceCid],
         extraData,
@@ -517,8 +532,8 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await SP.addPieces({
-          endpoint: 'http://pdp.local',
+        await addPieces({
+          serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
           extraData,
@@ -537,7 +552,7 @@ InvalidSignature(address expected, address actual)
       const pieceCid2 = Piece.parse(validPieceCid)
 
       server.use(
-        http.post<{ id: string }, SP.addPieces.RequestBody>(
+        http.post<{ id: string }, addPieces.RequestBody>(
           'http://pdp.local/pdp/data-sets/:id/pieces',
           async ({ request, params }) => {
             const body = await request.json()
@@ -562,8 +577,8 @@ InvalidSignature(address expected, address actual)
         pieces: [{ pieceCid: pieceCid1 }, { pieceCid: pieceCid2 }],
       })
 
-      const result = await SP.addPieces({
-        endpoint: 'http://pdp.local',
+      const result = await addPieces({
+        serviceURL: 'http://pdp.local',
         dataSetId: 1n,
         pieces: [pieceCid1, pieceCid2],
         extraData,
@@ -591,8 +606,8 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await SP.addPieces({
-          endpoint: 'http://pdp.local',
+        await addPieces({
+          serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
           extraData,
@@ -622,8 +637,8 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await SP.addPieces({
-          endpoint: 'http://pdp.local',
+        await addPieces({
+          serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieces: [pieceCid],
           extraData,
@@ -639,7 +654,7 @@ InvalidSignature(address expected, address actual)
   describe('waitForAddPiecesStatus', () => {
     it('should handle successful status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      const mockResponse: SP.AddPiecesSuccess = {
+      const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'confirmed',
         dataSetId: 1,
@@ -660,19 +675,25 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.waitForAddPiecesStatus({
+      const result = await waitForAddPieces({
         statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
       })
-      assert.deepStrictEqual(result, mockResponse)
+      assert.deepStrictEqual(result, {
+        txHash: mockTxHash,
+        txStatus: 'confirmed',
+        dataSetId: 1n,
+        pieceCount: 2,
+        addMessageOk: true,
+        piecesAdded: true,
+        confirmedPieceIds: [101n, 102n],
+      })
     })
 
     it('should handle pending then confirmed status', async () => {
-      SP.setDelayTime(50)
-
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
       let callCount = 0
 
-      const pendingResponse: SP.AddPiecesResponse = {
+      const pendingResponse = {
         txHash: mockTxHash,
         txStatus: 'pending',
         dataSetId: 1,
@@ -681,7 +702,7 @@ InvalidSignature(address expected, address actual)
         piecesAdded: false,
       }
 
-      const confirmedResponse: SP.AddPiecesSuccess = {
+      const confirmedResponse = {
         txHash: mockTxHash,
         txStatus: 'confirmed',
         dataSetId: 1,
@@ -702,14 +723,16 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.waitForAddPiecesStatus({
+      const result = await waitForAddPieces({
         statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
+        pollInterval: 10,
       })
-      assert.strictEqual(result.txStatus, 'confirmed')
+
+      assert.equal(result.txStatus, 'confirmed')
       assert.strictEqual(result.piecesAdded, true)
-      assert.deepStrictEqual(result.confirmedPieceIds, [101, 102])
+      assert.typeOf(result.dataSetId, 'bigint')
+      assert.deepStrictEqual(result.confirmedPieceIds, [101n, 102n])
       assert.isTrue(callCount >= 2, 'Should have polled at least twice')
-      SP.resetDelayTime()
     })
 
     it('should handle server errors', async () => {
@@ -723,19 +746,19 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.waitForAddPiecesStatus({
+        await waitForAddPieces({
           statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
         })
         assert.fail('Should have thrown error for server error')
       } catch (error) {
-        assert.instanceOf(error, WaitForAddPiecesStatusError)
-        assert.include(error.message, 'Failed to wait for add pieces status')
+        assert.instanceOf(error, WaitForAddPiecesError)
+        assert.include(error.message, 'Failed to wait for add pieces.')
       }
     })
 
     it('should handle timeout status check', async () => {
       const mockTxHash = '0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456'
-      const mockResponse: SP.AddPiecesSuccess = {
+      const mockResponse = {
         txHash: mockTxHash,
         txStatus: 'confirmed',
         dataSetId: 1,
@@ -757,18 +780,14 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      SP.setTimeout(50)
-
       try {
-        const result = await SP.waitForAddPiecesStatus({
+        await waitForAddPieces({
           statusUrl: `http://pdp.local/pdp/data-sets/1/pieces/added/${mockTxHash}`,
+          timeout: 50,
         })
-        assert.deepStrictEqual(result, mockResponse)
       } catch (error) {
-        assert.instanceOf(error, SP.TimeoutError)
+        assert.instanceOf(error, TimeoutError)
         assert.include(error.message, 'Request timed out after 50ms')
-      } finally {
-        SP.resetTimeout()
       }
     })
   })
@@ -796,14 +815,14 @@ InvalidSignature(address expected, address actual)
         pieceIds: [2n],
       })
 
-      const result = await SP.deletePiece({
-        endpoint: 'http://pdp.local',
+      const result = await deletePiece({
+        serviceURL: 'http://pdp.local',
         dataSetId: 1n,
         pieceId: 2n,
         extraData,
       })
 
-      assert.strictEqual(result.txHash, mockTxHash)
+      assert.strictEqual(result.hash, mockTxHash)
     })
 
     it('should handle server errors', async () => {
@@ -821,8 +840,8 @@ InvalidSignature(address expected, address actual)
       })
 
       try {
-        await SP.deletePiece({
-          endpoint: 'http://pdp.local',
+        await deletePiece({
+          serviceURL: 'http://pdp.local',
           dataSetId: 1n,
           pieceId: 2n,
           extraData,
@@ -844,32 +863,30 @@ InvalidSignature(address expected, address actual)
 
       server.use(findPieceHandler(mockPieceCidStr, true))
 
-      const result = await SP.findPiece({
-        endpoint: 'http://pdp.local',
+      const result = await findPiece({
+        serviceURL: 'http://pdp.local',
         pieceCid,
       })
       assert.strictEqual(result.toString(), mockPieceCidStr)
     })
 
     it('should handle piece not found (timeout)', async () => {
-      SP.setTimeout(50)
       const pieceCid = Piece.parse(mockPieceCidStr)
 
       server.use(findPieceHandler(mockPieceCidStr, false))
 
       try {
-        await SP.findPiece({
-          endpoint: 'http://pdp.local',
+        await findPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
           retry: true,
+          timeout: 50,
         })
         assert.fail('Should have thrown error for not found')
       } catch (error) {
         assert.instanceOf(error, FindPieceError)
         assert.equal(error.shortMessage, 'Failed to find piece.')
         assert.include(error.message, 'Timeout waiting for piece to be found')
-      } finally {
-        SP.resetTimeout()
       }
     })
 
@@ -885,8 +902,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.findPiece({
-          endpoint: 'http://pdp.local',
+        await findPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
         })
         assert.fail('Should have thrown error for server error')
@@ -912,10 +929,11 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.findPiece({
-        endpoint: 'http://pdp.local',
+      const result = await findPiece({
+        serviceURL: 'http://pdp.local',
         pieceCid,
         retry: true,
+        pollInterval: 10,
       })
       assert.strictEqual(result.toString(), mockPieceCidStr)
       assert.isAtLeast(attemptCount, 3, 'Should have retried at least 3 times')
@@ -938,8 +956,8 @@ InvalidSignature(address expected, address actual)
       server.use(postPieceHandler(mockPieceCidStr, mockUuid), uploadPieceHandler(mockUuid))
 
       // Should not throw
-      await SP.uploadPiece({
-        endpoint: 'http://pdp.local',
+      await uploadPiece({
+        serviceURL: 'http://pdp.local',
         data: testData,
         pieceCid,
       })
@@ -953,8 +971,8 @@ InvalidSignature(address expected, address actual)
       server.use(postPieceHandler(mockPieceCidStr))
 
       // Should not throw - early return when piece exists
-      await SP.uploadPiece({
-        endpoint: 'http://pdp.local',
+      await uploadPiece({
+        serviceURL: 'http://pdp.local',
         data: testData,
         pieceCid,
       })
@@ -965,8 +983,8 @@ InvalidSignature(address expected, address actual)
       const testData = createTestData(SIZE_CONSTANTS.MIN_UPLOAD_SIZE - 1)
 
       try {
-        await SP.uploadPiece({
-          endpoint: 'http://pdp.local',
+        await uploadPiece({
+          serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
         })
@@ -983,8 +1001,8 @@ InvalidSignature(address expected, address actual)
       const testData = { length: SIZE_CONSTANTS.MAX_UPLOAD_SIZE + 1 } as Uint8Array
 
       try {
-        await SP.uploadPiece({
-          endpoint: 'http://pdp.local',
+        await uploadPiece({
+          serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
         })
@@ -1009,8 +1027,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPiece({
-          endpoint: 'http://pdp.local',
+        await uploadPiece({
+          serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
         })
@@ -1032,8 +1050,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPiece({
-          endpoint: 'http://pdp.local',
+        await uploadPiece({
+          serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
         })
@@ -1056,8 +1074,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPiece({
-          endpoint: 'http://pdp.local',
+        await uploadPiece({
+          serviceURL: 'http://pdp.local',
           data: testData,
           pieceCid,
         })
@@ -1073,15 +1091,6 @@ InvalidSignature(address expected, address actual)
     const mockPieceCidStr = 'bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy'
     const mockUuid = '12345678-1234-1234-1234-123456789012'
 
-    // Create async iterable from data
-    async function* createAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
-      // Yield in chunks
-      const chunkSize = 64
-      for (let i = 0; i < data.length; i += chunkSize) {
-        yield data.slice(i, Math.min(i + chunkSize, data.length))
-      }
-    }
-
     it('should upload a piece successfully with provided PieceCID', async () => {
       const pieceCid = Piece.parse(mockPieceCidStr)
       const testData = new Uint8Array(SIZE_CONSTANTS.MIN_UPLOAD_SIZE).fill(0x42)
@@ -1092,9 +1101,9 @@ InvalidSignature(address expected, address actual)
         finalizePieceUploadHandler(mockUuid, mockPieceCidStr)
       )
 
-      const result = await SP.uploadPieceStreaming({
-        endpoint: 'http://pdp.local',
-        data: createAsyncIterable(testData),
+      const result = await uploadPieceStreaming({
+        serviceURL: 'http://pdp.local',
+        data: new File([testData], 'test.txt'),
         pieceCid,
       })
 
@@ -1119,9 +1128,9 @@ InvalidSignature(address expected, address actual)
         finalizePieceUploadHandler(mockUuid, mockPieceCidStr)
       )
 
-      const result = await SP.uploadPieceStreaming({
-        endpoint: 'http://pdp.local',
-        data: createAsyncIterable(testData),
+      const result = await uploadPieceStreaming({
+        serviceURL: 'http://pdp.local',
+        data: new File([testData], 'test.txt'),
         pieceCid,
         onProgress: (bytes) => progressCalls.push(bytes),
       })
@@ -1143,9 +1152,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for session creation failure')
@@ -1166,9 +1175,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong status')
@@ -1189,9 +1198,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for missing Location header')
@@ -1215,9 +1224,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for invalid Location header')
@@ -1239,9 +1248,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for PUT failure')
@@ -1263,9 +1272,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong PUT status')
@@ -1288,9 +1297,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for finalize failure')
@@ -1313,9 +1322,9 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.uploadPieceStreaming({
-          endpoint: 'http://pdp.local',
-          data: createAsyncIterable(testData),
+        await uploadPieceStreaming({
+          serviceURL: 'http://pdp.local',
+          data: new File([testData], 'test.txt'),
           pieceCid,
         })
         assert.fail('Should have thrown error for wrong finalize status')
@@ -1328,7 +1337,7 @@ InvalidSignature(address expected, address actual)
 
   describe('getDataSet', () => {
     it('should successfully fetch data set data', async () => {
-      const mockDataSetData: SP.getDataSet.ReturnType = {
+      const mockDataSetData = {
         id: 292,
         pieces: [
           {
@@ -1355,16 +1364,16 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.getDataSet({
-        endpoint: 'http://pdp.local',
+      const result = await getDataSet({
+        serviceURL: 'http://pdp.local',
         dataSetId: 292n,
       })
 
-      assert.equal(result.id, mockDataSetData.id)
-      assert.equal(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
-      assert.equal(result.pieces.length, mockDataSetData.pieces.length)
-      assert.equal(result.pieces[0].pieceId, mockDataSetData.pieces[0].pieceId)
-      assert.equal(result.pieces[0].pieceCid, mockDataSetData.pieces[0].pieceCid)
+      assert.strictEqual(result.id, BigInt(mockDataSetData.id))
+      assert.strictEqual(result.nextChallengeEpoch, mockDataSetData.nextChallengeEpoch)
+      assert.strictEqual(result.pieces.length, mockDataSetData.pieces.length)
+      assert.strictEqual(result.pieces[0].pieceId, BigInt(mockDataSetData.pieces[0].pieceId))
+      assert.strictEqual(result.pieces[0].pieceCid.toString(), mockDataSetData.pieces[0].pieceCid)
     })
 
     it('should handle data set not found', async () => {
@@ -1377,8 +1386,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.getDataSet({
-          endpoint: 'http://pdp.local',
+        await getDataSet({
+          serviceURL: 'http://pdp.local',
           dataSetId: 999n,
         })
         assert.fail('Should have thrown error for not found data set')
@@ -1398,8 +1407,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.getDataSet({
-          endpoint: 'http://pdp.local',
+        await getDataSet({
+          serviceURL: 'http://pdp.local',
           dataSetId: 292n,
         })
         assert.fail('Should have thrown error for server error')
@@ -1411,7 +1420,7 @@ InvalidSignature(address expected, address actual)
     })
 
     it('should handle data set with no pieces', async () => {
-      const emptyDataSetData: SP.getDataSet.ReturnType = {
+      const emptyDataSetData = {
         id: 292,
         pieces: [],
         nextChallengeEpoch: 1500,
@@ -1425,14 +1434,16 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.getDataSet({
-        endpoint: 'http://pdp.local',
+      const result = await getDataSet({
+        serviceURL: 'http://pdp.local',
         dataSetId: 292n,
       })
 
-      assert.deepStrictEqual(result, emptyDataSetData)
-      assert.isArray(result.pieces)
-      assert.equal(result.pieces.length, 0)
+      assert.deepStrictEqual(result, {
+        id: 292n,
+        pieces: [],
+        nextChallengeEpoch: 1500,
+      })
     })
   })
 
@@ -1447,8 +1458,8 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.downloadPiece({
-        endpoint: 'http://pdp.local',
+      const result = await downloadPiece({
+        serviceURL: 'http://pdp.local',
         pieceCid,
       })
       assert.deepEqual(result, testData)
@@ -1467,8 +1478,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.downloadPiece({
-          endpoint: 'http://pdp.local',
+        await downloadPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -1491,8 +1502,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.downloadPiece({
-          endpoint: 'http://pdp.local',
+        await downloadPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -1514,8 +1525,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.downloadPiece({
-          endpoint: 'http://pdp.local',
+        await downloadPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -1536,8 +1547,8 @@ InvalidSignature(address expected, address actual)
       )
 
       try {
-        await SP.downloadPiece({
-          endpoint: 'http://pdp.local',
+        await downloadPiece({
+          serviceURL: 'http://pdp.local',
           pieceCid,
         })
         assert.fail('Should have thrown error')
@@ -1574,8 +1585,8 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.downloadPiece({
-        endpoint: 'http://pdp.local',
+      const result = await downloadPiece({
+        serviceURL: 'http://pdp.local',
         pieceCid,
       })
       // Verify we got all the data correctly reassembled
@@ -1611,8 +1622,8 @@ InvalidSignature(address expected, address actual)
         })
       )
 
-      const result = await SP.downloadPiece({
-        endpoint: 'http://pdp.local',
+      const result = await downloadPiece({
+        serviceURL: 'http://pdp.local',
         pieceCid,
       })
       assert.deepEqual(result, testData)

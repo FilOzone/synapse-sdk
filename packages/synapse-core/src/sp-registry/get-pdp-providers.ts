@@ -228,7 +228,7 @@ export namespace getPDPProvidersByIds {
 }
 
 /**
- * Get FilecoinWarmStorage approved PDP providers by IDs
+ * Get PDP providers by IDs
  *
  * @param client - The client to use to get the providers.
  * @param options - {@link getPDPProvidersByIds.OptionsType}
@@ -246,7 +246,9 @@ export namespace getPDPProvidersByIds {
  *   transport: http(),
  * })
  *
- * const result = await getPDPProvidersByIds(client)
+ * const result = await getPDPProvidersByIds(client, {
+ *   providerIds: [1n, 2n, 3n],
+ * })
  *
  * console.log(result)
  * ```

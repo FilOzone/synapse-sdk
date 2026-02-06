@@ -3,16 +3,16 @@ import path from 'node:path'
 import * as p from '@clack/prompts'
 import * as Piece from '@filoz/synapse-core/piece'
 import * as SP from '@filoz/synapse-core/sp'
-import { getPDPProviders } from '@filoz/synapse-core/sp-registry'
-import { createDataSetAndAddPieces } from '@filoz/synapse-core/warm-storage'
+import { getPDPProvider } from '@filoz/synapse-core/sp-registry'
 import { type Command, command } from 'cleye'
 import { privateKeyClient } from '../client.ts'
 import { globalFlags } from '../flags.ts'
+import { hashLink, selectProvider } from '../utils.ts'
 
 export const uploadDataset: Command = command(
   {
     name: 'upload-dataset',
-    parameters: ['<required path>', '<required providerId>'],
+    parameters: ['<path>', '[providerId]'],
     description: 'Upload a file to a new data set',
     flags: {
       ...globalFlags,
@@ -27,39 +27,38 @@ export const uploadDataset: Command = command(
     },
   },
   async (argv) => {
-    const { client } = privateKeyClient(argv.flags.chain)
-    const spinner = p.spinner()
+    const { client, chain } = privateKeyClient(argv.flags.chain)
 
-    const filePath = argv._.requiredPath
+    const filePath = argv._.path
+    const provider = argv._.providerId
+      ? await getPDPProvider(client, { providerId: BigInt(argv._.providerId) })
+      : await selectProvider(client, argv.flags)
+
+    if (!provider) {
+      p.log.error('Provider not found')
+      p.outro('Please try again')
+      return
+    }
+    p.log.info(`Selected provider: #${provider.id}`)
     const absolutePath = path.resolve(filePath)
     const fileData = await readFile(absolutePath)
 
-    spinner.start(`Uploading file ${absolutePath}...`)
+    p.log.info(`Uploading file ${absolutePath}...`)
     try {
-      const result = await getPDPProviders(client)
-      const provider = result.providers.find(
-        (provider) => provider.id === BigInt(argv._.requiredProviderId)
-      )
-      if (!provider) {
-        p.log.error('Provider not found')
-        p.outro('Please try again')
-        return
-      }
-
       const pieceCid = Piece.calculate(fileData)
       await SP.uploadPiece({
         data: fileData,
-        endpoint: provider.pdp.serviceURL,
+        serviceURL: provider.pdp.serviceURL,
         pieceCid,
       })
 
       await SP.findPiece({
         pieceCid,
-        endpoint: provider.pdp.serviceURL,
+        serviceURL: provider.pdp.serviceURL,
       })
 
-      const rsp = await createDataSetAndAddPieces(client, {
-        endpoint: provider.pdp.serviceURL,
+      const rsp = await SP.createDataSetAndAddPieces(client, {
+        serviceURL: provider.pdp.serviceURL,
         payee: provider.payee,
         cdn: argv.flags.cdn,
         pieces: [
@@ -69,14 +68,21 @@ export const uploadDataset: Command = command(
           },
         ],
       })
+      p.log.info(`Waiting for tx ${hashLink(rsp.txHash, chain)} to be mined...`)
 
-      await SP.waitForDataSetCreationStatus(rsp)
-      spinner.stop(`File uploaded ${pieceCid}`)
+      const createdDataset = await SP.waitForCreateDataSetAddPieces({
+        statusUrl: rsp.statusUrl,
+      })
+
+      p.log.success(
+        `File uploaded ${pieceCid} dataset #${createdDataset.dataSetId} pieces #${createdDataset.piecesIds.join(', ')}`
+      )
     } catch (error) {
-      spinner.stop()
-      p.log.error((error as Error).message)
-      p.outro('Please try again')
-      return
+      if (argv.flags.debug) {
+        console.error(error)
+      } else {
+        p.log.error((error as Error).message)
+      }
     }
   }
 )
