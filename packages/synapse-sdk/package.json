@@ -31,10 +31,6 @@
       "import": "./dist/src/payments/index.js",
       "types": "./dist/src/payments/index.d.ts"
     },
-    "./pdp": {
-      "import": "./dist/src/pdp/index.js",
-      "types": "./dist/src/pdp/index.d.ts"
-    },
     "./session": {
       "import": "./dist/src/session/index.js",
       "types": "./dist/src/session/index.d.ts"
@@ -64,9 +60,6 @@
     "*": {
       "payments": [
         "./dist/src/payments"
-      ],
-      "pdp": [
-        "./dist/src/pdp"
       ],
       "session": [
         "./dist/src/session"

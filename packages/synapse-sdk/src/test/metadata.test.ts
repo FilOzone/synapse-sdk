@@ -1,14 +1,8 @@
 /* globals describe it before after beforeEach */
 
-import { calibration } from '@filoz/synapse-core/chains'
 import * as Mocks from '@filoz/synapse-core/mocks'
-import * as Piece from '@filoz/synapse-core/piece'
-import type { MetadataObject } from '@filoz/synapse-core/utils'
 import { assert } from 'chai'
 import { setup } from 'iso-web/msw'
-import { createWalletClient, http as viemHttp } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { PDPServer } from '../pdp/server.ts'
 import type { MetadataEntry } from '../types.ts'
 import { METADATA_KEYS } from '../utils/constants.ts'
 
@@ -16,12 +10,6 @@ import { METADATA_KEYS } from '../utils/constants.ts'
 const server = setup()
 
 describe('Metadata Support', () => {
-  const TEST_PRIVATE_KEY = '0x0101010101010101010101010101010101010101010101010101010101010101'
-  const TEST_CONTRACT_ADDRESS = '0x1234567890123456789012345678901234567890'
-  const SERVER_URL = 'http://pdp.local'
-
-  let pdpServer: PDPServer
-
   before(async () => {
     await server.start()
   })
@@ -33,140 +21,9 @@ describe('Metadata Support', () => {
   beforeEach(async () => {
     server.resetHandlers()
     server.use(Mocks.JSONRPC(Mocks.presets.basic))
-
-    const walletClient = createWalletClient({
-      chain: calibration,
-      transport: viemHttp(),
-      account: privateKeyToAccount(TEST_PRIVATE_KEY),
-    })
-    // Create fresh instances for each test
-    pdpServer = new PDPServer({
-      client: walletClient,
-      endpoint: SERVER_URL,
-    })
-  })
-
-  describe('PDPServer', () => {
-    it('should handle metadata in createDataSet', async () => {
-      const mockTxHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'
-      let capturedMetadata: Mocks.pdp.MetadataCapture | null = null
-
-      server.use(
-        Mocks.pdp.createDataSetWithMetadataCapture(
-          mockTxHash,
-          (metadata) => {
-            capturedMetadata = metadata
-          },
-          { baseUrl: SERVER_URL }
-        )
-      )
-
-      const result = await pdpServer.createDataSet(
-        1n,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        {
-          project: 'my-project',
-          environment: 'production',
-          [METADATA_KEYS.WITH_CDN]: '',
-        },
-        TEST_CONTRACT_ADDRESS
-      )
-
-      assert.equal(result.txHash, mockTxHash)
-      assert.exists(capturedMetadata)
-      assert.isNotNull(capturedMetadata)
-      assert.deepEqual((capturedMetadata as any).keys, ['environment', 'project', METADATA_KEYS.WITH_CDN])
-      assert.deepEqual((capturedMetadata as any).values, ['production', 'my-project', ''])
-    })
-
-    it('should handle metadata in addPieces', async () => {
-      const pieceCid = Piece.parse('bafkzcibcd4bdomn3tgwgrh3g532zopskstnbrd2n3sxfqbze7rxt7vqn7veigmy')
-      const metadata: MetadataObject = {
-        contentType: 'application/json',
-        version: '1.0.0',
-      }
-
-      const dataSetId = 123n
-      const mockTxHash = '0x1234567890abcdef'
-      let capturedPieceMetadata: Mocks.pdp.PieceMetadataCapture | null = null
-
-      server.use(
-        Mocks.pdp.addPiecesWithMetadataCapture(
-          dataSetId,
-          mockTxHash,
-          (metadata) => {
-            capturedPieceMetadata = metadata
-          },
-          { baseUrl: SERVER_URL }
-        )
-      )
-
-      // Test with matching metadata
-      const result = await pdpServer.addPieces(dataSetId, 1n, [{ pieceCid, metadata }])
-      assert.equal(result.txHash, mockTxHash)
-      assert.exists(capturedPieceMetadata)
-      assert.isNotNull(capturedPieceMetadata)
-      assert.deepEqual((capturedPieceMetadata as any).keys[0], ['contentType', 'version'])
-      assert.deepEqual((capturedPieceMetadata as any).values[0], ['application/json', '1.0.0'])
-
-      // Test without metadata (should create empty arrays)
-      capturedPieceMetadata = null
-      const resultNoMetadata = await pdpServer.addPieces(dataSetId, 1n, [{ pieceCid }])
-      assert.equal(resultNoMetadata.txHash, mockTxHash)
-      assert.exists(capturedPieceMetadata)
-      assert.isNotNull(capturedPieceMetadata)
-      assert.deepEqual((capturedPieceMetadata as any).keys[0], [])
-      assert.deepEqual((capturedPieceMetadata as any).values[0], [])
-    })
   })
 
   describe('Backward Compatibility', () => {
-    it('should convert withCDN boolean to metadata', async () => {
-      const mockTxHash = '0xabcdef1234567890'
-      let capturedMetadata: Mocks.pdp.MetadataCapture | null = null
-
-      server.use(
-        Mocks.pdp.createDataSetWithMetadataCapture(
-          mockTxHash,
-          (metadata) => {
-            capturedMetadata = metadata
-          },
-          { baseUrl: SERVER_URL }
-        )
-      )
-
-      await pdpServer.createDataSet(
-        1n,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        {
-          project: 'test',
-          [METADATA_KEYS.WITH_CDN]: '',
-        },
-        TEST_CONTRACT_ADDRESS
-      )
-      assert.isNotNull(capturedMetadata)
-      assert.deepEqual((capturedMetadata as any).keys, ['project', METADATA_KEYS.WITH_CDN])
-      assert.deepEqual((capturedMetadata as any).values, ['test', ''])
-
-      // Test with metadata that doesn't include withCDN
-      capturedMetadata = null
-
-      await pdpServer.createDataSet(
-        1n,
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payee
-        '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // payer
-        {
-          project: 'test',
-        },
-        TEST_CONTRACT_ADDRESS
-      )
-      assert.isNotNull(capturedMetadata)
-      assert.deepEqual((capturedMetadata as any).keys, ['project'])
-      assert.deepEqual((capturedMetadata as any).values, ['test'])
-    })
-
     it('should handle StorageContext withCDN backward compatibility', async () => {
       // This test verifies the logic is correct in the implementation
       // When withCDN is true and metadata doesn't contain withCDN key,

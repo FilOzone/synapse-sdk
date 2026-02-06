@@ -22,6 +22,7 @@
  */
 
 import { asChain, type Chain, calibration, type Chain as SynapseChain } from '@filoz/synapse-core/chains'
+import * as PDPVerifier from '@filoz/synapse-core/pdp-verifier'
 import { dataSetLiveCall, getDataSetListenerCall } from '@filoz/synapse-core/pdp-verifier'
 import { type MetadataObject, metadataArrayToObject } from '@filoz/synapse-core/utils'
 import {
@@ -31,7 +32,7 @@ import {
   getApprovedProviders,
   getServicePrice,
   removeApprovedProvider,
-  terminateDataSet,
+  terminateService,
 } from '@filoz/synapse-core/warm-storage'
 import {
   type Account,
@@ -45,14 +46,12 @@ import {
 } from 'viem'
 import { multicall, readContract, simulateContract, writeContract } from 'viem/actions'
 import type { PaymentsService } from '../payments/service.ts'
-import { PDPVerifier } from '../pdp/verifier.ts'
 import type { DataSetInfo, EnhancedDataSetInfo } from '../types.ts'
 import { METADATA_KEYS, SIZE_CONSTANTS, TIME_CONSTANTS, TOKENS } from '../utils/constants.ts'
 import { createError } from '../utils/index.ts'
 
 export class WarmStorageService {
   private readonly _client: Client<Transport, Chain>
-  private readonly _pdpVerifier: PDPVerifier
   private readonly _chain: SynapseChain
 
   /**
@@ -60,7 +59,6 @@ export class WarmStorageService {
    */
   constructor(client: Client<Transport, Chain>) {
     this._client = client
-    this._pdpVerifier = new PDPVerifier({ client })
     this._chain = asChain(client.chain)
   }
 
@@ -188,7 +186,7 @@ export class WarmStorageService {
         }
 
         // Get active piece count only if the data set is live
-        const activePieceCount = isLive ? await this._pdpVerifier.getActivePieceCount(dataSetId) : 0n
+        const activePieceCount = isLive ? await PDPVerifier.getActivePieceCount(this._client, { dataSetId }) : 0n
 
         return {
           ...base,
@@ -260,7 +258,7 @@ export class WarmStorageService {
    * @returns The number of active pieces
    */
   async getActivePieceCount(dataSetId: bigint): Promise<bigint> {
-    return this._pdpVerifier.getActivePieceCount(dataSetId)
+    return PDPVerifier.getActivePieceCount(this._client, { dataSetId })
   }
 
   // ========== Metadata Operations ==========
@@ -572,7 +570,7 @@ export class WarmStorageService {
    * @returns Transaction receipt
    */
   async terminateDataSet(client: Client<Transport, Chain, Account>, dataSetId: bigint): Promise<Hash> {
-    return terminateDataSet(client, { dataSetId })
+    return terminateService(client, { dataSetId })
   }
 
   // ========== Service Provider Approval Operations ==========
