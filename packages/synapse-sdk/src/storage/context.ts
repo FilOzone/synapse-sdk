@@ -1174,7 +1174,6 @@ export class StorageContext {
    * This provides lazy evaluation and better memory efficiency for large data sets.
    * @param options - Optional configuration object
    * @param options.batchSize - The batch size for each pagination call (default: 100)
-   * @param options.signal - Optional AbortSignal to cancel the operation
    * @yields Object with pieceCid and pieceId - the piece ID is needed for certain operations like deletion
    */
   async *getPieces(options?: { batchSize?: bigint }): AsyncGenerator<PieceRecord> {

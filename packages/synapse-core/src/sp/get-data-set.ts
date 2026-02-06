@@ -10,7 +10,7 @@ const PieceSchema = z.object({
   subPieceOffset: z.number(),
 })
 
-const DataSetSchema = z.object({
+export const DataSetSchema = z.object({
   id: zNumberToBigInt,
   nextChallengeEpoch: z.number(),
   pieces: z.array(PieceSchema),

@@ -17,7 +17,6 @@ import * as Piece from '../piece.ts'
 import type * as TypedData from '../typed-data/index.ts'
 import { RETRY_CONSTANTS, SIZE_CONSTANTS } from '../utils/constants.ts'
 import { createPieceUrlPDP } from '../utils/piece-url.ts'
-import { asReadableStream } from '../utils/streams.ts'
 
 export namespace createDataSet {
   /**

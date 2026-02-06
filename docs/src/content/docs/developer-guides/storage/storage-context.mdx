@@ -188,7 +188,7 @@ interface StorageContextAPI {
 
   // Upload & Download
   upload(
-    data: Uint8Array | ArrayBuffer,
+    data: File,
     options?: UploadOptions
   ): Promise<UploadResult>;
   download(pieceCid: string | PieceCID): Promise<Uint8Array>;
@@ -231,9 +231,9 @@ const storageContext = await synapse.storage.createContext({
 const llmModel = "sonnnet-4.5";
 const conversationId = "1234567890";
 
-const data = new TextEncoder().encode("Deep research on decentralization...");
+const data = new File(["Deep research on decentralization..."], 'file.txt')
 
-const preflight = await storageContext.preflightUpload(data.length);
+const preflight = await storageContext.preflightUpload(data.size);
 
 console.log("Estimated costs:", preflight.estimatedCost);
 console.log("Allowance sufficient:", preflight.allowanceCheck.sufficient);

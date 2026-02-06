@@ -4,7 +4,7 @@ import { WaitForCreateDataSetError, WaitForCreateDataSetRejectedError } from '..
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
-const CreateDataSetPendingSchema = z.object({
+export const CreateDataSetPendingSchema = z.object({
   createMessageHash: zHex,
   dataSetCreated: z.literal(false),
   service: z.string(),
@@ -12,7 +12,7 @@ const CreateDataSetPendingSchema = z.object({
   ok: z.null(),
 })
 
-const CreateDataSetRejectedSchema = z.object({
+export const CreateDataSetRejectedSchema = z.object({
   createMessageHash: zHex,
   dataSetCreated: z.literal(false),
   service: z.string(),
@@ -20,7 +20,7 @@ const CreateDataSetRejectedSchema = z.object({
   ok: z.literal(false),
 })
 
-const CreateDataSetSuccessSchema = z.object({
+export const CreateDataSetSuccessSchema = z.object({
   createMessageHash: zHex,
   dataSetCreated: z.literal(true),
   service: z.string(),

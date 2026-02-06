@@ -4,7 +4,7 @@ import { WaitForAddPiecesError, WaitForAddPiecesRejectedError } from '../errors/
 import { RETRY_CONSTANTS } from '../utils/constants.ts'
 import { zHex, zNumberToBigInt } from '../utils/schemas.ts'
 
-const AddPiecesPendingSchema = z.object({
+export const AddPiecesPendingSchema = z.object({
   txHash: zHex,
   txStatus: z.literal('pending'),
   dataSetId: zNumberToBigInt,
@@ -13,7 +13,7 @@ const AddPiecesPendingSchema = z.object({
   piecesAdded: z.literal(false),
 })
 
-const AddPiecesRejectedSchema = z.object({
+export const AddPiecesRejectedSchema = z.object({
   txHash: zHex,
   txStatus: z.literal('rejected'),
   dataSetId: zNumberToBigInt,
@@ -22,7 +22,7 @@ const AddPiecesRejectedSchema = z.object({
   piecesAdded: z.literal(false),
 })
 
-const AddPiecesSuccessSchema = z.object({
+export const AddPiecesSuccessSchema = z.object({
   txHash: zHex,
   txStatus: z.literal('confirmed'),
   dataSetId: zNumberToBigInt,
